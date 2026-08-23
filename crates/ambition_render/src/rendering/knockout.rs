@@ -42,6 +42,18 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 const STOCK_SPARKS: u32 = 26;
 const ELIMINATION_SPARKS: u32 = 48;
 
+/// Extra sparks at the top of the launch band, on top of whichever base above
+/// applies.
+///
+/// ⭐ THE BAND IS THE LAUNCH TRAIL'S, not a second opinion. A knockout is the
+/// end of a flight, and the plume that led into it read the body's speed off
+/// `flight_intensity`; a burst that scored the same launch on its own scale
+/// would contradict the trail on screen. The two facts a hit can be measured by
+/// — the HIT's weight (what hitlag, the strong-hit flash and the camera shake
+/// all derive from) and the BODY's flight — are different questions, and a
+/// knockout is squarely the second.
+const SPEED_SPARKS: u32 = 22;
+
 /// How fast the burst leaves, in world units per second. Fast and short-lived:
 /// a knockout is a bang, not a plume — `ParticleKind::Spark` shrinks and falls
 /// where the launch trail's `Dust` grows and hangs.
@@ -66,11 +78,16 @@ pub struct KnockoutBeat {
     pub rings: u32,
 }
 
-/// The beat a knockout asks for. `eliminated` is
-/// `FighterStockSpent::eliminated` — the simulation's own answer to "was that
-/// their last stock", never a comparison of `remaining` against zero here.
-pub fn knockout_beat(eliminated: bool) -> KnockoutBeat {
-    if eliminated {
+/// The beat a knockout asks for.
+///
+/// `eliminated` is `FighterStockSpent::eliminated` — the simulation's own
+/// answer to "was that their last stock", never a comparison of `remaining`
+/// against zero here. `flight_speed` is how fast the body was going when it
+/// left play, scored on the launch trail's own band so the plume and the burst
+/// that ends it agree — see [`SPEED_SPARKS`].
+pub fn knockout_beat(eliminated: bool, flight_speed: f32) -> KnockoutBeat {
+    let hard = super::launch_trail::flight_intensity(flight_speed);
+    let base = if eliminated {
         KnockoutBeat {
             sparks: ELIMINATION_SPARKS,
             speed: ELIMINATION_SPARK_SPEED,
@@ -84,6 +101,10 @@ pub fn knockout_beat(eliminated: bool) -> KnockoutBeat {
             rgba: STOCK_RGBA,
             rings: 1,
         }
+    };
+    KnockoutBeat {
+        sparks: base.sparks + (SPEED_SPARKS as f32 * hard).round() as u32,
+        ..base
     }
 }
 
@@ -103,7 +124,7 @@ pub fn emit_knockout_beat(
     }
     *last_sampled = Some(tick.0);
     for knockout in &knockouts.0 {
-        let beat = knockout_beat(knockout.eliminated);
+        let beat = knockout_beat(knockout.eliminated, knockout.speed);
         let pos = knockout.pos;
         for _ in 0..beat.rings {
             vfx.write(VfxMessage::Impact { pos });
@@ -129,13 +150,39 @@ mod tests {
     /// An elimination is the bigger beat, and every term of it says so.
     #[test]
     fn the_last_stock_reads_bigger_than_an_ordinary_one() {
-        let stock = knockout_beat(false);
-        let out = knockout_beat(true);
+        let stock = knockout_beat(false, 0.0);
+        let out = knockout_beat(true, 0.0);
         assert!(out.sparks > stock.sparks);
         assert!(out.speed > stock.speed);
         assert!(out.rings > stock.rings);
         // And it is hotter: the elimination shifts toward the launch trail's
         // ember rather than simply throwing more white.
         assert!(out.rgba[0] - out.rgba[2] > stock.rgba[0] - stock.rgba[2]);
+    }
+
+    /// A knockout scores the flight it ended, on the SAME band the plume that
+    /// led into it used.
+    ///
+    /// Both directions matter. A body crawling over the line is a knockout and
+    /// still gets its beat; a body thrown out at full launch gets a bigger one;
+    /// and past the trail's own saturation neither gets denser, because a
+    /// knockout that kept growing would disagree with the plume beside it.
+    #[test]
+    fn a_knockout_scores_the_flight_that_ended_it() {
+        let crawl = knockout_beat(false, 0.0);
+        let hard = knockout_beat(false, 10_000.0);
+        assert!(crawl.sparks > 0, "a knockout is always a beat");
+        assert!(
+            hard.sparks > crawl.sparks,
+            "and a hard one is a bigger beat"
+        );
+        assert_eq!(
+            hard.sparks,
+            knockout_beat(false, 100_000.0).sparks,
+            "it saturates where the trail's own band does"
+        );
+        // The elimination premium survives the speed term at both ends.
+        assert!(knockout_beat(true, 0.0).sparks > crawl.sparks);
+        assert!(knockout_beat(true, 10_000.0).sparks > hard.sparks);
     }
 }

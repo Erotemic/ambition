@@ -136,6 +136,15 @@ pub struct TrailPuff {
 /// at [`TRAIL_FULL_SPEED`]; `.1` is how far into the near-KO band it goes.
 /// ONE onset for both beats on purpose — the blast and the plume must agree
 /// about what counts as a launch, or a hit reads as a flare with no smoke.
+/// How hard this flight reads, `0..=1`, on the trail's own band — `0.0` below
+/// the onset, `1.0` at full density.
+///
+/// Shared with the knockout beat, which is the END of a flight and must not
+/// disagree with the trail that led into it about how hard the same launch was.
+pub(crate) fn flight_intensity(speed: f32) -> f32 {
+    launch_bands(true, speed).map_or(0.0, |(t, _)| t)
+}
+
 fn launch_bands(launched: bool, speed: f32) -> Option<(f32, f32)> {
     if !launched || speed < TRAIL_ONSET_SPEED {
         return None;

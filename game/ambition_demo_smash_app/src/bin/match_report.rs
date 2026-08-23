@@ -73,6 +73,10 @@ struct Tally {
     /// where nothing happens is usually a match where nobody was ever in range,
     /// and "moves thrown" cannot tell those apart.
     in_range: usize,
+    /// Times this body's percent fell back to zero from a live reading — a KO,
+    /// observed at the one edge that survives the body being removed and
+    /// replaced.
+    kos: usize,
 }
 
 fn main() {
@@ -154,6 +158,7 @@ fn run_one(character: &str, seconds: usize, noise_seed: u64) -> Vec<Tally> {
     let mut live_move: Vec<Option<(String, f32)>> = vec![None; 4];
     let mut parry_was: Vec<f32> = vec![0.0; 4];
     let mut hitstun_was: Vec<f32> = vec![0.0; 4];
+    let mut last_damage: Vec<i32> = vec![0; 4];
     for _ in 0..ticks {
         app.update();
         sample(
@@ -162,6 +167,7 @@ fn run_one(character: &str, seconds: usize, noise_seed: u64) -> Vec<Tally> {
             &mut live_move,
             &mut parry_was,
             &mut hitstun_was,
+            &mut last_damage,
         );
     }
 
@@ -251,6 +257,7 @@ fn sample(
     live_move: &mut [Option<(String, f32)>],
     parry_was: &mut [f32],
     hitstun_was: &mut [f32],
+    last_damage: &mut [i32],
 ) {
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -320,6 +327,10 @@ fn sample(
         let Some(tally) = totals.get_mut(seat) else {
             continue;
         };
+        if damage == 0 && last_damage[seat] > 0 {
+            tally.kos += 1;
+        }
+        last_damage[seat] = damage;
         tally.damage = tally.damage.max(damage);
         if positions
             .iter()
@@ -444,6 +455,7 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!("  parries     {}", spread(|t| t.parries_caught as f32));
     println!("  techs       {}", spread(|t| t.tech_armed as f32));
     println!("  in range    {}", spread(|t| t.in_range as f32));
+    println!("  KOs         {}", spread(|t| t.kos as f32));
     println!("  best charge {}", peak(|t| t.best_charge));
     println!("  peak launch {}", peak(|t| t.top_speed));
     println!(

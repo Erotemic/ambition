@@ -61,22 +61,42 @@ pub fn advance_body_anim_overlays(
 /// "hard" means. A splat that started somewhere else would be a second opinion
 /// on one question.
 ///
-/// MEASURED 2026-08-23, smash CPU-vs-CPU, `smash_george_booul` vs itself
-/// (⚠ one matchup — the demo shell carries three fighters and the full app
-/// sixteen, so this is the best available sample and not a general one), 90s ×
-/// 5 runs, every `GroundContactTransition::Landed` sampled: n = 340,
-/// `p25 78  p50 299  p75 1002  p90 1524  max 1669`. 520 sits at ≈ p62, so the
-/// hard-landing line separates the top third of arrivals from stepping down.
+/// RE-MEASURED 2026-08-23 after the perception fix (D190) changed what a CPU
+/// match does. Smash CPU-vs-CPU, `smash_george_booul` vs itself (⚠ one matchup
+/// — the demo shell carries three fighters and the full app sixteen, so this is
+/// the best available sample and not a general one), 90s × 5 runs, every
+/// `GroundContactTransition::Landed` sampled: n = 315,
+/// `p25 81  p50 218  p75 604  p90 1524  max 1669`. 520 now sits at ≈ p72.
+///
+/// ⛔ AND IT IS DELIBERATELY NOT RE-FITTED TO THAT SAMPLE. This is an ENGINE
+/// constant: `arm_ground_contact_anim_overlay` picks the hard landing POSE off
+/// it for every body in every game, so re-fitting it to one Smash matchup would
+/// retune Mary-O's landings from a fight Mary-O is not in. The splat's own full
+/// read below is presentation-only and is re-fitted; this line stays until
+/// somebody measures landings across the games that share it.
 pub const HARD_LAND_SPEED: f32 = 520.0;
 
 /// Where a floor splat reaches its full read.
 ///
-/// Twice [`HARD_LAND_SPEED`] when it was written, on the stated ground that the
-/// distribution was not measurable until the fight produced launches. It is now
-/// measurable (see [`HARD_LAND_SPEED`]) and `1040` lands at ≈ p76 of the same
-/// 340 landings, which is what this wants — the top quarter of arrivals
-/// saturates — so the anchor stands as a MEASUREMENT rather than as a guess.
-const SPLAT_FULL_SPEED: f32 = HARD_LAND_SPEED * 2.0;
+/// ⭐ THE GAP, not a percentile — the landing population has two clusters and
+/// the full read belongs at the boundary between them. The 100-px histogram of
+/// the 315 landings above:
+///
+/// ```text
+///   0:93  100:57  200:26  300:19  400:21  500:17  600:4  700:15  800:1
+///   1000:17  1100:2   [1200-1499: NOTHING]   1500:40  1600:3
+/// ```
+///
+/// A 345-px gap between 1155 and 1500, and the cluster above it holds only six
+/// distinct values (1500, 1524, 1548, 1572, 1597, 1669) spaced by exactly one
+/// tick of gravity — a body that fell a fixed distance, not a body that landed
+/// hard. So the splat saturates just below that cluster: every long fall lands
+/// at the full read, and everything an ordinary exchange produces ramps below
+/// it.
+///
+/// It was `HARD_LAND_SPEED * 2.0` = 1040, which sat inside the sparse tail
+/// between the two clusters — a value with no population on either side of it.
+const SPLAT_FULL_SPEED: f32 = 1330.0;
 
 /// The band one surface's arrivals live in: where a splat begins to read, and
 /// where it stops getting harder.
@@ -113,6 +133,13 @@ impl SplatBand {
     /// ⚠ NINE real wall arrivals in seven and a half minutes. The effect is
     /// rare because THE STAGE has no wall game, not because the gate is tight;
     /// a stage with walls in play would want this re-measured, not re-tuned.
+    ///
+    ///  RE-MEASURED 2026-08-23 after D190 on a bigger sample (n = 85) and
+    /// UNCHANGED: 74 contacts at exactly `52`, then 7 at `270` and 4 at `440`.
+    /// The same three values, the same gap, a fight that plays completely
+    /// differently. These are geometry — the platform's lip and the speeds a
+    /// body can approach it at — rather than anything the fight decides, which
+    /// is why the band did not move when everything else did.
     pub const WALL: Self = Self {
         onset: 150.0,
         full: 440.0,
@@ -749,9 +776,14 @@ mod tests {
         );
         let middling = landing_force(HARD_LAND_SPEED * 1.5);
         assert!(middling > 0.0 && middling < 1.0, "{middling}");
-        assert_eq!(landing_force(HARD_LAND_SPEED * 2.0), 1.0);
+        // Saturation is read off the BAND, not off an arithmetic relationship
+        // to the onset. This line used to assert `HARD_LAND_SPEED * 2.0`, which
+        // was true only while the full read happened to be twice the onset —
+        // so re-fitting the full read to the measured gap broke a test that was
+        // pinning a coincidence rather than the rule.
+        assert_eq!(landing_force(SplatBand::FLOOR.full), 1.0);
         assert_eq!(
-            landing_force(HARD_LAND_SPEED * 40.0),
+            landing_force(SplatBand::FLOOR.full * 40.0),
             1.0,
             "and it saturates"
         );

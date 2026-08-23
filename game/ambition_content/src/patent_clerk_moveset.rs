@@ -5,6 +5,7 @@
 //! character/system abilities rather than move-table effects. Character-specific VFX
 //! cue overrides live here with the authored moves.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -46,39 +47,39 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // the slowest jab in the game, and it is supposed to be. A heavyweight's
     // fast option is still a decision — 0.08s is long enough that a goblin can
     // walk into it, hit twice and leave.
-    let jab = strike(
-        "jab",
-        "jab",
-        0.08,
-        0.08,
-        0.20,
-        (28.0, 0.0),
-        (22.0, 18.0),
-        5,
-        60.0,
-        1.10,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.08,
+        active_s: 0.08,
+        recover_s: 0.20,
+        offset: (28.0, 0.0),
+        half_extents: (22.0, 18.0),
+        damage: 5,
+        knockback: 60.0,
+        knockback_growth: 1.10,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = vfx_at(jab, 0.08, "stamp_at_rest", (28.0, 0.0), STAMP_FX);
 
     // CONTROLLER, not killer: it pops them straight up, at a launch too weak to
     // finish anybody. What it buys is the next four moves happening above a body
     // that cannot walk away.
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.10,
-        0.09,
-        0.20,
-        (8.0, -30.0),
-        (22.0, 26.0),
-        6,
-        75.0,
-        1.15,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack_up",
+        startup_s: 0.10,
+        active_s: 0.09,
+        recover_s: 0.20,
+        offset: (8.0, -30.0),
+        half_extents: (22.0, 26.0),
+        damage: 6,
+        knockback: 75.0,
+        knockback_growth: 1.15,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     let up_tilt = vfx_cued(
         up_tilt,
         0.10,
@@ -91,20 +92,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 
     // The other half of the setup: along the floor, almost no vertical. They end
     // up at the ledge, which is where the clerk wants everybody.
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.09,
-        0.08,
-        0.19,
-        (28.0, 14.0),
-        (24.0, 10.0),
-        5,
-        70.0,
-        1.20,
-        Some((1.0, -0.10)),
-        None,
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.19,
+        offset: (28.0, 14.0),
+        half_extents: (24.0, 10.0),
+        damage: 5,
+        knockback: 70.0,
+        knockback_growth: 1.20,
+        launch_dir: Some((1.0, -0.10)),
+        on_hit: None,
+    });
     let down_tilt = vfx_cued(
         down_tilt,
         0.09,
@@ -120,20 +121,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // the hardest hits in the game, on the longest commitments in the game. A
     // body this slow gets one of these per stock if it is playing well, so it has
     // to be the one that ends things.
-    let mut f_smash = strike(
-        "smash_forward",
-        "smash_forward",
-        0.38,
-        0.08,
-        0.42,
-        (42.0, -4.0),
-        (30.0, 24.0),
-        19,
-        175.0,
-        3.30,
-        Some((1.0, -0.45)),
-        None,
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "smash_forward",
+        startup_s: 0.38,
+        active_s: 0.08,
+        recover_s: 0.42,
+        offset: (42.0, -4.0),
+        half_extents: (30.0, 24.0),
+        damage: 19,
+        knockback: 175.0,
+        knockback_growth: 3.30,
+        launch_dir: Some((1.0, -0.45)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.7;
     let f_smash = vfx_at(f_smash, 0.06, "stamp_mass", (0.0, -8.0), STAMP_FX);
     let f_smash = vfx_at(
@@ -146,38 +147,38 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let f_smash = vfx_at(f_smash, 0.44, "stamp_energy", (42.0, -4.0), STAMP_FX);
     let f_smash = on_contact(f_smash, "player.hit");
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.34,
-        0.10,
-        0.38,
-        (6.0, -36.0),
-        (26.0, 32.0),
-        17,
-        170.0,
-        3.15,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.34,
+        active_s: 0.10,
+        recover_s: 0.38,
+        offset: (6.0, -36.0),
+        half_extents: (26.0, 32.0),
+        damage: 17,
+        knockback: 170.0,
+        knockback_growth: 3.15,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
     let up_smash = vfx_at(up_smash, 0.34, "light_cone", (6.0, -36.0), PROOF_FX);
     let up_smash = on_contact(up_smash, "player.hit");
 
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.32,
-        0.11,
-        0.40,
-        (0.0, 16.0),
-        (42.0, 13.0),
-        15,
-        155.0,
-        2.85,
-        Some((0.95, -0.45)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.32,
+        active_s: 0.11,
+        recover_s: 0.40,
+        offset: (0.0, 16.0),
+        half_extents: (42.0, 13.0),
+        damage: 15,
+        knockback: 155.0,
+        knockback_growth: 2.85,
+        launch_dir: Some((0.95, -0.45)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.7;
     let down_smash = vfx_at(down_smash, 0.32, "clock_desync", (0.0, 16.0), SWING_FX);
     let down_smash = on_contact(down_smash, "player.hit");
@@ -185,20 +186,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // ── aerials ──────────────────────────────────────────────────────────────
     //
     // Big and slow in the air too, with one exception below.
-    let n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.09,
-        0.14,
-        0.18,
-        (0.0, 0.0),
-        (28.0, 26.0),
-        7,
-        75.0,
-        1.30,
-        None,
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.09,
+        active_s: 0.14,
+        recover_s: 0.18,
+        offset: (0.0, 0.0),
+        half_extents: (28.0, 26.0),
+        damage: 7,
+        knockback: 75.0,
+        knockback_growth: 1.30,
+        launch_dir: None,
+        on_hit: None,
+    });
     let n_air = vfx_at(
         n_air,
         0.09,
@@ -208,115 +209,114 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let n_air = on_contact(n_air, "player.hit");
 
-    let f_air = strike(
-        "air_forward",
-        "air_forward",
-        0.13,
-        0.09,
-        0.22,
-        (32.0, -2.0),
-        (26.0, 20.0),
-        10,
-        105.0,
-        1.95,
-        Some((1.0, -0.28)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "air_forward",
+        clip: "air_forward",
+        startup_s: 0.13,
+        active_s: 0.09,
+        recover_s: 0.22,
+        offset: (32.0, -2.0),
+        half_extents: (26.0, 20.0),
+        damage: 10,
+        knockback: 105.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
     let f_air = vfx_at(f_air, 0.13, "stamp_moving", (32.0, -2.0), SWING_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    let b_air = strike(
-        "air_back",
-        "air_back",
-        0.15,
-        0.08,
-        0.26,
-        (-34.0, 0.0),
-        (26.0, 20.0),
-        12,
-        145.0,
-        2.60,
-        Some((-1.0, -0.35)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "air_back",
+        clip: "air_back",
+        startup_s: 0.15,
+        active_s: 0.08,
+        recover_s: 0.26,
+        offset: (-34.0, 0.0),
+        half_extents: (26.0, 20.0),
+        damage: 12,
+        knockback: 145.0,
+        knockback_growth: 2.60,
+        launch_dir: Some((-1.0, -0.35)),
+        on_hit: None,
+    });
     let b_air = vfx_at(b_air, 0.15, "stamp_at_rest", (-34.0, 0.0), SWING_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    let u_air = strike(
-        "air_up",
-        "air_up",
-        0.10,
-        0.10,
-        0.19,
-        (2.0, -32.0),
-        (22.0, 26.0),
-        8,
-        95.0,
-        1.90,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.10,
+        active_s: 0.10,
+        recover_s: 0.19,
+        offset: (2.0, -32.0),
+        half_extents: (22.0, 26.0),
+        damage: 8,
+        knockback: 95.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     let u_air = vfx_at(u_air, 0.10, "light_cone", (2.0, -32.0), SWING_FX);
     let u_air = on_contact(u_air, "player.hit");
 
     // the exception, and the one place *AT REST* shows up as a swing: it stops
     // dead and drops. Straight down, no drift, the heaviest spike in the game.
-    let d_air = strike(
-        "air_down",
-        "air_down",
-        0.16,
-        0.09,
-        0.28,
-        (4.0, 30.0),
-        (22.0, 22.0),
-        13,
-        140.0,
-        2.40,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "air_down",
+        clip: "air_down",
+        startup_s: 0.16,
+        active_s: 0.09,
+        recover_s: 0.28,
+        offset: (4.0, 30.0),
+        half_extents: (22.0, 22.0),
+        damage: 13,
+        knockback: 140.0,
+        knockback_growth: 2.40,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let d_air = vfx_at(d_air, 0.16, "mass_energy_exchange", (4.0, 30.0), SWING_FX);
     let d_air = on_contact(d_air, "player.hit");
-
 
     // a forward tilt, because without one the commonest press in the genre
     // falls down the directional chain to the jab. The same hole George Booul
     // and Oiler both had. A margin correction: he reaches out and rewrites what
     // you just did.
-    let f_tilt = strike(
-        "tilt_forward",
-        "margin_correction",
-        0.12,
-        0.09,
-        0.22,
-        (34.0, -4.0),
-        (24.0, 16.0),
-        7,
-        82.0,
-        1.35,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "margin_correction",
+        startup_s: 0.12,
+        active_s: 0.09,
+        recover_s: 0.22,
+        offset: (34.0, -4.0),
+        half_extents: (24.0, 16.0),
+        damage: 7,
+        knockback: 82.0,
+        knockback_growth: 1.35,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.12, "stamp_moving", (34.0, -4.0), SWING_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // NEUTRAL — `light_argument`. The speed of light is the same in every
     // frame: no impulse, no drift, a fixed cone that does not care what he was
     // doing when he threw it.
-    let n_b = strike(
-        "light_argument",
-        "light_argument",
-        0.22,
-        0.12,
-        0.32,
-        (36.0, -6.0),
-        (30.0, 20.0),
-        11,
-        108.0,
-        2.05,
-        Some((0.9, -0.45)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "light_argument",
+        clip: "light_argument",
+        startup_s: 0.22,
+        active_s: 0.12,
+        recover_s: 0.32,
+        offset: (36.0, -6.0),
+        half_extents: (30.0, 20.0),
+        damage: 11,
+        knockback: 108.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.9, -0.45)),
+        on_hit: None,
+    });
     let n_b = committed_tail(n_b, 0.66, 0.0);
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
     let n_b = on_contact(n_b, "player.hit");
@@ -328,20 +328,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     //
     // it displaces HIM and says nothing about anybody else's motion. The
     // reference-frame MECHANIC the module header keeps out stays out.
-    let side_b = strike(
-        "reference_frame",
-        "reference_frame",
-        0.20,
-        0.11,
-        0.28,
-        (30.0, 0.0),
-        (26.0, 22.0),
-        11,
-        112.0,
-        2.10,
-        Some((0.9, -0.40)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "reference_frame",
+        clip: "reference_frame",
+        startup_s: 0.20,
+        active_s: 0.11,
+        recover_s: 0.28,
+        offset: (30.0, 0.0),
+        half_extents: (26.0, 22.0),
+        damage: 11,
+        knockback: 112.0,
+        knockback_growth: 2.10,
+        launch_dir: Some((0.9, -0.40)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.20, (640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.66, 0.0);
     let side_b = vfx_cued(
@@ -364,20 +364,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // UP — `elevator_thought`. THE RECOVERY, and it is the equivalence
     // principle: a man in a rising lift cannot tell it from gravity. He does
     // not jump; his frame accelerates and he is in it.
-    let mut up_b = strike(
-        "elevator_thought",
-        "elevator_thought",
-        ELEVATOR_AT_S,
-        0.12,
-        0.20,
-        (0.0, 14.0),
-        (20.0, 32.0),
-        9,
-        92.0,
-        1.85,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "elevator_thought",
+        clip: "elevator_thought",
+        startup_s: ELEVATOR_AT_S,
+        active_s: 0.12,
+        recover_s: 0.20,
+        offset: (0.0, 14.0),
+        half_extents: (20.0, 32.0),
+        damage: 9,
+        knockback: 92.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     // A heavyweight who lands out of the lift owes for it. Offstage that costs
     // nothing, which is the right shape for a way home.
     up_b.landing_lag_s = Some(0.34);
@@ -401,20 +401,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 
     // DOWN — `synchronize_clocks`. Two clocks, one slice: a wide flat window
     // on the floor either side of him, and the stamp that says it is settled.
-    let down_b = strike(
-        "synchronize_clocks",
-        "synchronize_clocks",
-        0.20,
-        0.13,
-        0.32,
-        (0.0, 20.0),
-        (44.0, 12.0),
-        8,
-        86.0,
-        1.60,
-        Some((0.8, -0.55)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "synchronize_clocks",
+        clip: "synchronize_clocks",
+        startup_s: 0.20,
+        active_s: 0.13,
+        recover_s: 0.32,
+        offset: (0.0, 20.0),
+        half_extents: (44.0, 12.0),
+        damage: 8,
+        knockback: 86.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.8, -0.55)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.65, 0.0);
     let down_b = vfx_at(down_b, 0.20, "clock_sync", (-30.0, 18.0), SWING_FX);
     let down_b = vfx_at(down_b, 0.26, "clock_desync", (30.0, 18.0), SWING_FX);
@@ -434,20 +434,20 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     // the two-form move it exists for.
     // DOWN, IN THE AIR — `falling_simultaneity`. Two clocks still slice one
     // moment with no floor between them; he brings the slice down.
-    let mut air_down_b = strike(
-        "falling_simultaneity",
-        "air_down",
-        0.12,
-        0.10,
-        0.26,
-        (0.0, 24.0),
-        (22.0, 22.0),
-        10,
-        98.0,
-        1.72,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "falling_simultaneity",
+        clip: "air_down",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.26,
+        offset: (0.0, 24.0),
+        half_extents: (22.0, 22.0),
+        damage: 10,
+        knockback: 98.0,
+        knockback_growth: 1.72,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.32);
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.12, "clock_sync", (0.0, 20.0), SWING_FX);

@@ -13,6 +13,7 @@
 //! the equivalent on a fighter built for this — it is a boss standing in a
 //! platform fighter, and the numbers say so.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -103,77 +104,77 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // JAB — `still_life`. A block appears where its hand would be and does
     // not change. The fastest thing it owns, and the only one with no telegraph.
-    let jab = strike(
-        "still_life",
-        "jab",
-        0.06,
-        0.06,
-        0.15,
-        (26.0, 0.0),
-        (18.0, 16.0),
-        3,
-        48.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "still_life",
+        clip: "jab",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.15,
+        offset: (26.0, 0.0),
+        half_extents: (18.0, 16.0),
+        damage: 3,
+        knockback: 48.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = vfx_at(jab, 0.06, "still_life_lock", (26.0, 0.0), CELL_FX);
     let jab = on_contact(jab, "player.hit");
 
     // FORWARD TILT — `rule_front`. The rule advances one cell into you.
     // without this the commonest press in the genre fell to the jab.
-    let f_tilt = strike(
-        "rule_front",
-        "attack_side",
-        0.09,
-        0.08,
-        0.19,
-        (32.0, -2.0),
-        (22.0, 15.0),
-        6,
-        74.0,
-        1.30,
-        Some((1.0, -0.28)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "rule_front",
+        clip: "attack_side",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.19,
+        offset: (32.0, -2.0),
+        half_extents: (22.0, 15.0),
+        damage: 6,
+        knockback: 74.0,
+        knockback_growth: 1.30,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.09, "rule_front", (32.0, -2.0), PATTERN_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // UP TILT — `cell_birth`. A neighbourhood above it reaches three live
     // neighbours and something is born there. Anti-air.
-    let u_tilt = strike(
-        "cell_birth",
-        "attack_up",
-        0.09,
-        0.08,
-        0.20,
-        (8.0, -28.0),
-        (18.0, 22.0),
-        5,
-        76.0,
-        1.35,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let u_tilt = strike(Strike {
+        id: "cell_birth",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.20,
+        offset: (8.0, -28.0),
+        half_extents: (18.0, 22.0),
+        damage: 5,
+        knockback: 76.0,
+        knockback_growth: 1.35,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     let u_tilt = vfx_at(u_tilt, 0.09, "cell_birth", (8.0, -28.0), CELL_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
     // DOWN TILT — `phase_boundary`. The edge between two rules, at ankle
     // height, where standing on the wrong side of it costs.
-    let d_tilt = strike(
-        "phase_boundary",
-        "attack_down",
-        0.08,
-        0.07,
-        0.18,
-        (26.0, 14.0),
-        (22.0, 10.0),
-        4,
-        56.0,
-        1.18,
-        Some((0.9, -0.35)),
-        None,
-    );
+    let d_tilt = strike(Strike {
+        id: "phase_boundary",
+        clip: "attack_down",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.18,
+        offset: (26.0, 14.0),
+        half_extents: (22.0, 10.0),
+        damage: 4,
+        knockback: 56.0,
+        knockback_growth: 1.18,
+        launch_dir: Some((0.9, -0.35)),
+        on_hit: None,
+    });
     let d_tilt = vfx_at(d_tilt, 0.08, "phase_boundary", (26.0, 14.0), CELL_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
@@ -186,20 +187,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // FORWARD — `generation_wipe`. One step of the rule applied to the whole
     // row in front of it. Everything in that row is in the next generation or it
     // is not.
-    let f_smash = strike(
-        "generation_wipe",
-        "smash_forward",
-        0.32,
-        0.10,
-        0.30,
-        (40.0, -2.0),
-        (32.0, 24.0),
-        14,
-        128.0,
-        2.25,
-        Some((0.95, -0.42)),
-        None,
-    );
+    let f_smash = strike(Strike {
+        id: "generation_wipe",
+        clip: "smash_forward",
+        startup_s: 0.32,
+        active_s: 0.10,
+        recover_s: 0.30,
+        offset: (40.0, -2.0),
+        half_extents: (32.0, 24.0),
+        damage: 14,
+        knockback: 128.0,
+        knockback_growth: 2.25,
+        launch_dir: Some((0.95, -0.42)),
+        on_hit: None,
+    });
     let f_smash = vfx_at(f_smash, 0.32, "generation_wipe", (40.0, -2.0), PATTERN_FX);
     let f_smash = sfx(f_smash, 0.32, "pca.cellular_pulse");
     let f_smash = on_contact(f_smash, "player.hit");
@@ -207,20 +208,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // UP — `causal_cone_expand`. The light cone of one changed cell, opening
     // upward. Tall and narrow at the base, which is what makes it an anti-air
     // rather than a second forward smash.
-    let u_smash = strike(
-        "causal_cone_expand",
-        "smash_up",
-        0.30,
-        0.11,
-        0.30,
-        (4.0, -34.0),
-        (24.0, 34.0),
-        13,
-        124.0,
-        2.30,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let u_smash = strike(Strike {
+        id: "causal_cone_expand",
+        clip: "smash_up",
+        startup_s: 0.30,
+        active_s: 0.11,
+        recover_s: 0.30,
+        offset: (4.0, -34.0),
+        half_extents: (24.0, 34.0),
+        damage: 13,
+        knockback: 124.0,
+        knockback_growth: 2.30,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     let u_smash = vfx_at(
         u_smash,
         0.18,
@@ -233,20 +234,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // DOWN — `garden_growth`. A garden of Eden has no predecessor: it can
     // only be placed. It places one, either side of itself, along the floor.
-    let d_smash = strike(
-        "garden_growth",
-        "smash_down",
-        0.31,
-        0.10,
-        0.32,
-        (0.0, 20.0),
-        (44.0, 13.0),
-        12,
-        116.0,
-        2.05,
-        Some((0.8, -0.58)),
-        None,
-    );
+    let d_smash = strike(Strike {
+        id: "garden_growth",
+        clip: "smash_down",
+        startup_s: 0.31,
+        active_s: 0.10,
+        recover_s: 0.32,
+        offset: (0.0, 20.0),
+        half_extents: (44.0, 13.0),
+        damage: 12,
+        knockback: 116.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.8, -0.58)),
+        on_hit: None,
+    });
     let d_smash = vfx_at(d_smash, 0.31, "garden_growth", (-30.0, 18.0), CELL_FX);
     let d_smash = vfx_at(d_smash, 0.31, "garden_growth", (30.0, 18.0), CELL_FX);
     let d_smash = sfx(d_smash, 0.31, "pca.cellular_pulse");
@@ -256,94 +257,94 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
 
     // NEUTRAL AIR — `oscillator_pulse`. A blinker, around itself, flipping
     // through both of its states.
-    let n_air = strike(
-        "oscillator_pulse",
-        "air_neutral",
-        0.07,
-        0.10,
-        0.18,
-        (0.0, 0.0),
-        (28.0, 24.0),
-        6,
-        70.0,
-        1.40,
-        Some((0.55, -0.75)),
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "oscillator_pulse",
+        clip: "air_neutral",
+        startup_s: 0.07,
+        active_s: 0.10,
+        recover_s: 0.18,
+        offset: (0.0, 0.0),
+        half_extents: (28.0, 24.0),
+        damage: 6,
+        knockback: 70.0,
+        knockback_growth: 1.40,
+        launch_dir: Some((0.55, -0.75)),
+        on_hit: None,
+    });
     let n_air = vfx_at(n_air, 0.07, "oscillator_pulse", (0.0, 0.0), PATTERN_FX);
     let n_air = on_contact(n_air, "player.hit");
 
-    let f_air = strike(
-        "glider_cut",
-        "air_forward",
-        0.09,
-        0.08,
-        0.20,
-        (30.0, -4.0),
-        (22.0, 18.0),
-        8,
-        92.0,
-        1.70,
-        Some((0.95, -0.45)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "glider_cut",
+        clip: "air_forward",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.20,
+        offset: (30.0, -4.0),
+        half_extents: (22.0, 18.0),
+        damage: 8,
+        knockback: 92.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((0.95, -0.45)),
+        on_hit: None,
+    });
     let f_air = vfx_at(f_air, 0.09, "glider_impact", (30.0, -4.0), CELL_FX);
     let f_air = on_contact(f_air, "player.hit");
 
     // BACK AIR — `cell_death`. Underpopulation, behind it. The hardest
     // single hit in its aerial game, because it cannot see it coming either.
-    let b_air = strike(
-        "cell_death",
-        "air_back",
-        0.10,
-        0.07,
-        0.22,
-        (-30.0, -2.0),
-        (22.0, 18.0),
-        9,
-        100.0,
-        1.85,
-        Some((-0.95, -0.40)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "cell_death",
+        clip: "air_back",
+        startup_s: 0.10,
+        active_s: 0.07,
+        recover_s: 0.22,
+        offset: (-30.0, -2.0),
+        half_extents: (22.0, 18.0),
+        damage: 9,
+        knockback: 100.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((-0.95, -0.40)),
+        on_hit: None,
+    });
     let b_air = vfx_at(b_air, 0.10, "cell_death", (-30.0, -2.0), CELL_FX);
     let b_air = on_contact(b_air, "player.hit");
 
     // UP AIR — `fixed_point_acquire`. It finds the state that maps to
     // itself, directly overhead, and holds it there.
-    let u_air = strike(
-        "fixed_point_acquire",
-        "air_up",
-        0.08,
-        0.09,
-        0.19,
-        (2.0, -28.0),
-        (20.0, 24.0),
-        7,
-        84.0,
-        1.65,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "fixed_point_acquire",
+        clip: "air_up",
+        startup_s: 0.08,
+        active_s: 0.09,
+        recover_s: 0.19,
+        offset: (2.0, -28.0),
+        half_extents: (20.0, 24.0),
+        damage: 7,
+        knockback: 84.0,
+        knockback_growth: 1.65,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_air = vfx_at(u_air, 0.08, "fixed_point_acquire", (2.0, -28.0), CELL_FX);
     let u_air = on_contact(u_air, "player.hit");
 
     // DOWN AIR — `corruption_seed`. It drops a seed and the rule below it
     // stops being the rule. Straight down and hard.
-    let d_air = strike(
-        "corruption_seed",
-        "air_down",
-        0.12,
-        0.08,
-        0.24,
-        (2.0, 26.0),
-        (20.0, 20.0),
-        10,
-        112.0,
-        2.05,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "corruption_seed",
+        clip: "air_down",
+        startup_s: 0.12,
+        active_s: 0.08,
+        recover_s: 0.24,
+        offset: (2.0, 26.0),
+        half_extents: (20.0, 20.0),
+        damage: 10,
+        knockback: 112.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let d_air = vfx_at(d_air, 0.12, "corruption_seed", (2.0, 26.0), CELL_FX);
     let d_air = on_contact(d_air, "player.hit");
 
@@ -353,20 +354,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // move DISPLACES the automaton rather than spawning a projectile: its ranged
     // glider already exists on its action set, and a second spawner here would
     // be two authorities on one pattern.
-    let side_b = strike(
-        "glider_launch",
-        "special",
-        0.16,
-        0.10,
-        0.28,
-        (30.0, 0.0),
-        (26.0, 20.0),
-        11,
-        108.0,
-        1.95,
-        Some((0.92, -0.38)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "glider_launch",
+        clip: "special",
+        startup_s: 0.16,
+        active_s: 0.10,
+        recover_s: 0.28,
+        offset: (30.0, 0.0),
+        half_extents: (26.0, 20.0),
+        damage: 11,
+        knockback: 108.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.92, -0.38)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.05);
     let side_b = vfx_at(side_b, 0.16, "glider_launch", (30.0, 0.0), PATTERN_FX);
@@ -375,20 +376,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // UP — `spaceship_ascent`. THE RECOVERY. A lightweight spaceship
     // translates itself one cell per generation, forever, in whatever direction
     // it was built pointing. This one points up.
-    let mut up_b = strike(
-        "spaceship_ascent",
-        "special",
-        0.10,
-        0.12,
-        0.24,
-        (0.0, -14.0),
-        (22.0, 32.0),
-        8,
-        88.0,
-        1.70,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "spaceship_ascent",
+        clip: "special",
+        startup_s: 0.10,
+        active_s: 0.12,
+        recover_s: 0.24,
+        offset: (0.0, -14.0),
+        half_extents: (22.0, 32.0),
+        damage: 8,
+        knockback: 88.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.32);
     let up_b = impulse(up_b, 0.10, (0.0, -740.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.56, 0.15);
@@ -399,20 +400,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // DOWN — `generation_collapse`. It runs the rule BACKWARDS: the cone
     // closes instead of opening, and everything inside it arrives at the same
     // cell. No displacement, the longest tail it has, and grounded-only.
-    let down_b = strike(
-        "generation_collapse",
-        "special",
-        0.22,
-        0.12,
-        0.34,
-        (0.0, 0.0),
-        (40.0, 30.0),
-        12,
-        104.0,
-        1.85,
-        Some((0.7, -0.68)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "generation_collapse",
+        clip: "special",
+        startup_s: 0.22,
+        active_s: 0.12,
+        recover_s: 0.34,
+        offset: (0.0, 0.0),
+        half_extents: (40.0, 30.0),
+        damage: 12,
+        knockback: 104.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.7, -0.68)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.74, 0.0);
     let down_b = vfx_at(down_b, 0.06, "corruption_seed", (0.0, 12.0), CELL_FX);
     let down_b = vfx_at(down_b, 0.22, "causal_cone_collapse", (0.0, 0.0), PATTERN_FX);
@@ -432,20 +433,20 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
     // the two-form move it exists for.
     // DOWN, IN THE AIR — `collapse_dive`. The cone closes downward instead
     // of around it: every cell under it arrives at the same one, and so does it.
-    let mut air_down_b = strike(
-        "collapse_dive",
-        "air_down",
-        0.12,
-        0.10,
-        0.26,
-        (0.0, 24.0),
-        (22.0, 22.0),
-        10,
-        100.0,
-        1.78,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "collapse_dive",
+        clip: "air_down",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.26,
+        offset: (0.0, 24.0),
+        half_extents: (22.0, 22.0),
+        damage: 10,
+        knockback: 100.0,
+        knockback_growth: 1.78,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.32);
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1200.0), ImpulseMode::Set);
     let air_down_b = vfx_at(

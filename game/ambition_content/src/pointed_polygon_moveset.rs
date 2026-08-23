@@ -6,6 +6,7 @@
 //! reach: the sword extends ordinary humanoid spacing without turning the fighter
 //! into a heavyweight or projectile character.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -18,81 +19,219 @@ use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 /// Complete sword-fundamentals repertoire: every typed Smash slot plus all four throws.
 pub fn pointed_polygon_moveset() -> MovesetContract {
     // Grounded normals.
-    let jab = strike(
-        "polygon_jab", "jab", 0.05, 0.05, 0.12,
-        (30.0, -1.0), (23.0, 13.0), 3, 48.0, 1.05, Some((1.0, -0.18)), None,
-    );
-    let forward_tilt = strike(
-        "polygon_tilt_forward", "attack_side", 0.08, 0.07, 0.17,
-        (36.0, -3.0), (27.0, 14.0), 5, 72.0, 1.38, Some((1.0, -0.28)), None,
-    );
-    let up_tilt = strike(
-        "polygon_tilt_up", "attack_up", 0.08, 0.07, 0.17,
-        (10.0, -30.0), (22.0, 23.0), 5, 78.0, 1.45, Some((0.15, -1.0)), None,
-    );
-    let down_tilt = strike(
-        "polygon_tilt_down", "attack_down", 0.07, 0.07, 0.16,
-        (30.0, 11.0), (25.0, 10.0), 4, 58.0, 1.22, Some((1.0, -0.18)), None,
-    );
+    let jab = strike(Strike {
+        id: "polygon_jab",
+        clip: "jab",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.12,
+        offset: (30.0, -1.0),
+        half_extents: (23.0, 13.0),
+        damage: 3,
+        knockback: 48.0,
+        knockback_growth: 1.05,
+        launch_dir: Some((1.0, -0.18)),
+        on_hit: None,
+    });
+    let forward_tilt = strike(Strike {
+        id: "polygon_tilt_forward",
+        clip: "attack_side",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.17,
+        offset: (36.0, -3.0),
+        half_extents: (27.0, 14.0),
+        damage: 5,
+        knockback: 72.0,
+        knockback_growth: 1.38,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
+    let up_tilt = strike(Strike {
+        id: "polygon_tilt_up",
+        clip: "attack_up",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.17,
+        offset: (10.0, -30.0),
+        half_extents: (22.0, 23.0),
+        damage: 5,
+        knockback: 78.0,
+        knockback_growth: 1.45,
+        launch_dir: Some((0.15, -1.0)),
+        on_hit: None,
+    });
+    let down_tilt = strike(Strike {
+        id: "polygon_tilt_down",
+        clip: "attack_down",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (30.0, 11.0),
+        half_extents: (25.0, 10.0),
+        damage: 4,
+        knockback: 58.0,
+        knockback_growth: 1.22,
+        launch_dir: Some((1.0, -0.18)),
+        on_hit: None,
+    });
 
     // Smashes: legible, committed kill swings.
-    let mut forward_smash = strike(
-        "polygon_smash_forward", "smash_forward", 0.24, 0.08, 0.30,
-        (44.0, -4.0), (31.0, 19.0), 14, 148.0, 3.05, Some((1.0, -0.36)), None,
-    );
+    let mut forward_smash = strike(Strike {
+        id: "polygon_smash_forward",
+        clip: "smash_forward",
+        startup_s: 0.24,
+        active_s: 0.08,
+        recover_s: 0.30,
+        offset: (44.0, -4.0),
+        half_extents: (31.0, 19.0),
+        damage: 14,
+        knockback: 148.0,
+        knockback_growth: 3.05,
+        launch_dir: Some((1.0, -0.36)),
+        on_hit: None,
+    });
     forward_smash.smash_charge_mult = 1.7;
-    let mut up_smash = strike(
-        "polygon_smash_up", "smash_up", 0.22, 0.08, 0.29,
-        (4.0, -34.0), (24.0, 29.0), 13, 146.0, 2.95, Some((0.0, -1.0)), None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "polygon_smash_up",
+        clip: "smash_up",
+        startup_s: 0.22,
+        active_s: 0.08,
+        recover_s: 0.29,
+        offset: (4.0, -34.0),
+        half_extents: (24.0, 29.0),
+        damage: 13,
+        knockback: 146.0,
+        knockback_growth: 2.95,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
-    let mut down_smash = strike(
-        "polygon_smash_down", "smash_down", 0.20, 0.09, 0.31,
-        (0.0, 13.0), (38.0, 12.0), 12, 132.0, 2.72, Some((0.85, -0.52)), None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "polygon_smash_down",
+        clip: "smash_down",
+        startup_s: 0.20,
+        active_s: 0.09,
+        recover_s: 0.31,
+        offset: (0.0, 13.0),
+        half_extents: (38.0, 12.0),
+        damage: 12,
+        knockback: 132.0,
+        knockback_growth: 2.72,
+        launch_dir: Some((0.85, -0.52)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.7;
 
     // Aerials.
-    let neutral_air = strike(
-        "polygon_air_neutral", "air_neutral", 0.06, 0.10, 0.15,
-        (9.0, 0.0), (27.0, 22.0), 6, 70.0, 1.42, None, None,
-    );
-    let forward_air = strike(
-        "polygon_air_forward", "air_forward", 0.09, 0.08, 0.18,
-        (36.0, -4.0), (27.0, 17.0), 8, 98.0, 1.94, Some((1.0, -0.34)), None,
-    );
-    let back_air = strike(
-        "polygon_air_back", "air_back", 0.10, 0.07, 0.20,
-        (-31.0, -1.0), (24.0, 16.0), 9, 116.0, 2.20, Some((-1.0, -0.32)), None,
-    );
-    let up_air = strike(
-        "polygon_air_up", "air_up", 0.07, 0.08, 0.15,
-        (2.0, -30.0), (22.0, 23.0), 7, 91.0, 1.80, Some((0.0, -1.0)), None,
-    );
-    let mut down_air = strike(
-        "polygon_air_down", "air_down", 0.12, 0.08, 0.23,
-        (4.0, 27.0), (20.0, 21.0), 9, 118.0, 2.25, Some((0.0, 1.0)), None,
-    );
+    let neutral_air = strike(Strike {
+        id: "polygon_air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.06,
+        active_s: 0.10,
+        recover_s: 0.15,
+        offset: (9.0, 0.0),
+        half_extents: (27.0, 22.0),
+        damage: 6,
+        knockback: 70.0,
+        knockback_growth: 1.42,
+        launch_dir: None,
+        on_hit: None,
+    });
+    let forward_air = strike(Strike {
+        id: "polygon_air_forward",
+        clip: "air_forward",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.18,
+        offset: (36.0, -4.0),
+        half_extents: (27.0, 17.0),
+        damage: 8,
+        knockback: 98.0,
+        knockback_growth: 1.94,
+        launch_dir: Some((1.0, -0.34)),
+        on_hit: None,
+    });
+    let back_air = strike(Strike {
+        id: "polygon_air_back",
+        clip: "air_back",
+        startup_s: 0.10,
+        active_s: 0.07,
+        recover_s: 0.20,
+        offset: (-31.0, -1.0),
+        half_extents: (24.0, 16.0),
+        damage: 9,
+        knockback: 116.0,
+        knockback_growth: 2.20,
+        launch_dir: Some((-1.0, -0.32)),
+        on_hit: None,
+    });
+    let up_air = strike(Strike {
+        id: "polygon_air_up",
+        clip: "air_up",
+        startup_s: 0.07,
+        active_s: 0.08,
+        recover_s: 0.15,
+        offset: (2.0, -30.0),
+        half_extents: (22.0, 23.0),
+        damage: 7,
+        knockback: 91.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
+    let mut down_air = strike(Strike {
+        id: "polygon_air_down",
+        clip: "air_down",
+        startup_s: 0.12,
+        active_s: 0.08,
+        recover_s: 0.23,
+        offset: (4.0, 27.0),
+        half_extents: (20.0, 21.0),
+        damage: 9,
+        knockback: 118.0,
+        knockback_growth: 2.25,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     down_air.landing_lag_s = Some(0.24);
 
     // Specials deliberately teach common sword archetype motion.
     let neutral_special = committed_tail(
-        strike(
-            "polygon_point", "slash", 0.14, 0.08, 0.24,
-            (48.0, -3.0), (28.0, 12.0), 10, 112.0, 2.15,
-            Some((1.0, -0.18)), None,
-        ),
+        strike(Strike {
+            id: "polygon_point",
+            clip: "slash",
+            startup_s: 0.14,
+            active_s: 0.08,
+            recover_s: 0.24,
+            offset: (48.0, -3.0),
+            half_extents: (28.0, 12.0),
+            damage: 10,
+            knockback: 112.0,
+            knockback_growth: 2.15,
+            launch_dir: Some((1.0, -0.18)),
+            on_hit: None,
+        }),
         0.52,
         0.20,
     );
 
     let side_special = impulse(
         committed_tail(
-            strike(
-                "polygon_vector_lunge", "attack_side", 0.13, 0.10, 0.24,
-                (41.0, -2.0), (30.0, 16.0), 9, 104.0, 2.02,
-                Some((1.0, -0.28)), None,
-            ),
+            strike(Strike {
+                id: "polygon_vector_lunge",
+                clip: "attack_side",
+                startup_s: 0.13,
+                active_s: 0.10,
+                recover_s: 0.24,
+                offset: (41.0, -2.0),
+                half_extents: (30.0, 16.0),
+                damage: 9,
+                knockback: 104.0,
+                knockback_growth: 2.02,
+                launch_dir: Some((1.0, -0.28)),
+                on_hit: None,
+            }),
             0.58,
             0.12,
         ),
@@ -101,35 +240,58 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         ImpulseMode::Set,
     );
 
-    let mut rising_edge = strike(
-        "polygon_rising_edge", "attack_up", 0.09, 0.12, 0.20,
-        (5.0, -19.0), (22.0, 27.0), 7, 88.0, 1.65,
-        Some((0.10, -1.0)), None,
-    );
+    let mut rising_edge = strike(Strike {
+        id: "polygon_rising_edge",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.12,
+        recover_s: 0.20,
+        offset: (5.0, -19.0),
+        half_extents: (22.0, 27.0),
+        damage: 7,
+        knockback: 88.0,
+        knockback_growth: 1.65,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     rising_edge.landing_lag_s = Some(0.25);
     let up_special = impulse(rising_edge, 0.09, (0.0, -760.0), ImpulseMode::Set);
 
     let grounded_down_special = committed_tail(
-        strike(
-            "polygon_low_arc", "attack_down", 0.12, 0.09, 0.25,
-            (18.0, 13.0), (34.0, 11.0), 8, 82.0, 1.55,
-            Some((0.8, -0.55)), None,
-        ),
+        strike(Strike {
+            id: "polygon_low_arc",
+            clip: "attack_down",
+            startup_s: 0.12,
+            active_s: 0.09,
+            recover_s: 0.25,
+            offset: (18.0, 13.0),
+            half_extents: (34.0, 11.0),
+            damage: 8,
+            knockback: 82.0,
+            knockback_growth: 1.55,
+            launch_dir: Some((0.8, -0.55)),
+            on_hit: None,
+        }),
         0.52,
         0.05,
     );
-    let mut airborne_down_special = strike(
-        "polygon_falling_edge", "air_down", 0.10, 0.10, 0.23,
-        (0.0, 25.0), (21.0, 22.0), 9, 105.0, 1.95,
-        Some((0.0, 1.0)), None,
-    );
+    let mut airborne_down_special = strike(Strike {
+        id: "polygon_falling_edge",
+        clip: "air_down",
+        startup_s: 0.10,
+        active_s: 0.10,
+        recover_s: 0.23,
+        offset: (0.0, 25.0),
+        half_extents: (21.0, 22.0),
+        damage: 9,
+        knockback: 105.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     airborne_down_special.landing_lag_s = Some(0.27);
-    let airborne_down_special = impulse(
-        airborne_down_special,
-        0.10,
-        (0.0, 1050.0),
-        ImpulseMode::Set,
-    );
+    let airborne_down_special =
+        impulse(airborne_down_special, 0.10, (0.0, 1050.0), ImpulseMode::Set);
 
     // Capture kit. Unlike several older fighters, the reference archetype answers
     // every throw direction so animation authors have a safe pose for all four.
@@ -189,10 +351,7 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 
     SmashRepertoire {
         // See `select.rs` for the same shape: a stale copy is a revert with no diff to review.
-        taunt: ambition_characters::moveset_authoring::taunt(
-            "pointed_polygon_taunt",
-            0.9,
-        ),
+        taunt: ambition_characters::moveset_authoring::taunt("pointed_polygon_taunt", 0.9),
         // the genre shape, deliberately: this character is the REFERENCE rig,
         // so its dash attack is the one a new humanoid should copy before it has
         // a reason to differ. A bespoke reach here would be a number nobody

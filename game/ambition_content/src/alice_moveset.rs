@@ -18,6 +18,7 @@
 //!
 //! The day she gets her own art, this file is where the names change and nothing else does.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -38,242 +39,242 @@ const SEAL_FX: f32 = 1.15;
 pub fn alice_moveset() -> MovesetContract {
     // JAB — `challenge`. She asks a question. Quick, short, and it is not
     // meant to end anything.
-    let jab = strike(
-        "challenge",
-        "jab",
-        0.05,
-        0.05,
-        0.13,
-        (24.0, 0.0),
-        (17.0, 13.0),
-        3,
-        48.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "challenge",
+        clip: "jab",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.13,
+        offset: (24.0, 0.0),
+        half_extents: (17.0, 13.0),
+        damage: 3,
+        knockback: 48.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = vfx_at(jab, 0.05, "four_point_glint", (24.0, 0.0), GLYPH_FX);
     let jab = on_contact(jab, "player.hit");
 
     // FORWARD TILT — `cipher_sweep`. The reach the module doc claims, spent
     // on the press that uses it most.
-    let f_tilt = strike(
-        "cipher_sweep",
-        "attack_side",
-        0.08,
-        0.07,
-        0.17,
-        (32.0, -2.0),
-        (22.0, 14.0),
-        6,
-        72.0,
-        1.28,
-        Some((1.0, -0.28)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "cipher_sweep",
+        clip: "attack_side",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.17,
+        offset: (32.0, -2.0),
+        half_extents: (22.0, 14.0),
+        damage: 6,
+        knockback: 72.0,
+        knockback_growth: 1.28,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.08, "rune_burst", (32.0, -2.0), GLYPH_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // UP TILT — `nonce_flick`. A number used once, thrown straight up.
-    let u_tilt = strike(
-        "nonce_flick",
-        "attack_up",
-        0.07,
-        0.07,
-        0.17,
-        (8.0, -26.0),
-        (16.0, 20.0),
-        5,
-        74.0,
-        1.32,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let u_tilt = strike(Strike {
+        id: "nonce_flick",
+        clip: "attack_up",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.17,
+        offset: (8.0, -26.0),
+        half_extents: (16.0, 20.0),
+        damage: 5,
+        knockback: 74.0,
+        knockback_growth: 1.32,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     let u_tilt = vfx_at(u_tilt, 0.07, "pickup_twinkle", (8.0, -26.0), GLYPH_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
     // DOWN TILT — `padding_oracle`. She asks the floor one bit at a time.
-    let d_tilt = strike(
-        "padding_oracle",
-        "attack_down",
-        0.07,
-        0.06,
-        0.16,
-        (26.0, 13.0),
-        (20.0, 10.0),
-        4,
-        54.0,
-        1.16,
-        Some((0.9, -0.35)),
-        None,
-    );
+    let d_tilt = strike(Strike {
+        id: "padding_oracle",
+        clip: "attack_down",
+        startup_s: 0.07,
+        active_s: 0.06,
+        recover_s: 0.16,
+        offset: (26.0, 13.0),
+        half_extents: (20.0, 10.0),
+        damage: 4,
+        knockback: 54.0,
+        knockback_growth: 1.16,
+        launch_dir: Some((0.9, -0.35)),
+        on_hit: None,
+    });
     let d_tilt = vfx_at(d_tilt, 0.07, "phase_ripple", (26.0, 13.0), GLYPH_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // FORWARD SMASH — `brute_force`. Every key in order until one opens.
-    let f_smash = strike(
-        "brute_force",
-        "smash_forward",
-        0.17,
-        0.09,
-        0.28,
-        (38.0, -2.0),
-        (28.0, 20.0),
-        13,
-        124.0,
-        2.20,
-        Some((0.95, -0.42)),
-        None,
-    );
+    let f_smash = strike(Strike {
+        id: "brute_force",
+        clip: "smash_forward",
+        startup_s: 0.17,
+        active_s: 0.09,
+        recover_s: 0.28,
+        offset: (38.0, -2.0),
+        half_extents: (28.0, 20.0),
+        damage: 13,
+        knockback: 124.0,
+        knockback_growth: 2.20,
+        launch_dir: Some((0.95, -0.42)),
+        on_hit: None,
+    });
     let f_smash = vfx_at(f_smash, 0.17, "magic_seal_break", (38.0, -2.0), SEAL_FX);
     let f_smash = sfx(f_smash, 0.17, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
     // UP SMASH — `birthday_attack`. Two of them meet overhead, which is more
     // likely than anybody expects.
-    let u_smash = strike(
-        "birthday_attack",
-        "smash_up",
-        0.16,
-        0.10,
-        0.28,
-        (4.0, -32.0),
-        (22.0, 32.0),
-        12,
-        120.0,
-        2.25,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let u_smash = strike(Strike {
+        id: "birthday_attack",
+        clip: "smash_up",
+        startup_s: 0.16,
+        active_s: 0.10,
+        recover_s: 0.28,
+        offset: (4.0, -32.0),
+        half_extents: (22.0, 32.0),
+        damage: 12,
+        knockback: 120.0,
+        knockback_growth: 2.25,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     let u_smash = vfx_at(u_smash, 0.16, "rune_circle", (4.0, -32.0), SEAL_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
     // DOWN SMASH — `side_channel`. She does not read the message; she reads
     // what leaked out either side of it.
-    let d_smash = strike(
-        "side_channel",
-        "smash_down",
-        0.17,
-        0.09,
-        0.30,
-        (0.0, 19.0),
-        (40.0, 12.0),
-        11,
-        112.0,
-        2.00,
-        Some((0.8, -0.58)),
-        None,
-    );
+    let d_smash = strike(Strike {
+        id: "side_channel",
+        clip: "smash_down",
+        startup_s: 0.17,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (0.0, 19.0),
+        half_extents: (40.0, 12.0),
+        damage: 11,
+        knockback: 112.0,
+        knockback_growth: 2.00,
+        launch_dir: Some((0.8, -0.58)),
+        on_hit: None,
+    });
     let d_smash = vfx_at(d_smash, 0.17, "phase_ripple", (-28.0, 17.0), GLYPH_FX);
     let d_smash = vfx_at(d_smash, 0.17, "phase_ripple", (28.0, 17.0), GLYPH_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
     // NEUTRAL AIR — `entropy_pool`. Noise, all around her.
-    let n_air = strike(
-        "entropy_pool",
-        "air_neutral",
-        0.06,
-        0.10,
-        0.16,
-        (0.0, 0.0),
-        (26.0, 22.0),
-        6,
-        68.0,
-        1.38,
-        Some((0.55, -0.75)),
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "entropy_pool",
+        clip: "air_neutral",
+        startup_s: 0.06,
+        active_s: 0.10,
+        recover_s: 0.16,
+        offset: (0.0, 0.0),
+        half_extents: (26.0, 22.0),
+        damage: 6,
+        knockback: 68.0,
+        knockback_growth: 1.38,
+        launch_dir: Some((0.55, -0.75)),
+        on_hit: None,
+    });
     let n_air = vfx_at(n_air, 0.06, "rune_burst", (0.0, 0.0), GLYPH_FX);
     let n_air = on_contact(n_air, "player.hit");
 
     // FORWARD AIR — `signature`. She signs it on the way past.
-    let f_air = strike(
-        "signature",
-        "air_forward",
-        0.08,
-        0.07,
-        0.18,
-        (30.0, -4.0),
-        (22.0, 17.0),
-        8,
-        92.0,
-        1.70,
-        Some((0.95, -0.45)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "signature",
+        clip: "air_forward",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.18,
+        offset: (30.0, -4.0),
+        half_extents: (22.0, 17.0),
+        damage: 8,
+        knockback: 92.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((0.95, -0.45)),
+        on_hit: None,
+    });
     let f_air = vfx_at(f_air, 0.08, "four_point_glint", (30.0, -4.0), GLYPH_FX);
     let f_air = on_contact(f_air, "player.hit");
 
     // BACK AIR — `revocation`. The key is withdrawn behind her, hard.
-    let b_air = strike(
-        "revocation",
-        "air_back",
-        0.09,
-        0.06,
-        0.20,
-        (-30.0, -2.0),
-        (22.0, 17.0),
-        9,
-        100.0,
-        1.85,
-        Some((-0.95, -0.40)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "revocation",
+        clip: "air_back",
+        startup_s: 0.09,
+        active_s: 0.06,
+        recover_s: 0.20,
+        offset: (-30.0, -2.0),
+        half_extents: (22.0, 17.0),
+        damage: 9,
+        knockback: 100.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((-0.95, -0.40)),
+        on_hit: None,
+    });
     let b_air = vfx_at(b_air, 0.09, "magic_seal_break", (-30.0, -2.0), GLYPH_FX);
     let b_air = on_contact(b_air, "player.hit");
 
     // UP AIR — `public_key`. Held up where anyone may take it.
-    let u_air = strike(
-        "public_key",
-        "air_up",
-        0.07,
-        0.08,
-        0.17,
-        (2.0, -26.0),
-        (19.0, 22.0),
-        7,
-        84.0,
-        1.62,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "public_key",
+        clip: "air_up",
+        startup_s: 0.07,
+        active_s: 0.08,
+        recover_s: 0.17,
+        offset: (2.0, -26.0),
+        half_extents: (19.0, 22.0),
+        damage: 7,
+        knockback: 84.0,
+        knockback_growth: 1.62,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_air = vfx_at(u_air, 0.07, "pickup_twinkle", (2.0, -26.0), GLYPH_FX);
     let u_air = on_contact(u_air, "player.hit");
 
     // DOWN AIR — `known_plaintext`. She already knows what is under you.
-    let d_air = strike(
-        "known_plaintext",
-        "air_down",
-        0.11,
-        0.07,
-        0.22,
-        (2.0, 24.0),
-        (19.0, 19.0),
-        9,
-        106.0,
-        1.95,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "known_plaintext",
+        clip: "air_down",
+        startup_s: 0.11,
+        active_s: 0.07,
+        recover_s: 0.22,
+        offset: (2.0, 24.0),
+        half_extents: (19.0, 19.0),
+        damage: 9,
+        knockback: 106.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let d_air = vfx_at(d_air, 0.11, "rune_burst", (2.0, 24.0), GLYPH_FX);
     let d_air = on_contact(d_air, "player.hit");
 
     // NEUTRAL — `one_time_pad`. Used once and never again: her single
     // hardest hit, with the recovery to match.
-    let n_b = strike(
-        "one_time_pad",
-        "attack",
-        0.18,
-        0.09,
-        0.32,
-        (30.0, -4.0),
-        (28.0, 22.0),
-        13,
-        118.0,
-        2.10,
-        Some((0.9, -0.48)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "one_time_pad",
+        clip: "attack",
+        startup_s: 0.18,
+        active_s: 0.09,
+        recover_s: 0.32,
+        offset: (30.0, -4.0),
+        half_extents: (28.0, 22.0),
+        damage: 13,
+        knockback: 118.0,
+        knockback_growth: 2.10,
+        launch_dir: Some((0.9, -0.48)),
+        on_hit: None,
+    });
     let n_b = committed_tail(n_b, 0.66, 0.05);
     let n_b = vfx_at(n_b, 0.18, "magic_seal_break", (30.0, -4.0), SEAL_FX);
     let n_b = sfx(n_b, 0.18, "player.directional_special");
@@ -282,20 +283,20 @@ pub fn alice_moveset() -> MovesetContract {
     // SIDE — `key_exchange`. She crosses the gap and arrives having already
     // agreed the terms. `Set`, so the distance is the move's and not her
     // momentum's.
-    let side_b = strike(
-        "key_exchange",
-        "attack_side",
-        0.13,
-        0.10,
-        0.24,
-        (28.0, 0.0),
-        (24.0, 18.0),
-        10,
-        104.0,
-        1.92,
-        Some((0.95, -0.36)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "key_exchange",
+        clip: "attack_side",
+        startup_s: 0.13,
+        active_s: 0.10,
+        recover_s: 0.24,
+        offset: (28.0, 0.0),
+        half_extents: (24.0, 18.0),
+        damage: 10,
+        knockback: 104.0,
+        knockback_growth: 1.92,
+        launch_dir: Some((0.95, -0.36)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.13, (640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.58, 0.10);
     let side_b = vfx_at(side_b, 0.13, "phase_ripple", (0.0, 0.0), SEAL_FX);
@@ -304,20 +305,20 @@ pub fn alice_moveset() -> MovesetContract {
 
     // UP — `elliptic_curve`. THE RECOVERY. She rides the curve up. Cheap to
     // land, because her whole design is that a whiff does not end her.
-    let mut up_b = strike(
-        "elliptic_curve",
-        "attack_up",
-        0.07,
-        0.12,
-        0.18,
-        (0.0, -12.0),
-        (19.0, 30.0),
-        7,
-        84.0,
-        1.60,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "elliptic_curve",
+        clip: "attack_up",
+        startup_s: 0.07,
+        active_s: 0.12,
+        recover_s: 0.18,
+        offset: (0.0, -12.0),
+        half_extents: (19.0, 30.0),
+        damage: 7,
+        knockback: 84.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.22);
     let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.48, 0.25);
@@ -327,20 +328,20 @@ pub fn alice_moveset() -> MovesetContract {
 
     // DOWN — `hash_collision`. Two inputs, one output, on the floor either
     // side of her.
-    let down_b = strike(
-        "hash_collision",
-        "attack_down",
-        0.15,
-        0.09,
-        0.30,
-        (0.0, 18.0),
-        (36.0, 12.0),
-        10,
-        96.0,
-        1.72,
-        Some((0.75, -0.62)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "hash_collision",
+        clip: "attack_down",
+        startup_s: 0.15,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (0.0, 18.0),
+        half_extents: (36.0, 12.0),
+        damage: 10,
+        knockback: 96.0,
+        knockback_growth: 1.72,
+        launch_dir: Some((0.75, -0.62)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.15, "magic_seal_break", (0.0, 16.0), SEAL_FX);
     let down_b = on_contact(down_b, "player.hit");
@@ -358,20 +359,20 @@ pub fn alice_moveset() -> MovesetContract {
     // the two-form move it exists for.
     // DOWN, IN THE AIR — `collision_dive`. Two inputs meeting at one output
     // still works with no floor under it; she just arrives at the output.
-    let mut air_down_b = strike(
-        "collision_dive",
-        "air_down",
-        0.10,
-        0.09,
-        0.24,
-        (0.0, 23.0),
-        (20.0, 20.0),
-        9,
-        94.0,
-        1.70,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "collision_dive",
+        clip: "air_down",
+        startup_s: 0.10,
+        active_s: 0.09,
+        recover_s: 0.24,
+        offset: (0.0, 23.0),
+        half_extents: (20.0, 20.0),
+        damage: 9,
+        knockback: 94.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.24);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1180.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.10, "magic_seal_break", (0.0, 20.0), GLYPH_FX);

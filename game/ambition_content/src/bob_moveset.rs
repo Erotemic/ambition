@@ -17,6 +17,7 @@
 //!
 //! Every one is a row a shipped generic sheet carries.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -36,243 +37,243 @@ const RIG_FX: f32 = 1.2;
 pub fn bob_moveset() -> MovesetContract {
     // JAB — `tap_test`. He taps it to hear whether it is sound. Slower than
     // anybody else's jab, which is the whole character in the first press.
-    let jab = strike(
-        "tap_test",
-        "jab",
-        0.07,
-        0.05,
-        0.15,
-        (22.0, 0.0),
-        (16.0, 13.0),
-        3,
-        50.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "tap_test",
+        clip: "jab",
+        startup_s: 0.07,
+        active_s: 0.05,
+        recover_s: 0.15,
+        offset: (22.0, 0.0),
+        half_extents: (16.0, 13.0),
+        damage: 3,
+        knockback: 50.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = strike_tag(jab, ambition_characters::moveset_prefabs::SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.07, "hit_metal", (22.0, 0.0), SHOP_FX);
     let jab = on_contact(jab, "player.hit");
 
     // FORWARD TILT — `wrench_swing`. The tool, used as one.
-    let f_tilt = strike(
-        "wrench_swing",
-        "attack_side",
-        0.10,
-        0.08,
-        0.19,
-        (28.0, -2.0),
-        (20.0, 15.0),
-        7,
-        78.0,
-        1.32,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "wrench_swing",
+        clip: "attack_side",
+        startup_s: 0.10,
+        active_s: 0.08,
+        recover_s: 0.19,
+        offset: (28.0, -2.0),
+        half_extents: (20.0, 15.0),
+        damage: 7,
+        knockback: 78.0,
+        knockback_growth: 1.32,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.10, "hit_metal", (28.0, -2.0), SHOP_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // UP TILT — `pressure_release`. He opens a valve and it goes up.
-    let u_tilt = strike(
-        "pressure_release",
-        "attack_up",
-        0.09,
-        0.08,
-        0.19,
-        (6.0, -26.0),
-        (17.0, 22.0),
-        6,
-        78.0,
-        1.34,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let u_tilt = strike(Strike {
+        id: "pressure_release",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.19,
+        offset: (6.0, -26.0),
+        half_extents: (17.0, 22.0),
+        damage: 6,
+        knockback: 78.0,
+        knockback_growth: 1.34,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     let u_tilt = vfx_at(u_tilt, 0.09, "steam_vent", (6.0, -26.0), SHOP_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
     // DOWN TILT — `shim`. A wedge, driven in at floor level.
-    let d_tilt = strike(
-        "shim",
-        "attack_down",
-        0.09,
-        0.06,
-        0.18,
-        (24.0, 14.0),
-        (20.0, 10.0),
-        5,
-        58.0,
-        1.18,
-        Some((0.9, -0.32)),
-        None,
-    );
+    let d_tilt = strike(Strike {
+        id: "shim",
+        clip: "attack_down",
+        startup_s: 0.09,
+        active_s: 0.06,
+        recover_s: 0.18,
+        offset: (24.0, 14.0),
+        half_extents: (20.0, 10.0),
+        damage: 5,
+        knockback: 58.0,
+        knockback_growth: 1.18,
+        launch_dir: Some((0.9, -0.32)),
+        on_hit: None,
+    });
     let d_tilt = vfx_at(d_tilt, 0.09, "gear_scatter", (24.0, 14.0), SHOP_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // FORWARD SMASH — `rivet_smash`. The hardest single hit among the Hall's
     // people, and the longest wind-up to go with it.
-    let f_smash = strike(
-        "rivet_smash",
-        "smash_forward",
-        0.21,
-        0.09,
-        0.32,
-        (36.0, -2.0),
-        (26.0, 22.0),
-        16,
-        134.0,
-        2.30,
-        Some((0.95, -0.45)),
-        None,
-    );
+    let f_smash = strike(Strike {
+        id: "rivet_smash",
+        clip: "smash_forward",
+        startup_s: 0.21,
+        active_s: 0.09,
+        recover_s: 0.32,
+        offset: (36.0, -2.0),
+        half_extents: (26.0, 22.0),
+        damage: 16,
+        knockback: 134.0,
+        knockback_growth: 2.30,
+        launch_dir: Some((0.95, -0.45)),
+        on_hit: None,
+    });
     let f_smash = vfx_at(f_smash, 0.21, "electric_burst", (36.0, -2.0), RIG_FX);
     let f_smash = sfx(f_smash, 0.21, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
     // UP SMASH — `derrick_lift`. He raises the frame overhead and lets it
     // settle.
-    let u_smash = strike(
-        "derrick_lift",
-        "smash_up",
-        0.19,
-        0.10,
-        0.30,
-        (2.0, -32.0),
-        (22.0, 32.0),
-        14,
-        126.0,
-        2.28,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let u_smash = strike(Strike {
+        id: "derrick_lift",
+        clip: "smash_up",
+        startup_s: 0.19,
+        active_s: 0.10,
+        recover_s: 0.30,
+        offset: (2.0, -32.0),
+        half_extents: (22.0, 32.0),
+        damage: 14,
+        knockback: 126.0,
+        knockback_growth: 2.28,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     let u_smash = vfx_at(u_smash, 0.19, "gear_scatter", (2.0, -32.0), RIG_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
     // DOWN SMASH — `ground_anchor`. Two bolts, one either side, into the
     // floor.
-    let d_smash = strike(
-        "ground_anchor",
-        "smash_down",
-        0.20,
-        0.09,
-        0.32,
-        (0.0, 19.0),
-        (38.0, 13.0),
-        13,
-        118.0,
-        2.05,
-        Some((0.8, -0.55)),
-        None,
-    );
+    let d_smash = strike(Strike {
+        id: "ground_anchor",
+        clip: "smash_down",
+        startup_s: 0.20,
+        active_s: 0.09,
+        recover_s: 0.32,
+        offset: (0.0, 19.0),
+        half_extents: (38.0, 13.0),
+        damage: 13,
+        knockback: 118.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.8, -0.55)),
+        on_hit: None,
+    });
     let d_smash = vfx_at(d_smash, 0.20, "shockwave", (0.0, 19.0), RIG_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
     // NEUTRAL AIR — `loose_bearing`. Something comes off and goes round him.
-    let n_air = strike(
-        "loose_bearing",
-        "air_neutral",
-        0.08,
-        0.10,
-        0.19,
-        (0.0, 0.0),
-        (25.0, 22.0),
-        6,
-        70.0,
-        1.38,
-        Some((0.55, -0.72)),
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "loose_bearing",
+        clip: "air_neutral",
+        startup_s: 0.08,
+        active_s: 0.10,
+        recover_s: 0.19,
+        offset: (0.0, 0.0),
+        half_extents: (25.0, 22.0),
+        damage: 6,
+        knockback: 70.0,
+        knockback_growth: 1.38,
+        launch_dir: Some((0.55, -0.72)),
+        on_hit: None,
+    });
     let n_air = vfx_at(n_air, 0.08, "gear_scatter", (0.0, 0.0), SHOP_FX);
     let n_air = on_contact(n_air, "player.hit");
 
     // FORWARD AIR — `swing_arm`. A long arc from the shoulder.
-    let f_air = strike(
-        "swing_arm",
-        "air_forward",
-        0.10,
-        0.08,
-        0.21,
-        (28.0, -4.0),
-        (22.0, 18.0),
-        9,
-        96.0,
-        1.75,
-        Some((0.95, -0.42)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "swing_arm",
+        clip: "air_forward",
+        startup_s: 0.10,
+        active_s: 0.08,
+        recover_s: 0.21,
+        offset: (28.0, -4.0),
+        half_extents: (22.0, 18.0),
+        damage: 9,
+        knockback: 96.0,
+        knockback_growth: 1.75,
+        launch_dir: Some((0.95, -0.42)),
+        on_hit: None,
+    });
     let f_air = vfx_at(f_air, 0.10, "hit_metal", (28.0, -4.0), SHOP_FX);
     let f_air = on_contact(f_air, "player.hit");
 
     // BACK AIR — `counterweight`. He swings the mass the other way and it
     // takes whoever was there.
-    let b_air = strike(
-        "counterweight",
-        "air_back",
-        0.11,
-        0.07,
-        0.22,
-        (-28.0, -2.0),
-        (22.0, 18.0),
-        10,
-        104.0,
-        1.90,
-        Some((-0.95, -0.38)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "counterweight",
+        clip: "air_back",
+        startup_s: 0.11,
+        active_s: 0.07,
+        recover_s: 0.22,
+        offset: (-28.0, -2.0),
+        half_extents: (22.0, 18.0),
+        damage: 10,
+        knockback: 104.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((-0.95, -0.38)),
+        on_hit: None,
+    });
     let b_air = vfx_at(b_air, 0.11, "hit_metal", (-28.0, -2.0), SHOP_FX);
     let b_air = on_contact(b_air, "player.hit");
 
     // UP AIR — `jack_stand`. Straight up, on the hard part.
-    let u_air = strike(
-        "jack_stand",
-        "air_up",
-        0.09,
-        0.08,
-        0.19,
-        (2.0, -26.0),
-        (19.0, 23.0),
-        8,
-        86.0,
-        1.64,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "jack_stand",
+        clip: "air_up",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.19,
+        offset: (2.0, -26.0),
+        half_extents: (19.0, 23.0),
+        damage: 8,
+        knockback: 86.0,
+        knockback_growth: 1.64,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_air = vfx_at(u_air, 0.09, "electric_arc", (2.0, -26.0), SHOP_FX);
     let u_air = on_contact(u_air, "player.hit");
 
     // DOWN AIR — `pile_driver`. He puts his whole weight through it.
-    let d_air = strike(
-        "pile_driver",
-        "air_down",
-        0.13,
-        0.07,
-        0.24,
-        (2.0, 25.0),
-        (20.0, 20.0),
-        11,
-        114.0,
-        2.05,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "pile_driver",
+        clip: "air_down",
+        startup_s: 0.13,
+        active_s: 0.07,
+        recover_s: 0.24,
+        offset: (2.0, 25.0),
+        half_extents: (20.0, 20.0),
+        damage: 11,
+        knockback: 114.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let d_air = vfx_at(d_air, 0.13, "shockwave", (2.0, 25.0), SHOP_FX);
     let d_air = on_contact(d_air, "player.hit");
 
     // NEUTRAL — `rivet_gun`. Held down and driven home. His longest active
     // window: it is not one hit, it is the tool running.
-    let n_b = strike(
-        "rivet_gun",
-        "attack",
-        0.20,
-        0.14,
-        0.30,
-        (30.0, -2.0),
-        (26.0, 18.0),
-        12,
-        112.0,
-        2.00,
-        Some((0.92, -0.44)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "rivet_gun",
+        clip: "attack",
+        startup_s: 0.20,
+        active_s: 0.14,
+        recover_s: 0.30,
+        offset: (30.0, -2.0),
+        half_extents: (26.0, 18.0),
+        damage: 12,
+        knockback: 112.0,
+        knockback_growth: 2.00,
+        launch_dir: Some((0.92, -0.44)),
+        on_hit: None,
+    });
     let n_b = committed_tail(n_b, 0.70, 0.05);
     let n_b = vfx_at(n_b, 0.20, "electric_burst", (30.0, -2.0), RIG_FX);
     let n_b = sfx(n_b, 0.20, "player.directional_special");
@@ -280,20 +281,20 @@ pub fn bob_moveset() -> MovesetContract {
 
     // SIDE — `piston_charge`. He is committed the instant it fires, and the
     // tail damps to nothing: an engineer's dash has no take-backs.
-    let side_b = strike(
-        "piston_charge",
-        "attack_side",
-        0.16,
-        0.10,
-        0.28,
-        (28.0, 0.0),
-        (24.0, 20.0),
-        12,
-        114.0,
-        2.05,
-        Some((0.95, -0.35)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "piston_charge",
+        clip: "attack_side",
+        startup_s: 0.16,
+        active_s: 0.10,
+        recover_s: 0.28,
+        offset: (28.0, 0.0),
+        half_extents: (24.0, 20.0),
+        damage: 12,
+        knockback: 114.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.95, -0.35)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.66, 0.0);
     let side_b = vfx_at(side_b, 0.16, "steam_vent", (-16.0, 0.0), RIG_FX);
@@ -303,20 +304,20 @@ pub fn bob_moveset() -> MovesetContract {
     // UP — `steam_lift`. THE RECOVERY. Boiler pressure, spent all at once.
     // It goes higher than Alice's curve and costs more to land, which is the
     // same bargain his whole kit makes.
-    let mut up_b = strike(
-        "steam_lift",
-        "attack_up",
-        0.09,
-        0.12,
-        0.22,
-        (0.0, -12.0),
-        (21.0, 32.0),
-        8,
-        90.0,
-        1.68,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "steam_lift",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.12,
+        recover_s: 0.22,
+        offset: (0.0, -12.0),
+        half_extents: (21.0, 32.0),
+        damage: 8,
+        knockback: 90.0,
+        knockback_growth: 1.68,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.34);
     let up_b = impulse(up_b, 0.09, (0.0, -800.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.54, 0.10);
@@ -326,20 +327,20 @@ pub fn bob_moveset() -> MovesetContract {
 
     // DOWN — `bulkhead_drop`. He drops a plate. Grounded-only, because the
     // move is that there is a floor to drop it onto.
-    let down_b = strike(
-        "bulkhead_drop",
-        "attack_down",
-        0.18,
-        0.10,
-        0.32,
-        (0.0, 20.0),
-        (34.0, 14.0),
-        12,
-        104.0,
-        1.80,
-        Some((0.7, -0.66)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "bulkhead_drop",
+        clip: "attack_down",
+        startup_s: 0.18,
+        active_s: 0.10,
+        recover_s: 0.32,
+        offset: (0.0, 20.0),
+        half_extents: (34.0, 14.0),
+        damage: 12,
+        knockback: 104.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.7, -0.66)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.70, 0.0);
     let down_b = vfx_at(down_b, 0.18, "shockwave", (0.0, 20.0), RIG_FX);
     let down_b = vfx_at(down_b, 0.18, "landing_puff", (0.0, 22.0), SHOP_FX);
@@ -358,20 +359,20 @@ pub fn bob_moveset() -> MovesetContract {
     // the two-form move it exists for.
     // DOWN, IN THE AIR — `bulkhead_dive`. He does not drop the plate; he
     // rides it down.
-    let mut air_down_b = strike(
-        "bulkhead_dive",
-        "air_down",
-        0.12,
-        0.10,
-        0.26,
-        (0.0, 24.0),
-        (22.0, 22.0),
-        11,
-        106.0,
-        1.80,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "bulkhead_dive",
+        clip: "air_down",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.26,
+        offset: (0.0, 24.0),
+        half_extents: (22.0, 22.0),
+        damage: 11,
+        knockback: 106.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.34);
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1300.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.12, "shockwave", (0.0, 22.0), SHOP_FX);

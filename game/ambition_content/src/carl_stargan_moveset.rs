@@ -5,6 +5,7 @@
 //! on the move that emits them; cue names are explicit where the bank id does not
 //! follow the default family/row convention.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -83,55 +84,55 @@ pub fn startup_of(spec: &MoveSpec) -> f32 {
 pub fn carl_stargan_moveset() -> MovesetContract {
     // ── near, and instant ────────────────────────────────────────────────────
 
-    let jab = strike(
-        "jab",
-        "jab",
-        0.05,
-        0.09,
-        0.13,
-        (14.0, -6.0),
-        (8.0, 12.0),
-        3,
-        40.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.05,
+        active_s: 0.09,
+        recover_s: 0.13,
+        offset: (14.0, -6.0),
+        half_extents: (8.0, 12.0),
+        damage: 3,
+        knockback: 40.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.05, "evidence_ping", (14.0, -6.0), POKE_FX);
 
-    let mut f_tilt = strike(
-        "tilt_forward",
-        "punch",
-        0.09,
-        0.10,
-        0.19,
-        (24.0, -4.0),
-        (10.0, 14.0),
-        6,
-        72.0,
-        1.45,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let mut f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "punch",
+        startup_s: 0.09,
+        active_s: 0.10,
+        recover_s: 0.19,
+        offset: (24.0, -4.0),
+        half_extents: (10.0, 14.0),
+        damage: 6,
+        knockback: 72.0,
+        knockback_growth: 1.45,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     f_tilt.start_impulse = Some((120.0, 0.0));
     let f_tilt = vfx_at(f_tilt, 0.09, "perspective_shift", (24.0, -4.0), SWING_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.09,
-        0.12,
-        0.19,
-        (4.0, -24.0),
-        (14.0, 20.0),
-        6,
-        74.0,
-        1.50,
-        Some((0.1, -1.0)),
-        None,
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.12,
+        recover_s: 0.19,
+        offset: (4.0, -24.0),
+        half_extents: (14.0, 20.0),
+        damage: 6,
+        knockback: 74.0,
+        knockback_growth: 1.50,
+        launch_dir: Some((0.1, -1.0)),
+        on_hit: None,
+    });
     let up_tilt = vfx_at(
         up_tilt,
         0.09,
@@ -141,20 +142,20 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let up_tilt = on_contact(up_tilt, "player.hit");
 
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.10,
-        0.12,
-        0.20,
-        (22.0, 14.0),
-        (14.0, 10.0),
-        6,
-        68.0,
-        1.40,
-        Some((0.9, -0.35)),
-        None,
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.10,
+        active_s: 0.12,
+        recover_s: 0.20,
+        offset: (22.0, 14.0),
+        half_extents: (14.0, 10.0),
+        damage: 6,
+        knockback: 68.0,
+        knockback_growth: 1.40,
+        launch_dir: Some((0.9, -0.35)),
+        on_hit: None,
+    });
     let down_tilt = vfx_at(down_tilt, 0.10, "horizon_arc", (22.0, 14.0), SWING_FX);
     let down_tilt = on_contact(down_tilt, "player.hit");
 
@@ -162,45 +163,40 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 
     // `billions_and_billions`. The furthest anything reaches in this repo,
     // and the longest anyone has to watch it coming.
-    let mut f_smash = strike(
-        "smash_forward",
-        "billions_and_billions",
-        // 0.34, and it has to be the largest startup in his forward line —
-        // `cosmic_calendar` takes 0.30 and reaches 70. A move that reached
-        // further AND arrived sooner would break the one rule this table is
-        // authored under, and `reach_is_monotonic_in_startup` caught exactly
-        // that at 0.26.
-        0.34,
-        0.08,
-        0.36,
-        (58.0, -6.0),
-        (38.0, 20.0),
-        16,
-        126.0,
-        2.90,
-        Some((1.0, -0.50)),
-        None,
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "billions_and_billions",
+        startup_s: 0.34,
+        active_s: 0.08,
+        recover_s: 0.36,
+        offset: (58.0, -6.0),
+        half_extents: (38.0, 20.0),
+        damage: 16,
+        knockback: 126.0,
+        knockback_growth: 2.90,
+        launch_dir: Some((1.0, -0.50)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.80;
     let f_smash = strike_tag(f_smash, SLASH_ARC_VFX);
     let f_smash = vfx_at(f_smash, 0.06, "cosmic_scale_zoom", (0.0, -8.0), SWING_FX);
     let f_smash = vfx_at(f_smash, 0.34, "starstuff_burst", (58.0, -6.0), COSMIC_FX);
     let f_smash = on_contact(f_smash, "player.hit");
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.18,
-        0.09,
-        0.30,
-        (2.0, -34.0),
-        (18.0, 26.0),
-        13,
-        112.0,
-        1.90,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.18,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (2.0, -34.0),
+        half_extents: (18.0, 26.0),
+        damage: 13,
+        knockback: 112.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.70;
     let up_smash = vfx_at(
         up_smash,
@@ -211,40 +207,40 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let up_smash = on_contact(up_smash, "player.hit");
 
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.18,
-        0.09,
-        0.30,
-        (0.0, 20.0),
-        (36.0, 12.0),
-        13,
-        110.0,
-        1.85,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.18,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (0.0, 20.0),
+        half_extents: (36.0, 12.0),
+        damage: 13,
+        knockback: 110.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.70;
     let down_smash = vfx_at(down_smash, 0.18, "horizon_arc", (0.0, 20.0), SWING_FX);
     let down_smash = on_contact(down_smash, "player.hit");
 
     // ── the air game ─────────────────────────────────────────────────────────
 
-    let mut n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.08,
-        0.12,
-        0.20,
-        (0.0, -6.0),
-        (24.0, 22.0),
-        8,
-        78.0,
-        1.60,
-        Some((0.5, -0.75)),
-        None,
-    );
+    let mut n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.08,
+        active_s: 0.12,
+        recover_s: 0.20,
+        offset: (0.0, -6.0),
+        half_extents: (24.0, 22.0),
+        damage: 8,
+        knockback: 78.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.5, -0.75)),
+        on_hit: None,
+    });
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.30);
     let n_air = vfx_cued(
@@ -257,77 +253,77 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
     let n_air = on_contact(n_air, "player.hit");
 
-    let mut f_air = strike(
-        "air_forward",
-        "air_forward",
-        0.12,
-        0.10,
-        0.22,
-        (30.0, -4.0),
-        (18.0, 16.0),
-        9,
-        86.0,
-        1.70,
-        Some((1.0, -0.45)),
-        None,
-    );
+    let mut f_air = strike(Strike {
+        id: "air_forward",
+        clip: "air_forward",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.22,
+        offset: (30.0, -4.0),
+        half_extents: (18.0, 16.0),
+        damage: 9,
+        knockback: 86.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((1.0, -0.45)),
+        on_hit: None,
+    });
     f_air.landing_lag_s = Some(0.18);
     f_air.autocancel_after_s = Some(0.32);
     let f_air = vfx_at(f_air, 0.12, "orbit_lock", (30.0, -4.0), SWING_FX);
     let f_air = on_contact(f_air, "player.hit");
 
-    let mut b_air = strike(
-        "air_back",
-        "air_back",
-        0.10,
-        0.09,
-        0.22,
-        (-26.0, -4.0),
-        (16.0, 15.0),
-        8,
-        90.0,
-        1.75,
-        Some((-1.0, -0.40)),
-        None,
-    );
+    let mut b_air = strike(Strike {
+        id: "air_back",
+        clip: "air_back",
+        startup_s: 0.10,
+        active_s: 0.09,
+        recover_s: 0.22,
+        offset: (-26.0, -4.0),
+        half_extents: (16.0, 15.0),
+        damage: 8,
+        knockback: 90.0,
+        knockback_growth: 1.75,
+        launch_dir: Some((-1.0, -0.40)),
+        on_hit: None,
+    });
     b_air.landing_lag_s = Some(0.18);
     b_air.autocancel_after_s = Some(0.30);
     let b_air = vfx_at(b_air, 0.10, "orbit_lock", (-26.0, -4.0), SWING_FX);
     let b_air = on_contact(b_air, "player.hit");
 
-    let mut up_air = strike(
-        "air_up",
-        "air_up",
-        0.08,
-        0.13,
-        0.19,
-        (2.0, -28.0),
-        (16.0, 22.0),
-        7,
-        76.0,
-        1.55,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.08,
+        active_s: 0.13,
+        recover_s: 0.19,
+        offset: (2.0, -28.0),
+        half_extents: (16.0, 22.0),
+        damage: 7,
+        knockback: 76.0,
+        knockback_growth: 1.55,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_air.landing_lag_s = Some(0.14);
     up_air.autocancel_after_s = Some(0.28);
     let up_air = vfx_at(up_air, 0.08, "voyager_signal", (2.0, -28.0), SWING_FX);
     let up_air = on_contact(up_air, "player.hit");
 
-    let mut d_air = strike(
-        "air_down",
-        "air_down",
-        0.13,
-        0.09,
-        0.24,
-        (0.0, 24.0),
-        (16.0, 24.0),
-        10,
-        98.0,
-        1.85,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut d_air = strike(Strike {
+        id: "air_down",
+        clip: "air_down",
+        startup_s: 0.13,
+        active_s: 0.09,
+        recover_s: 0.24,
+        offset: (0.0, 24.0),
+        half_extents: (16.0, 24.0),
+        damage: 10,
+        knockback: 98.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.34);
     let d_air = vfx_at(d_air, 0.13, "cosmic_scale_zoom", (0.0, 24.0), SWING_FX);
@@ -337,20 +333,20 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 
     // NEUTRAL — `cosmic_calendar`. Fourteen billion years on one page: the
     // slowest sweep in the table, and it covers the whole page.
-    let n_b = strike(
-        "cosmic_calendar",
-        "cosmic_calendar",
-        0.30,
-        0.14,
-        0.34,
-        (36.0, -4.0),
-        (34.0, 26.0),
-        11,
-        104.0,
-        1.80,
-        Some((0.8, -0.60)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "cosmic_calendar",
+        clip: "cosmic_calendar",
+        startup_s: 0.30,
+        active_s: 0.14,
+        recover_s: 0.34,
+        offset: (36.0, -4.0),
+        half_extents: (34.0, 26.0),
+        damage: 11,
+        knockback: 104.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.8, -0.60)),
+        on_hit: None,
+    });
     let n_b = vfx_at(n_b, 0.04, "cosmic_calendar_sweep", (0.0, -6.0), COSMIC_FX);
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
     let n_b = on_contact(n_b, "player.hit");
@@ -358,20 +354,20 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // SIDE — `planetary_orbit`. A slingshot: he commits to a pass and comes
     // out of it moving. the impulse fires on the ACTIVE frame, not the press,
     // so the swing carries him THROUGH rather than launching him at nothing.
-    let side_b = strike(
-        "planetary_orbit",
-        "planetary_orbit",
-        0.18,
-        0.12,
-        0.26,
-        (30.0, 0.0),
-        (24.0, 20.0),
-        10,
-        102.0,
-        1.85,
-        Some((0.9, -0.40)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "planetary_orbit",
+        clip: "planetary_orbit",
+        startup_s: 0.18,
+        active_s: 0.12,
+        recover_s: 0.26,
+        offset: (30.0, 0.0),
+        half_extents: (24.0, 20.0),
+        damage: 10,
+        knockback: 102.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.9, -0.40)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.18, (700.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.35);
     let side_b = vfx_at(side_b, 0.18, "planetary_slingshot", (30.0, 0.0), COSMIC_FX);
@@ -379,20 +375,20 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let side_b = on_contact(side_b, "player.hit");
 
     // UP — `starstuff`. THE RECOVERY. We are made of it, and it goes up.
-    let mut up_b = strike(
-        "starstuff",
-        "starstuff",
-        STARSTUFF_AT_S,
-        0.13,
-        0.18,
-        (0.0, 12.0),
-        (18.0, 32.0),
-        8,
-        90.0,
-        1.80,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "starstuff",
+        clip: "starstuff",
+        startup_s: STARSTUFF_AT_S,
+        active_s: 0.13,
+        recover_s: 0.18,
+        offset: (0.0, 12.0),
+        half_extents: (18.0, 32.0),
+        damage: 8,
+        knockback: 90.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.28);
     let up_b = impulse(
         up_b,
@@ -414,20 +410,20 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // DOWN — `pale_blue_dot`. A pixel, at distance. The SMALLEST box in the
     // table on the end of the second-longest reach: it hits almost nothing, and
     // it hits it from over there.
-    let down_b = strike(
-        "pale_blue_dot",
-        "pale_blue_dot",
-        0.24,
-        0.07,
-        0.32,
-        (62.0, -2.0),
-        (7.0, 7.0),
-        12,
-        116.0,
-        1.90,
-        Some((0.6, -0.80)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "pale_blue_dot",
+        clip: "pale_blue_dot",
+        startup_s: 0.24,
+        active_s: 0.07,
+        recover_s: 0.32,
+        offset: (62.0, -2.0),
+        half_extents: (7.0, 7.0),
+        damage: 12,
+        knockback: 116.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((0.6, -0.80)),
+        on_hit: None,
+    });
     let down_b = strike_tag(down_b, SLASH_POKE_VFX);
     let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (62.0, -2.0), POKE_FX);
     let down_b = on_contact(down_b, "player.hit");
@@ -445,20 +441,20 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     // the two-form move it exists for.
     // DOWN, IN THE AIR. The grounded form works the floor; with none under
     // him he takes it down with him instead.
-    let mut air_down_b = strike(
-        "falling_horizon",
-        "air_down",
-        0.11,
-        0.10,
-        0.25,
-        (0.0, 24.0),
-        (22.0, 22.0),
-        10,
-        100.0,
-        1.76,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "falling_horizon",
+        clip: "air_down",
+        startup_s: 0.11,
+        active_s: 0.10,
+        recover_s: 0.25,
+        offset: (0.0, 24.0),
+        half_extents: (22.0, 22.0),
+        damage: 10,
+        knockback: 100.0,
+        knockback_growth: 1.76,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.30);
     let air_down_b = impulse(air_down_b, 0.11, (0.0, 1220.0), ImpulseMode::Set);
     // this table's own rule: every move throws an effect and every effect is

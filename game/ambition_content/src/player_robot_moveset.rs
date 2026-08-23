@@ -12,6 +12,7 @@
 //! which is what lets Ambition read this table as Hollow-Knight combat and
 //! Smash read it as a platform fighter.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -41,53 +42,54 @@ pub fn player_robot_moveset() -> MovesetContract {
     //
     // The jab is the fast, safe, boring one — it exists to be thrown at nothing
     // and get away with it, which is what makes the smash below a decision.
-    let jab = strike(
-        "jab",
-        "jab",
-        0.05,
-        0.06,
-        0.14,
-        (26.0, 0.0),
-        (18.0, 14.0),
-        3,
-        55.0,
-        1.10,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.05,
+        active_s: 0.06,
+        recover_s: 0.14,
+        offset: (26.0, 0.0),
+        half_extents: (18.0, 14.0),
+        damage: 3,
+        knockback: 55.0,
+        knockback_growth: 1.10,
+        launch_dir: None,
+        on_hit: None,
+    });
 
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.07,
-        0.08,
-        0.18,
-        (10.0, -30.0),
-        (20.0, 22.0),
-        5,
-        70.0,
-        1.40,
-        // Straight up: an anti-air that starts a juggle rather than sending the
+    let up_tilt = strike(Strike {
+            id: "tilt_up",
+            clip: "attack_up",
+            startup_s: 0.07,
+            active_s: 0.08,
+            recover_s: 0.18,
+            offset: (10.0, -30.0),
+            half_extents: (20.0, 22.0),
+            damage: 5,
+            knockback: 70.0,
+            knockback_growth: 1.40,
+            // Straight up: an anti-air that starts a juggle rather than sending the
+            launch_dir:
         // opponent away.
         Some((0.15, -1.0)),
-        None,
-    );
+            on_hit: None,
+        });
 
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.06,
-        0.06,
-        0.16,
-        (26.0, 16.0),
-        (20.0, 10.0),
-        4,
-        60.0,
-        1.20,
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.16,
+        offset: (26.0, 16.0),
+        half_extents: (20.0, 10.0),
+        damage: 4,
+        knockback: 60.0,
+        knockback_growth: 1.20,
         // A low poke that pops them up into the juggle.
-        Some((0.5, -0.85)),
-        None,
-    );
+        launch_dir: Some((0.5, -0.85)),
+        on_hit: None,
+    });
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
@@ -96,59 +98,59 @@ pub fn player_robot_moveset() -> MovesetContract {
     // the launch at the end of it: three times the jab's, growing with the
     // victim's percent, so at 120% it is the thing that ends the stock. The
     // charge multiplier is what a HELD press pays for.
-    let mut f_smash = strike(
-        "smash_forward",
-        "smash_forward",
-        0.30,
-        0.07,
-        0.34,
-        (40.0, -4.0),
-        (28.0, 20.0),
-        15,
-        150.0,
-        3.00,
-        // Slightly upward and away: the classic kill angle. A contact-derived
+    let mut f_smash = strike(Strike {
+            id: "smash_forward",
+            clip: "smash_forward",
+            startup_s: 0.30,
+            active_s: 0.07,
+            recover_s: 0.34,
+            offset: (40.0, -4.0),
+            half_extents: (28.0, 20.0),
+            damage: 15,
+            knockback: 150.0,
+            knockback_growth: 3.00,
+            // Slightly upward and away: the classic kill angle. A contact-derived
+            launch_dir:
         // direction would send a crouching opponent along the floor instead.
         Some((1.0, -0.42)),
-        None,
-    );
+            on_hit: None,
+        });
     // A fully-held charge lands 1.7× as hard. `smash_charge_mult` scales damage
     // AND knockback by how far the owner's clock got through the leading
     // Startup window before release, so the commitment and the payoff are the
     // same authored number.
     f_smash.smash_charge_mult = 1.7;
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.26,
-        0.08,
-        0.32,
-        (8.0, -38.0),
-        (24.0, 30.0),
-        14,
-        140.0,
-        2.80,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.26,
+        active_s: 0.08,
+        recover_s: 0.32,
+        offset: (8.0, -38.0),
+        half_extents: (24.0, 30.0),
+        damage: 14,
+        knockback: 140.0,
+        knockback_growth: 2.80,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
 
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.22,
-        0.08,
-        0.30,
-        (0.0, 18.0),
-        (40.0, 14.0),
-        12,
-        130.0,
-        2.60,
-        // Low and outward — the edge-guarding smash, not a launcher.
-        Some((1.0, -0.25)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.22,
+        active_s: 0.08,
+        recover_s: 0.30,
+        offset: (0.0, 18.0),
+        half_extents: (40.0, 14.0),
+        damage: 12,
+        knockback: 130.0,
+        knockback_growth: 2.60,
+        launch_dir: Some((1.0, -0.25)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.6;
 
     // ── aerials ──────────────────────────────────────────────────────────────
@@ -156,96 +158,96 @@ pub fn player_robot_moveset() -> MovesetContract {
     // landing lag and auto-cancel are what make an aerial a DECISION, and
     // both were engine features with no adopter. The pair reads: throw this one
     // early in a jump and land clean; throw it late and pay for it.
-    let mut n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.06,
-        0.14,
-        0.16,
-        (14.0, 0.0),
-        (26.0, 22.0),
-        6,
-        75.0,
-        1.50,
-        None,
-        None,
-    );
+    let mut n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.06,
+        active_s: 0.14,
+        recover_s: 0.16,
+        offset: (14.0, 0.0),
+        half_extents: (26.0, 22.0),
+        damage: 6,
+        knockback: 75.0,
+        knockback_growth: 1.50,
+        launch_dir: None,
+        on_hit: None,
+    });
     n_air.landing_lag_s = Some(0.10);
     n_air.autocancel_after_s = Some(0.26);
 
-    let mut f_air = strike(
-        "air_forward",
-        "air_forward",
-        0.09,
-        0.08,
-        0.22,
-        (32.0, -4.0),
-        (22.0, 18.0),
-        9,
-        105.0,
-        2.10,
-        Some((1.0, -0.35)),
-        None,
-    );
+    let mut f_air = strike(Strike {
+        id: "air_forward",
+        clip: "air_forward",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.22,
+        offset: (32.0, -4.0),
+        half_extents: (22.0, 18.0),
+        damage: 9,
+        knockback: 105.0,
+        knockback_growth: 2.10,
+        launch_dir: Some((1.0, -0.35)),
+        on_hit: None,
+    });
     f_air.landing_lag_s = Some(0.18);
     f_air.autocancel_after_s = Some(0.30);
 
-    let mut b_air = strike(
-        "air_back",
-        "air_back",
-        0.10,
-        0.07,
-        0.24,
-        (-32.0, -2.0),
-        (22.0, 18.0),
-        11,
-        125.0,
-        2.50,
-        // Backwards and slightly up: the strongest aerial, and the one you have
-        // to turn around for.
-        Some((-1.0, -0.38)),
-        None,
-    );
+    let mut b_air = strike(Strike {
+        id: "air_back",
+        clip: "air_back",
+        startup_s: 0.10,
+        active_s: 0.07,
+        recover_s: 0.24,
+        offset: (-32.0, -2.0),
+        half_extents: (22.0, 18.0),
+        damage: 11,
+        knockback: 125.0,
+        knockback_growth: 2.50,
+        launch_dir: Some((-1.0, -0.38)),
+        on_hit: None,
+    });
     b_air.landing_lag_s = Some(0.20);
     b_air.autocancel_after_s = Some(0.32);
 
-    let mut u_air = strike(
-        "air_up",
-        "air_up",
-        0.07,
-        0.09,
-        0.20,
-        (4.0, -34.0),
-        (22.0, 24.0),
-        7,
-        90.0,
-        1.80,
-        Some((0.1, -1.0)),
-        None,
-    );
+    let mut u_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.07,
+        active_s: 0.09,
+        recover_s: 0.20,
+        offset: (4.0, -34.0),
+        half_extents: (22.0, 24.0),
+        damage: 7,
+        knockback: 90.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.1, -1.0)),
+        on_hit: None,
+    });
     u_air.landing_lag_s = Some(0.14);
     u_air.autocancel_after_s = Some(0.28);
 
-    let mut d_air = strike(
-        "air_down",
-        "air_down",
-        0.12,
-        0.10,
-        0.26,
-        (6.0, 30.0),
-        (20.0, 22.0),
-        10,
-        110.0,
-        2.20,
-        // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
+    let mut d_air = strike(Strike {
+            id: "air_down",
+            clip: "air_down",
+            startup_s: 0.12,
+            active_s: 0.10,
+            recover_s: 0.26,
+            offset: (6.0, 30.0),
+            half_extents: (20.0, 22.0),
+            damage: 10,
+            knockback: 110.0,
+            knockback_growth: 2.20,
+            // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
+            launch_dir:
         // bounce the opponent has to deal with.
         Some((0.0, 1.0)),
-        // the ONE move that can bounce its attacker. Ambition reads this as a
+            // the ONE move that can bounce its attacker. Ambition reads this as a
+            on_hit:
         // pogo; a platform fighter declares `Spike` and it becomes a kill.
         Some(EffectRef::new(
             ambition_platformer2d::combat::on_hit::POGO_BOUNCE_KEY,
         )),
-    );
+        });
     // The heaviest lag in the set: a missed spike over the stage should hurt.
     d_air.landing_lag_s = Some(0.28);
     d_air.autocancel_after_s = Some(0.40);
@@ -262,20 +264,20 @@ pub fn player_robot_moveset() -> MovesetContract {
     // down the directional chain to the jab — the hole five of the ten authored
     // tables had. A straight servo-driven extension: longer than the jab, slower,
     // and it moves you.
-    let f_tilt = strike(
-        "tilt_forward",
-        "attack_side",
-        0.07,
-        0.07,
-        0.17,
-        (30.0, -2.0),
-        (20.0, 14.0),
-        6,
-        72.0,
-        1.28,
-        Some((1.0, -0.26)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "attack_side",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.17,
+        offset: (30.0, -2.0),
+        half_extents: (20.0, 14.0),
+        damage: 6,
+        knockback: 72.0,
+        knockback_growth: 1.28,
+        launch_dir: Some((1.0, -0.26)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.07, "air_slice", (30.0, -2.0), 0.8);
     let f_tilt = sfx(f_tilt, 0.07, "player.directional_primary");
     let f_tilt = on_contact(f_tilt, "player.hit");
@@ -284,20 +286,20 @@ pub fn player_robot_moveset() -> MovesetContract {
     // pass instead of a movement option. `Set`, so it crosses the same
     // distance whatever it was doing — a recovery mix-up rather than a
     // momentum bonus.
-    let side_b = strike(
-        "rocket_dash",
-        "dash",
-        0.12,
-        0.10,
-        0.26,
-        (28.0, 0.0),
-        (24.0, 18.0),
-        10,
-        104.0,
-        1.95,
-        Some((0.95, -0.38)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "rocket_dash",
+        clip: "dash",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.26,
+        offset: (28.0, 0.0),
+        half_extents: (24.0, 18.0),
+        damage: 10,
+        knockback: 104.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.95, -0.38)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.12, (660.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.60, 0.05);
     let side_b = vfx_at(side_b, 0.12, "dash_streak", (0.0, 0.0), 1.0);
@@ -308,20 +310,20 @@ pub fn player_robot_moveset() -> MovesetContract {
     // platform fighter does not get flight, so the thrusters get one burst and
     // then it is falling again. That is the same fact stated under two rulesets,
     // which is what the ability mask is for.
-    let mut up_b = strike(
-        "thruster_climb",
-        "fly",
-        0.07,
-        0.12,
-        0.20,
-        (0.0, -12.0),
-        (20.0, 30.0),
-        7,
-        86.0,
-        1.62,
-        Some((0.12, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "thruster_climb",
+        clip: "fly",
+        startup_s: 0.07,
+        active_s: 0.12,
+        recover_s: 0.20,
+        offset: (0.0, -12.0),
+        half_extents: (20.0, 30.0),
+        damage: 7,
+        knockback: 86.0,
+        knockback_growth: 1.62,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.28);
     let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.50, 0.20);
@@ -333,20 +335,20 @@ pub fn player_robot_moveset() -> MovesetContract {
     // DOWN — `stabilizer_slam`. It drops its weight through its stabilizers
     // and the floor answers. Wide, flat, grounded-only, and slow enough that
     // whiffing it is the whole risk.
-    let down_b = strike(
-        "stabilizer_slam",
-        "attack_down",
-        0.14,
-        0.09,
-        0.30,
-        (0.0, 20.0),
-        (40.0, 12.0),
-        9,
-        90.0,
-        1.55,
-        Some((0.75, -0.62)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "stabilizer_slam",
+        clip: "attack_down",
+        startup_s: 0.14,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (0.0, 20.0),
+        half_extents: (40.0, 12.0),
+        damage: 9,
+        knockback: 90.0,
+        knockback_growth: 1.55,
+        launch_dir: Some((0.75, -0.62)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.14, "shockwave", (0.0, 20.0), 1.1);
     let down_b = sfx(down_b, 0.14, "player.land.heavy");
@@ -367,20 +369,20 @@ pub fn player_robot_moveset() -> MovesetContract {
     // DOWN, IN THE AIR — `stabilizer_dive`. The same stabilizers, with no
     // floor to put them through: it drives them downward and brings the floor
     // to them.
-    let mut air_down_b = strike(
-        "stabilizer_dive",
-        "air_down",
-        0.10,
-        0.10,
-        0.24,
-        (0.0, 24.0),
-        (20.0, 22.0),
-        9,
-        96.0,
-        1.72,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "stabilizer_dive",
+        clip: "air_down",
+        startup_s: 0.10,
+        active_s: 0.10,
+        recover_s: 0.24,
+        offset: (0.0, 24.0),
+        half_extents: (20.0, 22.0),
+        damage: 9,
+        knockback: 96.0,
+        knockback_growth: 1.72,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.30);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.10, "hit_metal", (0.0, 20.0), 0.9);

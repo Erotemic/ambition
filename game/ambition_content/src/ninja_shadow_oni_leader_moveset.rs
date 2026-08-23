@@ -5,6 +5,7 @@
 //! than adding teleport, clone, or smoke mechanics; those belong to abilities or
 //! techniques rather than hit definitions.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -25,50 +26,50 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // the fastest jab in the game, and the shortest. It answers a goblin's
     // jab and beats it — and if the goblin was not there, the oni is standing
     // still for a fifth of a second holding an empty hand.
-    let jab = strike(
-        "jab",
-        "jab",
-        0.03,
-        0.04,
-        0.20,
-        (24.0, 0.0),
-        (17.0, 13.0),
-        3,
-        50.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.03,
+        active_s: 0.04,
+        recover_s: 0.20,
+        offset: (24.0, 0.0),
+        half_extents: (17.0, 13.0),
+        damage: 3,
+        knockback: 50.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
 
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.05,
-        0.04,
-        0.24,
-        (10.0, -26.0),
-        (17.0, 20.0),
-        5,
-        72.0,
-        1.30,
-        Some((0.1, -1.0)),
-        None,
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack_up",
+        startup_s: 0.05,
+        active_s: 0.04,
+        recover_s: 0.24,
+        offset: (10.0, -26.0),
+        half_extents: (17.0, 20.0),
+        damage: 5,
+        knockback: 72.0,
+        knockback_growth: 1.30,
+        launch_dir: Some((0.1, -1.0)),
+        on_hit: None,
+    });
 
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.05,
-        0.04,
-        0.22,
-        (24.0, 13.0),
-        (19.0, 10.0),
-        4,
-        58.0,
-        1.18,
-        Some((1.0, -0.22)),
-        None,
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.05,
+        active_s: 0.04,
+        recover_s: 0.22,
+        offset: (24.0, 13.0),
+        half_extents: (19.0, 10.0),
+        damage: 4,
+        knockback: 58.0,
+        knockback_growth: 1.18,
+        launch_dir: Some((1.0, -0.22)),
+        on_hit: None,
+    });
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
@@ -76,129 +77,129 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // is the whole character in one pair of numbers. Everybody else's kill move
     // is slow to start; his is slow to *end*. A goblin that eats it was caught
     // reacting; a goblin that saw it coming gets 0.44s to answer.
-    let mut f_smash = strike(
-        "smash_forward",
-        "smash_forward",
-        0.20,
-        0.05,
-        0.44,
-        (36.0, -2.0),
-        (26.0, 19.0),
-        16,
-        150.0,
-        3.05,
-        Some((1.0, -0.42)),
-        None,
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "smash_forward",
+        startup_s: 0.20,
+        active_s: 0.05,
+        recover_s: 0.44,
+        offset: (36.0, -2.0),
+        half_extents: (26.0, 19.0),
+        damage: 16,
+        knockback: 150.0,
+        knockback_growth: 3.05,
+        launch_dir: Some((1.0, -0.42)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.7;
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.18,
-        0.05,
-        0.42,
-        (6.0, -32.0),
-        (22.0, 28.0),
-        15,
-        148.0,
-        2.90,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.18,
+        active_s: 0.05,
+        recover_s: 0.42,
+        offset: (6.0, -32.0),
+        half_extents: (22.0, 28.0),
+        damage: 15,
+        knockback: 148.0,
+        knockback_growth: 2.90,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
 
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.16,
-        0.06,
-        0.46,
-        (0.0, 15.0),
-        (34.0, 12.0),
-        13,
-        132.0,
-        2.70,
-        Some((0.95, -0.50)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.16,
+        active_s: 0.06,
+        recover_s: 0.46,
+        offset: (0.0, 15.0),
+        half_extents: (34.0, 12.0),
+        damage: 13,
+        knockback: 132.0,
+        knockback_growth: 2.70,
+        launch_dir: Some((0.95, -0.50)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.7;
 
     // ── aerials ──────────────────────────────────────────────────────────────
-    let n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.04,
-        0.06,
-        0.22,
-        (0.0, 0.0),
-        (23.0, 21.0),
-        5,
-        66.0,
-        1.28,
-        None,
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.04,
+        active_s: 0.06,
+        recover_s: 0.22,
+        offset: (0.0, 0.0),
+        half_extents: (23.0, 21.0),
+        damage: 5,
+        knockback: 66.0,
+        knockback_growth: 1.28,
+        launch_dir: None,
+        on_hit: None,
+    });
 
-    let f_air = strike(
-        "air_forward",
-        "air_forward",
-        0.06,
-        0.05,
-        0.24,
-        (28.0, -2.0),
-        (21.0, 17.0),
-        8,
-        98.0,
-        1.85,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "air_forward",
+        clip: "air_forward",
+        startup_s: 0.06,
+        active_s: 0.05,
+        recover_s: 0.24,
+        offset: (28.0, -2.0),
+        half_extents: (21.0, 17.0),
+        damage: 8,
+        knockback: 98.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
 
-    let b_air = strike(
-        "air_back",
-        "air_back",
-        0.07,
-        0.04,
-        0.28,
-        (-30.0, 0.0),
-        (21.0, 17.0),
-        11,
-        128.0,
-        2.45,
-        Some((-1.0, -0.36)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "air_back",
+        clip: "air_back",
+        startup_s: 0.07,
+        active_s: 0.04,
+        recover_s: 0.28,
+        offset: (-30.0, 0.0),
+        half_extents: (21.0, 17.0),
+        damage: 11,
+        knockback: 128.0,
+        knockback_growth: 2.45,
+        launch_dir: Some((-1.0, -0.36)),
+        on_hit: None,
+    });
 
-    let u_air = strike(
-        "air_up",
-        "air_up",
-        0.04,
-        0.05,
-        0.22,
-        (2.0, -28.0),
-        (19.0, 21.0),
-        6,
-        84.0,
-        1.75,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.04,
+        active_s: 0.05,
+        recover_s: 0.22,
+        offset: (2.0, -28.0),
+        half_extents: (19.0, 21.0),
+        damage: 6,
+        knockback: 84.0,
+        knockback_growth: 1.75,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
 
-    let d_air = strike(
-        "air_down",
-        "air_down",
-        0.08,
-        0.05,
-        0.30,
-        (5.0, 26.0),
-        (19.0, 19.0),
-        10,
-        118.0,
-        2.20,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "air_down",
+        clip: "air_down",
+        startup_s: 0.08,
+        active_s: 0.05,
+        recover_s: 0.30,
+        offset: (5.0, 26.0),
+        half_extents: (19.0, 19.0),
+        damage: 10,
+        knockback: 118.0,
+        knockback_growth: 2.20,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
 
     // special we want for oni and goblin … I think oni has a bunch of sfx and
     // vfx ready for it."* He does: fourteen authored rows on his own FX sheet,
@@ -210,38 +211,38 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
     // the forward tilt, which fell down the chain to the jab. `missed_
     // answer_cut` is the row for it: the answer that goes through where you were.
-    let f_tilt = strike(
-        "tilt_forward",
-        "attack_side",
-        0.04,
-        0.04,
-        0.22,
-        (30.0, -2.0),
-        (20.0, 13.0),
-        5,
-        66.0,
-        1.22,
-        Some((1.0, -0.28)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "attack_side",
+        startup_s: 0.04,
+        active_s: 0.04,
+        recover_s: 0.22,
+        offset: (30.0, -2.0),
+        half_extents: (20.0, 13.0),
+        damage: 5,
+        knockback: 66.0,
+        knockback_growth: 1.22,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.04, "missed_answer_cut", (30.0, -2.0), 0.9);
     let f_tilt = sfx(f_tilt, 0.04, "enemy.shadow_oni.slash");
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    let n_b = strike(
-        "shadow_answer",
-        "attack",
-        0.06,
-        0.04,
-        0.34,
-        (26.0, -4.0),
-        (26.0, 22.0),
-        12,
-        112.0,
-        2.05,
-        Some((0.9, -0.50)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "shadow_answer",
+        clip: "attack",
+        startup_s: 0.06,
+        active_s: 0.04,
+        recover_s: 0.34,
+        offset: (26.0, -4.0),
+        half_extents: (26.0, 22.0),
+        damage: 12,
+        knockback: 112.0,
+        knockback_growth: 2.05,
+        launch_dir: Some((0.9, -0.50)),
+        on_hit: None,
+    });
     let n_b = committed_tail(n_b, 0.62, 0.0);
     let n_b = vfx_at(n_b, 0.02, "oni_eye_flash", (0.0, -10.0), 0.8);
     let n_b = sfx(n_b, 0.02, "enemy.shadow_oni.alert");
@@ -252,20 +253,20 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // SIDE — `iaijutsu`. The draw and the cut are one motion, so the impulse
     // and the active window are the same instant. He crosses the distance
     // already having swung.
-    let side_b = strike(
-        "iaijutsu",
-        "attack_side",
-        0.05,
-        0.05,
-        0.30,
-        (34.0, 0.0),
-        (30.0, 16.0),
-        11,
-        106.0,
-        1.95,
-        Some((0.95, -0.35)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "iaijutsu",
+        clip: "attack_side",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.30,
+        offset: (34.0, 0.0),
+        half_extents: (30.0, 16.0),
+        damage: 11,
+        knockback: 106.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.95, -0.35)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.05, (700.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.58, 0.0);
     let side_b = vfx_at(side_b, 0.01, "silent_step", (0.0, 14.0), 0.8);
@@ -277,20 +278,20 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // cosmetic: with no special at all he had a double jump and nothing else.
     // He does not climb — he leaves, and arrives. the hit is on the ARRIVAL,
     // not the departure, so covering the spot he left is not a punish.
-    let mut up_b = strike(
-        "smoke_fold",
-        "attack_up",
-        0.05,
-        0.05,
-        0.26,
-        (0.0, -8.0),
-        (20.0, 30.0),
-        8,
-        84.0,
-        1.60,
-        Some((0.15, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "smoke_fold",
+        clip: "attack_up",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.26,
+        offset: (0.0, -8.0),
+        half_extents: (20.0, 30.0),
+        damage: 8,
+        knockback: 84.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.15, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.30);
     let up_b = impulse(up_b, 0.05, (0.0, -780.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.52, 0.0);
@@ -305,20 +306,20 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // instantly."* He plants a seal and the ring closes on it: no displacement,
     // no reach, and the longest tail he owns. The order is given; standing there
     // while it is obeyed is the cost.
-    let down_b = strike(
-        "command_seal",
-        "attack_down",
-        0.06,
-        0.05,
-        0.36,
-        (0.0, 6.0),
-        (38.0, 26.0),
-        10,
-        98.0,
-        1.75,
-        Some((0.65, -0.70)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "command_seal",
+        clip: "attack_down",
+        startup_s: 0.06,
+        active_s: 0.05,
+        recover_s: 0.36,
+        offset: (0.0, 6.0),
+        half_extents: (38.0, 26.0),
+        damage: 10,
+        knockback: 98.0,
+        knockback_growth: 1.75,
+        launch_dir: Some((0.65, -0.70)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.70, 0.0);
     let down_b = vfx_at(down_b, 0.0, "command_seal", (0.0, 10.0), 1.0);
     let down_b = sfx(down_b, 0.0, "enemy.shadow_oni.alert");
@@ -340,20 +341,20 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // DOWN, IN THE AIR — `falling_seal`. The order is given on the way
     // down. Same seal, no floor to plant it on, so it closes around him as he
     // drops — and he arrives with it.
-    let mut air_down_b = strike(
-        "falling_seal",
-        "air_down",
-        0.05,
-        0.05,
-        0.28,
-        (0.0, 22.0),
-        (24.0, 22.0),
-        9,
-        92.0,
-        1.70,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "falling_seal",
+        clip: "air_down",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.28,
+        offset: (0.0, 22.0),
+        half_extents: (24.0, 22.0),
+        damage: 9,
+        knockback: 92.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.28);
     let air_down_b = impulse(air_down_b, 0.05, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.0, "command_seal", (0.0, 0.0), 0.9);

@@ -6,6 +6,7 @@
 //! data. Authored `knockback_growth` uses absolute px/s per damage point; values
 //! here are chosen to match the stage's base-relative growth policy.
 
+use ambition_platformer2d::characters::moveset_authoring::Strike;
 use ambition_platformer2d::entity_catalog::{
     CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
     MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
@@ -35,20 +36,40 @@ pub(crate) fn airborne_only() -> MoveGates {
 /// Every move here is that shape, so the authored differences are the ones that
 /// MATTER — how long you are committed, how far it reaches, how hard it throws,
 /// and how much of the throw scales with the victim's damage.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn strike(
-    id: &str,
-    clip: &str,
-    startup_s: f32,
-    active_s: f32,
-    recover_s: f32,
-    offset: (f32, f32),
-    half_extents: (f32, f32),
-    damage: i32,
-    knockback: f32,
-    knockback_growth: f32,
-    launch_dir: Option<(f32, f32)>,
-) -> MoveSpec {
+/// ⚠ **THIS IS A FORK, and it takes the shared [`Strike`] record so the fork is
+/// visible at the type level rather than only in a queue row.** It differs from
+/// `ambition_characters::moveset_authoring::strike` in exactly two ways: the clip
+/// fallback chain below, and that it has no use for `on_hit`.
+///
+/// ⛔ `on_hit` is destructured and REFUSED rather than ignored. A dropped field
+/// is the silent kind of divergence; this one says so, and the assert is what a
+/// future author gets instead of a move whose landing effect vanished.
+///
+/// ⇒ the unification is a live queue item, and the only behavioural difference
+/// to settle is the fallback chain: this one is `["attack", "idle"]` and the
+/// shared one is `["attack_side", "attack", "slash", "idle"]`. For a sheet that
+/// has no `attack_side` — which is every robot-lineage sheet these fighters draw
+/// from — the two resolve identically.
+pub(crate) fn strike(spec: Strike<'_>) -> MoveSpec {
+    let Strike {
+        id,
+        clip,
+        startup_s,
+        active_s,
+        recover_s,
+        offset,
+        half_extents,
+        damage,
+        knockback,
+        knockback_growth,
+        launch_dir,
+        on_hit,
+    } = spec;
+    debug_assert!(
+        on_hit.is_none(),
+        "{id}: the demo's forked `strike` has no landing-effect road — author \
+         this move through `moveset_authoring::strike`, or unify the fork"
+    );
     let active_start = startup_s;
     let active_end = startup_s + active_s;
     MoveSpec {
@@ -311,54 +332,58 @@ pub fn fighter_moveset() -> MovesetContract {
     //
     // The jab is the fast, safe, boring one — it exists to be thrown at nothing
     // and get away with it, which is what makes the smash below a decision.
-    let mut jab = strike(
-        "jab",
-        "attack",
-        0.05,
-        0.06,
-        0.14,
-        (26.0, 0.0),
-        (18.0, 14.0),
-        3,
-        55.0,
-        1.10,
-        None,
-    );
+    let mut jab = strike(Strike {
+        id: "jab",
+        clip: "attack",
+        startup_s: 0.05,
+        active_s: 0.06,
+        recover_s: 0.14,
+        offset: (26.0, 0.0),
+        half_extents: (18.0, 14.0),
+        damage: 3,
+        knockback: 55.0,
+        knockback_growth: 1.10,
+        launch_dir: None,
+        on_hit: None,
+    });
     jab.gates = grounded_only();
     moves.push(jab);
 
-    let mut up_tilt = strike(
-        "tilt_up",
-        "attack",
-        0.07,
-        0.08,
-        0.18,
-        (10.0, -30.0),
-        (20.0, 22.0),
-        5,
-        70.0,
-        1.40,
-        // Straight up: an anti-air that starts a juggle rather than sending the
+    let mut up_tilt = strike(Strike {
+            id: "tilt_up",
+            clip: "attack",
+            startup_s: 0.07,
+            active_s: 0.08,
+            recover_s: 0.18,
+            offset: (10.0, -30.0),
+            half_extents: (20.0, 22.0),
+            damage: 5,
+            knockback: 70.0,
+            knockback_growth: 1.40,
+            // Straight up: an anti-air that starts a juggle rather than sending the
+            launch_dir:
         // opponent away.
         Some((0.15, -1.0)),
-    );
+            on_hit: None,
+        });
     up_tilt.gates = grounded_only();
     moves.push(up_tilt);
 
-    let mut down_tilt = strike(
-        "tilt_down",
-        "attack",
-        0.06,
-        0.06,
-        0.16,
-        (26.0, 16.0),
-        (20.0, 10.0),
-        4,
-        60.0,
-        1.20,
+    let mut down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.16,
+        offset: (26.0, 16.0),
+        half_extents: (20.0, 10.0),
+        damage: 4,
+        knockback: 60.0,
+        knockback_growth: 1.20,
         // A low poke that pops them up into the juggle.
-        Some((0.5, -0.85)),
-    );
+        launch_dir: Some((0.5, -0.85)),
+        on_hit: None,
+    });
     down_tilt.gates = grounded_only();
     moves.push(down_tilt);
 
@@ -369,21 +394,23 @@ pub fn fighter_moveset() -> MovesetContract {
     // the launch at the end of it: three times the jab's, growing with the
     // victim's percent, so at 120% it is the thing that ends the stock. The
     // charge multiplier is what a HELD press pays for.
-    let mut f_smash = strike(
-        "smash_forward",
-        "attack",
-        0.30,
-        0.07,
-        0.34,
-        (40.0, -4.0),
-        (28.0, 20.0),
-        15,
-        150.0,
-        3.00,
-        // Slightly upward and away: the classic kill angle. A contact-derived
+    let mut f_smash = strike(Strike {
+            id: "smash_forward",
+            clip: "attack",
+            startup_s: 0.30,
+            active_s: 0.07,
+            recover_s: 0.34,
+            offset: (40.0, -4.0),
+            half_extents: (28.0, 20.0),
+            damage: 15,
+            knockback: 150.0,
+            knockback_growth: 3.00,
+            // Slightly upward and away: the classic kill angle. A contact-derived
+            launch_dir:
         // direction would send a crouching opponent along the floor instead.
         Some((1.0, -0.42)),
-    );
+            on_hit: None,
+        });
     f_smash.gates = grounded_only();
     // A fully-held charge lands 1.7× as hard. `smash_charge_mult` scales damage
     // AND knockback by how far the owner's clock got through the leading
@@ -392,37 +419,39 @@ pub fn fighter_moveset() -> MovesetContract {
     f_smash.smash_charge_mult = 1.7;
     moves.push(f_smash);
 
-    let mut up_smash = strike(
-        "smash_up",
-        "attack",
-        0.26,
-        0.08,
-        0.32,
-        (8.0, -38.0),
-        (24.0, 30.0),
-        14,
-        140.0,
-        2.80,
-        Some((0.12, -1.0)),
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "attack",
+        startup_s: 0.26,
+        active_s: 0.08,
+        recover_s: 0.32,
+        offset: (8.0, -38.0),
+        half_extents: (24.0, 30.0),
+        damage: 14,
+        knockback: 140.0,
+        knockback_growth: 2.80,
+        launch_dir: Some((0.12, -1.0)),
+        on_hit: None,
+    });
     up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
     moves.push(up_smash);
 
-    let mut down_smash = strike(
-        "smash_down",
-        "attack",
-        0.22,
-        0.08,
-        0.30,
-        (0.0, 18.0),
-        (40.0, 14.0),
-        12,
-        130.0,
-        2.60,
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "attack",
+        startup_s: 0.22,
+        active_s: 0.08,
+        recover_s: 0.30,
+        offset: (0.0, 18.0),
+        half_extents: (40.0, 14.0),
+        damage: 12,
+        knockback: 130.0,
+        knockback_growth: 2.60,
         // Low and outward — the edge-guarding smash, not a launcher.
-        Some((1.0, -0.25)),
-    );
+        launch_dir: Some((1.0, -0.25)),
+        on_hit: None,
+    });
     down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.6;
     moves.push(down_smash);
@@ -432,95 +461,101 @@ pub fn fighter_moveset() -> MovesetContract {
     // landing lag and auto-cancel are what make an aerial a DECISION, and
     // both were engine features with no adopter. The pair reads: throw this one
     // early in a jump and land clean; throw it late and pay for it.
-    let mut n_air = strike(
-        "air_neutral",
-        "attack",
-        0.06,
-        0.14,
-        0.16,
-        (14.0, 0.0),
-        (26.0, 22.0),
-        6,
-        75.0,
-        1.50,
-        None,
-    );
+    let mut n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "attack",
+        startup_s: 0.06,
+        active_s: 0.14,
+        recover_s: 0.16,
+        offset: (14.0, 0.0),
+        half_extents: (26.0, 22.0),
+        damage: 6,
+        knockback: 75.0,
+        knockback_growth: 1.50,
+        launch_dir: None,
+        on_hit: None,
+    });
     n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.10);
     n_air.autocancel_after_s = Some(0.26);
     moves.push(n_air);
 
-    let mut f_air = strike(
-        "air_forward",
-        "attack",
-        0.09,
-        0.08,
-        0.22,
-        (32.0, -4.0),
-        (22.0, 18.0),
-        9,
-        105.0,
-        2.10,
-        Some((1.0, -0.35)),
-    );
+    let mut f_air = strike(Strike {
+        id: "air_forward",
+        clip: "attack",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.22,
+        offset: (32.0, -4.0),
+        half_extents: (22.0, 18.0),
+        damage: 9,
+        knockback: 105.0,
+        knockback_growth: 2.10,
+        launch_dir: Some((1.0, -0.35)),
+        on_hit: None,
+    });
     f_air.gates = airborne_only();
     f_air.landing_lag_s = Some(0.18);
     f_air.autocancel_after_s = Some(0.30);
     moves.push(f_air);
 
-    let mut b_air = strike(
-        "air_back",
-        "attack",
-        0.10,
-        0.07,
-        0.24,
-        (-32.0, -2.0),
-        (22.0, 18.0),
-        11,
-        125.0,
-        2.50,
-        // Backwards and slightly up: the strongest aerial, and the one you have
-        // to turn around for.
-        Some((-1.0, -0.38)),
-    );
+    let mut b_air = strike(Strike {
+        id: "air_back",
+        clip: "attack",
+        startup_s: 0.10,
+        active_s: 0.07,
+        recover_s: 0.24,
+        offset: (-32.0, -2.0),
+        half_extents: (22.0, 18.0),
+        damage: 11,
+        knockback: 125.0,
+        knockback_growth: 2.50,
+        // Backwards and slightly up: the strongest aerial, and the one you
+        // have to turn around for.
+        launch_dir: Some((-1.0, -0.38)),
+        on_hit: None,
+    });
     b_air.gates = airborne_only();
     b_air.landing_lag_s = Some(0.20);
     b_air.autocancel_after_s = Some(0.32);
     moves.push(b_air);
 
-    let mut u_air = strike(
-        "air_up",
-        "attack",
-        0.07,
-        0.09,
-        0.20,
-        (4.0, -34.0),
-        (22.0, 24.0),
-        7,
-        90.0,
-        1.80,
-        Some((0.1, -1.0)),
-    );
+    let mut u_air = strike(Strike {
+        id: "air_up",
+        clip: "attack",
+        startup_s: 0.07,
+        active_s: 0.09,
+        recover_s: 0.20,
+        offset: (4.0, -34.0),
+        half_extents: (22.0, 24.0),
+        damage: 7,
+        knockback: 90.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.1, -1.0)),
+        on_hit: None,
+    });
     u_air.gates = airborne_only();
     u_air.landing_lag_s = Some(0.14);
     u_air.autocancel_after_s = Some(0.28);
     moves.push(u_air);
 
-    let mut d_air = strike(
-        "air_down",
-        "attack",
-        0.12,
-        0.10,
-        0.26,
-        (6.0, 30.0),
-        (20.0, 22.0),
-        10,
-        110.0,
-        2.20,
-        // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
+    let mut d_air = strike(Strike {
+            id: "air_down",
+            clip: "attack",
+            startup_s: 0.12,
+            active_s: 0.10,
+            recover_s: 0.26,
+            offset: (6.0, 30.0),
+            half_extents: (20.0, 22.0),
+            damage: 10,
+            knockback: 110.0,
+            knockback_growth: 2.20,
+            // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
+            launch_dir:
         // bounce the opponent has to deal with.
         Some((0.0, 1.0)),
-    );
+            on_hit: None,
+        });
     d_air.gates = airborne_only();
     // The heaviest lag in the set: a missed spike over the stage should hurt.
     d_air.landing_lag_s = Some(0.28);
@@ -568,36 +603,52 @@ pub fn fighter_moveset() -> MovesetContract {
                 launch_dir: (0.9, -0.5),
             },
         ),
-        back_throw: Some(ambition_platformer2d::characters::smash_capture::author_throw(
-            ambition_platformer2d::characters::smash_capture::capture_beat("throw_back", "attack", 0.3),
-            0.17,
-            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
-                damage: 10,
-                knockback: 130.0,
-                knockback_growth: 2.21,
-                launch_dir: (-1.0, -0.31),
-            },
-        )),
-        up_throw: Some(ambition_platformer2d::characters::smash_capture::author_throw(
-            ambition_platformer2d::characters::smash_capture::capture_beat("throw_up", "attack", 0.29),
-            0.16,
-            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
-                damage: 9,
-                knockback: 125.0,
-                knockback_growth: 2.14,
-                launch_dir: (0.0, -1.0),
-            },
-        )),
-        down_throw: Some(ambition_platformer2d::characters::smash_capture::author_throw(
-            ambition_platformer2d::characters::smash_capture::capture_beat("throw_down", "attack", 0.31),
-            0.17,
-            ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
-                damage: 7,
-                knockback: 89.0,
-                knockback_growth: 1.68,
-                launch_dir: (0.36, -0.92),
-            },
-        )),
+        back_throw: Some(
+            ambition_platformer2d::characters::smash_capture::author_throw(
+                ambition_platformer2d::characters::smash_capture::capture_beat(
+                    "throw_back",
+                    "attack",
+                    0.3,
+                ),
+                0.17,
+                ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                    damage: 10,
+                    knockback: 130.0,
+                    knockback_growth: 2.21,
+                    launch_dir: (-1.0, -0.31),
+                },
+            ),
+        ),
+        up_throw: Some(
+            ambition_platformer2d::characters::smash_capture::author_throw(
+                ambition_platformer2d::characters::smash_capture::capture_beat(
+                    "throw_up", "attack", 0.29,
+                ),
+                0.16,
+                ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                    damage: 9,
+                    knockback: 125.0,
+                    knockback_growth: 2.14,
+                    launch_dir: (0.0, -1.0),
+                },
+            ),
+        ),
+        down_throw: Some(
+            ambition_platformer2d::characters::smash_capture::author_throw(
+                ambition_platformer2d::characters::smash_capture::capture_beat(
+                    "throw_down",
+                    "attack",
+                    0.31,
+                ),
+                0.17,
+                ambition_platformer2d::characters::smash_capture::CaptureThrowParams {
+                    damage: 7,
+                    knockback: 89.0,
+                    knockback_growth: 1.68,
+                    launch_dir: (0.36, -0.92),
+                },
+            ),
+        ),
     };
     let capture_verbs: Vec<(String, String)> = capture
         .bound()

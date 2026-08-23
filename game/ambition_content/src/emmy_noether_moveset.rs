@@ -6,6 +6,7 @@
 //! cue name; rows whose audio cue uses a `.loop` suffix specify it explicitly with
 //! `vfx_cued`.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
@@ -132,58 +133,58 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 
     // Five damage held out for nearly a fifth of a second: the cheap end of the
     // curve, and the easiest thing she has to land.
-    let jab = strike(
-        "jab",
-        "jab",
-        0.05,
-        0.18,
-        0.14,
-        (26.0, -6.0),
-        (16.0, 13.0),
-        5,
-        44.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.05,
+        active_s: 0.18,
+        recover_s: 0.14,
+        offset: (26.0, -6.0),
+        half_extents: (16.0, 13.0),
+        damage: 5,
+        knockback: 44.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = strike_tag(jab, SLASH_POKE_VFX);
     let jab = vfx_at(jab, 0.05, "generator_steps", (26.0, -6.0), POKE_FX);
 
     // The committed swing the blueprint calls *"her fastest way to say no"*.
     // Nine damage buys a tenth of a second.
-    let mut f_tilt = strike(
-        "tilt_forward",
-        "generator_strike",
-        0.10,
-        0.10,
-        0.20,
-        (32.0, -4.0),
-        (22.0, 16.0),
-        9,
-        76.0,
-        1.55,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let mut f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "generator_strike",
+        startup_s: 0.10,
+        active_s: 0.10,
+        recover_s: 0.20,
+        offset: (32.0, -4.0),
+        half_extents: (22.0, 16.0),
+        damage: 9,
+        knockback: 76.0,
+        knockback_growth: 1.55,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     f_tilt.start_impulse = Some((130.0, 0.0));
     let f_tilt = vfx_at(f_tilt, 0.10, "generator_steps", (32.0, -4.0), SWING_FX);
     let f_tilt = vfx_at(f_tilt, 0.13, "symmetry_axis_snap", (32.0, -4.0), POKE_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.09,
-        0.15,
-        0.18,
-        (6.0, -26.0),
-        (17.0, 23.0),
-        6,
-        70.0,
-        1.50,
-        Some((0.1, -1.0)),
-        None,
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.15,
+        recover_s: 0.18,
+        offset: (6.0, -26.0),
+        half_extents: (17.0, 23.0),
+        damage: 6,
+        knockback: 70.0,
+        knockback_growth: 1.50,
+        launch_dir: Some((0.1, -1.0)),
+        on_hit: None,
+    });
     let up_tilt = vfx_cued(
         up_tilt,
         0.09,
@@ -194,20 +195,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let up_tilt = on_contact(up_tilt, "player.hit");
 
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.08,
-        0.15,
-        0.18,
-        (24.0, 15.0),
-        (22.0, 11.0),
-        6,
-        66.0,
-        1.45,
-        Some((0.9, -0.35)),
-        None,
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.08,
+        active_s: 0.15,
+        recover_s: 0.18,
+        offset: (24.0, 15.0),
+        half_extents: (22.0, 11.0),
+        damage: 6,
+        knockback: 66.0,
+        knockback_growth: 1.45,
+        launch_dir: Some((0.9, -0.35)),
+        on_hit: None,
+    });
     let down_tilt = vfx_cued(
         down_tilt,
         0.08,
@@ -223,20 +224,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // The launcher. Fifteen damage for six hundredths of a second — the
     // narrowest window any authored fighter here asks a player to hit, and the
     // only move of hers that grows like a kill move.
-    let mut f_smash = strike(
-        "smash_forward",
-        "symmetry_break",
-        0.20,
-        0.06,
-        0.34,
-        (36.0, -8.0),
-        (26.0, 22.0),
-        15,
-        124.0,
-        BREAK_GROWTH,
-        Some((1.0, -0.55)),
-        None,
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "symmetry_break",
+        startup_s: 0.20,
+        active_s: 0.06,
+        recover_s: 0.34,
+        offset: (36.0, -8.0),
+        half_extents: (26.0, 22.0),
+        damage: 15,
+        knockback: 124.0,
+        knockback_growth: BREAK_GROWTH,
+        launch_dir: Some((1.0, -0.55)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.85;
     let f_smash = strike_tag(f_smash, SLASH_ARC_VFX);
     // The tell sits on HER, not on the box — it is the wind-up, and the box
@@ -251,20 +252,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     );
     let f_smash = on_contact(f_smash, "player.hit");
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.17,
-        0.075,
-        0.30,
-        (2.0, -34.0),
-        (20.0, 28.0),
-        12,
-        112.0,
-        ORDINARY_GROWTH,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.17,
+        active_s: 0.075,
+        recover_s: 0.30,
+        offset: (2.0, -34.0),
+        half_extents: (20.0, 28.0),
+        damage: 12,
+        knockback: 112.0,
+        knockback_growth: ORDINARY_GROWTH,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.70;
     let up_smash = vfx_cued(
         up_smash,
@@ -278,20 +279,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 
     // the down smash is the up smash REFLECTED: same damage, same window, same
     // growth, opposite launch. Her table is meant to look like this.
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.17,
-        0.075,
-        0.30,
-        (0.0, 20.0),
-        (34.0, 14.0),
-        12,
-        112.0,
-        ORDINARY_GROWTH,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.17,
+        active_s: 0.075,
+        recover_s: 0.30,
+        offset: (0.0, 20.0),
+        half_extents: (34.0, 14.0),
+        damage: 12,
+        knockback: 112.0,
+        knockback_growth: ORDINARY_GROWTH,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.70;
     let down_smash = vfx_cued(
         down_smash,
@@ -305,20 +306,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 
     // ── the air game ─────────────────────────────────────────────────────────
 
-    let mut n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.08,
-        0.11,
-        0.20,
-        (0.0, -6.0),
-        (26.0, 24.0),
-        8,
-        78.0,
-        1.60,
-        Some((0.5, -0.75)),
-        None,
-    );
+    let mut n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.08,
+        active_s: 0.11,
+        recover_s: 0.20,
+        offset: (0.0, -6.0),
+        half_extents: (26.0, 24.0),
+        damage: 8,
+        knockback: 78.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.5, -0.75)),
+        on_hit: None,
+    });
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.30);
     let n_air = vfx_cued(
@@ -337,20 +338,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         ("air_back", "air_back", -1.0_f32),
     ]
     .map(|(id, clip, dir_x)| {
-        let mut aerial = strike(
-            id,
-            clip,
-            0.10,
-            0.10,
-            0.22,
-            (28.0 * dir_x, -4.0),
-            (22.0, 18.0),
-            9,
-            84.0,
-            1.70,
-            Some((dir_x, -0.45)),
-            None,
-        );
+        let mut aerial = strike(Strike {
+            id: id,
+            clip: clip,
+            startup_s: 0.10,
+            active_s: 0.10,
+            recover_s: 0.22,
+            offset: (28.0 * dir_x, -4.0),
+            half_extents: (22.0, 18.0),
+            damage: 9,
+            knockback: 84.0,
+            knockback_growth: 1.70,
+            launch_dir: Some((dir_x, -0.45)),
+            on_hit: None,
+        });
         aerial.landing_lag_s = Some(0.18);
         aerial.autocancel_after_s = Some(0.32);
         let aerial = vfx_cued(
@@ -364,40 +365,40 @@ pub fn emmy_noether_moveset() -> MovesetContract {
         on_contact(aerial, "player.hit")
     });
 
-    let mut up_air = strike(
-        "air_up",
-        "air_up",
-        0.08,
-        0.15,
-        0.19,
-        (2.0, -28.0),
-        (18.0, 24.0),
-        6,
-        72.0,
-        1.55,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.08,
+        active_s: 0.15,
+        recover_s: 0.19,
+        offset: (2.0, -28.0),
+        half_extents: (18.0, 24.0),
+        damage: 6,
+        knockback: 72.0,
+        knockback_growth: 1.55,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_air.landing_lag_s = Some(0.14);
     up_air.autocancel_after_s = Some(0.28);
     let up_air = vfx_at(up_air, 0.08, "equivalence_bridge", (2.0, -28.0), SWING_FX);
     let up_air = on_contact(up_air, "player.hit");
 
     // The spike. Ten damage buys the second-narrowest window she has.
-    let mut d_air = strike(
-        "air_down",
-        "air_down",
-        0.12,
-        0.09,
-        0.24,
-        (0.0, 24.0),
-        (18.0, 26.0),
-        10,
-        96.0,
-        1.80,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut d_air = strike(Strike {
+        id: "air_down",
+        clip: "air_down",
+        startup_s: 0.12,
+        active_s: 0.09,
+        recover_s: 0.24,
+        offset: (0.0, 24.0),
+        half_extents: (18.0, 26.0),
+        damage: 10,
+        knockback: 96.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     d_air.landing_lag_s = Some(0.26);
     d_air.autocancel_after_s = Some(0.34);
     let d_air = vfx_at(d_air, 0.12, "ether_cancel", (0.0, 24.0), SWING_FX);
@@ -412,24 +413,25 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // not the counter the sheet's blueprint imagined — `MoveSpec` has no
     // absorb or reflect, and inventing one for one character would be the wrong
     // shape. See the module doc.
-    let n_b = strike(
-        "conservation_law",
-        "conservation_law",
-        0.16,
-        0.10,
-        // long enough to CONTAIN the two further terms below (they end at
+    let n_b = strike(Strike {
+            id: "conservation_law",
+            clip: "conservation_law",
+            startup_s: 0.16,
+            active_s: 0.10,
+            // long enough to CONTAIN the two further terms below (they end at
+            recover_s:
         // 0.66) — the builder's own `debug_assert` caught this at 0.34 and it is
         // the reason the assert is there: windows pushed after construction do
         // not extend the move.
         0.44,
-        (0.0, 18.0),
-        (34.0, 20.0),
-        3,
-        58.0,
-        1.35,
-        Some((0.2, -0.9)),
-        None,
-    );
+            offset: (0.0, 18.0),
+            half_extents: (34.0, 20.0),
+            damage: 3,
+            knockback: 58.0,
+            knockback_growth: 1.35,
+            launch_dir: Some((0.2, -0.9)),
+            on_hit: None,
+        });
     let mut n_b = strike_tag(n_b, SLASH_POKE_VFX);
     // Even gaps, identical terms — the invariant holding, three times.
     n_b.windows.push(field_term(0.36, 0.46));
@@ -466,20 +468,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // conceding the neutral"*. Every other displacing special in this repo
     // commits you to the direction you are moving; this one buys distance and
     // keeps the threat pointed where it was.
-    let side_b = strike(
-        "symmetry_shift",
-        "symmetry_shift",
-        0.14,
-        0.225,
-        0.28,
-        (18.0, -2.0),
-        (24.0, 20.0),
-        4,
-        62.0,
-        1.40,
-        Some((-0.6, -0.55)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "symmetry_shift",
+        clip: "symmetry_shift",
+        startup_s: 0.14,
+        active_s: 0.225,
+        recover_s: 0.28,
+        offset: (18.0, -2.0),
+        half_extents: (24.0, 20.0),
+        damage: 4,
+        knockback: 62.0,
+        knockback_growth: 1.40,
+        launch_dir: Some((-0.6, -0.55)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.14, (-640.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.62, 0.55);
     let side_b = vfx_at(side_b, 0.14, "equivalence_bridge", (18.0, -2.0), SWING_FX);
@@ -571,20 +573,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
 
     // DOWN — `invariant_field`. A low, wide field that denies the ground in
     // front of her. The widest box in the table and the cheapest damage on it.
-    let down_b = strike(
-        "invariant_field",
-        "invariant_field",
-        0.14,
-        0.15,
-        0.30,
-        (14.0, 20.0),
-        (40.0, 13.0),
-        6,
-        74.0,
-        1.50,
-        Some((0.8, -0.5)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "invariant_field",
+        clip: "invariant_field",
+        startup_s: 0.14,
+        active_s: 0.15,
+        recover_s: 0.30,
+        offset: (14.0, 20.0),
+        half_extents: (40.0, 13.0),
+        damage: 6,
+        knockback: 74.0,
+        knockback_growth: 1.50,
+        launch_dir: Some((0.8, -0.5)),
+        on_hit: None,
+    });
     let down_b = vfx_cued(
         down_b,
         0.14,
@@ -616,20 +618,20 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // the two-form move it exists for.
     // DOWN, IN THE AIR. The grounded form needs a floor; this one brings
     // the symmetry down with her.
-    let mut air_down_b = strike(
-        "falling_invariant",
-        "air_down",
-        0.10,
-        0.09,
-        0.24,
-        (0.0, 23.0),
-        (21.0, 21.0),
-        10,
-        98.0,
-        1.74,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "falling_invariant",
+        clip: "air_down",
+        startup_s: 0.10,
+        active_s: 0.09,
+        recover_s: 0.24,
+        offset: (0.0, 23.0),
+        half_extents: (21.0, 21.0),
+        damage: 10,
+        knockback: 98.0,
+        knockback_growth: 1.74,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.28);
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1200.0), ImpulseMode::Set);
     // this table's own rule: every burst is heard. The conserved current comes

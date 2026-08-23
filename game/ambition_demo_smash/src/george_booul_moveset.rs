@@ -6,6 +6,7 @@
 //! George's table; stand-in robot fighters continue to use their provider-owned
 //! repertoires.
 
+use ambition_platformer2d::characters::moveset_authoring::Strike;
 use ambition_platformer2d::characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire,
 };
@@ -46,19 +47,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // Everything George owns that comes out quickly is also nearly harmless. He
     // is not paid for these; they exist so that "not committing" is a legal
     // move rather than standing still.
-    let jab = strike(
-        "jab",
-        "attack",
-        0.05,
-        0.05,
-        0.15,
-        (26.0, 0.0),
-        (18.0, 14.0),
-        3,
-        50.0,
-        1.05,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "attack",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.15,
+        offset: (26.0, 0.0),
+        half_extents: (18.0, 14.0),
+        damage: 3,
+        knockback: 50.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     // THE ONE ROUTE ACROSS THE GAP, AND IT ONLY OPENS ON CONTACT.
     //
     // George's whole problem is that he has three fast options worth nothing and
@@ -79,36 +81,38 @@ pub fn george_booul_moveset() -> MovesetContract {
     );
     let jab = feel(jab, Feel::Poke);
 
-    let mut n_air = strike(
-        "air_neutral",
-        "attack",
-        0.06,
-        0.12,
-        0.18,
-        (0.0, 0.0),
-        (26.0, 24.0),
-        4,
-        65.0,
-        1.20,
-        None,
-    );
+    let mut n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "attack",
+        startup_s: 0.06,
+        active_s: 0.12,
+        recover_s: 0.18,
+        offset: (0.0, 0.0),
+        half_extents: (26.0, 24.0),
+        damage: 4,
+        knockback: 65.0,
+        knockback_growth: 1.20,
+        launch_dir: None,
+        on_hit: None,
+    });
     n_air.landing_lag_s = Some(0.16);
     n_air.autocancel_after_s = Some(0.24);
     let n_air = feel(n_air, Feel::Poke);
 
-    let mut u_air = strike(
-        "air_up",
-        "attack",
-        0.07,
-        0.09,
-        0.19,
-        (2.0, -32.0),
-        (20.0, 24.0),
-        4,
-        70.0,
-        1.35,
-        Some((0.0, -1.0)),
-    );
+    let mut u_air = strike(Strike {
+        id: "air_up",
+        clip: "attack",
+        startup_s: 0.07,
+        active_s: 0.09,
+        recover_s: 0.19,
+        offset: (2.0, -32.0),
+        half_extents: (20.0, 24.0),
+        damage: 4,
+        knockback: 70.0,
+        knockback_growth: 1.35,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     u_air.landing_lag_s = Some(0.16);
     u_air.autocancel_after_s = Some(0.26);
     let u_air = feel(u_air, Feel::Launcher);
@@ -120,34 +124,36 @@ pub fn george_booul_moveset() -> MovesetContract {
     // you do not want to decide. George does not have one. His up-tilt starts
     // more than twice as late as the shared table's and hits more than twice as
     // hard, which is the same trade every one of his slow moves makes.
-    let up_tilt = strike(
-        "tilt_up",
-        "attack",
-        0.16,
-        0.09,
-        0.26,
-        (10.0, -30.0),
-        (24.0, 28.0),
-        11,
-        130.0,
-        2.20,
-        Some((0.1, -1.0)),
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack",
+        startup_s: 0.16,
+        active_s: 0.09,
+        recover_s: 0.26,
+        offset: (10.0, -30.0),
+        half_extents: (24.0, 28.0),
+        damage: 11,
+        knockback: 130.0,
+        knockback_growth: 2.20,
+        launch_dir: Some((0.1, -1.0)),
+        on_hit: None,
+    });
     let up_tilt = feel(up_tilt, Feel::Launcher);
 
-    let down_tilt = strike(
-        "tilt_down",
-        "attack",
-        0.17,
-        0.08,
-        0.28,
-        (30.0, 14.0),
-        (26.0, 11.0),
-        11,
-        135.0,
-        2.30,
-        Some((1.0, -0.20)),
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack",
+        startup_s: 0.17,
+        active_s: 0.08,
+        recover_s: 0.28,
+        offset: (30.0, 14.0),
+        half_extents: (26.0, 11.0),
+        damage: 11,
+        knockback: 135.0,
+        knockback_growth: 2.30,
+        launch_dir: Some((1.0, -0.20)),
+        on_hit: None,
+    });
     let down_tilt = feel(down_tilt, Feel::Launcher);
 
     // ── the smashes ──────────────────────────────────────────────────────────
@@ -156,51 +162,54 @@ pub fn george_booul_moveset() -> MovesetContract {
     // survives longest. That is deliberate and it is the risk: a heavyweight
     // who also lands the biggest hits is only fair because he can never throw
     // one without being seen doing it.
-    let mut f_smash = strike(
-        "smash_forward",
-        "attack",
-        0.40,
-        0.08,
-        0.46,
-        (46.0, -4.0),
-        (32.0, 24.0),
-        21,
-        185.0,
-        3.45,
-        Some((1.0, -0.44)),
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "attack",
+        startup_s: 0.40,
+        active_s: 0.08,
+        recover_s: 0.46,
+        offset: (46.0, -4.0),
+        half_extents: (32.0, 24.0),
+        damage: 21,
+        knockback: 185.0,
+        knockback_growth: 3.45,
+        launch_dir: Some((1.0, -0.44)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.7;
     let f_smash = feel(f_smash, Feel::Heavy);
 
-    let mut up_smash = strike(
-        "smash_up",
-        "attack",
-        0.36,
-        0.10,
-        0.42,
-        (6.0, -38.0),
-        (26.0, 34.0),
-        19,
-        178.0,
-        3.30,
-        Some((0.0, -1.0)),
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "attack",
+        startup_s: 0.36,
+        active_s: 0.10,
+        recover_s: 0.42,
+        offset: (6.0, -38.0),
+        half_extents: (26.0, 34.0),
+        damage: 19,
+        knockback: 178.0,
+        knockback_growth: 3.30,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
     let up_smash = feel(up_smash, Feel::Heavy);
 
-    let mut down_smash = strike(
-        "smash_down",
-        "attack",
-        0.34,
-        0.11,
-        0.44,
-        (0.0, 16.0),
-        (44.0, 13.0),
-        17,
-        165.0,
-        3.05,
-        Some((0.95, -0.45)),
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "attack",
+        startup_s: 0.34,
+        active_s: 0.11,
+        recover_s: 0.44,
+        offset: (0.0, 16.0),
+        half_extents: (44.0, 13.0),
+        damage: 17,
+        knockback: 165.0,
+        knockback_growth: 3.05,
+        launch_dir: Some((0.95, -0.45)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.7;
     let down_smash = feel(down_smash, Feel::Heavy);
 
@@ -209,36 +218,38 @@ pub fn george_booul_moveset() -> MovesetContract {
     // Three of his five aerials are on the slow side of the gap, with landing
     // lag to match. Jumping is not an escape for this body; it is another
     // decision.
-    let mut f_air = strike(
-        "air_forward",
-        "attack",
-        0.18,
-        0.09,
-        0.28,
-        (34.0, -2.0),
-        (26.0, 20.0),
-        12,
-        140.0,
-        2.35,
-        Some((1.0, -0.30)),
-    );
+    let mut f_air = strike(Strike {
+        id: "air_forward",
+        clip: "attack",
+        startup_s: 0.18,
+        active_s: 0.09,
+        recover_s: 0.28,
+        offset: (34.0, -2.0),
+        half_extents: (26.0, 20.0),
+        damage: 12,
+        knockback: 140.0,
+        knockback_growth: 2.35,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     f_air.landing_lag_s = Some(0.24);
     f_air.autocancel_after_s = Some(0.34);
     let f_air = feel(f_air, Feel::Poke);
 
-    let mut b_air = strike(
-        "air_back",
-        "attack",
-        0.20,
-        0.08,
-        0.30,
-        (-36.0, 0.0),
-        (26.0, 20.0),
-        14,
-        155.0,
-        2.75,
-        Some((-1.0, -0.36)),
-    );
+    let mut b_air = strike(Strike {
+        id: "air_back",
+        clip: "attack",
+        startup_s: 0.20,
+        active_s: 0.08,
+        recover_s: 0.30,
+        offset: (-36.0, 0.0),
+        half_extents: (26.0, 20.0),
+        damage: 14,
+        knockback: 155.0,
+        knockback_growth: 2.75,
+        launch_dir: Some((-1.0, -0.36)),
+        on_hit: None,
+    });
     b_air.landing_lag_s = Some(0.26);
     b_air.autocancel_after_s = Some(0.36);
     let b_air = feel(b_air, Feel::Heavy);
@@ -246,19 +257,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // The heaviest landing lag on the grid. A missed spike over the stage is a
     // free smash for whoever is standing under it — which, for a fighter whose
     // whole table is commitments, is the correct punishment.
-    let mut d_air = strike(
-        "air_down",
-        "attack",
-        0.22,
-        0.09,
-        0.32,
-        (6.0, 32.0),
-        (22.0, 22.0),
-        15,
-        150.0,
-        2.55,
-        Some((0.0, 1.0)),
-    );
+    let mut d_air = strike(Strike {
+        id: "air_down",
+        clip: "attack",
+        startup_s: 0.22,
+        active_s: 0.09,
+        recover_s: 0.32,
+        offset: (6.0, 32.0),
+        half_extents: (22.0, 22.0),
+        damage: 15,
+        knockback: 150.0,
+        knockback_growth: 2.55,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     d_air.landing_lag_s = Some(0.34);
     d_air.autocancel_after_s = Some(0.44);
     let d_air = feel(d_air, Feel::Dive);
@@ -269,19 +281,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // the most common input in the genre reached the weakest move in the table
     // and George's ground game was "poke, or spend forty frames". A stride into a
     // shoulder: the tilt that is still a commitment, because that is who he is.
-    let mut f_tilt = strike(
-        "tilt_forward",
-        "attack",
-        0.18,
-        0.08,
-        0.27,
-        (36.0, -2.0),
-        (28.0, 18.0),
-        12,
-        140.0,
-        2.80,
-        Some((1.0, -0.28)),
-    );
+    let mut f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "attack",
+        startup_s: 0.18,
+        active_s: 0.08,
+        recover_s: 0.27,
+        offset: (36.0, -2.0),
+        half_extents: (28.0, 18.0),
+        damage: 12,
+        knockback: 140.0,
+        knockback_growth: 2.80,
+        launch_dir: Some((1.0, -0.28)),
+        on_hit: None,
+    });
     // A short stride, ADDITIVE: it contributes to whatever run George brought
     // into it, so the same move covers more ground out of a dash. This is
     // `start_impulse`'s meaning and the right one here — nothing about a shoulder
@@ -303,19 +316,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // charges is a coin flip about which half you eat, and the answer is when you
     // chose to be there. The lingering second window is what a "commitment" is
     // supposed to buy.
-    let mut bivalence = strike(
-        "bivalence",
-        "special",
-        0.30,
-        0.07,
-        0.34,
-        (0.0, -6.0),
-        (36.0, 30.0),
-        7,
-        100.0,
-        2.00,
-        Some((0.2, -1.0)),
-    );
+    let mut bivalence = strike(Strike {
+        id: "bivalence",
+        clip: "special",
+        startup_s: 0.30,
+        active_s: 0.07,
+        recover_s: 0.34,
+        offset: (0.0, -6.0),
+        half_extents: (36.0, 30.0),
+        damage: 7,
+        knockback: 100.0,
+        knockback_growth: 2.00,
+        launch_dir: Some((0.2, -1.0)),
+        on_hit: None,
+    });
     bivalence.smash_charge_mult = 1.6;
     // The second half, authored as a window rather than a second move: same
     // press, same clock, harder answer.
@@ -353,19 +367,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // steered out of. Thrown offstage it is a real horizontal recovery — and a
     // real way to die, because it also erases the fall you might have drifted
     // out of.
-    let side_b = strike(
-        "modus_ponens",
-        "special",
-        0.20,
-        0.12,
-        0.30,
-        (40.0, 0.0),
-        (30.0, 20.0),
-        14,
-        160.0,
-        3.20,
-        Some((1.0, -0.30)),
-    );
+    let side_b = strike(Strike {
+        id: "modus_ponens",
+        clip: "special",
+        startup_s: 0.20,
+        active_s: 0.12,
+        recover_s: 0.30,
+        offset: (40.0, 0.0),
+        half_extents: (30.0, 20.0),
+        damage: 14,
+        knockback: 160.0,
+        knockback_growth: 3.20,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     // so the zero stays as a CONTENT decision, not an engine one. George's
     // side special is a horizontal body-check and George's way home is his Up-B;
     // giving this move an arbitrary hop would be tuning it to please a reader.
@@ -404,19 +419,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     //
     // The hit is deliberately weak: this is a way home that happens to be
     // dangerous to stand under, not a kill move with a rise attached.
-    let mut up_b = strike(
-        "excluded_middle",
-        "special",
-        ASCENT_AT_S,
-        0.14,
-        0.16,
-        (2.0, -30.0),
-        (24.0, 34.0),
-        6,
-        95.0,
-        1.90,
-        Some((0.05, -1.0)),
-    );
+    let mut up_b = strike(Strike {
+        id: "excluded_middle",
+        clip: "special",
+        startup_s: ASCENT_AT_S,
+        active_s: 0.14,
+        recover_s: 0.16,
+        offset: (2.0, -30.0),
+        half_extents: (24.0, 34.0),
+        damage: 6,
+        knockback: 95.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((0.05, -1.0)),
+        on_hit: None,
+    });
     // Landing out of the ascent costs — the other half of "a recovery is a
     // commitment". Onstage this makes it a bad panic button; offstage it is
     // irrelevant, which is exactly the right shape.
@@ -432,19 +448,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // is thrown back up by his own landing, which is the one thing in this table
     // that can happen twice in a row. Offstage it is a stock — for whoever is
     // wrong about who is above whom.
-    let mut down_b = strike(
-        "reductio",
-        "special",
-        0.16,
-        0.24,
-        0.20,
-        (4.0, 30.0),
-        (24.0, 26.0),
-        16,
-        150.0,
-        3.00,
-        Some((0.0, 1.0)),
-    );
+    let mut down_b = strike(Strike {
+        id: "reductio",
+        clip: "special",
+        startup_s: 0.16,
+        active_s: 0.24,
+        recover_s: 0.20,
+        offset: (4.0, 30.0),
+        half_extents: (24.0, 26.0),
+        damage: 16,
+        knockback: 150.0,
+        knockback_growth: 3.00,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     down_b.landing_lag_s = Some(0.36);
     let down_b = impulse(down_b, 0.16, (0.0, 1500.0), ImpulseMode::Set);
     let down_b = on_hit(
@@ -463,19 +480,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     // first: a short arc up, and then the same contradiction, derived on the way
     // down. the plunge impulse and the active window are `reductio`'s numbers
     // — this is the same argument with a premise added, not a second move.
-    let ground_down_b = strike(
-        "reductio_ad_absurdum",
-        "special",
-        0.34,
-        0.24,
-        0.22,
-        (4.0, 30.0),
-        (24.0, 26.0),
-        16,
-        150.0,
-        3.00,
-        Some((0.0, 1.0)),
-    );
+    let ground_down_b = strike(Strike {
+        id: "reductio_ad_absurdum",
+        clip: "special",
+        startup_s: 0.34,
+        active_s: 0.24,
+        recover_s: 0.22,
+        offset: (4.0, 30.0),
+        half_extents: (24.0, 26.0),
+        damage: 16,
+        knockback: 150.0,
+        knockback_growth: 3.00,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     // THE ARC IS AN `Add`, AND THE UP-B'S POISON IS WHY. `strike`'s
     // frame data derives `lift_speed` from `Set` impulses only — *"an `Add`
     // states no speed, so no static reader may claim one for it"* — and

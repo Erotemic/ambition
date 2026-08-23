@@ -244,25 +244,25 @@ pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32
     //  the impulse is FORWARD and lands at the swing, so the move carries the
     // dash's own momentum rather than stopping the body to hit.
     impulse(
-        strike(
+        strike(Strike {
             id,
-            "dash_attack",
-            shape.startup_s,
-            shape.active_s,
-            shape.recover_s,
+            clip: "dash_attack",
+            startup_s: shape.startup_s,
+            active_s: shape.active_s,
+            recover_s: shape.recover_s,
             //  `reach_px` IS what `reach_of` measures — offset plus
             // half-extent, not the offset alone. A fighter whose tests pin a
             // reach (Carl's `NEAREST_REACH`) has to be able to say the number
             // its own doc says, and a helper that meant something else by the
             // same word made that impossible to write down.
-            (shape.reach_px * 0.6, -2.0),
-            (shape.reach_px * 0.4, 20.0),
+            offset: (shape.reach_px * 0.6, -2.0),
+            half_extents: (shape.reach_px * 0.4, 20.0),
             damage,
             knockback,
-            1.5,
-            Some((0.92, -0.39)),
-            None,
-        ),
+            knockback_growth: 1.5,
+            launch_dir: Some((0.92, -0.39)),
+            on_hit: None,
+        }),
         shape.startup_s,
         (260.0, 0.0),
         ImpulseMode::Add,
@@ -303,24 +303,90 @@ impl DashAttackShape {
     };
 }
 
-pub fn strike(
-    id: &str,
-    clip: &str,
-    startup_s: f32,
-    active_s: f32,
-    recover_s: f32,
-    offset: (f32, f32),
-    half_extents: (f32, f32),
-    damage: i32,
-    knockback: f32,
-    knockback_growth: f32,
-    launch_dir: Option<(f32, f32)>,
-    // What LANDING this hit can do beyond damage. Today exactly one move
-    // uses it: the down-air says it is capable of rebounding its attacker, and
-    // the RULESET (`DeclaredCombatRules::downward_hit`) decides whether this
-    // game takes it up on that or reads the swing as a spike instead.
-    on_hit: Option<EffectRef>,
-) -> MoveSpec {
+/// ONE STRIKE, AS VALUES — the shape 294 of this repertoire's moves already had.
+///
+/// ⛔⛔ **NAMED FIELDS, and that is the point of the type.** This was twelve
+/// POSITIONAL arguments; Alice's jab read `"challenge", "jab", 0.05, 0.05,
+/// 0.13, (24.0, 0.0), (17.0, 13.0), 3, 48.0, 1.05, None, None`. Three of those
+/// numbers are timings and two are
+/// knockback, all `f32`, and two are `(f32, f32)` geometry — so a transposition
+/// inside either group is a SILENT change to a fighter's feel: the compiler
+/// cannot see it, and no test asserts any individual fighter's numbers.
+///
+/// ⭐ it is also what makes the authored `smash_fighter` facet a derive rather
+/// than a redesign — a named-field record of pure values maps one-to-one onto
+/// serde, which `CaptureKitAuthoring` already demonstrated for the capture kit.
+/// ⛔ this type is NOT `Serialize` yet, deliberately: adding the derive is the
+/// facet's slice, and doing it here would freeze a wire shape before a customer
+/// has asked for one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Strike<'a> {
+    /// The move id. Unique within the kit.
+    pub id: &'a str,
+    /// The animation row. Falls back through `attack_side` → `attack` → `slash`
+    /// → `idle`, so a missing clip never costs the move its gameplay.
+    pub clip: &'a str,
+    /// The tell, before anything is dangerous.
+    pub startup_s: f32,
+    /// How long the volume is LIVE.
+    pub active_s: f32,
+    /// The tail after it, during which the body is committed.
+    pub recover_s: f32,
+    /// Volume centre, body-local. Mirrors with facing.
+    pub offset: (f32, f32),
+    /// Volume half-extents. ⚠ the OTHER `(f32, f32)`, and the one a
+    /// transposition with `offset` used to hide in.
+    pub half_extents: (f32, f32),
+    pub damage: i32,
+    /// Base launch speed.
+    pub knockback: f32,
+    /// How much the launch grows with the victim's damage.
+    pub knockback_growth: f32,
+    /// `None` lets the shared rule derive it from the geometry.
+    pub launch_dir: Option<(f32, f32)>,
+    /// What LANDING this hit can do beyond damage. Today exactly one move uses
+    /// it: the down-air says it is capable of rebounding its attacker, and the
+    /// RULESET (`DeclaredCombatRules::downward_hit`) decides whether this game
+    /// takes it up on that or reads the swing as a spike instead.
+    pub on_hit: Option<EffectRef>,
+}
+
+impl<'a> Strike<'a> {
+    /// A named, zero-damage placeholder. Every real field is still stated at
+    /// the call site — this exists so a future field does not edit 294 literals.
+    pub fn new(id: &'a str, clip: &'a str) -> Self {
+        Self {
+            id,
+            clip,
+            startup_s: 0.0,
+            active_s: 0.0,
+            recover_s: 0.0,
+            offset: (0.0, 0.0),
+            half_extents: (0.0, 0.0),
+            damage: 0,
+            knockback: 0.0,
+            knockback_growth: 1.0,
+            launch_dir: None,
+            on_hit: None,
+        }
+    }
+}
+
+pub fn strike(spec: Strike<'_>) -> MoveSpec {
+    let Strike {
+        id,
+        clip,
+        startup_s,
+        active_s,
+        recover_s,
+        offset,
+        half_extents,
+        damage,
+        knockback,
+        knockback_growth,
+        launch_dir,
+        on_hit,
+    } = spec;
     let active_start = startup_s;
     let active_end = startup_s + active_s;
     MoveSpec {

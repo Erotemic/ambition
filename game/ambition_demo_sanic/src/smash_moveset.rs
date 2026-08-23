@@ -19,6 +19,7 @@
 //! tail — and the weakest single hit in the game. He does not win an exchange;
 //! he has three before you finish one.
 
+use ambition_platformer2d::characters::moveset_authoring::Strike;
 use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
@@ -39,242 +40,242 @@ const BOOM_FX: f32 = 1.2;
 pub fn sanic_moveset() -> MovesetContract {
     // JAB — `quick_jab`. Four frames. It is not meant to do anything except
     // arrive before yours.
-    let jab = strike(
-        "quick_jab",
-        "jab",
-        0.04,
-        0.04,
-        0.11,
-        (22.0, 0.0),
-        (16.0, 12.0),
-        2,
-        42.0,
-        1.02,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "quick_jab",
+        clip: "jab",
+        startup_s: 0.04,
+        active_s: 0.04,
+        recover_s: 0.11,
+        offset: (22.0, 0.0),
+        half_extents: (16.0, 12.0),
+        damage: 2,
+        knockback: 42.0,
+        knockback_growth: 1.02,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = vfx_at(jab, 0.04, "air_slice", (22.0, 0.0), RUSH_FX);
     let jab = on_contact(jab, "player.hit");
 
     // FORWARD TILT — `run_up_kick`. He is already moving; this is what that
     // looks like when it hits something.
-    let f_tilt = strike(
-        "run_up_kick",
-        "attack_side",
-        0.06,
-        0.06,
-        0.14,
-        (28.0, 2.0),
-        (20.0, 13.0),
-        5,
-        62.0,
-        1.22,
-        Some((1.0, -0.26)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "run_up_kick",
+        clip: "attack_side",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.14,
+        offset: (28.0, 2.0),
+        half_extents: (20.0, 13.0),
+        damage: 5,
+        knockback: 62.0,
+        knockback_growth: 1.22,
+        launch_dir: Some((1.0, -0.26)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.06, "dash_streak", (28.0, 2.0), RUSH_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // UP TILT — `heel_flick`. Up and behind, off the run.
-    let u_tilt = strike(
-        "heel_flick",
-        "attack_up",
-        0.06,
-        0.06,
-        0.15,
-        (4.0, -24.0),
-        (16.0, 20.0),
-        4,
-        68.0,
-        1.28,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let u_tilt = strike(Strike {
+        id: "heel_flick",
+        clip: "attack_up",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.15,
+        offset: (4.0, -24.0),
+        half_extents: (16.0, 20.0),
+        damage: 4,
+        knockback: 68.0,
+        knockback_growth: 1.28,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     let u_tilt = vfx_at(u_tilt, 0.06, "wind_curl", (4.0, -24.0), RUSH_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
     // DOWN TILT — `skid`. He stops, briefly, and the ground does not.
-    let d_tilt = strike(
-        "skid",
-        "attack_down",
-        0.05,
-        0.06,
-        0.14,
-        (26.0, 14.0),
-        (22.0, 9.0),
-        4,
-        50.0,
-        1.12,
-        Some((0.95, -0.26)),
-        None,
-    );
+    let d_tilt = strike(Strike {
+        id: "skid",
+        clip: "attack_down",
+        startup_s: 0.05,
+        active_s: 0.06,
+        recover_s: 0.14,
+        offset: (26.0, 14.0),
+        half_extents: (22.0, 9.0),
+        damage: 4,
+        knockback: 50.0,
+        knockback_growth: 1.12,
+        launch_dir: Some((0.95, -0.26)),
+        on_hit: None,
+    });
     let d_tilt = vfx_at(d_tilt, 0.05, "skid_puff", (26.0, 14.0), RUSH_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // FORWARD SMASH — `sonic_boom`. The one moment he stops being quick and
     // becomes hard. still the second-weakest forward smash on the grid.
-    let f_smash = strike(
-        "sonic_boom",
-        "smash_forward",
-        0.15,
-        0.08,
-        0.28,
-        (34.0, 0.0),
-        (26.0, 18.0),
-        11,
-        118.0,
-        2.15,
-        Some((0.95, -0.40)),
-        None,
-    );
+    let f_smash = strike(Strike {
+        id: "sonic_boom",
+        clip: "smash_forward",
+        startup_s: 0.15,
+        active_s: 0.08,
+        recover_s: 0.28,
+        offset: (34.0, 0.0),
+        half_extents: (26.0, 18.0),
+        damage: 11,
+        knockback: 118.0,
+        knockback_growth: 2.15,
+        launch_dir: Some((0.95, -0.40)),
+        on_hit: None,
+    });
     let f_smash = vfx_at(f_smash, 0.15, "sonic_boom", (34.0, 0.0), BOOM_FX);
     let f_smash = sfx(f_smash, 0.15, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
     // UP SMASH — `updraft`. A vertical burst off a standing start.
-    let u_smash = strike(
-        "updraft",
-        "smash_up",
-        0.14,
-        0.09,
-        0.26,
-        (2.0, -30.0),
-        (20.0, 30.0),
-        10,
-        112.0,
-        2.12,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_smash = strike(Strike {
+        id: "updraft",
+        clip: "smash_up",
+        startup_s: 0.14,
+        active_s: 0.09,
+        recover_s: 0.26,
+        offset: (2.0, -30.0),
+        half_extents: (20.0, 30.0),
+        damage: 10,
+        knockback: 112.0,
+        knockback_growth: 2.12,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_smash = vfx_at(u_smash, 0.14, "wind_curl", (2.0, -30.0), BOOM_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
     // DOWN SMASH — `split_kick`. Both directions at once, low.
-    let d_smash = strike(
-        "split_kick",
-        "smash_down",
-        0.15,
-        0.08,
-        0.28,
-        (0.0, 18.0),
-        (36.0, 11.0),
-        10,
-        104.0,
-        1.95,
-        Some((0.85, -0.52)),
-        None,
-    );
+    let d_smash = strike(Strike {
+        id: "split_kick",
+        clip: "smash_down",
+        startup_s: 0.15,
+        active_s: 0.08,
+        recover_s: 0.28,
+        offset: (0.0, 18.0),
+        half_extents: (36.0, 11.0),
+        damage: 10,
+        knockback: 104.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.85, -0.52)),
+        on_hit: None,
+    });
     let d_smash = vfx_at(d_smash, 0.15, "sonic_ripple", (0.0, 18.0), BOOM_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
     // NEUTRAL AIR — `air_spin`. The ball, in the air, around him.
-    let n_air = strike(
-        "air_spin",
-        "air_neutral",
-        0.05,
-        0.11,
-        0.14,
-        (0.0, 0.0),
-        (24.0, 22.0),
-        5,
-        64.0,
-        1.34,
-        Some((0.55, -0.72)),
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "air_spin",
+        clip: "air_neutral",
+        startup_s: 0.05,
+        active_s: 0.11,
+        recover_s: 0.14,
+        offset: (0.0, 0.0),
+        half_extents: (24.0, 22.0),
+        damage: 5,
+        knockback: 64.0,
+        knockback_growth: 1.34,
+        launch_dir: Some((0.55, -0.72)),
+        on_hit: None,
+    });
     let n_air = vfx_at(n_air, 0.05, "sonic_ripple", (0.0, 0.0), RUSH_FX);
     let n_air = on_contact(n_air, "player.hit");
 
     // FORWARD AIR — `homing_cut`. He arrives at you rather than swinging at
     // where you are.
-    let f_air = strike(
-        "homing_cut",
-        "air_forward",
-        0.07,
-        0.07,
-        0.16,
-        (28.0, 0.0),
-        (21.0, 17.0),
-        7,
-        86.0,
-        1.65,
-        Some((0.95, -0.42)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "homing_cut",
+        clip: "air_forward",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (28.0, 0.0),
+        half_extents: (21.0, 17.0),
+        damage: 7,
+        knockback: 86.0,
+        knockback_growth: 1.65,
+        launch_dir: Some((0.95, -0.42)),
+        on_hit: None,
+    });
     let f_air = vfx_at(f_air, 0.07, "dash_streak", (28.0, 0.0), RUSH_FX);
     let f_air = on_contact(f_air, "player.hit");
 
     // BACK AIR — `trailing_heel`. What is behind him is behind him because
     // he already passed it.
-    let b_air = strike(
-        "trailing_heel",
-        "air_back",
-        0.08,
-        0.06,
-        0.18,
-        (-28.0, 0.0),
-        (21.0, 16.0),
-        8,
-        94.0,
-        1.78,
-        Some((-0.95, -0.36)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "trailing_heel",
+        clip: "air_back",
+        startup_s: 0.08,
+        active_s: 0.06,
+        recover_s: 0.18,
+        offset: (-28.0, 0.0),
+        half_extents: (21.0, 16.0),
+        damage: 8,
+        knockback: 94.0,
+        knockback_growth: 1.78,
+        launch_dir: Some((-0.95, -0.36)),
+        on_hit: None,
+    });
     let b_air = vfx_at(b_air, 0.08, "air_slice", (-28.0, 0.0), RUSH_FX);
     let b_air = on_contact(b_air, "player.hit");
 
     // UP AIR — `corkscrew`. Straight up, spinning.
-    let u_air = strike(
-        "corkscrew",
-        "air_up",
-        0.06,
-        0.08,
-        0.15,
-        (2.0, -26.0),
-        (18.0, 22.0),
-        6,
-        80.0,
-        1.58,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "corkscrew",
+        clip: "air_up",
+        startup_s: 0.06,
+        active_s: 0.08,
+        recover_s: 0.15,
+        offset: (2.0, -26.0),
+        half_extents: (18.0, 22.0),
+        damage: 6,
+        knockback: 80.0,
+        knockback_growth: 1.58,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_air = vfx_at(u_air, 0.06, "wind_curl", (2.0, -26.0), RUSH_FX);
     let u_air = on_contact(u_air, "player.hit");
 
     // DOWN AIR — `drill_dive`. Straight down, and he keeps going.
-    let d_air = strike(
-        "drill_dive",
-        "air_down",
-        0.09,
-        0.09,
-        0.19,
-        (0.0, 25.0),
-        (19.0, 20.0),
-        9,
-        104.0,
-        1.92,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "drill_dive",
+        clip: "air_down",
+        startup_s: 0.09,
+        active_s: 0.09,
+        recover_s: 0.19,
+        offset: (0.0, 25.0),
+        half_extents: (19.0, 20.0),
+        damage: 9,
+        knockback: 104.0,
+        knockback_growth: 1.92,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let d_air = vfx_at(d_air, 0.09, "sonic_ripple", (0.0, 25.0), RUSH_FX);
     let d_air = on_contact(d_air, "player.hit");
 
     // NEUTRAL — `spin_charge`. He winds up in place and the release is the
     // only real commitment in his kit.
-    let n_b = strike(
-        "spin_charge",
-        "attack",
-        0.18,
-        0.10,
-        0.28,
-        (26.0, 6.0),
-        (24.0, 16.0),
-        10,
-        100.0,
-        1.80,
-        Some((0.9, -0.40)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "spin_charge",
+        clip: "attack",
+        startup_s: 0.18,
+        active_s: 0.10,
+        recover_s: 0.28,
+        offset: (26.0, 6.0),
+        half_extents: (24.0, 16.0),
+        damage: 10,
+        knockback: 100.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.9, -0.40)),
+        on_hit: None,
+    });
     // either posture, and it has to be: gated to the ground, an airborne
     // neutral-B walked the chain past it and found NOTHING — the last candidate
     // for `special_air` is `special` itself. A spin charge in the air is a spin
@@ -288,20 +289,20 @@ pub fn sanic_moveset() -> MovesetContract {
     // SIDE — `blue_streak`. The fastest crossing on the grid, and the tail
     // barely damps: he can still steer out of it, which is the whole difference
     // between him and the engineer's piston.
-    let side_b = strike(
-        "blue_streak",
-        "attack_side",
-        0.09,
-        0.10,
-        0.20,
-        (28.0, 2.0),
-        (24.0, 18.0),
-        9,
-        98.0,
-        1.82,
-        Some((0.95, -0.32)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "blue_streak",
+        clip: "attack_side",
+        startup_s: 0.09,
+        active_s: 0.10,
+        recover_s: 0.20,
+        offset: (28.0, 2.0),
+        half_extents: (24.0, 18.0),
+        damage: 9,
+        knockback: 98.0,
+        knockback_growth: 1.82,
+        launch_dir: Some((0.95, -0.32)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.09, (860.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.46, 0.45);
     let side_b = vfx_at(side_b, 0.09, "dash_streak", (0.0, 0.0), BOOM_FX);
@@ -311,20 +312,20 @@ pub fn sanic_moveset() -> MovesetContract {
     // UP — `spring_launch`. THE RECOVERY. The springs his own course is full
     // of, carried. The highest lift on the grid and the cheapest landing, which
     // is what the lightest, fastest fighter's way home should be.
-    let mut up_b = strike(
-        "spring_launch",
-        "attack_up",
-        0.05,
-        0.12,
-        0.15,
-        (0.0, -12.0),
-        (18.0, 30.0),
-        6,
-        78.0,
-        1.55,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "spring_launch",
+        clip: "attack_up",
+        startup_s: 0.05,
+        active_s: 0.12,
+        recover_s: 0.15,
+        offset: (0.0, -12.0),
+        half_extents: (18.0, 30.0),
+        damage: 6,
+        knockback: 78.0,
+        knockback_growth: 1.55,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.18);
     let up_b = impulse(up_b, 0.05, (0.0, -880.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.42, 0.40);
@@ -334,20 +335,20 @@ pub fn sanic_moveset() -> MovesetContract {
 
     // DOWN — `ball_drop`. He curls and drops. Airborne-only: on the ground
     // it would be a worse down smash, and the move is the fall.
-    let mut down_b = strike(
-        "ball_drop",
-        "air_down",
-        0.07,
-        0.14,
-        0.20,
-        (0.0, 24.0),
-        (20.0, 22.0),
-        10,
-        108.0,
-        1.95,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut down_b = strike(Strike {
+        id: "ball_drop",
+        clip: "air_down",
+        startup_s: 0.07,
+        active_s: 0.14,
+        recover_s: 0.20,
+        offset: (0.0, 24.0),
+        half_extents: (20.0, 22.0),
+        damage: 10,
+        knockback: 108.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     down_b.landing_lag_s = Some(0.26);
     let down_b = impulse(down_b, 0.07, (0.0, 1300.0), ImpulseMode::Set);
     let down_b = vfx_at(down_b, 0.07, "sonic_ripple", (0.0, 12.0), RUSH_FX);
@@ -358,20 +359,20 @@ pub fn sanic_moveset() -> MovesetContract {
     // slam. Specials can have different effects in different contexts that
     // should be ok, and makes for a richer smash game, although in most cases
     // they shouldn't be context dependent."*
-    let ground_down_b = strike(
-        "ball_hop",
-        "attack_down",
-        0.18,
-        0.14,
-        0.24,
-        (0.0, 22.0),
-        (20.0, 22.0),
-        10,
-        108.0,
-        1.95,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let ground_down_b = strike(Strike {
+        id: "ball_hop",
+        clip: "attack_down",
+        startup_s: 0.18,
+        active_s: 0.14,
+        recover_s: 0.24,
+        offset: (0.0, 22.0),
+        half_extents: (20.0, 22.0),
+        damage: 10,
+        knockback: 108.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     // `Add` for the hop, `Set` for the slam — the same split George's
     // grounded down-B needs and for the same reason: `lift_speed` is derived
     // from `Set` impulses, so a hop written that way would advertise this move

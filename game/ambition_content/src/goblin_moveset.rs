@@ -4,6 +4,7 @@
 //! the shared `strike` authoring shape and standard animation fallback vocabulary,
 //! so missing specialized clips affect presentation rather than gameplay.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -23,54 +24,54 @@ pub fn goblin_moveset() -> MovesetContract {
     //
     // Faster than the robot's and weaker, which is the whole character in one
     // move: the goblin's jab is the thing it throws while walking into you.
-    let jab = strike(
-        "jab",
-        "jab",
-        0.04,
-        0.05,
-        0.12,
-        (22.0, 0.0),
-        (16.0, 13.0),
-        2,
-        45.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.04,
+        active_s: 0.05,
+        recover_s: 0.12,
+        offset: (22.0, 0.0),
+        half_extents: (16.0, 13.0),
+        damage: 2,
+        knockback: 45.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
 
     // An upward poke that beats a shorthop. Small volume — it is an
     // anti-air, not a wall.
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.07,
-        0.07,
-        0.16,
-        (10.0, -24.0),
-        (16.0, 18.0),
-        4,
-        70.0,
-        1.30,
-        Some((0.15, -1.0)),
-        None,
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack_up",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (10.0, -24.0),
+        half_extents: (16.0, 18.0),
+        damage: 4,
+        knockback: 70.0,
+        knockback_growth: 1.30,
+        launch_dir: Some((0.15, -1.0)),
+        on_hit: None,
+    });
 
     // Low and forward: the goblin's ground game is knee height, which is where a
     // small body's reach actually is.
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.06,
-        0.06,
-        0.15,
-        (22.0, 12.0),
-        (18.0, 10.0),
-        3,
-        50.0,
-        1.15,
-        Some((1.0, -0.25)),
-        None,
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.15,
+        offset: (22.0, 12.0),
+        half_extents: (18.0, 10.0),
+        damage: 3,
+        knockback: 50.0,
+        knockback_growth: 1.15,
+        launch_dir: Some((1.0, -0.25)),
+        on_hit: None,
+    });
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
@@ -78,156 +79,155 @@ pub fn goblin_moveset() -> MovesetContract {
     // recovery against a body that only has 5 HP to trade with — throwing this
     // and missing is how a goblin dies, which is what makes landing it exciting
     // rather than routine.
-    let mut f_smash = strike(
-        "smash_forward",
-        "smash_forward",
-        0.28,
-        0.06,
-        0.30,
-        (34.0, -2.0),
-        (24.0, 18.0),
-        12,
-        135.0,
-        2.85,
-        Some((1.0, -0.40)),
-        None,
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "smash_forward",
+        startup_s: 0.28,
+        active_s: 0.06,
+        recover_s: 0.30,
+        offset: (34.0, -2.0),
+        half_extents: (24.0, 18.0),
+        damage: 12,
+        knockback: 135.0,
+        knockback_growth: 2.85,
+        launch_dir: Some((1.0, -0.40)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.7;
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.24,
-        0.07,
-        0.28,
-        (6.0, -30.0),
-        (20.0, 26.0),
-        11,
-        140.0,
-        2.70,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.24,
+        active_s: 0.07,
+        recover_s: 0.28,
+        offset: (6.0, -30.0),
+        half_extents: (20.0, 26.0),
+        damage: 11,
+        knockback: 140.0,
+        knockback_growth: 2.70,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
 
     // Both sides, low — the goblin's answer to being surrounded, and its
     // ledge-guard.
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.22,
-        0.08,
-        0.32,
-        (0.0, 14.0),
-        (32.0, 12.0),
-        10,
-        125.0,
-        2.55,
-        Some((0.9, -0.55)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.22,
+        active_s: 0.08,
+        recover_s: 0.32,
+        offset: (0.0, 14.0),
+        half_extents: (32.0, 12.0),
+        damage: 10,
+        knockback: 125.0,
+        knockback_growth: 2.55,
+        launch_dir: Some((0.9, -0.55)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.7;
 
     // ── aerials ──────────────────────────────────────────────────────────────
-    let n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.05,
-        0.10,
-        0.13,
-        (0.0, 0.0),
-        (22.0, 20.0),
-        4,
-        60.0,
-        1.25,
-        None,
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.05,
+        active_s: 0.10,
+        recover_s: 0.13,
+        offset: (0.0, 0.0),
+        half_extents: (22.0, 20.0),
+        damage: 4,
+        knockback: 60.0,
+        knockback_growth: 1.25,
+        launch_dir: None,
+        on_hit: None,
+    });
 
-    let f_air = strike(
-        "air_forward",
-        "air_forward",
-        0.08,
-        0.07,
-        0.16,
-        (26.0, -2.0),
-        (20.0, 16.0),
-        6,
-        85.0,
-        1.70,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "air_forward",
+        clip: "air_forward",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (26.0, -2.0),
+        half_extents: (20.0, 16.0),
+        damage: 6,
+        knockback: 85.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
 
     // the goblin's best kill option, and it faces the wrong way — the classic
     // trade. Committing to a back-air means committing to not looking at them.
-    let b_air = strike(
-        "air_back",
-        "air_back",
-        0.10,
-        0.06,
-        0.20,
-        (-28.0, 0.0),
-        (20.0, 16.0),
-        9,
-        120.0,
-        2.40,
-        Some((-1.0, -0.35)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "air_back",
+        clip: "air_back",
+        startup_s: 0.10,
+        active_s: 0.06,
+        recover_s: 0.20,
+        offset: (-28.0, 0.0),
+        half_extents: (20.0, 16.0),
+        damage: 9,
+        knockback: 120.0,
+        knockback_growth: 2.40,
+        launch_dir: Some((-1.0, -0.35)),
+        on_hit: None,
+    });
 
-    let u_air = strike(
-        "air_up",
-        "air_up",
-        0.06,
-        0.08,
-        0.14,
-        (2.0, -26.0),
-        (18.0, 20.0),
-        5,
-        80.0,
-        1.80,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.06,
+        active_s: 0.08,
+        recover_s: 0.14,
+        offset: (2.0, -26.0),
+        half_extents: (18.0, 20.0),
+        damage: 5,
+        knockback: 80.0,
+        knockback_growth: 1.80,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
 
     // Straight down and hard. no `on_hit` rebound: the robot's down-air says it
     // is capable of bouncing its attacker and this one does not, because a goblin
     // that could pogo off a body would out-recover a character built around
     // recovery being its problem.
-    let d_air = strike(
-        "air_down",
-        "air_down",
-        0.11,
-        0.07,
-        0.22,
-        (4.0, 24.0),
-        (18.0, 18.0),
-        8,
-        110.0,
-        2.10,
-        Some((0.0, 1.0)),
-        None,
-    );
-
+    let d_air = strike(Strike {
+        id: "air_down",
+        clip: "air_down",
+        startup_s: 0.11,
+        active_s: 0.07,
+        recover_s: 0.22,
+        offset: (4.0, 24.0),
+        half_extents: (18.0, 18.0),
+        damage: 8,
+        knockback: 110.0,
+        knockback_growth: 2.10,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
 
     // a forward tilt, because without one the commonest press in the genre
     // falls down the directional chain to the jab. A goblin's is a scrappy
     // shove — shorter and faster than anybody else's, like the rest of its kit.
-    let f_tilt = strike(
-        "tilt_forward",
-        "attack_side",
-        0.06,
-        0.06,
-        0.14,
-        (24.0, -2.0),
-        (18.0, 12.0),
-        4,
-        60.0,
-        1.20,
-        Some((1.0, -0.25)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "attack_side",
+        startup_s: 0.06,
+        active_s: 0.06,
+        recover_s: 0.14,
+        offset: (24.0, -2.0),
+        half_extents: (18.0, 12.0),
+        damage: 4,
+        knockback: 60.0,
+        knockback_growth: 1.20,
+        launch_dir: Some((1.0, -0.25)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.06, "air_slice", (24.0, -2.0), 0.7);
     let f_tilt = sfx(f_tilt, 0.06, "enemy.goblin.attack");
     let f_tilt = on_contact(f_tilt, "enemy.goblin.hit");
@@ -235,20 +235,20 @@ pub fn goblin_moveset() -> MovesetContract {
     // NEUTRAL — `scrap_flail`. No technique at all: it turns its whole body
     // into the swing and hopes. Wide, slow for a goblin, and the only move in
     // its kit that covers both sides of it.
-    let n_b = strike(
-        "scrap_flail",
-        "attack",
-        0.10,
-        0.10,
-        0.26,
-        (14.0, 0.0),
-        (26.0, 20.0),
-        7,
-        88.0,
-        1.70,
-        Some((0.85, -0.50)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "scrap_flail",
+        clip: "attack",
+        startup_s: 0.10,
+        active_s: 0.10,
+        recover_s: 0.26,
+        offset: (14.0, 0.0),
+        half_extents: (26.0, 20.0),
+        damage: 7,
+        knockback: 88.0,
+        knockback_growth: 1.70,
+        launch_dir: Some((0.85, -0.50)),
+        on_hit: None,
+    });
     let n_b = committed_tail(n_b, 0.55, 0.15);
     let n_b = vfx_at(n_b, 0.10, "air_slice", (14.0, 0.0), 1.1);
     let n_b = sfx(n_b, 0.10, "enemy.goblin.attack");
@@ -259,20 +259,20 @@ pub fn goblin_moveset() -> MovesetContract {
     // difference between a committed move and a suggestion — and the tail damps
     // steering to 0.1 rather than 0.0, because a scrappy fighter that could not
     // adjust at all would be a heavyweight.
-    let side_b = strike(
-        "headlong_charge",
-        "attack_side",
-        0.14,
-        0.10,
-        0.24,
-        (24.0, 2.0),
-        (22.0, 16.0),
-        8,
-        100.0,
-        1.90,
-        Some((0.95, -0.35)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "headlong_charge",
+        clip: "attack_side",
+        startup_s: 0.14,
+        active_s: 0.10,
+        recover_s: 0.24,
+        offset: (24.0, 2.0),
+        half_extents: (22.0, 16.0),
+        damage: 8,
+        knockback: 100.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((0.95, -0.35)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.14, (560.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.60, 0.10);
     let side_b = vfx_at(side_b, 0.14, "dash_streak", (0.0, 0.0), 1.0);
@@ -283,20 +283,20 @@ pub fn goblin_moveset() -> MovesetContract {
     // cosmetic: with no special at all, a goblin knocked off the stage had a
     // double jump and nothing else. It claws upward — weaker than a heavyweight's
     // lift and cheaper to land, which is the small fighter's bargain.
-    let mut up_b = strike(
-        "scramble_leap",
-        "attack_up",
-        0.08,
-        0.12,
-        0.18,
-        (0.0, -10.0),
-        (18.0, 26.0),
-        6,
-        78.0,
-        1.50,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "scramble_leap",
+        clip: "attack_up",
+        startup_s: 0.08,
+        active_s: 0.12,
+        recover_s: 0.18,
+        offset: (0.0, -10.0),
+        half_extents: (18.0, 26.0),
+        damage: 6,
+        knockback: 78.0,
+        knockback_growth: 1.50,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.24);
     let up_b = impulse(up_b, 0.08, (0.0, -720.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.46, 0.25);
@@ -306,20 +306,20 @@ pub fn goblin_moveset() -> MovesetContract {
 
     // DOWN — `dirt_kick`. It kicks the ground at you. Wide, low and flat,
     // and grounded-only because the whole move is that there is ground.
-    let down_b = strike(
-        "dirt_kick",
-        "attack_down",
-        0.12,
-        0.08,
-        0.28,
-        (18.0, 16.0),
-        (30.0, 10.0),
-        6,
-        70.0,
-        1.35,
-        Some((0.70, -0.60)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "dirt_kick",
+        clip: "attack_down",
+        startup_s: 0.12,
+        active_s: 0.08,
+        recover_s: 0.28,
+        offset: (18.0, 16.0),
+        half_extents: (30.0, 10.0),
+        damage: 6,
+        knockback: 70.0,
+        knockback_growth: 1.35,
+        launch_dir: Some((0.70, -0.60)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.55, 0.0);
     let down_b = vfx_at(down_b, 0.12, "sand_burst", (18.0, 16.0), 1.0);
     let down_b = sfx(down_b, 0.12, "enemy.goblin.attack");
@@ -339,20 +339,20 @@ pub fn goblin_moveset() -> MovesetContract {
     // DOWN, IN THE AIR — `dive_stomp`. It cannot kick the ground from up
     // there, so it becomes the ground: knees up, straight down, and whoever is
     // under it is the floor.
-    let mut air_down_b = strike(
-        "dive_stomp",
-        "air_down",
-        0.08,
-        0.10,
-        0.22,
-        (0.0, 24.0),
-        (18.0, 20.0),
-        7,
-        84.0,
-        1.60,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "dive_stomp",
+        clip: "air_down",
+        startup_s: 0.08,
+        active_s: 0.10,
+        recover_s: 0.22,
+        offset: (0.0, 24.0),
+        half_extents: (18.0, 20.0),
+        damage: 7,
+        knockback: 84.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.22);
     let air_down_b = impulse(air_down_b, 0.08, (0.0, 1150.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.08, "sand_burst", (0.0, 20.0), 0.9);

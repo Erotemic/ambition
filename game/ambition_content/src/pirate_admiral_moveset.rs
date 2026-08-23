@@ -5,6 +5,7 @@
 //! body's other movement resources. The pistol remains an `ActionSet` capability rather
 //! than a move-table entry, keeping ranged execution under one authority.
 
+use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -48,169 +49,169 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     //
     // Even the jab is a blade: it starts slower than the goblin's whole punish
     // window and reaches half a body further.
-    let jab = strike(
-        "jab",
-        "jab",
-        0.06,
-        0.07,
-        0.16,
-        (30.0, 0.0),
-        (22.0, 14.0),
-        4,
-        55.0,
-        1.10,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "jab",
+        clip: "jab",
+        startup_s: 0.06,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (30.0, 0.0),
+        half_extents: (22.0, 14.0),
+        damage: 4,
+        knockback: 55.0,
+        knockback_growth: 1.10,
+        launch_dir: None,
+        on_hit: None,
+    });
 
     // A rising cutlass arc. Wide, because a sword's up-tilt covers the space in
     // front of the shoulder as well as above it.
-    let up_tilt = strike(
-        "tilt_up",
-        "attack_up",
-        0.09,
-        0.08,
-        0.19,
-        (14.0, -28.0),
-        (22.0, 24.0),
-        6,
-        80.0,
-        1.35,
-        Some((0.25, -1.0)),
-        None,
-    );
+    let up_tilt = strike(Strike {
+        id: "tilt_up",
+        clip: "attack_up",
+        startup_s: 0.09,
+        active_s: 0.08,
+        recover_s: 0.19,
+        offset: (14.0, -28.0),
+        half_extents: (22.0, 24.0),
+        damage: 6,
+        knockback: 80.0,
+        knockback_growth: 1.35,
+        launch_dir: Some((0.25, -1.0)),
+        on_hit: None,
+    });
 
     // A low sweep along the deck. Long, shallow, and it sends them along the
     // ground rather than up — the setup, not the finish.
-    let down_tilt = strike(
-        "tilt_down",
-        "attack_down",
-        0.08,
-        0.07,
-        0.18,
-        (30.0, 14.0),
-        (24.0, 9.0),
-        5,
-        60.0,
-        1.20,
-        Some((1.0, -0.18)),
-        None,
-    );
+    let down_tilt = strike(Strike {
+        id: "tilt_down",
+        clip: "attack_down",
+        startup_s: 0.08,
+        active_s: 0.07,
+        recover_s: 0.18,
+        offset: (30.0, 14.0),
+        half_extents: (24.0, 9.0),
+        damage: 5,
+        knockback: 60.0,
+        knockback_growth: 1.20,
+        launch_dir: Some((1.0, -0.18)),
+        on_hit: None,
+    });
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
     // the slowest kill move of the three tables, and the hardest. An admiral
     // who commits to a full cutlass swing has decided the exchange is worth 0.38s
     // of standing still afterwards.
-    let mut f_smash = strike(
-        "smash_forward",
-        "smash_forward",
-        0.34,
-        0.08,
-        0.38,
-        (44.0, -4.0),
-        (30.0, 20.0),
-        17,
-        160.0,
-        3.10,
-        Some((1.0, -0.42)),
-        None,
-    );
+    let mut f_smash = strike(Strike {
+        id: "smash_forward",
+        clip: "smash_forward",
+        startup_s: 0.34,
+        active_s: 0.08,
+        recover_s: 0.38,
+        offset: (44.0, -4.0),
+        half_extents: (30.0, 20.0),
+        damage: 17,
+        knockback: 160.0,
+        knockback_growth: 3.10,
+        launch_dir: Some((1.0, -0.42)),
+        on_hit: None,
+    });
     f_smash.smash_charge_mult = 1.7;
 
-    let mut up_smash = strike(
-        "smash_up",
-        "smash_up",
-        0.30,
-        0.09,
-        0.34,
-        (8.0, -34.0),
-        (24.0, 30.0),
-        15,
-        155.0,
-        2.95,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let mut up_smash = strike(Strike {
+        id: "smash_up",
+        clip: "smash_up",
+        startup_s: 0.30,
+        active_s: 0.09,
+        recover_s: 0.34,
+        offset: (8.0, -34.0),
+        half_extents: (24.0, 30.0),
+        damage: 15,
+        knockback: 155.0,
+        knockback_growth: 2.95,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     up_smash.smash_charge_mult = 1.7;
 
     // Both sides at deck height — the boarding-action answer to being flanked.
-    let mut down_smash = strike(
-        "smash_down",
-        "smash_down",
-        0.28,
-        0.10,
-        0.36,
-        (0.0, 16.0),
-        (40.0, 12.0),
-        13,
-        140.0,
-        2.70,
-        Some((0.9, -0.50)),
-        None,
-    );
+    let mut down_smash = strike(Strike {
+        id: "smash_down",
+        clip: "smash_down",
+        startup_s: 0.28,
+        active_s: 0.10,
+        recover_s: 0.36,
+        offset: (0.0, 16.0),
+        half_extents: (40.0, 12.0),
+        damage: 13,
+        knockback: 140.0,
+        knockback_growth: 2.70,
+        launch_dir: Some((0.9, -0.50)),
+        on_hit: None,
+    });
     down_smash.smash_charge_mult = 1.7;
 
     // ── aerials ──────────────────────────────────────────────────────────────
-    let n_air = strike(
-        "air_neutral",
-        "air_neutral",
-        0.07,
-        0.12,
-        0.16,
-        (0.0, 0.0),
-        (26.0, 22.0),
-        6,
-        70.0,
-        1.30,
-        None,
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "air_neutral",
+        clip: "air_neutral",
+        startup_s: 0.07,
+        active_s: 0.12,
+        recover_s: 0.16,
+        offset: (0.0, 0.0),
+        half_extents: (26.0, 22.0),
+        damage: 6,
+        knockback: 70.0,
+        knockback_growth: 1.30,
+        launch_dir: None,
+        on_hit: None,
+    });
 
-    let f_air = strike(
-        "air_forward",
-        "air_forward",
-        0.11,
-        0.08,
-        0.20,
-        (32.0, -2.0),
-        (24.0, 18.0),
-        9,
-        100.0,
-        1.90,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "air_forward",
+        clip: "air_forward",
+        startup_s: 0.11,
+        active_s: 0.08,
+        recover_s: 0.20,
+        offset: (32.0, -2.0),
+        half_extents: (24.0, 18.0),
+        damage: 9,
+        knockback: 100.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
 
-    let b_air = strike(
-        "air_back",
-        "air_back",
-        0.13,
-        0.07,
-        0.24,
-        (-34.0, 0.0),
-        (24.0, 18.0),
-        11,
-        135.0,
-        2.55,
-        Some((-1.0, -0.35)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "air_back",
+        clip: "air_back",
+        startup_s: 0.13,
+        active_s: 0.07,
+        recover_s: 0.24,
+        offset: (-34.0, 0.0),
+        half_extents: (24.0, 18.0),
+        damage: 11,
+        knockback: 135.0,
+        knockback_growth: 2.55,
+        launch_dir: Some((-1.0, -0.35)),
+        on_hit: None,
+    });
 
-    let u_air = strike(
-        "air_up",
-        "air_up",
-        0.08,
-        0.09,
-        0.17,
-        (2.0, -30.0),
-        (20.0, 24.0),
-        7,
-        90.0,
-        1.85,
-        Some((0.0, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "air_up",
+        clip: "air_up",
+        startup_s: 0.08,
+        active_s: 0.09,
+        recover_s: 0.17,
+        offset: (2.0, -30.0),
+        half_extents: (20.0, 24.0),
+        damage: 7,
+        knockback: 90.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.0, -1.0)),
+        on_hit: None,
+    });
     // THE STALL. A rising cutlass overhead that takes the admiral up with
     // it — the genre's juggle aerial, and the reason this table can chain one
     // hit into the next instead of falling out from under its own combo.
@@ -223,20 +224,20 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // `on_hit` rebound, same as the goblin's — the robot is the only body that
     // says it can bounce off what it hits, and that is a property of the
     // character rather than of down-airs.
-    let d_air = strike(
-        "air_down",
-        "air_down",
-        0.14,
-        0.08,
-        0.26,
-        (6.0, 28.0),
-        (20.0, 20.0),
-        11,
-        130.0,
-        2.30,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "air_down",
+        clip: "air_down",
+        startup_s: 0.14,
+        active_s: 0.08,
+        recover_s: 0.26,
+        offset: (6.0, 28.0),
+        half_extents: (20.0, 20.0),
+        damage: 11,
+        knockback: 130.0,
+        knockback_growth: 2.30,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
 
     // ── the four specials ────────────────────────────────────────────────────
     //
@@ -251,20 +252,20 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // with firing one from a standing start. The volume is short and wide; the
     // admiral is thrown BACKWARD out of it, which is a real spacing tool and a
     // real way to remove yourself from the stage.
-    let neutral_b = strike(
-        "grapeshot",
-        "special",
-        0.14,
-        0.06,
-        0.24,
-        (38.0, -4.0),
-        (30.0, 16.0),
-        9,
-        120.0,
-        1.90,
-        Some((0.85, -0.55)),
-        None,
-    );
+    let neutral_b = strike(Strike {
+        id: "grapeshot",
+        clip: "special",
+        startup_s: 0.14,
+        active_s: 0.06,
+        recover_s: 0.24,
+        offset: (38.0, -4.0),
+        half_extents: (30.0, 16.0),
+        damage: 9,
+        knockback: 120.0,
+        knockback_growth: 1.90,
+        launch_dir: Some((0.85, -0.55)),
+        on_hit: None,
+    });
     // negative side, and that sign is the whole move. The catalog reads
     // this as a route with `lift_side < 0` — a displacement that carries its
     // owner AWAY from whatever it is facing. A recovery search will happily
@@ -284,20 +285,20 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // therefore states no speed, so it advertises no route: a static reader
     // cannot say what an additive impulse produces, and this table does not ask
     // it to pretend.
-    let side_b = strike(
-        "boarding_run",
-        "special",
-        0.16,
-        0.14,
-        0.28,
-        (34.0, 0.0),
-        (26.0, 22.0),
-        13,
-        145.0,
-        2.40,
-        Some((0.9, -0.4)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "boarding_run",
+        clip: "special",
+        startup_s: 0.16,
+        active_s: 0.14,
+        recover_s: 0.28,
+        offset: (34.0, 0.0),
+        half_extents: (26.0, 22.0),
+        damage: 13,
+        knockback: 145.0,
+        knockback_growth: 2.40,
+        launch_dir: Some((0.9, -0.4)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Add);
     let side_b = committed_tail(side_b, 0.72, 0.15);
     let side_b = sfx(side_b, 0.0, "player.attack.charge");
@@ -322,20 +323,20 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // and it is not flight. The tail runs to `GRAPPLE_ENDS_S` with no
     // `Cancelable` window, so the move cannot be re-pressed until it has handed
     // back more altitude than its 20px of climb ever bought.
-    let up_b = strike(
-        "grapple_line",
-        "special_up",
-        GRAPPLE_AT_S,
-        0.10,
-        0.22,
-        (30.0, -10.0),
-        (28.0, 18.0),
-        8,
-        95.0,
-        1.60,
-        Some((0.7, -0.7)),
-        None,
-    );
+    let up_b = strike(Strike {
+        id: "grapple_line",
+        clip: "special_up",
+        startup_s: GRAPPLE_AT_S,
+        active_s: 0.10,
+        recover_s: 0.22,
+        offset: (30.0, -10.0),
+        half_extents: (28.0, 18.0),
+        damage: 8,
+        knockback: 95.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.7, -0.7)),
+        on_hit: None,
+    });
     let up_b = impulse(
         up_b,
         GRAPPLE_AT_S,
@@ -361,20 +362,20 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // read into a survivable one. it advertises NO route (`local.1` is not
     // negative, so the catalog's lift derivation skips it), which is correct:
     // stopping dead in mid-air is not a way home from anywhere.
-    let down_b = strike(
-        "heave_to",
-        "special_down",
-        0.12,
-        0.10,
-        0.30,
-        (0.0, 22.0),
-        (30.0, 20.0),
-        10,
-        105.0,
-        1.75,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "heave_to",
+        clip: "special_down",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.30,
+        offset: (0.0, 22.0),
+        half_extents: (30.0, 20.0),
+        damage: 10,
+        knockback: 105.0,
+        knockback_growth: 1.75,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let down_b = impulse(down_b, 0.12, (0.0, 0.0), ImpulseMode::Set);
     let down_b = sfx(down_b, 0.12, "player.slash");
     let down_b = vfx(down_b, 0.12, "starburst");
@@ -385,20 +386,20 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // carrying a cutlass answering "forward" with a jab. A LEVEL CUT at chest
     // height: the longest tilt on the grid, because reach is what the cutlass is
     // for, and slower than the goblin's whole jab because carrying one costs.
-    let f_tilt = strike(
-        "tilt_forward",
-        "attack_side",
-        0.10,
-        0.08,
-        0.20,
-        (38.0, -4.0),
-        (26.0, 14.0),
-        7,
-        78.0,
-        1.30,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "tilt_forward",
+        clip: "attack_side",
+        startup_s: 0.10,
+        active_s: 0.08,
+        recover_s: 0.20,
+        offset: (38.0, -4.0),
+        half_extents: (26.0, 14.0),
+        damage: 7,
+        knockback: 78.0,
+        knockback_growth: 1.30,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.10, "air_slice", (38.0, -4.0), 1.0);
     let f_tilt = sfx(f_tilt, 0.10, "enemy.pirate.cutlass_swing");
     let f_tilt = on_contact(f_tilt, "player.hit");

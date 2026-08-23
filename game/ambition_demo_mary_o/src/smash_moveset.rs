@@ -4,6 +4,7 @@
 //! moveset therefore does not grant combat capability by itself. A host that
 //! grants attack can use this light, quick kit with strong down-air pressure.
 
+use ambition_platformer2d::characters::moveset_authoring::Strike;
 use ambition_platformer2d::characters::moveset_authoring::{
     committed_tail, impulse, on_contact, sfx, strike, vfx_at,
 };
@@ -23,225 +24,225 @@ const FLAME_FX: f32 = 1.1;
 /// Build Mary-O's platform-fighter moveset.
 pub fn mary_o_moveset() -> MovesetContract {
     // JAB — `hop_kick`. A quick boot. She does not have a punch.
-    let jab = strike(
-        "hop_kick",
-        "jab",
-        0.05,
-        0.05,
-        0.13,
-        (22.0, 2.0),
-        (16.0, 12.0),
-        3,
-        46.0,
-        1.05,
-        None,
-        None,
-    );
+    let jab = strike(Strike {
+        id: "hop_kick",
+        clip: "jab",
+        startup_s: 0.05,
+        active_s: 0.05,
+        recover_s: 0.13,
+        offset: (22.0, 2.0),
+        half_extents: (16.0, 12.0),
+        damage: 3,
+        knockback: 46.0,
+        knockback_growth: 1.05,
+        launch_dir: None,
+        on_hit: None,
+    });
     let jab = vfx_at(jab, 0.05, "poof_small", (22.0, 2.0), STEP_FX);
     let jab = on_contact(jab, "player.hit");
 
     // FORWARD TILT — `sweep_kick`. Low and out, at the height a goomba is.
-    let f_tilt = strike(
-        "sweep_kick",
-        "attack_side",
-        0.07,
-        0.07,
-        0.16,
-        (28.0, 6.0),
-        (20.0, 13.0),
-        5,
-        66.0,
-        1.24,
-        Some((1.0, -0.30)),
-        None,
-    );
+    let f_tilt = strike(Strike {
+        id: "sweep_kick",
+        clip: "attack_side",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (28.0, 6.0),
+        half_extents: (20.0, 13.0),
+        damage: 5,
+        knockback: 66.0,
+        knockback_growth: 1.24,
+        launch_dir: Some((1.0, -0.30)),
+        on_hit: None,
+    });
     let f_tilt = vfx_at(f_tilt, 0.07, "skid_puff", (28.0, 6.0), STEP_FX);
     let f_tilt = on_contact(f_tilt, "player.hit");
 
     // UP TILT — `header`. The brick-breaking motion, aimed at a person.
-    let u_tilt = strike(
-        "header",
-        "attack_up",
-        0.07,
-        0.07,
-        0.16,
-        (4.0, -26.0),
-        (16.0, 20.0),
-        5,
-        72.0,
-        1.30,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let u_tilt = strike(Strike {
+        id: "header",
+        clip: "attack_up",
+        startup_s: 0.07,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (4.0, -26.0),
+        half_extents: (16.0, 20.0),
+        damage: 5,
+        knockback: 72.0,
+        knockback_growth: 1.30,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     let u_tilt = vfx_at(u_tilt, 0.07, "four_point_glint", (4.0, -26.0), STEP_FX);
     let u_tilt = on_contact(u_tilt, "player.hit");
 
     // DOWN TILT — `slide`. The crouch-slide, which in her game is how you
     // get under things.
-    let d_tilt = strike(
-        "slide",
-        "attack_down",
-        0.06,
-        0.07,
-        0.16,
-        (26.0, 14.0),
-        (22.0, 9.0),
-        4,
-        52.0,
-        1.14,
-        Some((0.95, -0.28)),
-        None,
-    );
+    let d_tilt = strike(Strike {
+        id: "slide",
+        clip: "attack_down",
+        startup_s: 0.06,
+        active_s: 0.07,
+        recover_s: 0.16,
+        offset: (26.0, 14.0),
+        half_extents: (22.0, 9.0),
+        damage: 4,
+        knockback: 52.0,
+        knockback_growth: 1.14,
+        launch_dir: Some((0.95, -0.28)),
+        on_hit: None,
+    });
     let d_tilt = vfx_at(d_tilt, 0.06, "skid_puff", (26.0, 14.0), STEP_FX);
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // FORWARD SMASH — `shell_kick`. She kicks something that is not there
     // and it goes anyway. the weakest forward smash on the grid: she is the
     // lightest fighter on it and the numbers say so rather than a comment.
-    let f_smash = strike(
-        "shell_kick",
-        "smash_forward",
-        0.16,
-        0.09,
-        0.28,
-        (34.0, 2.0),
-        (26.0, 18.0),
-        11,
-        116.0,
-        2.10,
-        Some((0.95, -0.40)),
-        None,
-    );
+    let f_smash = strike(Strike {
+        id: "shell_kick",
+        clip: "smash_forward",
+        startup_s: 0.16,
+        active_s: 0.09,
+        recover_s: 0.28,
+        offset: (34.0, 2.0),
+        half_extents: (26.0, 18.0),
+        damage: 11,
+        knockback: 116.0,
+        knockback_growth: 2.10,
+        launch_dir: Some((0.95, -0.40)),
+        on_hit: None,
+    });
     let f_smash = vfx_at(f_smash, 0.16, "starburst", (34.0, 2.0), FLAME_FX);
     let f_smash = sfx(f_smash, 0.16, "player.attack.charge");
     let f_smash = on_contact(f_smash, "player.hit");
 
     // UP SMASH — `block_punch`. Straight up into where the block would be.
-    let u_smash = strike(
-        "block_punch",
-        "smash_up",
-        0.15,
-        0.10,
-        0.27,
-        (2.0, -32.0),
-        (20.0, 30.0),
-        11,
-        114.0,
-        2.15,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_smash = strike(Strike {
+        id: "block_punch",
+        clip: "smash_up",
+        startup_s: 0.15,
+        active_s: 0.10,
+        recover_s: 0.27,
+        offset: (2.0, -32.0),
+        half_extents: (20.0, 30.0),
+        damage: 11,
+        knockback: 114.0,
+        knockback_growth: 2.15,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_smash = vfx_at(u_smash, 0.15, "starburst", (2.0, -32.0), STEP_FX);
     let u_smash = on_contact(u_smash, "player.hit");
 
     // DOWN SMASH — `ground_pound`. Both feet, once, hard.
-    let d_smash = strike(
-        "ground_pound",
-        "smash_down",
-        0.17,
-        0.09,
-        0.30,
-        (0.0, 20.0),
-        (36.0, 12.0),
-        10,
-        108.0,
-        1.95,
-        Some((0.8, -0.55)),
-        None,
-    );
+    let d_smash = strike(Strike {
+        id: "ground_pound",
+        clip: "smash_down",
+        startup_s: 0.17,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (0.0, 20.0),
+        half_extents: (36.0, 12.0),
+        damage: 10,
+        knockback: 108.0,
+        knockback_growth: 1.95,
+        launch_dir: Some((0.8, -0.55)),
+        on_hit: None,
+    });
     let d_smash = vfx_at(d_smash, 0.17, "shockwave", (0.0, 20.0), FLAME_FX);
     let d_smash = vfx_at(d_smash, 0.17, "landing_puff", (0.0, 22.0), STEP_FX);
     let d_smash = on_contact(d_smash, "player.hit");
 
     // NEUTRAL AIR — `tumble`. The somersault her jump already does.
-    let n_air = strike(
-        "tumble",
-        "air_neutral",
-        0.06,
-        0.11,
-        0.15,
-        (0.0, 0.0),
-        (24.0, 22.0),
-        6,
-        66.0,
-        1.36,
-        Some((0.55, -0.75)),
-        None,
-    );
+    let n_air = strike(Strike {
+        id: "tumble",
+        clip: "air_neutral",
+        startup_s: 0.06,
+        active_s: 0.11,
+        recover_s: 0.15,
+        offset: (0.0, 0.0),
+        half_extents: (24.0, 22.0),
+        damage: 6,
+        knockback: 66.0,
+        knockback_growth: 1.36,
+        launch_dir: Some((0.55, -0.75)),
+        on_hit: None,
+    });
     let n_air = vfx_at(n_air, 0.06, "wind_curl", (0.0, 0.0), STEP_FX);
     let n_air = on_contact(n_air, "player.hit");
 
     // FORWARD AIR — `drop_kick`. Both feet, forward and down.
-    let f_air = strike(
-        "drop_kick",
-        "air_forward",
-        0.08,
-        0.08,
-        0.17,
-        (28.0, 2.0),
-        (21.0, 17.0),
-        8,
-        90.0,
-        1.68,
-        Some((0.9, -0.42)),
-        None,
-    );
+    let f_air = strike(Strike {
+        id: "drop_kick",
+        clip: "air_forward",
+        startup_s: 0.08,
+        active_s: 0.08,
+        recover_s: 0.17,
+        offset: (28.0, 2.0),
+        half_extents: (21.0, 17.0),
+        damage: 8,
+        knockback: 90.0,
+        knockback_growth: 1.68,
+        launch_dir: Some((0.9, -0.42)),
+        on_hit: None,
+    });
     let f_air = vfx_at(f_air, 0.08, "poof_small", (28.0, 2.0), STEP_FX);
     let f_air = on_contact(f_air, "player.hit");
 
     // BACK AIR — `mule_kick`. She does not turn round.
-    let b_air = strike(
-        "mule_kick",
-        "air_back",
-        0.09,
-        0.06,
-        0.19,
-        (-28.0, 0.0),
-        (21.0, 16.0),
-        9,
-        98.0,
-        1.82,
-        Some((-0.95, -0.38)),
-        None,
-    );
+    let b_air = strike(Strike {
+        id: "mule_kick",
+        clip: "air_back",
+        startup_s: 0.09,
+        active_s: 0.06,
+        recover_s: 0.19,
+        offset: (-28.0, 0.0),
+        half_extents: (21.0, 16.0),
+        damage: 9,
+        knockback: 98.0,
+        knockback_growth: 1.82,
+        launch_dir: Some((-0.95, -0.38)),
+        on_hit: None,
+    });
     let b_air = vfx_at(b_air, 0.09, "poof_small", (-28.0, 0.0), STEP_FX);
     let b_air = on_contact(b_air, "player.hit");
 
     // UP AIR — `flip_kick`. Over the top, at whatever is above her.
-    let u_air = strike(
-        "flip_kick",
-        "air_up",
-        0.07,
-        0.08,
-        0.16,
-        (2.0, -26.0),
-        (19.0, 22.0),
-        7,
-        82.0,
-        1.60,
-        Some((0.08, -1.0)),
-        None,
-    );
+    let u_air = strike(Strike {
+        id: "flip_kick",
+        clip: "air_up",
+        startup_s: 0.07,
+        active_s: 0.08,
+        recover_s: 0.16,
+        offset: (2.0, -26.0),
+        half_extents: (19.0, 22.0),
+        damage: 7,
+        knockback: 82.0,
+        knockback_growth: 1.60,
+        launch_dir: Some((0.08, -1.0)),
+        on_hit: None,
+    });
     let u_air = vfx_at(u_air, 0.07, "wind_curl", (2.0, -26.0), STEP_FX);
     let u_air = on_contact(u_air, "player.hit");
 
     // DOWN AIR — `stomp`. THE MOVE SHE COMES FROM. The hardest down-air on
     // the grid, because landing on things is the entire genre she is a
     // protagonist of. Everything else in her kit is light; this is not.
-    let d_air = strike(
-        "stomp",
-        "air_down",
-        0.09,
-        0.09,
-        0.20,
-        (0.0, 26.0),
-        (20.0, 20.0),
-        12,
-        122.0,
-        2.15,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let d_air = strike(Strike {
+        id: "stomp",
+        clip: "air_down",
+        startup_s: 0.09,
+        active_s: 0.09,
+        recover_s: 0.20,
+        offset: (0.0, 26.0),
+        half_extents: (20.0, 20.0),
+        damage: 12,
+        knockback: 122.0,
+        knockback_growth: 2.15,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     let d_air = vfx_at(d_air, 0.09, "landing_puff", (0.0, 26.0), STEP_FX);
     let d_air = sfx(d_air, 0.09, "player.land");
     let d_air = on_contact(d_air, "player.hit");
@@ -250,20 +251,20 @@ pub fn mary_o_moveset() -> MovesetContract {
     // rather than carried. a swung volume rather than a spawned projectile:
     // spawning one would be a second authority on a pattern her own game already
     // owns.
-    let n_b = strike(
-        "fireball",
-        "attack",
-        0.14,
-        0.10,
-        0.26,
-        (32.0, 4.0),
-        (24.0, 16.0),
-        9,
-        96.0,
-        1.72,
-        Some((0.9, -0.45)),
-        None,
-    );
+    let n_b = strike(Strike {
+        id: "fireball",
+        clip: "attack",
+        startup_s: 0.14,
+        active_s: 0.10,
+        recover_s: 0.26,
+        offset: (32.0, 4.0),
+        half_extents: (24.0, 16.0),
+        damage: 9,
+        knockback: 96.0,
+        knockback_growth: 1.72,
+        launch_dir: Some((0.9, -0.45)),
+        on_hit: None,
+    });
     let n_b = committed_tail(n_b, 0.56, 0.20);
     let n_b = vfx_at(n_b, 0.14, "ember_wisp", (32.0, 4.0), FLAME_FX);
     let n_b = sfx(n_b, 0.14, "player.directional_special");
@@ -271,20 +272,20 @@ pub fn mary_o_moveset() -> MovesetContract {
 
     // SIDE — `cape_spin`. She turns once and whatever was next to her is on
     // the other side of the argument.
-    let side_b = strike(
-        "cape_spin",
-        "attack_side",
-        0.12,
-        0.10,
-        0.24,
-        (26.0, 0.0),
-        (24.0, 20.0),
-        9,
-        100.0,
-        1.85,
-        Some((0.92, -0.40)),
-        None,
-    );
+    let side_b = strike(Strike {
+        id: "cape_spin",
+        clip: "attack_side",
+        startup_s: 0.12,
+        active_s: 0.10,
+        recover_s: 0.24,
+        offset: (26.0, 0.0),
+        half_extents: (24.0, 20.0),
+        damage: 9,
+        knockback: 100.0,
+        knockback_growth: 1.85,
+        launch_dir: Some((0.92, -0.40)),
+        on_hit: None,
+    });
     let side_b = impulse(side_b, 0.12, (520.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.54, 0.20);
     let side_b = vfx_at(side_b, 0.12, "wind_curl", (0.0, 0.0), FLAME_FX);
@@ -293,20 +294,20 @@ pub fn mary_o_moveset() -> MovesetContract {
     // UP — `spring_jump`. THE RECOVERY, and it is a JUMP, which is the only
     // shape her recovery could honestly take. High and cheap to land: the
     // lightest fighter's way home.
-    let mut up_b = strike(
-        "spring_jump",
-        "attack_up",
-        0.06,
-        0.12,
-        0.16,
-        (0.0, -12.0),
-        (18.0, 30.0),
-        7,
-        82.0,
-        1.58,
-        Some((0.10, -1.0)),
-        None,
-    );
+    let mut up_b = strike(Strike {
+        id: "spring_jump",
+        clip: "attack_up",
+        startup_s: 0.06,
+        active_s: 0.12,
+        recover_s: 0.16,
+        offset: (0.0, -12.0),
+        half_extents: (18.0, 30.0),
+        damage: 7,
+        knockback: 82.0,
+        knockback_growth: 1.58,
+        launch_dir: Some((0.10, -1.0)),
+        on_hit: None,
+    });
     up_b.landing_lag_s = Some(0.20);
     let up_b = impulse(up_b, 0.06, (0.0, -800.0), ImpulseMode::Set);
     let up_b = committed_tail(up_b, 0.46, 0.30);
@@ -316,20 +317,20 @@ pub fn mary_o_moveset() -> MovesetContract {
 
     // DOWN — `pipe_drop`. She goes down and the floor objects. Grounded-only
     // — the joke needs a pipe to be standing on.
-    let down_b = strike(
-        "pipe_drop",
-        "attack_down",
-        0.16,
-        0.09,
-        0.30,
-        (0.0, 18.0),
-        (30.0, 13.0),
-        9,
-        92.0,
-        1.68,
-        Some((0.7, -0.62)),
-        None,
-    );
+    let down_b = strike(Strike {
+        id: "pipe_drop",
+        clip: "attack_down",
+        startup_s: 0.16,
+        active_s: 0.09,
+        recover_s: 0.30,
+        offset: (0.0, 18.0),
+        half_extents: (30.0, 13.0),
+        damage: 9,
+        knockback: 92.0,
+        knockback_growth: 1.68,
+        launch_dir: Some((0.7, -0.62)),
+        on_hit: None,
+    });
     let down_b = committed_tail(down_b, 0.62, 0.0);
     let down_b = vfx_at(down_b, 0.16, "smoke_puff", (0.0, 18.0), FLAME_FX);
     let down_b = on_contact(down_b, "player.hit");
@@ -348,20 +349,20 @@ pub fn mary_o_moveset() -> MovesetContract {
     // DOWN, IN THE AIR — `pipe_dive`. No pipe up here, so she brings the
     // drop instead of the pipe. The genre's own move, and the one press of hers
     // that should never have been missing in the air.
-    let mut air_down_b = strike(
-        "pipe_dive",
-        "air_down",
-        0.09,
-        0.10,
-        0.22,
-        (0.0, 24.0),
-        (19.0, 21.0),
-        10,
-        104.0,
-        1.82,
-        Some((0.0, 1.0)),
-        None,
-    );
+    let mut air_down_b = strike(Strike {
+        id: "pipe_dive",
+        clip: "air_down",
+        startup_s: 0.09,
+        active_s: 0.10,
+        recover_s: 0.22,
+        offset: (0.0, 24.0),
+        half_extents: (19.0, 21.0),
+        damage: 10,
+        knockback: 104.0,
+        knockback_growth: 1.82,
+        launch_dir: Some((0.0, 1.0)),
+        on_hit: None,
+    });
     air_down_b.landing_lag_s = Some(0.24);
     let air_down_b = impulse(air_down_b, 0.09, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.09, "smoke_puff", (0.0, 22.0), STEP_FX);

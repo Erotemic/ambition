@@ -55,6 +55,14 @@ fn attack_gesture_history_round_trips_through_rollback_codec() {
         posture: AttackPosture::Airborne,
         phase: AttackInputPhase::Press,
     };
+    // A DIFFERENT intent in the buffered slot, so a codec that wrote the two
+    // fields in the wrong order would fail rather than round-trip.
+    let buffered = AttackGestureIntent {
+        direction: AttackDir::Down,
+        strength: AttackStrength::Tilt,
+        posture: AttackPosture::Grounded,
+        phase: AttackInputPhase::Press,
+    };
     let state = AttackGestureState {
         flick_armed: false,
         recent_flick: Some(RecentAttackFlick {
@@ -62,6 +70,7 @@ fn attack_gesture_history_round_trips_through_rollback_codec() {
             age_ticks: 2,
         }),
         active: Some(intent),
+        buffered_press: Some(buffered),
     };
     let bytes = encode_state(&state);
     assert_eq!(decode_state::<AttackGestureState>(&bytes), Some(state));

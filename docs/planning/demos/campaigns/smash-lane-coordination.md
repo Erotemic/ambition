@@ -183,7 +183,8 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` — live, but its effect on KO count is below this measurement's noise floor |
 | C2 CPU tech | COORDINATOR | ✔ — 15–56 techs per 30s match |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
-| P6 the camera cuts when a fighter leaves play | PRESENTATION | ▢ — 38.4 units against 33.8 ordinary |
+| P6 the camera cuts when a fighter leaves play | PRESENTATION | ✔ `694366fa6` — the easing WAS the cause; a speed cap now absorbs any size |
+| P7 nobody has SEEN any of this | PRESENTATION | ▢ — an offscreen capture binary for the Smash demo |
 | M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ▢ |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
 
@@ -272,3 +273,36 @@ been shown, and the same seven-run rig is how anyone would show it.
 believed.** The differential — the reflex off, the reflex on, everything else
 fixed — is the only thing that separates "the mechanic runs" from "the mechanic
 matters", and four of this campaign's slices ran for days without mattering.
+
+## P7 — nobody has seen any of it
+
+Twelve visual features have shipped this week — launch trails, the i-frame blink,
+the bubble shield and its hit flare, the low-shield read, the charge pose and
+pulse, latch and loaded cues, dizzy stars, the tech spark, the parry flash and
+chime, the strong-hit flash, the near-KO ember, landing dust — and **not one of
+them has been looked at.** Every claim about them is a unit test over a published
+fact. Four mechanics this week passed exactly that bar while doing nothing at
+all.
+
+Mary-O has a capture binary and Smash does not:
+
+```bash
+cargo run -p ambition_demo_mary_o_app --features capture --bin capture_mary_o \
+    -- OUT.png 960x540 --warmup 120
+```
+
+`ambition_render::capture` is the game-agnostic half (target, camera adoption,
+readback, PNG, exit); what each game supplies is which app to build and when its
+world is worth photographing. The Smash version wants two CPU seats, a wait past
+the 3-2-1-GO, and — unlike Mary-O's — a **burst**: several frames spaced N ticks
+apart, because a pulse rate, a blink cadence and a trail are not judgeable from
+one still. `request_capture` is single-shot, so the burst is the game side
+resetting `CaptureProgress` and bumping the output path.
+
+⛔ Three ways it writes a file having rendered nothing, all hit in one sitting on
+another demo: `RenderMode::Headless` sets `backends: None` so there is no
+RenderApp; disabling `winit` also removes the RUNNER, so `app.run()` performs one
+update and returns; and cameras do not exist at `Startup` in a shell-composed
+demo, so adoption must run every frame and the shot must wait for
+`CaptureTarget::adopted > 0`. ⭐ On a machine with no display, print the pixel
+histogram — a transparent PNG and a white scene preview identically.

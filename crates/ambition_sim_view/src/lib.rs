@@ -45,8 +45,9 @@ pub use local_view::{
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
 pub use pose_view::{
-    rebuild_body_pose_views, rebuild_launched_bodies_view, rebuild_shield_rings_view, BodyPoseView,
-    LaunchedBodiesView, LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
+    rebuild_body_pose_views, rebuild_guard_breaks_view, rebuild_launched_bodies_view,
+    rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, LaunchedBodiesView,
+    LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
 };
 pub use presented_pose::{
     PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
@@ -77,6 +78,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<ActorAnimIndex>();
         app.init_resource::<ShieldRingsView>();
         app.init_resource::<LaunchedBodiesView>();
+        app.init_resource::<GuardBreaksView>();
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
@@ -117,6 +119,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // Which bodies are in an INVOLUNTARY flight, so a
                 // flight-readability cue never has to infer that from speed.
                 rebuild_launched_bodies_view,
+                // And which have had their guard shattered — a raised guard and
+                // a broken one are two different rows, not one with a flag.
+                rebuild_guard_breaks_view,
                 // Which bodies' characters author their own attack art, so no
                 // render system has to ask the catalog — see the module docs
                 // for why an absent catalog must stay ABSENT here.

@@ -259,6 +259,15 @@ pub fn sync_bubble_shield_visual(
         if let Some(guard) = active.get(assigned).copied() {
             transform.translation =
                 ambition_platformer2d_core::config::world_to_bevy(&world.0, guard.pos, BUBBLE_Z);
+            // The field is an ELLIPSE and the ellipse belongs to the body, so
+            // it rotates with the body's own frame. Without this a wall-walker's
+            // guard lies on its side — the same screen-axis assumption the
+            // sprite pass already refuses through this exact helper.
+            transform.rotation = Quat::from_rotation_z(
+                ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle(
+                    guard.gravity_dir,
+                ),
+            );
             let pulse = shield_hit_pulse(guard.stun_secs);
             // Generous overlap: the body is INSIDE this, so the field has to
             // clear the silhouette rather than trace it.
@@ -435,6 +444,28 @@ mod tests {
         let flickering = shield_bubble_color(false, 0.05, 0.0, 1.0).to_srgba();
         assert!(flickering.alpha < calm.alpha, "danger DIMS the guard");
         assert!(flickering.alpha > 0.0, "a guard still up is still drawn");
+    }
+
+    /// The field is oriented to the BODY, not the screen. Ordinary gravity
+    /// leaves it upright; a wall-walker's guard turns with it.
+    #[test]
+    fn the_field_turns_with_the_body_not_the_screen() {
+        use ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle;
+        // Engine coords are y-down, so ordinary gravity points +Y.
+        let ordinary = gravity_upright_angle(bevy::math::Vec2::new(0.0, 1.0));
+        assert!(ordinary.abs() < 1e-6, "ordinary gravity draws upright");
+
+        // Every other gravity turns the field, and a half turn is a half turn.
+        let sideways = gravity_upright_angle(bevy::math::Vec2::new(1.0, 0.0));
+        let flipped = gravity_upright_angle(bevy::math::Vec2::new(0.0, -1.0));
+        assert!(
+            sideways.abs() > 1e-3,
+            "a wall-walker's guard is not upright"
+        );
+        assert!(
+            (flipped.abs() - std::f32::consts::PI).abs() < 1e-3,
+            "flipped gravity is a half turn, got {flipped}"
+        );
     }
 
     /// The parry read is never diluted by anything else on the field.

@@ -373,6 +373,14 @@ pub struct ShieldRingFact {
     /// presentation decision in the simulation and need `ShieldTuning` here to
     /// make it.
     pub stun_secs: f32,
+    /// This body's OWN toward-feet direction — not the global field's, and not
+    /// screen `+Y`.
+    ///
+    /// The bubble is an ellipse (wider than it is tall) and the ellipse belongs
+    /// to the BODY, so under rotated gravity it has to rotate with it. A
+    /// presentation that assumed screen axes would draw a wall-walker's guard
+    /// lying on its side.
+    pub gravity_dir: ambition_platformer2d_core::Vec2,
 }
 
 /// Every body (player AND brain-driven actor) whose shield is currently
@@ -392,19 +400,83 @@ pub fn rebuild_shield_rings_view(
         // The body's own shield tuning, so the ring can SHOW the resource
         // draining. A body with no motion model draws a whole ring.
         Option<&ambition_platformer2d_core::MotionModel>,
+        // The body's OWN basis, so guard presentation is oriented to the
+        // surface this body stands on rather than to the screen.
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
     view.0.clear();
-    view.0
-        .extend(bodies.iter().filter(|(_, shield, _, _)| shield.active).map(
-            |(kin, shield, presented, model)| ShieldRingFact {
+    view.0.extend(
+        bodies
+            .iter()
+            .filter(|(_, shield, _, _, _)| shield.active)
+            .map(|(kin, shield, presented, model, frame)| ShieldRingFact {
                 pos: presented.map_or(kin.pos, |p| p.presented()),
                 size: kin.size,
                 parrying: shield.parrying(),
                 integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
                 stun_secs: shield.stun_timer,
-            },
-        ));
+                gravity_dir: body_down(frame),
+            }),
+    );
+}
+
+/// This body's toward-feet direction, falling back to the engine default for a
+/// body whose frame has not been resolved.
+fn body_down(
+    frame: Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+) -> ambition_platformer2d_core::Vec2 {
+    frame.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| {
+        frame.down()
+    })
+}
+
+/// One body whose guard has SHATTERED and is still paying for it.
+///
+/// Its own pooled view rather than a row on [`ShieldRingsView`], and the reason
+/// is what a row there MEANS to the consumer that already exists:
+/// `sync_bubble_shield_visual` assigns pooled bubble sprites by index over that
+/// vector, so `len()` is "how many bubbles do I need". A broken guard is not
+/// raised — `break_shield` drops `active` — so a row for one would either draw
+/// a bubble on a shattered shield or force that loop to filter, at which point
+/// the length stops answering the question it is asked. Two views, each meaning
+/// one thing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GuardBreakFact {
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub size: ambition_platformer2d_core::Vec2,
+    /// How far through the break this body is: `0.0` the instant the guard
+    /// shatters, approaching `1.0` as it recovers
+    /// (`BodyShieldState::break_phase`).
+    pub phase: f32,
+    /// This body's OWN toward-feet direction. Dizzy stars orbit the body's up,
+    /// which is the opposite of this — never screen `-Y`.
+    pub gravity_dir: ambition_platformer2d_core::Vec2,
+}
+
+/// Every body currently in a guard break, in query order.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct GuardBreaksView(pub Vec<GuardBreakFact>);
+
+pub fn rebuild_guard_breaks_view(
+    mut view: ResMut<GuardBreaksView>,
+    bodies: Query<(
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        &ambition_platformer2d_actor_monolith::actor::BodyShieldState,
+        Option<&crate::presented_pose::PresentedPose>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
+) {
+    view.0.clear();
+    view.0
+        .extend(bodies.iter().filter_map(|(kin, shield, presented, frame)| {
+            shield.break_phase().map(|phase| GuardBreakFact {
+                pos: presented.map_or(kin.pos, |p| p.presented()),
+                size: kin.size,
+                phase,
+                gravity_dir: body_down(frame),
+            })
+        }));
 }
 
 /// One body in INVOLUNTARY flight, resolved sim-side.

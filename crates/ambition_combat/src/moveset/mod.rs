@@ -268,6 +268,60 @@ pub struct MovePlayback {
     /// vector alone would re-introduce the frame confusion `dir_to_world` exists
     /// to prevent.
     pub aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
+    /// The SMASH CHARGE this use is playing, or `None` for a use that never
+    /// entered charge mode.
+    ///
+    /// Per-USE and not per-move: only a press resolved as a Smash charges, so
+    /// the same `MoveSpec` reached through another verb plays its plain
+    /// timeline. Rollback state, carried with the rest of this component.
+    pub charge: Option<MoveCharge>,
+}
+
+/// One chargeable use's charge clock.
+///
+/// The move's own timeline freezes at the authored hold point while Attack is
+/// held; `held_s` accumulates in the owner's proper time; and the fraction is
+/// FROZEN at release so every hit the use generates lands with the same
+/// payoff — a multi-hit smash cannot pay more for its later pulses.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MoveCharge {
+    /// The policy this use resolved at its start. Held rather than re-read so a
+    /// content reload mid-move cannot move the hold point under a frozen clock.
+    pub policy: ambition_entity_catalog::SmashChargeSpec,
+    /// Seconds of the owner's proper time spent holding.
+    pub held_s: f32,
+    /// The fraction the release froze, `0..=1`. `None` = still charging (or not
+    /// yet at the hold point).
+    pub released_fraction: Option<f32>,
+}
+
+impl MoveCharge {
+    fn new(policy: ambition_entity_catalog::SmashChargeSpec) -> Self {
+        Self {
+            policy,
+            held_s: 0.0,
+            released_fraction: None,
+        }
+    }
+
+    /// The fraction in force: the frozen one once released, the live one while
+    /// still holding.
+    pub fn fraction(&self) -> f32 {
+        self.released_fraction
+            .unwrap_or_else(|| self.policy.fraction_for(self.held_s))
+    }
+
+    /// Still holding — the timeline is frozen and the charge is growing.
+    pub fn charging(&self) -> bool {
+        self.released_fraction.is_none()
+    }
+
+    /// Freeze the payoff. Idempotent: a second release cannot raise it.
+    fn release(&mut self) {
+        if self.released_fraction.is_none() {
+            self.released_fraction = Some(self.policy.fraction_for(self.held_s));
+        }
+    }
 }
 
 impl bevy::ecs::entity::MapEntities for MovePlayback {
@@ -400,6 +454,9 @@ impl MovePlayback {
             // Nobody aimed unless a caller says so — `with_aim` is the seam, and
             // the facing fallback at the fire frame is what an unaimed move gets.
             aim: None,
+            // A use charges only when the press that started it asked to —
+            // `charged_by_smash_gesture` is that seam.
+            charge: None,
         }
     }
 
@@ -407,6 +464,49 @@ impl MovePlayback {
     pub fn with_aim(mut self, aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>) -> Self {
         self.aim = aim;
         self
+    }
+
+    /// Enter charge mode iff this use was started by a SMASH gesture AND the
+    /// move authors (or derives) a charge policy.
+    ///
+    /// Both halves are required, and neither is redundant: the gesture is what
+    /// makes THIS use a smash, and the policy is what makes the MOVE
+    /// chargeable. A move borrowed by another verb never freezes its timeline,
+    /// and a smash slot with no payoff never freezes it either.
+    #[must_use]
+    pub fn charged_by_smash_gesture(mut self, is_smash: bool) -> Self {
+        self.charge = is_smash
+            .then(|| self.spec.charge_policy())
+            .flatten()
+            .map(MoveCharge::new);
+        self
+    }
+
+    /// The resolved charge fraction to PRESENT, `None` when this use is not
+    /// currently charging.
+    ///
+    /// The one fact presentation reads for the charge pose / pulse / cue: it
+    /// appears when the hold latches, rises to `1.0` at maximum, and goes back
+    /// to `None` the instant the move releases. ⛔ presentation must not
+    /// re-derive this from move names or Startup progress — a tapped smash and
+    /// a held one share both.
+    pub fn smash_charge_fraction(&self) -> Option<f32> {
+        self.charge
+            .filter(MoveCharge::charging)
+            .map(|c| c.policy.fraction_for(c.held_s))
+    }
+
+    /// The damage/knockback scale every hit of this use lands with.
+    ///
+    /// A charge-active use is scaled by the fraction it FROZE at, uniformly for
+    /// the rest of the move; anything else keeps the timeline reading
+    /// (`MoveSpec::charge_scale_at`), which is the identity for every move that
+    /// authors no payoff.
+    pub fn charge_scale(&self) -> f32 {
+        match self.charge {
+            Some(charge) => 1.0 + charge.fraction() * (self.spec.smash_charge_mult - 1.0),
+            None => self.spec.charge_scale_at(self.t),
+        }
     }
 
     /// Normalized move progress — what presentation samples the bound clip
@@ -525,6 +625,12 @@ pub fn advance_move_playback(
         // invisible. `None` (a bare test body) simply mints nothing.
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     )>,
+    // IS ATTACK STILL DOWN? The body-generic resolved gesture, produced by
+    // `resolve_attack_gestures` earlier in this same tick — never a device and
+    // never a participant. `held` is `Some` for exactly as long as the press
+    // that started the move is sustained, so a tap resolves as released the
+    // moment the hold point is reached.
+    held_attack: Query<&ResolvedAttackGesture>,
     // Liveness oracle for the `live_boxes` cache. The cache is NOT the
     // authority — `(t, window)` is — so every cached slot is validated against
     // the world before it is believed. See the `(inside, Some(slot))` arm.
@@ -574,6 +680,48 @@ pub fn advance_move_playback(
         // ProperTimeScale — undilated actors are the identity case.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
         let t_prev = playback.t;
+        // THE CHARGE HOLD. A chargeable use walks its ordinary timeline to the
+        // authored hold point and stands there while Attack is held. The proper
+        // time it would have spent advancing is spent CHARGING instead — no
+        // more, no less — so hitlag and a global pause slow the charge exactly
+        // as they slow the swing, and no tick's worth of time is lost or
+        // double-spent at the boundary.
+        //
+        // "Still held" is the body-generic resolved gesture, produced earlier in
+        // this same tick, never a device and never a participant: a CPU that
+        // taps Smash reaches the hold point already released and continues with
+        // the minimum payoff, and a policy that holds charges like a person.
+        let dt = match playback.charge {
+            Some(charge) if charge.charging() => {
+                let duration = playback.spec.duration_s;
+                let hold_at = charge.policy.hold_at_s.clamp(0.0, duration);
+                if (t_prev + dt).min(duration) < hold_at {
+                    dt
+                } else {
+                    let to_hold = (hold_at - t_prev).max(0.0);
+                    let spare = (dt - to_hold).max(0.0);
+                    let still_held = held_attack.get(owner).is_ok_and(|g| g.held.is_some());
+                    let charge = playback.charge.as_mut().expect("matched above");
+                    if still_held {
+                        let accrued = spare.min(charge.policy.max_hold_s - charge.held_s);
+                        charge.held_s += accrued;
+                        if charge.held_s >= charge.policy.max_hold_s {
+                            // Maximum fires the move whether or not the button
+                            // is down: a full charge is LOADED, not stored.
+                            charge.release();
+                        }
+                        // Whatever the hold could not absorb — only non-zero on
+                        // the tick the maximum is reached — carries the move
+                        // forward, so the release is not a frame late.
+                        to_hold + if charge.charging() { 0.0 } else { spare - accrued }
+                    } else {
+                        charge.release();
+                        dt
+                    }
+                }
+            }
+            _ => dt,
+        };
         playback.t = (t_prev + dt).min(playback.spec.duration_s);
         let t = playback.t;
 
@@ -745,7 +893,7 @@ pub fn advance_move_playback(
                     // this release instant (`t`, the owner's clock), so a held
                     // smash lands harder than a tap. `1.0` (every non-charge move)
                     // leaves damage/knockback byte-identical — parity.
-                    let charge_scale = pb.spec.charge_scale_at(t);
+                    let charge_scale = pb.charge_scale();
                     for (v_idx, volume) in window.volumes.iter().enumerate() {
                         // §7.1: a vfx-tagged (bladed) volume prefers the owner's
                         // AUTHORED manifest hit polygon for this move's clip —
@@ -1301,11 +1449,15 @@ pub fn trigger_moveset_moves(
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
         let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
+        // Set by the attack arm below when it resolves a SMASH; every other
+        // verb leaves it false.
+        let mut smash_gesture = false;
         //  every branch below asks for a move IN THIS STANCE. The capture kit
         // declares its whole vocabulary grounded-only, and a captor carried into
         // the air was still able to pummel and throw because the exact-verb
         // lookup did not read the gate its own repertoire had authored.
-        let (spec, verb_names, proposer): (Option<MoveSpec>, &[&str], ProposedVerb) = if holding_captive {
+        type Resolution<'a> = (Option<MoveSpec>, &'a [&'a str], ProposedVerb);
+        let (spec, verb_names, proposer): Resolution = if holding_captive {
             match gesture.pressed.map(|intent| intent.direction) {
                 Some(AttackDir::Neutral) => (
                     moveset.0.move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded).cloned(),
@@ -1454,6 +1606,11 @@ pub fn trigger_moveset_moves(
             } else {
                 &[ATTACK_VERB, "any_attack"]
             };
+            // THIS USE IS A SMASH. Recorded here and nowhere else: the same
+            // resolution that chose the smash verb is what makes the use
+            // chargeable, so a move borrowed by another verb — or a running
+            // attack that pre-empted the gesture — never freezes its timeline.
+            smash_gesture = base_verb == SMASH_VERB && !running_attack;
             (spec, verb_names, ProposedVerb::Attack)
         } else if frame.taunt_pressed {
             // LAST in the chain on purpose: a taunt loses to every verb that
@@ -1549,7 +1706,8 @@ pub fn trigger_moveset_moves(
                 // fire frame. See `MovePlayback::aim`.
                 .insert(
                     MovePlayback::new(spec, kin.facing)
-                        .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
+                        .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy)))
+                        .charged_by_smash_gesture(smash_gesture),
                 );
             // ACCEPTED — the proposal is over. A buffered press that starts a
             // move must not start the next one behind it.
@@ -1586,7 +1744,8 @@ pub fn trigger_moveset_moves(
                 // would have fixed aimed shots only for moves that interrupted
                 // another one, which is the rarer half.
                 MovePlayback::new(spec, kin.facing)
-                    .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
+                    .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy)))
+                    .charged_by_smash_gesture(smash_gesture),
             );
             proposer.spend(&mut action_buffer);
         }

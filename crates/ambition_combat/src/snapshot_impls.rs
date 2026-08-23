@@ -136,6 +136,29 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
             }
             None => put_bool(out, false),
         }
+        // THE CHARGE IS STATE. Two peers whose held smash disagrees about how
+        // long it has been held will land different damage and different
+        // knockback from the same move, so the hold and the frozen release
+        // fraction are both hashed. The POLICY rides along because it is
+        // resolved once at the move's start and then frozen — a peer that
+        // reconstructed it from a differently-authored spec would agree about
+        // the elapsed hold and disagree about what it bought.
+        match self.charge {
+            Some(charge) => {
+                put_bool(out, true);
+                put_f32(out, charge.policy.hold_at_s);
+                put_f32(out, charge.policy.max_hold_s);
+                put_f32(out, charge.held_s);
+                match charge.released_fraction {
+                    Some(f) => {
+                        put_bool(out, true);
+                        put_f32(out, f);
+                    }
+                    None => put_bool(out, false),
+                }
+            }
+            None => put_bool(out, false),
+        }
     }
 }
 

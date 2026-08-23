@@ -1456,14 +1456,23 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
             let mut query = world.query::<&MatchSeat>();
             seated = query.iter(world).count();
         }
-        // Everybody but seat 0 leaves the world, once.
-        if !launched && tick > countdown + 30 {
+        // Everybody but seat 0 leaves the world, and KEEPS leaving until they
+        // are gone.
+        //
+        //  a SINGLE velocity write was still a race, whatever the note
+        // below claims: it is one frame's worth of authority over a body the
+        // sim owns, and a fighter struck mid-flight takes the hit's knockback
+        // instead and lands back on the stage. That made this fixture sensitive
+        // to combat BALANCE — it went red the day a tapped smash stopped
+        // landing at full charge — while measuring nothing about it. Re-applying
+        // every tick is what makes "every elimination is one it CAUSES" true.
+        if tick > countdown + 30 {
             let world = app.world_mut();
             let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
             for (seat, mut kin) in query.iter_mut(world) {
                 if seat.0 > 0 {
-                    // This test's own comment says every elimination is one it CAUSES; a launch
-                    // aimed at the far side was the one thing about it that was still a race.
+                    // Away from the centre, re-read each tick so a body that
+                    // was knocked back across the midline is still thrown OUT.
                     let toward = if kin.pos.x * 2.0 > world_width {
                         1.0
                     } else {

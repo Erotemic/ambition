@@ -120,6 +120,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         gates: MoveGates { grounded },
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
     }
 }
 
@@ -1143,6 +1144,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        smash_charge: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -1353,5 +1355,73 @@ fn an_authored_impulse_defaults_to_the_additive_meaning() {
             local: (0.0, -900.0),
             mode: ImpulseMode::Add,
         }
+    );
+}
+
+/// The charge policy every shipped fighter relies on is DERIVED, not authored:
+/// the hold sits at the end of the move's own leading Startup window.
+#[test]
+fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
+    let mut spec = MoveSpec {
+        display_name: None,
+        id: "fsmash".to_string(),
+        clip: ClipBinding {
+            clip: "fsmash".to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.5,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: 0.3,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+            MoveWindow {
+                start_s: 0.3,
+                end_s: 0.4,
+                tag: WindowTag::Active,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+        ],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.7,
+        smash_charge: None,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    };
+    let derived = spec.charge_policy().expect("a paying smash charges");
+    assert_eq!(
+        derived.hold_at_s, 0.3,
+        "the hold must sit where the windup ends"
+    );
+    assert_eq!(derived.max_hold_s, SmashChargeSpec::DEFAULT_MAX_HOLD_S);
+
+    // A move that pays nothing for a hold must not freeze its timeline for one.
+    let mut unpaid = spec.clone();
+    unpaid.smash_charge_mult = 1.0;
+    assert!(unpaid.charge_policy().is_none());
+
+    // Authoring overrides the derivation...
+    spec.smash_charge = Some(SmashChargeSpec {
+        hold_at_s: 0.12,
+        max_hold_s: 0.8,
+    });
+    assert_eq!(spec.charge_policy().unwrap().hold_at_s, 0.12);
+
+    // ... including all the way to "this smash does not hold".
+    spec.smash_charge = Some(SmashChargeSpec {
+        hold_at_s: 0.12,
+        max_hold_s: 0.0,
+    });
+    assert!(
+        spec.charge_policy().is_none(),
+        "a zero maximum is how a move says it cannot be charged"
     );
 }

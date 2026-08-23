@@ -748,6 +748,20 @@ pub struct MoveSpec {
     /// `2.0` so a held smash lands twice as hard as a tap.
     #[serde(default = "default_charge_mult")]
     pub smash_charge_mult: f32,
+    /// How a SMASH-gesture use of this move holds and releases its charge.
+    ///
+    /// `None` = the derived policy: the hold sits at the end of the leading
+    /// Startup window (exactly where [`Self::charge_fraction_at`] has always
+    /// read the charge from) and lasts [`SmashChargeSpec::DEFAULT_MAX_HOLD_S`].
+    /// Authoring one is how a move differs — a slower windup that pays off
+    /// sooner, or a charge that cannot be held at all.
+    ///
+    /// This says nothing about WHETHER a use charges: only a press resolved as
+    /// a Smash enters charge mode, and only for a move whose
+    /// [`Self::smash_charge_mult`] pays for it. A move reused by another verb
+    /// is never chargeable.
+    #[serde(default)]
+    pub smash_charge: Option<SmashChargeSpec>,
     /// Landing lag: the recovery this move owes if the body touches down
     /// before the move ended. Seconds of the owner's proper time, spent as a
     /// hard control lock.
@@ -777,6 +791,42 @@ pub struct MoveSpec {
 /// identity, so every existing move is unscaled (parity).
 fn default_charge_mult() -> f32 {
     1.0
+}
+
+/// How a chargeable move HOLDS: where on its own timeline the charge waits,
+/// and how long it may wait before it fires itself.
+///
+/// Both values are seconds of the OWNER'S proper time, like every other clock
+/// on a [`MoveSpec`] — a dilated fighter charges as slowly as it swings.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct SmashChargeSpec {
+    /// The instant the timeline freezes while Attack is held.
+    pub hold_at_s: f32,
+    /// The longest that freeze may last. Reaching it releases the move whether
+    /// or not the button is still down, which is what stops a held smash from
+    /// being a stall.
+    pub max_hold_s: f32,
+}
+
+impl SmashChargeSpec {
+    /// A full charge takes one second — the platform-fighter house number
+    /// (60 frames at 60Hz). A knob, not a measurement: a move that wants a
+    /// different commitment authors its own policy.
+    pub const DEFAULT_MAX_HOLD_S: f32 = 1.0;
+
+    /// Is this policy capable of holding at all? A zero (or negative) maximum
+    /// is how a move says "this smash does not charge".
+    pub fn holds(&self) -> bool {
+        self.max_hold_s > 0.0
+    }
+
+    /// The fraction of a full charge `held_s` of hold time buys, `0..=1`.
+    pub fn fraction_for(&self, held_s: f32) -> f32 {
+        if self.max_hold_s <= 0.0 {
+            return 0.0;
+        }
+        (held_s / self.max_hold_s).clamp(0.0, 1.0)
+    }
 }
 
 /// Serde default for [`MoveEventKind::Vfx::scale`]: the presentation default
@@ -894,11 +944,40 @@ impl MoveSpec {
     /// The damage/knockback scale a release at proper-time `t` applies (CM3):
     /// `1.0 → smash_charge_mult` interpolated by the charge fraction. Returns
     /// `1.0` exactly when `smash_charge_mult == 1.0` (parity: no charge scaling).
+    ///
+    /// The TIMELINE reading, for a use that is not charge-active — a boss
+    /// pattern, an enemy swing, a move reached through some other verb. A use
+    /// that entered charge mode is scaled from the fraction it FROZE at
+    /// instead; see `MovePlayback::charge_scale`.
     pub fn charge_scale_at(&self, t: f32) -> f32 {
         if self.smash_charge_mult == 1.0 {
             return 1.0;
         }
         1.0 + self.charge_fraction_at(t) * (self.smash_charge_mult - 1.0)
+    }
+
+    /// The charge policy a SMASH-gesture use of this move plays under, or
+    /// `None` when this move does not charge.
+    ///
+    /// The multiplier is what says a move charges: a smash with no payoff is a
+    /// timeline that would freeze for nothing. The hold point is DERIVED from
+    /// the timeline the move already authors rather than duplicated beside it,
+    /// which is why every shipped fighter became chargeable without touching a
+    /// single moveset.
+    pub fn charge_policy(&self) -> Option<SmashChargeSpec> {
+        if self.smash_charge_mult <= 1.0 {
+            return None;
+        }
+        let policy = self.smash_charge.unwrap_or(SmashChargeSpec {
+            hold_at_s: self
+                .windows
+                .iter()
+                .find(|w| matches!(w.tag, WindowTag::Startup))
+                .map(|w| w.end_s)
+                .unwrap_or(0.0),
+            max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        });
+        policy.holds().then_some(policy)
     }
 
     /// CM4: may this move, at proper-time `t` with the given hit state, be

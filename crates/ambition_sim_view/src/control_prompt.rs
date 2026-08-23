@@ -477,6 +477,7 @@ mod tests {
                 gates: Default::default(),
                 start_impulse: None,
                 smash_charge_mult: 1.0,
+                smash_charge: None,
             }];
         }
         (BodyAbilities::new(a), ActorMoveset(m))

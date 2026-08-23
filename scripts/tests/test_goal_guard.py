@@ -627,6 +627,51 @@ def test_a_wait_that_never_ends_stops_buying_silence(repo: Path) -> None:
     assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
 
 
+def test_a_wait_whose_task_list_KEEPS_GROWING_still_hits_the_ceiling(repo: Path) -> None:
+    """⛔⛔ THE POISON, and it is the one the ceiling test above holds fixed.
+
+    That test keeps the SAME task outstanding, so it only ever exercised the
+    unchanged-key path. A coordinator launches a NEW background command most
+    turns, so its pending set grows every turn — and a changed key used to
+    return from its own branch before the ceiling was ever read. Measured on
+    this repository 2026-08-23: 19h of silence under a 4h ceiling, 21 waits,
+    zero blocks, while Jon asked three times why the goal was not firing.
+    """
+    arm(repo, checks=[FAIL])
+    run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
+    state = state_of(repo)
+    state["waiting_since"] = (
+        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=9)
+    ).isoformat()
+    (repo / ".goal" / "state.json").write_text(json.dumps(state))
+    grown = transcript(
+        repo, launched("toolu_A"), launched("toolu_B", "task2"), launched("toolu_C", "task3")
+    )
+    assert run(repo, stdin={"transcript_path": grown})["decision"] == "block", (
+        "launching more work must not buy fresh quiet for a wait past its ceiling"
+    )
+
+
+def test_something_actually_returning_still_earns_a_fresh_wait(repo: Path) -> None:
+    """The other direction, or the fix above would just delete the stand-down: a
+    coordinator whose subagents land one by one is making progress and keeps
+    earning quiet."""
+    arm(repo, checks=[FAIL])
+    both = transcript(repo, launched("toolu_A"), launched("toolu_B", "task2"))
+    run(repo, stdin={"transcript_path": both})
+    state = state_of(repo)
+    state["waiting_since"] = (
+        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=9)
+    ).isoformat()
+    (repo / ".goal" / "state.json").write_text(json.dumps(state))
+    landed = transcript(
+        repo, launched("toolu_A"), launched("toolu_B", "task2"), finished("toolu_A")
+    )
+    out = run(repo, stdin={"transcript_path": landed})
+    assert out.get("decision") != "block", "a wait that is MOVING is a wait"
+    assert state_of(repo)["waiting_since"] > state["waiting_since"], "the clock restarts"
+
+
 # ── The full goal text is worth tokens sometimes, not every turn ──────────────
 
 
@@ -950,3 +995,85 @@ def test_clearing_a_run_takes_its_share_marker_with_it(repo: Path) -> None:
     arm(repo, checks=[FAIL], max_stalled_blocks=99)
     assert _stop(repo, "a")["decision"] == "block"
     assert _stop(repo, "b") == {}, "a cleared run's sharing leaked into the next goal"
+
+
+# ── A session id rotates; the roster does not follow it ───────────────────────
+#
+# A compact or a resume opens a new transcript under a new id, and the goal stays
+# bound to one that will never stop again: `mode_stop` returns before doing
+# anything and SessionStart says nothing, so the run is armed and enforcing on
+# nobody. The runtime's own handover names the previous transcript in the first
+# records of the new one, which is what these read.
+
+
+CONTINUED = "6a4e37e1-38c1-4f74-9cf0-71df82473012"
+ROTATED = "4e1ecff1-a997-4db8-b045-62f34919b129"
+
+
+def continuation(repo: Path, previous: str, name: str) -> str:
+    """A transcript whose opening records carry the runtime's handover line."""
+    return transcript(
+        repo,
+        {
+            "type": "user",
+            "message": {
+                "content": "This session is being continued from a previous "
+                "conversation... read the full transcript at: "
+                f"/home/agent/.claude/projects/-x-/{previous}.jsonl"
+            },
+        },
+        name=name,
+    )
+
+
+def test_the_same_conversation_under_a_new_id_inherits_the_run(repo: Path) -> None:
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, CONTINUED)
+    assert _roster(repo) == [CONTINUED]
+
+    out = run(
+        repo,
+        stdin={
+            "session_id": ROTATED,
+            "hook_event_name": "Stop",
+            "transcript_path": continuation(repo, CONTINUED, f"{ROTATED}.jsonl"),
+        },
+    )
+    assert out.get("decision") == "block", "a compact must not release the run"
+    assert _roster(repo) == [ROTATED], (
+        "the rotated id will never stop again; leaving it on the roster only "
+        "makes a later --clear ambiguous"
+    )
+
+
+def test_a_stranger_window_still_does_not_inherit_the_run(repo: Path) -> None:
+    """⛔ THE POISON. Inheritance is proof of continuation, not a way for any new
+    window to take a goal it is not doing — that is what `--share` is for."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, CONTINUED)
+    assert _stop(repo, ROTATED) == {}, "a window with no continuation took the run"
+    assert _roster(repo) == [CONTINUED]
+
+
+def test_session_start_says_so_when_a_goal_is_armed_but_not_held(repo: Path) -> None:
+    """Silence is how an orphan stays an orphan: nothing distinguished "somebody
+    else holds this" from "the guard is enforcing on nobody"."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, CONTINUED)
+    out = run(repo, "--inject", stdin={"session_id": "some-other-window"})
+    message = out.get("systemMessage", "")
+    assert "ARMED" in message and CONTINUED in message
+    assert "--resume" in message, "the notice has to say how to take it over"
+    assert "additionalContext" not in json.dumps(out), (
+        "a window that does not hold the run must not be given its work"
+    )
+
+
+def test_status_quick_answers_without_running_the_checks(repo: Path) -> None:
+    """The line that says the guard is not running used to sit behind minutes of
+    the goal's own cargo commands."""
+    arm(repo, checks=[{"name": "expensive", "cmd": "sleep 30"}])
+    out = cli(repo, "--status", "--quick")
+    assert "blocks so far" in out
+    assert "NEVER" in out, "a guard that has never fired is the failure being looked for"
+    assert "expensive" not in out

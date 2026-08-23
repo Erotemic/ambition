@@ -286,6 +286,43 @@ def goal_is_shared(root: Path) -> bool:
     return shared_path(root).exists()
 
 
+_TRANSCRIPT_STEM = re.compile(
+    r"([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.jsonl"
+)
+CONTINUATION_HEAD_LINES = 64
+
+
+def continued_sessions(hook_input: dict) -> set[str]:
+    """The session ids this transcript says it CONTINUES.
+
+    ⛔⛔ **A SESSION ID ROTATES, AND THE ROSTER DOES NOT FOLLOW IT.** A compact
+    or a resume opens a new transcript under a new id, so `.goal/owner` names a
+    session that will never stop again: `mode_stop` returns 0 before doing
+    anything, `--inject` says nothing because the new id is a stranger, and the
+    run is armed, alive, and enforcing on nobody. `--resume` has been the manual
+    answer since 2026-08-01 — but the only symptom is SILENCE, so nobody knows
+    to run it. Jon has now asked why the goal is not firing three times.
+
+    The runtime hands over by injecting the PREVIOUS transcript's path into the
+    first few records of the new one ("read the full transcript at .../<id>.jsonl"),
+    which is proof of continuation rather than a guess at one. Only ids already
+    on the roster are ever honoured, so a window that merely mentions somebody
+    else's transcript inherits nothing.
+    """
+    path = hook_input.get("transcript_path")
+    if not isinstance(path, str) or not path.strip():
+        return set()
+    mine = session_id_of(hook_input)
+    try:
+        with open(path.strip(), encoding="utf8", errors="replace") as handle:
+            head = "".join(
+                line for _, line in zip(range(CONTINUATION_HEAD_LINES), handle)
+            )
+    except OSError:
+        return set()
+    return {s for s in _TRANSCRIPT_STEM.findall(head) if s and s != mine}
+
+
 def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
     """Does the armed goal belong to the session calling this hook?
 
@@ -309,6 +346,18 @@ def session_owns_goal(root: Path, hook_input: dict, *, claim: bool) -> bool:
     # session claimed does not reach out and hold every other window.
     if claim and goal_is_shared(root):
         join_owner(root, session)
+        return True
+    # ⭐ **THE SAME CONVERSATION UNDER A NEW ID INHERITS THE RUN.** Not a second
+    # window taking a goal it is not doing — the transcript itself names the
+    # session it continues, and that session must be on the roster already.
+    inherited = continued_sessions(hook_input) & set(roster)
+    if inherited:
+        if claim:
+            join_owner(root, session)
+            for dead in inherited:
+                # The rotated id will never stop again; leaving it on the roster
+                # only makes `--clear` ambiguous later.
+                leave_owner(root, dead)
         return True
     return False
 
@@ -876,7 +925,9 @@ def handle_wait(root: Path, signals: dict) -> int | None:
     * nothing pending, or the wait has run past WAIT_CEILING_HOURS — None, and
       the ordinary block path runs. The ceiling is what stops a KILLED task from
       buying silence forever: a task that was stopped never sends a completion,
-      so it stays "pending" for the rest of the session.
+      so it stays "pending" for the rest of the session. ⛔ it is checked before
+      every stand-down below, not only on the unchanged-key path — a wait whose
+      SET keeps changing is exactly the one that needs it.
     * pending and the heartbeat is not due — stand down silently.
     * pending and the heartbeat IS due — block, but with a SHORT reason asking
       about the subagents rather than the goal preamble. Work in flight hangs,
@@ -892,52 +943,47 @@ def handle_wait(root: Path, signals: dict) -> int | None:
         return None
     state = load_json(state_path(root)) or {}
     key = ",".join(sorted(pending))
-    previous = state.get("wait_key")
-    if previous != key:
-        # A new or changed wait: something returned, or something new launched.
-        #
-        # ⛔⛔ THE CLOCK ONLY RESTARTS WHEN SOMETHING ACTUALLY REPORTED. It used
-        # to restart on ANY change, which made the ceiling below unreachable for
-        # the one caller that needs it most: a coordinator that launches a
-        # background gate every few minutes grows the pending set every time, so
-        # `waiting_since` was pushed forward forever and the guard stood down
-        # SILENTLY for hours. Jon, 2026-08-23: "Goal is not firing."
-        #
-        # A killed task never sends a completion, so it stays pending for the
-        # session — that is what the ceiling exists to survive. Growing the set
-        # must therefore NOT buy fresh quiet; only shrinking it may.
-        outstanding = set(previous.split(",")) if previous else set()
-        something_returned = bool(outstanding - pending)
-        state["wait_key"] = key
-        if something_returned or not state.get("waiting_since"):
-            state["waiting_since"] = now_utc().isoformat()
-        state["last_wait_nudge_at"] = now_utc().isoformat()
-        state["waits"] = as_int(state.get("waits"), 0) + 1
-        write_state(root, state)
-        emit(
-            {
-                "systemMessage": (
-                    f"Goal guard: standing down — {len(pending)} background "
-                    "task(s) launched from this session have not reported back. "
-                    "The goal is STILL ARMED. It will ask how they are doing in "
-                    f"{WAIT_HEARTBEAT_MINUTES:.0f} minutes if none of them return."
-                )
-            }
-        )
-        return 0
+    previous = state.get("wait_key") or ""
 
+    # ⛔⛔ THE CLOCK RESTARTS ONLY WHEN SOMETHING ACTUALLY REPORTED, and it is
+    # READ BEFORE ANY STAND-DOWN. Both halves are the same defect, found twice:
+    # a coordinator that launches one background task per turn grows `pending`
+    # every turn, so a changed key used to (a) push `waiting_since` forward and
+    # then (b) return from its own branch above the ceiling check. Measured
+    # 2026-08-23: 18h of silence under a 4h ceiling, 21 waits, zero blocks.
+    # A killed task never reports, so it stays pending for the session — that is
+    # what the ceiling exists to survive, and growing the set must not buy quiet.
+    outstanding = set(previous.split(",")) if previous else set()
+    if outstanding - pending or not state.get("waiting_since"):
+        state["waiting_since"] = now_utc().isoformat()
+        state["last_wait_nudge_at"] = now_utc().isoformat()
     since = parse_deadline(state.get("waiting_since"))
+
     if since and now_utc() - since >= _dt.timedelta(hours=WAIT_CEILING_HOURS):
-        # No longer a credible wait. Fall through and block as normal.
+        # No longer a credible wait. Fall through and block as normal; the
+        # ordinary block path clears both keys, so the NEXT wait starts fresh.
         return None
 
+    state["wait_key"] = key
+    state["waits"] = as_int(state.get("waits"), 0) + 1
     last_nudge = parse_deadline(state.get("last_wait_nudge_at")) or since
     due = last_nudge is None or now_utc() - last_nudge >= _dt.timedelta(
         minutes=WAIT_HEARTBEAT_MINUTES
     )
     if not due:
-        state["waits"] = as_int(state.get("waits"), 0) + 1
         write_state(root, state)
+        if key != previous:
+            emit(
+                {
+                    "systemMessage": (
+                        f"Goal guard: standing down — {len(pending)} background "
+                        "task(s) launched from this session have not reported "
+                        "back. The goal is STILL ARMED. It asks how they are "
+                        f"doing in {WAIT_HEARTBEAT_MINUTES:.0f} minutes, and "
+                        f"enforces normally again after {WAIT_CEILING_HOURS:.0f}h."
+                    )
+                }
+            )
         return 0
 
     state["last_wait_nudge_at"] = now_utc().isoformat()
@@ -1079,10 +1125,12 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             # A clean run: the crash fuse in `main` counts consecutive crashes,
             # so reaching here at all means the guard is working.
             "crashes": 0,
-            # Reaching an ordinary block means nothing is in flight (or the wait
-            # ran past its ceiling). Dropping the key here keeps `--status`
-            # honest and makes the NEXT wait start its clock fresh.
+            # Reaching an ordinary block means nothing is in flight (or the
+            # wait ran past its ceiling). BOTH keys drop: a wait that survived
+            # its ceiling has just paid a full block, and the next one earns its
+            # own quiet from zero rather than inheriting an expired clock.
             "wait_key": None,
+            "waiting_since": None,
         }
     )
     write_state(root, state)
@@ -1146,10 +1194,27 @@ def mode_inject(root: Path, hook_input: dict) -> int:
     if not goal:
         return 0
 
-    # Someone else's run: say nothing. `claim=False` because SessionStart fires
-    # for every new session, and the first window opened after arming would
-    # otherwise take ownership of a run it is not doing.
+    # Someone else's run: do not CLAIM it — SessionStart fires for every new
+    # session, and the first window opened after arming would take over a run it
+    # is not doing. But do not be SILENT about it either. Silence is how an
+    # orphaned goal stays orphaned: nothing distinguishes "another session holds
+    # this" from "the guard is enforcing on nobody", and the second one has cost
+    # this project whole days.
     if not session_owns_goal(root, hook_input, claim=False):
+        roster = owner_sessions(root) or []
+        emit(
+            {
+                "systemMessage": (
+                    "Goal guard: a goal is ARMED in this repository and is NOT "
+                    "held by this session — it is held by "
+                    + (", ".join(roster) if roster else "(unclaimed)")
+                    + ", so nothing here will be blocked. If that session is "
+                    "gone, take the run over with `python3 "
+                    "scripts/goal_guard.py --resume`. Goal: "
+                    + goal.get("goal", "")[:200]
+                )
+            }
+        )
         return 0
 
     deadline = parse_deadline(goal.get("deadline_utc"))
@@ -1474,7 +1539,7 @@ def mode_extend(root: Path, raw: str) -> int:
     return 0
 
 
-def mode_status(root: Path) -> int:
+def mode_status(root: Path, *, quick: bool = False) -> int:
     goal = load_json(active_path(root))
     if not goal:
         print("no goal armed")
@@ -1503,11 +1568,11 @@ def mode_status(root: Path) -> int:
         )
     for line in timer_lines(root, goal):
         print(line)
-    results = run_checks(goal, root)
-    for r in results:
-        mark = "✅" if r.ok else "▢"
-        detail = f"  ({r.detail})" if r.detail and not r.ok else ""
-        print(f"  {mark} {r.name}{detail}")
+
+    # ⛔ EVERYTHING ABOUT THE INSTRUMENT PRINTS BEFORE THE CHECKS RUN. The checks
+    # are the goal's own shell commands — in this repository, minutes of cargo —
+    # and the one line that says the guard is not running at all used to sit
+    # behind them. A diagnostic nobody waits for is a diagnostic nobody reads.
     state = load_json(state_path(root)) or {}
     pending = state.get("pause_once")
     if isinstance(pending, dict):
@@ -1519,17 +1584,35 @@ def mode_status(root: Path) -> int:
         )
     if state.get("pauses"):
         print(f"pauses spent: {state['pauses']}, last {state.get('last_pause_at', '?')}")
-    if state:
-        print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
-        # The only symptom of a guard that is not running at all. Every other
-        # line here is about whether the WORK is done; this one is about whether
-        # the instrument is plugged in, which is the failure that costs hours
-        # because nothing else reports it.
-        last = parse_deadline(state.get("last_block_at"))
-        if last:
-            idle_h = (now_utc() - last).total_seconds() / 3600.0
-            note = "  ⚠ THE GUARD MAY NOT BE RUNNING" if idle_h >= 1.0 else ""
-            print(f"last Stop check: {idle_h:.1f}h ago{note}")
+    print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
+    waiting = parse_deadline(state.get("waiting_since"))
+    if waiting:
+        held_h = (now_utc() - waiting).total_seconds() / 3600.0
+        print(
+            f"standing down on background work: {held_h:.1f}h of "
+            f"{WAIT_CEILING_HOURS:.0f}h, then it enforces again"
+        )
+    last = parse_deadline(state.get("last_block_at"))
+    if last:
+        idle_h = (now_utc() - last).total_seconds() / 3600.0
+        note = "  ⚠ THE GUARD MAY NOT BE RUNNING" if idle_h >= 1.0 else ""
+        print(f"last Stop check: {idle_h:.1f}h ago{note}")
+    else:
+        # ⚠ printed rather than skipped: "no state yet" and "the hook has never
+        # fired" look the same from here, and the second is the failure.
+        print(
+            "last Stop check: NEVER — no turn has been checked under this goal. "
+            "⚠ if the run is not new, the hook is not reaching the guard."
+        )
+
+    if quick:
+        print("(checks not run: --status --quick)")
+        return 0
+    results = run_checks(goal, root)
+    for r in results:
+        mark = "✅" if r.ok else "▢"
+        detail = f"  ({r.detail})" if r.detail and not r.ok else ""
+        print(f"  {mark} {r.name}{detail}")
     return 0 if results and all(r.ok for r in results) else 1
 
 
@@ -1638,6 +1721,12 @@ def main() -> int:
     )
     parser.add_argument("--inject", action="store_true", help="SessionStart mode")
     parser.add_argument("--status", action="store_true")
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="with --status: who holds the goal and whether the guard is "
+        "running, WITHOUT running the goal's checks (which can take minutes)",
+    )
     parser.add_argument("--arm", metavar="GOAL_JSON")
     parser.add_argument(
         "--clear",
@@ -1803,7 +1892,7 @@ def main() -> int:
         print("goal cleared")
         return 0
     if args.status:
-        return mode_status(root)
+        return mode_status(root, quick=args.quick)
 
     hook_input = {}
     if not sys.stdin.isatty():

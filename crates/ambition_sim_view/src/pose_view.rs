@@ -49,6 +49,15 @@ pub struct BodyPoseView {
     pub clip: Option<crate::ClipRequest>,
     /// Seconds remaining on the damage flash (`BodyCombat::hit_flash`).
     pub hit_flash_secs: f32,
+    /// This body CANNOT BE STRUCK right now — the presentation half of
+    /// `ambition_combat::util::body_vulnerable`, resolved here so no renderer
+    /// re-derives hit eligibility from a pose or a move name.
+    ///
+    /// Covers every body-generic grant at once because the damage rule does:
+    /// dodge / spot dodge / air dodge, tech and getup, the ledge grab's earned
+    /// intangibility, the timed untouchable a respawn hands out, and the
+    /// i-frames a hit leaves behind.
+    pub unhittable: bool,
     pub hp_current: i32,
     pub hp_max: i32,
     /// The body is in morph-ball mode (draws the procedural sphere instead
@@ -93,6 +102,7 @@ impl Default for BodyPoseView {
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
+            unhittable: false,
             hp_current: 0,
             hp_max: 0,
             morph_ball: false,
@@ -286,6 +296,18 @@ pub fn rebuild_body_pose_views(
                     )?)
                 }),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
+            // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
+            // body missing one of these clusters cannot be protected by it, so
+            // the default stands in.
+            unhittable: !ambition_combat::util::body_vulnerable(
+                health.map_or_else(
+                    ambition_characters::actor::Invulnerability::none,
+                    |h| h.health.invulnerable,
+                ),
+                motion_facts.is_some_and(|m| m.evading()),
+                &shield.copied().unwrap_or_default(),
+                &combat.copied().unwrap_or_default(),
+            ),
             hp_current: health.map_or(0, |h| h.current()),
             hp_max: health.map_or(0, |h| h.max()),
             morph_ball: body_mode

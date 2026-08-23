@@ -60,6 +60,16 @@ pub struct FeatureView {
     /// Actor rows only: the sandbag/training-dummy depiction flag the debug
     /// health overlay colors by.
     pub training_dummy: bool,
+    /// This body CANNOT BE STRUCK right now — the presentation half of
+    /// `ambition_combat::util::body_vulnerable`, resolved at this one site so
+    /// no renderer ever re-derives hit eligibility from a pose or a move name.
+    ///
+    /// Covers every body-generic grant at once because the damage rule does:
+    /// dodge / spot dodge / air dodge, tech and getup, the ledge grab's earned
+    /// intangibility, the timed untouchable a respawn hands out, and the
+    /// i-frames a hit leaves behind. `false` for every feature that is not a
+    /// body.
+    pub unhittable: bool,
     /// `Some`  this body PUBLISHES where its sprite quad goes relative to
     /// `pos` (see `ActorSpriteOffset`), and that placement is authoritative:
     /// the renderer centres the quad and shifts it by this, instead of using
@@ -187,6 +197,10 @@ pub fn rebuild_feature_view_index(
             Option<&BodyMelee>,
             Option<&ActorConfig>,
             Option<&ActorSurfaceState>,
+            // The two clusters the damage rule reads that this pass did not
+            // already hold: the evade window and the guard.
+            Option<&ae::BodyMotionFacts>,
+            Option<&ambition_platformer2d_actor_monolith::actor::BodyShieldState>,
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
             Option<
@@ -241,6 +255,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                unhittable: false,
                 sprite_offset: None,
             },
         );
@@ -264,6 +279,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                unhittable: false,
                 sprite_offset: None,
             },
         );
@@ -287,6 +303,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: breakable.breakable.health.current,
                 hp_max: breakable.breakable.health.max,
                 training_dummy: false,
+                unhittable: false,
                 sprite_offset: None,
             },
         );
@@ -310,11 +327,25 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                unhittable: false,
                 sprite_offset: None,
             },
         );
     }
-    for (id, aabb, disposition, combat, health, attack, config, surface, roll, sprite_offset) in
+    for (
+        id,
+        aabb,
+        disposition,
+        combat,
+        health,
+        attack,
+        config,
+        surface,
+        motion,
+        shield,
+        roll,
+        sprite_offset,
+    ) in
         &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -375,6 +406,18 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: combat.is_some_and(|c| c.training_dummy),
+                // THE DAMAGE RULE ITSELF, inverted — not a second reading of
+                // it. A body missing one of these clusters cannot be protected
+                // by it, so the default stands in.
+                unhittable: !ambition_combat::util::body_vulnerable(
+                    health.map_or_else(
+                        ambition_characters::actor::Invulnerability::none,
+                        |h| h.health.invulnerable,
+                    ),
+                    motion.is_some_and(|m| m.evading()),
+                    &shield.copied().unwrap_or_default(),
+                    &combat.copied().unwrap_or_default(),
+                ),
                 sprite_offset: sprite_offset.map(|o| o.0),
             },
         );
@@ -398,6 +441,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                unhittable: false,
                 sprite_offset: None,
             },
         );
@@ -437,6 +481,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: false,
+                unhittable: false,
                 sprite_offset: None,
             },
         );
@@ -874,6 +919,7 @@ mod view_index_tests {
             hp_current: 0,
             hp_max: 0,
             training_dummy: false,
+            unhittable: false,
             sprite_offset: None,
         }
     }

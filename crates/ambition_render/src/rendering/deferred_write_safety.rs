@@ -275,6 +275,7 @@ mod boss_pass {
             hp_current: 40,
             hp_max: 40,
             training_dummy: false,
+            unhittable: false,
             sprite_offset: None,
         }
     }

@@ -100,6 +100,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         hp_current: 40,
         hp_max: 40,
         training_dummy: false,
+        unhittable: false,
         sprite_offset: None,
     }
 }

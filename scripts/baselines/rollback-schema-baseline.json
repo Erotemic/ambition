@@ -204,6 +204,7 @@
     "derived.resolved_motion_frame",
     "derived.resolved_technique_edges",
     "derived.slot_controls",
+    "derived.strike_rank",
     "derived.surface_upright",
     "dynamic.projectile",
     "encounter.camera_zoom",

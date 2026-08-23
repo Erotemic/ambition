@@ -47,6 +47,11 @@ pub fn apply_body_hit_reaction(
     gravity_dir: ae::Vec2,
     boss_hit: bool,
     knockback: Option<&crate::HitKnockback>,
+    // THE DAMAGE THIS HIT DEALT, staled, which is what the freeze is computed
+    // from. Threaded rather than read off the knockback because knockback is
+    // what the freeze is deliberately NOT allowed to depend on any more — see
+    // `ae::hit_response::hitlag_duration`.
+    damage: i32,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     stance: VictimStance,
@@ -70,7 +75,7 @@ pub fn apply_body_hit_reaction(
     if combat.armored {
         combat.hitstop_timer = combat
             .hitstop_timer
-            .max(ae::hit_response::hitlag_duration(knockback, &response));
+            .max(ae::hit_response::hitlag_duration(damage, &response));
         #[cfg(feature = "causal")]
         return BodyReaction {
             velocity: *vel,
@@ -132,7 +137,7 @@ pub fn apply_body_hit_reaction(
     };
     combat.hitstop_timer = combat
         .hitstop_timer
-        .max(ae::hit_response::hitlag_duration(knockback, &response));
+        .max(ae::hit_response::hitlag_duration(damage, &response));
     // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
     //
     // The floor is the run-axis component of the velocity just written, in the
@@ -250,6 +255,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&hard_knockback()),
+            12,
             ae::Vec2::ZERO,
             VictimStance::default(),
             feel(),

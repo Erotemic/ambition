@@ -752,7 +752,7 @@ pub fn apply_feature_hit_events(
                     // just landed.
                     combat.hitstop_timer = combat.hitstop_timer.max(
                         ambition_platformer2d_core::hit_response::hitlag_duration(
-                            event.knockback.as_ref(),
+                            event.damage,
                             &crate::features::ecs::damage_apply::hit_response_tuning(
                                 &feel,
                                 heavy_attacker,

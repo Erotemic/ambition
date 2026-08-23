@@ -1932,6 +1932,9 @@ pub fn apply_capture_throws(
             gravity_dir,
             false,
             Some(&knockback),
+            // The throw's own damage, which is the term the freeze is computed
+            // from — the same value applied to the meter above.
+            request.damage,
             //  no DI on a throw's release frame: the captive had no control to
             // hold. Smash DI on throws is a real mechanic and it belongs with
             // the escape work, where a captive's restricted input channel exists.

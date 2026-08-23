@@ -526,6 +526,20 @@ pub struct LaunchedBodyFact {
     /// The body's current collision AABB — presentation offsets the trail
     /// behind the body by a fraction of it.
     pub size: ambition_platformer2d_core::Vec2,
+    /// Seconds left in the HARD control lock at the FRONT of this launch:
+    /// `BodyCombat::recoil_lock_timer`, the window in which the body has been
+    /// thrown and has no authority at all over where it goes. `0.0` for a body
+    /// still in involuntary flight that can answer for itself again.
+    ///
+    /// This is the ONE thing separating a body launched this instant from one
+    /// that has been tumbling for a second: both are in this view, both are
+    /// fast, and every other field reads the same for the two. Presentation
+    /// gives the front of a launch its own beat off this and nothing else.
+    ///
+    /// A METEOR is the same window, longer — the Smash demo declares
+    /// `meteor_lock_time: 0.30` against an ordinary `0.12` — so a spike reads
+    /// as a longer, harder beat with no second fact.
+    pub launch_beat_secs: f32,
 }
 
 /// Every body (player AND brain-driven fighter) currently in an involuntary
@@ -566,6 +580,7 @@ pub fn rebuild_launched_bodies_view(
                     pos: presented.map_or(kin.pos, |p| p.presented()),
                     vel: kin.vel,
                     size: kin.size,
+                    launch_beat_secs: combat.map_or(0.0, |c| c.recoil_lock_timer),
                 })
             }),
     );
@@ -648,6 +663,82 @@ mod pose_view_tests {
             Some(quad),
             "and a body whose geometry IS its art reports the quad that came \
              from the same scale as its box"
+        );
+    }
+
+    /// The FRONT of a launch is published, and it is the only thing that tells
+    /// a body thrown this instant from one that has been tumbling for a second.
+    ///
+    /// Both bodies here are launched, both are travelling at the same speed,
+    /// and every other field of their rows is identical — which is exactly the
+    /// state presentation could not read before this field existed. The
+    /// zero-beat row is the whole test: drop the field's source and the two
+    /// rows become indistinguishable again, silently.
+    #[test]
+    fn the_front_of_a_launch_is_published_apart_from_the_tumble() {
+        use ambition_characters::actor::BodyCombat;
+        use ambition_platformer2d_actor_monolith::actor::BodyKinematics;
+        use ambition_platformer2d_core::{BodyMotionFacts, Vec2};
+
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<LaunchedBodiesView>();
+        app.add_systems(bevy::prelude::Update, rebuild_launched_bodies_view);
+
+        let kin = |x: f32| BodyKinematics {
+            pos: Vec2::new(x, 0.0),
+            vel: Vec2::new(900.0, 0.0),
+            size: Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        };
+        let tumbling = BodyMotionFacts {
+            tumbling: true,
+            ..Default::default()
+        };
+
+        // Thrown THIS INSTANT: still inside the hard control lock.
+        app.world_mut().spawn((
+            kin(0.0),
+            tumbling,
+            BodyCombat {
+                hitstun_timer: 0.4,
+                recoil_lock_timer: 0.09,
+                ..Default::default()
+            },
+        ));
+        // Still flying, still helpless, but it can steer again.
+        app.world_mut().spawn((
+            kin(1.0),
+            tumbling,
+            BodyCombat {
+                hitstun_timer: 0.4,
+                recoil_lock_timer: 0.0,
+                ..Default::default()
+            },
+        ));
+        // Under its own power at the same speed: not a launch at all.
+        app.world_mut().spawn(kin(2.0));
+
+        app.update();
+
+        let view = app.world().resource::<LaunchedBodiesView>();
+        assert_eq!(
+            view.0.len(),
+            2,
+            "only the launched bodies are rows: {view:?}"
+        );
+        let beat_at = |x: f32| {
+            view.0
+                .iter()
+                .find(|row| row.pos.x == x)
+                .unwrap_or_else(|| panic!("no row at {x}: {view:?}"))
+                .launch_beat_secs
+        };
+        assert_eq!(beat_at(0.0), 0.09, "the lock the sim wrote, unaltered");
+        assert_eq!(
+            beat_at(1.0),
+            0.0,
+            "a sustained tumble is NOT a launch beat, and reporting one here \
+             would make every trailing body flash forever"
         );
     }
 

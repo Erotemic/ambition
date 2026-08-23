@@ -98,6 +98,29 @@ struct Tally {
     /// wherever the runtime takes a cancel window's nomination, which is exactly
     /// where a chain lives.
     started: std::collections::BTreeMap<String, usize>,
+    /// Launches HANDED to this body: rising edges of hitstun, the same edge
+    /// `top_speed` is sampled on. The peak alone cannot say whether a match had
+    /// one big hit or forty.
+    launches: usize,
+    /// Ticks inside the HARD control lock at the front of a launch
+    /// (`BodyCombat::recoil_lock_timer`) while launched — the window
+    /// presentation reads as the launch BEAT, and the only thing that separates
+    /// a body thrown this instant from one that has been tumbling for a second.
+    /// Beside `launches` it says how long a beat lasts in practice; `0` means
+    /// the beat is inert and every launch trail is the same trail.
+    beat_ticks: usize,
+    /// THE SPEED A LAUNCHED BODY ACTUALLY FLIES AT, one sample per tick it
+    /// spends in involuntary flight (`hitstun > 0 || tumbling` — the same
+    /// predicate `LaunchedBodiesView` publishes).
+    ///
+    /// ⛔ NOT `top_speed`. That is the speed at the tick the launch was WRITTEN,
+    /// which is the right statistic for "how hard do hits throw people" and the
+    /// wrong one for anything that watches a body in flight: gravity keeps
+    /// working, and a launched body reaching 1500 px/s in a match whose reported
+    /// peak launch was 1000 is ordinary, not an anomaly. Presentation gates its
+    /// launch cues on THIS distribution, so a threshold picked off the other one
+    /// is fitted to a number the gate never sees.
+    flight_speeds: Vec<f32>,
     /// Ticks this body spent HELD by somebody. A grab is the most visible beat
     /// in the genre that a CPU can simply never throw, and "moves started"
     /// cannot see it: a grab that is refused and a grab that is never attempted
@@ -475,6 +498,7 @@ fn sample(
                     },
                     kin.pos.x,
                     captured.is_some(),
+                    combat.recoil_lock_timer,
                 )
             },
         )
@@ -496,6 +520,7 @@ fn sample(
         tech_timer,
         here,
         captured,
+        recoil_lock,
     ) in rows
     {
         let Some(tally) = totals.get_mut(seat) else {
@@ -521,6 +546,13 @@ fn sample(
         // threshold it had to beat was the one it left with.
         if hitstun > 0.0 && hitstun_was[seat] <= 0.0 {
             tally.top_speed = tally.top_speed.max(speed);
+            tally.launches += 1;
+        }
+        if hitstun > 0.0 && recoil_lock > 0.0 {
+            tally.beat_ticks += 1;
+        }
+        if hitstun > 0.0 || facts.is_some_and(|f| f.tumbling) {
+            tally.flight_speeds.push(speed);
         }
         hitstun_was[seat] = hitstun;
         tally.tumble_speed = tumble_speed;
@@ -638,10 +670,35 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!("  in range    {}", spread(|t| t.in_range as f32));
     println!("  KOs         {}", spread(|t| t.kos as f32));
     println!("  held        {}", spread(|t| t.held as f32));
+    println!("  launches    {}", spread(|t| t.launches as f32));
+    println!("  launch beat {}", spread(|t| t.beat_ticks as f32));
     println!("  best charge {}", peak(|t| t.best_charge));
     println!("  peak launch {}", peak(|t| t.top_speed));
+    // POOLED, not min–median–max: this is a distribution over TICKS OF FLIGHT,
+    // not a per-run total, and a percentile of it is what a presentation gate
+    // on flight speed is actually choosing.
+    let mut flight: Vec<f32> = all
+        .iter()
+        .flat_map(|run| run.iter().flat_map(|t| t.flight_speeds.iter().copied()))
+        .collect();
+    flight.sort_by(f32::total_cmp);
+    if !flight.is_empty() {
+        let at = |q: f32| flight[((flight.len() - 1) as f32 * q) as usize];
+        println!(
+            "  flight speed p25 {:.0}  p50 {:.0}  p75 {:.0}  p90 {:.0}  p99 {:.0}  max {:.0}  (n={})",
+            at(0.25),
+            at(0.50),
+            at(0.75),
+            at(0.90),
+            at(0.99),
+            flight[flight.len() - 1],
+            flight.len(),
+        );
+    }
     println!(
         "\nmin–median–max across runs. Counts are summed over both seats; charge and \
-         launch are the best either seat reached."
+         launch are the best either seat reached. `flight speed` is pooled over every \
+         tick of involuntary flight in every run — the distribution a presentation gate \
+         on flight speed actually sees."
     );
 }

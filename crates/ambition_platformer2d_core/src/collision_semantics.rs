@@ -374,7 +374,30 @@ pub struct Contact {
     /// The surface's own frame motion this step (a moving platform's
     /// `Block.velocity`; `ZERO` for static geometry).
     pub surface_velocity: Vec2,
+    /// How fast the body was closing on this surface along [`Self::normal`],
+    /// in px/s, at the instant of contact — `0.0` for a rest/repair contact
+    /// nothing arrived at.
+    ///
+    /// ⭐ captured HERE because it cannot be recovered anywhere else: the step
+    /// zeroes the body's velocity along the contact axis as it resolves, so by
+    /// the time any consumer sees the body the approach is gone. There is no
+    /// arrangement of the other facts that reconstructs it, which is why a wall
+    /// hit could not be measured at all.
+    ///
+    /// The BODY's own speed, matching `GroundContactTransition::Landed`'s
+    /// convention; a consumer that wants the relative approach has
+    /// [`Self::surface_velocity`] right beside it.
+    pub impact_speed: f32,
     pub source: ContactSource,
+}
+
+/// How fast `velocity` is closing on a surface whose outward normal is
+/// `normal`, in px/s. Zero when the body is moving away from it.
+///
+/// `normal` points away from the surface toward the body, so a body arriving
+/// has a negative projection onto it.
+pub fn closing_speed(velocity: Vec2, normal: Vec2) -> f32 {
+    (-velocity.dot(normal)).max(0.0)
 }
 
 impl Contact {
@@ -421,6 +444,9 @@ pub fn block_face_contact(
     normal: Vec2,
     toi: f32,
     kind: ContactKind,
+    // The body's closing speed along `normal`, read by the caller BEFORE it
+    // resolves the contact — see [`Contact::impact_speed`].
+    impact_speed: f32,
 ) -> Contact {
     Contact {
         kind,
@@ -428,6 +454,7 @@ pub fn block_face_contact(
         normal,
         toi,
         surface_velocity: block.velocity,
+        impact_speed,
         source: ContactSource::Block {
             kind: block.kind,
             id: block.id.clone(),

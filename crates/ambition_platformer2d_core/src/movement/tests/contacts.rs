@@ -341,3 +341,111 @@ fn a_carrier_that_clears_the_ground_flag_does_not_re_land_the_body_each_tick() {
          `SfxMessage::Land` and one dust puff per tick for the whole grab"
     );
 }
+
+/// ⭐ A CRASH IS NOT A LANDING, and the two facts that say so have to arrive in
+/// the SAME bundle.
+///
+/// A splat built on `MovementOp::Knockdown` scaled by the landing impact reads
+/// zero forever: `tick_knockdown` runs in the CONTROL phase, which precedes
+/// integration, so it sees `on_ground` only the tick after touchdown and is
+/// never in the same `FrameEvents` as the impact speed that measured the fall.
+/// `Landed` carries both, which is what makes the pair readable at all.
+#[test]
+fn a_body_that_falls_out_of_a_launch_lands_involuntarily_and_says_how_hard() {
+    let world = test_world();
+    let mut scratch = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        world.spawn,
+        AbilitySet::sandbox_all(),
+    );
+    // Airborne, thrown, and still tumbling on the way down.
+    scratch.kinematics.pos = Vec2::new(300.0, 400.0);
+    scratch.ground.on_ground = false;
+    scratch.ground.contact_initialized = true;
+    // The state a hard launch leaves behind: still tumbling, and it is the
+    // LANDING that ends it.
+    scratch.axis_mut().tumble_until_landing = true;
+    scratch.axis_mut().tumble_timer = 0.25;
+
+    let mut landing = None;
+    for _ in 0..240 {
+        let events = step_scratch(&world, &mut scratch, InputState::default());
+        if let crate::GroundContactTransition::Landed {
+            impact_speed,
+            involuntary,
+        } = events.ground_contact
+        {
+            landing = Some((impact_speed, involuntary));
+            break;
+        }
+    }
+    let (impact_speed, involuntary) = landing.expect("the thrown body never reached the floor");
+    assert!(
+        involuntary,
+        "a body still falling out of a launch reported a landing it chose"
+    );
+    assert!(
+        impact_speed > 0.0,
+        "the crash carried no impact speed, so a splat scaled by it draws \
+         nothing — this is the phase trap the fact exists to close"
+    );
+}
+
+/// The ordinary case, so the flag is not simply always true: a body that jumped
+/// and came down chose to be there.
+#[test]
+fn an_ordinary_landing_is_not_involuntary() {
+    let world = test_world();
+    let mut scratch = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        world.spawn,
+        AbilitySet::sandbox_all(),
+    );
+    scratch.kinematics.pos = Vec2::new(300.0, 400.0);
+    scratch.ground.on_ground = false;
+    scratch.ground.contact_initialized = true;
+
+    for _ in 0..240 {
+        let events = step_scratch(&world, &mut scratch, InputState::default());
+        if let crate::GroundContactTransition::Landed { involuntary, .. } = events.ground_contact {
+            assert!(!involuntary, "a plain fall reported itself as a crash");
+            return;
+        }
+    }
+    panic!("the falling body never reached the floor");
+}
+
+/// ⭐ THE WALL HIT, measured. Nothing downstream could recover this: the step
+/// zeroes the body's velocity along the contact axis as it resolves, so a body
+/// already stopped against a wall looks the same however hard it arrived.
+#[test]
+fn a_side_contact_carries_the_speed_the_body_arrived_at() {
+    let world = test_world();
+    let mut scratch = crate::body_clusters::BodyClusterScratch::new_with_abilities(
+        world.spawn,
+        AbilitySet::sandbox_all(),
+    );
+    // Just clear of the right wall, driven into it hard.
+    scratch.kinematics.pos = Vec2::new(1500.0, world.size.y - 95.0);
+    scratch.ground.contact_initialized = true;
+    scratch.kinematics.vel = Vec2::new(1200.0, 0.0);
+
+    let mut hit = None;
+    for _ in 0..120 {
+        let events = step_scratch(&world, &mut scratch, InputState::default());
+        if let Some(side) = events
+            .contacts
+            .iter()
+            .find(|c| c.kind == crate::collision_semantics::ContactKind::Side)
+        {
+            hit = Some(side.impact_speed);
+            break;
+        }
+        // Keep driving: the step's own friction is not the subject.
+        scratch.kinematics.vel.x = 1200.0;
+    }
+    let impact = hit.expect("the body never reached the wall");
+    assert!(
+        impact > 100.0,
+        "the wall contact reported {impact} px/s of approach for a body \
+         travelling at 1200 — the speed is being read after the step destroyed it"
+    );
+}

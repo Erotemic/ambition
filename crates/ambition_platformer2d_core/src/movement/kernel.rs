@@ -168,6 +168,13 @@ pub(super) struct GroundContactBaseline {
     grounded: bool,
     initialized_now: bool,
     impact_speed: f32,
+    /// Was this body still falling out of a launch on the way into the step?
+    ///
+    /// Captured with the baseline rather than read at the transition, because
+    /// `tick_knockdown` CLEARS `tumble_until_landing` on the touchdown it
+    /// resolves — a read taken afterwards is always false, which is the same
+    /// phase trap that made a `MovementOp::Knockdown` splat read zero.
+    involuntary: bool,
 }
 
 impl GroundContactBaseline {
@@ -176,10 +183,17 @@ impl GroundContactBaseline {
         self
     }
 
+    /// Record that the body entered this step still tumbling. See the field.
+    pub(super) fn falling_out_of_a_launch(mut self, tumbling: bool) -> Self {
+        self.involuntary = tumbling;
+        self
+    }
+
     pub(super) fn transition_to(self, grounded_now: bool) -> GroundContactTransition {
         match (self.grounded, grounded_now) {
             (false, true) => GroundContactTransition::Landed {
                 impact_speed: self.impact_speed,
+                involuntary: self.involuntary,
             },
             (true, false) => GroundContactTransition::LeftGround,
             (true, true) if self.initialized_now => GroundContactTransition::InitializedGrounded,
@@ -208,6 +222,10 @@ fn establish_ground_contact_baseline_from_sample(
         grounded: clusters.ground.on_ground,
         initialized_now,
         impact_speed: clusters.kinematics.vel.dot(frame.down()).max(0.0),
+        // Neither of the models that reach this sample tumbles: a surface
+        // rider and an adhesive crawler have no launch to fall out of. The
+        // axis path sets it explicitly.
+        involuntary: false,
     }
 }
 

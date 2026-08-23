@@ -18,7 +18,19 @@ pub enum GroundContactTransition {
     /// airborne through this step.
     InitializedAirborne,
     /// A known airborne baseline became supported during this step.
-    Landed { impact_speed: f32 },
+    Landed {
+        impact_speed: f32,
+        /// This body did not choose to be here: it was still falling out of a
+        /// launch when the floor arrived (`AxisManeuverState::tumble_until_landing`
+        /// on the way in). A crash, not a landing.
+        ///
+        /// ⛔ presentation must not re-derive this from `MovementOp::Knockdown`.
+        /// That op is emitted by the control phase, which PRECEDES integration,
+        /// so it sees `on_ground` only the tick after touchdown and is never in
+        /// the same bundle as the impact speed that measured the fall — a splat
+        /// built on the pair reads zero forever.
+        involuntary: bool,
+    },
     /// A known supported baseline became airborne during this step.
     LeftGround,
 }
@@ -26,9 +38,17 @@ pub enum GroundContactTransition {
 impl GroundContactTransition {
     pub const fn landing_impact_speed(self) -> Option<f32> {
         match self {
-            Self::Landed { impact_speed } => Some(impact_speed),
+            Self::Landed { impact_speed, .. } => Some(impact_speed),
             _ => None,
         }
+    }
+
+    /// Did this step end in a CRASH — a landing the body did not choose?
+    ///
+    /// `false` for every transition that is not a landing, so a consumer asking
+    /// "was that a splat" needs no match of its own.
+    pub const fn landed_involuntarily(self) -> bool {
+        matches!(self, Self::Landed { involuntary: true, .. })
     }
 }
 

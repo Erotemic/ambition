@@ -279,6 +279,7 @@ pub(super) fn integrate_velocity_clusters(
                     normal,
                     0.0,
                     crate::collision_semantics::ContactKind::Support,
+                    crate::collision_semantics::closing_speed(clusters.kinematics.vel, normal),
                 ));
         }
     }

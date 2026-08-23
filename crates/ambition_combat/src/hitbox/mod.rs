@@ -243,6 +243,13 @@ pub fn apply_hitbox_damage(
     // The swing owner's own accumulated damage, for RAGE. Looked up exactly like
     // its grudge and its team, and read-only for the same reason.
     attacker_health: Query<&ambition_characters::actor::BodyHealth>,
+    // THE SIBLING VOLUMES of whatever move is swinging — read-only, so it
+    // overlaps the `hitboxes` query above on `Hitbox` without conflicting
+    // (only `HitboxHits` is taken mutably there).
+    //
+    // This is the whole of the sweetspot rule's input: which other volumes one
+    // move has live right now, and which of them the author wrote first.
+    strike_ranks: Query<(&Hitbox, &crate::moveset::StrikeRank)>,
     // EVERY VICTIM'S GUARD, taken mutably and looked up by entity like the
     // attacker rows below. This is where a perfect shield CATCHES a strike, so
     // the guard is written, not read — see the parry arm in the victim loop.
@@ -351,6 +358,33 @@ pub fn apply_hitbox_damage(
                 // neither confirms an on-hit cancel nor wears itself out on the
                 // stale queue. The strike is still recorded as having reached
                 // this victim so it cannot re-reach it while the window is open.
+                // ⭐ THE SWEETSPOT WINS. A move that authors a tip and a base
+                // has both live at once, and a body standing between them is
+                // reached by both — so one swing landed twice, for two
+                // different damages and two knockbacks, until this.
+                //
+                // The victim takes the FIRST-AUTHORED volume that reaches it
+                // and no other: the loser stands down whenever a lower-ranked
+                // sibling of the same move also reaches this body. Asked from
+                // the LOSER's side deliberately — it needs no shared ledger and
+                // no write, so there is no order for two writers to disagree
+                // about, and a sourspot whose sweetspot window has closed is
+                // free again on the very next tick, which is what a lingering
+                // late hit should be.
+                if let Ok((_, rank)) = strike_ranks.get(hitbox_entity) {
+                    let outranked = strike_ranks.iter().any(|(sibling, sibling_rank)| {
+                        sibling.owner == hitbox.owner
+                            && sibling_rank < rank
+                            && strike_reaches_victim(
+                                &sibling.world_volume(owner_pos),
+                                victim.volumes,
+                                victim.aabb,
+                            )
+                    });
+                    if outranked {
+                        continue;
+                    }
+                }
                 if let Ok(mut shield) = guards.get_mut(victim.entity) {
                     if shield.parrying() {
                         shield.catch_parry();

@@ -472,6 +472,36 @@ pub fn fighter_moveset() -> MovesetContract {
     // Startup window before release, so the commitment and the payoff are the
     // same authored number.
     f_smash.smash_charge_mult = 1.7;
+    // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
+    // it is the one a body reached by both takes. This is the base: the same
+    // swing landed at the wrong distance, which hurts and does not kill.
+    //
+    // Spacing becomes a skill on this move without the move becoming two: get
+    // the range right and the smash is what the smash is worth, stand too close
+    // and it is a tilt with a long recovery. ⛔ the order in this list IS the
+    // priority — writing the base first would make every forward smash a base
+    // hit, and nothing would warn you.
+    for window in f_smash
+        .windows
+        .iter_mut()
+        .filter(|w| matches!(w.tag, WindowTag::Active))
+    {
+        let tip = window.volumes[0].clone();
+        window.volumes.push(HitVolume {
+            shape: VolumeShape::Rect {
+                // Inboard of the tip and overlapping it, so a body between the
+                // two is genuinely reached by both and the rule has to choose.
+                offset: (14.0, -4.0),
+                half_extents: (16.0, 20.0),
+            },
+            damage: 8,
+            knockback: 70.0,
+            knockback_growth: 70.0 * crate::SMASH_KNOCKBACK_GROWTH,
+            // Flatter and weaker: a base hit puts them next to you, not away.
+            launch_dir: Some((1.0, -0.15)),
+            ..tip
+        });
+    }
     moves.push(f_smash);
 
     let mut up_smash = strike(Strike {

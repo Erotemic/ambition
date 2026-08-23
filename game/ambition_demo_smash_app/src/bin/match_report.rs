@@ -30,6 +30,10 @@ use bevy::prelude::*;
 /// One seat's tally. Ticks unless the name says otherwise.
 #[derive(Default, Clone)]
 struct Tally {
+    /// PEAK percent, not the final reading. A KO resets a body to zero, so the
+    /// last value read is a measure of how recently somebody died rather than of
+    /// how much the fight did — and a run in which both fighters were killed
+    /// reads as a run in which nothing happened.
     damage: i32,
     hitstun: usize,
     tumbling: usize,
@@ -65,6 +69,10 @@ struct Tally {
     /// nothing threw it.
     top_speed: f32,
     tumble_speed: f32,
+    /// Ticks spent within a body-width or two of the nearest opponent. A match
+    /// where nothing happens is usually a match where nobody was ever in range,
+    /// and "moves thrown" cannot tell those apart.
+    in_range: usize,
 }
 
 fn main() {
@@ -156,7 +164,6 @@ fn run_one(character: &str, seconds: usize, noise_seed: u64) -> Vec<Tally> {
             &mut hitstun_was,
         );
     }
-
 
     totals
 }
@@ -287,10 +294,15 @@ fn sample(
                         Some(ae::MotionModel::AxisSwept(axis)) => Some(axis.state.tech_press_timer),
                         _ => None,
                     },
+                    kin.pos.x,
                 )
             },
         )
         .collect();
+    // WAS ANYBODY IN RANGE? A quiet match and a busy one both throw moves; only
+    // the distance between the bodies tells them apart.
+    const IN_RANGE_PX: f32 = 120.0;
+    let positions: Vec<(usize, f32)> = rows.iter().map(|row| (row.0, row.10)).collect();
     for (
         seat,
         damage,
@@ -302,12 +314,19 @@ fn sample(
         facts,
         shield,
         tech_timer,
+        here,
     ) in rows
     {
         let Some(tally) = totals.get_mut(seat) else {
             continue;
         };
-        tally.damage = damage;
+        tally.damage = tally.damage.max(damage);
+        if positions
+            .iter()
+            .any(|(other, x)| *other != seat && (x - here).abs() <= IN_RANGE_PX)
+        {
+            tally.in_range += 1;
+        }
         // ON THE RISING EDGE OF HITSTUN, which is the tick the launch was
         // written. Sampling any later reads gravity's work as the attacker's:
         // a body launched downward is faster every tick it falls, and the
@@ -424,6 +443,7 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!("  shielding   {}", spread(|t| t.shielding as f32));
     println!("  parries     {}", spread(|t| t.parries_caught as f32));
     println!("  techs       {}", spread(|t| t.tech_armed as f32));
+    println!("  in range    {}", spread(|t| t.in_range as f32));
     println!("  best charge {}", peak(|t| t.best_charge));
     println!("  peak launch {}", peak(|t| t.top_speed));
     println!(

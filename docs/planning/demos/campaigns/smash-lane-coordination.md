@@ -161,7 +161,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | Slice | Seat | State |
 |---|---|---|
 | M1 input buffer | MECHANICS | ✔ merged `7d99fae57` |
-| M2 smash charge | MECHANICS | ▢ |
+| M2 smash charge | MECHANICS | ✔ merged `2ec892149` |
 | M3 invuln/armor windows | MECHANICS | ▢ |
 | M4 out-of-shield policy | MECHANICS | ▢ |
 | M5 jab chains | MECHANICS | ▢ |
@@ -171,7 +171,27 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |
-| C1 CPU survival DI/SDI | COORDINATOR | ✔ |
+| M7 successful-parry-contact fact | MECHANICS | ▢ — blocks P3 |
+| C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` |
 | C2 CPU tech | COORDINATOR | ▢ |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
-| C3 CPU charges smashes | COORDINATOR | ▢ (after M2) |
+| C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
+
+## Measurements this campaign made, that outlive it
+
+- **An absence check against this repo's sprite assets needs `find -L`.** The art
+  trees are symlinked into a worktree, and `find … | xargs grep -l` without `-L`
+  searches only the downscaled tiers. A `smash_charge` row reported as authored
+  nowhere is authored on eight fighters at every tier.
+- **A body with no hitstun keeps a written launch velocity for exactly one tick.**
+  Air control resolves horizontal velocity from the held stick on the next one.
+  Any fixture that "launches" a body by writing `kin.vel` is racing the movement
+  kernel, and two of them were.
+- **A grounded body in hitstun still resolves velocity from held locomotion.**
+  Holding a stick against a slide erases it, which is why the CPU's survival
+  influence is airborne-only. Whether the kernel should scale that authority
+  during hitstun is M6's neighbour and is still open.
+- **`cargo check -p ambition_app --all-targets` does not reach another package's
+  test targets.** A field added to a rollback-registered type broke
+  `ambition_platformer2d_rollback_ggrs`'s lib test and nothing in the per-slice
+  gate saw it. `cargo test --workspace --lib` is the tier that does.

@@ -19,6 +19,15 @@
 //! builder pins `TimeUpdateStrategy::ManualDuration(timestep)`, so one
 //! `update()` is one tick. `--every 12` is a fifth of a second at 60Hz.
 //!
+//! `--on-ko` aims the burst at the ONE beat a fixed cadence cannot catch. A
+//! knockout happens on a handful of ticks in a whole match, and its sparks live
+//! under four tenths of a second, so `--after N --every M` photographs one only
+//! by luck. With the flag the tool steps until `KnockoutsView` publishes a row
+//! and starts the burst there, and every shot is annotated on stdout with its
+//! sim tick, the knockout's world position and the camera rect that frame — so
+//! a picture can be checked against the geometry it claims to show instead of
+//! being read by eye.
+//!
 //! It runs on [`Display::Offscreen`] — a real backend with no window. Disabling
 //! `winit` takes the app RUNNER with it, which is exactly what this wants: the
 //! burst is as many frames as it asks for and not one more.
@@ -38,6 +47,9 @@ struct Shots {
     after: u32,
     size: UVec2,
     character: String,
+    /// Start the burst on the tick a knockout is published rather than at
+    /// `--after`.
+    on_ko: bool,
 }
 
 impl Default for Shots {
@@ -53,6 +65,7 @@ impl Default for Shots {
             after: 240,
             size: UVec2::new(960, 540),
             character: ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string(),
+            on_ko: false,
         }
     }
 }
@@ -68,6 +81,7 @@ fn parse_args() -> Shots {
             "--every" => shots.every = value().parse().unwrap_or(shots.every).max(1),
             "--after" => shots.after = value().parse().unwrap_or(shots.after),
             "--character" => shots.character = value(),
+            "--on-ko" => shots.on_ko = true,
             "--size" => {
                 let raw = value();
                 if let Some((w, h)) = raw.split_once('x') {
@@ -237,11 +251,29 @@ fn main() {
     }
 
     // ── the burst ────────────────────────────────────────────────────────
+    if shots.on_ko {
+        match step_until_a_knockout(&mut app) {
+            Some(note) => println!("match_shots: knockout — {note}"),
+            None => {
+                eprintln!(
+                    "match_shots: no knockout in this match, so an --on-ko burst would \
+                     photograph an ordinary exchange and be filed as a knockout"
+                );
+                std::process::exit(1);
+            }
+        }
+    }
     let mut written = 0u32;
     for index in 0..shots.frames {
-        for _ in 0..shots.every {
-            app.update();
+        // ⛔ THE FIRST SHOT OF AN --on-ko BURST IS THE KNOCKOUT'S OWN FRAME.
+        // Stepping `--every` first would skip the tick the beat is emitted on,
+        // which is the one frame this mode exists to photograph.
+        if !(shots.on_ko && index == 0) {
+            for _ in 0..shots.every {
+                app.update();
+            }
         }
+        println!("  shot_{index:02} {}", frame_note(&mut app));
         let path = shots.out.join(format!("shot_{index:02}.png"));
         app.world_mut().resource_mut::<CaptureSettings>().output = path.clone();
         *app.world_mut().resource_mut::<CaptureProgress>() = CaptureProgress::default();
@@ -276,6 +308,77 @@ fn main() {
         shots.every,
         shots.after,
     );
+}
+
+/// Step the match until a knockout is published, or the match is over.
+///
+/// Reads [`ambition_platformer2d::sim_view::KnockoutsView`] — the same
+/// read-model the knockout beat itself draws from, so what this waits for and
+/// what the picture shows are one fact rather than two guesses.
+fn step_until_a_knockout(app: &mut App) -> Option<String> {
+    for _ in 0..12_000 {
+        app.update();
+        let published = app
+            .world()
+            .get_resource::<ambition_platformer2d::sim_view::KnockoutsView>()
+            .is_some_and(|view| !view.0.is_empty());
+        if published {
+            return Some(frame_note(app));
+        }
+    }
+    None
+}
+
+/// What this frame actually holds: the sim tick, any knockout published on it,
+/// and the camera rect it is framed by.
+///
+/// ⭐ A CAPTURE THAT CANNOT BE CHECKED AGAINST A NUMBER IS READ BY EYE, and a
+/// cue drawn a few units outside the frame looks exactly like a cue that was
+/// never drawn. The clearance printed here is the distance from the knockout to
+/// the NEAREST frame edge, which is the quantity a clamp would change.
+fn frame_note(app: &mut App) -> String {
+    let tick = app
+        .world()
+        .get_resource::<ambition_platformer2d::time::SimTick>()
+        .map(|tick| tick.0)
+        .unwrap_or_default();
+    let kos: Vec<(ambition_platformer2d::engine_core::Vec2, bool, f32)> = app
+        .world()
+        .get_resource::<ambition_platformer2d::sim_view::KnockoutsView>()
+        .map(|view| {
+            view.0
+                .iter()
+                .map(|ko| (ko.pos, ko.eliminated, ko.speed))
+                .collect()
+        })
+        .unwrap_or_default();
+    let observer = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
+    let camera = app
+        .world()
+        .entity(observer)
+        .get::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+        .map(|resolved| {
+            (
+                resolved.snapshot.center_world,
+                resolved.snapshot.visible_view,
+            )
+        });
+    let Some((centre, visible)) = camera else {
+        return format!("t{tick} no camera");
+    };
+    let half = visible / 2.0;
+    let mut note = format!(
+        "t{tick} frame {:.0}x{:.0}@({:.0},{:.0})",
+        visible.x, visible.y, centre.x, centre.y
+    );
+    for (pos, eliminated, speed) in kos {
+        let clearance = (half.x - (pos.x - centre.x).abs()).min(half.y - (pos.y - centre.y).abs());
+        note.push_str(&format!(
+            "  KO ({:.0},{:.0}) elim={eliminated} v={speed:.0} clearance {clearance:.0}",
+            pos.x, pos.y
+        ));
+    }
+    note
 }
 
 fn cameras_are_drawing(app: &mut App) -> bool {

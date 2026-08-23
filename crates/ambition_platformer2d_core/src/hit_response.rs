@@ -202,6 +202,31 @@ pub fn hitlag_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTun
     tuning.hitlag_time * reaction_scale(knockback, tuning).max(MIN_HITLAG_SCALE)
 }
 
+/// HOW HARD the hit currently freezing a body was, in `0..=1`.
+///
+/// The inverse of [`hitlag_duration`]: hitlag is the one quantity that already
+/// scales with a connect's weight and is readable off the victim afterwards, so
+/// dividing it back out recovers the strength without anyone re-deriving it
+/// from damage, knockback or a move name. `0.0` is the weakest connect the
+/// hitlag law admits (or no hitlag at all), `1.0` is the ceiling
+/// [`reaction_scale`] rides.
+///
+/// It lives beside [`MIN_HITLAG_SCALE`] for the reason that constant's own doc
+/// gives: camera shake already derives its dead zone from this floor, and a
+/// second consumer with its own literal is exactly the drift the shared
+/// constant exists to prevent.
+pub fn hit_strength_fraction(hitstop_seconds: f32, reference_hitlag_seconds: f32) -> f32 {
+    if reference_hitlag_seconds <= 0.0 {
+        return 0.0;
+    }
+    let scale = hitstop_seconds / reference_hitlag_seconds;
+    let span = MAX_HITSTUN_SCALE - MIN_HITLAG_SCALE;
+    if span <= 0.0 {
+        return 0.0;
+    }
+    ((scale - MIN_HITLAG_SCALE) / span).clamp(0.0, 1.0)
+}
+
 /// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6):
 /// side away from the hit's source (falling back to the stored event dir, then
 /// away from facing), launched with a rise against the body's gravity.
@@ -276,6 +301,46 @@ pub fn knockback_velocity(
 #[cfg(test)]
 mod hitlag_tests {
     use super::*;
+
+    /// The strength read is the hitlag law run backwards, so a jab and a smash
+    /// come back apart — and neither escapes `0..=1`.
+    #[test]
+    fn hit_strength_recovers_the_weight_of_the_connect() {
+        let t = tuning();
+        let weakest = hitlag_duration(Some(&launch(0.0)), &t);
+        let ordinary = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED)), &t);
+        let heaviest = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED * 100.0)), &t);
+
+        let strength = |stop| hit_strength_fraction(stop, t.hitlag_time);
+        assert_eq!(strength(weakest), 0.0, "the weakest connect is the floor");
+        assert_eq!(strength(heaviest), 1.0, "the ceiling is the ceiling");
+        let middle = strength(ordinary);
+        assert!(
+            middle > 0.0 && middle < 1.0,
+            "a standard hit sits between: {middle}"
+        );
+
+        // Monotone across the whole band — a harder hit never reads softer.
+        let mut previous = -1.0;
+        for speed in [0.0, 40.0, STANDARD_LAUNCH_SPEED, 600.0, 5_000.0] {
+            let now = strength(hitlag_duration(Some(&launch(speed)), &t));
+            assert!(
+                now >= previous,
+                "{speed} went backwards: {now} < {previous}"
+            );
+            previous = now;
+        }
+    }
+
+    /// A body that is not in hitlag has no strength to report, and a
+    /// degenerate reference cannot divide by zero into a flash.
+    #[test]
+    fn hit_strength_is_zero_without_a_connect_to_measure() {
+        assert_eq!(hit_strength_fraction(0.0, tuning().hitlag_time), 0.0);
+        assert_eq!(hit_strength_fraction(-1.0, tuning().hitlag_time), 0.0);
+        assert_eq!(hit_strength_fraction(10.0, 0.0), 0.0);
+        assert_eq!(hit_strength_fraction(10.0, -1.0), 0.0);
+    }
 
     fn tuning() -> HitResponseTuning {
         HitResponseTuning {

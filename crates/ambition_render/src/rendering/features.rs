@@ -418,6 +418,7 @@ mod tests {
             hp_current: 1,
             hp_max: 1,
             training_dummy: false,
+            hit_strength: 0.0,
             unhittable: false,
             sprite_offset: None,
         }

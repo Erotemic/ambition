@@ -92,6 +92,16 @@ impl PendingLifecycleCommit {
         }
     }
 
+    /// The pending intent WHETHER OR NOT it is confirmed — "is anything waiting".
+    ///
+    /// ⛔ For REPORTING only. Every consumer that acts on an intent must go
+    /// through [`Self::confirmed`]; this exists so a host that is refusing to
+    /// promote intents can say whether it is refusing anything, which is the
+    /// difference between a stalled game and an idle one.
+    pub fn peek(&self) -> Option<&PendingIntent> {
+        self.pending.as_ref()
+    }
+
     /// The pending intent if its recording frame is confirmed (can never be
     /// simulated again). `None` while the intent is still speculative.
     pub fn confirmed(&self, confirmed_frame: i32) -> Option<&PendingIntent> {

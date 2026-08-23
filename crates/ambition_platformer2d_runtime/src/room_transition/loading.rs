@@ -385,7 +385,7 @@ pub fn fail_room_transition_commit_precondition(
 ///   absence or invalidation means confirmation authority is unavailable, so no
 ///   transition may begin or continue toward commit.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct ConfirmedRoomTransitionIntent<'w> {
+pub struct ConfirmedRoomTransitionIntent<'w, 's> {
     pending: Res<
         'w,
         ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit,
@@ -393,6 +393,18 @@ pub struct ConfirmedRoomTransitionIntent<'w> {
     host: Res<'w, crate::SimulationHost>,
     boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     confirmation: Option<Res<'w, crate::RollbackConfirmationState>>,
+    /// ⭐ HAS THE "every transition is refused" EPISODE ALREADY BEEN REPORTED?
+    ///
+    /// A `Local`, deliberately: this is a property of the LOG and not of the
+    /// world, so it must never become rollback state or reach a snapshot. Its
+    /// only job is to keep a per-frame condition from printing per frame.
+    ///
+    /// ⛔ It lives INSIDE this bundle rather than beside it because
+    /// `begin_room_transition_load_system` sits at Bevy's system-parameter
+    /// ceiling - which is what this module's own doc says, and adding a
+    /// seventeenth parameter fails to compile with a `chain` trait-bound error
+    /// that names none of this.
+    refusal_reported: bevy::prelude::Local<'s, bool>,
 }
 
 fn confirmation_frame_for_host(
@@ -402,7 +414,10 @@ fn confirmation_frame_for_host(
 ) -> Option<i32> {
     match host {
         crate::SimulationHost::Rollback => {
-            if !confirmation.copied().is_some_and(crate::RollbackConfirmationState::is_healthy) {
+            if !confirmation
+                .copied()
+                .is_some_and(crate::RollbackConfirmationState::is_healthy)
+            {
                 return None;
             }
             boundary.map(|boundary| boundary.confirmed)
@@ -411,7 +426,7 @@ fn confirmation_frame_for_host(
     }
 }
 
-impl ConfirmedRoomTransitionIntent<'_> {
+impl ConfirmedRoomTransitionIntent<'_, '_> {
     /// Whether this APP is a rollback host. The boundary may disappear when its
     /// current session stops; that does not change the app's simulation host.
     fn is_rollback_host(&self) -> bool {
@@ -428,6 +443,20 @@ impl ConfirmedRoomTransitionIntent<'_> {
                 self.confirmation.as_deref(),
             )
             .is_none()
+    }
+
+    /// The intent WITHOUT asking the confirmation authority — "is somebody
+    /// waiting for a room change at all".
+    ///
+    /// ⛔ Only for reporting. Acting on an unconfirmed intent is exactly what
+    /// [`Self::rollback_confirmation_unavailable`] exists to refuse; this is how
+    /// the refusal can say whether it is refusing ANYTHING, so a silently
+    /// stalled game is distinguishable from an idle one.
+    fn get_unconfirmed(&self) -> Option<&RoomTransitionIntent> {
+        match &self.pending.peek()?.kind {
+            ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(transition) => Some(transition),
+            _ => None,
+        }
     }
 
     fn get(&self) -> Option<&RoomTransitionIntent> {
@@ -459,7 +488,7 @@ pub fn begin_room_transition_load_system(
     // Host identity comes from `SimulationHost`; an eager host confirms on arrival, while a
     // rollback host with no current boundary or an unhealthy timeline has no confirmation authority
     // and must not open a transaction.
-    pending: ConfirmedRoomTransitionIntent,
+    mut pending: ConfirmedRoomTransitionIntent,
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
     active_binding: Option<Res<ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding>>,
@@ -567,7 +596,53 @@ pub fn begin_room_transition_load_system(
                 pending.confirmation.as_deref(),
             );
         }
+        // ⛔⛔ AND SAY SO WHEN THERE WAS NOTHING TO ORPHAN, WHICH IS THE CASE
+        // THAT WAS SILENT. The error above only fires when a transition was
+        // already in flight. A transition that is REFUSED BEFORE IT BEGINS
+        // printed nothing at all — so a game that has silently stopped being
+        // able to change rooms produced a log in which the only clue was a
+        // downstream watchdog eight seconds later saying *"check the
+        // room_transition log for a BEGIN with no retirement"*, in a capture
+        // that contains no BEGIN because the transition never started.
+        //
+        // Jon, 2026-08-23, on Mary-O replaying 1-1 forever: *"I don't know why
+        // this bug keeps coming back. There is a structural problem... Not sure
+        // if logs give any useful information."* They did not, and this is why.
+        //
+        // ⭐ ONCE PER EPISODE, not per frame: the refusal repeats every tick for
+        // as long as the authority is missing, and a per-frame line would bury
+        // the thing it is trying to show. The latch clears the moment a
+        // transition is admitted again, so a second episode reports a second
+        // time.
+        else if pending.get_unconfirmed().is_some() && !*pending.refusal_reported {
+            *pending.refusal_reported = true;
+            bevy::log::error!(
+                target: "ambition_platformer2d::room_transition",
+                "REFUSING every room transition: this app is a rollback host and its \
+                 confirmation authority is unavailable (boundary_present={}, confirmation={:?}). \
+                 A pending intent cannot be promoted, so the room will never change and \
+                 whatever asked for it will time out. This is session-scoped state - it is \
+                 normally the shape of a session that stopped or never started healthily.",
+                pending.boundary.is_some(),
+                pending.confirmation.as_deref(),
+            );
+            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                "room-transition REFUSED boundary={} confirmation={:?}",
+                pending.boundary.is_some(),
+                pending.confirmation.as_deref(),
+            ));
+        }
         return;
+    }
+    if *pending.refusal_reported {
+        *pending.refusal_reported = false;
+        bevy::log::info!(
+            target: "ambition_platformer2d::room_transition",
+            "room transitions are admitted again; the confirmation authority came back",
+        );
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-transition admitted-again"
+        ));
     }
 
     let current_session = active_session.as_deref().and_then(|scope| scope.current());

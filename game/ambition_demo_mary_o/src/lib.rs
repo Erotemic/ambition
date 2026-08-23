@@ -125,7 +125,6 @@ pub const GOAL_POLE_PREFIX: &str = "goal_pole";
 /// The secret chamber's stone — `vault_floor` and `vault_wall_<n>`.
 pub const VAULT_MASONRY_PREFIX: &str = "vault_";
 
-
 // `LEVEL_WIDTH` / `LEVEL_HEIGHT` are GONE. Deleting them rather than leaving them "for reference"
 // is the point: a constant that still names the world is a second authority waiting to disagree
 // with the file.
@@ -2393,6 +2392,17 @@ fn cycle_level_on_flag_tally(
         if let Some(grabbed) = sequence.score() {
             level.score = level.score.saturating_add(grabbed);
         }
+        // ⭐ THE LEVEL ASKED TO ADVANCE. Jon, 2026-08-23, on 1-1 replaying
+        // itself: *"logs that indicate major sequences of events is very likely
+        // a good idea to have something that is enabled by default."* This is
+        // the edge that matters for that bug - the level requesting its
+        // successor - and paired with the room-transition `begin` line it says
+        // in one read whether the ask reached the transition machinery at all.
+        // ONE line per level, so it cannot spam.
+        ambition_platformer2d::platformer::world_log::world_event(format_args!(
+            "mary-o level-complete -> {target} (score {})",
+            level.score
+        ));
         *departing = Some(target.clone());
     }
     // ...but not forever.
@@ -2402,8 +2412,12 @@ fn cycle_level_on_flag_tally(
             "asked to leave for room `{target}` for {LEVEL_DEPART_GIVE_UP}s and \
              never arrived; replaying this room instead. The transition was \
              dropped — check the `ambition_platformer2d::room_transition` log for \
-             a BEGIN with no retirement."
+             a BEGIN with no retirement, and for a REFUSED line - a rollback host \
+             with no confirmation authority drops every transition before it begins."
         );
+        ambition_platformer2d::platformer::world_log::world_event(format_args!(
+            "mary-o level-advance DROPPED -> {target}; replaying this room"
+        ));
         *dwell = 0.0;
         *departing = None;
         rearm_for_the_next_lap(&mut sequence, &mut level);

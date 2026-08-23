@@ -22,7 +22,7 @@ mod view_index;
 
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
-    ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, HazardLaneFact,
+    ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, HazardLaneFact, SMASH_CHARGE_CLIP,
 };
 pub use combat_geometry_view::{
     rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView,

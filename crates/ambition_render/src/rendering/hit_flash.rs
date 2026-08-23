@@ -7,7 +7,7 @@
 //! shader discards every fragment (no GPU work) and the source sprite renders
 //! normally.
 //!
-//! Two cues, one overlay, and the priority between them is decided in
+//! Three cues, one overlay, and the priority between them is decided in
 //! [`overlay_look`] rather than by whichever pass wrote last:
 //!
 //! - **damage flash**, pure white, held then faded over its `hit_flash` timer;
@@ -16,9 +16,20 @@
 //!   pose, a move name or an animation row, so it covers every grant the
 //!   damage rule honours — dodge, tech/getup, ledge, respawn protection, the
 //!   i-frames a hit leaves — and gains a new one the day the damage rule does.
+//! - **smash-charge pulse**, a hot amber that pulses FASTER and brighter as the
+//!   held charge fills, so latched / building / loaded are three readings of
+//!   one number.
 //!
-//! The damage flash WINS while it is running: being struck is the louder fact,
-//! and it is also the only one of the two that is over in a fifth of a second.
+//! The order is damage flash, then blink, then charge, and each step of it is
+//! a decision about what an opponent needs to know first. Being struck is the
+//! loudest fact and is over in a fifth of a second. Intangibility outranks the
+//! charge because misreading it wastes a whole attack, where misreading a
+//! charge costs spacing — and a body that is both is telling you the same
+//! thing either way: do not go in.
+//!
+//! Every cue is drawn by sampling the SOURCE sprite's own atlas frame and flip
+//! flag, so silhouette and facing are preserved by construction rather than by
+//! a rule somebody has to keep.
 //!
 //! Source-of-truth per body kind:
 //!
@@ -62,10 +73,26 @@ const BLINK_PERIOD_TICKS: u64 = 10;
 /// tell has to be legible without erasing the silhouette it is drawn over.
 const BLINK_PEAK_INTENSITY: f32 = 0.55;
 
-/// The two cue colours. White is the strike; the pale blue is "you cannot
-/// touch this right now".
+/// The three cue colours. White is the strike, pale blue is "you cannot touch
+/// this right now", amber is a held smash gathering.
 const FLASH_TINT: Vec3 = Vec3::new(1.0, 1.0, 1.0);
 const BLINK_TINT: Vec3 = Vec3::new(0.62, 0.86, 1.0);
+const CHARGE_TINT: Vec3 = Vec3::new(1.0, 0.71, 0.28);
+
+/// The smash-charge pulse, in cycles per SIM TICK at zero and full charge.
+/// At the shipped 60Hz step that is a lazy ~2Hz throb when the hold latches
+/// and a hard ~10Hz strobe when it is loaded — the rate IS the readout.
+const CHARGE_RATE_LATCHED: f32 = 2.0 / 60.0;
+const CHARGE_RATE_LOADED: f32 = 10.0 / 60.0;
+
+/// Peak overlay intensity at zero and full charge. The pulse gets brighter as
+/// well as faster so "loaded" is unmistakable at a glance.
+const CHARGE_PEAK_LATCHED: f32 = 0.34;
+const CHARGE_PEAK_LOADED: f32 = 0.72;
+
+/// The tick count the pulse's phase wraps on. Large enough that the seam is
+/// once a minute at 60Hz, small enough that `tick as f32` keeps its precision.
+const CHARGE_PHASE_WRAP: u64 = 3600;
 
 /// Z bias for the overlay mesh — must sit IN FRONT of every other
 /// per-character overlay so the white silhouette is never covered.
@@ -258,6 +285,7 @@ pub fn sync_hit_flash_overlays(
     // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
     // on the SAME entity that carries the sprite.
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
+    anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
     poses: Query<&ambition_sim_view::BodyPoseView>,
     sources: Query<
         (
@@ -309,7 +337,14 @@ pub fn sync_hit_flash_overlays(
         // through this lookup. A future refactor that unifies them
         // into a single `HitFlash` component can collapse this to
         // one query without changing the overlay sync.
-        let facts = overlay_facts_for_source(source_entity, feature, player, &feature_views, &poses);
+        let facts = overlay_facts_for_source(
+            source_entity,
+            feature,
+            player,
+            &feature_views,
+            &anim_frames,
+            &poses,
+        );
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility.copied());
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
@@ -376,6 +411,12 @@ pub struct OverlayFacts {
     /// The body cannot be struck right now. Resolved sim-side from the damage
     /// rule; presentation never re-derives it.
     pub unhittable: bool,
+    /// A smash charge is being HELD, normalized `0..=1`. Resolved sim-side by
+    /// `MovePlayback::smash_charge_fraction`; `None` the instant it releases.
+    ///
+    /// ⛔ never re-derived here from a move name or Startup progress — a tapped
+    /// smash and a fully held one share both.
+    pub smash_charge: Option<f32>,
 }
 
 /// Unified overlay-fact dispatch.
@@ -395,6 +436,9 @@ fn overlay_facts_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
     feature_views: &ambition_sim_view::FeatureViewIndex,
+    // The charge rides the per-frame POSE row on the actor road, not the
+    // feature row, so the two indexes are joined on the same feature id here.
+    anim_frames: &ambition_sim_view::ActorAnimIndex,
     poses: &Query<&ambition_sim_view::BodyPoseView>,
 ) -> OverlayFacts {
     // Player path: the entity that carries `PlayerVisual` is the same one
@@ -406,19 +450,28 @@ fn overlay_facts_for_source(
             .map(|p| OverlayFacts {
                 hit_flash_secs: Some(p.hit_flash_secs),
                 unhittable: p.unhittable,
+                smash_charge: p.smash_charge,
             })
             .unwrap_or_default();
     }
     // Feature path: the facts ride the `FeatureView` row (actors, seated
     // fighters and bosses alike; the "no silhouette over a boss corpse" rule
     // is applied at the rebuild site). Kinds with no body carry the defaults.
-    feature
-        .and_then(|feature| feature_views.get(feature.id.as_str()))
+    let Some(feature) = feature else {
+        return OverlayFacts::default();
+    };
+    let mut facts = feature_views
+        .get(feature.id.as_str())
         .map(|view| OverlayFacts {
             hit_flash_secs: Some(view.hit_flash_secs),
             unhittable: view.unhittable,
+            smash_charge: None,
         })
-        .unwrap_or_default()
+        .unwrap_or_default();
+    facts.smash_charge = anim_frames
+        .get(feature.id.as_str())
+        .and_then(|frame| frame.smash_charge);
+    facts
 }
 
 /// The overlay's shader intensity AND colour for one source this frame.
@@ -454,7 +507,28 @@ fn overlay_look(
     if facts.unhittable {
         return (blink_intensity(tick), BLINK_TINT);
     }
+    if let Some(charge) = facts.smash_charge {
+        return (charge_pulse_intensity(charge, tick), CHARGE_TINT);
+    }
     (0.0, FLASH_TINT)
+}
+
+/// The smash-charge pulse's intensity at one sim tick.
+///
+/// Both the RATE and the peak rise with the held fraction, monotonically, so
+/// the same three beats are readable two ways at once: a slow dim throb when
+/// the hold latches, a hard bright strobe when it is loaded. The exact curve is
+/// a presentation tuning constant; that it never falls as the charge rises is
+/// not.
+fn charge_pulse_intensity(charge: f32, tick: u64) -> f32 {
+    let charge = charge.clamp(0.0, 1.0);
+    let rate = CHARGE_RATE_LATCHED + (CHARGE_RATE_LOADED - CHARGE_RATE_LATCHED) * charge;
+    let peak = CHARGE_PEAK_LATCHED + (CHARGE_PEAK_LOADED - CHARGE_PEAK_LATCHED) * charge;
+    // Phase as a fraction of a cycle. Wrapped before the float conversion so a
+    // long match cannot grind the precision away.
+    let phase = (((tick % CHARGE_PHASE_WRAP) as f32) * rate).fract();
+    // Triangle, like the blink: a square wave reads as a dropped frame.
+    peak * (1.0 - (2.0 * phase - 1.0).abs())
 }
 
 /// The blink's intensity at one sim tick: a triangle wave over
@@ -628,6 +702,7 @@ mod tests {
         let both = OverlayFacts {
             hit_flash_secs: Some(0.2),
             unhittable: true,
+            smash_charge: None,
         };
         // Every tick of the blink cycle, including its peak.
         for tick in 0..BLINK_PERIOD_TICKS * 2 {
@@ -639,6 +714,7 @@ mod tests {
         let after = OverlayFacts {
             hit_flash_secs: Some(0.0),
             unhittable: true,
+            smash_charge: None,
         };
         let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
         assert_eq!(tint, BLINK_TINT);
@@ -673,10 +749,87 @@ mod tests {
         }
     }
 
+    /// THE THREE BEATS, from one number: the pulse gets both FASTER and
+    /// brighter as the hold fills, and never dimmer.
+    #[test]
+    fn the_charge_pulse_quickens_and_brightens_monotonically() {
+        let peak_over_a_cycle = |charge: f32| {
+            // Long enough to contain a whole cycle at the slowest rate.
+            (0..CHARGE_PHASE_WRAP)
+                .map(|tick| charge_pulse_intensity(charge, tick))
+                .fold(0.0_f32, f32::max)
+        };
+        let crossings = |charge: f32| {
+            // How often the pulse returns to its bright half — the readable
+            // proxy for "rate", measured rather than asserted from the constant.
+            (1..600)
+                .filter(|tick| {
+                    let previous = charge_pulse_intensity(charge, tick - 1);
+                    let now = charge_pulse_intensity(charge, *tick);
+                    previous < now && previous == 0.0
+                })
+                .count()
+        };
+
+        let latched = peak_over_a_cycle(0.0);
+        let half = peak_over_a_cycle(0.5);
+        let loaded = peak_over_a_cycle(1.0);
+        assert!(latched < half && half < loaded, "{latched} {half} {loaded}");
+        assert!(loaded < 1.0, "the charge must not erase the silhouette");
+
+        assert!(
+            crossings(0.0) < crossings(1.0),
+            "a loaded charge must pulse faster than a fresh one: {} vs {}",
+            crossings(0.0),
+            crossings(1.0)
+        );
+    }
+
+    /// The charge is the LOWEST-priority cue, and the order is the point:
+    /// being struck outranks everything, and intangibility outranks a charge
+    /// because misreading it wastes a whole attack.
+    #[test]
+    fn a_charge_yields_to_both_louder_cues() {
+        let charging = OverlayFacts {
+            hit_flash_secs: Some(0.0),
+            unhittable: false,
+            smash_charge: Some(1.0),
+        };
+        let mid = (CHARGE_PHASE_WRAP / 7) as u64;
+        assert_eq!(overlay_look(charging, mid, None).1, CHARGE_TINT);
+
+        // Intangible while charging — an armoured smash — reads as intangible.
+        let intangible_and_charging = OverlayFacts {
+            unhittable: true,
+            ..charging
+        };
+        assert_eq!(
+            overlay_look(intangible_and_charging, mid, None).1,
+            BLINK_TINT
+        );
+
+        // Struck while charging reads as struck, whatever else is true.
+        let struck_while_charging = OverlayFacts {
+            hit_flash_secs: Some(0.2),
+            unhittable: true,
+            smash_charge: Some(1.0),
+        };
+        assert_eq!(overlay_look(struck_while_charging, mid, None).1, FLASH_TINT);
+    }
+
+    /// No charge, no pulse — at every tick. The fact is the whole gate.
+    #[test]
+    fn nothing_pulses_without_a_held_charge() {
+        for tick in 0..CHARGE_PHASE_WRAP {
+            assert_eq!(overlay_look(OverlayFacts::default(), tick, None).0, 0.0);
+        }
+    }
+
     fn flash(secs: f32) -> OverlayFacts {
         OverlayFacts {
             hit_flash_secs: Some(secs),
             unhittable: false,
+            smash_charge: None,
         }
     }
 
@@ -684,6 +837,7 @@ mod tests {
         OverlayFacts {
             hit_flash_secs: Some(0.0),
             unhittable: true,
+            smash_charge: None,
         }
     }
 }

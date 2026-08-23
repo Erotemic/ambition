@@ -33,6 +33,7 @@ mod primitives;
 pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
+pub mod smash_charge_cues;
 pub(crate) mod slash_visuals;
 mod unauthored_volumes;
 pub mod view_isolation;
@@ -436,13 +437,16 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
-        // The hard-launch smoke trail. It reads only the pose read-model and
-        // writes only `VfxMessage`, so it needs no edge against the sprite
-        // chain — but it does belong in the same set, which is what carries the
-        // session gate and what `schedule_tests` pins.
+        // The hard-launch smoke trail and the smash-charge cues. Both read only
+        // a read-model and write only messages, so neither needs an edge
+        // against the sprite chain — but both belong in the same set, which is
+        // what carries the session gate and what `schedule_tests` pins.
         app.add_systems(
             Update,
-            launch_trail::emit_launch_trails
+            (
+                launch_trail::emit_launch_trails,
+                smash_charge_cues::emit_smash_charge_cues,
+            )
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
                 )

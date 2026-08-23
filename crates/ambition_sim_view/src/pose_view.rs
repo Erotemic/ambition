@@ -275,6 +275,9 @@ pub fn rebuild_body_pose_views(
         // the disposition-agnostic picker cannot infer (a shelled enemy's withdraw, a body
         // mid-power-up) is stated by the content that owns the state machine.
         let anim = anim_override.map(|o| o.0).unwrap_or(anim);
+        let charge = playback
+            .as_deref()
+            .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
@@ -305,16 +308,25 @@ pub fn rebuild_body_pose_views(
                             guard_stunned: shield.is_some_and(|s| s.stun_timer > 0.0),
                         },
                     )?)
-                }),
+                })
+                // A HELD CHARGE outranks the move's own row, and only while it
+                // is held: the whole point of the beat is that a fighter
+                // winding up looks different from one swinging. It goes AHEAD
+                // of the move's chain rather than replacing it, so a sheet that
+                // authors no charge row draws exactly what it drew before.
+                .map(|chain| match charge {
+                    Some(_) => chain.ahead_of(crate::SMASH_CHARGE_CLIP),
+                    None => chain,
+                })
+                .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
             // body missing one of these clusters cannot be protected by it, so
             // the default stands in.
             unhittable: !ambition_combat::util::body_vulnerable(
-                health.map_or_else(
-                    ambition_characters::actor::Invulnerability::none,
-                    |h| h.health.invulnerable,
-                ),
+                health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                    h.health.invulnerable
+                }),
                 motion_facts.is_some_and(|m| m.evading()),
                 &shield.copied().unwrap_or_default(),
                 &combat.copied().unwrap_or_default(),
@@ -325,9 +337,7 @@ pub fn rebuild_body_pose_views(
                 .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::MorphBall),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
-            smash_charge: playback
-                .as_deref()
-                .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction),
+            smash_charge: charge,
             authored_render: sheet_authored_body
                 .then(|| authored_render.map(|r| r.0))
                 .flatten(),
@@ -437,19 +447,23 @@ pub fn rebuild_launched_bodies_view(
     )>,
 ) {
     view.0.clear();
-    view.0.extend(bodies.iter().filter_map(|(kin, motion, combat, presented)| {
-        // Two published sim facts, one resolved answer: the tumble is the
-        // helpless half of a launch and the hitstun is the rest of it. A
-        // consumer reading only the tumble would drop the row the instant a
-        // launched body stopped tumbling, mid-flight.
-        let launched = motion.is_some_and(|f| f.tumbling)
-            || combat.is_some_and(|c| c.hitstun_timer > 0.0);
-        launched.then(|| LaunchedBodyFact {
-            pos: presented.map_or(kin.pos, |p| p.presented()),
-            vel: kin.vel,
-            size: kin.size,
-        })
-    }));
+    view.0.extend(
+        bodies
+            .iter()
+            .filter_map(|(kin, motion, combat, presented)| {
+                // Two published sim facts, one resolved answer: the tumble is the
+                // helpless half of a launch and the hitstun is the rest of it. A
+                // consumer reading only the tumble would drop the row the instant a
+                // launched body stopped tumbling, mid-flight.
+                let launched = motion.is_some_and(|f| f.tumbling)
+                    || combat.is_some_and(|c| c.hitstun_timer > 0.0);
+                launched.then(|| LaunchedBodyFact {
+                    pos: presented.map_or(kin.pos, |p| p.presented()),
+                    vel: kin.vel,
+                    size: kin.size,
+                })
+            }),
+    );
 }
 
 #[cfg(test)]

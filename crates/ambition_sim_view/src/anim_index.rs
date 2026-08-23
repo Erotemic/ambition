@@ -130,7 +130,37 @@ impl ClipRequest {
     pub fn chain(&self) -> impl Iterator<Item = &str> {
         std::iter::once(self.clip.as_str()).chain(self.fallbacks.iter().map(String::as_str))
     }
+
+    /// The same request with `clip` tried FIRST and everything this request
+    /// already asked for kept behind it.
+    ///
+    /// A body state that outranks the move's own row says so this way rather
+    /// than by replacing the chain: a sheet that does not author the new row
+    /// falls straight through to what the move wanted, which is the graceful
+    /// degradation `CharacterAnimator::clip_slot` already provides for free.
+    pub fn ahead_of(self, clip: &str) -> Self {
+        let mut fallbacks = Vec::with_capacity(self.fallbacks.len() + 1);
+        fallbacks.push(self.clip);
+        fallbacks.extend(self.fallbacks);
+        Self {
+            clip: clip.to_string(),
+            fallbacks,
+        }
+    }
+
+    /// A request for `clip` alone — the head of a chain a body state names when
+    /// no move is naming one.
+    pub fn only(clip: &str) -> Self {
+        Self {
+            clip: clip.to_string(),
+            fallbacks: Vec::new(),
+        }
+    }
 }
+
+/// The sheet row a body holding a smash charge asks for. Authored on the
+/// shipped fighter sheets; a sheet without it falls through the chain.
+pub const SMASH_CHARGE_CLIP: &str = "smash_charge";
 
 // The per-actor identity accessors (`ecs_actor_name`, `ecs_actor_is_sandbag`,
 // `ecs_enemy_sprite_override`, `ecs_actor_render_size`) are GONE: those static
@@ -159,6 +189,36 @@ impl ActorAnimIndex {
     /// own it, so nothing clones the strings per actor per frame.
     pub fn get(&self, id: &str) -> Option<&ActorAnimFrame> {
         self.frames.get(id).map(|(frame, _)| frame)
+    }
+
+    /// Every `(id, frame)` row. A presentation pass that acts on "whichever
+    /// actors are doing X right now" walks this instead of asking the sim.
+    ///
+    /// AMBITION_REVIEW(determinism): hash-order iteration is safe here for the
+    /// reason `FeatureViewIndex::iter` gives — this index is DERIVED state,
+    /// rebuilt from the sim every frame, excluded from snapshots and from the
+    /// state hash. Every consumer is presentation, so its order can never enter
+    /// a trajectory.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &ActorAnimFrame)> {
+        self.frames
+            .iter()
+            .map(|(id, (frame, _))| (id.as_str(), frame))
+    }
+
+    /// Build a fixture index directly — the same escape hatch
+    /// `FeatureViewIndex` / `ActorRenderIndex` / `BossRenderIndex` offer, for
+    /// the same reason: a consumer's test needs the read-model it consumes, not
+    /// the whole sim that publishes it.
+    ///
+    /// Constructs a NEW index rather than mutating an existing one, so it
+    /// cannot be misused to edit the live one mid-frame. The parameter is
+    /// `entries` to match the siblings.
+    pub fn from_rows(entries: impl IntoIterator<Item = (String, ActorAnimFrame)>) -> Self {
+        let mut index = Self::default();
+        for (id, frame) in entries {
+            index.frames.insert(id, (frame, index.generation));
+        }
+        index
     }
 
     pub fn len(&self) -> usize {
@@ -236,6 +296,9 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
         // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
         // withdraw cycle, which the disposition-agnostic picker cannot infer).
         let anim = a.anim_override.map(|o| o.0).unwrap_or(anim);
+        let charge = a
+            .playback
+            .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
         index.insert(
             a.feature_id.as_str(),
             ActorAnimFrame {
@@ -249,9 +312,12 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // (sprite redirect P2 — air dodge, tumble, knockdown, getup).
                 // the move wins: a body that is mid-swing while tumbling is
                 // drawn as its swing, which is what its timeline says it is.
-                smash_charge: a
-                    .playback
-                    .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction),
+                smash_charge: charge,
+                // A HELD CHARGE outranks the move's own row, and only while it
+                // is held: the whole point of the beat is that a fighter
+                // winding up looks different from one swinging. It goes AHEAD
+                // of the move's chain rather than replacing it, so a sheet
+                // that authors no charge row draws exactly what it drew before.
                 clip: a
                     .playback
                     .map(|playback| ClipRequest {
@@ -272,7 +338,12 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                                 guard_stunned: a.shield.stun_timer > 0.0,
                             },
                         )?)
-                    }),
+                    })
+                    .map(|chain| match charge {
+                        Some(_) => chain.ahead_of(SMASH_CHARGE_CLIP),
+                        None => chain,
+                    })
+                    .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP))),
             },
         );
     }

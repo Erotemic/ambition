@@ -268,11 +268,27 @@ pub struct HitVolume {
     pub knockback: f32,
     /// Knockback GROWTH per point of the victim's accumulated damage (CM1, the
     /// smash-percent axis): the applied knockback becomes
-    /// `knockback + knockback_growth * victim.damage_taken() / victim.weight`. Default
-    /// `0.0` == today's flat knockback exactly (parity by construction); content
-    /// opts a row into growth to get percent-scaling launches.
+    /// `knockback + knockback_growth * victim.damage_taken() / victim.weight`.
+    ///
+    /// `None` = **this stage decides** — the ruleset's own growth scales this
+    /// hit, which is what an unauthored row has always got.
+    ///
+    /// `Some(g)` = **exactly this**, including `Some(0.0)`: FIXED KNOCKBACK, a
+    /// hit that launches the same at 0% and at 200%. That is the mechanic
+    /// multi-hit moves are built on — a pulse whose carry stops working once
+    /// the victim's percent grows is a combo that dissolves exactly when it
+    /// matters — and it was unauthorable.
+    ///
+    /// ⛔ IT WAS AN `f32` AND ZERO MEANT BOTH THINGS. This field's own doc said
+    /// `0.0` was flat knockback while
+    /// `ambition_combat::hitbox::resolved_hitbox_knockback_magnitude` read `0.0`
+    /// as "unspecified, use the stage's" and substituted it — so the documented
+    /// behaviour was the one you could not get, and the doc had been wrong since
+    /// the ruleset fallback landed. One value with two meanings is the shape
+    /// this repository keeps paying for; an `Option` is what tells "the author
+    /// said zero" from "the author said nothing".
     #[serde(default)]
-    pub knockback_growth: f32,
+    pub knockback_growth: Option<f32>,
     /// Body-local launch direction override `(+x = facing, +y = gravity-down)`. `None` =
     /// today's facing+contact derivation. The runtime mirrors x by facing and rotates into the
     /// owner's gravity frame (frame-correct under any gravity), then applies DI (CM2).

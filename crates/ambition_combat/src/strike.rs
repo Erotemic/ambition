@@ -21,7 +21,13 @@ pub enum HitboxKnockback {
     /// Dimensionless multiplier over the victim's feel-tuned launch.
     FeelScale(f32),
     /// Absolute engine-unit launch speed plus speed growth per damage point.
-    LaunchSpeed { base: f32, growth: f32 },
+    ///
+    /// `growth: None` means the volume did not decide and the RULESET's growth
+    /// applies. `Some(0.0)` is FIXED knockback — the same launch at 0% and at
+    /// 200% — and it is a real authoring choice, so it must survive the trip
+    /// from the volume to [`resolved_hitbox_knockback_magnitude`] distinct from
+    /// "unspecified". A plain `f32` collapsed the two.
+    LaunchSpeed { base: f32, growth: Option<f32> },
 }
 
 /// One in-flight strike's damage volume. Spawned on the windup → active edge of

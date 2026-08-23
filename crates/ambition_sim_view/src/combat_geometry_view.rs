@@ -238,7 +238,7 @@ mod tests {
             damage: 2,
             knockback: HitboxKnockback::LaunchSpeed {
                 base: 100.0,
-                growth: 2.0,
+                growth: Some(2.0),
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),

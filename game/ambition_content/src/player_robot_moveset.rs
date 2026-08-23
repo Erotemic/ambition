@@ -664,7 +664,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             damage,
             knockback,
             // Flat, exactly as the row authored it.
-            knockback_growth: 0.0,
+            knockback_growth: None,
             launch_dir: None,
             on_hit: None,
             vfx: None,

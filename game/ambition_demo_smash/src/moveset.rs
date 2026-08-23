@@ -104,7 +104,10 @@ pub(crate) fn strike(spec: Strike<'_>) -> MoveSpec {
                     },
                     damage,
                     knockback,
-                    knockback_growth,
+                    // The builder's zero still means "this stage decides" — see
+                    // `HitVolume::knockback_growth`. A move wanting FIXED knockback
+                    // authors the volume directly.
+                    knockback_growth: (knockback_growth > 0.0).then_some(knockback_growth),
                     launch_dir,
                     on_hit: None,
                     // The blade tag: the move runtime draws the slash from the
@@ -496,7 +499,7 @@ pub fn fighter_moveset() -> MovesetContract {
             },
             damage: 8,
             knockback: 70.0,
-            knockback_growth: 70.0 * crate::SMASH_KNOCKBACK_GROWTH,
+            knockback_growth: Some(70.0 * crate::SMASH_KNOCKBACK_GROWTH),
             // Flatter and weaker: a base hit puts them next to you, not away.
             launch_dir: Some((1.0, -0.15)),
             ..tip
@@ -799,7 +802,19 @@ mod tests {
             mv.windows
                 .iter()
                 .flat_map(|w| w.volumes.iter())
-                .map(|v| (v.damage, v.knockback, v.knockback_growth))
+                // A move that authors NO growth defers to the stage, which is
+                // the stage's own fraction of its base — the comparable number.
+                // ⛔ NOT `Option`'s ordering: `None < Some(_)` would have made
+                // "the jab states nothing" read as "the jab grows least", which
+                // is true here only by accident.
+                .map(|v| {
+                    (
+                        v.damage,
+                        v.knockback,
+                        v.knockback_growth
+                            .unwrap_or(v.knockback * crate::SMASH_KNOCKBACK_GROWTH),
+                    )
+                })
                 .next()
                 .expect("a strike has a volume")
         };
@@ -852,16 +867,23 @@ mod tests {
     fn an_authored_growth_is_the_stage_declaration_in_the_stage_units() {
         for mv in &fighter_moveset().moves {
             for volume in mv.windows.iter().flat_map(|w| w.volumes.iter()) {
+                // A volume that authors NO growth defers to the stage by
+                // construction, and FIXED knockback (`Some(0.0)`) is a
+                // deliberate choice no unit slip can produce from a non-zero
+                // base. Only a stated, non-zero growth can carry the slip.
+                let Some(authored) = volume.knockback_growth.filter(|g| *g > 0.0) else {
+                    continue;
+                };
                 let expected = volume.knockback * crate::SMASH_KNOCKBACK_GROWTH;
                 assert!(
-                    (volume.knockback_growth - expected).abs() < 0.01,
+                    (authored - expected).abs() < 0.01,
                     "`{}` launches at {} and grows {}/point, but the stage \
                      declares {} of base = {expected}/point. A growth that is \
                      off by a FACTOR is the fraction-vs-absolute unit slip, and \
                      it silently opts this move out of the percent loop",
                     mv.id,
                     volume.knockback,
-                    volume.knockback_growth,
+                    authored,
                     crate::SMASH_KNOCKBACK_GROWTH,
                 );
             }

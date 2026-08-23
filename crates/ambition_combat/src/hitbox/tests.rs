@@ -18,7 +18,7 @@ fn hitbox_knockback_units_remain_distinct() {
         resolved_hitbox_knockback_magnitude(
             HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 2.0,
+                growth: Some(2.0),
             },
             30,
             2.0,
@@ -194,10 +194,7 @@ impl CapturedHits {
     /// anchor and has its own tests.
     fn assert_no_body_scanning_broadcast(&self) {
         assert!(
-            !self
-                .0
-                .iter()
-                .any(|e| matches!(e.target, HitTarget::Volume)),
+            !self.0.iter().any(|e| matches!(e.target, HitTarget::Volume)),
             "a body-owned melee must not broadcast a body-scanning Volume hit — \
              bodies are resolved by identity and would be damaged twice"
         );
@@ -442,6 +439,16 @@ fn actor_vs_actor_damage_is_physical_for_different_factions() {
 /// Spawn an Enemy-source hitbox over a vulnerable player; relations decide
 /// whether the player is hit. Returns (app, player).
 fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
+    enemy_hitbox_over_player_app_dealing(relations, 3)
+}
+
+/// The same fixture with the volume's AUTHORED damage under the caller's control,
+/// so a WINDBOX (`damage: 0`) can be built from the production path rather than
+/// from a hand-shaped `HitEvent`.
+fn enemy_hitbox_over_player_app_dealing(
+    relations: FactionRelations,
+    authored_damage: i32,
+) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<LandedBodyHit>();
@@ -467,10 +474,10 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
             half_extent: ae::Vec2::new(30.0, 30.0),
             shape: None,
             facing: 1.0,
-            damage: 3,
+            damage: authored_damage,
             knockback: crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 0.0,
+                growth: None,
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
@@ -658,7 +665,7 @@ fn player_melee_never_targets_its_owner() {
             damage: 4,
             knockback: crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 2.0,
+                growth: Some(2.0),
             },
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
@@ -741,7 +748,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
             damage: 4,
             knockback: crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 2.0,
+                growth: Some(2.0),
             },
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
@@ -827,7 +834,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         damage: 4,
         knockback: crate::strike::HitboxKnockback::LaunchSpeed {
             base: 120.0,
-            growth: 0.0,
+            growth: None,
         },
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
@@ -862,7 +869,11 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     cap.assert_no_body_scanning_broadcast();
 
     let landed = app.world().resource::<CapturedLandedHits>();
-    assert_eq!(landed.0.len(), 1, "one selected body contact publishes one landed fact");
+    assert_eq!(
+        landed.0.len(),
+        1,
+        "one selected body contact publishes one landed fact"
+    );
     assert_eq!(landed.0[0].hitbox, hitbox_entity);
     assert_eq!(landed.0[0].attacker, owner);
     assert_eq!(landed.0[0].victim, victim);
@@ -916,7 +927,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         damage: 4,
         knockback: crate::strike::HitboxKnockback::LaunchSpeed {
             base: 120.0,
-            growth: 0.0,
+            growth: None,
         },
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
@@ -928,7 +939,9 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         "the bodies must not touch in this regression"
     );
     assert!(
-        hitbox.world_volume(owner_center).intersects_aabb(victim_body),
+        hitbox
+            .world_volume(owner_center)
+            .intersects_aabb(victim_body),
         "the strike polygon/box must reach the separated victim"
     );
 
@@ -941,7 +954,11 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
 
     let cap = app.world().resource::<CapturedHits>();
     let body_hits = cap.body_hits();
-    assert_eq!(body_hits.len(), 1, "the live strike itself is sufficient authority");
+    assert_eq!(
+        body_hits.len(),
+        1,
+        "the live strike itself is sufficient authority"
+    );
     assert_eq!(body_hits[0].target, HitTarget::Body(victim));
     cap.assert_no_body_scanning_broadcast();
 }
@@ -974,9 +991,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             // The move's own authoritative per-strike accumulator.
             {
                 let mut playback = crate::moveset::MovePlayback::new(
-                    crate::moveset::simple_melee(
-                        &crate::moveset::SimpleMeleeParams::default(),
-                    ),
+                    crate::moveset::simple_melee(&crate::moveset::SimpleMeleeParams::default()),
                     1.0,
                 );
                 playback.hit_targets.push("breakable:crate-7".to_string());
@@ -1012,7 +1027,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             damage: 4,
             knockback: crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 0.0,
+                growth: None,
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
@@ -1109,11 +1124,11 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
 }
 
 /// Every basic swing in the game is derived from the `simple_melee` prefab, and a prefab swing
-/// carries `knockback_growth: 0.0`.
+/// authors NO growth, so the ruleset speaks for it.
 mod ruleset_knockback_growth {
     use super::*;
 
-    fn launch(growth: f32, ruleset_growth: f32, victim_damage: i32) -> f32 {
+    fn launch(growth: Option<f32>, ruleset_growth: f32, victim_damage: i32) -> f32 {
         match resolved_hitbox_knockback_magnitude(
             crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
@@ -1132,9 +1147,9 @@ mod ruleset_knockback_growth {
     /// nothing there may start launching further because this seam exists.
     #[test]
     fn a_world_that_declares_no_growth_is_still_flat() {
-        assert_eq!(launch(0.0, 0.0, 0), 120.0);
+        assert_eq!(launch(None, 0.0, 0), 120.0);
         assert_eq!(
-            launch(0.0, 0.0, 200),
+            launch(None, 0.0, 200),
             120.0,
             "with no growth declared, a badly damaged body must launch exactly \
              as far as a fresh one — that is Ambition's PvE answer"
@@ -1146,9 +1161,9 @@ mod ruleset_knockback_growth {
     /// px/s — which is what makes one number scale a jab and a smash correctly.
     #[test]
     fn a_declared_growth_makes_a_worn_opponent_fly() {
-        assert_eq!(launch(0.0, 0.01, 0), 120.0, "a fresh opponent is unmoved");
-        assert_eq!(launch(0.0, 0.01, 100), 240.0);
-        assert_eq!(launch(0.0, 0.01, 200), 360.0);
+        assert_eq!(launch(None, 0.01, 0), 120.0, "a fresh opponent is unmoved");
+        assert_eq!(launch(None, 0.01, 100), 240.0);
+        assert_eq!(launch(None, 0.01, 200), 360.0);
     }
 
     /// an authored move still wins. The ruleset speaks for the swings that
@@ -1157,7 +1172,7 @@ mod ruleset_knockback_growth {
     #[test]
     fn an_authored_move_growth_outranks_the_ruleset() {
         // Authored 2.0/point against a ruleset that would have given 1.2.
-        assert_eq!(launch(2.0, 0.01, 100), 120.0 + 200.0);
+        assert_eq!(launch(Some(2.0), 0.01, 100), 120.0 + 200.0);
     }
 
     /// weight still divides, and it must keep doing so through the new path —
@@ -1167,7 +1182,7 @@ mod ruleset_knockback_growth {
         let heavy = match resolved_hitbox_knockback_magnitude(
             crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 0.0,
+                growth: None,
             },
             100,
             2.0,
@@ -1177,6 +1192,82 @@ mod ruleset_knockback_growth {
             other => panic!("a launch speed must resolve to one: {other:?}"),
         };
         assert_eq!(heavy, 180.0, "twice the weight takes half the growth");
+    }
+
+    /// FIXED knockback: a stated zero is a statement, not a silence.
+    ///
+    /// ⭐ the whole point of widening the field. `Some(0.0)` and `None` were one
+    /// value, and the resolver read that value as "unspecified" — so the flat
+    /// launch the doc comment promised was the one behaviour a volume could not
+    /// author under a stage that declares growth. Every fixed-knockback move in
+    /// the genre (a set-knockback multi-hit, a pull-in, a meteor with a constant
+    /// spike) needs this.
+    #[test]
+    fn an_authored_zero_is_fixed_knockback_under_a_growing_ruleset() {
+        // The same stage that carries a fresh body 120 and a worn one 240.
+        assert_eq!(launch(None, 0.01, 0), 120.0);
+        assert_eq!(launch(None, 0.01, 200), 360.0);
+        // The move that says zero launches the same at both.
+        assert_eq!(launch(Some(0.0), 0.01, 0), 120.0);
+        assert_eq!(
+            launch(Some(0.0), 0.01, 200),
+            120.0,
+            "a stated zero must hold the launch flat at any damage — this is \
+             what `None` cannot express"
+        );
+    }
+}
+
+/// THE WINDBOX — a volume that moves a body without hurting it.
+///
+/// ⭐ a category the vocabulary already had a field for and the runtime could
+/// not express. `HitVolume::damage` is an `i32` an author may write `0` into,
+/// but the strike seam floored every published damage at one, so the runtime
+/// dealt a point regardless. A gust, a suction pulse, a stage wind, a
+/// pull-in — every move whose whole design is "displace, do not hurt" — came
+/// out as a one-damage poke.
+mod windbox {
+    use super::*;
+
+    fn published(authored_damage: i32) -> crate::events::HitEvent {
+        let (mut app, player) =
+            enemy_hitbox_over_player_app_dealing(FactionRelations::default(), authored_damage);
+        app.update();
+        let captured = app.world().resource::<CapturedHits>();
+        let cap = captured.body_hits();
+        assert_eq!(cap.len(), 1, "the volume overlaps the body, so it connects");
+        assert_eq!(cap[0].target, HitTarget::Body(player));
+        cap[0].clone()
+    }
+
+    /// The AUTHORED zero survives to the victim, and it still LAUNCHES.
+    ///
+    /// Both halves matter: damage 0 is the point of the category, and a windbox
+    /// that published no knockback would be a no-op rather than a push.
+    #[test]
+    fn a_damageless_volume_pushes_without_hurting() {
+        let hit = published(0);
+        assert_eq!(hit.damage, 0, "a windbox authors no damage and deals none");
+        assert_eq!(
+            hit.knockback.as_ref().map(|k| k.magnitude),
+            Some(crate::events::HitKnockbackMagnitude::LaunchSpeed(120.0)),
+            "the push is the whole move — a windbox that did not launch would be nothing"
+        );
+    }
+
+    /// THE OTHER SIDE OF THE FLOOR, and the reason it cannot simply be deleted.
+    ///
+    /// A volume that DOES author damage must never be worn to zero by staling
+    /// or difficulty scaling. One authored point stays one point.
+    #[test]
+    fn a_volume_that_authors_damage_still_keeps_a_point() {
+        assert_eq!(published(1).damage, 1);
+        assert_eq!(
+            damage_floor(1),
+            1,
+            "an authored hit floors at one however far it is scaled down"
+        );
+        assert_eq!(damage_floor(0), 0, "a windbox floors at nothing");
     }
 }
 
@@ -1245,7 +1336,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
             damage: 4,
             knockback: crate::strike::HitboxKnockback::LaunchSpeed {
                 base: 120.0,
-                growth: 2.0,
+                growth: Some(2.0),
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),

@@ -14,9 +14,7 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 // still publicly accessible via `ambition_characters::brain::boss_pattern`; we
 // just don't re-export them here anymore.
 
-
 // The engine retains only the generic boss machinery (profile/spec/resolver) below.
-
 
 // TODO(compat-remove): migrate remaining behavior-profile callers to
 // `ambition_boss_encounter::behavior`, then remove these re-exports.
@@ -67,11 +65,11 @@ pub fn boss_attack_moveset(
         Option<ambition_characters::brain::boss_pattern::TelegraphSpec>,
     )],
 ) -> Option<crate::combat::moveset::ActorMoveset> {
-    use ambition_platformer2d_core::AabbExt;
     use ambition_entity_catalog::{
         ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
         MovesetContract, VolumeShape, WindowTag,
     };
+    use ambition_platformer2d_core::AabbExt;
     let telegraph_for = |profile: &ambition_characters::brain::BossAttackProfile| -> (
         f32,
         Option<&ambition_characters::brain::boss_pattern::TelegraphSpec>,
@@ -152,7 +150,7 @@ pub fn boss_attack_moveset(
                             },
                             damage: behavior.attack_damage.max(1),
                             knockback: BOSS_STRIKE_KNOCKBACK,
-                            knockback_growth: 0.0,
+                            knockback_growth: None,
                             launch_dir: None,
                             on_hit: None,
                             // Boss geometry strikes are data-shaped volumes, not

@@ -670,7 +670,10 @@ fn converging_term(
             },
             damage,
             knockback,
-            knockback_growth,
+            // The builder's zero still means "this stage decides" — see
+            // `HitVolume::knockback_growth`. A move wanting FIXED knockback
+            // authors the volume directly.
+            knockback_growth: (knockback_growth > 0.0).then_some(knockback_growth),
             launch_dir,
             on_hit: None,
             vfx: Some(tag.to_string()),
@@ -708,7 +711,7 @@ mod tests {
         m.windows
             .iter()
             .flat_map(|w| w.volumes.iter())
-            .map(|v| v.knockback_growth)
+            .filter_map(|v| v.knockback_growth)
             .fold(0.0f32, f32::max)
     }
 

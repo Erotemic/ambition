@@ -1623,6 +1623,41 @@ pub fn trigger_moveset_moves(
         let rises_out_of_shield =
             |dir: AttackDir, action| unrestricted || (dir == AttackDir::Up && oos_permits(action));
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
+        // ⭐ ATTACK ON A RAISED GUARD IS A GRAB, and it is the genre's rule:
+        // shield + A grabs, and it is how most players grab at all. Jon,
+        // 2026-08-23: *"if you are shielding and press a, that should trigger a
+        // grab."*
+        //
+        // Before this, an attack press from behind a guard reached the ATTACK
+        // arm, which `rises_out_of_shield` lets through only when it is aimed
+        // UP — so shield + A did nothing whatsoever unless you were holding up,
+        // and the grab was reachable only from a dedicated grab button.
+        //
+        // ⛔ It still asks the body's own out-of-shield POLICY below, exactly as
+        // the dedicated button does: this adds a road to the grab, never an
+        // exemption from the rule that says whether a guard may spend itself on
+        // one. A game that declares no policy is unrestricted and always was.
+        //
+        // ⛔ Neutral or aimed makes no difference: a grab has no directions, so
+        // reading one here would invent a vocabulary the capture kit does not
+        // author.
+        // ⛔⛔ THE BUTTON, NOT THE BODY STATE, and the difference is a whole
+        // tick. `guard_up` reads `BodyShieldState::active`, which OUTLIVES the
+        // press that raised it — a guard comes down through drop lag, not on the
+        // frame the button is released — so gating on it turns an attack thrown
+        // just after letting go into a surprise grab.
+        //
+        // ⭐ MEASURED, and it is not a small effect: gated on `guard_up`, the
+        // CPUs' offence became grabbing and `every_live_fighter_stays_inside_the_frame`
+        // went red on its PREMISE - "no fighter was ever outside the room's own
+        // bounds in this match (0 body-frames)". Nobody was knocked off the
+        // stage at all, because a grab launches nobody. The fighter brain never
+        // holds shield on a frame it attacks; the body's guard was simply still
+        // standing when the press arrived.
+        //
+        // Holding the shield is also what the genre asks of a player: you grab
+        // OUT OF a guard you are holding, not out of one you just dropped.
+        let shield_grab = frame.shield_held && gesture.pressed.is_some();
         let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
         // Set by the attack arm below when it resolves a SMASH; every other
@@ -1634,7 +1669,33 @@ pub fn trigger_moveset_moves(
         // lookup did not read the gate its own repertoire had authored.
         type Resolution<'a> = (Option<MoveSpec>, &'a [&'a str], ProposedVerb);
         let (spec, verb_names, proposer): Resolution = if holding_captive {
-            match gesture.pressed.map(|intent| intent.direction) {
+            // ⭐ A DIRECTION ALONE THROWS. Jon, 2026-08-23: *"Throw should not
+            // require you to press attack and a direction. just pressing the
+            // direction after you grab should trigger the throw."* That is the
+            // genre's rule — a held opponent is thrown by tilting the stick, and
+            // Attack is what PUMMELS — and this branch required an attack press
+            // carrying a direction for both.
+            //
+            // ⛔ THE ATTACK PRESS STILL WORKS, deliberately. Attack+direction
+            // was the only way to throw until now, so removing it would break
+            // the input every existing test and every CPU brain already uses —
+            // `capture_context_frame` presses Attack with an aimed stick and
+            // knows nothing about this. The press is consulted FIRST so a
+            // deliberate aimed press keeps its exact meaning; the stick is the
+            // fallback that makes the direction sufficient on its own.
+            //
+            // ⛔ NEUTRAL IS NOT A THROW in either road: with no direction there
+            // is nothing to throw toward, and a captor standing still holding a
+            // captive must stay held rather than resolve some default throw.
+            let aimed = attack_dir_from_axis(frame.attack_axis, kin.facing);
+            let throw_dir = match gesture.pressed.map(|intent| intent.direction) {
+                // An aimed attack press: its own direction, unchanged.
+                Some(dir) => Some(dir),
+                // No press. The stick decides, and only when it says something.
+                None if aimed != AttackDir::Neutral => Some(aimed),
+                None => None,
+            };
+            match throw_dir {
                 Some(AttackDir::Neutral) => (
                     moveset
                         .0
@@ -1677,7 +1738,7 @@ pub fn trigger_moveset_moves(
                 ),
                 None => (None, &[][..], ProposedVerb::Unbuffered),
             }
-        } else if grab_pressed && oos_permits(ae::OutOfShieldAction::Grab) {
+        } else if (grab_pressed || shield_grab) && oos_permits(ae::OutOfShieldAction::Grab) {
             // A free body's grab. The move's own Active window carries the
             // capture attempt; this only starts the move.
             //

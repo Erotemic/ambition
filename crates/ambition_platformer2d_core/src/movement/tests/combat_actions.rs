@@ -4,8 +4,8 @@
 use super::super::*;
 use super::{step_scratch, test_world};
 use crate::body_clusters::BodyClusterScratch;
-use crate::AbilitySet;
 use crate::test_support::{update_player_with_tuning_scratch, TEST_TUNING};
+use crate::AbilitySet;
 use crate::Vec2;
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
@@ -727,6 +727,55 @@ fn down_on_the_stick_spot_dodges_instead_of_rolling() {
     );
 }
 
+/// ⭐ DOWN ON A RAISED GUARD SPOT-DODGES WITH NO SECOND BUTTON. Jon,
+/// 2026-08-23: *"Shielding and pressing down should trigger a dodge. But also
+/// note that right now dodge isn't really a dodge, it is more like a dash. It
+/// actually moves the player."*
+///
+/// Both halves are one gap, and the test above already shows why: the spot
+/// dodge exists and does NOT travel. What did not exist is a way to ask for it
+/// from behind a guard — the evade was reachable only through the burst button,
+/// and a burst press with no direction is the ROLL, which travels. So the only
+/// dodge a shielding player could reach was the one that moves them.
+///
+/// ⛔ THE PAIR IS THE ASSERTION. The same stick with the guard DOWN must do
+/// nothing, or this is not an out-of-shield option — it is "holding down
+/// dodges", which would fire while walking down a slope.
+#[test]
+fn down_on_a_raised_guard_spot_dodges_without_a_burst_press() {
+    let evade = |guard_up: bool| {
+        let world = test_world();
+        let mut scratch = scratch_at(world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.dodge.cooldown = 0.0;
+        scratch.shield.active = guard_up;
+        let events = step_fighter(
+            &world,
+            &mut scratch,
+            InputState {
+                axes: crate::LocalAxes::new(0.0, 1.0),
+                // NO burst edge at all: the stick and the guard are the whole
+                // input.
+                ..Default::default()
+            },
+        );
+        (events.operations.clone(), scratch.kinematics.vel.x)
+    };
+
+    let (ops, travel) = evade(true);
+    assert!(
+        ops.contains(&MovementOp::SpotDodge),
+        "down on a raised guard did not spot dodge: {ops:?}"
+    );
+    assert_eq!(travel, 0.0, "the out-of-shield dodge travelled {travel}px");
+
+    let (ops, _) = evade(false);
+    assert!(
+        !ops.contains(&MovementOp::SpotDodge),
+        "holding down with NO guard dodged, so this fires while walking downhill: {ops:?}"
+    );
+}
+
 /// A WALL IS SOMETHING YOU CAN CATCH YOURSELF ON TOO.
 ///
 /// both halves — the tech FIRES while the body is still airborne, and the velocity it leaves
@@ -1098,7 +1147,11 @@ fn a_wall_tech_asked_to_jump_leaves_the_wall_higher_than_one_that_is_not() {
             let events = step_fighter(
                 world,
                 &mut scratch,
-                if on_wall { press } else { InputState::default() },
+                if on_wall {
+                    press
+                } else {
+                    InputState::default()
+                },
             );
             if events.operations.contains(&MovementOp::Tech) {
                 if also_jump {

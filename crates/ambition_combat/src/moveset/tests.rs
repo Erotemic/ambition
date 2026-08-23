@@ -3024,6 +3024,79 @@ fn played(app: &App, body: Entity) -> Option<String> {
         .map(|pb| pb.spec.id.clone())
 }
 
+/// The same fixture with a RAISED GUARD, so the out-of-shield roads can be
+/// asked about. Nothing else differs: no policy is declared, which is the
+/// unrestricted case every body had before out-of-shield rules existed.
+fn shielding_app(frame: ambition_characters::actor::control::ActorControlFrame) -> (App, Entity) {
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+    );
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(capture_context_moveset()),
+            ActorControl(frame),
+            ambition_platformer2d_core::BodyShieldState {
+                active: true,
+                ..Default::default()
+            },
+            // ⛔ the frame carries `shield_held` too: the grab reads the BUTTON,
+            // not the body state, so a fixture that raised only the latter would
+            // be testing the thing that was wrong.
+        ))
+        .id();
+    app.update();
+    (app, body)
+}
+
+/// ⭐ ATTACK ON A RAISED GUARD IS A GRAB. Jon, 2026-08-23: *"if you are
+/// shielding and press a, that should trigger a grab."* It is the genre's rule
+/// and it is how most players grab at all.
+///
+/// ⛔ THE FALSIFIER IS THE SAME PRESS WITH THE GUARD DOWN, below: without it
+/// this test passes on a body that would have grabbed anyway.
+#[test]
+fn attack_on_a_raised_guard_grabs() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    frame.shield_held = true;
+    let (app, body) = shielding_app(frame);
+    assert_eq!(
+        played(&app, body).as_deref(),
+        Some("grab"),
+        "attack from behind a guard did not grab - it reached the attack arm, which \
+         only lets an UP-aimed press out of shield, so shield+A did nothing at all"
+    );
+}
+
+/// ⛔ AND THE SAME PRESS WITH NO GUARD IS AN ORDINARY ATTACK, not a grab. The
+/// guard is what makes it a grab; a body that grabbed on every neutral press
+/// would have no jab.
+#[test]
+fn the_same_attack_with_no_guard_is_not_a_grab() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    let (app, body) = capture_context_app(frame, false);
+    assert_ne!(
+        played(&app, body).as_deref(),
+        Some("grab"),
+        "a neutral attack press with the guard DOWN resolved a grab, so the guard is \
+         not what is deciding"
+    );
+}
+
 /// A FREE BODY'S GRAB PRESS STARTS ITS GRAB.
 #[test]
 fn a_free_body_pressing_grab_plays_its_grab_move() {
@@ -3061,6 +3134,45 @@ fn a_captor_pressing_forward_attack_throws() {
     frame.attack_axis = ae::LocalAxes::X;
     let (app, captor) = capture_context_app(frame, true);
     assert_eq!(played(&app, captor).as_deref(), Some("fthrow"));
+}
+
+/// ⭐ A DIRECTION ALONE THROWS — no attack press. Jon, 2026-08-23: *"Throw
+/// should not require you to press attack and a direction. just pressing the
+/// direction after you grab should trigger the throw."*
+///
+/// That is the genre's rule: a held opponent is thrown by tilting the stick, and
+/// Attack is what pummels. The pair above and below stay green because the
+/// aimed attack press is consulted FIRST and keeps its exact meaning — this is
+/// a second road to the same move, not a replacement.
+#[test]
+fn a_captor_holding_forward_throws_without_pressing_attack() {
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    // The stick, and nothing else. No `melee_pressed`.
+    frame.attack_axis = ae::LocalAxes::X;
+    let (app, captor) = capture_context_app(frame, true);
+    assert_eq!(
+        played(&app, captor).as_deref(),
+        Some("fthrow"),
+        "holding forward while gripping a captive did not throw - a throw still \
+         needs the attack button it should not need"
+    );
+}
+
+/// ⛔ AND A NEUTRAL STICK IS NOT A THROW. With no direction there is nothing to
+/// throw toward, so a captor standing still keeps its grip rather than
+/// resolving some default throw.
+///
+/// This is the falsifier for the test above: a change that made "holding a
+/// captive" alone resolve a throw would pass it and fail this.
+#[test]
+fn a_captor_holding_nothing_keeps_its_grip() {
+    let frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    let (app, captor) = capture_context_app(frame, true);
+    assert_eq!(
+        played(&app, captor),
+        None,
+        "a captor with a neutral stick and no press resolved a move anyway"
+    );
 }
 
 /// AN UNAUTHORED THROW DOES NOTHING — IT DOES NOT BECOME A PUMMEL.

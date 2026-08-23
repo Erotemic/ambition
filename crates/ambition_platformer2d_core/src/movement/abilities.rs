@@ -184,6 +184,35 @@ pub(super) fn apply_intent(
         state.buffer_burst = tuning.abilities.dash_buffer;
         spend_out_of_shield(shield, oos);
     }
+    // ⭐ DOWN ON A RAISED GUARD IS A SPOT DODGE, with no second button. Jon,
+    // 2026-08-23: *"Shielding and pressing down should trigger a dodge. But also
+    // note that right now dodge isn't really a dodge, it is more like a dash. It
+    // actually moves the player."*
+    //
+    // Both halves of that are one gap. The SPOT DODGE already exists and already
+    // evades in place — `apply_dodge` zeroes everything but the descent when the
+    // stick is down — and the smash ruleset already authors `spot_dodge_time`.
+    // What did not exist is any way to ASK for it from behind a guard: the
+    // evade was reachable only through the burst button, and a burst press with
+    // no direction is the ROLL, which moves. So the dodge Jon could actually get
+    // was the one that travels.
+    //
+    // ⛔ THIS FILLS THE SAME BUFFER THE BURST BUTTON FILLS and decides nothing
+    // else. `apply_dodge` reads the stick itself and picks spot-dodge over roll,
+    // so this cannot disagree with it about which evade a down-held stick means
+    // — there is one authority for that and it is not here.
+    //
+    // ⛔ Gated on the guard being ACTIVE, so walking down a slope is untouched:
+    // this is an out-of-shield option, and it is spent like one.
+    if shield.active
+        && abilities.abilities.dodge
+        && local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
+        && tuning.abilities.spot_dodge_time > 0.0
+        && out_of_shield_permits(shield, oos, OutOfShieldAction::Burst)
+    {
+        state.buffer_burst = tuning.abilities.dash_buffer;
+        spend_out_of_shield(shield, oos);
+    }
 }
 
 /// Flight toggle: flip fly mode; on entering, clear transient wall/dash/blink

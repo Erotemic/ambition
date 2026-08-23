@@ -83,6 +83,32 @@ pub fn acquire_captures(
     // deadline is a declared rule too, and it is decided at acquisition.
     let rules = tuning.map(|t| *t).unwrap_or_default();
     let friendly_fire = rules.friendly_fire();
+    // ⛔⛔ WHAT THIS PASS HAS ALREADY GRANTED, because `Commands` are DEFERRED
+    // and the `captives` query below cannot see them.
+    //
+    // ⭐ THE INVARIANT THIS FUNCTION CLAIMS — "one captor, one captive" — held
+    // for every tick except the one it mattered on. Two grabs that connect on
+    // the SAME tick are two messages in one pass: neither body is in `captives`
+    // yet when the other's attempt is judged, so BOTH succeed and each fighter
+    // becomes captor AND captive of the other. Measured 2026-08-23 in the full
+    // app, `npc_pirate_admiral` rung 9 mirror: every one of 2026 capture-ticks
+    // read `holding=true captured=true`, across 40 captures, with ZERO pummels
+    // and ZERO throws in the whole match.
+    //
+    // ⛔ and it DEADLOCKS, which is why it costs a third of the match rather
+    // than looking odd: the brain's capture policy answers `captured` FIRST and
+    // returns, so a body that is both can only ever struggle. Neither side can
+    // pummel, neither can throw, both are control-held, and the lock ends only
+    // when the hold clock runs out — 40 times a minute.
+    //
+    // ⚠ a mirror match makes it CERTAIN rather than rare: two identical brains
+    // reach for a grab on the same tick, every time.
+    //
+    // The pass order is the tie-break, and it is deterministic — message order
+    // is write order, the same property `spend_fighter_stocks` relies on. This
+    // is the genre's answer too: when two grabs land on one frame, one wins.
+    let mut taken_this_pass: std::collections::HashSet<Entity> = Default::default();
+    let mut holding_this_pass: std::collections::HashSet<Entity> = Default::default();
     for attempt in attempts.read() {
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
@@ -97,6 +123,14 @@ pub fn acquire_captures(
         // where the "one captor, one captive" half of the invariant is upheld;
         // the other half is upheld by skipping a victim that is already held.
         if captive_of(attempt.captor, &captives).is_some() {
+            continue;
+        }
+        // ⛔ AND THE SAME QUESTION ABOUT THIS PASS. A body grabbed by an earlier
+        // attempt in this very run is held, however invisible that is to the
+        // query — and a body that already took a captive here is not a captor
+        // twice.
+        if taken_this_pass.contains(&attempt.captor) || holding_this_pass.contains(&attempt.captor)
+        {
             continue;
         }
 
@@ -117,8 +151,13 @@ pub fn acquire_captures(
 
         //  built ONCE, not asked per candidate: `captives` is the authority on
         // who is already held, and the other half of "one captive, one captor".
-        let already_held: std::collections::HashSet<Entity> =
-            captives.iter().map(|(entity, _)| entity).collect();
+        let already_held: std::collections::HashSet<Entity> = captives
+            .iter()
+            .map(|(entity, _)| entity)
+            // ⛔ plus this pass's own grants, for the reason at the top of the
+            // loop: the query is one tick behind its own `Commands`.
+            .chain(taken_this_pass.iter().copied())
+            .collect();
 
         // Gather, then rank.  never "take the first overlap": see the doc.
         let mut candidates: Vec<(f32, &SimId, Entity)> = Vec::new();
@@ -179,6 +218,10 @@ pub fn acquire_captures(
         let Some((_, _, victim)) = candidates.first().copied() else {
             continue;
         };
+        // This attempt has won. Record both ends before the deferred insert, so
+        // a later attempt in this same pass sees the hold that is about to exist.
+        taken_this_pass.insert(victim);
+        holding_this_pass.insert(attempt.captor);
 
         //  THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.
         //
@@ -289,7 +332,6 @@ impl CaptureFacts {
         }
     }
 }
-
 
 /// The captive's restricted channel: a mash reaches the hold, and nothing
 /// else does.
@@ -745,6 +787,77 @@ mod tests {
             "the relation was inserted without this ruleset's half — the captive \
              has no hold clock and no escape accumulator, so the grab would last \
              forever and no mash could end it"
+        );
+    }
+
+    /// ⭐⭐ TWO GRABS THAT LAND ON ONE TICK MAKE ONE HOLD, NOT TWO.
+    ///
+    /// ⛔⛔ THE INVARIANT THIS FILE ALREADY CLAIMED, and it held on every tick
+    /// except the one it mattered on. `acquire_captures` asks the `captives`
+    /// QUERY whether a body is already held — and its own inserts go through
+    /// `Commands`, which are deferred, so an attempt granted earlier in the SAME
+    /// pass is invisible to the next one. Two bodies reaching for each other on
+    /// one tick therefore both succeeded, and each became captor AND captive of
+    /// the other.
+    ///
+    /// ⛔ IT DEADLOCKS, which is why it cost a third of a match rather than
+    /// looking odd. The brain's capture policy answers "am I captured" first and
+    /// returns, so a body that is both can only ever struggle: neither side
+    /// pummels, neither throws, both are control-held, and the lock ends only
+    /// when the hold clock runs out. Measured in the full app before this fix,
+    /// `npc_pirate_admiral` rung 9 mirror, 3600 ticks: 40 captures, 2028
+    /// capture-ticks (28% of the match), and ZERO pummels and ZERO throws.
+    /// After: 2 captures, 74 ticks, 2 pummels, 2 throws.
+    ///
+    /// ⚠ a MIRROR match makes it certain rather than rare — two identical brains
+    /// reach for a grab on the same tick, every time — which is why every number
+    /// in that measurement was perfectly symmetric between the seats.
+    #[test]
+    fn two_grabs_on_one_tick_make_one_hold() {
+        let mut app = capture_app();
+        let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
+        let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+        // Hostile to each other, so neither grab is refused by friendly fire.
+        app.world_mut()
+            .entity_mut(west)
+            .insert(crate::components::ActorFaction::Player);
+        // Facing each other, so each one's grab volume reaches the other.
+        app.world_mut()
+            .entity_mut(west)
+            .get_mut::<ae::BodyKinematics>()
+            .expect("the fixture body has kinematics")
+            .facing = -1.0;
+
+        // ONE pass, both attempts.
+        app.world_mut().write_message(attempt(east));
+        app.world_mut().write_message(attempt(west));
+        app.update();
+
+        let held: Vec<Entity> = [east, west]
+            .into_iter()
+            .filter(|body| app.world().get::<CapturedBy>(*body).is_some())
+            .collect();
+        assert_eq!(
+            held.len(),
+            1,
+            "two simultaneous grabs produced {} holds. Zero means neither \
+             connected and this test measured nothing; two means both bodies are \
+             captor AND captive of the other, which no fighter can act out of",
+            held.len()
+        );
+        // And the one that won is holding the one that lost — not itself, and
+        // not a dangling handle.
+        let captive = held[0];
+        let captor = app
+            .world()
+            .get::<CapturedBy>(captive)
+            .expect("the hold that exists")
+            .captor;
+        assert_ne!(captor, captive, "a body captured itself");
+        assert!(
+            app.world().get::<CapturedBy>(captor).is_none(),
+            "the winner of the tie is ALSO held, which is the deadlock this \
+             guards: the pass granted its opponent's grab as well"
         );
     }
 
@@ -1372,10 +1485,7 @@ mod tests {
 
         for _ in 0..2 {
             app.world_mut()
-                .write_message(crate::capture::CapturePummelRequested {
-                    captor,
-                    damage: 3,
-                });
+                .write_message(crate::capture::CapturePummelRequested { captor, damage: 3 });
             app.update();
         }
 

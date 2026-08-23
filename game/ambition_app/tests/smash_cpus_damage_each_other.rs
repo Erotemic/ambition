@@ -122,3 +122,118 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         );
     }
 }
+
+/// SWEEP THE WHOLE GRID, because every CPU number this project has is one
+/// matchup's.
+///
+/// The demo shell's catalog carries three fighters; this composition carries the
+/// whole select grid (D189). So every measurement taken through
+/// `ambition_demo_smash_app`'s rigs — the decision histogram, the move census,
+/// the weight override, the launch distributions the trail is fitted against —
+/// describes George against George or the two stand-in duelists, and nothing
+/// establishes that any of it generalises.
+///
+/// This is the instrument that can say. It is `#[ignore]`d because it is a
+/// MEASUREMENT rather than a guard: it asserts only the thing that would make
+/// its own numbers meaningless, and printing is the deliverable.
+///
+/// ```text
+/// cargo test -p ambition_app --test app_it -- --ignored --nocapture every_fighter_on_the_grid
+/// ```
+#[test]
+#[ignore = "a measurement, not a guard: minutes per fighter, run it when a scoring change needs validating"]
+fn every_fighter_on_the_grid_can_fight_its_mirror() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let ids: Vec<String> = {
+        let registry = app
+            .world()
+            .get_resource::<PreparedCharacterRegistry>()
+            .expect("the composed host has a prepared-character registry");
+        SmashRoster::assemble(registry)
+            .ids()
+            .map(str::to_string)
+            .collect()
+    };
+    assert!(
+        ids.len() > 3,
+        "this composition assembled {} fighters, which is the demo shell's count — \
+         so this sweep would measure exactly what the cheaper rigs already do",
+        ids.len()
+    );
+    drop(app);
+
+    println!(
+        "[grid-sweep] {} fighters, mirror matches, {TICKS} ticks each",
+        ids.len()
+    );
+    println!(
+        "[grid-sweep] {:<34} {:>9} {:>9} {:>9}",
+        "fighter", "took0%", "took1%", "hitstun"
+    );
+    let mut silent: Vec<String> = Vec::new();
+    for id in &ids {
+        let (taken, hitstun) = mirror_bout(id);
+        println!(
+            "[grid-sweep] {id:<34} {:>8.0}% {:>8.0}% {:>9}",
+            taken[0] * 100.0,
+            taken[1] * 100.0,
+            hitstun[0] + hitstun[1]
+        );
+        if taken[0] + taken[1] < 0.1 {
+            silent.push(id.clone());
+        }
+    }
+    // The ONE assertion, and it guards the reading rather than the game: a
+    // fighter that cannot be seated at all prints zeros indistinguishable from a
+    // fighter that stands still, and a sweep where that goes unsaid is a table
+    // of numbers with holes in it nobody can see.
+    assert!(
+        silent.len() * 2 < ids.len(),
+        "{} of {} fighters took no damage at all in their own mirror — that is a \
+         seating failure wearing a balance number: {silent:?}",
+        silent.len(),
+        ids.len()
+    );
+}
+
+/// One mirror match in the shipped composition: damage each seat ACCUMULATED
+/// (a KO resets the meter, so a peak measures survival rather than violence) and
+/// ticks each spent in hitstun.
+fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2]) {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let roster = ambition_demo_smash::smash_roster_at_levels([fighter, fighter], &[RUNG, RUNG]);
+    let countdown = roster.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+
+    let mut taken = [0.0f32; 2];
+    let mut last = [0.0f32; 2];
+    let mut hitstun = [0usize; 2];
+    for _ in 0..(countdown + TICKS) {
+        app.update();
+        let world = app.world_mut();
+        for (seat, health, combat) in world
+            .query::<(&MatchSeat, &BodyHealth, Option<&BodyCombat>)>()
+            .iter(world)
+        {
+            if seat.0 < 2 {
+                let now = health.damage_percent();
+                if now > last[seat.0] {
+                    taken[seat.0] += now - last[seat.0];
+                }
+                last[seat.0] = now;
+                if combat.is_some_and(|c| c.hitstun_timer > 0.0) {
+                    hitstun[seat.0] += 1;
+                }
+            }
+        }
+    }
+    (taken, hitstun)
+}

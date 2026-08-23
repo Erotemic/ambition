@@ -169,14 +169,25 @@ fn coverage_fit_peaks_where_the_move_can_actually_hit() {
 
 #[test]
 fn frame_advantage_is_measured_against_the_attacks_own_commitment() {
-    // A 0.1s jab into a 0.3s commitment lands with a whole startup to spare.
-    assert_eq!(frame_advantage(0.1, 0.3), 1.0);
+    // The kit's slowest startup is the scale, so the number is comparable
+    // BETWEEN moves rather than each one being normalised by itself.
+    const SLOWEST: f32 = 0.5;
+    // A 0.1s jab into a 0.3s commitment lands with room to spare.
+    assert!(frame_advantage(0.1, 0.3, SLOWEST) > 0.0);
     // A 0.5s smash into the same window does not.
-    assert!(frame_advantage(0.5, 0.3) < 0.0);
-    // An uncommitted opponent answers immediately: any startup is a gamble,
-    // and a slower move is a worse one.
-    assert!(frame_advantage(0.5, 0.0) <= frame_advantage(0.1, 0.0));
-    assert_eq!(frame_advantage(0.1, 0.0), -1.0);
+    assert!(frame_advantage(0.5, 0.3, SLOWEST) < 0.0);
+    // The jab beats the smash into the same window, which is the whole point.
+    assert!(frame_advantage(0.1, 0.3, SLOWEST) > frame_advantage(0.5, 0.3, SLOWEST));
+    // AN UNCOMMITTED OPPONENT ANSWERS IMMEDIATELY: any startup is a gamble, and
+    // A SLOWER MOVE IS A WORSE ONE.
+    //
+    // ⛔ STRICTLY worse. This was `<=` and both sides were `-1.0`, because the
+    // scale used to be the move's own startup — so the assertion passed while
+    // its own comment was false, and the CPU threw no jabs for as long as
+    // anybody has been watching.
+    assert!(frame_advantage(0.5, 0.0, SLOWEST) < frame_advantage(0.1, 0.0, SLOWEST));
+    // The slowest move in the kit is the floor.
+    assert_eq!(frame_advantage(0.5, 0.0, SLOWEST), -1.0);
 }
 
 // ── the scorer ───────────────────────────────────────────────────────────
@@ -1088,7 +1099,10 @@ fn only_a_capture_carries_capture_value() {
             );
         }
     }
-    assert!(saw_grab, "the grab was filtered out, so this measured nothing");
+    assert!(
+        saw_grab,
+        "the grab was filtered out, so this measured nothing"
+    );
 }
 
 ///  A HOLD ON AN AIRBORNE BODY IS WORTH NOTHING, because the rules refuse

@@ -637,7 +637,13 @@ mod the_decision_log {
 /// demo tuning. What must never be true again is that no stream produces either.
 #[test]
 fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
-    const WINDOW: usize = 1800;
+    // NINETY SECONDS, not thirty, and the reason is the event rather than the
+    // patience. A charge needs an OPENING — the brain pays a full hold only when
+    // the opponent is committed or offstage — and openings arrive on their own
+    // schedule. Measured 2026-08-23 across three streams: at 1800 ticks the best
+    // charge reached is 0.00 in all three; at 5400 it is 0.99 in two of them.
+    // The old window was hunting an event rarer than itself.
+    const WINDOW: usize = 5400;
     const STREAMS: u64 = 3;
 
     let mut charged_in = 0usize;

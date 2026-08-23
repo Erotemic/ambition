@@ -379,6 +379,26 @@ pub fn generate_options(
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate lands a volume, which zeroes every payoff below.
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
+    // And the kit's SLOWEST startup, which is the scale frame advantage is
+    // measured on.
+    //
+    // ⛔⛔ IT USED TO DIVIDE BY THE MOVE'S OWN STARTUP, so against an
+    // uncommitted opponent — `their_commitment` zero, which is most of neutral —
+    // every attack in the kit reported exactly `-1.0`. The feature that exists
+    // to price SPEED normalised the speed away, a three-frame jab and a
+    // twenty-frame smash scored identically, and the constant cancelled out of
+    // the ranking entirely. Measured 2026-08-23: two CPUs threw dash attacks,
+    // specials, grabs, throws, tilts and aerials over ninety seconds and NOT ONE
+    // JAB, because with the speed term dead the only thing separating attacks in
+    // neutral was reach — and a jab has the least of it.
+    //
+    // ⚠ the test that should have caught it asserted `slower <= faster` and both
+    // sides were `-1.0`, so it passed while its own comment said *"a slower move
+    // is a worse one"*. It is a strict `<` now.
+    let slowest_startup = kit
+        .iter()
+        .map(|c| c.frames.startup_s)
+        .fold(0.0f32, f32::max);
     let mut attacks: Vec<AttackOption> = kit
         .iter()
         // AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION. (measured
@@ -400,7 +420,7 @@ pub fn generate_options(
         .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
             use super::options::AttackVerb;
-            let fa = frame_advantage(c.frames.startup_s, their_commitment);
+            let fa = frame_advantage(c.frames.startup_s, their_commitment, slowest_startup);
             let power = if kit_max_damage > 0 {
                 c.frames.max_damage as f32 / kit_max_damage as f32
             } else {
@@ -411,7 +431,20 @@ pub fn generate_options(
                 frame_advantage: fa,
                 kill_potential: foe.damage_frac(),
                 stage_risk,
-                expected_payoff: power * fa.max(0.0),
+                // TWO DIFFERENT QUESTIONS, so two different scales. The
+                // ranking's `fa` asks *how exposed does this leave me* and is
+                // measured against the kit's slowest move, so a jab and a smash
+                // differ. The payoff gate asks *does this move FIT the opening*,
+                // which is a comparison between one move's startup and one
+                // window and is normalised by that move's own startup — the
+                // original reading, kept exactly where it was right.
+                //
+                // Collapsing them cost the demo its smashes: with one shared
+                // scale a slow move's negative `fa` zeroed its payoff in every
+                // situation, and the CPU stopped charging entirely.
+                expected_payoff: power
+                    * frame_advantage(c.frames.startup_s, their_commitment, c.frames.startup_s)
+                        .max(0.0),
                 // Only a capture asks this question, and `capture_value` answers
                 // zero for everything else — stated at the call site so the
                 // feature cannot quietly start pricing ordinary swings.
@@ -450,7 +483,6 @@ pub fn generate_options(
     // would delete a whole class of move from every kit that has one. Only a move
     // that HAS a hittable region and cannot cover where the foe is goes.
     attacks.retain(|attack| attack.frames.coverage.is_none() || attack.features.reach_fit > 0.0);
-
 
     // Ties break on the move id, so the best option is a function of the world and
     // not of the kit's declaration order (ADR 0023: no order-dependent decisions).
@@ -558,8 +590,8 @@ const THROW_CONVERSION: f32 = 0.35;
 
 /// `+1` when the attack lands a full startup before the opponent can answer; `-1` when it is a full
 /// startup too slow.
-pub fn frame_advantage(startup_s: f32, their_commitment_s: f32) -> f32 {
-    let scale = startup_s.max(0.01);
+pub fn frame_advantage(startup_s: f32, their_commitment_s: f32, slowest_startup_s: f32) -> f32 {
+    let scale = slowest_startup_s.max(0.01);
     ((their_commitment_s - startup_s) / scale).clamp(-1.0, 1.0)
 }
 

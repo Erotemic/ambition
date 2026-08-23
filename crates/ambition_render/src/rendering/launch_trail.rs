@@ -38,9 +38,9 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 // THE THREE SPEEDS, measured rather than picked — and measured against the
 // quantity the gate actually reads.
 //
-// `match_report -- 90 --runs 5`, 2026-08-23, George versus George, prints the
-// pooled distribution of the speed a body flies at WHILE LAUNCHED, one sample
-// per tick of involuntary flight (n = 9878):
+// `match_report -- 90 --runs 5`, 2026-08-23, `smash_george_booul` versus
+// itself, prints the pooled distribution of the speed a body flies at WHILE
+// LAUNCHED, one sample per tick of involuntary flight (n = 9878):
 //
 //     p25 49   p50 289   p75 563   p90 756   p99 1500   max 1902
 //
@@ -55,8 +55,13 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 // ⛔ do not re-pick these off `peak launch`, and do not re-pick them off a
 // single run: the first version of this file used 650 (the stage's
 // `tumble_speed`, a proxy for "a hit that sent someone") and the trail never
-// fired in a match at all. These five runs are all one matchup, which is the
-// honest limit of this pick.
+// fired in a match at all.
+//
+// ⚠ AND THE MATCHUP IS PART OF THE SAMPLE SIZE. All five runs are one
+// character against itself. The demo shell carries three fighters and the full
+// app sixteen on the same select grid, and weight and fall speed both move this
+// distribution — so this is the best available fit and not a general one. State
+// the matchup wherever this number is restated.
 
 /// Speed at which a launch starts smoking, in world units per second.
 ///

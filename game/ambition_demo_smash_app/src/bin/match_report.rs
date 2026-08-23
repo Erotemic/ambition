@@ -699,6 +699,9 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
         "\nmin–median–max across runs. Counts are summed over both seats; charge and \
          launch are the best either seat reached. `flight speed` is pooled over every \
          tick of involuntary flight in every run — the distribution a presentation gate \
-         on flight speed actually sees."
+         on flight speed actually sees.\n\n⚠ THE MATCHUP IS PART OF THE SAMPLE SIZE. \
+         Every run here is one character against itself. Weight and fall speed move \
+         every distribution above, so a constant fitted to this is fitted to this \
+         matchup — write it down beside the sample size."
     );
 }

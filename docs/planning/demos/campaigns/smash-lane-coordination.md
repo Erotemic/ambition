@@ -187,6 +187,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | P7 nobody has SEEN any of this | PRESENTATION | ▢ — an offscreen capture binary for the Smash demo |
 | M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ▢ |
 | C5 a guard has no home in the situation vocabulary | COORDINATOR | ▢ — see below |
+| C6 the movement scores are a coupled system | COORDINATOR | ▢ — three hand edits, three reverts; see below |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
 
 ## Measurements this campaign made, that outlive it
@@ -333,3 +334,41 @@ the movement options the frame-advantage read the attack options already have.
 ⛔ Do not attempt it by re-pricing `Shield`: measured 2026-08-23, re-pricing the
 evade by hand took the smash suite from two failures to four, and this brain has
 an evaluation rig (`brain::fighter::evaluation`, `scenarios`) for exactly this.
+
+## C6 — the movement scores are a coupled system, and hand-editing them fails
+
+Three attempts, three reverts, and the third is the one that explains the other
+two. ⭐ **The measurement that made them legible costs nothing:**
+
+```bash
+AMBITION_FIGHTER_TRACE=1 cargo run -p ambition_demo_smash_app --bin match_report -- 30 2>trace
+grep -o 'chose=Some([A-Za-z]*)' trace | sort | uniq -c | sort -rn
+```
+
+Thirty seconds of CPU-versus-CPU, as shipped:
+
+```
+341 Approach   142 Dodge   136 Recover   75 Shield   69 Retreat   17 Jump
+```
+
+**Dodge is the second most common decision in the game**, and every sampled one
+was `Disadvantage` with `offered=[Dodge, Retreat, Jump]` — cornered, nothing
+incoming, rolling because 0.75 outranks Retreat's 0.7.
+
+⛔ **Paying that premium only against a live swing looks obviously right and is
+not.** Dodge fell 142 → 58 and Retreat rose 69 → 216, exactly as intended. Then:
+`Recover` fell 136 → 60, **nobody was ever knocked off the stage**, and **no CPU
+held a smash in any of three matches.** A cornered fighter that retreats instead
+of rolling STAYS cornered — and `charge_ticks_for` pays a full charge only in
+`Advantage`/`EdgeGuard` and none at all in `Disadvantage`. The roll was
+load-bearing for the OFFENSE, two steps away, through the situation classifier.
+
+⇒ the two earlier reverts were the same lesson wearing different clothes:
+re-pricing the evade across three arms took the suite from two failures to four,
+and a guard added to `Neutral` never fired at all.
+
+⭐ **The rule: a movement score is not a local number.** It changes which
+SITUATION the body ends the next second in, and every other score is read in that
+situation. ⛔ Do not hand-edit these; the brain has `brain::fighter::evaluation`
+and `scenarios` for exactly this, and its own doc says survival and damage need a
+match harness — which `bin/match_report` now is. Joining those two is the slice.

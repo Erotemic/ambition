@@ -36,27 +36,134 @@ pub fn sync_actor_poses_from_feature_aabbs(
     }
 }
 
-/// Per-frame steering context handed from the brain-tick phase to the movement
-/// phase: each actor's nearest same-kind neighbor, keyed by actor id. Computed
-/// once by `tick_actor_brains` (which already runs the slot-board / crowding
-/// pass) and read by `integrate_actor_bodies` for surface-walker anti-clump
+/// Per-frame steering context handed from observation to the movement phase:
+/// each actor's nearest same-kind neighbor, keyed by actor id. Computed
+/// once by [`observe_actor_decision_inputs`] and read by `integrate_sim_bodies`
+/// for surface-walker anti-clump
 /// steering, so the movement phase doesn't recompute it. Rebuilt every frame.
 #[derive(bevy::ecs::resource::Resource, Default)]
 pub struct ActorSteering {
     pub neighbor_by_id: std::collections::HashMap<String, ae::Vec2>,
 }
 
-/// PHASE — tick actor brains. For every brain-driven actor: advance its reaction
-/// timers, derive disposition standdown, build the perception snapshot (+ slot
-/// input for a possessed body), tick the brain, and write the
-/// resulting `ActorControlFrame` into `ActorControl`. This phase ticks NO body
-/// position and mirrors NO read-model — brain → intent, full stop. The movement
-/// phase (`integrate_actor_bodies`) reads the `ActorControl` written here. Also
-/// runs the shared slot-board / crowding / neighbor pass that feeds each snapshot
-/// and publishes the neighbor index to `ActorSteering` for the movement phase.
+/// Immutable, frame-local world facts consumed by autonomous actor decisions.
 ///
-/// Peaceful and hostile actors share the same entity identity and switch
-/// disposition in-place; dynamic encounter-spawned mobs use the same path.
+/// This is a derived projection, rebuilt from authoritative body state before
+/// every decision phase. It deliberately contains values rather than ECS
+/// borrows: observation owns the cross-body scan; decision owns the stateful
+/// brain call. Neither phase gets to perform the other's job by reaching back
+/// into its queries.
+#[derive(bevy::ecs::resource::Resource, Default)]
+pub(crate) struct ActorDecisionFacts {
+    crowd: super::crowd_observation::CrowdFacts,
+}
+
+/// Frame-local output of the autonomous DECIDE phase.
+///
+/// Decision owns brain state and produces plain intent values. Publication owns
+/// the authoritative [`ambition_characters::control::ActorControl`] mutation.
+/// Keeping the hand-off as data prevents a decision system from acquiring body
+/// control authority just because movement consumes the result later in the tick.
+#[derive(bevy::ecs::resource::Resource, Default)]
+pub(crate) struct ActorDecisionFrames {
+    frames: Vec<(
+        Entity,
+        ambition_characters::actor::control::ActorControlFrame,
+    )>,
+}
+
+/// OBSERVE — build the cross-body facts this tick's autonomous decisions read.
+///
+/// Observation owns the population scan; decision consumes this derived
+/// resource. The schedule edge between them is the same-tick contract.
+pub(crate) fn observe_actor_decision_inputs(
+    mut facts: ResMut<ActorDecisionFacts>,
+    mut steering: ResMut<ActorSteering>,
+    controlled: Query<
+        (
+            bevy::prelude::Entity,
+            &ambition_characters::actor::BodyHealth,
+        ),
+        bevy::prelude::With<crate::actor::PlayerEntity>,
+    >,
+    actors: Query<
+        (
+            Entity,
+            &ActorDisposition,
+            &super::super::super::components::ActorTarget,
+            Option<super::super::actor_clusters::ActorClusterQueryDataReadOnly>,
+            Option<&super::super::super::components::ActorFaction>,
+            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
+        ),
+        (
+            With<FeatureSimEntity>,
+            // Preserve the pre-split actor population without granting this
+            // observation phase mutable authority over these components.
+            With<CenteredAabb>,
+            With<ActorIdentity>,
+            With<BodyCombat>,
+            With<crate::features::MotionModel>,
+            Without<crate::actor::PlayerEntity>,
+            Without<ambition_boss_encounter::BossConfig>,
+            Without<crate::features::ecs::dormancy::Dormant>,
+        ),
+    >,
+) {
+    let mut observation = super::crowd_observation::CrowdObservation::default();
+    for (entity, health) in &controlled {
+        observation.note_controlled_liveness(entity, health.current() > 0);
+    }
+    for (entity, disposition, target, body, faction, in_a_fight) in &actors {
+        let fighting =
+            crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
+        observation.note_actor(
+            entity,
+            body.as_ref().is_some_and(|body| body.health.alive()),
+            body.as_ref()
+                .map(|body| super::crowd_observation::ObservedBody {
+                    id: body.config.id.as_str(),
+                    pos: body.kin.pos,
+                    kind: body.config.tuning.crowd_kind(),
+                    faction: faction.copied(),
+                    foe: target.entity,
+                }),
+            fighting,
+        );
+    }
+    let crowd = observation.finish();
+    steering.neighbor_by_id = crowd.neighbor_index().clone();
+    facts.crowd = crowd;
+}
+
+/// MAINTAIN — advance actor reaction clocks before decision and movement.
+///
+/// Observation runs first, preserving the existing rule that perception samples
+/// the pre-decay combat phase while movement consumes the decayed clocks.
+pub(crate) fn maintain_actor_pre_decision_state(
+    world_time: Res<WorldTime>,
+    mut actors: Query<
+        &mut BodyCombat,
+        (
+            With<FeatureSimEntity>,
+            // Exact eligibility from the old fused brain query. `With` keeps
+            // the population contract without borrowing unrelated authority.
+            With<CenteredAabb>,
+            With<ActorIdentity>,
+            With<ActorDisposition>,
+            With<super::super::super::components::ActorTarget>,
+            With<crate::features::MotionModel>,
+            Without<crate::actor::PlayerEntity>,
+            Without<ambition_boss_encounter::BossConfig>,
+            Without<crate::features::ecs::dormancy::Dormant>,
+        ),
+    >,
+) {
+    let dt = world_time.sim_dt();
+    for mut combat in &mut actors {
+        combat.decay_reaction_timers(dt);
+    }
+}
+
 /// The causal log's slot in the brain-tick system's parameter bundle.
 ///
 /// `ambition_causal` is an optional, default-off dependency (§2e), so the slot
@@ -96,11 +203,20 @@ fn with_causal_sink<T>(_causal: &mut CausalLend<'_>, body: impl FnOnce() -> T) -
     body()
 }
 
+/// DECIDE — tick autonomous actor brains from the already-observed world facts.
+///
+/// This phase mutates only decision-owned state (`Brain`, `PerceptionMemory`) and
+/// produces frame-local [`ActorDecisionFrames`]. It does not write
+/// [`ambition_characters::control::ActorControl`]; the following PUBLISH phase
+/// owns that mutation. Body reaction clocks, disposition maintenance, cross-body
+/// observation, movement, and read-model projection are separate scheduled phases.
+///
+/// Peaceful and hostile actors share the same entity identity; target and
+/// disposition transitions have already settled before this phase. Dynamic
+/// encounter-spawned mobs use the same path.
 pub fn tick_actor_brains(
-    // Packing is not a contract: a tuple says these things arrive together, and nothing about why.
-    // They are named again because the ceiling pressure is gone — deleting the combat slot board
-    // freed two parameters and adopting `CollisionWorld` freed two more — and because three of the
-    // seven turned out to be one concept (`PerceivedWorld`) rather than three neighbours.
+    // Inputs stay named by authority. Parameter count is not a reason to hide
+    // independent contracts in a tuple or context bag.
     world_time: Res<WorldTime>,
     // Accumulating sim-time, for the brain's reaction-latency lookback.
     sim_clock: Res<crate::features::GameplayElapsed>,
@@ -134,64 +250,38 @@ pub fn tick_actor_brains(
     // `CollisionWorld` is the seam that already owned that composition; the brain tick simply had
     // never adopted it.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
-    // Neighbor index handed to the movement phase (surface-walker steering).
-    mut steering: ResMut<ActorSteering>,
-    // Liveness of the bodies the actor query cannot see. A fighter's foe is
-    // often a controlled body, and a brain must perceive that its foe has died;
-    // controlled bodies carry no actor cluster, so they are absent from `actors`
-    // below. Keyed per entity, so this is not "the player" — it is every body in
-    // this class, however many a session has. `BodyHealth` is the liveness
-    // authority (NOT `BodyCombat.alive`, an actor-cluster mirror never synced for
-    // a controlled body), consistent with `select_actor_targets`.
-    player_query: Query<
-        (
-            bevy::prelude::Entity,
-            &ambition_characters::actor::BodyHealth,
-        ),
-        bevy::prelude::With<crate::actor::PlayerEntity>,
-    >,
+    // Cross-body liveness/crowding was observed in the preceding phase. The
+    // decision loop reads the resulting values and does not rescan the actor
+    // population itself.
+    decision_facts: Res<ActorDecisionFacts>,
+    mut decisions: ResMut<ActorDecisionFrames>,
     mut actors: Query<
         (
             Entity,
-            &mut CenteredAabb,
-            &mut ActorIdentity,
-            // Mutable: a hostile fighter whose foe has died is pacified back to
-            // Peaceful here, so it resumes normal NPC behavior (and can be talked
-            // to) instead of menacing a corpse.
-            &mut ActorDisposition,
-            &mut BodyCombat,
             &super::super::super::components::ActorTarget,
-            // Brain + ActorControl. The hostile tick runs the brain
-            // and writes its `ActorControlFrame` output into
-            // `ActorControl` so the downstream
-            // `emit_brain_action_messages` resolver and the EFFECTS-
-            // stage consumers see the brain's intent. `Option` on
-            // both because dynamically-spawned actors (debug tools,
-            // scripted spawns) might skip brain attachment.
+            // Stateful decision policy. The frame it produces is buffered in
+            // `ActorDecisionFrames`; this phase never borrows `ActorControl`.
+            // `Option` because dynamically-spawned actors (debug tools, scripted
+            // spawns) might skip brain attachment and therefore decide neutral.
             Option<&mut ambition_characters::brain::Brain>,
             // Driver authority suppresses autonomous decisions and contributes
             // to the body's effective faction view.
             Option<&ambition_characters::control::DrivingParticipant>,
-            Option<&mut ambition_characters::control::ActorControl>,
+            bevy::prelude::Has<ambition_characters::control::ActorControl>,
             // ActionSet — read for the Smash brain so it knows which
             // attacks (melee / ranged) the actor can commit. `Option`
             // so dynamically-spawned actors without a set still tick.
             Option<&ambition_characters::brain::ActionSet>,
-            Option<&super::super::Mounted>,
-            // The unified actor cluster — every actor (was-NPC + was-enemy)
-            // carries it. The tick integrates through it via `ActorMut`.
-            //
-            // See the skip in the loop body for what that deletes.
             (
-                Option<super::super::actor_clusters::ActorClusterQueryData>,
+                // The generated read-only view of the COMPLETE actor cluster.
+                // Using the existing cluster shape preserves the old eligibility
+                // contract exactly while removing decision's mutable body authority.
+                Option<super::super::actor_clusters::ActorClusterQueryDataReadOnly>,
                 // The brain interprets controller input and perceives "down" through it — never
                 // through a private gravity lookup.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-                // Faction — read to scope the anti-clump crowding signal to
-                // SAME-faction allies. Without this, two hostiles of different
-                // factions (the spectator-duel fighters) count each other as
-                // crowding neighbors and the anti-clump back-actor rule freezes
-                // both. `Option` to match the other cluster-nested reads.
+                // Faction is still a self-view input; crowd observation consumed
+                // its own copy in the preceding phase.
                 Option<&super::super::super::components::ActorFaction>,
                 // §A7: this body's per-entity grudge, so its world-out `WorldView`
                 // resolves a same-faction grudge-duel opponent as hostile (matching
@@ -240,37 +330,25 @@ pub fn tick_actor_brains(
                 // kernel performs another — see `SelfView::burst`.
                 //
                 // Requiring it costs nothing: the integration query below
-                // (`integrate_actor_bodies`) already takes `&mut MotionModel` non-optionally over
+                // (`integrate_sim_bodies`) already takes `&mut MotionModel` non-optionally over
                 // the same archetype, so a body without one is not integrated at all and has no
                 // locomotion for a brain to reason about.
                 &crate::features::MotionModel,
             ),
-            // IS THIS BODY IN A FIGHT? Read for the stand-down rule below,
-            // which pacifies a hostile actor that holds no combat target, and
-            // for the read-model rebuild that would otherwise drop a
-            // combatant's attack windup every frame. A ruleset declares its
-            // fighters combatants; that is not a fact AI targeting is allowed to
-            // revoke.
-            //
-            // this was `Has<MatchSeat>`, and a seat is not participation.
-            // An eliminated fighter keeps its seat — the body stays standing
-            // until a ruleset removes it — so it went on holding attack state and
-            // a place on the anti-clump board with no stocks left. It was also
-            // the SECOND proxy for a fact `apply_actor_hit` was reading off a
-            // third component; one authority answers all of them now.
-            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
-        // The player carries the unified `BodyKinematics` too, and
-        // `player_query` above reads it; exclude the player here so this
-        // `&mut BodyKinematics` actor query is provably disjoint from it
-        // (player / actor archetypes never overlap).
-        //
         // Exclude BOSSES too: they carry the shared actor read-models
         // (`ActorIdentity`/`ActorDisposition`/… synced by `sync_boss_actor_components`) but have NO
         // actor cluster, so without this they'd match here (cluster = `None`) and get ticked by the
         // actor loop ON TOP of their own `tick_boss_brains_system` — a double brain tick.
         (
             With<FeatureSimEntity>,
+            // Removing mutable access must not broaden the phase population.
+            // These were mandatory members of the old fused actor query; keep
+            // them as eligibility only, not as decision authority.
+            With<CenteredAabb>,
+            With<ActorIdentity>,
+            With<ActorDisposition>,
+            With<BodyCombat>,
             Without<crate::actor::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
             // A DORMANT ACTOR DOES NOT DECIDE. Only the brain sleeps: the
@@ -285,6 +363,11 @@ pub fn tick_actor_brains(
     // Sim clock: enemies, NPCs, encounter mobs all advance on the
     // gameplay clock so bullet-time / pause / hitstop freeze them
     // alongside the player. ADR 0010 + reference_lessons_learned.
+    // A derived decision buffer is rebuilt from scratch every tick, including
+    // ticks with no collision world. Publication may therefore never replay a
+    // stale autonomous frame after a schedule gate or world transition.
+    decisions.frames.clear();
+
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
@@ -300,81 +383,18 @@ pub fn tick_actor_brains(
     // at all — every actor everywhere, not merely the ones near a player. Nothing in this
     // system may become conditional on a player existing again.
 
-    // ── OBSERVATION ──────────────────────────────────────────────────────
-    // Look at every body once, then derive. `crowd_observation` owns the
-    // derivations so the boundary between "look at the world" and "decide what
-    // this body does" is a type rather than a place in a long function.
-    let mut observation = super::crowd_observation::CrowdObservation::default();
-    for (entity, health) in &player_query {
-        observation.note_controlled_liveness(entity, health.current() > 0);
-    }
-    for (
-        entity,
-        _,
-        _,
-        disposition,
-        _,
-        target,
-        _,
-        // The driving seat, which this loop does not consult: hostility is a
-        // disposition question and a body is in a fight for the same reasons
-        // whether a person or a policy is steering it.
-        _,
-        _,
-        _,
-        _,
-        (clusters, _, faction, _, _, _, _, _, _, _),
-        in_a_fight,
-    ) in &actors
-    {
-        // the two arms are the two ways to be in a fight. Social hostility
-        // is how an AI body joins one; `ActiveCombatant` is how a ruleset puts a
-        // body in. A human-driven fighter is the second without ever being the
-        // first — it holds no AI target, so asking only the disposition left it
-        // off the picture it is standing in the middle of.
-        let fighting =
-            crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
-        observation.note_actor(
-            entity,
-            clusters.as_ref().is_some_and(|c| c.health.alive()),
-            clusters
-                .as_ref()
-                .map(|c| super::crowd_observation::ObservedBody {
-                    id: c.config.id.as_str(),
-                    pos: c.kin.pos,
-                    kind: c.config.tuning.crowd_kind(),
-                    faction: faction.copied(),
-                    foe: target.entity,
-                }),
-            fighting,
-        );
-    }
-    let crowd = observation.finish();
-    // The neighbour index is handed to the movement phase (surface-walker
-    // anti-clump steering) rather than consumed here — the one piece of the
-    // observation that leaves this system.
-    steering.neighbor_by_id = crowd.neighbor_index().clone();
-
-    // Pass 2: tick each actor's brain into its `ActorControl`. The slot-board
-    // holding fallback that steers unassigned actors is folded into the brain
-    // snapshot (crowding); movement integration is a separate phase.
+    // The population scan and body-state maintenance have already run. This
+    // loop is now one authority: evaluate autonomous decision state and produce
+    // the resulting intent value for the following publish phase.
     for (
         this_actor_entity,
-        // aabb / identity / mounted belong to the movement + read-model phases;
-        // the query still fetches them (one actor query shape) but the brain
-        // phase reads only its intent inputs.
-        _aabb,
-        _identity,
-        mut disposition,
-        mut combat,
         target,
         mut brain,
         driver,
-        mut control,
+        has_control,
         action_set,
-        _mounted,
         (
-            clusters,
+            body,
             resolved_frame,
             faction,
             aggression,
@@ -385,49 +405,16 @@ pub fn tick_actor_brains(
             motion_facts,
             motion_model,
         ),
-        in_a_fight,
     ) in &mut actors
     {
-        // Body-generic reaction timers on the body's authoritative `BodyCombat`
-        // (the same fields the player carries): the post-hit i-frame the actor
-        // gates re-hits on, the damage-blink the renderer reads, and the §A2
-        // stagger set (hitstun / recoil-lock / hitstop) the movement phase
-        // consumes. Decremented for every actor each tick, alive or dead — the
-        // SAME decay the boss tick runs (§A1).
-        combat.decay_reaction_timers(dt);
-
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
         // faction-feud fighter has no target once its foe is gone), so `entity ==
         // None` here means "no one to fight" → the brain idles (peaceful behavior).
         let target_alive = match target.entity {
-            Some(e) => crowd.is_alive(e),
+            Some(e) => decision_facts.crowd.is_alive(e),
             None => false,
         };
-        // Disposition is DERIVED from having a combat target: an aggressive actor
-        // with NO target stands down to Peaceful — it stops attacking empty air,
-        // relabels as peaceful, and is re-provokable (strike it past the threshold)
-        // again — but KEEPS its aggression mode, so it re-acquires and re-engages the
-        // instant a foe reappears (retreat → escape → peaceful; reacquire →
-        // fighting). A `Hostile` enemy keeps its live foe as its target, so it
-        // never spuriously stands down. Relativity-neutral (any fighter, any
-        // faction). This REPLACES the former hard pacify-to-passive, which dead-ended
-        // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
-        // UNLESS A MATCH SAYS OTHERWISE. A seated fighter is a combatant
-        // because two people decided it is, and that is not a fact about whether
-        // it currently holds a target.
-        //
-        // the original symptom is worth keeping written down, because it is
-        // what the two questions sharing one field cost: a peaceful body takes
-        // no health damage at all, so a fighter that stood down could not be hit,
-        // could not be knocked out, and could not lose a stock.
-        //
-        // The stage-kill test only caught the blast-zone corner of it: seat 1 launched at 2400px/s
-        // fell to y=5771 and kept falling, the gate writing a lethal hit every tick that nothing
-        // would resolve.
-        if disposition.is_hostile() && target.entity.is_none() && !in_a_fight {
-            *disposition = ActorDisposition::Peaceful;
-        }
         // `target.pos` is populated by `select_actor_targets`
         // (#17.8); it defaults to the actor's spawn-of-game position
         // when no players exist yet (pre-spawn / post-death-of-all),
@@ -435,24 +422,19 @@ pub fn tick_actor_brains(
         // production game.
         let target_pos = target.pos;
         {
-            // Every actor (was-NPC + was-enemy) shares the unified cluster.
-            // Peaceful actors no-op the slot-board / body-contact / hostile
-            // passes via tuning (`is_hostile` / `body_contact_damage`); the
-            // brain drives patrol/idle. Borrow the cluster as an ActorMut view.
-            let Some(mut cq) = clusters else {
+            // A production actor carries the complete read-only decision view.
+            // `Option` keeps incomplete debug/scripted fixtures from being
+            // silently filtered out of the outer query; they simply have no
+            // autonomous decision to evaluate.
+            let Some(body) = body else {
                 continue;
             };
             {
-                // Read-only view of the body for the perception snapshot; the brain
-                // tick mutates no cluster state (it writes the intent frame). Actual
-                // integration happens in `integrate_actor_bodies`.
-                let em = cq.as_actor_mut();
-
                 // Every brain-attached actor builds its snapshot + world-view and
-                // ticks its brain into an `ActorControlFrame`. The frame lands in
-                // `ActorControl`, which the movement phase (`integrate_actor_bodies`)
-                // and the EFFECTS consumers (`emit_brain_action_messages` → melee /
-                // ranged) both read. Smash / Patrol / MeleeBrute / Skirmisher /
+                // ticks its brain into an `ActorControlFrame`. The following PUBLISH
+                // phase commits that value to `ActorControl`, which movement and the
+                // EFFECTS consumers (`emit_brain_action_messages` → melee / ranged)
+                // both read. Smash / Patrol / MeleeBrute / Skirmisher /
                 // Sniper / Wanderer all flow through this single path. A body without
                 // a brain gets a neutral frame (production spawns always attach one).
                 //
@@ -479,17 +461,19 @@ pub fn tick_actor_brains(
                 // either: possessing a body would restart its sight memory every
                 // tick from a view nobody consulted.
                 //
-                // everything ABOVE this point still runs for a possessed body:
-                // reaction-timer decay, target liveness, disposition standdown and
-                // the crowd observation are facts about a body in a world, not
-                // decisions a driver makes.
+                // Observation and state maintenance already ran for a driven
+                // body; only the autonomous decision is suppressed here.
                 if driver.is_some() {
                     continue;
                 }
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
-                    let crowding = crowd.crowding(&em.config.id);
+                    let crowding = decision_facts.crowd.crowding(&body.config.id);
+                    let capture = ambition_combat::capture::systems::CaptureFacts::resolve(
+                        this_actor_entity,
+                        &captives,
+                    );
                     let mut snapshot = build_enemy_brain_snapshot(
-                        &em,
+                        &body,
                         target_pos,
                         target_alive,
                         crowding,
@@ -508,10 +492,7 @@ pub fn tick_actor_brains(
                         // locomotion facts, and "none of them true" is the
                         // honest reading of that.
                         &motion_facts.copied().unwrap_or_default(),
-                        ambition_combat::capture::systems::CaptureFacts::resolve(
-                            this_actor_entity,
-                            &captives,
-                        ),
+                        capture,
                     );
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
@@ -569,17 +550,14 @@ pub fn tick_actor_brains(
                     // forbids and the query above now makes unrepresentable.
                     let world_view = super::super::perception::build_world_view(
                         &super::super::perception::perception_body_for(
-                            &em,
+                            &body,
                             self_faction,
                             enemy_gravity_dir,
                             action_set,
                             self_peer,
                             aggression,
                             motion_model,
-                            ambition_combat::capture::systems::CaptureFacts::resolve(
-                                this_actor_entity,
-                                &captives,
-                            ),
+                            capture,
                         ),
                         &view_peers,
                         perceived.projectiles(),
@@ -604,7 +582,7 @@ pub fn tick_actor_brains(
                                 snapshot.target_alive = true;
                             }
                             None => {
-                                snapshot.target_pos = em.kin.pos;
+                                snapshot.target_pos = body.kin.pos;
                                 snapshot.target_alive = false;
                             }
                         }
@@ -620,13 +598,34 @@ pub fn tick_actor_brains(
                     ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
                 let _ = enemy_gravity_dir;
-                // Hand the brain-produced intent to the movement phase: the seam is
-                // `ActorControl`, which `integrate_actor_bodies` reads next. This
-                // phase writes NO body position and mirrors NO read-model.
-                if let Some(control) = control.as_deref_mut() {
-                    control.0 = brain_frame;
+                // Decision ends in a plain value. The next phase is the only
+                // autonomous writer of `ActorControl`; movement cannot begin until
+                // that publish has completed. A body with no control component still
+                // advances its brain state, matching the old fused path.
+                if has_control {
+                    decisions.frames.push((this_actor_entity, brain_frame));
                 }
             }
+        }
+    }
+}
+
+/// PUBLISH — commit this tick's autonomous decisions to body control.
+///
+/// This is intentionally the only autonomous `ActorControl` mutation after brain
+/// evaluation. The system is narrow enough that Bevy's access graph expresses
+/// the authority edge directly: DECIDE writes a derived buffer, PUBLISH writes
+/// control, and integration only follows after PUBLISH.
+pub(crate) fn publish_actor_decision_frames(
+    decisions: Res<ActorDecisionFrames>,
+    mut controls: Query<
+        &mut ambition_characters::control::ActorControl,
+        Without<ambition_characters::control::DrivingParticipant>,
+    >,
+) {
+    for (entity, frame) in &decisions.frames {
+        if let Ok(mut control) = controls.get_mut(*entity) {
+            control.0 = *frame;
         }
     }
 }
@@ -943,8 +942,8 @@ pub fn snapshot_body_contact(
 /// is the whole point of the unification.
 ///
 /// It integrates position ONLY — it ticks no brain and mirrors no read-model.
-/// Surface-walker anti-clump steering reads the neighbor index `tick_actor_brains`
-/// published to [`ActorSteering`].
+/// Surface-walker anti-clump steering reads the neighbor index
+/// [`observe_actor_decision_inputs`] published to [`ActorSteering`].
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     // A13: whose cues each body emits, looked up by entity. A separate read-only
@@ -1194,7 +1193,7 @@ pub fn integrate_sim_bodies(
 /// `BodyCombat` and `Has<ActiveCombatant>` — the last of which existed ONLY to choose between a
 /// peaceful and a hostile rebuild that no longer happens.
 ///
-/// It changes no control and moves no body. Runs after `integrate_actor_bodies`.
+/// It changes no control and moves no body. Runs after `integrate_sim_bodies`.
 pub fn sync_actor_read_model(
     mut actors: Query<
         (
@@ -1621,7 +1620,7 @@ fn capture_candidate(
 /// state-machine variants.
 #[allow(clippy::too_many_arguments)]
 fn build_enemy_brain_snapshot(
-    em: &super::super::actor_clusters::ActorMut<'_>,
+    body: &super::super::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
     target_pos: ae::Vec2,
     target_alive: bool,
     crowding: Option<ambition_characters::brain::CrowdingSignal>,
@@ -1648,43 +1647,43 @@ fn build_enemy_brain_snapshot(
     capture: ambition_combat::capture::systems::CaptureFacts,
 ) -> ambition_characters::brain::BrainSnapshot {
     ambition_characters::brain::BrainSnapshot {
-        actor_pos: em.kin.pos,
-        actor_vel: em.kin.vel,
-        actor_facing: em.kin.facing,
+        actor_pos: body.kin.pos,
+        actor_vel: body.kin.vel,
+        actor_facing: body.kin.facing,
         control_down: gravity_dir,
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
-        actor_on_ground: em.ground.on_ground,
+        actor_on_ground: body.ground.on_ground,
         // Semantic side-contact FACT from the shared movement kernel. The brain
         // decides whether it means "turn around"; integration never mutates
         // facing merely because a wall exists.
-        side_contact_normal: em.wall.on_wall.then_some(em.wall.wall_normal_x.signum()),
+        side_contact_normal: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
         // the LOGIC is unchanged and is not a detail: a wall means "turn
         // around" to a walker and means "keep going" to a body whose entire
         // locomotion is walls.
-        turns_at_walls: em.config.brain_profile.turns_at_walls && !motion_facts.adhesive_crawling,
+        turns_at_walls: body.config.brain_profile.turns_at_walls && !motion_facts.adhesive_crawling,
         // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
         // brain scores real moves with real frame data and cannot reach a
         // moveset itself, so this is body-derived truth arriving through the
         // world-in port — exactly like `actor_aerial`.
         //
         // Built every tick like every other snapshot field.
-        attack_kit: attack_kit_of(moveset, em.ground.on_ground, brain, playback),
+        attack_kit: attack_kit_of(moveset, body.ground.on_ground, brain, playback),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like
         // the kit above. `config.id` is the id the rest of the actor system
         // already names this body by (targets, crowding, slot requests), so an
         // explanation joins against the same identity everything else uses.
-        subject: Some(em.config.id.clone()),
+        subject: Some(body.config.id.clone()),
         // The brain steers 2D `velocity_target` whenever the body is in FLIGHT — a
         // pure free-mover (gravity_scale == 0) OR a grounded-base hybrid that has
         // toggled flight on (`flight.fly_enabled`). Without the `fly_enabled` half a
         // hybrid that takes off keeps perceiving itself grounded and re-toggles the
         // fly intent every tick (flip-flop) instead of sustaining flight. Matches the
         // integrator's flight-limb predicate (`fly_enabled && abilities.fly`).
-        actor_aerial: em.surface.gravity_scale <= 0.001 || em.flight.fly_enabled,
-        alive: em.health.alive(),
+        actor_aerial: body.surface.gravity_scale <= 0.001 || body.flight.fly_enabled,
+        alive: body.health.alive(),
         captured: capture.captured,
         captured_for: capture.captured_for,
         holding_captive: capture.holding_captive,
@@ -1695,8 +1694,8 @@ fn build_enemy_brain_snapshot(
         // Own health fraction — the Smash brain watches it drop to trigger a regroup
         // (back off + reset after taking a beating).
         health_fraction: {
-            let max = em.health.max().max(1) as f32;
-            (em.health.current() as f32 / max).clamp(0.0, 1.0)
+            let max = body.health.max().max(1) as f32;
+            (body.health.current() as f32 / max).clamp(0.0, 1.0)
         },
         // Real, accumulating sim-time (scaled by bullet-time / pause) — NOT a
         // hardcoded 0.0. The Smash brain's reaction latency (`obs_history`
@@ -1704,7 +1703,7 @@ fn build_enemy_brain_snapshot(
         // threading it is what makes the difficulty knob live in-engine.
         sim_time,
         dt,
-        max_run_speed: em.config.tuning.max_run_speed,
+        max_run_speed: body.config.tuning.max_run_speed,
         // THE MOVEMENT LAW THIS BODY PLAYS UNDER, for the brains that
         // predict rather than steer. The line above takes one number out of the
         // same tuning as a throttle scale; a rollout has to step the body
@@ -1713,19 +1712,19 @@ fn build_enemy_brain_snapshot(
         // `body_tuning` is the same projection the rich integration path takes, so the
         // predictor and the integrator read one source — which is the whole point.
         movement_tuning: Some(
-            em.config
+            body.config
                 .tuning
                 .movement
-                .body_tuning(em.config.tuning.max_run_speed),
+                .body_tuning(body.config.tuning.max_run_speed),
         ),
         // THE VERBS THAT LAW APPLIES TO, from the body's own ability
         // cluster — the same component the movement kernel reads. A rollout that
         // asks whether a fall is recoverable has to drive the kernel, and the
         // kernel gates every air jump, wall grab and glide on this.
-        abilities: Some(em.abilities.abilities),
-        attack_cooldown_remaining: em.attack.cooldown,
-        attack_windup_remaining: em.attack.windup_remaining(),
-        attack_active_remaining: em.attack.active_remaining(),
+        abilities: Some(body.abilities.abilities),
+        attack_cooldown_remaining: body.attack.cooldown,
+        attack_windup_remaining: body.attack.windup_remaining(),
+        attack_active_remaining: body.attack.active_remaining(),
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         // BossPattern-only inputs — inert for actor bodies.
@@ -1735,7 +1734,7 @@ fn build_enemy_brain_snapshot(
         player_input: None,
         crowding,
         terrain: None,
-        air_jumps_remaining: em.jump.air_jumps_available,
+        air_jumps_remaining: body.jump.air_jumps_available,
     }
 }
 

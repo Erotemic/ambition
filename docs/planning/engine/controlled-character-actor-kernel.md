@@ -38,11 +38,10 @@ The milestone is reached when:
 This directly unlocks cleaner multiplayer/multiview, open-world population,
 navigation, possession, item custody and actor-monolith decomposition.
 
-## Milestone status against HEAD (2026-08-18)
+## Milestone status against HEAD (2026-08-22)
 
-Every property holds except the **semantic decomposition** of
-`tick_actor_brains`, which reached a deliberate resting point rather than
-completion.
+The first decision-authority decomposition is complete. The remaining structural
+work in this milestone is the orchestration fork around the common body step.
 
 ✔✔ **The integrator fork is resolved (2026-08-18).** Jon ruled on 2026-08-17
 that hitlag is a combat/body semantic, not something that should depend on
@@ -70,38 +69,31 @@ the one composited world.
   all. A crowd board, if wanted as a feature, is a product decision needing a
   real reader first.
 
-- ◐ **parameter pressure is fixed; semantic decomposition reached a
-  deliberate resting point.** `tick_actor_brains` went from sixteen parameters
-  packed in a tuple to ten named ones, dropped the dead slot board, and adopted
-  `CollisionWorld`. The system still performs disposition mutation,
-  snapshot/view construction, memory mutation, brain decision and
-  `ActorControl` publication in one function; the next slice should split those
-  by authority/phase.
+- ✔ **actor decision authority is phase-structured (2026-08-22).** The old
+  `tick_actor_brains` mixed cross-body observation, reaction-clock mutation,
+  target-derived stand-down, stateful brain evaluation and control publication.
+  Those authorities now run through the named chain
+  `Targeting → Prepare → Observe → StateMaintenance → Decide → Publish`.
 
-  Three cuts taken 2026-08-14: liveness/index collection and crowding
-  derivation moved to `actors::crowd_observation` (three tests, one pinning
-  that query order cannot reach the result); `PerceptionBody` construction
-  moved to `perception::perception_body_for`; memory update and sighted-target
-  override merged into `perception::believed_target` (keeping them apart is
-  what lets a caller update memory and forget to consult it, or vice versa).
-  Body code went 214 → 188 → 181 lines; what remains in the loop is snapshot
-  assembly, disposition mutation and control publication.
+  `select_actor_targets` owns the target-derived hostile → peaceful transition,
+  with a same-tick test for target loss. `observe_actor_decision_inputs` freezes
+  cross-body liveness/crowding into derived `ActorDecisionFacts` and publishes
+  the movement-only `ActorSteering` projection. Reaction-clock decay remains the
+  existing `BodyCombat::decay_reaction_timers(sim_dt)` rule, but runs in its own
+  maintenance phase *after* observation, preserving the old pre-decay perception
+  sample. The controlled-road `frame_dt` versus sim-`dt` question remains separate.
 
-  ⛔ **the reaction-timer decay is NOT the next cut.** `combat.decay_reaction_timers(dt)`
-  looks like unrelated work riding in the brain tick, but the rule is already
-  consolidated into one function called from three places — controlled bodies
-  (`control::input_systems`), actors (here), bosses (the boss tick) — and the
-  controlled site decays on `frame_dt` where the other two use sim `dt`. ⚠
-  **that `frame_dt`/sim-`dt` split is a separate open question**; the D114
-  hitlag ruling above does not settle it.
+  `tick_actor_brains` now mutates only decision-owned `Brain` /
+  `PerceptionMemory` state and produces frame-local `ActorDecisionFrames`;
+  `publish_actor_decision_frames` is the narrow `ActorControl` writer. Body
+  state is visible through the generated read-only view of the complete actor
+  cluster, preserving the former query's eligibility without borrowing mutable
+  integration state. No replacement context/service bag was added.
 
-  ⚠ **the automatic pacify is a candidate with a stated cost.** Reverting a
-  disposition to `Peaceful` on target loss belongs with `select_actor_targets`,
-  which owns the target and runs immediately before — but it would take effect
-  one tick earlier than today (the observation pass currently reads the
-  pre-pacify disposition). Probably an improvement, certainly a behaviour
-  change, and nothing pins it. Do it with a test that names the tick, or not at
-  all.
+  The split also fixed one ordering defect: the causal movement-operation reader
+  now runs after `integrate_sim_bodies`, which is the writer it observes. A
+  schedule-graph test pins the decision-set chain and the edge into
+  `WorldPrepSet::BeforeIntegrate`.
 
   ✔ **one duplicate found while sizing the integrator fork, deleted.**
   `engine_input_from_actor_control` spelled the controlled road's
@@ -110,15 +102,15 @@ the one composited world.
   translation and keeps only what is genuinely its own (`control_dt`, the
   body's post-hit gates). 71 lines → 23.
 
-  ⇒ **this system is at a reasonable resting point**; the remaining structural
-  work in this milestone is the orchestration fork described above.
+  ⇒ **the remaining structural work in this milestone is the orchestration fork
+  described above.**
 
 - ✔ **controlled and AI bodies on the same contracts — decision converged
   2026-08-14.** Movement was already one path (`integrate_home_body` and the
   actor integration both reach `ae::step_motion`). Decision now is too: one
   producer, `tick_controlled_brains`, translates participant control into
-  `ActorControl` for any controlled body, and `tick_actor_brains` skips a body
-  carrying `Brain::Player`.
+  `ActorControl` for any controlled body, while `tick_actor_brains` skips any
+  body carrying `DrivingParticipant` and produces only autonomous decision output.
 
   What made the cut possible: the possessed body previously paid for a full
   actor observation (crowd observation, enemy brain snapshot, perception
@@ -146,8 +138,9 @@ the one composited world.
   | **controlled decision** | `ControlledBrainTick` in `PlayerInput::Brain` | — |
   | scripted blanking | `blank_scripted_control_frames`, `PlayerInput::ControlGate` | after |
   | causal intent record | `.after(ControlledBrainTick)` | after |
-  | AI decision | `tick_actor_brains`, `WorldPrep` | after |
-  | mount relay | `steer_mount_from_rider`, after the actor tick | after |
+  | AI decision | `tick_actor_brains`, `ActorDecisionSet::Decide` | after |
+  | AI control publish | `publish_actor_decision_frames`, `ActorDecisionSet::Publish` | after |
+  | mount relay | `steer_mount_from_rider`, after AI publication | after |
   | `ActorControl` consumers | action emitters (after `WorldPrep`), integration (`PlayerSimulation`) | after |
 
   `PlayerInput → WorldPrep` was already the contract ("CONTROL-SEAM ORDERING"
@@ -167,9 +160,11 @@ the one composited world.
 - ✔ **the six names have distinct documented meanings** —
   [`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)
   maps all six side by side, which is where the confusions happen.
-- ✔ **important ordering explicit.** Perception → brain tick is chained inside
-  `WorldPrep`. Overlay rebuild → migrated `CollisionWorld` readers is the same
-  chain, so a trace shows the world the simulation actually collided against.
+- ✔ **important ordering explicit.** Autonomous actor decision is ordered by
+  `Targeting → Prepare → Observe → StateMaintenance → Decide → Publish`, and
+  `Publish` is explicitly before `WorldPrepSet::BeforeIntegrate`. Overlay rebuild → migrated
+  `CollisionWorld` readers remains explicit, so a trace shows the world the
+  simulation actually collided against.
   The clock → platform advance is frame-stable (`WorldTime` is snapshotted at
   frame top). The one relationship that was genuinely implicit — which
   `ActorControl` producer wins for a possessed body — is removed rather than

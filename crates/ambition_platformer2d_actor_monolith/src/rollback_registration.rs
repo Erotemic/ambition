@@ -434,6 +434,16 @@ where
         "derived.resolved_hurtboxes",
         "recomputed from AuthoredHurtboxes plus the move and pose clocks each tick",
     );
+    registrar.declare_rollback_derived_resource::<crate::features::ActorDecisionFacts>(
+        OWNER,
+        "derived.actor_decision_facts",
+        "rebuilt from authoritative body state before every autonomous decision phase",
+    );
+    registrar.declare_rollback_derived_resource::<crate::features::ActorDecisionFrames>(
+        OWNER,
+        "derived.actor_decision_frames",
+        "rebuilt by autonomous decision and consumed by same-tick control publication",
+    );
     registrar.declare_rollback_derived_resource::<crate::features::ActorSteering>(
         OWNER,
         "derived.actor_steering",

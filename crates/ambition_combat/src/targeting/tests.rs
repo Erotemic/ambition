@@ -1,5 +1,7 @@
 use super::*;
-use crate::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
+use crate::components::{
+    ActiveCombatant, ActorAggression, ActorDisposition, ActorFaction, ActorTarget, CenteredAabb,
+};
 use ambition_characters::control::DrivingParticipant;
 use ambition_characters::control::PlayerSlot;
 use ambition_platformer2d_core::BodyKinematics;
@@ -511,12 +513,11 @@ fn relational_fighter_targets_nearest_foe_observer_spared_by_distance() {
     );
 }
 
-/// A dead foe is never targeted: once the foe's health is drained, the fighter
-/// goes target-less (→ stands down to peaceful downstream) instead of swinging
-/// at the corpse. Replaces the old manual pacify-on-death hack.
+/// A dead foe is never targeted: once the foe's health is drained, targeting
+/// drops it and stands a non-match fighter down instead of swinging at the corpse.
+/// Replaces the old manual pacify-on-death hack.
 #[test]
 fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
-    use crate::components::ActorFaction;
     let mut app = App::new();
     let mut relations = FactionRelations::default();
     relations.set_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
@@ -528,6 +529,7 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
             CenteredAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
             ActorTarget::default(),
             ActorAggression::hostile(),
+            ActorDisposition::Hostile,
             ActorFaction::Enemy,
             alive(),
         ))
@@ -552,7 +554,47 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
     let target = app.world().entity(fighter).get::<ActorTarget>().unwrap();
     assert_eq!(
         target.entity, None,
-        "a dead foe is dropped and the relational fighter goes target-less (stands down)"
+        "a dead foe is dropped and the relational fighter goes target-less"
+    );
+    assert_eq!(
+        *app.world().entity(fighter).get::<ActorDisposition>().unwrap(),
+        ActorDisposition::Peaceful,
+        "target selection owns stand-down, so the disposition changes in the same tick"
+    );
+}
+
+#[test]
+fn active_match_combatant_stays_hostile_when_target_less() {
+    let mut app = App::new();
+    let fighter = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 20.0),
+            ),
+            ActorTarget::default(),
+            ActorAggression::hostile(),
+            ActorDisposition::Hostile,
+            ActorFaction::Enemy,
+            alive(),
+            ActiveCombatant,
+        ))
+        .id();
+
+    app.add_systems(Update, select_actor_targets);
+    app.update();
+
+    assert_eq!(
+        app.world().entity(fighter).get::<ActorTarget>().unwrap().entity,
+        None,
+        "a fighter with no live foe is target-less"
+    );
+    assert_eq!(
+        *app.world().entity(fighter).get::<ActorDisposition>().unwrap(),
+        ActorDisposition::Hostile,
+        "match combatants keep match hostility even while target-less"
     );
 }
 

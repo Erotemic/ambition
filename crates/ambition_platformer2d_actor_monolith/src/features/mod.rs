@@ -165,6 +165,10 @@ pub use ecs::{
     RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
+pub(crate) use ecs::{
+    maintain_actor_pre_decision_state, observe_actor_decision_inputs,
+    publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
+};
 pub use enemies::{
     ActorSpawnState, ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
@@ -261,6 +265,293 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     );
 }
 
+/// Ordered authority boundaries for one autonomous actor decision.
+///
+/// These are deliberately coarser than individual systems. The contract is
+/// semantic: targeting settles first, eligibility/projections are prepared,
+/// observations are frozen, reaction clocks advance, decision produces plain
+/// intent values, and only then does publication mutate `ActorControl`.
+/// Movement begins after the whole chain through [`crate::schedule::WorldPrepSet`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub(crate) enum ActorDecisionSet {
+    Targeting,
+    Prepare,
+    Observe,
+    StateMaintenance,
+    Decide,
+    Publish,
+}
+
+fn configure_actor_decision_phases(app: &mut App) {
+    let sim = app.sim_schedule();
+    app.configure_sets(
+        sim,
+        (
+            ActorDecisionSet::Targeting,
+            ActorDecisionSet::Prepare,
+            ActorDecisionSet::Observe,
+            ActorDecisionSet::StateMaintenance,
+            ActorDecisionSet::Decide,
+            ActorDecisionSet::Publish,
+        )
+            .chain()
+            .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+    );
+    app.configure_sets(
+        sim,
+        ActorDecisionSet::Publish.before(crate::schedule::WorldPrepSet::BeforeIntegrate),
+    );
+}
+
+#[cfg(test)]
+mod actor_decision_phase_tests {
+    use super::*;
+    use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemKey, SystemSet as _};
+
+    const DECISION_PHASES: [ActorDecisionSet; 6] = [
+        ActorDecisionSet::Targeting,
+        ActorDecisionSet::Prepare,
+        ActorDecisionSet::Observe,
+        ActorDecisionSet::StateMaintenance,
+        ActorDecisionSet::Decide,
+        ActorDecisionSet::Publish,
+    ];
+
+    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 11] = [
+        ("dissolve_settled_grudges", ActorDecisionSet::Targeting),
+        ("select_actor_targets", ActorDecisionSet::Targeting),
+        ("ensure_perception", ActorDecisionSet::Prepare),
+        ("assess_dormancy", ActorDecisionSet::Prepare),
+        ("project_authored_fighter_ladder", ActorDecisionSet::Prepare),
+        ("collect_perception_peers", ActorDecisionSet::Observe),
+        (
+            "collect_perception_projectiles",
+            ActorDecisionSet::Observe,
+        ),
+        ("observe_actor_decision_inputs", ActorDecisionSet::Observe),
+        (
+            "maintain_actor_pre_decision_state",
+            ActorDecisionSet::StateMaintenance,
+        ),
+        ("tick_actor_brains", ActorDecisionSet::Decide),
+        ("publish_actor_decision_frames", ActorDecisionSet::Publish),
+    ];
+
+    const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 11] = [
+        (
+            "sample_capture_escape",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "blank_scripted_control_frames",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "restrict_captor_control",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "tick_capture_holds",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "steer_mount_from_rider",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "advance_moving_platforms",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "snapshot_body_contact",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "integrate_sim_bodies",
+            crate::schedule::WorldPrepSet::Integrate,
+        ),
+        (
+            "sync_actor_read_model",
+            crate::schedule::WorldPrepSet::AfterIntegrate,
+        ),
+        (
+            "constrain_captive_bodies",
+            crate::schedule::WorldPrepSet::AfterIntegrate,
+        ),
+        (
+            "apply_actor_contact_damage",
+            crate::schedule::WorldPrepSet::ContactDamage,
+        ),
+    ];
+
+    fn composed_app() -> App {
+        let mut app = App::new();
+        crate::schedule::configure_platformer2d_simulation_phases(&mut app);
+        app.add_plugins(WorldPrepSchedulePlugin);
+        app
+    }
+
+    fn system_key(graph: &ScheduleGraph, leaf: &str) -> SystemKey {
+        let mut found = None;
+        for (key, system, _) in graph.systems.iter() {
+            let name = format!("{}", system.name());
+            if name.rsplit("::").next() == Some(leaf) {
+                assert!(
+                    found.is_none(),
+                    "{leaf} resolved to more than one sim system; phase membership is ambiguous"
+                );
+                found = Some(key);
+            }
+        }
+        found.unwrap_or_else(|| panic!("{leaf} must be scheduled by WorldPrepSchedulePlugin"))
+    }
+
+    fn assert_membership<S>(graph: &ScheduleGraph, leaf: &str, set: S)
+    where
+        S: SystemSet + Copy + std::fmt::Debug,
+    {
+        let system_key = system_key(graph, leaf);
+        let set_key = graph
+            .system_sets
+            .get_key(set.intern())
+            .unwrap_or_else(|| panic!("{set:?} must be a registered SystemSet"));
+        assert!(
+            graph
+                .hierarchy()
+                .graph()
+                .contains_edge(NodeId::Set(set_key), NodeId::System(system_key)),
+            "{leaf} must be a direct member of {set:?}"
+        );
+    }
+
+    #[test]
+    fn actor_decision_authority_phases_are_explicitly_ordered() {
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules.get(sim).expect("sim schedule must exist");
+        let graph = schedule.graph();
+
+        let world_prep = graph
+            .system_sets
+            .get_key(
+                crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep.intern(),
+            )
+            .expect("WorldPrep must be registered");
+        for phase in DECISION_PHASES {
+            let phase_key = graph
+                .system_sets
+                .get_key(phase.intern())
+                .unwrap_or_else(|| panic!("{phase:?} must be registered"));
+            assert!(
+                graph
+                    .hierarchy()
+                    .graph()
+                    .contains_edge(NodeId::Set(world_prep), NodeId::Set(phase_key)),
+                "{phase:?} must remain inside WorldPrep"
+            );
+        }
+
+        for pair in DECISION_PHASES.windows(2) {
+            let before = graph
+                .system_sets
+                .get_key(pair[0].intern())
+                .unwrap_or_else(|| panic!("{:?} must be registered", pair[0]));
+            let after = graph
+                .system_sets
+                .get_key(pair[1].intern())
+                .unwrap_or_else(|| panic!("{:?} must be registered", pair[1]));
+            assert!(
+                graph
+                    .dependency()
+                    .graph()
+                    .contains_edge(NodeId::Set(before), NodeId::Set(after)),
+                "actor decision edge {:?} -> {:?} must be explicit",
+                pair[0],
+                pair[1]
+            );
+        }
+
+        let publish = graph
+            .system_sets
+            .get_key(ActorDecisionSet::Publish.intern())
+            .expect("Publish must be registered");
+        let before_integrate = graph
+            .system_sets
+            .get_key(crate::schedule::WorldPrepSet::BeforeIntegrate.intern())
+            .expect("BeforeIntegrate must be registered");
+        assert!(
+            graph
+                .dependency()
+                .graph()
+                .contains_edge(NodeId::Set(publish), NodeId::Set(before_integrate)),
+            "autonomous control publication must finish before movement preconditions begin"
+        );
+    }
+
+    #[test]
+    fn actor_decision_systems_are_members_of_their_authority_phases() {
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules.get(sim).expect("sim schedule must exist").graph();
+
+        for (leaf, phase) in DECISION_MEMBERSHIP {
+            assert_membership(graph, leaf, phase);
+        }
+
+        #[cfg(feature = "causal")]
+        assert_membership(
+            graph,
+            "record_body_control_frame",
+            ActorDecisionSet::Publish,
+        );
+    }
+
+    #[test]
+    fn actor_movement_systems_are_members_of_named_world_prep_phases() {
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules.get(sim).expect("sim schedule must exist").graph();
+
+        for (leaf, phase) in MOVEMENT_MEMBERSHIP {
+            assert_membership(graph, leaf, phase);
+        }
+
+        #[cfg(feature = "causal")]
+        assert_membership(
+            graph,
+            "record_movement_operations",
+            crate::schedule::WorldPrepSet::AfterIntegrate,
+        );
+    }
+
+    #[test]
+    fn contact_damage_orders_its_cross_set_dependencies_explicitly() {
+        let mut app = composed_app();
+        let sim = app.sim_schedule();
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules.get(sim).expect("sim schedule must exist").graph();
+        let constrain = system_key(graph, "constrain_captive_bodies");
+        let contact = system_key(graph, "apply_actor_contact_damage");
+        let idle_barks = system_key(graph, "tick_npc_idle_barks");
+
+        for (before, after, label) in [
+            (constrain, contact, "captive constraint -> contact damage"),
+            (contact, idle_barks, "contact damage -> idle barks"),
+        ] {
+            assert!(
+                graph
+                    .dependency()
+                    .graph()
+                    .contains_edge(NodeId::System(before), NodeId::System(after)),
+                "{label} must be a direct schedule edge"
+            );
+        }
+    }
+}
+
 pub struct WorldPrepSchedulePlugin;
 
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
@@ -268,6 +559,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         let sim = app.sim_schedule();
         use crate::world::placements::PlacementLoweringAppExt;
         use bevy::prelude::IntoScheduleConfigs;
+
+        // Autonomous decision is ordered by semantic phase sets. Systems may
+        // join WorldPrep without acquiring unrelated leaf-system edges.
+        configure_actor_decision_phases(app);
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it. Combat
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
@@ -410,15 +705,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 rebuild_feature_ecs_world_overlay
                     .in_set(crate::world::overlay::FeatureWorldOverlaySet),
                 update_ecs_hazards.in_set(ambition_combat::hazards::HazardTickSet),
-                // Target selection refreshes each actor's `ActorTarget`
-                // before actor / boss update systems consume it.
-                select_actor_targets,
-                // The per-actor pipeline (was the `update_ecs_actors` monolith) is
-                // now four explicit phases — `tick_actor_brains` →
-                // `integrate_actor_bodies` → `sync_actor_read_model` →
-                // `apply_actor_contact_damage` — registered separately below (this
-                // tuple is at Bevy's chain-length ceiling) so brain / movement /
-                // read-model / contact are each their own scheduled system.
+                // Actor targeting/decision, movement, read-model projection, and contact
+                // damage are registered below on their owning phase sets.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
                 // Rider/mount pose sync. Runs immediately after the
@@ -488,9 +776,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `in_set(CoreSimulation)` keeps it inside `GameplaySimulationRoot`, so the
         // session gate covers it like everything else.
         register_damage_facing_volume_publication(app);
-        // The decomposed per-actor pipeline: brain → intent, movement integration, read-model
-        // mirror, and contact-damage observer, as four explicit phases. Registered separately
-        // from the big WorldPrep tuple, which is at Bevy's chain-length ceiling.
+        // Cross-phase order lives on named sets. Local chains remain only where
+        // same-phase deferred commands or write-after-read order require them.
+        app.init_resource::<ActorDecisionFacts>();
+        app.init_resource::<ActorDecisionFrames>();
         app.init_resource::<ActorSteering>();
         // Every solid body's contact box, resampled before every movement
         // phase. Empty in every composition that grants no body the
@@ -499,99 +788,92 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.init_resource::<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>();
         app.init_resource::<crate::features::ecs::perception::PerceptionPeers>();
         app.init_resource::<crate::features::ecs::perception::PerceptionProjectiles>();
+
         app.add_systems(
             sim,
             (
-                // §A7: grant every brained non-boss actor SIGHTED perception
-                // (`Perception::Sighted` + a `PerceptionMemory` belief store) before the
-                // brain tick reads it, so a foe that leaves its viewport is still pursued
-                // from belief. Then snapshot every body's peer data + every live
-                // projectile BEFORE the brain tick reads them, so a sighted body perceives
-                // the surrounding world without a second borrow of the actor query.
-                // (Bodies without a `Perception` — a boss, a fixture — default to the
-                // basic `Omniscient` mode, reading the global `ActorTarget` directly.)
+                // Prepare same-tick eligibility before maintenance. The chain flushes
+                // `assess_dormancy` commands before later phases filter on `Dormant`.
                 crate::features::ecs::perception::ensure_perception,
-                crate::features::ecs::perception::collect_perception_peers,
-                crate::features::ecs::perception::collect_perception_projectiles,
-                // WHO IS AWAKE, decided before anybody decides anything. It is
-                // recomputed from live positions every tick and inserts/removes
-                // one marker, so the brain tick below can simply not match a
-                // sleeping actor. Chained (not merely ordered) because the
-                // marker is applied by `Commands` and must be flushed before the
-                // query that filters on it runs.
                 crate::features::ecs::dormancy::assess_dormancy,
-                // THE GAME'S RUNGS, applied before the first decision. A
-                // fighter is constructed with the engine FLOOR because the
-                // authored ladder lives in the content pack, above this crate and
-                // out of reach of the spawn tree's many roots. This rewrites a
-                // freshly-inserted fighter brain from the game's own rows.
-                //
-                // before `tick_actor_brains` and immediately so: the projection
-                // rebuilds `FighterState`, and doing that after a decision would
-                // discard the habits that decision accumulated. Chained, so the
-                // brain that ticks below is the one this wrote.
                 crate::features::ecs::project_authored_fighter_ladder,
-                tick_actor_brains,
-                // IMMEDIATELY after the writer, and that placement is the
-                // whole correctness of the instrument.
-                //
-                // it was first registered in `PlayerInputSet::Brain`, after
-                // `tick_controlled_brains` — a WHOLE PHASE EARLIER than this one. So for every
-                // actor-brained body it read the PREVIOUS tick's `ActorControl` and printed it
-                // beside THIS tick's decision. On a level-9 ladder run that produced 378 apparent
-                // "the brain asked left and the body went right" rows, every one of them the
-                // instrument looking at a stale frame. Correctly ordered, `asked != holding` is 0
-                // of 2279.
-                #[cfg(feature = "causal")]
-                crate::causal::record_body_control_frame,
-                // The kernel's own operation list — `Dash`, `DodgeRoll`,
-                // `WallJump`, `LedgeClimbStart`, … — which `FrameEvents` has
-                // always carried and nothing published. One recorder covers
-                // every velocity writer inside the movement kernel, which
-                // cannot publish for itself: it has no `ambition_causal`
-                // dependency and the floor contract allows it only
-                // `ambition_geometry`.
-                #[cfg(feature = "causal")]
-                crate::causal::record_movement_operations,
-                // Actor brains write control in WorldPrep, so captive escape is
-                // sampled here before scripted-control blanking. Blanking precedes
-                // mount steering so a scripted rider cannot steer its mount.
-                ambition_combat::capture::systems::sample_capture_escape,
-                crate::avatar::blank_scripted_control_frames,
-                // Restrict captor movement after actor brains publish control;
-                // preserve attack/direction so pummel and throw choices remain.
-                ambition_combat::capture::systems::restrict_captor_control,
-                // The hold's own clock, after this tick's struggle has been
-                // credited. A capture that reaches its ceiling — or a captive
-                // that mashed its way out — ends here rather than waiting for a
-                // throw its captor may never throw.
-                ambition_combat::capture::systems::tick_capture_holds,
-                // ADR 0020: a mount with a rider defers its locomotion to the
-                // rider's brain (the orbit lives on the rider). Runs after the
-                // brain tick (rider control frame fresh) and before the body
-                // integrate (mount executes the routed intent).
-                steer_mount_from_rider,
-                crate::avatar::advance_moving_platforms,
-                // The ONE movement phase for every non-boss sim body: actor bodies
-                // AND home/player bodies integrate here, through the same engine
-                // entry. (`player_body_tick` in `PlayerSimulation` is gone.)
-                //
-                // Chained, so this is not an ordering somebody has to remember.
-                snapshot_body_contact,
-                integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
-                sync_actor_read_model,
-                // THE CAPTIVE IS PUT BACK AFTER IT MOVED, exactly as
-                // `sync_riders_to_mounts` describes for a rider: integration has
-                // just advanced it under its own velocity, and the hold is an
-                // external constraint that wins. After `sync_actor_read_model`
-                // so the coarse-box mirror this writes is the last word.
-                ambition_combat::capture::systems::constrain_captive_bodies,
-                apply_actor_contact_damage.in_set(crate::schedule::WorldPrepSet::ContactDamage),
             )
                 .chain()
-                .after(select_actor_targets)
-                .before(tick_npc_idle_barks)
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ActorDecisionSet::Prepare),
+        );
+        app.add_systems(
+            sim,
+            (
+                crate::features::ecs::perception::collect_perception_peers,
+                crate::features::ecs::perception::collect_perception_projectiles,
+                observe_actor_decision_inputs,
+            )
+                .in_set(ActorDecisionSet::Observe),
+        );
+        app.add_systems(
+            sim,
+            maintain_actor_pre_decision_state.in_set(ActorDecisionSet::StateMaintenance),
+        );
+        app.add_systems(sim, tick_actor_brains.in_set(ActorDecisionSet::Decide));
+        app.add_systems(
+            sim,
+            (
+                publish_actor_decision_frames,
+                // IMMEDIATELY after publication: this instrument must read this
+                // tick's `ActorControl`, not the previous tick's frame.
+                #[cfg(feature = "causal")]
+                crate::causal::record_body_control_frame,
+            )
+                .chain()
+                .in_set(ActorDecisionSet::Publish),
+        );
+
+        // Finished intent may now be gated/routed, then the common contact
+        // snapshot is taken. These operations have real same-tick dependencies,
+        // so their short chain is the contract inside `BeforeIntegrate`.
+        app.add_systems(
+            sim,
+            (
+                ambition_combat::capture::systems::sample_capture_escape,
+                crate::avatar::blank_scripted_control_frames,
+                ambition_combat::capture::systems::restrict_captor_control,
+                ambition_combat::capture::systems::tick_capture_holds,
+                steer_mount_from_rider,
+                crate::avatar::advance_moving_platforms,
+                snapshot_body_contact,
+            )
+                .chain()
+                .in_set(crate::schedule::WorldPrepSet::BeforeIntegrate),
+        );
+        app.add_systems(
+            sim,
+            integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
+        );
+        app.add_systems(
+            sim,
+            (
+                sync_actor_read_model,
+                // The captive is put back after it moved. The coarse-box mirror
+                // above runs first so this external constraint is the last word.
+                ambition_combat::capture::systems::constrain_captive_bodies,
+            )
+                .chain()
+                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+        );
+        #[cfg(feature = "causal")]
+        app.add_systems(
+            sim,
+            // Movement operations are published during integration. This observer
+            // has no ordering dependency on post-integration projection.
+            crate::causal::record_movement_operations
+                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+        );
+        app.add_systems(
+            sim,
+            apply_actor_contact_damage
+                .in_set(crate::schedule::WorldPrepSet::ContactDamage)
+                .after(ambition_combat::capture::systems::constrain_captive_bodies)
+                .before(tick_npc_idle_barks),
         );
         // Same set, same schedule, same guarantee that every game gets it — but the registration
         // lives with the system, so this crate does not depend on the crate that owns it.
@@ -608,15 +890,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .chain()
                 .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
         );
-        // Settle decided feuds before targeting reads grudges: a body forgets a slain
-        // foe (won't re-aggro if it revives) and a defeated body forgets its own feud
-        // (revives as a normal NPC). Registered separately — the WorldPrep chain tuple
-        // is already at Bevy's chain-length ceiling — with `.before` to keep the order.
+        // TARGETING owns feud settlement and target/disposition selection. The
+        // short chain is intentional: selection must see the grudge state produced
+        // by settlement in the same tick. Later actor phases depend on the set, not
+        // on either leaf system.
         app.add_systems(
             sim,
-            dissolve_settled_grudges
-                .before(select_actor_targets)
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+            (dissolve_settled_grudges, select_actor_targets)
+                .chain()
+                .in_set(ActorDecisionSet::Targeting),
         );
         // Q18 (G3): translate a rider-boss's live strike into per-limb intents on
         // its linked mount, then fan those out onto each limb body. `route_...`

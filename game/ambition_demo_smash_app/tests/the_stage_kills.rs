@@ -1588,8 +1588,23 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         seats
     };
     let world_width = ambition_demo_smash::smash_stage().world.size.x;
-    // This test's own note says every elimination is one it CAUSES on a fixed schedule; a launch
-    // aimed at the far side was the one thing about it that was still a race.
+    let side_margin = ambition_demo_smash::smash_stage()
+        .world
+        .edges
+        .side
+        .expect("the stage authors its side margins");
+    // THE ELIMINATION IS A PLACEMENT, NOT A VELOCITY, and that is what makes it
+    // this test's to cause.
+    //
+    // Measured 2026-08-22: a body handed 4,800 px/s keeps it for exactly one
+    // tick. Nothing here puts it in hitstun, so ordinary air control resolves
+    // its horizontal velocity from the stick the CPU is holding on the next
+    // tick and the launch is simply gone — seats 2 and 3 landed back on the
+    // platform every run. The assertion below still passed, because the four
+    // CPUs then fought it out and Blue happened to lose, which is precisely the
+    // race the note above says this fixture does not want. So the body is put
+    // past the blastzone outright; the velocity stays only so the direction it
+    // left in is the one it was sent.
     let launch = |app: &mut App, seat_wanted: usize, speed: f32| {
         let world = app.world_mut();
         let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
@@ -1602,6 +1617,11 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
                 };
                 kin.vel =
                     ambition_platformer2d::engine_core::Vec2::new(speed.abs() * toward, -200.0);
+                kin.pos.x = if toward > 0.0 {
+                    world_width + side_margin + 1.0
+                } else {
+                    -(side_margin + 1.0)
+                };
             }
         }
     };

@@ -272,7 +272,7 @@ fn print_snapshot(app: &mut App, label: &str) {
     // ── 6. the frame the numbers above are expressed in ─────────────────────
     match (room_size(app), player) {
         (Some(size), Some((_, kin, presented, _))) => {
-            let z = ae::config::WORLD_Z_PLAYER - 0.05;
+            let z = ae::config::WORLD_Z_PLAYER + 0.05;
             let from_sim = ae::config::world_size_to_bevy(size, kin.pos, z);
             println!(
                 "room size = ({:.2}, {:.2})\n  world_to_bevy(kin.pos)   = ({:.3}, {:.3}, {:.3})",

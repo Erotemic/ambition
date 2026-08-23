@@ -331,15 +331,24 @@ pub fn rebuild_body_pose_views(
 }
 
 /// One raised bubble shield, resolved sim-side. The renderer positions one
-/// pooled ring sprite per row.
+/// pooled bubble sprite per row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShieldRingFact {
     pub pos: ambition_platformer2d_core::Vec2,
     pub size: ambition_platformer2d_core::Vec2,
     pub parrying: bool,
     /// `1.0` whole, `0.0` about to break — and `1.0` for a body whose guard is
-    /// not a resource, so the ring reads the same for every body that has one.
+    /// not a resource, so the bubble reads the same for every body that has one.
     pub integrity: f32,
+    /// Seconds of SHIELDSTUN still owed — positive for exactly the beat after
+    /// this guard absorbed a hit.
+    ///
+    /// Raw seconds, like `BodyPoseView::hit_flash_secs`: the timer is the
+    /// resolved fact, and how long a hit should stay visible is a presentation
+    /// constant. Publishing a normalized fraction instead would put a
+    /// presentation decision in the simulation and need `ShieldTuning` here to
+    /// make it.
+    pub stun_secs: f32,
 }
 
 /// Every body (player AND brain-driven actor) whose shield is currently
@@ -369,6 +378,7 @@ pub fn rebuild_shield_rings_view(
                 size: kin.size,
                 parrying: shield.parrying(),
                 integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
+                stun_secs: shield.stun_timer,
             },
         ));
 }

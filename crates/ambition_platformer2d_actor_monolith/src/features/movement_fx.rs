@@ -57,32 +57,121 @@ pub fn advance_body_anim_overlays(
 
 /// The impact speed at which the engine already calls a landing HARD.
 ///
-/// Shared by the landing pose and the knockdown splat below so the two agree
-/// about what "hard" means. A splat that started somewhere else would be a
-/// second opinion on one question.
+/// Shared by the landing pose and the splat below so the two agree about what
+/// "hard" means. A splat that started somewhere else would be a second opinion
+/// on one question.
+///
+/// MEASURED 2026-08-23, smash CPU-vs-CPU, `smash_george_booul` vs itself
+/// (⚠ one matchup — the demo shell carries three fighters and the full app
+/// sixteen, so this is the best available sample and not a general one), 90s ×
+/// 5 runs, every `GroundContactTransition::Landed` sampled: n = 340,
+/// `p25 78  p50 299  p75 1002  p90 1524  max 1669`. 520 sits at ≈ p62, so the
+/// hard-landing line separates the top third of arrivals from stepping down.
 pub const HARD_LAND_SPEED: f32 = 520.0;
 
-/// Where a knockdown splat reaches its full read: twice the speed that already
-/// counts as a hard landing.
+/// Where a floor splat reaches its full read.
 ///
-/// Anchored to [`HARD_LAND_SPEED`] rather than picked, because the honest
-/// distribution of knockdown impacts is not measurable until the fight
-/// produces launches — see the campaign notes. When it does, re-measure this
-/// across characters rather than fitting it to one match.
+/// Twice [`HARD_LAND_SPEED`] when it was written, on the stated ground that the
+/// distribution was not measurable until the fight produced launches. It is now
+/// measurable (see [`HARD_LAND_SPEED`]) and `1040` lands at ≈ p76 of the same
+/// 340 landings, which is what this wants — the top quarter of arrivals
+/// saturates — so the anchor stands as a MEASUREMENT rather than as a guess.
 const SPLAT_FULL_SPEED: f32 = HARD_LAND_SPEED * 2.0;
 
-/// How hard a body hit the floor, `0..=1` — `0.0` at the hard-landing line and
-/// `1.0` at [`SPLAT_FULL_SPEED`].
+/// The band one surface's arrivals live in: where a splat begins to read, and
+/// where it stops getting harder.
 ///
-/// A body that steps down keeps the puff it always had; one that arrives at
-/// speed drives a wide, low sheet of dust along the surface. Pure, so the curve
-/// is asserted without a renderer.
-pub fn landing_force(impact_speed: f32) -> f32 {
-    let span = SPLAT_FULL_SPEED - HARD_LAND_SPEED;
+/// ⭐ A FLOOR AND A WALL NEED DIFFERENT BANDS, and that is not tuning taste.
+/// Gravity accelerates a body into a floor and never into a wall, so a body
+/// only ever reaches a wall as fast as something threw it. The two populations
+/// do not overlap: over the same five matches the hardest side contact was
+/// `440` px/s while the MEDIAN landing was `299` and the hardest `1669`. A wall
+/// splat gated on [`HARD_LAND_SPEED`] could not fire at all — which is the same
+/// shape of bug as a launch trail whose onset sat above every launch.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SplatBand {
+    pub onset: f32,
+    pub full: f32,
+}
+
+impl SplatBand {
+    /// The floor. See [`HARD_LAND_SPEED`] for the sample behind both numbers.
+    pub const FLOOR: Self = Self {
+        onset: HARD_LAND_SPEED,
+        full: SPLAT_FULL_SPEED,
+    };
+
+    /// A wall, fitted to WALL arrivals.
+    ///
+    /// Same five matches: 63 `ContactKind::Side` contacts in 7.5 minutes, and
+    /// the population is BIMODAL rather than a curve — 54 of them read exactly
+    /// `52` px/s (a body leaning on the platform's lip), and the other nine are
+    /// `158`, `270` ×4 and `440` ×4. So `onset` is the gap between the two
+    /// clusters rather than a percentile of one distribution, and `full` is the
+    /// hardest side contact ever sampled.
+    ///
+    /// ⚠ NINE real wall arrivals in seven and a half minutes. The effect is
+    /// rare because THE STAGE has no wall game, not because the gate is tight;
+    /// a stage with walls in play would want this re-measured, not re-tuned.
+    pub const WALL: Self = Self {
+        onset: 150.0,
+        full: 440.0,
+    };
+}
+
+/// What one arrival at a surface asks for, or `None` when nobody needs to see
+/// it. Pure, so the whole rule is asserted without a renderer.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ImpactSplat {
+    pub particles: u32,
+    pub speed: f32,
+    pub alpha: f32,
+    /// How hard, `0..=1`, across this surface's own [`SplatBand`].
+    pub force: f32,
+    /// The body did not CHOOSE this arrival — it was still falling out of a
+    /// launch when the surface got there. A crash, not a landing.
+    ///
+    /// It is the one thing that makes a splat unconditional: a body slammed
+    /// down helpless reads as slammed at any speed, and 26 of the 340 sampled
+    /// landings were crashes with a median of `712` px/s against `254` for the
+    /// rest. Speed says how hard; this says whether it was done TO the body.
+    pub crash: bool,
+}
+
+/// How hard a body hit this surface, `0..=1` — `0.0` at the band's onset and
+/// `1.0` at its full read.
+pub fn splat_force(impact_speed: f32, band: SplatBand) -> f32 {
+    let span = band.full - band.onset;
     if span <= 0.0 {
         return 0.0;
     }
-    ((impact_speed - HARD_LAND_SPEED) / span).clamp(0.0, 1.0)
+    ((impact_speed - band.onset) / span).clamp(0.0, 1.0)
+}
+
+/// How hard a body hit the FLOOR, `0..=1`. The landing pose's own reading.
+pub fn landing_force(impact_speed: f32) -> f32 {
+    splat_force(impact_speed, SplatBand::FLOOR)
+}
+
+/// The splat this arrival asks for.
+///
+/// An ordinary arrival under the band's onset asks for nothing and keeps the
+/// puff it always had. A CRASH always asks for something, however slow: the
+/// speed shapes the dust and `involuntary` is what earns the effect at all.
+pub fn impact_splat(impact_speed: f32, involuntary: bool, band: SplatBand) -> Option<ImpactSplat> {
+    let force = splat_force(impact_speed, band);
+    if force <= 0.0 && !involuntary {
+        return None;
+    }
+    Some(ImpactSplat {
+        // A crash spends its whole budget on being seen; an ordinary hard
+        // arrival earns its particles from speed alone.
+        particles: 6 + (14.0 * force) as u32 + if involuntary { 8 } else { 0 },
+        speed: 180.0 + 280.0 * force,
+        alpha: 0.72 + 0.18 * force,
+        force,
+        crash: involuntary,
+    })
 }
 
 /// Apply one semantic ground-contact transition to the landing animation
@@ -412,25 +501,66 @@ pub fn emit_movement_fx(
     // speed rides the transition, in this bundle, on this tick — which is what
     // makes this the one place a floor impact can be read at all. See
     // `MovementOp::Knockdown` above for why the knockdown arm cannot do it.
-    if let Some(impact_speed) = events.ground_contact.landing_impact_speed() {
+    if let ae::GroundContactTransition::Landed {
+        impact_speed,
+        involuntary,
+    } = events.ground_contact
+    {
         let feet = pos + ae::Vec2::new(0.0, size.y * 0.5);
         // Touchdown footfall. Emitted for every body; provider authority gates
         // it, so a game hears it only by authoring `player.land`.
         sfx.write_for_body(source, SfxMessage::Land { pos: feet });
         vfx.write(VfxMessage::Dust { pos: feet, facing });
-        let force = landing_force(impact_speed);
-        if force > 0.0 {
-            // Sideways, low, and along the surface: a body arriving at speed
-            // drives air out flat rather than lifting a puff. That is the read
-            // that separates a heavy arrival from an ordinary step down.
-            vfx.write(VfxMessage::Burst {
-                pos: feet,
-                count: 6 + (14.0 * force) as u32,
-                speed: 180.0 + 280.0 * force,
-                color: [0.72, 0.66, 0.56, 0.72 + 0.18 * force],
-                kind: ParticleKind::Dust,
-            });
+        if let Some(splat) = impact_splat(impact_speed, involuntary, SplatBand::FLOOR) {
+            write_splat(vfx, feet, splat);
         }
+    }
+    // THE OTHER SURFACES. A body thrown into a wall used to arrive in silence:
+    // the step zeroes velocity along the contact axis as it resolves, so by the
+    // time anything downstream saw the body its approach was gone, and there is
+    // no arrangement of the remaining facts that reconstructs it.
+    // `Contact::impact_speed` is captured at the resolution site for exactly
+    // that reason, and `ContactKind` is the sim's own frame-relative answer to
+    // which surface this was — ⛔ presentation must not re-classify a normal
+    // against gravity to find the wall, least of all against screen -Y.
+    for contact in &events.contacts {
+        if contact.kind != ae::collision_semantics::ContactKind::Side {
+            continue;
+        }
+        // ⛔ no `involuntary` here, and it is not an oversight: nothing
+        // publishes whether a body CHOSE to arrive at a wall. `Landed` carries
+        // that flag and `Contact` does not, so a wall arrival is judged on
+        // speed alone until the sim says otherwise.
+        let Some(splat) = impact_splat(contact.impact_speed, false, SplatBand::WALL) else {
+            continue;
+        };
+        // Off the surface along its own outward normal, so the dust sits in
+        // front of the wall rather than inside it. The normal points away from
+        // the surface toward the body, which is the direction that works under
+        // any gravity and for either facing.
+        write_splat(vfx, contact.point + contact.normal * (size.x * 0.25), splat);
+    }
+}
+
+/// Draw one arrival's splat: dust from the contact, plus the ring a CRASH gets
+/// and an ordinary hard arrival does not.
+fn write_splat(vfx: &mut MessageWriter<VfxMessage>, pos: ae::Vec2, splat: ImpactSplat) {
+    vfx.write(VfxMessage::Burst {
+        pos,
+        count: splat.particles,
+        speed: splat.speed,
+        // A crash kicks up brighter, paler dust than an arrival under its own
+        // power — the one thing that separates being slammed into a surface
+        // from choosing to land hard on it.
+        color: if splat.crash {
+            [0.93, 0.90, 0.84, splat.alpha]
+        } else {
+            [0.72, 0.66, 0.56, splat.alpha]
+        },
+        kind: ParticleKind::Dust,
+    });
+    if splat.crash {
+        vfx.write(VfxMessage::Impact { pos });
     }
 }
 
@@ -671,7 +801,136 @@ mod tests {
         assert_eq!(vfx.len(), 1, "the knockdown's own thump, and nothing else");
     }
 
-    /// One op plus a landing of the given impact, as `(sfx, vfx)`.    /// One op plus a landing of the given impact, as `(sfx, vfx)`.
+    /// A FLOOR BAND CANNOT JUDGE A WALL, and this is the assertion that says so.
+    ///
+    /// The hardest side contact measured over five matches was 440 px/s; the
+    /// floor's onset is 520. So a wall splat sharing the floor's band would be
+    /// unreachable — green, shipped, and never once seen — which is the same
+    /// bug as a launch trail whose onset sat above every launch in the game.
+    #[test]
+    fn a_wall_and_a_floor_do_not_share_a_band() {
+        const HARDEST_WALL_ARRIVAL_MEASURED: f32 = 440.0;
+
+        assert!(
+            impact_splat(HARDEST_WALL_ARRIVAL_MEASURED, false, SplatBand::FLOOR).is_none(),
+            "the floor band cannot see the hardest wall arrival this game produces"
+        );
+        let wall = impact_splat(HARDEST_WALL_ARRIVAL_MEASURED, false, SplatBand::WALL)
+            .expect("and the wall band reaches it");
+        assert_eq!(wall.force, 1.0, "at its full read");
+
+        // The gap the wall's onset sits in: 54 of 63 sampled side contacts read
+        // 52 px/s, a body leaning on the platform lip, and must not splat.
+        assert!(impact_splat(52.0, false, SplatBand::WALL).is_none());
+        assert!(impact_splat(158.0, false, SplatBand::WALL).is_some());
+    }
+
+    /// A CRASH is unconditional; a chosen arrival has to earn its splat.
+    ///
+    /// `involuntary` rides `GroundContactTransition::Landed` because
+    /// presentation cannot reconstruct it — see the ordering note on
+    /// `MovementOp::Knockdown`. A quarter of the crashes sampled land under the
+    /// hard-landing line, so gating a crash on speed would drop them.
+    #[test]
+    fn a_crash_splats_at_any_speed_and_a_step_down_does_not() {
+        let crawling_crash =
+            impact_splat(1.0, true, SplatBand::FLOOR).expect("a crash is a crash at any speed");
+        assert!(crawling_crash.crash);
+        assert_eq!(
+            crawling_crash.force, 0.0,
+            "and it is not pretending to be hard"
+        );
+
+        assert!(
+            impact_splat(1.0, false, SplatBand::FLOOR).is_none(),
+            "stepping down is not an event"
+        );
+
+        // Same arrival, chosen or not: the crash is the bigger beat.
+        let chosen = impact_splat(HARD_LAND_SPEED * 1.5, false, SplatBand::FLOOR).unwrap();
+        let crashed = impact_splat(HARD_LAND_SPEED * 1.5, true, SplatBand::FLOOR).unwrap();
+        assert_eq!(chosen.force, crashed.force, "speed says how hard");
+        assert!(
+            crashed.particles > chosen.particles,
+            "the flag says who chose"
+        );
+    }
+
+    /// The emitted beat: a crash adds the ring, an ordinary hard landing does
+    /// not, and a wall arrival reaches the same emitter through its own band.
+    #[test]
+    fn a_crash_rings_and_a_hard_landing_only_dusts() {
+        let landed = |speed: f32, involuntary: bool| {
+            let mut events = ae::FrameEvents::default();
+            events.ground_contact = ae::GroundContactTransition::Landed {
+                impact_speed: speed,
+                involuntary,
+            };
+            run_events(events).1
+        };
+
+        let hard = landed(HARD_LAND_SPEED * 2.0, false);
+        assert!(
+            hard.iter().all(|m| !matches!(m, VfxMessage::Impact { .. })),
+            "a body that chose to land hard is dust, not a ring: {hard:?}"
+        );
+        let crash = landed(HARD_LAND_SPEED * 2.0, true);
+        assert_eq!(
+            crash
+                .iter()
+                .filter(|m| matches!(m, VfxMessage::Impact { .. }))
+                .count(),
+            1,
+            "a crash rings once: {crash:?}"
+        );
+    }
+
+    /// The WALL half, end to end — and the negative case is the whole test.
+    ///
+    /// A `Support` contact must not reach the wall road: the landing transition
+    /// already owns the floor, and every tick of a body standing still produces
+    /// one (15,330 of them across five matches). A wall loop that matched on
+    /// speed instead of on the sim's own `ContactKind` would splat the ground
+    /// under a body that was merely standing on it.
+    #[test]
+    fn only_a_side_contact_splats_against_a_wall() {
+        let contact = |kind, impact_speed| {
+            let mut events = ae::FrameEvents::default();
+            events.contacts.push(ae::collision_semantics::Contact {
+                kind,
+                point: ae::Vec2::new(40.0, 0.0),
+                normal: ae::Vec2::new(-1.0, 0.0),
+                toi: 0.0,
+                surface_velocity: ae::Vec2::ZERO,
+                impact_speed,
+                source: ae::collision_semantics::ContactSource::Chain {
+                    chain: 0,
+                    segment: 0,
+                },
+            });
+            run_events(events).1
+        };
+        use ae::collision_semantics::ContactKind;
+
+        let wall = contact(ContactKind::Side, 400.0);
+        assert_eq!(wall.len(), 1, "a hard side arrival splats: {wall:?}");
+
+        assert!(
+            contact(ContactKind::Side, 52.0).is_empty(),
+            "and leaning on it does not"
+        );
+        assert!(
+            contact(ContactKind::Support, 1600.0).is_empty(),
+            "the floor is the landing transition's, at any speed: a support \
+             contact reaching this road would splat every standing body"
+        );
+        assert!(
+            contact(ContactKind::Head, 1600.0).is_empty(),
+            "so is a ceiling"
+        );
+    }
+
+    /// One op plus a landing of the given impact, as `(sfx, vfx)`.
     fn presentation_for_landing(
         op: ae::MovementOp,
         impact_speed: f32,

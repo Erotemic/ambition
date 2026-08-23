@@ -1,6 +1,13 @@
 //! Compare adjacent registered AI ladder rungs in CPU-vs-CPU matches.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin ladder_rig`
+//! `cargo run -p ambition_demo_smash_app --bin ladder_rig [--seeds N] [--weight name=value ...]`
+//!
+//! ⭐ `--weight` is what makes this a rig for a SCORING change and not only for a
+//! ladder. Three open rows want a weight refit — the scorer's speed term is
+//! degenerate, and the weights it is read against were fitted while it was a
+//! constant — and refitting means running the same bouts, at the same seeds,
+//! with one number moved. Run it twice and compare; the header names the weights
+//! each run used.
 //!
 //! The registered ladder is sparse: levels 1, 3, 5, 6, and 9. The rig reports
 //! time to elimination, stocks remaining, and engagement evidence for each pair,
@@ -61,6 +68,15 @@ fn main() {
     if std::env::args().any(|arg| arg == "--scenarios") {
         return run_scenarios(seeds);
     }
+    // SAY WHAT THIS RUN MEASURED UNDER. A rig that reports numbers without
+    // naming the weights they were produced at is two runs nobody can compare,
+    // and comparing two runs is the entire purpose of the override.
+    let weights = weights_from_args();
+    if weights != ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1() {
+        println!("[ladder_rig] weights OVERRIDDEN: {weights:?}");
+    } else {
+        println!("[ladder_rig] weights: v1 (profile default)");
+    }
     println!(
         "[ladder_rig] higher vs lower   eliminated(hi:lo)     stocks    peak%(hi:lo)   verdict   \
          (median of {seeds} seeds, {}s each)",
@@ -81,6 +97,78 @@ fn main() {
 /// the higher rung's jitter a function of the lower one's, which is a
 /// correlation no real match has — and it would hide exactly the kind of
 /// difference this rig exists to find.
+/// Override every live fighter's utility weights.
+///
+/// ⭐ THE RIG COULD COMPARE RUNGS AND NOT WEIGHTS, and a weight is what three
+/// open rows are waiting on. `frame_advantage` is degenerate against an
+/// uncommitted opponent (D188); fixing its scale doubles one matchup and thirds
+/// another, and the weights it is read against were fitted while it was a
+/// constant. Refitting them needs exactly this: the same bout machinery, the
+/// same seeds, one number changed.
+///
+/// Applied to the live `FighterState`'s config after seating, beside the noise
+/// stream and for the same reason — the brain does not exist until then.
+///
+/// ⛔ It is an OVERRIDE, not a model of how a fighter gets its weights. A live
+/// CPU's come from its profile; sweeping them here is the point, so this
+/// deliberately does not go through that seam. Do not "fix" it to match the
+/// builder.
+fn force_utility_weights(
+    app: &mut bevy::app::App,
+    weights: ambition_platformer2d::characters::brain::fighter::UtilityWeights,
+) -> bool {
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+    let world = app.world_mut();
+    let mut q = world.query::<&mut Brain>();
+    let mut found = false;
+    for mut brain in q.iter_mut(world) {
+        if let Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) = &mut *brain {
+            cfg.profile.utility_weights = weights;
+            found = true;
+        }
+    }
+    found
+}
+
+/// The weights this run measures under: `v1` unless `--weight name=value` says
+/// otherwise, repeatable.
+///
+/// Named rather than positional because six numbers in a row is a puzzle, and a
+/// rig whose invocation cannot be read is a rig whose results cannot be trusted.
+fn weights_from_args() -> ambition_platformer2d::characters::brain::fighter::UtilityWeights {
+    let mut weights = ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1();
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg != "--weight" {
+            continue;
+        }
+        let Some(pair) = args.next() else {
+            break;
+        };
+        let Some((name, value)) = pair.split_once('=') else {
+            eprintln!("[ladder_rig] --weight wants name=value, got '{pair}'");
+            std::process::exit(2);
+        };
+        let Ok(value) = value.parse::<f32>() else {
+            eprintln!("[ladder_rig] '{value}' is not a number");
+            std::process::exit(2);
+        };
+        match name {
+            "reach_fit" => weights.reach_fit = value,
+            "frame_advantage" => weights.frame_advantage = value,
+            "kill_potential" => weights.kill_potential = value,
+            "stage_risk" => weights.stage_risk = value,
+            "expected_payoff" => weights.expected_payoff = value,
+            "capture_value" => weights.capture_value = value,
+            other => {
+                eprintln!("[ladder_rig] no weight named '{other}'");
+                std::process::exit(2);
+            }
+        }
+    }
+    weights
+}
+
 fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
     use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
     let world = app.world_mut();
@@ -364,11 +452,15 @@ fn run_bout_at(
     // Apply the seed to the live `FighterState` after seating, when the brain and
     // its noise stream exist.
     let mut seeded = false;
+    let weights = weights_from_args();
     let mut placed = start.is_none();
     for tick in 0..TICKS {
         app.update();
         if !seeded {
             seeded = force_noise_seed(&mut app, seed);
+            if seeded {
+                force_utility_weights(&mut app, weights);
+            }
         }
         if !placed {
             if let Some(scenario) = start.as_ref() {

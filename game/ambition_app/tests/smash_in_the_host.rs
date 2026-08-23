@@ -388,6 +388,69 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
 /// only ever one player that shows up in game."
 ///
 /// every existing test in this file stops at the ROUTE and the SESSION.
+/// ⭐ A SEATED FIGHTER IS NOT GRANTED BOUNDED SENSES, in the real host, through
+/// the real seating pass.
+///
+/// `ensure_perception` hands `Perception::Sighted { viewport_half: 480 }` to
+/// every brained non-boss body, and being juked / losing a foe / giving up are
+/// exploration mechanics with no place in a match: both fighters are on screen
+/// the whole time and each always knows where the other is.
+///
+/// ⛔ WHAT THIS DEFENDS, because a component check reads like bookkeeping and is
+/// not. `DEFAULT_VIEWPORT_HALF.x` is 480 and the smash platform is 480 wide, so
+/// two fighters that drifted apart on the SAME STAGE went permanently blind to
+/// each other. Over a sixteen-character mirror sweep six characters' median gap
+/// sat between 491 and 515px — with nothing at all between 295 and 491 — and
+/// three of them dealt no damage in a full minute. Widening only the viewport,
+/// with the platform untouched, collapsed all six to 18–278 and every one of
+/// them started fighting; the fighters already inside 480 did not move a pixel.
+///
+/// The seat is what makes the difference, so the seat is what this asserts.
+#[test]
+fn a_seated_fighter_keeps_its_omniscient_senses() {
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::actors::features::ecs::perception::Perception;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    // ⛔ `Option<&Perception>`, never `&Perception`: the whole point is that a
+    // seated fighter does NOT carry the component, and a query that requires it
+    // would report zero rows and pass by finding nothing — the check that
+    // cannot fail.
+    let seats: Vec<(usize, Option<Perception>)> = world
+        .query::<(&MatchSeat, Option<&Perception>)>()
+        .iter(world)
+        .map(|(seat, perception)| (seat.0, perception.copied()))
+        .collect();
+    assert!(
+        seats.len() >= 2,
+        "the premise: two seated fighters, found {}",
+        seats.len()
+    );
+    for (seat, perception) in seats {
+        let policy = perception.unwrap_or_default();
+        assert!(
+            policy.knows_bodies_anywhere(),
+            "seat {seat} was granted bounded senses ({policy:?}) - a match fighter \
+             that drifts past its own viewport can never approach again"
+        );
+    }
+}
+
 #[test]
 fn a_two_participant_roster_actually_seats_two_bodies() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;

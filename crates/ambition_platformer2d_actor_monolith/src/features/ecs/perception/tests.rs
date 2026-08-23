@@ -96,7 +96,9 @@ fn builds_relational_view_for_any_faction() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     // The Boss peer is in view and resolved hostile to the Enemy viewer.
@@ -126,7 +128,9 @@ fn builds_relational_view_for_any_faction() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert_eq!(player_view.actors.len(), 1);
@@ -158,7 +162,9 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert_eq!(view.actors.len(), 1);
@@ -177,7 +183,9 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert!(view.actors[0].hostile_to_self, "the grudge entity is a foe");
@@ -195,7 +203,9 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert!(
@@ -219,13 +229,56 @@ fn line_of_fire_uses_real_clipped_terrain() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     // Target on the far side of the x≈300 wall, same height → blocked.
     assert!(!view.line_of_fire(ae::Vec2::new(500.0, 120.0)));
     // Target straight up (clear of floor + wall) → in line of fire.
     assert!(view.line_of_fire(ae::Vec2::new(100.0, 60.0)));
+}
+
+/// ⭐ AN OMNISCIENT BODY PERCEIVES A PEER ANYWHERE, which is what the policy has
+/// always claimed and did not do: the view was built at the default extent under
+/// both modes, and only the `ActorTarget` derivation ignored the box. A brain
+/// that reaches its foe through `view.actors` — the fighter brain does — saw an
+/// "omniscient" body as sighted at 480px.
+///
+/// ⛔ The twin below is the other half of the same rule and they must be read
+/// together: same viewer, same peer, same distance, opposite policy, opposite
+/// answer. A change that made this pass by clipping nothing at all would take
+/// `peers_outside_viewport_are_not_perceived` down with it.
+#[test]
+fn an_omniscient_body_perceives_a_peer_far_outside_its_tactical_extent() {
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let peers = vec![peer("far", ae::Vec2::new(2000.0, 180.0), ActorFaction::Boss)];
+    let view = build_world_view(
+        &viewer,
+        &peers,
+        &[],
+        &[],
+        &world,
+        &relations,
+        Perception::Omniscient,
+        0.0,
+    );
+    assert_eq!(
+        view.actors.len(),
+        1,
+        "an omniscient body knows where every hostile is, at any distance"
+    );
+    assert!(
+        view.nearest_hostile().is_some(),
+        "and the brain reaches it through the view, not only through ActorTarget"
+    );
+    // The TACTICAL extent is unchanged — omniscience is a claim about where
+    // bodies are, not a licence to fold a whole room's geometry into one tick.
+    assert_eq!(view.viewport.half_extent, DEFAULT_VIEWPORT_HALF);
 }
 
 /// A body only perceives what is inside its viewport — a peer far outside is
@@ -249,7 +302,9 @@ fn peers_outside_viewport_are_not_perceived() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert!(view.actors.is_empty(), "an out-of-viewport peer is unseen");
@@ -305,7 +360,9 @@ fn projectile_threat_resolved_relationally() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert!(
@@ -320,7 +377,9 @@ fn projectile_threat_resolved_relationally() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert_eq!(view.projectiles.len(), 3);
@@ -372,7 +431,9 @@ fn portals_in_view_link_to_their_pair() {
         &[near, near_pair, far],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert_eq!(
@@ -526,7 +587,9 @@ fn the_views_half_extent_is_a_half_extent() {
         &[],
         &world,
         &FactionRelations::default(),
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     // The observable consequence, on the value the builder actually published:
@@ -581,7 +644,9 @@ fn the_view_carries_the_whole_stage_not_the_viewport() {
         &[],
         &world,
         &FactionRelations::default(),
-        ae::Vec2::splat(40.0), // a tiny viewport
+        Perception::Sighted {
+            viewport_half: ae::Vec2::splat(40.0), // a tiny viewport
+        },
         0.0,
     );
     assert_eq!(view.stage.bounds.min, ae::Vec2::ZERO);
@@ -666,7 +731,9 @@ fn a_different_team_is_hostile_even_on_the_same_faction() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert!(
@@ -684,7 +751,9 @@ fn a_different_team_is_hostile_even_on_the_same_faction() {
         &[],
         &world,
         &relations,
-        DEFAULT_VIEWPORT_HALF,
+        Perception::Sighted {
+            viewport_half: DEFAULT_VIEWPORT_HALF,
+        },
         0.0,
     );
     assert!(

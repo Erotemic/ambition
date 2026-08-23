@@ -506,16 +506,6 @@ pub fn tick_actor_brains(
                     // init'd. Production actors are granted `Sighted` by `ensure_perception`;
                     // fixtures (and the boss, a separate tick) default to `Omniscient`.
                     let perception_policy = perception.copied().unwrap_or_default();
-                    let viewport_half = match perception_policy {
-                        // Omniscient still gets a tactical view (for the brain's
-                        // line-of-fire), just at the default extent; its TARGET ignores it.
-                        super::super::perception::Perception::Omniscient => {
-                            super::super::perception::DEFAULT_VIEWPORT_HALF
-                        }
-                        super::super::perception::Perception::Sighted { viewport_half } => {
-                            viewport_half
-                        }
-                    };
                     // Headless world-out view for this body (S4/S5), built ALWAYS for the
                     // brain's tactical queries (line-of-fire over the SAME derived
                     // collision world `feature_world` the body integrates against — never a
@@ -568,7 +558,7 @@ pub fn tick_actor_brains(
                         &[],
                         &feature_world,
                         relations,
-                        viewport_half,
+                        perception_policy,
                         sim_now,
                     );
                     // Sight and memory answer together; an `Omniscient` body

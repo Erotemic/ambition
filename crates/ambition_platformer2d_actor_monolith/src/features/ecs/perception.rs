@@ -48,6 +48,31 @@ pub enum Perception {
     Sighted { viewport_half: ae::Vec2 },
 }
 
+impl Perception {
+    /// How far this body's terrain, projectile and line-of-fire queries reach.
+    ///
+    /// An omniscient body still gets a tactical view — it has to, or it could
+    /// not aim — and it gets it at the same default extent an ordinary actor
+    /// sees at. What omniscience buys is [`Self::knows_bodies_anywhere`].
+    pub fn tactical_extent(self) -> ae::Vec2 {
+        match self {
+            Perception::Omniscient => DEFAULT_VIEWPORT_HALF,
+            Perception::Sighted { viewport_half } => viewport_half,
+        }
+    }
+
+    /// Does this body know where every hostile is, regardless of distance?
+    ///
+    /// ⛔ The BOUNDARY between the two modes, and the reason it is a method
+    /// rather than a `matches!` at each site: a brain that reads `view.actors`
+    /// and a target derivation that reads `ActorTarget` must agree about which
+    /// bodies this one can see, and they disagreed for as long as this was
+    /// decided in two places.
+    pub fn knows_bodies_anywhere(self) -> bool {
+        matches!(self, Perception::Omniscient)
+    }
+}
+
 impl Default for Perception {
     /// Omniscience is the basic perception — the mode a body has until it is granted
     /// bounded senses.
@@ -369,6 +394,27 @@ pub fn ensure_perception(
             bevy::prelude::With<crate::features::FeatureSimEntity>,
             bevy::prelude::Without<crate::actor::PlayerEntity>,
             bevy::prelude::Without<ambition_boss_encounter::BossConfig>,
+            // ⭐ A FIGHTER SEATED IN A MATCH IS NOT AN EXPLORATION ACTOR, and
+            // bounded senses are an exploration mechanic: being juked, losing a
+            // foe and giving up are things a room full of enemies is FOR. A
+            // platform fighter has none of them — both fighters are on screen
+            // for the whole match and each always knows where the other is —
+            // so a match fighter keeps the basic `Omniscient` mode.
+            //
+            // ⛔ THIS EXCLUSION IS LOAD-BEARING, and the measurement that put it
+            // here is worth more than the rule: `DEFAULT_VIEWPORT_HALF.x` is
+            // 480 and the smash platform is 480 wide, so two fighters that
+            // drifted apart went permanently blind to each other while still
+            // standing on the same stage. Over a sixteen-character mirror
+            // sweep, six characters' median gap sat between 491 and 515 px —
+            // with NOTHING between 295 and 491 — and three of them threw four
+            // moves in a minute and dealt no damage at all.
+            //
+            // Safe because seating is ATOMIC: `realize_seat` and the
+            // `MatchSeat` insert share one command flush, so a fighter is never
+            // observable without its seat and can never be granted bounded
+            // senses in the window before it.
+            bevy::prelude::Without<crate::character_runtime::MatchSeat>,
             // Missing memory ⟺ missing perception (both attached together below), so
             // this one gate nets bodies that lack either.
             bevy::prelude::Without<PerceptionMemory>,
@@ -401,10 +447,13 @@ pub fn build_world_view(
     portals: &[PerceptionPortal],
     world: &ae::World,
     relations: &FactionRelations,
-    viewport_half: ae::Vec2,
+    perception: Perception,
     sim_time: f32,
 ) -> WorldView {
-    let viewport = Viewport::around(body.pos, viewport_half);
+    // THE TACTICAL EXTENT — how far this body's line-of-fire, terrain and
+    // projectile queries reach. Both policies have one; they differ in whether
+    // the ACTOR channel below respects it.
+    let viewport = Viewport::around(body.pos, perception.tactical_extent());
 
     let self_view = SelfView {
         pos: body.pos,
@@ -440,9 +489,21 @@ pub fn build_world_view(
         bounds: ae::aabb_from_min_size(ae::Vec2::ZERO, world.size),
     };
 
+    // ⭐ THE ACTOR CHANNEL IS NOT CLIPPED FOR AN OMNISCIENT BODY, and this is
+    // what `Perception::Omniscient` has always claimed to mean — *"the body
+    // simply KNOWS the nearest hostile ANYWHERE"*. Until this line, it did not:
+    // the view was built at `DEFAULT_VIEWPORT_HALF` whatever the policy said,
+    // and only the `ActorTarget` derivation ignored the box. That was a safe
+    // compromise for exactly as long as every brain reached its foe through
+    // `ActorTarget` — and the fighter brain does not. It reads `view.actors`,
+    // so an "omniscient" fighter was sighted at 480px and nothing said so.
+    //
+    // Terrain, projectiles and pickups keep the tactical extent under both
+    // policies: omniscience is a claim about where BODIES are, not a licence to
+    // fold a whole room's geometry into one tick's line-of-fire query.
     let actors = peers
         .iter()
-        .filter(|p| viewport.contains(p.pos))
+        .filter(|p| perception.knows_bodies_anywhere() || viewport.contains(p.pos))
         .map(|p| PerceivedActor {
             id: p.id.clone(),
             pos: p.pos,

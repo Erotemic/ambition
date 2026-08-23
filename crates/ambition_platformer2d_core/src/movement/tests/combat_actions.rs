@@ -782,61 +782,6 @@ fn down_on_a_raised_guard_spot_dodges_without_a_burst_press() {
     );
 }
 
-/// ⭐ A DODGE WITH NO DIRECTION DOES NOT TRAVEL. Jon, 2026-08-23: *"when I
-/// 'press C' on the keyboard to 'dodge' as the button says, I move horizontally
-/// like a dash. Agents have told me the dash was removed many times, but it
-/// really never has been, at least semantically."*
-///
-/// A neutral burst press used to fall to the ROLL, which picks `facing` when the
-/// stick says nothing and travels `dodge_roll_speed` in that direction — a
-/// button labelled DODGE that moves you is a dash under another name.
-///
-/// ⛔ THE PAIR IS THE ASSERTION: a SIDEWAYS press must still roll, or the roll
-/// has been deleted rather than moved to where the genre puts it.
-#[test]
-fn a_dodge_with_no_direction_stays_put_and_a_sideways_one_still_rolls() {
-    let evade = |stick: crate::LocalAxes| {
-        let world = test_world();
-        let mut scratch = scratch_at(world.spawn);
-        scratch.ground.on_ground = true;
-        scratch.dodge.cooldown = 0.0;
-        let events = step_fighter(
-            &world,
-            &mut scratch,
-            InputState {
-                axes: stick,
-                movement: crate::ActionEdges::EMPTY.with(
-                    crate::MovementAction::Burst,
-                    crate::Edge {
-                        pressed: true,
-                        held: false,
-                        released: false,
-                    },
-                ),
-                ..Default::default()
-            },
-        );
-        (events.operations.clone(), scratch.kinematics.vel.x)
-    };
-
-    let (ops, travel) = evade(crate::LocalAxes::ZERO);
-    assert!(
-        ops.contains(&MovementOp::SpotDodge),
-        "a dodge with no direction rolled: {ops:?}"
-    );
-    assert_eq!(travel, 0.0, "an undirected dodge travelled {travel}px");
-
-    let (ops, travel) = evade(crate::LocalAxes::new(1.0, 0.0));
-    assert!(
-        ops.contains(&MovementOp::DodgeRoll),
-        "a sideways evade stopped rolling, so the roll is gone rather than moved: {ops:?}"
-    );
-    assert!(
-        travel > 0.0,
-        "the roll went nowhere, so this compared nothing"
-    );
-}
-
 /// ⛔ HOLDING SHIELD ROOTS A GROUNDED BODY. Jon, 2026-08-23: *"If the player is
 /// holding shield... they should not be let the control move them left or
 /// right."*

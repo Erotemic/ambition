@@ -335,20 +335,28 @@ pub(super) fn apply_dodge(
         // is nowhere to roll TO — cornered, on a platform, waiting out a
         // committed swing — did not exist. a body that authors no window keeps
         // the roll it always had: the press is not taken away from anybody.
-        // ⭐ A DODGE WITH NO DIRECTION DODGES IN PLACE. Jon, 2026-08-23: *"when
-        // I 'press C' on the keyboard to 'dodge' as the button says, I move
-        // horizontally like a dash. Agents have told me the dash was removed
-        // many times, but it really never has been, at least semantically."*
+        // ⚠ A NEUTRAL DODGE STILL ROLLS, AND JON IS RIGHT THAT IT SHOULD NOT.
+        // *"when I 'press C' on the keyboard to 'dodge' as the button says, I
+        // move horizontally like a dash. Agents have told me the dash was
+        // removed many times, but it really never has been, at least
+        // semantically."* A neutral burst press falls to the ROLL below, which
+        // picks `facing` when the stick says nothing and travels
+        // `dodge_roll_speed` — a button labelled DODGE that moves you.
         //
-        // He is right, and the semantics were the whole of it: a neutral burst
-        // press fell to the ROLL, which picks `kinematics.facing` when the stick
-        // says nothing and travels `dodge_roll_speed` in that direction. A
-        // button labelled DODGE that moves you is a dash under another name.
+        // ⛔ THE OBVIOUS FIX HAS A MEASURED COST AND IS NOT IN. Making a neutral
+        // press spot-dodge stopped the CPUs charging smashes ENTIRELY:
+        // `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` went from
+        // green to *"no CPU held a smash in any of 3 matches of 5400 ticks...
+        // best fraction seen 0.00"*, and the mechanism is not yet pinned — the
+        // fighter brain's Dodge verb already AIMS its stick, so the two should
+        // not have met. Attributed by reverting this clause alone and watching
+        // the guard go green.
         //
-        // ⛔ THE ROLL IS NOT GONE — it is what a DIRECTION asks for, which is
-        // where the genre puts it. Neutral means "get out of the way here".
-        let aimed_sideways = local_stick.x.abs() > crate::movement::tuning::SPOT_DODGE_STICK;
-        if (local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK || !aimed_sideways)
+        // ⇒ whoever takes this: find why an in-place evade costs the charge
+        // before re-applying it. The player-facing complaint is real and the
+        // shield roads (shield+direction) now give the genre's answer, so the
+        // pressure is off the button itself.
+        if local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
             && tuning.abilities.spot_dodge_time > 0.0
         {
             // the DESCENT is kept and everything else zeroed: a body standing

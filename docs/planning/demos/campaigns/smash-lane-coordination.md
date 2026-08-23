@@ -176,6 +176,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | Camera cut on elimination | PRESENTATION | ✔ `3db424c86` — inward cast edges capped by SPEED, not just rate; exponential easing jerked in proportion to the collapse |
 | Camera cap regression | PRESENTATION | ✔ `a031c9530` — the cap now arms only on a cast POPULATION drop; a general speed limit throttled ordinary approach. Close rate 5→10Hz, which the gating made safe |
 | Offscreen capture | PRESENTATION | ✔ `948f8a5fc` — engine `Display::Offscreen`; `match_shots` burst. ⚠ the smash shell had NO renderer and had never been seen; 3 demos still duplicate `DefaultPlugins`/`RenderMode` |
+| Default attack swing | PRESENTATION | ✔ `155296974` — the red box was the unauthored-VFX placeholder, not a bug; now a reach-derived tapered sweep. 1 of 145 characters authors `attack_vfx` |
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |

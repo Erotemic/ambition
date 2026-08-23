@@ -2431,18 +2431,25 @@ that contradicts it, silently, with no rationale anywhere. ⇒ **a regen alone
 changes nothing for those 38**: `publish carl_stargan` was run first and produced
 zero trim offsets, which is what pointed at the flag.
 
-✔ **CARL IS DONE** (renderer `36d6863`): the argument is deleted rather than
-flipped, so he takes the central policy. 0 → **953 per-frame trim offsets**.
+✔✔ **DONE — renderer `36d6863` (Carl) then `b9fb1e7` (the other 45).** The
+argument is DELETED rather than flipped, so every target takes the central
+policy. 36 targets regenerated in 6:14 and **all 36 publish trim offsets where
+they published none — 0 untrimmed left of the 36**.
+⚠ NOT touched: `carl_runga` and `martin_cutta` pass `trim="angled"` /
+`trim="strapped"`, which is a beard style on a character preset and not the
+packer flag at all.
 
 ⛔⛔ **SANDBAG IS A DIFFERENT DEFECT AND MUST NOT BE PRICED AS A FLAG.** It
 hand-rolls its own sheet image and manifest in `targets/characters/sandbag.py`
 and never calls the shared `build_sheet` at all, so it reaches neither the packer
 nor the policy. Its 4.0x is a PORT.
 
-⇒ the remaining sweep is: delete the reasonless `trim=False` from the other 37,
-regen, and LOOK at the output — ⛔ not flipped blind in one commit, because a
-trim-aware runtime bug shows up as a mis-anchored character rather than as a
-failure.
+⭐ **what made the sweep safe to take in one pass**, checked before flipping
+anything: `apply_character_frame` is a SINGLE chokepoint that self-captures the
+trim basis from the spawn-built sprite, and its own doc says *"no spawn site can
+desync the basis because none provides it"*. `animate_props` is one of its four
+callers, so the four prop targets were covered by the same guarantee.
+⇒ what remains on this row is SANDBAG's port, and the height contract itself.
 
 The 61 untrimmed sheets that publish a body bbox, worst frame-vs-body area
 first — the regeneration queue:
@@ -6839,12 +6846,35 @@ jab reads `strike("challenge", "jab", 0.05, 0.05, 0.13, (24.0, 0.0), (17.0, 13.0
 and NOTHING catches it — not the type system, since the timings are all `f32`,
 and not a test, since no fighter's numbers are asserted individually.
 
-⇒ **the enabling slice is therefore named and is NOT the facet**: give `strike` a
-named-field record with a `Default`, migrate the 294 sites, and the serde facet
-becomes a derive on a struct that already exists. ⚠ price it honestly — 294 sites
-across 17 files, and a mis-ordered field is a SILENT feel change, which is the
-worst failure mode this migration has. A mechanical rewrite wants a per-move
-before/after `MoveSpec` equality check, not eyes.
+✔✔ **THE ENABLING SLICE LANDED — `65fb35e9d`.** `Strike` is a named-field record
+and all **304** call sites moved to it. ⛔ `Strike` is deliberately NOT
+`Serialize`: adding the derive is the FACET's slice, and doing it early would
+freeze a wire shape before a customer asked for one.
+
+⭐⭐ **proven value-preserving rather than asserted.** A temporary oracle dumped
+every `MovesetContract` the content crate authors — 14 fighters, 31,600 lines of
+`{:#?}` — before and after, and again after rustfmt reflowed the literals.
+Byte-identical both times. The oracle was deleted in the same commit; it had one
+job and no second one.
+
+⚠ **the demo's FORK is now visible at the type level.** `demo_smash`'s
+`moveset.rs` has its own 11-argument `strike`; it takes the shared `Strike` and
+DESTRUCTURES `on_hit` with a `debug_assert` rather than dropping it, because a
+dropped field is the invisible kind of divergence. ⇒ the only behavioural
+question left for unifying the two is the clip fallback chain
+(`["attack","idle"]` vs `["attack_side","attack","slash","idle"]`), and for a
+sheet with no `attack_side` they resolve identically.
+
+⛔⛔ **AND AN AUTHORED FIGHTER COMPILES NOWHERE.**
+`game/ambition_content/src/projectile_polygon_moveset.rs` (8.8K) and
+`authored/projectile_polygon.rs` are both COMMITTED and declared by no `mod`, so
+nothing builds either one. Found only because the oracle tried to call it. Left
+alone as somebody's in-flight work — but it is not in-flight in the tree, it is
+invisible in it.
+
+⇒ **what is left on this row is now the FACET itself**: derive serde on `Strike`,
+give `SmashFighterFacet` a repertoire beside its capture kit, and move one
+fighter's values into a `.ron` to prove the road.
 
 ▢ **what is genuinely open, then:** a fighter's `SmashRepertoire` is authored as
 a game-side Rust literal — `george_booul_moveset.rs:556`,

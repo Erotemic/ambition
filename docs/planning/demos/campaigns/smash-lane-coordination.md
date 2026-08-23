@@ -432,3 +432,27 @@ ember, under a comment reserving it for the top of the fight.
 ⇒ **fit a constant against the distribution the CONSUMER samples**, not against
 the nearest number that was already being printed. And write the percentile and
 the sample size beside it, which that lane now does as a matter of course.
+
+## Two more forms of the same rule, both found by lanes
+
+**Identical numbers mean "the watched matchup cannot reach the content" at least
+as often as they mean "the change did nothing."** The mechanics lane authored its
+first sweetspot example on the SHARED roster, measured five streams byte-identical
+to pre-E1, and checked which matchup produced the number instead of concluding
+the rule was inert — George carries his own moveset and never throws the shared
+forward smash.
+
+**Two genuinely distinct populations set a threshold in the GAP between them, not
+at a percentile of one.** Gravity accelerates a body into a floor and never into
+a wall, so landings (n=340, p50 299, max 1669) and side contacts (n=63, 54 of
+them exactly 52 px/s from leaning on the lip, hardest real arrival 440) cannot
+overlap. A wall splat sharing the floor's 520 onset would have shipped green and
+never once fired.
+
+⭐ And the one that should change how every capture in this campaign is read:
+**`match_shots` never declared `HeadlessDisplaySurface`**, so the HUD resolver
+found no primary window, returned early, and laid every slot against a default
+rect. Every shot taken before that fix was showing a different layout —
+convincingly. ⛔ A capture that is wrong in a way that looks right is worse than
+no capture; the camera-framing work in particular was judged against a stage that
+was not letterboxed into a real gameplay rect.

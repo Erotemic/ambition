@@ -84,9 +84,24 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // below would otherwise go on dividing a finished fight by a full minute.
     let mut duel_began = false;
     let mut decided_on: Option<usize> = None;
+    // ⭐ THE STOCK ECONOMY IS PART OF THE STRUCTURE THIS THRESHOLD IS
+    // CALIBRATED AGAINST. A knockout resets a meter, spends a stock and — once a
+    // ruleset declares a respawn beat — takes a fighter off the stage for it. A
+    // reading that does not say how many happened cannot be compared with one
+    // taken under a different economy.
+    let mut knockouts = 0usize;
+    let mut spent_cursor = None;
     for tick in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
+        {
+            let messages = world
+                .resource::<bevy::ecs::message::Messages<
+                    ambition_platformer2d::actor::FighterStockSpent,
+                >>();
+            let cursor = spent_cursor.get_or_insert_with(|| messages.get_cursor());
+            knockouts += cursor.read(messages).count();
+        }
         let mut seated = 0usize;
         for (seat, health, combat) in world
             .query::<(&MatchSeat, &BodyHealth, Option<&BodyCombat>)>()
@@ -146,7 +161,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     println!(
         "[duel] {FIGHTER} rung {RUNG}: duel ran {both_seated_ticks} ticks (decided \
          {decided_on:?}), took {:.2} / {:.2} of pool = {:.2} / {:.2} per minute of \
-         duel, hitstun {hitstun_ticks:?} ticks",
+         duel, hitstun {hitstun_ticks:?} ticks, {knockouts} knockouts",
         taken[0],
         taken[1],
         per_minute(0),

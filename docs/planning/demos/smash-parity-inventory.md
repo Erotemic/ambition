@@ -3,8 +3,17 @@
 This is the working inventory for the Smash demo: what already ships, what is
 partial, and what can be added cleanly with the engine we have now.
 
-Source audit: 2026-08-22, snapshot `1e6f8f81`. Re-check the named seam against
-HEAD before changing a row.
+Source audit: 2026-08-22, snapshot `1e6f8f81`; fifteen rows re-marked 2026-08-23
+after the first push of the fun campaign. Re-check the named seam against HEAD
+before changing a row.
+
+⚠ **A `✔` HERE MEANS THE MECHANISM IS WIRED, NOT THAT ANYBODY HAS SEEN IT.** Four
+rows on this page were `✔` all week while doing nothing in a match — the smash
+charge, directional influence, the tech, and the launch trail — and the thing
+that caught each of them was
+`cargo run -p ambition_demo_smash_app --bin match_report -- 30 --runs 5`, not a
+test. ⇒ before marking a row shipped, make it appear in that report or say in the
+row why it cannot.
 
 **Authority:** this file is the one current Smash feature backlog. Product intent
 lives in [`super-smash-siblings.md`](super-smash-siblings.md); execution order
@@ -91,14 +100,14 @@ existing seams.
 
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| True hold/release smash charge | ~ | M | E1 | `smash_charge_mult` already scales payoff, but charge is inferred from ordinary Startup time. Add optional charge policy to `MoveSpec` and per-use hold/release state to `MovePlayback`; freeze the timeline at the authored hold point, release on button-up/max, and freeze the charge fraction for the rest of that use. |
-| Charge-start/full cues and charge pose | ▢ | S | — | Presentation reads the resolved charge state; one latch/cocking cue on entry, one loaded cue at max, accelerating pulse while charging. No input polling in rendering. |
+| True hold/release smash charge | ✔ | M | E1 | `smash_charge_mult` already scales payoff, but charge is inferred from ordinary Startup time. Add optional charge policy to `MoveSpec` and per-use hold/release state to `MovePlayback`; freeze the timeline at the authored hold point, release on button-up/max, and freeze the charge fraction for the rest of that use. |
+| Charge-start/full cues and charge pose | ✔ | S | — | Presentation reads the resolved charge state; one latch/cocking cue on entry, one loaded cue at max, accelerating pulse while charging. No input polling in rendering. |
 | Charge storage | ▢ | M | E1 | Persist an explicitly authored stored charge value on the fighter only for moves that opt in. Do not make every smash globally store charge. |
 | Jab 1 → 2 → 3 chains | ▢ | M | E1 | Use existing cancel windows and literal move IDs. Extend trigger resolution so a follow-up press can select an authored successor instead of restarting jab 1. |
 | Rapid jab + finisher | ▢ | M | E1 | Add authored repeat/loop semantics to move playback, then an authored release/timeout finisher. Do not implement a fighter-ID loop. |
-| Combat action input buffer | ~ | M | E1 | `BodyActionBuffer` is rollback-registered with attack/pogo/projectile slots, but current source documents that nothing writes them. Feed semantic press edges into this existing body-owned buffer, decay it deterministically, and spend a slot only when the normal action authority accepts the action. Do not add per-move grace timers or buffer raw device input. |
-| Move invulnerability windows | ~ | S | E1 | `WindowTag::Invuln` already exists in the authoring schema but runtime does not consume it. Make hit eligibility read the active move window. |
-| Move super-armor windows | ~ | M | E1 | `WindowTag::Armor` already exists. Resolve hit damage normally while suppressing/altering reaction according to the active window. |
+| Combat action input buffer | ✔ | M | E1 | `BodyActionBuffer` is rollback-registered with attack/pogo/projectile slots, but current source documents that nothing writes them. Feed semantic press edges into this existing body-owned buffer, decay it deterministically, and spend a slot only when the normal action authority accepts the action. Do not add per-move grace timers or buffer raw device input. |
+| Move invulnerability windows | ✔ | S | E1 | `WindowTag::Invuln` already exists in the authoring schema but runtime does not consume it. Make hit eligibility read the active move window. |
+| Move super-armor windows | ✔ | M | E1 | `WindowTag::Armor` already exists. Resolve hit damage normally while suppressing/altering reaction according to the active window. |
 | Damage-threshold armor | ▢ | M | E1 | After basic armor is live, make armor policy carry a threshold when a real move needs it. Keep it in hit reaction, not character code. |
 | Knockback-threshold armor | ▢ | M | E1 | Same reaction-policy seam; compare resolved launch/reaction, not attacker identity. |
 | On-block cancel windows | ~ | S/M | E1 | `CancelCondition` explicitly deferred `OnBlock`; shield contact now exists. Publish/store “this move was blocked” beside the existing landed-hit fact and add `OnBlock`. |
@@ -125,9 +134,9 @@ existing seams.
 
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| Filled shrinking bubble shield | ~ | S | — | Current `bubble_shield.rs` is a thin procedural ring but already receives integrity/parry facts. Replace the texture/material presentation; preserve the existing shield simulation. |
-| Shield-hit ripple/deformation | ▢ | S | — | Drive a short cosmetic pulse from resolved shield contact/shieldstun. |
-| Low-shield danger treatment | ~ | S | — | Current ring shrinks/reddens; strengthen presentation without changing resource values. |
+| Filled shrinking bubble shield | ✔ | S | — | Current `bubble_shield.rs` is a thin procedural ring but already receives integrity/parry facts. Replace the texture/material presentation; preserve the existing shield simulation. |
+| Shield-hit ripple/deformation | ✔ | S | — | Drive a short cosmetic pulse from resolved shield contact/shieldstun. |
+| Low-shield danger treatment | ✔ | S | — | Current ring shrinks/reddens; strengthen presentation without changing resource values. |
 | Shield-drop lag | ▢ | S/M | E1 | Add a short release commitment in shield/movement action arbitration. Keep it tunable by rules/body tuning. |
 | Out-of-shield action policy | ▢ | M | E1 | One explicit shield-release action policy decides which actions may start during/after shield release; then author shield grab, jump, Up-B, up-smash rules through it. Do not scatter per-move exceptions. |
 | Shield grab | ▢ | S | E1 | Capture already exists; enable grab through the OOS action policy. |
@@ -136,9 +145,9 @@ existing seams.
 | Shield drop through one-way platform | ▢ | S/M | E1 | Reuse the existing one-way drop-through mechanism, but admit the Smash shield/down gesture through the shield/OOS action policy. The movement kernel still receives the ordinary semantic drop-through request; do not create shield-specific collision rules. |
 | Dodge staling | ▢ | M | E1 | Small per-body evade history modifies startup/i-frames/endlag. It belongs with dodge state, not global move staling. |
 | Spot-dodge attack cancel near tail | ▢ | S/M | E1 | Explicit cancel window on the dodge lifecycle; do not let arbitrary attacks ignore dodge endlag. |
-| Invulnerability/intangibility blink | ▢ | S | E1 | Publish one resolved presentation fact from actual hit eligibility (dodge, tech/getup, ledge, respawn, move invuln) and reuse the overlay-material pattern. |
-| Tech flash/SFX | ~ | S | — | Tech exists but currently shares light movement feedback. Route a distinct one-shot cue from successful Tech, separate from getup roll. |
-| Parry flash/chime | ▢ | S | — | Trigger on successful parry contact, not merely on the parry window. Ordinary shield block stays visually distinct. |
+| Invulnerability/intangibility blink | ✔ | S | E1 | Publish one resolved presentation fact from actual hit eligibility (dodge, tech/getup, ledge, respawn, move invuln) and reuse the overlay-material pattern. |
+| Tech flash/SFX | ✔ | S | — | Tech exists but currently shares light movement feedback. Route a distinct one-shot cue from successful Tech, separate from getup roll. |
+| Parry flash/chime | ✔ | S | — | Trigger on successful parry contact, not merely on the parry window. Ordinary shield block stays visually distinct. |
 | Ceiling tech | ▢ | M | E1 | Extend tech surface classification from floor/wall to head/ceiling contact using existing contact facts. |
 | Wall-tech jump | ▢ | S/M | E1 | Add the jump outcome to wall-tech resolution; reuse wall normal and tech timing. |
 | Untechable high-launch threshold | ▢ | S/M | E1 | Make tech eligibility depend on resolved impact/launch state through one rules knob. |
@@ -151,11 +160,11 @@ existing seams.
 
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| Hard-launch smoke/speed trail | ▢ | S | — | Gate cosmetic emission on semantic tumble/launched state plus speed, not world velocity alone. |
-| Strong/near-KO launch trail tier | ▢ | S | — | Presentation threshold layered on the same launch fact after the base trail reads well. |
-| Strong-hit impact flash | ~ | S | — | Hit sparks/camera shake already scale with strength; add a brief high-strength flash without changing hit resolution. |
+| Hard-launch smoke/speed trail | ✔ | S | — | Gate cosmetic emission on semantic tumble/launched state plus speed, not world velocity alone. |
+| Strong/near-KO launch trail tier | ✔ | S | — | Presentation threshold layered on the same launch fact after the base trail reads well. |
+| Strong-hit impact flash | ✔ | S | — | Hit sparks/camera shake already scale with strength; add a brief high-strength flash without changing hit resolution. |
 | Finish zoom on probable KO hit | ▢ | M | E1 | Combat publishes a resolved “finish-zoom eligible/probable KO” event/fact; camera/VFX consume it. Never let camera code predict physics independently. |
-| Ground-bounce / wall-splat feedback | ▢ | S/M | — | Route distinct presentation from actual collision/reaction state. Add a gameplay splat state only if a move/ruleset needs one. |
+| Ground-bounce / wall-splat feedback | ~ | S/M | — | landing dust ships; the wall half needs an impact speed on side contact | Route distinct presentation from actual collision/reaction state. Add a gameplay splat state only if a move/ruleset needs one. |
 | Launch animation distinct from tumble | ~ | S/M | E1 | Publish the initial launch beat if the animation layer cannot distinguish it from sustained tumble. |
 | HUD percent punch/shake | ▢ | S | — | Cosmetic reaction to resolved damage/strong-hit events. |
 

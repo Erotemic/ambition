@@ -720,6 +720,36 @@ fn spawn_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: MoveSpec) 
         .id()
 }
 
+/// An attacker mid-move whose SMASH CHARGE is already held to its authored
+/// maximum — the state a fully-charged release is in.
+///
+/// ⛔ `spawn_attacker` above inserts an UNCHARGED playback, and that is correct
+/// for every other fixture here. A charge test built on it never enters charge
+/// mode at all: before the payoff had one authority, such a fixture still read
+/// a full multiplier off the move's timeline, so it passed while asserting a
+/// mechanism it never exercised.
+fn spawn_charged_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: MoveSpec) -> Entity {
+    let mut playback = MovePlayback::new(spec, 1.0).charged_by_smash_gesture(true);
+    // A move authoring no payoff resolves no policy and stays uncharged, which
+    // is the parity half of the caller's question rather than a broken fixture.
+    if let Some(charge) = playback.charge.as_mut() {
+        charge.held_s = charge.policy.max_hold_s;
+    }
+    app.world_mut()
+        .spawn((
+            ae::CenteredAabb::new(pos, body),
+            ae::BodyKinematics {
+                pos,
+                vel: ae::Vec2::ZERO,
+                size: body,
+                facing: 1.0,
+            },
+            ActorFaction::Enemy,
+            playback,
+        ))
+        .id()
+}
+
 fn run_seconds(app: &mut App, seconds: f32) {
     let steps = (seconds / 0.016).ceil() as usize;
     for _ in 0..steps {
@@ -1194,14 +1224,19 @@ fn a_charged_release_scales_the_spawned_hitbox() {
     }
     let read = |mult: f32| -> (i32, f32) {
         let (mut app, _v) = app_with_victim();
-        spawn_attacker(
+        // ⛔ THE FIXTURE HAS TO ENTER CHARGE MODE. This used to spawn an
+        // ORDINARY playback and run the clock past the Startup window, calling
+        // that "fully charged" — but a use with no `MoveCharge` never charged
+        // anything, and the doubling it observed came from the timeline road
+        // that has since been deleted. It asserted the right outcome through
+        // the wrong mechanism, which is why deleting the road turned it red.
+        spawn_charged_attacker(
             &mut app,
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(15.0, 24.0),
             charge_move(mult),
         );
-        // Run into the Active window (t ≈ 0.26): the charge window (0..0.2)
-        // is fully elapsed, so the release is fully charged.
+        // Into the Active window (t ≈ 0.26), where the volume spawns.
         run_seconds(&mut app, 0.25);
         let mut q = app.world_mut().query::<&Hitbox>();
         let hb = q
@@ -1217,6 +1252,11 @@ fn a_charged_release_scales_the_spawned_hitbox() {
         };
         (hb.damage, knockback)
     };
+    assert!(
+        charge_move(2.0).charge_policy().is_some(),
+        "the paying fixture resolves no charge policy, so nothing below can \
+         observe a charge being paid"
+    );
     // Parity: unit mult leaves the authored values exactly.
     assert_eq!(read(1.0), (5, 100.0));
     // Full charge at 2.0 doubles both.
@@ -5176,5 +5216,57 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         "the buffered press came back as a different move than the one that was \
          made — the replay re-read the direction off a stick that has since \
          centred"
+    );
+}
+
+/// ⛔⛔ A USE THAT NEVER ENTERED CHARGE MODE PAYS NOTHING, at every instant a
+/// strike could spawn.
+///
+/// The deleted road read `smash_charge_mult` against how far the clock had run
+/// through the leading Startup window. That sounds like a partial payoff and is
+/// not one: a strike volume only spawns INSIDE an Active window, Active begins
+/// where that Startup window ends, and the fraction clamps — so the timeline
+/// reading was the FULL multiplier on every hit of every non-charging use.
+///
+/// ⭐ THE ASSERTION SWEEPS THE ACTIVE WINDOW rather than sampling `t = 0`,
+/// which is the sample that made the old road look like an interpolation.
+#[test]
+fn a_move_used_without_the_smash_gesture_lands_at_unit_scale() {
+    let spec = charging_smash();
+    assert!(
+        spec.smash_charge_mult > 1.0,
+        "the fixture authors no payoff, so this cannot observe one being denied"
+    );
+    let mut pb = MovePlayback::new(spec, 1.0).charged_by_smash_gesture(false);
+    let mut sampled = 0;
+    while !pb.finished() {
+        assert_eq!(
+            pb.charge_scale(),
+            1.0,
+            "a use that never charged is paying the smash multiplier at t={}",
+            pb.t
+        );
+        sampled += 1;
+        pb.t += 1.0 / 60.0;
+    }
+    assert!(sampled > 1, "the sweep never advanced, so it proved nothing");
+}
+
+/// The other direction, or the fix above would just have deleted the payoff:
+/// a real smash gesture held to full still pays the whole multiplier.
+#[test]
+fn a_held_smash_gesture_still_pays_its_multiplier() {
+    let mut pb = MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true);
+    let charge = pb.charge.expect("the fixture authors a policy, so a smash charges");
+    assert_eq!(pb.charge_scale(), 1.0, "an untouched charge is a tap");
+    pb.charge = Some({
+        let mut full = charge;
+        full.held_s = CHARGE_MAX_HOLD_S;
+        full
+    });
+    assert!(
+        (pb.charge_scale() - CHARGE_MULT).abs() < 1e-6,
+        "a fully held smash no longer pays: {}",
+        pb.charge_scale()
     );
 }

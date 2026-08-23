@@ -36,7 +36,41 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — NONE. All 15 open questions were answered 2026-08-22; §8 is DEFERRED and §28 is PARKED. Every section below is a receipt.
+## Open decisions — ONE. Everything below this section is a receipt.
+
+### ▢ George Booul's `bivalence` lost 1.6x, and that was a real number in the match
+
+`smash_charge_mult` had two payers. The second read the multiplier off how far a
+move's clock had run through its leading Startup window — and a strike volume
+only ever spawns INSIDE an Active window, which begins where that Startup window
+ends, so the fraction was always clamped to full. Every use of a move with a
+multiplier that never entered charge mode landed at the FULL multiplier, every
+hit. That road is deleted; `MoveCharge` is now the only thing that pays.
+
+`bivalence` is `Feel::Special`, so it never took the smash gesture and could
+never EARN the 1.6 it authored. It was paid anyway. Its authored 7 / 13 damage
+was 11 / 21 in every match played to date.
+
+**Nothing has changed about how hard he hits.** The 1.6 is baked into the
+authored numbers — damage 7→11 and 13→21, knockback 100→160 and 170→272, which
+is exactly what the runtime was computing — so this George is the George that
+has been fighting. ⭐ that is not a cosmetic choice: dropping the multiplier
+without baking it took him out of every recovery situation he had, and
+`the_cpu_throws_its_authored_recovery_during_a_match` went red over 1800 ticks
+with him otherwise fighting normally. A damage change of that size moves who
+gets launched offstage, which moves which situations arise at all.
+
+**The open question is whether 11 / 21 is what you want him to hit for**, now
+that it is written down instead of applied invisibly:
+
+- leave it — this is the balance the demo has actually been tuned around;
+- retune to the numbers as they READ — 7 / 13 is a much weaker neutral special,
+  and the fighter brain will pick it less;
+- make it genuinely chargeable — a held Special is a real thing the genre has,
+  and it would need its own explicitly named policy rather than the smash's.
+
+⛔ not answerable by refactor, and not a genre-research question either: it is
+what this fighter should hit for.
 
 ### 1. ✔ ANSWERED 2026-08-17 — a bolt hits what a sword hits (former D23)
 

@@ -371,13 +371,28 @@ pub fn george_booul_moveset() -> MovesetContract {
         recover_s: 0.34,
         offset: (0.0, -6.0),
         half_extents: (36.0, 30.0),
-        damage: 7,
-        knockback: 100.0,
+        damage: 11,
+        knockback: 160.0,
         knockback_growth: 2.00,
         launch_dir: Some((0.2, -1.0)),
         on_hit: None,
     });
-    bivalence.smash_charge_mult = 1.6;
+    // ⛔ NO `smash_charge_mult` HERE, and it used to carry 1.6. A Special never
+    // takes the smash gesture, so the multiplier could never be EARNED — and
+    // until the charge payoff had one authority it was paid anyway, off the
+    // move's own timeline, on every hit.
+    //
+    // ⇒ THE 1.6 IS BAKED INTO THE NUMBERS ABOVE AND BELOW, deliberately, so
+    // this is the same George who has been fighting: damage 7→11 and 13→21,
+    // knockback 100→160 and 170→272, which is exactly what the runtime was
+    // computing (it scales damage and knockback base, never growth). Dropping
+    // the multiplier without baking it took George out of every recovery
+    // situation he had — `the_cpu_throws_its_authored_recovery_during_a_match`
+    // went red over 1800 ticks with him otherwise fighting normally.
+    //
+    // ⚠ whether this SHOULD be his damage is a real question and it is recorded
+    // in docs/planning/awaiting-maintainer-decision.md. What is not a question
+    // is that the number a reader sees must be the number that lands.
     // The second half, authored as a window rather than a second move: same
     // press, same clock, harder answer.
     {
@@ -393,8 +408,8 @@ pub fn george_booul_moveset() -> MovesetContract {
                         offset: (0.0, -4.0),
                         radius: 46.0,
                     },
-                    damage: 13,
-                    knockback: 170.0,
+                    damage: 21,
+                    knockback: 272.0,
                     knockback_growth: Some(3.40),
                     launch_dir: Some((0.85, -0.55)),
                     on_hit: None,

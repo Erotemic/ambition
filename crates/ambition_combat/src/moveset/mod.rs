@@ -562,14 +562,24 @@ impl MovePlayback {
 
     /// The damage/knockback scale every hit of this use lands with.
     ///
-    /// A charge-active use is scaled by the fraction it FROZE at, uniformly for
-    /// the rest of the move; anything else keeps the timeline reading
-    /// (`MoveSpec::charge_scale_at`), which is the identity for every move that
-    /// authors no payoff.
+    /// ⛔⛔ ONE AUTHORITY, AND THE OTHER ONE PAID OUT UNCONDITIONALLY. A use
+    /// that never entered charge mode scales by `1.0`, full stop. It used to
+    /// fall through to a TIMELINE reading — `smash_charge_mult` interpolated by
+    /// how far the clock had run through the leading Startup window — which
+    /// sounds like a partial payoff and is not one: a strike volume only ever
+    /// spawns INSIDE an Active window, Active begins where that Startup window
+    /// ends, and the fraction is clamped, so every non-charging use of a move
+    /// with a multiplier landed at the FULL multiplier on every hit. George's
+    /// `bivalence` is `Feel::Special` and never charges, so its authored 7/13
+    /// damage was really 7×1.6 and 13×1.6.
+    ///
+    /// ⇒ `MoveCharge` is now the only thing that pays. A mechanic that wants
+    /// power derived from a timeline may have one, under its own name; it may
+    /// not have this one by inheritance.
     pub fn charge_scale(&self) -> f32 {
         match self.charge {
             Some(charge) => 1.0 + charge.fraction() * (self.spec.smash_charge_mult - 1.0),
-            None => self.spec.charge_scale_at(self.t),
+            None => 1.0,
         }
     }
 

@@ -138,36 +138,6 @@ fn startup(end_s: f32) -> MoveWindow {
     }
 }
 
-#[test]
-fn charge_scale_interpolates_by_fraction_and_is_parity_at_unit_mult() {
-    let mut m = bare_move("charge", None);
-    m.windows = vec![startup(0.4)];
-    // Parity: default mult 1.0 -> always 1.0, whatever the fraction.
-    assert_eq!(m.charge_scale_at(0.0), 1.0);
-    assert_eq!(m.charge_scale_at(0.4), 1.0);
-    // Opt in: fraction is elapsed / charge-window length, clamped.
-    m.smash_charge_mult = 3.0;
-    assert!((m.charge_fraction_at(0.0) - 0.0).abs() < 1e-6);
-    assert!((m.charge_fraction_at(0.2) - 0.5).abs() < 1e-6);
-    assert!((m.charge_fraction_at(0.4) - 1.0).abs() < 1e-6);
-    assert!(
-        (m.charge_fraction_at(0.9) - 1.0).abs() < 1e-6,
-        "clamps at full"
-    );
-    // scale = 1 + frac*(mult-1): 0 -> 1, 0.5 -> 2, 1 -> 3.
-    assert!((m.charge_scale_at(0.0) - 1.0).abs() < 1e-6);
-    assert!((m.charge_scale_at(0.2) - 2.0).abs() < 1e-6);
-    assert!((m.charge_scale_at(0.4) - 3.0).abs() < 1e-6);
-}
-
-#[test]
-fn no_startup_window_is_fully_charged_instantly() {
-    let mut m = bare_move("jab", None);
-    m.smash_charge_mult = 2.0; // no Startup window -> full charge at once
-    assert_eq!(m.charge_fraction_at(0.0), 1.0);
-    assert_eq!(m.charge_scale_at(0.0), 2.0);
-}
-
 // --- CM7: frame-data introspection ---
 
 #[test]

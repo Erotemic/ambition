@@ -1022,39 +1022,6 @@ impl MoveSpec {
         (t / self.duration_s).clamp(0.0, 1.0)
     }
 
-    /// The charge fraction (`0..=1`) reached at proper-time `t`: how far the
-    /// owner's clock advanced through the leading Startup (charge) window. A
-    /// move with no Startup window is "fully charged" instantly. This is the
-    /// smash-charge state — it lives on the move's clock (`MovePlayback.t`), not
-    /// a parallel component (CM3).
-    pub fn charge_fraction_at(&self, t: f32) -> f32 {
-        let charge_end = self
-            .windows
-            .iter()
-            .find(|w| matches!(w.tag, WindowTag::Startup))
-            .map(|w| w.end_s)
-            .unwrap_or(0.0);
-        if charge_end <= 0.0 {
-            return 1.0;
-        }
-        (t / charge_end).clamp(0.0, 1.0)
-    }
-
-    /// The damage/knockback scale a release at proper-time `t` applies (CM3):
-    /// `1.0 → smash_charge_mult` interpolated by the charge fraction. Returns
-    /// `1.0` exactly when `smash_charge_mult == 1.0` (parity: no charge scaling).
-    ///
-    /// The TIMELINE reading, for a use that is not charge-active — a boss
-    /// pattern, an enemy swing, a move reached through some other verb. A use
-    /// that entered charge mode is scaled from the fraction it FROZE at
-    /// instead; see `MovePlayback::charge_scale`.
-    pub fn charge_scale_at(&self, t: f32) -> f32 {
-        if self.smash_charge_mult == 1.0 {
-            return 1.0;
-        }
-        1.0 + self.charge_fraction_at(t) * (self.smash_charge_mult - 1.0)
-    }
-
     /// The charge policy a SMASH-gesture use of this move plays under, or
     /// `None` when this move does not charge.
     ///

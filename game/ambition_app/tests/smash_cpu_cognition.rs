@@ -91,6 +91,12 @@ fn play_mirror_match(
 ) -> (
     Vec<(usize, u64)>,
     Vec<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>>,
+    // ⭐ WHICH FRAMES A GRAB WAS LIVE ON. A mutual grab is a TIE, and resolving
+    // one is the single gameplay rule on this stage that treats two mirrored
+    // bodies differently — see `acquire_captures`. The mirror below is allowed
+    // to break there and nowhere else, so the reflection test needs to know
+    // where "there" was.
+    Vec<bool>,
 ) {
     let mut app = host();
 
@@ -122,6 +128,7 @@ fn play_mirror_match(
 
     let mut streams: Vec<(usize, u64)> = Vec::new();
     let mut frames: Vec<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = Vec::new();
+    let mut grabbing: Vec<bool> = Vec::new();
     for _ in 0..(countdown + ticks) {
         app.update();
         let seated = seat_positions(&mut app);
@@ -132,10 +139,16 @@ fn play_mirror_match(
                 // seed the composition chose rather than a position in the walk.
                 streams = fighter_streams(&mut app);
             }
+            let held = {
+                let world = app.world_mut();
+                let mut q = world.query::<&ambition_platformer2d::combat::capture::CapturedBy>();
+                q.iter(world).next().is_some()
+            };
             frames.push(seated);
+            grabbing.push(held);
         }
     }
-    (streams, frames)
+    (streams, frames, grabbing)
 }
 
 /// EMMY'S AUTHORED MIRROR SYMMETRY REACHES THE REAL SELECTABLE CHARACTER,
@@ -148,7 +161,7 @@ fn play_mirror_match(
 /// roster builder.
 #[test]
 fn both_emmy_seats_receive_one_cognitive_stream_in_the_real_host() {
-    let (streams, frames) = play_mirror_match(EMMY, 120);
+    let (streams, frames, _) = play_mirror_match(EMMY, 120);
     assert_eq!(
         streams.len(),
         2,
@@ -178,7 +191,7 @@ fn both_emmy_seats_receive_one_cognitive_stream_in_the_real_host() {
 /// alone.
 #[test]
 fn two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream() {
-    let (streams, _) = play_mirror_match(ORDINARY, 30);
+    let (streams, _, _) = play_mirror_match(ORDINARY, 30);
     assert_eq!(
         streams.len(),
         2,
@@ -231,8 +244,8 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
     // different observation lengths.
     const WINDOW: usize = 1200;
 
-    let (emmy_streams, emmy_frames) = play_mirror_match(EMMY, WINDOW);
-    let (ordinary_streams, ordinary_frames) = play_mirror_match(ORDINARY, WINDOW);
+    let (emmy_streams, emmy_frames, emmy_grabbing) = play_mirror_match(EMMY, WINDOW);
+    let (ordinary_streams, ordinary_frames, _) = play_mirror_match(ORDINARY, WINDOW);
 
     let (emmy_mirrored, emmy_seen) = mirrored_frames(&emmy_frames);
     let (ordinary_mirrored, ordinary_seen) = mirrored_frames(&ordinary_frames);
@@ -278,11 +291,37 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
          two {ORDINARY} held one for {ordinary_mirrored} of {ordinary_seen} — not \
          the decisive difference a shared cognitive stream should produce"
     );
-    assert_eq!(
-        emmy_mirrored, emmy_seen,
-        "two Emmys broke their mirror after {emmy_mirrored} of {emmy_seen} frames. \
-         Under symmetric circumstances a shared stream should keep them reflected; \
-         check for a per-seat gameplay asymmetry on the stage before suspecting the \
-         cognition seed"
+    // ⛔⛔ THE MIRROR MAY BREAK IN EXACTLY ONE PLACE, and this is the clause
+    // that says where. A shared cognitive stream keeps two bodies reflected
+    // under symmetric circumstances — unless a GAMEPLAY rule has to treat them
+    // differently, and this stage has one: two bodies that grab each other on
+    // the same tick are a TIE, and `acquire_captures` resolves it in favour of
+    // the lower `SimId`.
+    //
+    // ⚠ THERE IS NO SYMMETRIC ALTERNATIVE. A mirror is a fixed point —
+    // identical inputs produce identical states however a tie is resolved — so
+    // the only resolution that preserves the reflection is granting NEITHER
+    // grab, and that was tried and measured: 126 attempts over a minute, zero
+    // captures, zero pummels, zero throws. Granting BOTH is the deadlock that
+    // cost D194 a third of a match.
+    //
+    // ⭐ so the claim is now "the reflection holds until a grab is live", which
+    // is STRONGER where it matters: a cognition leak breaks the mirror with no
+    // capture anywhere in sight, and that still fails here.
+    let first_grab = emmy_grabbing.iter().position(|held| *held);
+    // ⭐ REPORTED ON SUCCESS TOO: the clause below is only doing work when the
+    // mirror actually breaks, and a reader who cannot see these three numbers
+    // cannot tell a guard that held from one that had nothing to hold.
+    println!(
+        "[mirror] emmy held {emmy_mirrored} of {emmy_seen} frames, first grab at \
+         {first_grab:?}; {ORDINARY} held {ordinary_mirrored} of {ordinary_seen}"
+    );
+    assert!(
+        emmy_mirrored == emmy_seen || first_grab.is_some_and(|grab| emmy_mirrored + 1 >= grab),
+        "two Emmys broke their mirror after {emmy_mirrored} of {emmy_seen} frames, \
+         and the first grab on the stage was at frame {first_grab:?} — so the \
+         reflection did not end where the one rule that arbitrates between two \
+         mirrored bodies fires. Check for a per-seat gameplay asymmetry on the \
+         stage before suspecting the cognition seed"
     );
 }

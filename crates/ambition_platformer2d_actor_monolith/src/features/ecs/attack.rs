@@ -120,7 +120,13 @@ pub fn apply_post_hit_input_gates(
     let hard_lock_timer = combat
         .hard_lock_timer()
         .max(shield.break_timer)
-        .max(shield.stun_timer);
+        .max(shield.stun_timer)
+        // SHIELD DROP LAG — the fourth fact that removes control outright, and
+        // beside the other three for the same reason: it is what LETTING GO of
+        // a guard costs, which is a different cause from the shieldstun a
+        // blocked hit charges and reads differently in a trace. `0.0` for a
+        // game that declares no drop rule.
+        .max(shield.drop_lag_timer);
     // The FLY TOGGLE is exempt from both gates: it is a mode-switch INTENT, not
     // movement authority (the axes are still stripped, so a toggled flyer can't
     // steer until the stagger clears). Eating an edge-triggered toggle corrupts

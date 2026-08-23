@@ -48,7 +48,10 @@ pub use surface_momentum::{
     DepthOcclusions, MomentumParams, OcclusionSpan, RouteDeparture, SurfaceMotion, SurfaceRef,
 };
 
-pub use abilities::{resolve_burst_maneuver, resolve_shield, BurstManeuver};
+pub use abilities::{
+    out_of_shield_permits, resolve_burst_maneuver, resolve_shield, spend_out_of_shield,
+    BurstManeuver, OutOfShieldAction,
+};
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 pub use body_contact::{constrain_motion, BodyContactBlocker, BodyContactField};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
@@ -86,7 +89,8 @@ pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_P
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
     FlightTuning, FootstoolTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    ParryTiming, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning, AIR_ACCEL,
+    OutOfShield, ParryTiming, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning,
+    AIR_ACCEL,
     AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN,
     BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME,
     DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS,
@@ -148,6 +152,7 @@ pub(crate) fn update_body_control_in_frame(
         clusters.abilities,
         input,
         tuning,
+        clusters.shield,
     );
 
     abilities::apply_fly_toggle(
@@ -376,6 +381,7 @@ fn update_body_simulation_inner(
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
         clusters.shield.parry_caught_timer = dec(clusters.shield.parry_caught_timer);
+        clusters.shield.drop_lag_timer = dec(clusters.shield.drop_lag_timer);
         if crate::body_clusters::tick_shield_resource(clusters.shield, tuning.abilities.shield, dt)
         {
             events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldBreak);

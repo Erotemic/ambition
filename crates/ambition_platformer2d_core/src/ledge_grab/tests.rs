@@ -1706,3 +1706,24 @@ fn a_ledge_grab_is_intangible_without_reading_as_a_dodge_roll() {
          tell the two apart"
     );
 }
+
+/// ⭐ THE TAIL OF A LEDGE ATTACK IS EXPOSED, and that exposure is the mechanic.
+///
+/// A ledge option with no punish is not a read. The intangibility covers the
+/// swing and ends while the body is still rising, so a defender who guessed the
+/// attack has something to hit. It covered the WHOLE attack once — not by
+/// decision, but because the maneuver borrowed the dodge roll's timer and
+/// inherited its duration with it.
+#[test]
+fn a_ledge_getup_attack_stops_being_intangible_before_it_ends() {
+    assert!(
+        super::LEDGE_GETUP_ATTACK_INVULN > 0.0,
+        "the swing itself has to be covered, or contesting the edge is free \
+         for the defender instead"
+    );
+    assert!(
+        super::LEDGE_GETUP_ATTACK_INVULN < super::LEDGE_GETUP_ATTACK_TIME,
+        "the attack is intangible for its whole duration, so it is the one \
+         ledge option that cannot be punished"
+    );
+}

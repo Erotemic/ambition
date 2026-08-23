@@ -51,6 +51,22 @@ const SMOKE_RGB: [f32; 3] = [0.82, 0.84, 0.90];
 const MIN_SMOKE_ALPHA: f32 = 0.35;
 const MAX_SMOKE_ALPHA: f32 = 0.78;
 
+/// Speed at which a launch stops being hard and starts being a KILL.
+///
+/// Above [`TRAIL_FULL_SPEED`] the plume had nothing left to say — density
+/// saturates there — and a launch that is going to take a stock looks the same
+/// as one that will not. This is the second threshold the campaign left open
+/// for after the basic trail read correctly.
+const TRAIL_NEAR_KO_SPEED: f32 = 2600.0;
+
+/// The near-KO plume's colour: an ember, not smoke. A hue change rather than
+/// more of the same particles, because more grey at a speed where the plume is
+/// already saturated reads as nothing.
+const EMBER_RGB: [f32; 3] = [1.0, 0.62, 0.30];
+
+/// Extra particles per puff at the far end of the near-KO band.
+const EMBER_EXTRA_PARTICLES: u32 = 2;
+
 /// What one launched body's trail asks for this tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TrailPuff {
@@ -58,6 +74,10 @@ pub struct TrailPuff {
     pub stride: u64,
     pub particles: u32,
     pub alpha: f32,
+    /// How far into the near-KO band this launch is, `0..=1`. Drives the
+    /// plume's shift from smoke toward ember and the extra particles that come
+    /// with it; `0.0` for every launch below [`TRAIL_NEAR_KO_SPEED`].
+    pub ember: f32,
 }
 
 /// The trail this launch asks for — `None` when the launch is not hard enough
@@ -71,12 +91,31 @@ pub fn launch_trail_puff(launched: bool, speed: f32) -> Option<TrailPuff> {
         return None;
     }
     let t = ((speed - TRAIL_ONSET_SPEED) / (TRAIL_FULL_SPEED - TRAIL_ONSET_SPEED)).clamp(0.0, 1.0);
+    // The near-KO band runs from where density saturates to twice as far
+    // again, so the ember arrives gradually rather than switching on.
+    let ember =
+        ((speed - TRAIL_NEAR_KO_SPEED) / (TRAIL_NEAR_KO_SPEED - TRAIL_FULL_SPEED)).clamp(0.0, 1.0);
     Some(TrailPuff {
         // Rounds toward the denser end as `t` rises, and never to zero.
-        stride: lerp(ONSET_STRIDE as f32, FULL_STRIDE as f32, t).round().max(1.0) as u64,
-        particles: lerp(ONSET_PARTICLES as f32, FULL_PARTICLES as f32, t).round() as u32,
+        stride: lerp(ONSET_STRIDE as f32, FULL_STRIDE as f32, t)
+            .round()
+            .max(1.0) as u64,
+        particles: lerp(ONSET_PARTICLES as f32, FULL_PARTICLES as f32, t).round() as u32
+            + (EMBER_EXTRA_PARTICLES as f32 * ember).round() as u32,
         alpha: lerp(MIN_SMOKE_ALPHA, MAX_SMOKE_ALPHA, t),
+        ember,
     })
+}
+
+/// The plume's colour at this point in the near-KO band: smoke at `0.0`,
+/// ember at `1.0`.
+fn plume_rgb(ember: f32) -> [f32; 3] {
+    let ember = ember.clamp(0.0, 1.0);
+    [
+        lerp(SMOKE_RGB[0], EMBER_RGB[0], ember),
+        lerp(SMOKE_RGB[1], EMBER_RGB[1], ember),
+        lerp(SMOKE_RGB[2], EMBER_RGB[2], ember),
+    ]
 }
 
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
@@ -106,12 +145,14 @@ pub fn emit_launch_trails(
         if tick.0 % puff.stride != 0 {
             continue;
         }
-        let behind = body.vel / speed.max(1.0) * (body.size.x.max(body.size.y) * TRAIL_OFFSET_FRACTION);
+        let behind =
+            body.vel / speed.max(1.0) * (body.size.x.max(body.size.y) * TRAIL_OFFSET_FRACTION);
+        let rgb = plume_rgb(puff.ember);
         vfx.write(VfxMessage::Burst {
             pos: body.pos - behind,
             count: puff.particles,
             speed: PUFF_SPREAD_SPEED,
-            color: [SMOKE_RGB[0], SMOKE_RGB[1], SMOKE_RGB[2], puff.alpha],
+            color: [rgb[0], rgb[1], rgb[2], puff.alpha],
             // Dust already grows and drags as it ages, which is what a plume
             // does. A `Smoke` kind would be the same recipe under a new name.
             kind: ParticleKind::Dust,
@@ -148,8 +189,50 @@ mod tests {
         assert!(onset.stride > full.stride, "{onset:?} {full:?}");
         assert!(onset.particles <= full.particles);
         assert!(onset.alpha < full.alpha);
-        assert_eq!(full, launch_trail_puff(true, TRAIL_FULL_SPEED * 10.0).unwrap());
         assert!(full.stride >= 1, "a stride of zero would divide by zero");
+
+        // The SMOKE saturates at full density: past here a faster launch buys
+        // no more grey. What it does buy is the ember — a different band with
+        // its own test, and the reason this is about stride and alpha rather
+        // than the whole puff.
+        let beyond = launch_trail_puff(true, TRAIL_FULL_SPEED * 10.0).unwrap();
+        assert_eq!(beyond.stride, full.stride);
+        assert_eq!(beyond.alpha, full.alpha);
+    }
+
+    /// A NEAR-KO launch stops being smoke and starts being an ember, and it
+    /// does it gradually — an ordinary hard launch is untouched by this tier.
+    #[test]
+    fn a_near_ko_launch_burns_where_an_ordinary_one_smokes() {
+        let ordinary = launch_trail_puff(true, TRAIL_FULL_SPEED).unwrap();
+        assert_eq!(ordinary.ember, 0.0, "the band starts above full density");
+        assert_eq!(plume_rgb(ordinary.ember), SMOKE_RGB);
+
+        // The band opens at its threshold, not before it.
+        assert_eq!(
+            launch_trail_puff(true, TRAIL_NEAR_KO_SPEED - 1.0)
+                .unwrap()
+                .ember,
+            0.0
+        );
+
+        let entering = launch_trail_puff(true, TRAIL_NEAR_KO_SPEED).unwrap();
+        let deep = launch_trail_puff(true, TRAIL_NEAR_KO_SPEED * 2.0).unwrap();
+        assert!(entering.ember < deep.ember, "the ember arrives gradually");
+        assert_eq!(deep.ember, 1.0, "and it saturates");
+
+        // The kill plume is hotter and thicker than the hard-launch one.
+        let hot = plume_rgb(deep.ember);
+        assert!(hot[0] > SMOKE_RGB[0] && hot[2] < SMOKE_RGB[2], "{hot:?}");
+        assert!(
+            deep.particles > ordinary.particles,
+            "{} vs {}",
+            deep.particles,
+            ordinary.particles
+        );
+
+        // And it is still a launch trail: the gate above it is unchanged.
+        assert!(launch_trail_puff(false, TRAIL_NEAR_KO_SPEED * 4.0).is_none());
     }
 
     /// The system half, over a run of ticks: a hard launch asks for smoke, and

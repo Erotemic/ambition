@@ -170,18 +170,19 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
     );
     println!(
         "[grid-sweep] {:<30} {:>9} {:>9} {:>9} {:>7} {:>10}  {}",
-        "fighter", "took0%", "took1%", "hitstun", "moves", "used/kit", "most thrown"
+        "fighter", "took0%", "took1%", "hitstun", "moves", "used/seen/kit", "most thrown"
     );
     let mut silent: Vec<String> = Vec::new();
     for id in &ids {
-        let (taken, hitstun, moves, top, kit, distinct) = mirror_bout(id);
+        let (taken, hitstun, moves, top, kit, distinct, reachable) = mirror_bout(id);
         println!(
-            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>5}/{:<4}  {top}",
+            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>4}/{:>3}/{:<4}  {top}",
             taken[0] * 100.0,
             taken[1] * 100.0,
             hitstun[0] + hitstun[1],
             moves,
             distinct,
+            reachable,
             kit,
         );
         if taken[0] + taken[1] < 0.1 {
@@ -204,7 +205,7 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
 /// One mirror match in the shipped composition: damage each seat ACCUMULATED
 /// (a KO resets the meter, so a peak measures survival rather than violence) and
 /// ticks each spent in hitstun.
-fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, usize) {
+fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, usize, usize) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
@@ -278,11 +279,54 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, us
             .map(|(_, moveset)| moveset.0.moves.len())
             .unwrap_or(0)
     };
+    // ⭐ HOW MANY MOVES CAN THE BRAIN EVEN SEE? The kit is not the moveset. It is
+    // built by asking `move_for_directional_verb` for three verbs across five
+    // directions plus a grab — at most sixteen entries — so a character's
+    // authored breadth is visible to the scorer only where it is BOUND to one of
+    // those presses. A fighter with thirty-three moves and two bound slots has
+    // thirty-one the brain will never offer, and "it only ever throws two" is
+    // then a wiring fact rather than a scoring one.
+    let reachable = {
+        let world = app.world_mut();
+        world
+            .query::<(
+                &MatchSeat,
+                &ambition_platformer2d::combat::moveset::ActorMoveset,
+            )>()
+            .iter(world)
+            .next()
+            .map(|(_, moveset)| {
+                let mut ids = std::collections::BTreeSet::new();
+                for verb in [
+                    ambition_platformer2d::combat::moveset::ATTACK_VERB,
+                    ambition_platformer2d::combat::moveset::SMASH_VERB,
+                    ambition_platformer2d::combat::moveset::SPECIAL_VERB,
+                ] {
+                    for dir in [
+                        ambition_platformer2d::entity_catalog::AttackDir::Neutral,
+                        ambition_platformer2d::entity_catalog::AttackDir::Forward,
+                        ambition_platformer2d::entity_catalog::AttackDir::Back,
+                        ambition_platformer2d::entity_catalog::AttackDir::Up,
+                        ambition_platformer2d::entity_catalog::AttackDir::Down,
+                    ] {
+                        for grounded in [true, false] {
+                            if let Some(spec) =
+                                moveset.0.move_for_directional_verb(verb, dir, grounded)
+                            {
+                                ids.insert(spec.id.clone());
+                            }
+                        }
+                    }
+                }
+                ids.len()
+            })
+            .unwrap_or(0)
+    };
     let moves: usize = started.values().sum();
     let top = started
         .iter()
         .max_by_key(|(id, count)| (**count, std::cmp::Reverse((*id).clone())))
         .map(|(id, count)| format!("{id}×{count}"))
         .unwrap_or_else(|| "—".to_string());
-    (taken, hitstun, moves, top, kit, started.len())
+    (taken, hitstun, moves, top, kit, started.len(), reachable)
 }

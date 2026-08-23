@@ -349,7 +349,8 @@ fn run_one(
 }
 
 fn report_one(character: &str, seconds: usize, totals: &[Tally]) {
-    println!("match_report: {character} vs {character}, {seconds}s of CPU-versus-CPU\n");
+    println!("match_report: {character} vs {character}, {seconds}s of CPU-versus-CPU");
+    println!("{}\n", composition_scope());
     println!(
         "{:<6} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>7} {:>8} {:>8}",
         "seat",
@@ -624,11 +625,35 @@ fn sample(
 
 /// `min–median–max` across runs, which is the shape a threshold should be picked
 /// off. One number from one run is a sample of a noisy process, and this rig
+/// ⭐⭐ WHAT COMPOSITION THIS MEASUREMENT IS OF, printed on every run.
+///
+/// ⛔ A PROOF THAT DOES NOT CARRY ITS SCOPE GETS BELIEVED BEYOND IT, and this
+/// has now cost two separate findings. This binary composes the SMASH DEMO
+/// SHELL, whose character catalog is a fraction of the full app's — twice in one
+/// day a lane proved a change live here, correctly, and the regression it missed
+/// existed only in the full app: once for a respawn interval that reads clean on
+/// George and costs `npc_pirate_admiral` two-thirds of its damage, and once for
+/// a perception bound that only bites characters this shell cannot seat.
+///
+/// So the header says which game was measured. A reader who then quotes the
+/// number at the shipped roster is making a claim this line already refused.
+fn composition_scope() -> String {
+    format!(
+        "⚠ composition: the SMASH DEMO SHELL, which carries `{}`, `{}` and `{}`. The shipped \
+         app's grid is larger, and a number taken here is a claim about THIS composition \
+         only - `app_it` is where the full roster lives.",
+        ambition_demo_smash::SMASH_GEORGE_BOOUL,
+        ambition_demo_smash::SMASH_CHARACTER_ID,
+        ambition_demo_smash::SMASH_OPPONENT_ID,
+    )
+}
+
 /// exists because a change judged on one made the suite worse.
 fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!(
-        "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n",
-        all.len()
+        "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
+        all.len(),
+        composition_scope()
     );
     let spread = |pick: fn(&Tally) -> f32| -> String {
         let mut values: Vec<f32> = all

@@ -98,6 +98,17 @@ struct Tally {
     /// wherever the runtime takes a cancel window's nomination, which is exactly
     /// where a chain lives.
     started: std::collections::BTreeMap<String, usize>,
+    /// Launches HANDED to this body: rising edges of hitstun, the same edge
+    /// `top_speed` is sampled on. The peak alone cannot say whether a match had
+    /// one big hit or forty.
+    launches: usize,
+    /// Ticks inside the HARD control lock at the front of a launch
+    /// (`BodyCombat::recoil_lock_timer`) while launched — the window
+    /// presentation reads as the launch BEAT, and the only thing that separates
+    /// a body thrown this instant from one that has been tumbling for a second.
+    /// Beside `launches` it says how long a beat lasts in practice; `0` means
+    /// the beat is inert and every launch trail is the same trail.
+    beat_ticks: usize,
     /// Ticks this body spent HELD by somebody. A grab is the most visible beat
     /// in the genre that a CPU can simply never throw, and "moves started"
     /// cannot see it: a grab that is refused and a grab that is never attempted
@@ -454,6 +465,7 @@ fn sample(
                     },
                     kin.pos.x,
                     captured.is_some(),
+                    combat.recoil_lock_timer,
                 )
             },
         )
@@ -475,6 +487,7 @@ fn sample(
         tech_timer,
         here,
         captured,
+        recoil_lock,
     ) in rows
     {
         let Some(tally) = totals.get_mut(seat) else {
@@ -500,6 +513,10 @@ fn sample(
         // threshold it had to beat was the one it left with.
         if hitstun > 0.0 && hitstun_was[seat] <= 0.0 {
             tally.top_speed = tally.top_speed.max(speed);
+            tally.launches += 1;
+        }
+        if hitstun > 0.0 && recoil_lock > 0.0 {
+            tally.beat_ticks += 1;
         }
         hitstun_was[seat] = hitstun;
         tally.tumble_speed = tumble_speed;
@@ -617,6 +634,8 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!("  in range    {}", spread(|t| t.in_range as f32));
     println!("  KOs         {}", spread(|t| t.kos as f32));
     println!("  held        {}", spread(|t| t.held as f32));
+    println!("  launches    {}", spread(|t| t.launches as f32));
+    println!("  launch beat {}", spread(|t| t.beat_ticks as f32));
     println!("  best charge {}", peak(|t| t.best_charge));
     println!("  peak launch {}", peak(|t| t.top_speed));
     println!(

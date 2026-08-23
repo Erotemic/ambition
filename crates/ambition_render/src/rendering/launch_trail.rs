@@ -1,9 +1,22 @@
-//! Hard-launch smoke trail — the flight-readability layer.
+//! Hard-launch readability — the flight layer, in TWO beats.
 //!
-//! A body thrown hard enough leaves a trailing plume behind its velocity
-//! vector, so a spectator can still read the launch after the impact spark has
-//! left the screen. This is a LAYER over the hit spark and camera shake, not a
-//! replacement for either.
+//! 1. **The blast.** A body thrown hard tears out of the hit in a bright spark
+//!    flare that lasts exactly as long as the launch's hard control lock. This
+//!    is the moment of being launched.
+//! 2. **The plume.** For the rest of the flight it trails smoke behind its
+//!    velocity vector, so a spectator can still read the launch after the
+//!    impact spark has left the screen.
+//!
+//! Both are a LAYER over the hit spark and camera shake, not a replacement for
+//! either.
+//!
+//! ⭐ THE TWO BEATS ARE THE POINT. A body launched this instant and one that
+//! has been tumbling for a second are the same row in the view, at the same
+//! speed, and looked identical until the blast existed: the plume alone says
+//! *"this body is flying"* and never *"this body was just hit that hard"*.
+//! The one fact that separates them is
+//! [`ambition_sim_view::LaunchedBodyFact::launch_beat_secs`], and it is the
+//! sim's own control-lock window rather than anything reconstructed here.
 //!
 //! The gate is membership in [`LaunchedBodiesView`] — the sim's resolved
 //! "this motion is involuntary" fact — plus speed. Velocity alone is not the
@@ -98,13 +111,13 @@ pub struct TrailPuff {
     pub ember: f32,
 }
 
-/// The trail this launch asks for — `None` when the launch is not hard enough
-/// to be worth reading from across the stage.
+/// How hard this launch is, or `None` when it is not a launch worth reading.
 ///
-/// The whole gate lives here so it can be asserted without a renderer: a
-/// voluntary sprint and a launch at the same speed must not answer the same,
-/// and only the caller's membership in the launched view separates them.
-pub fn launch_trail_puff(launched: bool, speed: f32) -> Option<TrailPuff> {
+/// `.0` is the ordinary hard-launch ramp, `0` at [`TRAIL_ONSET_SPEED`] and `1`
+/// at [`TRAIL_FULL_SPEED`]; `.1` is how far into the near-KO band it goes.
+/// ONE onset for both beats on purpose — the blast and the plume must agree
+/// about what counts as a launch, or a hit reads as a flare with no smoke.
+fn launch_bands(launched: bool, speed: f32) -> Option<(f32, f32)> {
     if !launched || speed < TRAIL_ONSET_SPEED {
         return None;
     }
@@ -113,6 +126,17 @@ pub fn launch_trail_puff(launched: bool, speed: f32) -> Option<TrailPuff> {
     // again, so the ember arrives gradually rather than switching on.
     let ember =
         ((speed - TRAIL_NEAR_KO_SPEED) / (TRAIL_NEAR_KO_SPEED - TRAIL_FULL_SPEED)).clamp(0.0, 1.0);
+    Some((t, ember))
+}
+
+/// The trail this launch asks for — `None` when the launch is not hard enough
+/// to be worth reading from across the stage.
+///
+/// The whole gate lives here so it can be asserted without a renderer: a
+/// voluntary sprint and a launch at the same speed must not answer the same,
+/// and only the caller's membership in the launched view separates them.
+pub fn launch_trail_puff(launched: bool, speed: f32) -> Option<TrailPuff> {
+    let (t, ember) = launch_bands(launched, speed)?;
     Some(TrailPuff {
         // Rounds toward the denser end as `t` rises, and never to zero.
         stride: lerp(ONSET_STRIDE as f32, FULL_STRIDE as f32, t)
@@ -123,6 +147,69 @@ pub fn launch_trail_puff(launched: bool, speed: f32) -> Option<TrailPuff> {
         alpha: lerp(MIN_SMOKE_ALPHA, MAX_SMOKE_ALPHA, t),
         ember,
     })
+}
+
+/// Sparks in the flare at onset and at full launch strength, PER TICK of the
+/// beat. The beat is short — the engine's ordinary knockback control lock is
+/// `0.12s`, seven ticks — so these are per-tick counts of a flare, not of a
+/// one-shot burst.
+const BLAST_PARTICLES_ONSET: u32 = 3;
+const BLAST_PARTICLES_FULL: u32 = 6;
+
+/// How fast the flare throws its sparks. An order of magnitude above
+/// [`PUFF_SPREAD_SPEED`], and that gap IS the read: the plume hangs where the
+/// body was, the flare leaves.
+const BLAST_SPREAD_SPEED: f32 = 300.0;
+
+/// The flare's colour: hot white, shifting to the plume's ember at the near-KO
+/// end so the two beats of one launch are the same launch.
+const BLAST_RGB: [f32; 3] = [1.0, 0.97, 0.86];
+const BLAST_MIN_ALPHA: f32 = 0.70;
+const BLAST_MAX_ALPHA: f32 = 0.95;
+
+/// What the FRONT of a launch asks for, on top of the plume.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LaunchBlast {
+    pub particles: u32,
+    pub speed: f32,
+    pub alpha: f32,
+    /// Shared with [`TrailPuff::ember`] so the flare and the smoke of one
+    /// launch shift colour together.
+    pub ember: f32,
+}
+
+/// The flare this launch asks for THIS TICK — `None` once the launch stops
+/// being new, which is the whole distinction this function exists to draw.
+///
+/// `beat` is [`ambition_sim_view::LaunchedBodyFact::launch_beat_secs`] being
+/// live: the sim's hard control lock at the front of a knockback, the window in
+/// which the body has been thrown and cannot yet answer for it. ⛔ it is NOT
+/// reconstructed from speed, hitstun or the plume — a body decelerating into
+/// the same speed twice would flare twice.
+pub fn launch_blast(beat: bool, speed: f32) -> Option<LaunchBlast> {
+    if !beat {
+        return None;
+    }
+    let (t, ember) = launch_bands(true, speed)?;
+    Some(LaunchBlast {
+        particles: lerp(BLAST_PARTICLES_ONSET as f32, BLAST_PARTICLES_FULL as f32, t).round()
+            as u32
+            + (EMBER_EXTRA_PARTICLES as f32 * ember).round() as u32,
+        speed: BLAST_SPREAD_SPEED,
+        alpha: lerp(BLAST_MIN_ALPHA, BLAST_MAX_ALPHA, t),
+        ember,
+    })
+}
+
+/// The flare's colour at this point in the near-KO band: white-hot at `0.0`,
+/// ember at `1.0`.
+fn blast_rgb(ember: f32) -> [f32; 3] {
+    let ember = ember.clamp(0.0, 1.0);
+    [
+        lerp(BLAST_RGB[0], EMBER_RGB[0], ember),
+        lerp(BLAST_RGB[1], EMBER_RGB[1], ember),
+        lerp(BLAST_RGB[2], EMBER_RGB[2], ember),
+    ]
 }
 
 /// The plume's colour at this point in the near-KO band: smoke at `0.0`,
@@ -157,6 +244,20 @@ pub fn emit_launch_trails(
     *last_sampled = Some(tick.0);
     for body in &launched.0 {
         let speed = body.vel.length();
+        // THE BLAST, first: it is on top of the plume, not instead of it, so a
+        // launch starts smoking from the tick it starts flaring. Sparks at the
+        // body rather than behind it — the flare is the body tearing out of the
+        // hit, and it shrinks and falls away where the plume grows and hangs.
+        if let Some(blast) = launch_blast(body.launch_beat_secs > 0.0, speed) {
+            let rgb = blast_rgb(blast.ember);
+            vfx.write(VfxMessage::Burst {
+                pos: body.pos,
+                count: blast.particles,
+                speed: blast.speed,
+                color: [rgb[0], rgb[1], rgb[2], blast.alpha],
+                kind: ParticleKind::Spark,
+            });
+        }
         let Some(puff) = launch_trail_puff(true, speed) else {
             continue;
         };
@@ -291,6 +392,96 @@ mod tests {
         assert!(drain(&mut app).is_empty());
     }
 
+    /// A body launched THIS INSTANT and one that has been tumbling for a second
+    /// must not look the same. This is the slice.
+    ///
+    /// Same view, same speed, same everything except the control lock the sim
+    /// published — and only the first one flares.
+    #[test]
+    fn the_front_of_a_launch_flares_and_a_sustained_tumble_does_not() {
+        let hard = Vec2::new(1500.0, 0.0);
+
+        let mut app = harness();
+        set_launched_beat(&mut app, Some(hard), 0.09);
+        let front = run_ticks(&mut app, 4);
+        assert!(!sparks(&front).is_empty(), "the front of a launch flares");
+        assert!(!dust(&front).is_empty(), "and it smokes from the same tick");
+
+        // The lock has run out. Still launched, still travelling exactly as
+        // fast, still trailing — and no longer flaring.
+        set_launched_beat(&mut app, Some(hard), 0.0);
+        let sustained = run_ticks(&mut app, 4);
+        assert!(
+            sparks(&sustained).is_empty(),
+            "a sustained tumble must not keep flaring: {sustained:?}"
+        );
+        assert!(
+            !dust(&sustained).is_empty(),
+            "but the plume is the rest of the flight and continues"
+        );
+    }
+
+    /// The flare answers to the LAUNCH, not to the lock alone: a body nudged
+    /// into a control lock at walking pace has nothing to announce.
+    #[test]
+    fn a_beat_below_the_launch_onset_does_not_flare() {
+        assert!(launch_blast(true, TRAIL_ONSET_SPEED - 1.0).is_none());
+        assert!(launch_blast(true, TRAIL_ONSET_SPEED).is_some());
+        // And no lock is no flare at any speed a fight can produce.
+        assert!(launch_blast(false, TRAIL_ONSET_SPEED * 10.0).is_none());
+    }
+
+    /// The flare is the plume's opposite number, and the contrast is what makes
+    /// the two beats legible rather than one effect at two densities.
+    #[test]
+    fn the_flare_reads_against_the_plume_it_sits_on() {
+        let hard = TRAIL_FULL_SPEED;
+        let blast = launch_blast(true, hard).unwrap();
+        let puff = launch_trail_puff(true, hard).unwrap();
+        assert!(
+            blast.speed > PUFF_SPREAD_SPEED * 4.0,
+            "the flare leaves, the plume hangs"
+        );
+        assert!(
+            blast.alpha > puff.alpha,
+            "and it is the brighter of the two"
+        );
+        // Hot against cold: the plume is a blue-grey smoke (its blue channel is
+        // its highest) and the flare is warm white. Stated as the warmth
+        // DIFFERENCE rather than a channel value, so retuning either colour
+        // keeps the claim honest.
+        let warmth = |c: [f32; 3]| c[0] - c[2];
+        assert!(
+            warmth(blast_rgb(0.0)) > warmth(SMOKE_RGB),
+            "{:?} vs {SMOKE_RGB:?}",
+            blast_rgb(0.0)
+        );
+
+        // Strength rises with the launch, exactly as the plume's does.
+        let onset = launch_blast(true, TRAIL_ONSET_SPEED).unwrap();
+        assert!(onset.particles < blast.particles);
+        assert!(onset.alpha < blast.alpha);
+
+        // And a near-KO launch flares in the same colour its plume burns.
+        let deep = launch_blast(true, TRAIL_NEAR_KO_SPEED * 2.0).unwrap();
+        assert_eq!(deep.ember, 1.0);
+        assert_eq!(blast_rgb(deep.ember), plume_rgb(deep.ember));
+    }
+
+    /// The flare is per SIM TICK like the plume, so a fast display does not
+    /// thicken it either.
+    #[test]
+    fn the_flare_does_not_thicken_with_the_frame_rate() {
+        let mut app = harness();
+        set_launched_beat(&mut app, Some(Vec2::new(1500.0, 0.0)), 0.09);
+        app.update();
+        assert_eq!(sparks(&drain(&mut app)).len(), 1);
+        for _ in 0..3 {
+            app.update();
+        }
+        assert!(sparks(&drain(&mut app)).is_empty());
+    }
+
     fn harness() -> App {
         let mut app = App::new();
         app.init_resource::<SimTick>();
@@ -301,6 +492,11 @@ mod tests {
     }
 
     fn set_launched(app: &mut App, vel: Option<Vec2>) {
+        set_launched_beat(app, vel, 0.0);
+    }
+
+    /// A launched body with `beat` seconds left in its hard control lock.
+    fn set_launched_beat(app: &mut App, vel: Option<Vec2>, beat: f32) {
         let mut view = app.world_mut().resource_mut::<LaunchedBodiesView>();
         view.0.clear();
         if let Some(vel) = vel {
@@ -308,8 +504,38 @@ mod tests {
                 pos: Vec2::ZERO,
                 vel,
                 size: Vec2::new(30.0, 48.0),
+                launch_beat_secs: beat,
             });
         }
+    }
+
+    /// Every spark burst in `msgs` — the flare. The plume is dust.
+    fn sparks(msgs: &[VfxMessage]) -> Vec<&VfxMessage> {
+        msgs.iter()
+            .filter(|m| {
+                matches!(
+                    m,
+                    VfxMessage::Burst {
+                        kind: ParticleKind::Spark,
+                        ..
+                    }
+                )
+            })
+            .collect()
+    }
+
+    fn dust(msgs: &[VfxMessage]) -> Vec<&VfxMessage> {
+        msgs.iter()
+            .filter(|m| {
+                matches!(
+                    m,
+                    VfxMessage::Burst {
+                        kind: ParticleKind::Dust,
+                        ..
+                    }
+                )
+            })
+            .collect()
     }
 
     /// Advance `n` sim ticks, one frame each, and return everything requested.

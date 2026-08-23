@@ -17,6 +17,14 @@ use bevy::prelude::*;
 struct MoveLedger {
     /// Every move START observed, per seat.
     started: BTreeMap<usize, BTreeMap<String, usize>>,
+    /// Seat → ticks spent OUTSIDE the stage's own footprint.
+    ///
+    /// ⛔⛔ THE PREMISE OF EVERY "DID IT USE ITS RECOVERY" QUESTION, and it was
+    /// missing. A route home is only wanted by a fighter that is off the stage,
+    /// so a match that never puts one there cannot observe the affordance —
+    /// and the guard below spent two behaviour changes accusing the CPU of
+    /// recovering on legacy drift when the match had simply never launched it.
+    offstage_ticks: BTreeMap<usize, usize>,
     /// The last `(move id, clock)` seen per entity, so a move that is still
     /// running is not counted again every tick.
     live: BTreeMap<Entity, (String, f32)>,
@@ -24,7 +32,20 @@ struct MoveLedger {
 
 impl MoveLedger {
     fn sample(&mut self, app: &mut App) {
+        let stage = ambition_demo_smash::smash_stage().world.size;
         let world = app.world_mut();
+        let mut positions = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::actor::BodyKinematics,
+        )>();
+        let offstage: Vec<usize> = positions
+            .iter(world)
+            .filter(|(_, kin)| kin.pos.x < 0.0 || kin.pos.x > stage.x || kin.pos.y > stage.y)
+            .map(|(seat, _)| seat.0)
+            .collect();
+        for seat in offstage {
+            *self.offstage_ticks.entry(seat).or_default() += 1;
+        }
         let mut q = world.query::<(Entity, &MatchSeat, &MovePlayback)>();
         let rows: Vec<(Entity, usize, String, f32)> = q
             .iter(world)
@@ -137,9 +158,14 @@ impl MatchReport {
             let started = self.started(*seat);
             let total: usize = started.values().sum();
             let (specials, aerials, routes) = (specials(table), aerials(table), routes(table));
+            // ⭐ PRINTED ON SUCCESS TOO. How long a seat spent off the stage is
+            // the premise of every route/recovery claim here, and a number only
+            // visible on failure cannot tell a reader whether a GREEN run
+            // observed the affordance or merely never asked.
+            let offstage = self.ledger.offstage_ticks.get(seat).copied().unwrap_or(0);
             out.push_str(&format!(
                 "  seat {seat} wearing {:<22} starts={total} distinct={} \
-                 specials={}/{} aerials={}/{} routes={}/{}\n    threw={started:?}\n",
+                 specials={}/{} aerials={}/{} routes={}/{} offstage={offstage}\n    threw={started:?}\n",
                 self.characters
                     .get(seat)
                     .map_or("?", std::string::String::as_str),
@@ -446,12 +472,30 @@ fn every_authored_route_gets_pressed() {
             continue;
         }
         fighters_with_a_route += 1;
+        // ⛔⛔ THE PREMISE FIRST, AND IT IS NOT A FORMALITY. This probe watches
+        // one match and asks whether a route was ever pressed, so it can only
+        // see the affordance in a match that put the fighter off the stage. It
+        // has now gone red twice for behaviour changes that moved WHEN George
+        // first goes out — a charge-payoff correction and a charge-pose move —
+        // while `the_cpu_throws_its_authored_recovery_during_a_match`, which
+        // asks the brain what it SELECTED in `Situation::Recovery`, stayed
+        // green both times. Widening the window each time is a hand-kept
+        // ledger; naming the premise is the fix.
+        let offstage = m.ledger.offstage_ticks.get(seat).copied().unwrap_or(0);
+        assert!(
+            offstage > 0,
+            "seat {seat} never left the stage in {WINDOW} ticks, so this match \
+             cannot say anything about whether it uses its route home. That is \
+             a statement about the MATCH, not about the fighter — the claim \
+             about the brain's selection is \
+             `the_cpu_throws_its_authored_recovery_during_a_match`.\n{report}"
+        );
         assert!(
             count_within(&m.started(*seat), &routes) > 0,
-            "seat {seat} carries {} authored route(s) home ({routes:?}) and \
-             pressed none across {WINDOW} ticks — the shape of a CPU that \
-             recovers on legacy drift-and-jump while holding a real \
-             recovery.\n{report}",
+            "seat {seat} carries {} authored route(s) home ({routes:?}), spent \
+             {offstage} ticks off the stage, and pressed none across {WINDOW} \
+             ticks — the shape of a CPU that recovers on legacy drift-and-jump \
+             while holding a real recovery.\n{report}",
             routes.len(),
         );
     }

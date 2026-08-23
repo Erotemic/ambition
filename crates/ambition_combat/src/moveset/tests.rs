@@ -3761,7 +3761,16 @@ fn a_zero_window_restores_the_drop_it_replaced() {
 // the fixture's own authoring, never a feel judgement.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CHARGE_HOLD_AT_S: f32 = 0.10;
+/// ⛔⛔ STRICTLY INSIDE THE WINDUP, and it used to be `0.10` — the same instant
+/// `CHARGE_ACTIVE_AT_S` opens the strike. Active membership is
+/// `start_s <= t < end_s`, so a charge frozen there stands inside a live hitbox,
+/// which is the whole defect `a_held_charge_has_no_live_strike_and_releases_into_one`
+/// exists to refuse. The fixture authored it, so the fixture reproduced it.
+const CHARGE_HOLD_AT_S: f32 = 0.05;
+/// Where the fixture's strike goes live — FLUSH against the windup, because
+/// that is how a smash is ordinarily authored and it is the shape that made the
+/// derived hold point illegal.
+const CHARGE_ACTIVE_AT_S: f32 = 0.10;
 const CHARGE_MAX_HOLD_S: f32 = 0.20;
 const CHARGE_MULT: f32 = 2.0;
 
@@ -3779,14 +3788,14 @@ fn charging_smash() -> MoveSpec {
         windows: vec![
             MoveWindow {
                 start_s: 0.0,
-                end_s: CHARGE_HOLD_AT_S,
+                end_s: CHARGE_ACTIVE_AT_S,
                 tag: WindowTag::Startup,
                 volumes: vec![],
                 sustain_effect: None,
                 motion_scale: 1.0,
             },
             MoveWindow {
-                start_s: CHARGE_HOLD_AT_S,
+                start_s: CHARGE_ACTIVE_AT_S,
                 end_s: 0.16,
                 tag: WindowTag::Active,
                 volumes: vec![HitVolume {
@@ -5268,5 +5277,147 @@ fn a_held_smash_gesture_still_pays_its_multiplier() {
         (pb.charge_scale() - CHARGE_MULT).abs() < 1e-6,
         "a fully held smash no longer pays: {}",
         pb.charge_scale()
+    );
+}
+
+/// ⛔⛔ A HELD CHARGE HAS NO LIVE STRIKE, ON EVERY HELD TICK — and the strike
+/// appears only on release, on entering Active.
+///
+/// The defect this pins was structural rather than authored: the derived hold
+/// point came from the leading Startup window's `end_s`, ordinary smash
+/// authoring lays Active directly against Startup, and Active membership is
+/// `start_s <= t < end_s`. So the freeze landed on the FIRST ACTIVE INSTANT and
+/// a fighter could stand in a charge with a live hitbox already spawned, for as
+/// long as it liked.
+///
+/// ⭐ IT HOLDS THE BUTTON THE WAY A HAND DOES. `ResolvedAttackGesture::held` is
+/// what the playback reads to keep charging, so this fixture writes that and
+/// then CLEARS it — a charge released by a real release, not by a field poked
+/// to its maximum.
+///
+/// ⭐ AND IT DOES NOT TRUST THE AUTHORING: the move lays its Active window flush
+/// against its Startup, which is the shape that produced the bug, so a hold
+/// point drifting back to the window edge fails here rather than being hidden
+/// by a fixture that left a gap.
+#[test]
+fn a_held_charge_has_no_live_strike_and_releases_into_one() {
+    use ambition_characters::actor::attack_gesture::{
+        AttackGestureIntent, ResolvedAttackGesture,
+    };
+
+    let spec = charging_smash();
+    let startup_end = spec
+        .windows
+        .iter()
+        .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Startup))
+        .map(|w| w.end_s)
+        .expect("the fixture authors a windup");
+    let first_active = spec
+        .windows
+        .iter()
+        .filter(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+        .map(|w| w.start_s)
+        .fold(f32::MAX, f32::min);
+    assert_eq!(
+        startup_end, first_active,
+        "the fixture leaves a gap between windup and strike, so it cannot \
+         observe a freeze landing inside one"
+    );
+
+    let (mut app, _victim) = app_with_victim();
+    let attacker = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(15.0, 24.0),
+        spec,
+    );
+    let held = AttackGestureIntent {
+        direction: AttackDir::Forward,
+        strength: ambition_characters::actor::attack_gesture::AttackStrength::Smash,
+        posture: ambition_characters::actor::attack_gesture::AttackPosture::Grounded,
+        phase: ambition_characters::actor::attack_gesture::AttackInputPhase::Hold,
+    };
+    app.world_mut().entity_mut(attacker).insert((
+        MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true),
+        ResolvedAttackGesture {
+            pressed: None,
+            held: Some(held),
+            released: None,
+            special: None,
+        },
+    ));
+
+    let live_strikes = |app: &mut App| -> usize {
+        let mut q = app.world_mut().query::<&StrikeVolume>();
+        q.iter(app.world()).filter(|v| v.owner == attacker).count()
+    };
+
+    // ── held ────────────────────────────────────────────────────────────────
+    // ⛔ SHORTER THAN `max_hold_s`, deliberately. A full charge is LOADED, not
+    // stored — the move fires itself at the authored maximum whether or not the
+    // button is down — so a longer hold here would be observing the auto-release
+    // rather than the hold.
+    let mut rooted_ticks = 0;
+    for _ in 0..12 {
+        app.update();
+        let Some(pb) = app.world().entity(attacker).get::<MovePlayback>() else {
+            panic!("the move fired before its authored maximum with the button down");
+        };
+        if pb.rooted_by_charge() {
+            rooted_ticks += 1;
+            let t = pb.t;
+            assert!(
+                t < first_active,
+                "the charge froze at t={t}, and the first strike goes live at \
+                 {first_active}"
+            );
+            assert_eq!(
+                live_strikes(&mut app),
+                0,
+                "a fighter is holding a charge with a live strike volume \
+                 already spawned"
+            );
+        }
+    }
+    assert!(
+        rooted_ticks > 3,
+        "the charge never rooted, so nothing above observed a held charge \
+         ({rooted_ticks} rooted tick(s))"
+    );
+    assert_eq!(
+        live_strikes(&mut app),
+        0,
+        "the whole hold produced a live strike"
+    );
+
+    // ── released ────────────────────────────────────────────────────────────
+    app.world_mut()
+        .entity_mut(attacker)
+        .insert(ResolvedAttackGesture {
+            pressed: None,
+            held: None,
+            released: None,
+            special: None,
+        });
+    let mut saw_strike = false;
+    for _ in 0..120 {
+        app.update();
+        let Some(pb) = app.world().entity(attacker).get::<MovePlayback>() else {
+            break;
+        };
+        let t = pb.t;
+        if live_strikes(&mut app) > 0 {
+            saw_strike = true;
+            assert!(
+                t >= first_active,
+                "a strike volume exists at t={t}, before the first Active \
+                 window opens at {first_active}"
+            );
+        }
+    }
+    assert!(
+        saw_strike,
+        "releasing the charge never produced a strike at all, so the freeze is \
+         eating the swing rather than delaying it"
     );
 }

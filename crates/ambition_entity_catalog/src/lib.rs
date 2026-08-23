@@ -1022,6 +1022,38 @@ impl MoveSpec {
         (t / self.duration_s).clamp(0.0, 1.0)
     }
 
+    /// Where a charge freezes when the move authors no policy of its own: a
+    /// fraction into the leading Startup window, and never at or past the first
+    /// Active instant.
+    ///
+    /// ⛔ THE CLAMP IS NOT DEFENSIVE, it is the invariant. A move may author a
+    /// zero-width Startup, may lay Active before Startup ends, or may have no
+    /// Startup at all; in each case a fraction of the windup is the wrong answer
+    /// and the first live volume is the line that must not be crossed.
+    fn derived_charge_hold_at_s(&self) -> f32 {
+        let leading = self
+            .windows
+            .iter()
+            .find(|w| matches!(w.tag, WindowTag::Startup));
+        let Some(leading) = leading else {
+            // No windup to hold inside. The move freezes at its own first
+            // instant, which is what it did before any of this existed.
+            return 0.0;
+        };
+        let pose = leading.start_s + (leading.end_s - leading.start_s) * CHARGE_POSE_FRACTION;
+        let first_active = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .map(|w| w.start_s)
+            .fold(f32::MAX, f32::min);
+        if first_active == f32::MAX {
+            return pose.max(0.0);
+        }
+        // Strictly before: a freeze ON the first Active instant is the defect.
+        pose.clamp(0.0, (first_active - CHARGE_POSE_EPSILON_S).max(0.0))
+    }
+
     /// The charge policy a SMASH-gesture use of this move plays under, or
     /// `None` when this move does not charge.
     ///
@@ -1035,42 +1067,23 @@ impl MoveSpec {
             return None;
         }
         let policy = self.smash_charge.unwrap_or(SmashChargeSpec {
-            // ⭐⭐ THE FIRST FRAMES OF THE SWING, NOT THE LAST FRAME BEFORE THE
-            // HITBOX. This derived from the Startup window's `end_s`, which
-            // freezes the body at the instant the strike is about to come out —
-            // the whole windup already played, and the charge reads as a fighter
-            // paused mid-swing with the hitbox one frame away.
+            // ⭐⭐ THE CHARGE POSE IS IN THE WINDUP, NOT AT THE HITBOX. Jon,
+            // 2026-08-23: *"it needs to hold on the first frames of the smash
+            // animation, before letting the rest of the animation, which
+            // actually has the hitboxes, play."* That is what the genre does:
+            // a charged smash freezes in its windup and releases into the swing.
             //
-            // Jon, 2026-08-23: *"it needs to hold on the first frames of the
-            // smash animation, before letting the rest of the animation, which
-            // actually has the hitboxes, play."* That is what the genre does: a
-            // charged smash holds in its WINDUP pose and releases into the
-            // swing. So the hold point is the START of the leading Startup
-            // window, and everything after it — the rest of the windup and every
-            // Active window — plays on release.
-            // ⚠ STILL THE END OF THE WINDUP, and Jon asked for the start.
-            // *"it needs to hold on the first frames of the smash animation,
-            // before letting the rest of the animation, which actually has the
-            // hitboxes, play."* Moving it there is correct and is NOT in yet,
-            // because it silently deleted George's recovery: with the hold at
-            // the start of Startup he stopped throwing `excluded_middle`
-            // entirely over 3600 ticks, and `every_authored_route_gets_pressed`
-            // caught it as *"the shape of a CPU that recovers on legacy
-            // drift-and-jump while holding a real recovery."*
+            // ⛔⛔ THIS DERIVED FROM THE STARTUP WINDOW'S `end_s`, AND ACTIVE
+            // MEMBERSHIP IS `start_s <= t < end_s`. Ordinary smash authoring
+            // lays Active directly against Startup, so the freeze landed on the
+            // FIRST ACTIVE INSTANT — a fighter holding a charge with a live
+            // strike volume already spawned. `rooted_by_charge` is true there,
+            // so the hold was legal, indefinite, and armed.
             //
-            // ⛔ A first fix - never freeze in front of a commanded impulse -
-            // was written, measured, and came out BYTE-IDENTICAL, so the
-            // discriminating fact is not the impulse. The other half of Jon's
-            // instruction (a charging fighter cannot walk) is landed and
-            // guarded; this half needs the boundary that separates a SMASH
-            // ATTACK's charge pose from a chargeable recovery, and that boundary
-            // has to be measured rather than guessed at.
-            hold_at_s: self
-                .windows
-                .iter()
-                .find(|w| matches!(w.tag, WindowTag::Startup))
-                .map(|w| w.end_s)
-                .unwrap_or(0.0),
+            // ⇒ the hold sits a fraction into the leading windup, strictly
+            // before the first Active window. The rest of the windup plays on
+            // release, which is the beat that makes a charge readable.
+            hold_at_s: self.derived_charge_hold_at_s(),
             max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
         });
         policy.holds().then_some(policy)
@@ -1326,6 +1339,39 @@ impl MoveCoverage {
         far
     }
 }
+
+/// How far into a smash's leading windup the charge pose sits, as a fraction of
+/// that window.
+///
+/// ⭐ EARLY ON PURPOSE — a brief windup, then the freeze. The genre reads a
+/// charge as "the swing started and stopped", which needs some windup to have
+/// played; it does not read as "the swing is about to land and stopped", which
+/// is what a hold at the end of the window looks like. Jon, 2026-08-23: *"it
+/// needs to hold on the first frames of the smash animation."*
+///
+/// ⚠ THE VALUE IS MEASURED, AND A QUARTER IS NOT SAFE YET. Swept against a real
+/// match (George Booul vs the duelist, 3600 ticks), reading how long each seat
+/// spent off the stage and how often it reached for its route home:
+///
+/// ```text
+///   0.50   George offstage 169 ticks, route pressed 5 times
+///   0.25   George offstage 394 ticks, route pressed 0 times
+/// ```
+///
+/// Twice as long out and never reaching for the way back is bug-shaped whatever
+/// causes it, and the cause is NOT that his recovery stopped working — the
+/// decision-log guard that asks what the brain SELECTED in `Situation::Recovery`
+/// is green at both values. An earlier pose changes when the opponent's smashes
+/// connect, which changes where George is launched from.
+///
+/// ⇒ whoever takes this: find why a quarter strands him before moving it there.
+/// Jon asked for the first FRAMES and 0.50 of a 0.3s windup is nine of them, so
+/// this is not yet the pose he described.
+pub const CHARGE_POSE_FRACTION: f32 = 0.50;
+
+/// The margin that keeps a derived charge pose STRICTLY before the first live
+/// volume, for a move whose windup is so short that the fraction lands on it.
+const CHARGE_POSE_EPSILON_S: f32 = 1.0 / 240.0;
 
 /// The queryable frame data of a move (CM7) — the introspection the fighter
 /// brain and boss validators consume. A pure derivation of [`MoveSpec::frame_data`]
@@ -1786,6 +1832,21 @@ pub enum CatalogError {
         mv: String,
         index: usize,
     },
+    /// An AUTHORED smash charge freezes the timeline where a strike is already
+    /// live, or outside the move's leading windup entirely.
+    ///
+    /// ⛔⛔ THE HOLD POINT IS NOT A FREE NUMBER. `rooted_by_charge` is true from
+    /// the freeze onward and the button may hold it indefinitely, so a hold at
+    /// or past the first Active instant is a fighter standing still with a live
+    /// hitbox out — the strike volume spawns from the clock, and the clock has
+    /// stopped inside the window. Active membership is `start_s <= t < end_s`,
+    /// so "at" is already inside.
+    ChargeHoldOutsideWindup {
+        entity: String,
+        mv: String,
+        hold_at_s: f32,
+        first_active_s: f32,
+    },
     /// A non-Active window carries hit volumes (they would never fire).
     VolumesOnInactiveWindow {
         entity: String,
@@ -1854,6 +1915,19 @@ impl std::fmt::Display for CatalogError {
             }
             CatalogError::WindowOutOfRange { entity, mv, index } => {
                 write!(f, "{entity}/{mv}: window[{index}] outside [0, duration]")
+            }
+            CatalogError::ChargeHoldOutsideWindup {
+                entity,
+                mv,
+                hold_at_s,
+                first_active_s,
+            } => {
+                write!(
+                    f,
+                    "{entity}/{mv}: the smash charge freezes at {hold_at_s}s but \
+                     a strike goes live at {first_active_s}s — a held charge \
+                     would stand inside it"
+                )
             }
             CatalogError::VolumesOnInactiveWindow { entity, mv, index } => {
                 write!(
@@ -2024,6 +2098,7 @@ impl EntityCatalogDoc {
                             index,
                         });
                     }
+
                     for v in &w.volumes {
                         let degenerate = match v.shape {
                             VolumeShape::Rect { half_extents, .. } => {
@@ -2059,6 +2134,28 @@ impl EntityCatalogDoc {
                             entity: entity.id.clone(),
                             mv: mv.id.clone(),
                             index,
+                        });
+                    }
+                }
+                // ⛔ THE AUTHORED policy is what needs checking. The DERIVED one
+                // is clamped strictly before the first Active instant by
+                // `derived_charge_hold_at_s` and cannot land here; authoring
+                // OVERRIDES that clamp, so this is what refuses a bad override
+                // instead of letting it put a live hitbox inside a held charge.
+                if let Some(policy) = mv.charge_policy().filter(|_| mv.smash_charge.is_some())
+                {
+                    let first_active = mv
+                        .windows
+                        .iter()
+                        .filter(|w| matches!(w.tag, WindowTag::Active))
+                        .map(|w| w.start_s)
+                        .fold(f32::MAX, f32::min);
+                    if first_active < f32::MAX && policy.hold_at_s >= first_active {
+                        errors.push(CatalogError::ChargeHoldOutsideWindup {
+                            entity: entity.id.clone(),
+                            mv: mv.id.clone(),
+                            hold_at_s: policy.hold_at_s,
+                            first_active_s: first_active,
                         });
                     }
                 }

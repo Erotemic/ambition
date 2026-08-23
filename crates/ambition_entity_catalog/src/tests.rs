@@ -1381,9 +1381,24 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     // play."* That is the genre's charge pose. Everything after this instant —
     // the rest of the windup and every Active window — plays on release.
     assert_eq!(
-        derived.hold_at_s, 0.3,
-        "the hold sits where the windup ENDS - see `charge_policy`, which records \
-         why Jon's 'hold on the first frames' is not in yet"
+        derived.hold_at_s,
+        0.3 * CHARGE_POSE_FRACTION,
+        "the charge pose left the windup"
+    );
+    // ⛔⛔ AND THE INVARIANT, not just the number: a held charge must not be
+    // able to stand inside a live strike. Active membership is
+    // `start_s <= t < end_s`, so a hold AT the first Active instant is already
+    // inside it — which is exactly what deriving from the windup's `end_s` did.
+    let first_active = spec
+        .windows
+        .iter()
+        .filter(|w| matches!(w.tag, WindowTag::Active))
+        .map(|w| w.start_s)
+        .fold(f32::MAX, f32::min);
+    assert!(
+        derived.hold_at_s < first_active,
+        "the charge freezes at {} and the first strike goes live at {first_active}",
+        derived.hold_at_s
     );
     assert_eq!(derived.max_hold_s, SmashChargeSpec::DEFAULT_MAX_HOLD_S);
 
@@ -1428,4 +1443,85 @@ fn frame_data_reports_the_charge_hold_point_and_only_for_a_charging_move() {
     m.smash_charge_mult = 2.0;
     let policy = m.charge_policy().expect("a paying smash resolves a policy");
     assert_eq!(m.frame_data().charge_hold_at_s, Some(policy.hold_at_s));
+}
+
+/// ⛔⛔ AUTHORING MAY NOT PUT A HITBOX INSIDE A HELD CHARGE.
+///
+/// The derived hold point is clamped strictly before the first Active instant,
+/// but an authored `smash_charge` overrides that clamp — so the override is
+/// where a malformed pose can still get in. `rooted_by_charge` is true from the
+/// freeze onward and the button may hold it indefinitely, so a hold at or past
+/// the first live volume is a fighter standing still with a strike out.
+#[test]
+fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
+    let make = |hold_at_s: f32| {
+        let mut m = bare_move("smash", None);
+        m.duration_s = 0.5;
+        m.smash_charge_mult = 2.0;
+        m.windows = vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: 0.2,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                motion_scale: 1.0,
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: 0.2,
+                end_s: 0.4,
+                tag: WindowTag::Active,
+                volumes: vec![],
+                motion_scale: 1.0,
+                sustain_effect: None,
+            },
+        ];
+        m.smash_charge = Some(SmashChargeSpec {
+            hold_at_s,
+            max_hold_s: 0.8,
+        });
+        m
+    };
+    let problems = |m: MoveSpec| -> Vec<CatalogError> {
+        let doc = EntityCatalogDoc {
+            schema_version: 1,
+            entities: vec![EntityDef {
+                id: "fighter".into(),
+                contracts: EntityContracts {
+                    moveset: Some(MovesetContract {
+                        verbs: Default::default(),
+                        moves: vec![m],
+                    }),
+                    ..Default::default()
+                },
+            }],
+        };
+        doc.validate()
+    };
+
+    // ON the first Active instant is already INSIDE it: membership is
+    // `start_s <= t < end_s`.
+    let at_the_edge = problems(make(0.2));
+    assert!(
+        at_the_edge.iter().any(|e| matches!(
+            e,
+            CatalogError::ChargeHoldOutsideWindup { .. }
+        )),
+        "a charge frozen exactly where the strike goes live was accepted: \
+         {at_the_edge:?}"
+    );
+    assert!(
+        problems(make(0.3))
+            .iter()
+            .any(|e| matches!(e, CatalogError::ChargeHoldOutsideWindup { .. })),
+        "a charge frozen past the first strike was accepted"
+    );
+    // ...and a pose inside the windup is fine, or the check would just refuse
+    // every authored policy.
+    assert!(
+        !problems(make(0.05))
+            .iter()
+            .any(|e| matches!(e, CatalogError::ChargeHoldOutsideWindup { .. })),
+        "a legal charge pose inside the windup was refused"
+    );
 }

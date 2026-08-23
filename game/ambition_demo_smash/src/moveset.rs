@@ -943,7 +943,29 @@ mod tests {
             .expect("the smash resolves no charge policy, so it cannot be held");
         assert!(
             policy.hold_at_s > 0.0,
-            "the hold sits at the very first instant of the move, so there is              no windup to commit to before the charge"
+            "the hold sits at the very first instant of the move, so there is \
+             no windup to commit to before the charge"
+        );
+        // ⛔⛔ AND IT IS STRICTLY BEFORE THE FIRST STRIKE. Active membership is
+        // `start_s <= t < end_s`, so a hold ON that instant is already inside a
+        // live volume — a fighter charging with the hitbox out. The derived
+        // policy clamps for this, and every smash in this roster relies on the
+        // derivation, so this is the roster asking whether the clamp reached it.
+        let first_active = smash
+            .windows
+            .iter()
+            .filter(|w| {
+                matches!(
+                    w.tag,
+                    ambition_platformer2d::entity_catalog::WindowTag::Active
+                )
+            })
+            .map(|w| w.start_s)
+            .fold(f32::MAX, f32::min);
+        assert!(
+            policy.hold_at_s < first_active,
+            "the charge freezes at {} and this smash goes live at {first_active}",
+            policy.hold_at_s
         );
     }
 

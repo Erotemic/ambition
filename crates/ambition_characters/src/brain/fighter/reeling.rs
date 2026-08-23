@@ -71,24 +71,69 @@ pub fn survival_stick(view: Perceived<'_>) -> Option<ae::LocalAxes> {
 
     let launch_dir = launch / speed;
     let perpendicular = Vec2::new(-launch_dir.y, launch_dir.x);
-    let survives = |candidate: Vec2| -> f32 {
-        let Some(local) = unit_local(frame, candidate) else {
-            return f32::NEG_INFINITY;
-        };
-        let steered = ae::hit_response::di_adjust(
+    // HOW LONG THIS BODY NEEDS TO SURVIVE: until it can act again, and not one
+    // second longer. `phase_remaining` is the hitstun it still owes, read off
+    // the same view the rest of this decision uses.
+    //
+    // ⭐ THIS IS WHAT MAKES THE TWO OBJECTIVES BELOW COMMENSURABLE WITHOUT A
+    // FITTED THRESHOLD. Surviving past the moment control returns buys nothing —
+    // a body that will still be inside the stage when it can move again has
+    // already solved survival — so the survival term SATURATES there instead of
+    // rewarding ever-larger numbers.
+    let needed = me.phase_remaining.max(0.0);
+    let steer = |candidate: Vec2| -> Option<Vec2> {
+        let local = unit_local(frame, candidate)?;
+        Some(ae::hit_response::di_adjust(
             launch,
             Vec2::new(local.x, local.y),
             me.gravity_down,
             PROBE_ANGLE,
-        );
-        time_inside(bounds, me.pos, steered)
+        ))
     };
+    // SURVIVAL, capped at what is needed. Uncapped this was the whole decision,
+    // and at centre stage both deflections keep a body inside for so long that
+    // the argmax between them was noise.
+    let survives = |candidate: Vec2| -> f32 {
+        steer(candidate).map_or(f32::NEG_INFINITY, |steered| {
+            time_inside(bounds, me.pos, steered).min(needed)
+        })
+    };
+    // ⭐⭐ ESCAPE, which is the OTHER thing a real player does with this stick
+    // and the half this brain did not have. The genre uses one mechanic for two
+    // purposes: survival DI rotates a launch away from the blast zone at kill
+    // percent, and escape DI rotates it away from the OPPONENT to break a
+    // juggle. Only the objective differs, so nothing in the kernel changes here.
+    //
+    // Priced as where this body will BE when it can act again — `needed` seconds
+    // along the steered launch — measured from the foe. A juggle is a loop
+    // because an upward launch returns the victim to the attacker; the way out
+    // is to not come down in the same place.
+    let escapes = |candidate: Vec2| -> f32 {
+        let Some(foe) = view.nearest_hostile() else {
+            return 0.0;
+        };
+        steer(candidate).map_or(f32::NEG_INFINITY, |steered| {
+            (me.pos + steered * needed).distance(foe.pos)
+        })
+    };
+    // ⛔ SURVIVAL FIRST, AND ONLY WHERE IT IS ACTUALLY AT STAKE. Because the
+    // survival term saturates at `needed`, two deflections that both carry the
+    // body safely past the moment it regains control score EQUAL — and the
+    // decision falls through to escape. Near a blast zone they do not tie, and
+    // survival decides outright. No percent test, no distance-to-blastzone
+    // constant, and nothing that has to be re-fitted when a stage changes size.
+    let (a, b) = (-perpendicular, perpendicular);
+    let (survive_a, survive_b) = (survives(a), survives(b));
     // Strictly greater, so an exact tie keeps the first candidate and the choice
     // does not depend on float comparison order.
-    let best = if survives(-perpendicular) > survives(perpendicular) {
-        -perpendicular
+    let best = if survive_a > survive_b {
+        a
+    } else if survive_b > survive_a {
+        b
+    } else if escapes(a) > escapes(b) {
+        a
     } else {
-        perpendicular
+        b
     };
     unit_local(frame, best)
 }

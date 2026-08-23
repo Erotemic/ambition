@@ -208,3 +208,164 @@ fn a_body_over_the_void_does_not_tech() {
     view.terrain.clear();
     assert!(!tech_press(Perceived::cheating(&view)));
 }
+
+/// ⭐ ESCAPE DI: when survival is not at stake, the stick steers AWAY FROM THE
+/// FOE instead of picking between two deflections that both survive.
+///
+/// The genre uses one mechanic for two purposes — survival DI rotates a launch
+/// away from the blast zone at kill percent, escape DI rotates it away from the
+/// opponent to break a juggle — and only the objective differs, which is why
+/// this lives in the brain and not the kernel.
+///
+/// ⛔ ASSERTED ON THE OUTCOME, NOT ON A SYMMETRY. The first version of this test
+/// only checked that moving the foe across the body flipped the stick's sign,
+/// and a poison that steered deliberately INTO the foe passed it — flipping the
+/// rule flips both answers, so the signs still differed. It could not fail.
+/// This runs the chosen stick and its opposite through the kernel's own
+/// `di_adjust` and asks which one actually ends further from the foe.
+#[test]
+fn with_survival_secured_the_stick_steers_away_from_the_foe() {
+    let mut view = reeling(ae::Vec2::new(400.0, 300.0), ae::Vec2::new(0.0, -600.0));
+    // Long enough that the escape term has real distance to price, short enough
+    // that both deflections clear it and the survival term saturates.
+    view.self_view.phase_remaining = 0.25;
+    let foe = ae::Vec2::new(200.0, 300.0);
+    view.actors = vec![crate::perception::PerceivedActor {
+        pos: foe,
+        hostile_to_self: true,
+        alive: true,
+        ..Default::default()
+    }];
+
+    let held = stick(&view);
+    // Through the KERNEL's rotation, which is the same authority the decision
+    // used - re-deriving `di_adjust` here would let the test disagree with the
+    // thing it is checking about which way is which.
+    let ends_near_foe = |axes: ae::LocalAxes| {
+        let steered = ae::hit_response::di_adjust(
+            view.self_view.vel,
+            ae::Vec2::new(axes.x, axes.y),
+            view.self_view.gravity_down,
+            super::PROBE_ANGLE,
+        );
+        (view.self_view.pos + steered * view.self_view.phase_remaining).distance(foe)
+    };
+    let opposite = ae::LocalAxes {
+        x: -held.x,
+        y: -held.y,
+    };
+    assert!(
+        ends_near_foe(held) > ends_near_foe(opposite),
+        "the stick it chose lands {:.1} from the foe and the other lands {:.1} - \
+         it steered toward the opponent, not away",
+        ends_near_foe(held),
+        ends_near_foe(opposite)
+    );
+}
+
+/// ⛔ AND SURVIVAL STILL WINS WHERE IT IS ACTUALLY AT STAKE. Near the side wall
+/// and launched into it, the two deflections do NOT both clear the hitstun, so
+/// the survival term does not saturate and decides outright — whatever the foe
+/// is doing. A body that DI'd away from its opponent into the blast zone would
+/// have traded a juggle for a stock.
+#[test]
+fn survival_outranks_escape_when_the_blastzone_is_close() {
+    let mut view = reeling(ae::Vec2::new(780.0, 300.0), ae::Vec2::new(1200.0, 0.0));
+    view.self_view.phase_remaining = 0.25;
+    // The foe is placed so that escaping it means steering FURTHER toward the
+    // wall this body is about to cross.
+    view.actors = vec![crate::perception::PerceivedActor {
+        pos: ae::Vec2::new(400.0, 300.0),
+        hostile_to_self: true,
+        alive: true,
+        ..Default::default()
+    }];
+    let held = stick(&view);
+    let survival_only = {
+        let mut bare = view.clone();
+        bare.actors.clear();
+        stick(&bare)
+    };
+    assert_eq!(
+        (held.x, held.y),
+        (survival_only.x, survival_only.y),
+        "with a blastzone in reach the foe changed the answer, so escape overrode survival"
+    );
+}
+
+/// ⛔⛔ THE CAP IS WHAT MAKES ESCAPE REACHABLE AT ALL, and without this fixture
+/// it could be deleted with every other test here still passing.
+///
+/// Uncapped, `time_inside` is a continuous number that essentially never ties,
+/// so survival would decide every launch and the escape term would be dead code
+/// reached only on an exact float tie. Capping it at the hitstun this body still
+/// owes is what turns "both of these are safe enough" into a genuine tie and
+/// hands the decision to the foe.
+///
+/// ⚠ THE PREMISE IS ASSERTED, because a fixture where the two objectives happen
+/// to AGREE would pass whatever the rule is. Measured for this geometry: the two
+/// deflections survive 0.53s and 0.77s, so both clear a 0.25s hitstun and the
+/// cap ties them — while uncapped survival would prefer the 0.77s one outright.
+#[test]
+fn the_survival_cap_is_what_lets_the_foe_decide_a_safe_launch() {
+    let mut view = reeling(ae::Vec2::new(400.0, 300.0), ae::Vec2::new(300.0, -500.0));
+    view.self_view.phase_remaining = 0.25;
+    let foe = ae::Vec2::new(700.0, 200.0);
+    view.actors = vec![crate::perception::PerceivedActor {
+        pos: foe,
+        hostile_to_self: true,
+        alive: true,
+        ..Default::default()
+    }];
+
+    let me = view.self_view.clone();
+    let frame = ae::AccelerationFrame::new(me.gravity_down);
+    let dir = me.vel / me.vel.length();
+    let perpendicular = ae::Vec2::new(-dir.y, dir.x);
+    let steer = |c: ae::Vec2| {
+        let local = super::unit_local(frame, c).unwrap();
+        (
+            local,
+            ae::hit_response::di_adjust(
+                me.vel,
+                ae::Vec2::new(local.x, local.y),
+                me.gravity_down,
+                super::PROBE_ANGLE,
+            ),
+        )
+    };
+    let (local_a, steered_a) = steer(-perpendicular);
+    let (local_b, steered_b) = steer(perpendicular);
+    let inside = |v: ae::Vec2| super::time_inside(view.stage.bounds, me.pos, v);
+    let away = |v: ae::Vec2| (me.pos + v * me.phase_remaining).distance(foe);
+
+    // THE PREMISE, and the test is worthless without it: the two objectives must
+    // DISAGREE here, and both must be safe for the whole hitstun.
+    assert!(
+        inside(steered_a).min(inside(steered_b)) > me.phase_remaining,
+        "this fixture is meant to be safe either way: {:.3} / {:.3} against {:.3} of hitstun",
+        inside(steered_a),
+        inside(steered_b),
+        me.phase_remaining
+    );
+    let survival_prefers_a = inside(steered_a) > inside(steered_b);
+    let escape_prefers_a = away(steered_a) > away(steered_b);
+    assert_ne!(
+        survival_prefers_a, escape_prefers_a,
+        "the two objectives agree in this fixture, so it cannot tell which one decided"
+    );
+
+    let held = stick(&view);
+    let chose_a = (held.x, held.y) == (local_a.x, local_a.y);
+    assert_eq!(
+        chose_a,
+        escape_prefers_a,
+        "the foe did not decide a launch that was safe either way - uncapped survival did, \
+         which means the cap is doing nothing (survival {:.3}/{:.3}, distance {:.1}/{:.1})",
+        inside(steered_a),
+        inside(steered_b),
+        away(steered_a),
+        away(steered_b)
+    );
+    let _ = local_b;
+}

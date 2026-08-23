@@ -1077,3 +1077,31 @@ def test_status_quick_answers_without_running_the_checks(repo: Path) -> None:
     assert "blocks so far" in out
     assert "NEVER" in out, "a guard that has never fired is the failure being looked for"
     assert "expensive" not in out
+
+
+# ── A quiet exit that leaves no trace is the bug, not the tidy path ───────────
+
+
+def test_every_quiet_stand_down_records_what_it_decided(repo: Path) -> None:
+    """⛔⛔ THE INVARIANT BEHIND BOTH 2026-08-23 DEFECTS. A bare `return 0` wrote
+    nothing, so "the guard decided to stand down" and "the hook never ran" were
+    the same observation from outside — no state changed either way."""
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, "holder")
+
+    run(repo, stdin={"session_id": "holder", "transcript_path": transcript(repo, launched("toolu_A"))})
+    assert "outstanding" in state_of(repo)["last_verdict"], "a wait left no trace"
+
+    assert _stop(repo, "a-stranger") == {}, "a stranger must still be untouched"
+    verdict = state_of(repo)["last_verdict"]
+    assert "not this session" in verdict and "holder" in verdict, (
+        "the run enforcing on nobody has to be readable from the state file"
+    )
+
+
+def test_status_reads_the_last_decision_back(repo: Path) -> None:
+    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    _stop(repo, "holder")
+    out = cli(repo, "--status", "--quick")
+    assert "last Stop decided: blocked:" in out
+    assert FAIL["name"] in out, "the block names its open item without re-running it"

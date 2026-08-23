@@ -295,19 +295,12 @@ CONTINUATION_HEAD_LINES = 64
 def continued_sessions(hook_input: dict) -> set[str]:
     """The session ids this transcript says it CONTINUES.
 
-    ⛔⛔ **A SESSION ID ROTATES, AND THE ROSTER DOES NOT FOLLOW IT.** A compact
-    or a resume opens a new transcript under a new id, so `.goal/owner` names a
-    session that will never stop again: `mode_stop` returns 0 before doing
-    anything, `--inject` says nothing because the new id is a stranger, and the
-    run is armed, alive, and enforcing on nobody. `--resume` has been the manual
-    answer since 2026-08-01 — but the only symptom is SILENCE, so nobody knows
-    to run it. Jon has now asked why the goal is not firing three times.
-
-    The runtime hands over by injecting the PREVIOUS transcript's path into the
-    first few records of the new one ("read the full transcript at .../<id>.jsonl"),
-    which is proof of continuation rather than a guess at one. Only ids already
-    on the roster are ever honoured, so a window that merely mentions somebody
-    else's transcript inherits nothing.
+    ⛔⛔ A SESSION ID ROTATES ON A COMPACT OR RESUME AND THE ROSTER DOES NOT
+    FOLLOW IT, so a run stays bound to an id that will never stop again. The
+    runtime injects the PREVIOUS transcript's path into the first records of the
+    new one; that is proof of continuation, not a guess at one. Only ids already
+    on the roster are honoured — mentioning somebody's transcript inherits
+    nothing. See docs/tools/goal-guard.md, "A rotated session id".
     """
     path = hook_input.get("transcript_path")
     if not isinstance(path, str) or not path.strip():
@@ -770,6 +763,23 @@ def emit(payload: dict) -> None:
     sys.stdout.flush()
 
 
+def open_items_lines(goal: dict, state: dict) -> list[str]:
+    """What is open, from the LAST recorded check — never a fresh run.
+
+    `--inject` and `--resume` both answer "what is this goal and what is left",
+    and both must stay cheap: session start cannot afford the goal's own shell
+    commands. One renderer, so the answer cannot drift between them.
+    """
+    last_open = state.get("last_open")
+    if isinstance(last_open, list) and last_open:
+        head = f"Open as of the last Stop check ({state.get('last_block_at', 'unknown time')}):"
+        return [head] + [f"  ▢ {name}" for name in last_open]
+    return ["Checks that will be run at the end of every turn:"] + [
+        f"  ▢ {raw.get('name') or raw.get('cmd') or 'unnamed check'}"
+        for raw in goal.get("checks", [])
+    ]
+
+
 def open_items_text(goal: dict, results: list[CheckResult]) -> str:
     failed = [r for r in results if not r.ok]
     lines = [f"GOAL STILL OPEN: {goal.get('goal', '(unnamed goal)')}", ""]
@@ -856,6 +866,19 @@ def block_reason(
     return "\n".join(parts)
 
 
+def record_verdict(root: Path, verdict: str) -> None:
+    """Write down what this Stop DECIDED, in one line.
+
+    ⛔⛔ EVERY PATH OUT OF `mode_stop` RECORDS, ESPECIALLY THE QUIET ONES. A
+    bare `return 0` makes "the guard stood down" and "the hook never ran" the
+    same observation from outside. `--status --quick` reads this back.
+    """
+    state = load_json(state_path(root)) or {}
+    state["last_verdict"] = verdict
+    state["last_verdict_at"] = now_utc().isoformat()
+    write_state(root, state)
+
+
 def write_state(root: Path, state: dict) -> None:
     goal_dir(root).mkdir(parents=True, exist_ok=True)
     try:
@@ -923,11 +946,9 @@ def handle_wait(root: Path, signals: dict) -> int | None:
     on into the checks. Three outcomes:
 
     * nothing pending, or the wait has run past WAIT_CEILING_HOURS — None, and
-      the ordinary block path runs. The ceiling is what stops a KILLED task from
-      buying silence forever: a task that was stopped never sends a completion,
-      so it stays "pending" for the rest of the session. ⛔ it is checked before
-      every stand-down below, not only on the unchanged-key path — a wait whose
-      SET keeps changing is exactly the one that needs it.
+      the ordinary block path runs. ⛔ the ceiling is checked before EVERY
+      stand-down, not only on the unchanged-key path: a wait whose set keeps
+      changing is exactly the one that needs it.
     * pending and the heartbeat is not due — stand down silently.
     * pending and the heartbeat IS due — block, but with a SHORT reason asking
       about the subagents rather than the goal preamble. Work in flight hangs,
@@ -946,13 +967,10 @@ def handle_wait(root: Path, signals: dict) -> int | None:
     previous = state.get("wait_key") or ""
 
     # ⛔⛔ THE CLOCK RESTARTS ONLY WHEN SOMETHING ACTUALLY REPORTED, and it is
-    # READ BEFORE ANY STAND-DOWN. Both halves are the same defect, found twice:
-    # a coordinator that launches one background task per turn grows `pending`
-    # every turn, so a changed key used to (a) push `waiting_since` forward and
-    # then (b) return from its own branch above the ceiling check. Measured
-    # 2026-08-23: 18h of silence under a 4h ceiling, 21 waits, zero blocks.
-    # A killed task never reports, so it stays pending for the session — that is
-    # what the ceiling exists to survive, and growing the set must not buy quiet.
+    # READ BEFORE ANY STAND-DOWN. A coordinator's pending set GROWS most turns,
+    # so both a restarting clock and an early return on a changed key hand it
+    # unlimited silence. A killed task never reports and stays pending for the
+    # session; surviving that is what the ceiling is for.
     outstanding = set(previous.split(",")) if previous else set()
     if outstanding - pending or not state.get("waiting_since"):
         state["waiting_since"] = now_utc().isoformat()
@@ -971,6 +989,12 @@ def handle_wait(root: Path, signals: dict) -> int | None:
         minutes=WAIT_HEARTBEAT_MINUTES
     )
     if not due:
+        held_h = (now_utc() - since).total_seconds() / 3600.0 if since else 0.0
+        state["last_verdict"] = (
+            f"stood down: {len(pending)} background task(s) outstanding, "
+            f"{held_h:.1f}h of {WAIT_CEILING_HOURS:.0f}h"
+        )
+        state["last_verdict_at"] = now_utc().isoformat()
         write_state(root, state)
         if key != previous:
             emit(
@@ -987,8 +1011,10 @@ def handle_wait(root: Path, signals: dict) -> int | None:
         return 0
 
     state["last_wait_nudge_at"] = now_utc().isoformat()
-    write_state(root, state)
     held = (now_utc() - since).total_seconds() / 3600.0 if since else 0.0
+    state["last_verdict"] = f"blocked: background work has not moved in {held:.1f}h"
+    state["last_verdict_at"] = now_utc().isoformat()
+    write_state(root, state)
     emit(
         {
             "decision": "block",
@@ -1023,6 +1049,12 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # minutes), count a block, or advance the stall counter toward a release
     # somebody else's work would be judged by.
     if not session_owns_goal(root, hook_input, claim=True):
+        record_verdict(
+            root,
+            "stood down: not this session's run (held by "
+            + (", ".join(owner_sessions(root) or []) or "nobody")
+            + ")",
+        )
         return 0
 
     # A SUSTAINED pause the human asked for. Checked before everything else for
@@ -1046,6 +1078,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
                 )
             }
         )
+        record_verdict(root, "stood down: ON HOLD" + hold_age_text(hold))
         return 0
 
     # A pause the human asked for, spent BEFORE the checks run: the point is to
@@ -1066,6 +1099,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
                 )
             }
         )
+        record_verdict(root, "stood down: one-shot pause spent")
         return 0
 
     deadline = parse_deadline(goal.get("deadline_utc"))
@@ -1088,10 +1122,11 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     signals = transcript_signals(hook_input)
     waited = handle_wait(root, signals)
     if waited is not None:
-        return waited
+        return waited  # handle_wait records its own verdict
 
     results = run_checks(goal, root)
     if results and all(r.ok for r in results):
+        record_verdict(root, "RELEASED: every check passed")
         clear_goal(root, "all checks passed")
         emit({"systemMessage": f"Goal guard: MET — {goal.get('goal', '')}"})
         return 0
@@ -1131,11 +1166,15 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             # own quiet from zero rather than inheriting an expired clock.
             "wait_key": None,
             "waiting_since": None,
+            "last_verdict": "blocked: "
+            + ", ".join(r.name for r in results if not r.ok),
+            "last_verdict_at": now_utc().isoformat(),
         }
     )
     write_state(root, state)
 
     if max_stalled > 0 and stalled >= max_stalled:
+        record_verdict(root, f"RELEASED: {stalled} blocks with no new commit")
         emit(
             {
                 "systemMessage": (
@@ -1158,6 +1197,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
     started = parse_deadline(first_block_at)
     if fuse_h > 0 and started and now_utc() - started >= _dt.timedelta(hours=fuse_h):
+        record_verdict(root, f"RELEASED: wall-clock fuse at {fuse_h}h")
         clear_goal(root, f"wall-clock fuse: blocked for over {fuse_h}h")
         emit(
             {
@@ -1195,11 +1235,10 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         return 0
 
     # Someone else's run: do not CLAIM it — SessionStart fires for every new
-    # session, and the first window opened after arming would take over a run it
-    # is not doing. But do not be SILENT about it either. Silence is how an
-    # orphaned goal stays orphaned: nothing distinguishes "another session holds
-    # this" from "the guard is enforcing on nobody", and the second one has cost
-    # this project whole days.
+    # session, and the first window opened after arming would take a run it is
+    # not doing. But do not be SILENT either: silence is how an orphan stays an
+    # orphan, because "another session holds this" and "enforcing on nobody"
+    # look identical from here.
     if not session_owns_goal(root, hook_input, claim=False):
         roster = owner_sessions(root) or []
         emit(
@@ -1245,24 +1284,10 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         )
         return 0
 
-    last_open = state.get("last_open")
-    if isinstance(last_open, list) and last_open:
-        lines = [
-            f"GOAL STILL OPEN: {goal.get('goal', '(unnamed goal)')}",
-            "",
-            f"Open as of the last Stop check ({state.get('last_block_at', 'unknown time')}):",
-        ]
-        lines += [f"  ▢ {name}" for name in last_open]
-    else:
-        lines = [
-            f"GOAL ARMED: {goal.get('goal', '(unnamed goal)')}",
-            "",
-            "Checks that will be run at the end of every turn:",
-        ]
-        lines += [
-            f"  ▢ {raw.get('name') or raw.get('cmd') or 'unnamed check'}"
-            for raw in goal.get("checks", [])
-        ]
+    open_now = state.get("last_open")
+    headline = "GOAL STILL OPEN" if open_now else "GOAL ARMED"
+    lines = [f"{headline}: {goal.get('goal', '(unnamed goal)')}", ""]
+    lines += open_items_lines(goal, state)
 
     if deadline:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
@@ -1324,16 +1349,8 @@ def mode_resume(root: Path) -> int:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
         print(f"deadline: {deadline.isoformat()} ({hours:.1f}h remain)")
 
-    state = load_json(state_path(root)) or {}
-    last_open = state.get("last_open")
-    if isinstance(last_open, list) and last_open:
-        print(f"open as of the last Stop check ({state.get('last_block_at', '?')}):")
-        for name in last_open:
-            print(f"  ▢ {name}")
-    else:
-        print("checks that will run at the end of every turn:")
-        for raw in goal.get("checks", []):
-            print(f"  ▢ {raw.get('name') or raw.get('cmd') or 'unnamed check'}")
+    for line in open_items_lines(goal, load_json(state_path(root)) or {}):
+        print(line)
 
     print(
         f"\nreleased from session {previous or '(unclaimed)'}; THIS session claims "
@@ -1592,7 +1609,12 @@ def mode_status(root: Path, *, quick: bool = False) -> int:
             f"standing down on background work: {held_h:.1f}h of "
             f"{WAIT_CEILING_HOURS:.0f}h, then it enforces again"
         )
-    last = parse_deadline(state.get("last_block_at"))
+    verdict = state.get("last_verdict")
+    stamped = parse_deadline(state.get("last_verdict_at"))
+    if verdict:
+        ago = f"{(now_utc() - stamped).total_seconds() / 3600.0:.1f}h ago" if stamped else "?"
+        print(f"last Stop decided: {verdict}  ({ago})")
+    last = stamped or parse_deadline(state.get("last_block_at"))
     if last:
         idle_h = (now_utc() - last).total_seconds() / 3600.0
         note = "  ⚠ THE GUARD MAY NOT BE RUNNING" if idle_h >= 1.0 else ""
@@ -1689,12 +1711,9 @@ def mode_arm(root: Path, source: str) -> int:
 
 
 def main() -> int:
-    # ⛔ **NOT `description=__doc__`.** The module docstring is this file's DESIGN
-    # RECORD — why the arbiter is a command hook and not a model, what the four
-    # ways out are and why each exists — and it is 296 lines of `--help`. An agent
-    # running `--help` is mid-task and wants the operational answer, not the
-    # history; a reference nobody can skim is a reference nobody reads. The
-    # docstring stays exactly where it is, for whoever opens the file.
+    # ⛔ NOT `description=__doc__`. `--help` is read mid-task and owes the
+    # operational answer; the module docstring orients whoever opens the FILE,
+    # and the incidents behind the rules live in docs/tools/goal-guard.md.
     parser = argparse.ArgumentParser(
         description=(
             "Goal guard: blocks a session's Stop until repository checks pass. "

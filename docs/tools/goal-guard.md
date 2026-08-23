@@ -237,6 +237,44 @@ concurrency claim rests on `O_APPEND`, and the reason it is written down here is
 that a later edit "tidying" `join_owner` into a read/modify/write would be
 invisible to the suite.
 
+## Armed, alive, and enforcing on nobody — twice in two days
+
+**2026-08-23, Jon, three times: "the goal is not firing."** Both causes were the
+guard standing down *silently*, and silence is the one failure nothing reports.
+
+**The wait ceiling was unreachable for the caller that needs it most.**
+`handle_wait` returned from its changed-key branch before it ever read
+`waiting_since`, so a coordinator that launches a background command most turns
+— growing the pending set every turn — bought unlimited quiet. On this
+repository: 21 waits, a 19-hour-old clock, a 4-hour ceiling, zero blocks. The
+fix three commits earlier had stopped the *clock* from restarting and left the
+*escape* in place, so the clock read 19h and nothing read the clock.
+
+⛔ the existing ceiling test held the pending set **fixed**, which is exactly the
+variable the defect needs. A test that holds the suspect constant cannot see it
+— the same shape as a bisect that can only vary the code half.
+
+**A session id rotates and the roster does not follow it.** A compact or a
+resume opens a new transcript under a new id, so `.goal/owner` named a session
+that would never stop again: `mode_stop` returned before doing anything,
+`--inject` said nothing because the new id was a stranger, and the run enforced
+on nobody. `--resume` had been the manual answer since 2026-08-01 — but the only
+symptom is silence, so nobody knows to run it.
+
+The runtime injects the previous transcript's path into the first records of the
+new one. That is *proof* of continuation rather than a guess at one, so the
+session inherits the run — and only from an id already on the roster. A window
+that merely mentions somebody else's transcript inherits nothing; taking over a
+run you are not doing is what `--share` is for. SessionStart now names the holder
+and points at `--resume` instead of saying nothing.
+
+**What both had in common was a bare `return 0`.** No state changed, so from
+outside "the guard decided to stand down" and "the hook never ran" were the same
+observation. Every path out of `mode_stop` now records a one-line verdict, and
+`--status --quick` reads it back without paying for the goal's own checks — which
+here are minutes of `cargo`, and used to sit in front of the one line that says
+whether the guard is running at all.
+
 ## What this file cannot do
 
 It is not unfoolable. The checks are commands, and the agent can edit the files
@@ -245,6 +283,7 @@ judge"* into *"falsify a specific artifact"*, which is a much louder thing to do
 and leaves a diff. Write checks that name a test rather than a doc marker and
 the bar goes up again.
 
-And every word of that assumes the guard **ran**. Nothing in the file can
-establish that — a guard that is never invoked is indistinguishable, from
-inside, from a guard whose checks all passed.
+And every word of that assumes the guard **ran**. It cannot prove that from
+inside, but it no longer has to be guessed at from outside: every Stop records
+what it decided, and `--status --quick` prints that verdict with its age, or
+says `NEVER` when no turn has been checked at all.

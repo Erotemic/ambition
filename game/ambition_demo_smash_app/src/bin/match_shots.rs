@@ -143,6 +143,27 @@ fn main() {
     // always declared it. This tool simply never joined. A capture that cannot
     // show a layout is worse than no capture, because it shows a DIFFERENT
     // layout convincingly — which is precisely what these shots did for a week.
+    //
+    // ⛔ WHAT EVERY SHOT TAKEN BEFORE THIS WAS ACTUALLY SHOWING, because the old
+    // ones are still on disk and still look plausible. The default rect is
+    // `WINDOW_W x WINDOW_H` = 1600x900, so with no surface declared:
+    //
+    // * HUD slots anchored to a 1600x900 rect land 180px below and 320px right
+    //   of a 1280x720 image — off it entirely, which is why the HUD was ABSENT
+    //   rather than merely misplaced;
+    // * `publish_camera_viewport` handed the camera a 1600x900 viewport for a
+    //   1280x720 target, so the picture was CROPPED TO THE CENTRAL 80% of the
+    //   intended frame. Anything at the edge — a body on its way out of the
+    //   stage, the camera's inward cast edge — was outside the picture while
+    //   being perfectly present in the game.
+    //
+    // ⭐ The camera's WORLD framing was never wrong: it depends on the
+    // viewport's ASPECT, and 1600x900 and 1280x720 are both 16:9. Measured over
+    // a full CPU match, 5,296 body samples, the normalised framing is identical
+    // to three decimals with the default rect and with the real surface. The
+    // lie was in pixels, not in policy — so conclusions drawn from old shots
+    // about WHERE a cue sits are suspect, and conclusions about camera rates
+    // and steps are not.
     app.insert_resource(
         ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
             ambition_platformer2d::engine_core::Vec2::new(shots.size.x as f32, shots.size.y as f32),

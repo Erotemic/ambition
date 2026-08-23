@@ -536,6 +536,7 @@ mod burst_maneuver_tests {
             .movement
             .set_pressed(crate::movement::input::MovementAction::Burst, true);
         let grounded = BodyGroundState {
+            head_contact: false,
             on_ground: true,
             ..Default::default()
         };
@@ -725,6 +726,7 @@ mod burst_maneuver_tests {
         let mut tuning = AxisSweptParams::default();
         tuning.abilities.air_dodge_time = 0.3;
         let grounded = BodyGroundState {
+            head_contact: false,
             on_ground: true,
             ..Default::default()
         };

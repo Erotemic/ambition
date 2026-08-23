@@ -244,6 +244,15 @@ impl Default for BodyBaseSize {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyGroundState {
     pub on_ground: bool,
+    /// The body's HEAD is against something — the other end of the same
+    /// gravity axis `on_ground` reports, sampled by the same pass.
+    ///
+    /// Persisted rather than read from the step's contacts because the floor
+    /// game runs in the CONTROL phase, one phase before the contacts exist: a
+    /// ceiling tech has to be decidable at the top of the tick, exactly like
+    /// the wall tech decides from `BodyWallState::on_wall`. One frame of
+    /// latency costs a surface a body is pinned against nothing.
+    pub head_contact: bool,
     /// Whether `on_ground` is a real contact sample for the body's current
     /// pose. Freshly constructed and discretely transited bodies need one
     /// gravity-relative support probe before ordinary movement can interpret a
@@ -258,6 +267,7 @@ impl BodyGroundState {
     pub const fn uninitialized() -> Self {
         Self {
             on_ground: false,
+            head_contact: false,
             contact_initialized: false,
         }
     }
@@ -267,6 +277,9 @@ impl BodyGroundState {
     /// establishes a new baseline from world geometry.
     pub fn invalidate(&mut self) {
         self.on_ground = false;
+        // The head contact is a contact fact too, and a discrete pose change
+        // invalidates both ends of the axis or neither.
+        self.head_contact = false;
         self.contact_initialized = false;
     }
 }
@@ -278,6 +291,7 @@ impl Default for BodyGroundState {
     fn default() -> Self {
         Self {
             on_ground: false,
+            head_contact: false,
             contact_initialized: true,
         }
     }

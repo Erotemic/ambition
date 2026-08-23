@@ -334,6 +334,10 @@ pub(super) fn sweep_player_axis_clusters(
                 let impact =
                     crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
                 zero_axis_vel(kinematics, axis);
+                // The other end of the axis `on_ground` reports. Published so
+                // the floor game can decide a ceiling tech at the TOP of the
+                // next tick, one phase before contacts exist.
+                ground.head_contact = true;
                 contacts.push(block_face_contact(
                     body,
                     hit.block,

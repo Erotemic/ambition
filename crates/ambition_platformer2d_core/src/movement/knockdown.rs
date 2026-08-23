@@ -36,6 +36,16 @@ pub const TECH_ROLL_SPEED: f32 = 360.0;
 /// different motions: a tech roll RUNS ALONG the floor it kept its feet on, and
 /// a wall tech pushes PERPENDICULAR off a surface it must not stay against.
 pub const WALL_TECH_SPEED: f32 = 300.0;
+
+/// How hard a ceiling tech pushes a body back DOWN off the ceiling it caught
+/// itself on.
+///
+/// Smaller than [`WALL_TECH_SPEED`]: gravity is already doing this direction's
+/// work, and a ceiling tech is about keeping control of the fall rather than
+/// travelling. What it really buys is the [`GETUP_INVULN`] and the end of the
+/// tumble, which is what stops a ceiling being a free re-launch for whoever put
+/// you there.
+pub const CEILING_TECH_SPEED: f32 = 120.0;
 /// Prone time before the body stands up on its own.
 pub const KNOCKDOWN_TIME: f32 = 0.55;
 /// A getup roll's travel speed.
@@ -198,6 +208,26 @@ pub(super) fn tick_knockdown(
             // POSITION is untouched, and this is an impulse a timed press
             // earned.
             kinematics.vel = frame.side() * (wall.wall_normal_x * WALL_TECH_SPEED);
+            events.op_clusters(combo_trace, MovementOp::Tech);
+            return without_evade(input);
+        }
+        // ⭐ THE CEILING TECH — the last surface a launch can end on, and until
+        // now the only one that could not be caught. A body thrown into a
+        // ceiling kept its tumble, fell the whole way back down helpless, and
+        // arrived on the floor as a knockdown it had no say in: one hit bought
+        // the attacker the ceiling AND the landing.
+        //
+        // Beside the wall arm and above the helpless gate for the same reason
+        // that one is: being helpless is the state a tech exists to escape.
+        if ground.head_contact && state.tech_press_timer > 0.0 {
+            state.tech_press_timer = 0.0;
+            state.tumble_timer = 0.0;
+            state.tumble_until_landing = false;
+            state.getup_invuln_timer = GETUP_INVULN;
+            // DOWN, off the surface it caught: the body pushes away from the
+            // ceiling the way the wall tech pushes away from the wall, into a
+            // fall it now controls.
+            kinematics.vel = frame.down() * CEILING_TECH_SPEED;
             events.op_clusters(combo_trace, MovementOp::Tech);
             return without_evade(input);
         }

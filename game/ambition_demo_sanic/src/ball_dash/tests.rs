@@ -244,6 +244,7 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
             ActorControl::default(),
             motion,
             ambition_platformer2d::actors::actor::BodyGroundState {
+                head_contact: false,
                 on_ground: true,
                 ..Default::default()
             },

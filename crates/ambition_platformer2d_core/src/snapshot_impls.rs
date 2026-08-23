@@ -117,6 +117,10 @@ impl SnapshotState for crate::body_clusters::BodyModeState {
 
 snapshot_pod!(crate::body_clusters::BodyGroundState {
     on_ground: bool,
+    // Rewound with `on_ground` beside it and for the same reason: it is a
+    // CONTACT fact the next step's floor game reads before re-sampling, so a
+    // restore without it decides a ceiling tech from the wrong tick.
+    head_contact: bool,
     contact_initialized: bool,
 });
 

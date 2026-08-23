@@ -420,6 +420,7 @@ fn locomotion_from_body_priority_order_and_non_axis_projection() {
     use crate::body_clusters::{BodyFlightState, BodyGroundState, BodyWallState};
     use crate::movement::{AxisSweptParams, MomentumParams, MotionModel};
     let ground = BodyGroundState {
+        head_contact: false,
         on_ground: true,
         ..Default::default()
     };
@@ -450,6 +451,7 @@ fn locomotion_from_body_priority_order_and_non_axis_projection() {
         "non-axis policies project grounded/airborne from the support fact"
     );
     let ground = BodyGroundState {
+        head_contact: false,
         on_ground: true,
         ..Default::default()
     };

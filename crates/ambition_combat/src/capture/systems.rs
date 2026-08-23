@@ -454,6 +454,7 @@ mod tests {
                 crate::components::CenteredAabb::new(pos, ae::Vec2::new(8.0, 12.0)),
                 crate::components::ActorFaction::Enemy,
                 ambition_platformer2d_core::BodyGroundState {
+                    head_contact: false,
                     on_ground: true,
                     contact_initialized: true,
                 },
@@ -762,6 +763,7 @@ mod tests {
         app.world_mut()
             .entity_mut(victim)
             .insert(ambition_platformer2d_core::BodyGroundState {
+                head_contact: false,
                 on_ground: false,
                 contact_initialized: true,
             });

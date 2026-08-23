@@ -10,19 +10,27 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::Resource;
 
-/// Resolver signature: `(catalog, sprite_character_id, animation clip, body
-/// position, collision size, facing, gravity direction) -> authored volume`.
+/// Resolver signature: `(catalog, sprite_character_id, animation clip,
+/// collision size, seconds into the clip) -> BODY-LOCAL authored volume`.
 /// `sprite_character_id = None` means the provider's default controllable-body
 /// row (currently the `player` row for Ambition).
-pub type AuthoredAttackVolumeFn = fn(
-    &CharacterCatalog,
-    Option<&str>,
-    &str,
-    ae::Vec2,
-    ae::Vec2,
-    f32,
-    ae::Vec2,
-) -> Option<ae::CombatVolume>;
+///
+/// ## Why BODY-LOCAL, and why no `facing`
+///
+/// The volume comes back in the frame every authored `HitVolume` is already
+/// written in — `+x` toward the body's committed facing, `+y` toward its feet,
+/// origin at the body centre — and the caller places it, exactly as it places
+/// a synthetic one.
+///
+/// It used to take a position, a facing and a gravity direction, and the strike
+/// path passed `(ZERO, 1.0, down)` to mean *"give it to me unplaced"*. That
+/// convention is what let a real mirror go missing: the sheet's own drawn
+/// facing was never applied, so a left-drawn character's blade resolved behind
+/// her, and no argument at this seam could have said so. The placement terms
+/// are gone rather than documented — an argument that must be a specific
+/// constant is not an argument.
+pub type AuthoredAttackVolumeFn =
+    fn(&CharacterCatalog, Option<&str>, &str, ae::Vec2, Option<f32>) -> Option<ae::CombatVolume>;
 
 /// App-local bridge from combat to the linked sprite-metadata implementation.
 ///
@@ -50,9 +58,7 @@ pub struct AuthoredAttackVolumeResolver {
                 Option<&str>,
                 &str,
                 ae::Vec2,
-                ae::Vec2,
-                f32,
-                ae::Vec2,
+                Option<f32>,
             ) -> Option<ae::CombatVolume>
             + Send
             + Sync,
@@ -76,9 +82,7 @@ impl AuthoredAttackVolumeResolver {
                 Option<&str>,
                 &str,
                 ae::Vec2,
-                ae::Vec2,
-                f32,
-                ae::Vec2,
+                Option<f32>,
             ) -> Option<ae::CombatVolume>
             + Send
             + Sync
@@ -95,26 +99,18 @@ impl AuthoredAttackVolumeResolver {
         Self::new(no_authored_attack_volume)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// The authored volume for this body's current clip, BODY-LOCAL. Place it
+    /// with [`ae::CombatVolume::place_body_local`] (or let a spawned hitbox
+    /// place it per query, which is what the strike path does).
     pub fn resolve(
         &self,
         catalog: &CharacterCatalog,
         sprite_character_id: Option<&str>,
         animation: &str,
-        body_pos: ae::Vec2,
         collision: ae::Vec2,
-        facing: f32,
-        gravity_dir: ae::Vec2,
+        clip_elapsed: Option<f32>,
     ) -> Option<ae::CombatVolume> {
-        (self.resolve)(
-            catalog,
-            sprite_character_id,
-            animation,
-            body_pos,
-            collision,
-            facing,
-            gravity_dir,
-        )
+        (self.resolve)(catalog, sprite_character_id, animation, collision, clip_elapsed)
     }
 }
 
@@ -124,15 +120,12 @@ impl Default for AuthoredAttackVolumeResolver {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn no_authored_attack_volume(
     _catalog: &CharacterCatalog,
     _sprite_character_id: Option<&str>,
     _animation: &str,
-    _body_pos: ae::Vec2,
     _collision: ae::Vec2,
-    _facing: f32,
-    _gravity_dir: ae::Vec2,
+    _clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     None
 }
@@ -166,15 +159,12 @@ mod tests {
         },
     )"#;
 
-    #[allow(clippy::too_many_arguments)]
     fn catalog_sensitive_resolver(
         catalog: &CharacterCatalog,
         _cid: Option<&str>,
         _animation: &str,
-        _body_pos: ae::Vec2,
         _collision: ae::Vec2,
-        _facing: f32,
-        _gravity_dir: ae::Vec2,
+        _clip_elapsed: Option<f32>,
     ) -> Option<ae::CombatVolume> {
         let x = if catalog.get("alpha").is_some() {
             1.0
@@ -210,10 +200,8 @@ mod tests {
                     app.world().resource::<CharacterCatalog>(),
                     None,
                     "attack_side",
-                    ae::Vec2::ZERO,
                     ae::Vec2::splat(1.0),
-                    1.0,
-                    ae::Vec2::new(0.0, 1.0),
+                    None,
                 )
                 .expect("fixture catalog should resolve")
                 .bounds()

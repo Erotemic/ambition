@@ -19,7 +19,7 @@ use parry2d::{
     shape::{Ball, ConvexPolygon, Cuboid, Shape},
 };
 
-use crate::{Aabb, AabbExt, Vec2};
+use crate::{Aabb, AabbExt, AccelerationFrame, Vec2};
 
 /// A combat hit/hurt volume. Construct via [`CombatVolume::aabb`],
 /// [`CombatVolume::obb`], or [`CombatVolume::convex`]; test overlap with
@@ -65,6 +65,48 @@ impl CombatVolume {
         CombatVolume::Circle {
             center,
             radius: radius.max(0.0),
+        }
+    }
+
+    /// Place a BODY-LOCAL volume into the world.
+    ///
+    /// Body-local means what [`crate::volume_shape::VolumeShape::place_at`]
+    /// means: origin at the body centre, `+x` toward the body's committed
+    /// facing, `+y` toward its feet. This is the same transform, for a volume
+    /// that already carries its own offset — an authored blade whose shape and
+    /// position are both in the manifest, where `place_at`'s shapes are
+    /// centred on the origin by construction.
+    ///
+    /// Mirroring belongs HERE and only here: the volume arrives with the art's
+    /// handedness already resolved (see `SheetRecord::art_forward_x`), so
+    /// `facing` is the only mirror left to apply. A caller that mirrors before
+    /// calling this applies it twice.
+    pub fn place_body_local(&self, origin: Vec2, facing: f32, frame_down: Vec2) -> Self {
+        let frame = AccelerationFrame::new(frame_down);
+        let face = if facing < 0.0 { -1.0 } else { 1.0 };
+        let theta = frame.side.y.atan2(frame.side.x);
+        let to_world =
+            |local: Vec2| origin + frame.side * (local.x * face) + frame.down * local.y;
+        match self {
+            CombatVolume::Aabb(a) => {
+                let (center, half) = (to_world(a.center()), a.half_size());
+                if theta.abs() < 1.0e-5 {
+                    CombatVolume::Aabb(Aabb::new(center, half))
+                } else {
+                    CombatVolume::obb(center, half, theta)
+                }
+            }
+            CombatVolume::Obb {
+                center,
+                half,
+                rotation,
+            } => CombatVolume::obb(to_world(*center), *half, theta + rotation * face),
+            CombatVolume::Circle { center, radius } => {
+                CombatVolume::circle(to_world(*center), *radius)
+            }
+            CombatVolume::Convex { points, .. } => {
+                CombatVolume::convex(points.iter().map(|p| to_world(*p)).collect())
+            }
         }
     }
 

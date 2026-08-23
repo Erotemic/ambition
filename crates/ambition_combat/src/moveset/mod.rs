@@ -1054,14 +1054,18 @@ pub fn advance_move_playback(
                                 .or_else(|| {
                                     worn.map(ambition_characters::actor::WornCharacter::id)
                                 });
+                            // The window's OWN start, not the move's clock: a
+                            // hitbox track lays several Active windows end to
+                            // end, and each box wants the shape drawn at the
+                            // moment it appears. Inert for a sheet that
+                            // publishes one shape per row (every character
+                            // sheet today) — it resolves the coarse shape.
                             authored_volumes.resolve(
                                 &character_catalog,
                                 sprite_cid,
                                 clip,
-                                ae::Vec2::ZERO,
                                 kin.size,
-                                1.0,
-                                ae::Vec2::new(0.0, 1.0),
+                                Some(window.start_s),
                             )
                         });
                         let (local, half_extent, shape) = match &manifest {

@@ -625,24 +625,24 @@ fn capture(
     cap.slashes.extend(vfx.read().cloned());
 }
 
+/// A body-local blade, which is what the seam returns: `+x` forward, `+y`
+/// toward the feet, origin at the body centre. The strike path places it.
 fn test_blade_resolver(
     _catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     _cid: Option<&str>,
     animation: &str,
-    body_pos: ae::Vec2,
     collision: ae::Vec2,
-    _facing: f32,
-    _gravity_dir: ae::Vec2,
+    _clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     (animation == "attack_side").then(|| {
         let hx = collision.x * 0.8;
         let hy = collision.y * 0.4;
         ae::CombatVolume::convex(vec![
-            body_pos + ae::Vec2::new(-hx, -hy),
-            body_pos + ae::Vec2::new(hx, -hy),
-            body_pos + ae::Vec2::new(hx * 1.4, 0.0),
-            body_pos + ae::Vec2::new(hx, hy),
-            body_pos + ae::Vec2::new(-hx, hy),
+            ae::Vec2::new(-hx, -hy),
+            ae::Vec2::new(hx, -hy),
+            ae::Vec2::new(hx * 1.4, 0.0),
+            ae::Vec2::new(hx, hy),
+            ae::Vec2::new(-hx, hy),
         ])
     })
 }

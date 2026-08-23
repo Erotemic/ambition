@@ -115,10 +115,11 @@ pub(crate) fn apply_character_frame(
     // the character path was simply the half that never got it, which is why
     // the Patent Clerk (an SVG rig whose paperdoll view is `Side Left`) faced
     // away from wherever he was going.
-    let flip = ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(
+    let flip = ambition_sprite_sheet::art_is_mirrored(
+        animator.spec.authored_faces_left(),
         facing,
         gravity_dir,
-    ) ^ animator.spec.authored_faces_left();
+    );
     sprite.flip_x = flip;
     sprite.color = color;
     // Self-capture the trim basis from the spawn-built sprite the first time we
@@ -399,7 +400,6 @@ pub fn animate_props(
 mod tests {
     use super::{generic_feature_anim_owns, FeatureVisualKind};
     use ambition_platformer2d_core::Vec2;
-    use ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x;
     use ambition_sprite_sheet::character::sheets::{available_targets, record_for_target};
 
     #[test]
@@ -418,7 +418,8 @@ mod tests {
     /// the answerable question is which way the character ends up looking.
     fn drawn_direction(authored_faces_left: bool, facing: f32) -> f32 {
         let art_points = if authored_faces_left { -1.0 } else { 1.0 };
-        let flip = gravity_aware_flip_x(facing, Vec2::NEG_Y) ^ authored_faces_left;
+        let flip =
+            ambition_sprite_sheet::art_is_mirrored(authored_faces_left, facing, Vec2::NEG_Y);
         if flip {
             -art_points
         } else {

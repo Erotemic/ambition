@@ -177,10 +177,11 @@ pub fn animate_bosses(
         // gravity it reduces to `spec.flip_x(facing)` (the gravity term is 0), and
         // under a flip it cancels the `ActorRoll` 180° mirror so the boss keeps
         // facing the player.
-        let flip = ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(
+        let flip = ambition_sprite_sheet::art_is_mirrored(
+            animator.spec.authored_faces_left,
             state.facing,
             gravity.dir_at(state.pos),
-        ) ^ animator.spec.authored_faces_left;
+        );
         sprite.flip_x = flip;
         // `render_of` is `None` for untrimmed sheets, so those keep their spawn-time
         // size/anchor. The anchor x mirrors with the same facing flip applied to the sprite.

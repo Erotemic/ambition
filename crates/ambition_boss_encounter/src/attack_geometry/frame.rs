@@ -71,11 +71,7 @@ pub(super) fn animation_frame_index(
     entry: &ambition_sprite_sheet::AnimationMetrics,
     elapsed_s: f32,
 ) -> Option<usize> {
-    let frame_duration = entry.frame_duration_secs?;
-    if frame_duration <= 0.0 {
-        return None;
-    }
-    Some((elapsed_s.max(0.0) / frame_duration).floor() as usize)
+    ambition_sprite_sheet::frame_at(entry, elapsed_s)
 }
 
 pub(super) fn authored_animation_frame_index(
@@ -248,21 +244,13 @@ pub(super) fn world_space_animation_box_volumes(
         .map(ae::CombatVolume::aabb)
         .collect::<Vec<_>>()
     };
-    if let Some(index) = frame_index {
-        if let Some(frame) = box_
-            .frames
-            .get(index.min(box_.frames.len().saturating_sub(1)))
-        {
-            if frame.is_populated() {
-                if !frame.poly.is_empty() {
-                    return vec![hull(&frame.poly)];
-                }
-                return boxes(&frame.parts, frame.bbox);
-            }
-        }
+    // WHICH authored shape this frame shows is `frame_space::sample`'s call, and
+    // the character attack path asks the same question through the same
+    // function — the precedence (per-frame outranks per-animation, hull
+    // outranks rectangles) has one home rather than a copy per consumer.
+    match ambition_sprite_sheet::SampledBox::sample(box_, frame_index) {
+        None => Vec::new(),
+        Some(ambition_sprite_sheet::SampledBox::Poly(poly)) => vec![hull(poly)],
+        Some(ambition_sprite_sheet::SampledBox::Rects(parts, bbox)) => boxes(parts, bbox),
     }
-    if !box_.poly.is_empty() {
-        return vec![hull(&box_.poly)];
-    }
-    boxes(&box_.parts, box_.bbox)
 }

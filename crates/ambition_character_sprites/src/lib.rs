@@ -14,7 +14,9 @@ pub use anim::{
     pick_player_anim,
 };
 pub use attack_hitbox::{
-    authored_attack_volume_resolver, refused_file_roots, resolves_by_file_root,
+    actor_attack_hitbox_local, actor_attack_hitbox_world, authored_attack_volume_resolver,
+    manifest_attack_hitbox_local, manifest_attack_hitbox_world, player_attack_hitbox_local,
+    player_attack_hitbox_world, refused_file_roots, resolves_by_file_root,
 };
 pub use posed_body::{
     PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies,

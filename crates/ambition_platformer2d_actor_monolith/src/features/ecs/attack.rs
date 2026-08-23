@@ -299,14 +299,14 @@ pub fn player_attack_hitbox(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let animation = attack_intent_animation(intent);
-    authored_volumes.resolve(
-        character_catalog,
-        sprite_character_id,
-        animation,
-        view.pos,
-        view.size,
-        view.facing,
-        gravity_dir,
+    // The resolver answers BODY-LOCAL; the overlay wants the box where this
+    // body is standing right now, so it places it — the same placement a
+    // spawned strike volume applies per query, so the drawn box and the damage
+    // box cannot disagree about which way the swing points.
+    Some(
+        authored_volumes
+            .resolve(character_catalog, sprite_character_id, animation, view.size, None)?
+            .place_body_local(view.pos, view.facing, gravity_dir),
     )
 }
 

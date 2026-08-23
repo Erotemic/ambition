@@ -1,21 +1,33 @@
-//! Derive a controllable actor's melee attack hitbox in world space from
-//! its sprite-sheet manifest — the same data-driven path bosses use
+//! Derive a controllable actor's melee attack hitbox from its sprite-sheet
+//! manifest — the same data-driven path bosses use
 //! (`boss_encounter::attack_geometry`), so the box you author and see in
 //! `debug-hitboxes` IS the gameplay damage box.
 //!
-//! The manifest stores the attack hitbox as a sprite-frame pixel rect
-//! (`AnimationMetrics::hitbox`). We map frame pixels → world by planting
-//! the manifest's `feet_pixel` at the collision box's bottom-centre (the
-//! anchor the renderer also uses) and scaling by the *rendered* sprite
-//! size — resolved via the same `sprite_render_size` the
-//! renderer uses, so the gameplay box lines up with the drawn blade.
-//! Facing mirrors the box's forward offset.
+//! The manifest stores the hitbox as sprite-frame pixels. Turning those into
+//! gameplay offsets is [`ambition_sprite_sheet::FrameToBody`]'s job and nothing
+//! else's: a frame pixel is a coordinate in the sheet's ARTWORK, and the
+//! artwork has a handedness that only the sheet knows. This module used to do
+//! the mapping by hand from `facing` alone, which put every left-drawn sheet's
+//! blade behind its owner.
+//!
+//! Resolution comes in two halves, and the split is the point:
+//!
+//! - `*_local` returns the volume BODY-LOCAL (`+x` forward, `+y` toward the
+//!   feet, origin at the body centre) — no position, no facing, no gravity.
+//!   That is what a spawned hitbox wants, because it mirrors and rotates itself
+//!   at query time.
+//! - `*_world` places that volume for a body that exists right now — what the
+//!   debug overlay wants.
+//!
+//! Before the split there was one function taking a `facing`, and the moveset
+//! path passed `1.0` to mean "don't place it" — a convention, which is to say
+//! a thing that can be got wrong. Now there is no facing to pass wrongly.
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
-use ambition_sprite_sheet::{SheetRecord, SheetRegistry, baked_sheet_rons};
+use ambition_sprite_sheet::{FrameToBody, SheetRecord, SheetRegistry, baked_sheet_rons, frame_at};
 use std::sync::OnceLock;
 
 /// The player's sprite manifest file root. Both `robot` (enemy) and
@@ -60,18 +72,47 @@ pub fn resolves_by_file_root(root: &str) -> bool {
     file_root_registry().get(root).is_some()
 }
 
-/// Convert a sheet's per-animation attack hitbox (the coarse `bbox`) into
-/// a world-space [`ae::Aabb`].
+/// The body-local volume a sheet authors for `animation`, at `frame`.
+///
+/// `render_size` is the drawn sprite quad in world units (the renderer's own
+/// `sprite_render_size`, so the box matches the visible blade); `collision` is
+/// the body's collision box, which places the sheet's feet against the body's
+/// toward-gravity face.
+///
+/// `clip_elapsed` is seconds into the animation row. The FRAME it selects is
+/// the sheet's arithmetic, not the caller's: a row's `frame_duration_secs`
+/// lives in the manifest, so a caller that holds a clock never has to hold a
+/// frame rate too. A row publishing no per-frame geometry (every character
+/// sheet today) resolves the coarse per-animation shape whatever the clock
+/// says.
+///
+/// Returns `None` when the sheet has no body metrics or nothing authored for
+/// `animation`; the caller falls back to its hardcoded volume.
+pub fn manifest_attack_hitbox_local(
+    record: &SheetRecord,
+    animation: &str,
+    collision: ae::Vec2,
+    render_size: ae::Vec2,
+    clip_elapsed: Option<f32>,
+) -> Option<ae::CombatVolume> {
+    let metrics = record.body_metrics.as_ref()?;
+    let entry = metrics.animations.get(animation)?;
+    let hitbox = entry.hitbox.as_ref()?;
+    let frame = clip_elapsed.and_then(|elapsed| frame_at(entry, elapsed));
+    FrameToBody::planting_feet(record, render_size, collision).volume(hitbox, frame)
+}
+
+/// [`manifest_attack_hitbox_local`] placed for a body that exists right now.
 ///
 /// - `body_pos`: collision-box centre, world coords (y grows downward).
-/// - `collision`: collision-box size (e.g. 30×48). Used to plant feet.
-/// - `facing`: `+1` faces right, `-1` faces left (the box mirrors).
-/// - `render_size`: the drawn sprite-quad size in world units (use the
-///   renderer's own `sprite_render_size` so the box matches
-///   the visible blade).
-///
-/// Returns `None` when the sheet has no body metrics or no hitbox for
-/// `animation`; the caller should then fall back to its hardcoded volume.
+/// - `facing`: `+1` faces right, `-1` faces left.
+/// - `gravity_dir`: live gravity DIRECTION at the body. The authored box is in
+///   the body's own frame (x = side, y = toward-feet); this rotates it into
+///   world so the box lands toward the swing's forward under ANY gravity — the
+///   SAME rotation `AttackSpec::into_world_frame` applies to the slash, so the
+///   damage box and the VFX point the same way. Identity under screen-down
+///   gravity (upright is byte-stable).
+#[allow(clippy::too_many_arguments)]
 pub fn manifest_attack_hitbox_world(
     record: &SheetRecord,
     animation: &str,
@@ -79,64 +120,12 @@ pub fn manifest_attack_hitbox_world(
     collision: ae::Vec2,
     facing: f32,
     render_size: ae::Vec2,
-    // Live gravity DIRECTION at the body. The manifest authors the hitbox in the
-    // sprite's screen frame (x = side, y = toward-feet); this rotates it into the
-    // body's reference frame so the box lands toward the swing's forward under ANY
-    // gravity — the SAME rotation `AttackSpec::into_world_frame` applies to the
-    // slash, so the damage box and the VFX point the same way. Identity under
-    // screen-down gravity (upright is byte-stable).
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
-    let metrics = record.body_metrics.as_ref()?;
-    let hitbox = metrics.animations.get(animation)?.hitbox.as_ref()?;
-
-    let fw = record.frame_width.max(1) as f32;
-    let fh = record.frame_height.max(1) as f32;
-    let scale = ae::Vec2::new(render_size.x / fw, render_size.y / fh);
-
-    // Feet plant at the collision box's bottom-centre (world y-down → the
-    // "bottom" of the body is at +y). Every frame pixel maps to world
-    // relative to the feet, scaled by the render size. The sprite flips
-    // horizontally with facing, so the forward x offset negates facing left.
-    let (feet_x, feet_y) = metrics
-        .feet_pixel
-        .map(|p| (p.x, p.y))
-        .unwrap_or((fw * 0.5, fh));
-    let face = if facing < 0.0 { -1.0 } else { 1.0 };
-    let frame = ae::AccelerationFrame::new(gravity_dir);
-    let pixel_to_world = |px: f32, py: f32| {
-        let off_x = (px - feet_x) * scale.x * face;
-        let off_y = (py - feet_y) * scale.y;
-        // Body-LOCAL offset: x = gravity-perpendicular side (facing-signed),
-        // y = toward-feet (the `+collision.y/2` plants the box's anchor at the
-        // body's toward-gravity face). Rotate into world by the gravity frame so
-        // the authored screen-axis box tracks gravity. Identity when gravity is
-        // screen-down (`to_world` is the identity there), so upright is unchanged.
-        body_pos + frame.to_world(ae::Vec2::new(off_x, collision.y * 0.5 + off_y))
-    };
-
-    // Authored convex polygon wins: a hitbox shape that conforms to the effect
-    // (a blade arc, a cone) instead of the coarse bbox.
-    if !hitbox.poly.is_empty() {
-        let points: Vec<ae::Vec2> = hitbox
-            .poly
-            .iter()
-            .map(|(x, y)| pixel_to_world(*x, *y))
-            .collect();
-        return Some(ae::CombatVolume::convex(points));
-    }
-
-    // Fallback: the single bbox as an axis-aligned volume.
-    let bbox = hitbox.bbox?;
-    let center = pixel_to_world(
-        bbox.x as f32 + bbox.w as f32 * 0.5,
-        bbox.y as f32 + bbox.h as f32 * 0.5,
-    );
-    let half = ae::Vec2::new(
-        (bbox.w as f32 * 0.5 * scale.x).abs(),
-        (bbox.h as f32 * 0.5 * scale.y).abs(),
-    );
-    Some(ae::CombatVolume::aabb(ae::Aabb::new(center, half)))
+    Some(
+        manifest_attack_hitbox_local(record, animation, collision, render_size, None)?
+            .place_body_local(body_pos, facing, gravity_dir),
+    )
 }
 
 /// Render size of the player's sprite quad, resolved from the supplied
@@ -156,15 +145,17 @@ fn player_render_size(
     Some(sheets::sprite_render_size(&spec, collision))
 }
 
-/// Resolve the player's melee attack hitbox for `animation` from the
-/// baked manifest. Cheap per-frame because the file-root registry is an
-/// immutable baked-asset cache. Returns `None` when no hitbox is authored for
-/// that animation, so the caller falls back to its `AttackSpec` volume.
+/// Resolve a controllable body's authored melee volume, BODY-LOCAL.
 ///
 /// The combat-seam resolver (`combat::authored_volumes`) is installed as an
 /// App-local Bevy resource by runtime composition. It receives the same
 /// `CharacterCatalog` as spawning and rendering without naming this module.
 /// `None` cid selects the player manifest root.
+///
+/// Body-local is the whole seam: combat spawns a hitbox that mirrors and
+/// rotates itself against its owner every query, so handing it a placed volume
+/// would mirror the swing twice. `clip_elapsed` is seconds into the clip, so a
+/// sheet publishing per-frame geometry drives the box that is live right now.
 pub fn authored_attack_volume_resolver(
     // U1 stage C: provider-authored sheets, captured by the composition root
     // into the resolver closure. Combat calls this without naming the type.
@@ -172,31 +163,14 @@ pub fn authored_attack_volume_resolver(
     catalog: &CharacterCatalog,
     sprite_character_id: Option<&str>,
     animation: &str,
-    body_pos: ae::Vec2,
     collision: ae::Vec2,
-    facing: f32,
-    gravity_dir: ae::Vec2,
+    clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     match sprite_character_id {
-        Some(cid) => actor_attack_hitbox_world(
-            authored,
-            catalog,
-            cid,
-            animation,
-            body_pos,
-            collision,
-            facing,
-            gravity_dir,
-        ),
-        None => player_attack_hitbox_world(
-            authored,
-            catalog,
-            animation,
-            body_pos,
-            collision,
-            facing,
-            gravity_dir,
-        ),
+        Some(cid) => {
+            actor_attack_hitbox_local(authored, catalog, cid, animation, collision, clip_elapsed)
+        }
+        None => player_attack_hitbox_local(authored, catalog, animation, collision, clip_elapsed),
     }
 }
 
@@ -206,15 +180,17 @@ pub fn authored_attack_volume_resolver(
 /// knob — TUNE LIVE.
 const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 
-/// authored melee box drives its attack.
-pub fn player_attack_hitbox_world(
+/// The player's authored melee volume for `animation`, BODY-LOCAL.
+///
+/// Cheap per-frame because the file-root registry is an immutable baked-asset
+/// cache. `None` when no hitbox is authored for that animation, so the caller
+/// falls back to its `AttackSpec` volume.
+pub fn player_attack_hitbox_local(
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     animation: &str,
-    body_pos: ae::Vec2,
     collision: ae::Vec2,
-    facing: f32,
-    gravity_dir: ae::Vec2,
+    clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     // Authored first, baked second — the same order every other sheet lookup
     // uses since U1, so a provider that authored its protagonist's sheet gets
@@ -226,21 +202,30 @@ pub fn player_attack_hitbox_world(
     // from — grows reach + size about the feet anchor, player-only.
     let render_size =
         player_render_size(authored, catalog, collision)? * PLAYER_ATTACK_HITBOX_SCALE;
-    manifest_attack_hitbox_world(
-        record,
-        animation,
-        body_pos,
-        collision,
-        facing,
-        render_size,
-        gravity_dir,
+    manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
+}
+
+/// [`player_attack_hitbox_local`] placed for a body that exists right now.
+#[allow(clippy::too_many_arguments)]
+pub fn player_attack_hitbox_world(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    catalog: &CharacterCatalog,
+    animation: &str,
+    body_pos: ae::Vec2,
+    collision: ae::Vec2,
+    facing: f32,
+    gravity_dir: ae::Vec2,
+) -> Option<ae::CombatVolume> {
+    Some(
+        player_attack_hitbox_local(authored, catalog, animation, collision, None)?
+            .place_body_local(body_pos, facing, gravity_dir),
     )
 }
 
-/// Resolve ANY catalog actor's melee attack hitbox for `animation` from its
-/// baked manifest — the actor-neutral generalization of
-/// [`player_attack_hitbox_world`]. The
-/// actor's sheet is resolved by its catalog `character_id` through the
+/// ANY catalog actor's authored melee volume for `animation`, BODY-LOCAL — the
+/// actor-neutral generalization of [`player_attack_hitbox_local`].
+///
+/// The actor's sheet is resolved by its catalog `character_id` through the
 /// file-root registry (so robot-family characters — the player and the robot
 /// enemy both author `target: "robot"` — stay distinct), and pixel rects scale
 /// by the actor's rendered sprite size.
@@ -250,15 +235,13 @@ pub fn player_attack_hitbox_world(
 /// hardcoded melee volume. This is the same sprite-metadata-then-fallback shape
 /// the player uses, so an enemy with an authored blade swings the box you see
 /// in `debug-hitboxes`, not a divergent hardcoded rectangle.
-pub fn actor_attack_hitbox_world(
+pub fn actor_attack_hitbox_local(
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     character_id: &str,
     animation: &str,
-    body_pos: ae::Vec2,
     collision: ae::Vec2,
-    facing: f32,
-    gravity_dir: ae::Vec2,
+    clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     let file_root = catalog.get(character_id)?.manifest_target()?;
     let record = authored
@@ -274,14 +257,24 @@ pub fn actor_attack_hitbox_world(
     )
     .map(|b| b.render_size)
     .unwrap_or(collision);
-    manifest_attack_hitbox_world(
-        record,
-        animation,
-        body_pos,
-        collision,
-        facing,
-        render_size,
-        gravity_dir,
+    manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
+}
+
+/// [`actor_attack_hitbox_local`] placed for a body that exists right now.
+#[allow(clippy::too_many_arguments)]
+pub fn actor_attack_hitbox_world(
+    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    catalog: &CharacterCatalog,
+    character_id: &str,
+    animation: &str,
+    body_pos: ae::Vec2,
+    collision: ae::Vec2,
+    facing: f32,
+    gravity_dir: ae::Vec2,
+) -> Option<ae::CombatVolume> {
+    Some(
+        actor_attack_hitbox_local(authored, catalog, character_id, animation, collision, None)?
+            .place_body_local(body_pos, facing, gravity_dir),
     )
 }
 

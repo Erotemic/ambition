@@ -183,13 +183,70 @@ fn seam_resolver_resolves_the_authored_player_blade() {
         &catalog(),
         None,
         "attack_side",
-        ae::Vec2::new(100.0, 100.0),
         ae::Vec2::new(30.0, 48.0),
-        1.0,
-        ae::Vec2::new(0.0, 1.0),
+        None,
     );
     assert!(
         matches!(volume, Some(ae::CombatVolume::Convex { .. })),
         "the player manifest authors a convex attack_side blade, got {volume:?}"
+    );
+}
+
+/// A LEFT-DRAWN fighter's forward swings land in front of her.
+///
+/// Pointed Polygon's art is drawn facing left, so her authored polys sit at
+/// `x < feet_x` — and every consumer that mirrored by `facing` alone put them
+/// behind her at both facings. `air_back` is the control: it is authored on the
+/// other side of the feet on purpose, so a fix that simply negated everything
+/// would show up here as a back-air that hits forward.
+///
+/// ⚠ Her sheet is GENERATED and gitignored, so this SKIPS on a checkout without
+/// the art rather than passing vacuously — the skip is loud on purpose.
+#[test]
+fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
+    let catalog = catalog();
+    if catalog.get("pointed_polygon").is_none()
+        || actor_attack_hitbox_local(
+            &Default::default(),
+            &catalog,
+            "pointed_polygon",
+            "jab",
+            collision(),
+            None,
+        )
+        .is_none()
+    {
+        eprintln!(
+            "SKIPPED: pointed_polygon's generated sheet is not on disk; \
+             regenerate the sprites to exercise this"
+        );
+        return;
+    }
+    let reach = |animation: &str| {
+        let bounds = actor_attack_hitbox_local(
+            &Default::default(),
+            &catalog,
+            "pointed_polygon",
+            animation,
+            collision(),
+            None,
+        )
+        .unwrap_or_else(|| panic!("pointed_polygon/{animation} authors a hitbox"))
+        .bounds();
+        // Body-LOCAL, so `+x` is already "toward the swing's forward" whatever
+        // way she happens to be facing — no facing to get wrong.
+        (bounds.min.x + bounds.max.x) * 0.5
+    };
+    for forward in ["jab", "attack_side", "smash_forward", "dash_attack", "air_forward"] {
+        assert!(
+            reach(forward) > 0.0,
+            "{forward} must land in FRONT of her, resolved centre x = {}",
+            reach(forward)
+        );
+    }
+    assert!(
+        reach("air_back") < 0.0,
+        "air_back is authored behind her and must stay there, resolved centre x = {}",
+        reach("air_back")
     );
 }

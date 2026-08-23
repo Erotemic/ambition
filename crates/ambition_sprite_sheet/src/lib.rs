@@ -33,6 +33,9 @@ pub use binding::{AnimRow, AnimRowRef, BoundAnimRow};
 mod frames;
 pub use frames::{AtlasPage, FrameTrim, trimmed_render};
 
+pub mod frame_space;
+pub use frame_space::{FrameToBody, SampledBox, art_is_mirrored, frame_at};
+
 pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
 pub mod boss;
@@ -116,9 +119,13 @@ pub struct SheetRecord {
     /// SVG-rigged sheet whose rig declares `features.facing: "west"` (the
     /// Patent Clerk, whose `Side Left` paperdoll view is the drawn source).
     ///
-    /// this does NOT touch the body's `facing` value, its hitboxes, or its
-    /// authored `launch_dir` — those were always right. Only the drawing was
-    /// mirrored the wrong way.
+    /// ⚠ It DOES touch every gameplay rectangle the sheet publishes. A hitbox,
+    /// a hurtbox and a body box are all frame pixels — coordinates in the
+    /// artwork — so a left-drawn sheet's forward runs toward `-x` in all of
+    /// them. This comment used to say the opposite, which was true only while
+    /// the left-drawn sheets happened to author no hitboxes; when one did, her
+    /// jab came out behind her. `frame_space::FrameToBody` is the crossing that
+    /// applies it, and the only one that should.
     #[serde(default)]
     pub authored_faces_left: bool,
     pub rows: Vec<SheetRow>,

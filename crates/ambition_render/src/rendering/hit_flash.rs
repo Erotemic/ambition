@@ -7,12 +7,16 @@
 //! shader discards every fragment (no GPU work) and the source sprite renders
 //! normally.
 //!
-//! Four cues, one overlay, and the priority between them is decided in
+//! Five cues, one overlay, and the priority between them is decided in
 //! [`overlay_look`] rather than by whichever pass wrote last:
 //!
 //! - **impact flash**, a hot strength-scaled pop for exactly the hitlag a
 //!   connect bought. A jab gets almost nothing and a smash gets a wall of
 //!   light, off one resolved number and with no threshold in between;
+//! - **parry flash**, a hard white-gold snap for a perfect shield that
+//!   actually CAUGHT a strike. It reads `parry_flash_secs`, never
+//!   `parrying()` — the window standing open is true of every raised guard for
+//!   a few ticks, and a cue driven off that fires on every shield raise;
 //! - **damage flash**, pure white, held then faded over its `hit_flash` timer;
 //! - **intangibility blink**, a pale pulse for exactly as long as the body
 //!   cannot be struck. It reads the sim's resolved `unhittable` fact, never a
@@ -23,13 +27,22 @@
 //!   held charge fills, so latched / building / loaded are three readings of
 //!   one number.
 //!
-//! The order is impact, then damage flash, then blink, then charge, and each
-//! step of it is a decision about what an opponent needs to know first. A
-//! landed hit is the loudest fact there is and it is over in a few frames;
-//! its tail is the damage flash. Intangibility outranks the charge because
+//! The order is impact, then parry, then damage flash, then blink, then
+//! charge, and each step of it is a decision about what an opponent needs to
+//! know first. A landed hit is the loudest fact there is and it is over in a
+//! few frames; its tail is the damage flash. A parry sits just under it and
+//! the two almost never collide — a parry is now a full negation, so the body
+//! that caught the strike took no hit to flash for. Where they DO collide is a
+//! second strike arriving inside the parry's beat, and there being struck is
+//! the more urgent correction. Intangibility outranks the charge because
 //! misreading it wastes a whole attack, where misreading a charge costs
 //! spacing — and a body that is both is telling you the same thing either way:
 //! do not go in.
+//!
+//! The parry flash is the ONLY thing that tells a spectator a parry happened.
+//! Because a caught strike is negated outright — no hit event, no landed-hit
+//! fact, no cost to the guard — there is no impact, no damage flash and no
+//! shield-stress change to infer it from.
 //!
 //! The two cues an impact interrupts are STATES, and they RESUME rather than
 //! restart: both are pure functions of the sim tick, so when the flash ends
@@ -116,6 +129,20 @@ const IMPACT_TINT: Vec3 = Vec3::new(1.0, 0.93, 0.74);
 /// assumes it.
 const IMPACT_MIN_INTENSITY: f32 = 0.30;
 const IMPACT_MAX_INTENSITY: f32 = 1.0;
+
+/// The parry flash: a hard white-gold snap, brighter than the guard's own
+/// window colour so the catch is unmistakably a different event from holding
+/// the shield up.
+const PARRY_TINT: Vec3 = Vec3::new(1.0, 0.97, 0.72);
+
+/// How long a parry flash stays at full before falling away, as a fraction of
+/// the published beat, and the beat this normalizes against.
+///
+/// A separate reference from the damage flash's because the two are different
+/// KINDS of event: a damage flash is a wound fading, a parry is a snap. This
+/// one holds almost the whole beat and then cuts.
+const PARRY_HOLD_FRACTION: f32 = 0.70;
+const REFERENCE_PARRY_SECONDS: f32 = 0.18;
 
 /// Z bias for the overlay mesh — must sit IN FRONT of every other
 /// per-character overlay so the white silhouette is never covered.
@@ -434,6 +461,11 @@ pub struct OverlayFacts {
     /// The body cannot be struck right now. Resolved sim-side from the damage
     /// rule; presentation never re-derives it.
     pub unhittable: bool,
+    /// Seconds left on a parry that actually CAUGHT a strike; `0.0` almost
+    /// always. Resolved sim-side from `BodyShieldState::parry_caught_timer`.
+    ///
+    /// ⛔ not the parry WINDOW. See the module docs.
+    pub parry_flash_secs: f32,
     /// How hard the hit currently freezing this body was, `0..=1`; `0.0` when
     /// no hitlag is running. Resolved sim-side from the hitlag the hit already
     /// set, so nothing here touches hit resolution.
@@ -476,6 +508,7 @@ fn overlay_facts_for_source(
             .get(source_entity)
             .map(|p| OverlayFacts {
                 hit_flash_secs: Some(p.hit_flash_secs),
+                parry_flash_secs: p.parry_flash_secs,
                 hit_strength: p.hit_strength,
                 unhittable: p.unhittable,
                 smash_charge: p.smash_charge,
@@ -492,6 +525,7 @@ fn overlay_facts_for_source(
         .get(feature.id.as_str())
         .map(|view| OverlayFacts {
             hit_flash_secs: Some(view.hit_flash_secs),
+            parry_flash_secs: view.parry_flash_secs,
             hit_strength: view.hit_strength,
             unhittable: view.unhittable,
             smash_charge: None,
@@ -535,6 +569,12 @@ fn overlay_look(
     if impact > 0.0 {
         return (impact, IMPACT_TINT);
     }
+    // The PARRY, and it is the only evidence there is: a caught strike is
+    // negated outright, so nothing else on this body changed to imply it.
+    let parry = normalize_parry_flash(facts.parry_flash_secs);
+    if parry > 0.0 {
+        return (parry, PARRY_TINT);
+    }
     let flash = facts.hit_flash_secs.map_or(0.0, normalize_hit_flash);
     if flash > 0.0 {
         return (flash, FLASH_TINT);
@@ -561,6 +601,22 @@ fn impact_intensity(strength: f32) -> f32 {
     }
     let strength = strength.clamp(0.0, 1.0);
     IMPACT_MIN_INTENSITY + (IMPACT_MAX_INTENSITY - IMPACT_MIN_INTENSITY) * strength
+}
+
+/// Map a parry beat's seconds-remaining into a `0..=1` intensity.
+///
+/// Holds near full for most of the beat and then cuts away, which is what makes
+/// it read as a SNAP rather than as the damage flash's slower bloom-and-fade.
+fn normalize_parry_flash(seconds: f32) -> f32 {
+    if seconds <= 0.0 {
+        return 0.0;
+    }
+    let fade_end = REFERENCE_PARRY_SECONDS * (1.0 - PARRY_HOLD_FRACTION);
+    if seconds >= fade_end {
+        1.0
+    } else {
+        (seconds / fade_end).clamp(0.0, 1.0)
+    }
 }
 
 /// The smash-charge pulse's intensity at one sim tick.
@@ -751,6 +807,7 @@ mod tests {
     fn the_damage_flash_outranks_the_intangibility_blink() {
         let both = OverlayFacts {
             hit_flash_secs: Some(0.2),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
             smash_charge: None,
@@ -764,6 +821,7 @@ mod tests {
         // And once the flash drains, the blink takes over rather than nothing.
         let after = OverlayFacts {
             hit_flash_secs: Some(0.0),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
             smash_charge: None,
@@ -844,6 +902,7 @@ mod tests {
     fn a_charge_yields_to_both_louder_cues() {
         let charging = OverlayFacts {
             hit_flash_secs: Some(0.0),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
             smash_charge: Some(1.0),
@@ -864,6 +923,7 @@ mod tests {
         // Struck while charging reads as struck, whatever else is true.
         let struck_while_charging = OverlayFacts {
             hit_flash_secs: Some(0.2),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
             smash_charge: Some(1.0),
@@ -911,6 +971,7 @@ mod tests {
     fn an_impact_interrupts_the_states_without_resetting_them() {
         let struck_mid_charge = OverlayFacts {
             hit_flash_secs: Some(0.2),
+            parry_flash_secs: 0.0,
             hit_strength: 0.8,
             unhittable: true,
             smash_charge: Some(0.5),
@@ -933,6 +994,7 @@ mod tests {
 
         let blinking = OverlayFacts {
             hit_flash_secs: Some(0.0),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
             smash_charge: Some(0.5),
@@ -954,9 +1016,78 @@ mod tests {
         );
     }
 
+    /// A caught parry snaps, and it is the ONLY evidence: the body that
+    /// caught the strike took no hit, so nothing else on it changed.
+    #[test]
+    fn a_caught_parry_snaps_and_is_the_only_evidence() {
+        // A parried body is unhittable while its window is open and is holding
+        // no charge and no wound — exactly the state a real parry leaves.
+        let parried = OverlayFacts {
+            hit_flash_secs: Some(0.0),
+            parry_flash_secs: REFERENCE_PARRY_SECONDS,
+            hit_strength: 0.0,
+            unhittable: true,
+            smash_charge: None,
+        };
+        let (intensity, tint) = overlay_look(parried, 0, None);
+        assert_eq!(tint, PARRY_TINT, "the parry outranks the i-frame blink");
+        assert_eq!(intensity, 1.0);
+
+        // It SNAPS: near full for most of the beat, then cuts.
+        let fade_end = REFERENCE_PARRY_SECONDS * (1.0 - PARRY_HOLD_FRACTION);
+        assert_eq!(normalize_parry_flash(fade_end), 1.0);
+        let cutting = normalize_parry_flash(fade_end * 0.5);
+        assert!(cutting > 0.0 && cutting < 1.0, "{cutting}");
+        assert_eq!(normalize_parry_flash(0.0), 0.0);
+        assert_eq!(normalize_parry_flash(-1.0), 0.0);
+
+        // Beat over: the blink it was covering resumes at the tick's phase.
+        let after = OverlayFacts {
+            parry_flash_secs: 0.0,
+            ..parried
+        };
+        assert_eq!(overlay_look(after, 7, None).0, blink_intensity(7));
+    }
+
+    /// Where a parry and an impact DO collide — a second strike arriving
+    /// inside the parry's beat — being struck is the more urgent correction.
+    #[test]
+    fn a_strike_landing_inside_the_parry_beat_still_reads_as_a_strike() {
+        let struck_mid_parry = OverlayFacts {
+            hit_flash_secs: Some(0.2),
+            parry_flash_secs: REFERENCE_PARRY_SECONDS,
+            hit_strength: 0.6,
+            unhittable: false,
+            smash_charge: None,
+        };
+        assert_eq!(overlay_look(struck_mid_parry, 0, None).1, IMPACT_TINT);
+    }
+
+    /// No caught strike, no snap — at every tick, whatever else is true.
+    #[test]
+    fn nothing_snaps_without_a_caught_parry() {
+        let raised_guard = OverlayFacts {
+            hit_flash_secs: Some(0.0),
+            parry_flash_secs: 0.0,
+            hit_strength: 0.0,
+            // A raised guard inside its parry WINDOW is unhittable, which is
+            // exactly the state a cue driven off `parrying()` would fire on.
+            unhittable: true,
+            smash_charge: None,
+        };
+        for tick in 0..BLINK_PERIOD_TICKS * 3 {
+            assert_eq!(
+                overlay_look(raised_guard, tick, None).1,
+                BLINK_TINT,
+                "tick {tick} must read as the i-frame blink, not a parry"
+            );
+        }
+    }
+
     fn flash(secs: f32) -> OverlayFacts {
         OverlayFacts {
             hit_flash_secs: Some(secs),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
             smash_charge: None,
@@ -966,6 +1097,7 @@ mod tests {
     fn intangible() -> OverlayFacts {
         OverlayFacts {
             hit_flash_secs: Some(0.0),
+            parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: true,
             smash_charge: None,

@@ -40,6 +40,12 @@
         // struck surface. The impact cues stay separate and only fire on contact.
         (id: Some("player.robot.slash.air"), waveform: Saw, frequency: 900.0, frequency_end: 300.0, duration: 0.090, volume: 0.14, attack: 0.002, release: 0.050, noise: 0.70),
 
+        // A caught parry: a bright metallic clang that RISES, so it reads as
+        // deflection rather than as another impact. Clean — no noise at all —
+        // because everything else in a contact exchange is noisy and this beat
+        // has to be the one that stands out of it.
+        (id: Some("player.parry"), waveform: Triangle, frequency: 1180.0, frequency_end: 1760.0, duration: 0.110, volume: 0.20, attack: 0.001, release: 0.070, noise: 0.0),
+
         // A successful tech: a short, hard, bright clack with a fast upward
         // snap. It has to cut through the hit that caused it, land in well
         // under a tenth of a second, and never be mistaken for the getup

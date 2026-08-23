@@ -897,6 +897,7 @@ mod tests {
         let contact = |kind, impact_speed| {
             let mut events = ae::FrameEvents::default();
             events.contacts.push(ae::collision_semantics::Contact {
+                involuntary: false,
                 kind,
                 point: ae::Vec2::new(40.0, 0.0),
                 normal: ae::Vec2::new(-1.0, 0.0),

@@ -160,6 +160,7 @@ impl Loop {
             .push(ae::collision_semantics::Contact {
                 // A hand-built rest contact: nothing arrived at this surface.
                 impact_speed: 0.0,
+                involuntary: false,
                 kind: ContactKind::Head,
                 point: ae::Vec2::ZERO,
                 normal: ae::Vec2::new(0.0, 1.0),

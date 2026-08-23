@@ -348,6 +348,7 @@ fn crawl_chain(
         // A crawler ATTACHES; it does not arrive. Its closing speed along the
         // surface it is already stuck to is what it is.
         impact_speed: crate::collision_semantics::closing_speed(clusters.kinematics.vel, f.normal),
+        involuntary: false,
         source: crate::collision_semantics::ContactSource::Chain {
             chain,
             segment: f.segment as u32,
@@ -399,6 +400,7 @@ fn publish_attachment_contact(
         surface_velocity: clung.map_or(Vec2::ZERO, |b| b.velocity),
         // Already clung: the crawler is not arriving at this surface.
         impact_speed: crate::collision_semantics::closing_speed(clusters.kinematics.vel, normal),
+        involuntary: false,
         source: ContactSource::Block {
             kind: clung.map_or(crate::world::BlockKind::Solid, |b| b.kind),
             id: clung.map_or(crate::geo_id::GeoId::anon(), |b| b.id.clone()),

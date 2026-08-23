@@ -388,6 +388,21 @@ pub struct Contact {
     /// convention; a consumer that wants the relative approach has
     /// [`Self::surface_velocity`] right beside it.
     pub impact_speed: f32,
+    /// This body did not choose to arrive here: it was still falling out of a
+    /// launch when the surface did
+    /// ([`crate::movement::AxisManeuverState::tumble_until_landing`] on the way
+    /// into the step).
+    ///
+    /// The sibling of `GroundContactTransition::Landed { involuntary }`, on the
+    /// other surface. A body THROWN into a wall and one that dashed into it
+    /// arrive with the same normal, the same point and possibly the same
+    /// speed — the only thing that separates a crash from a commute is whether
+    /// the body was in control, and nothing here carried that.
+    ///
+    /// ⛔ read at the top of the step, not after: the floor game clears the
+    /// tumble on the touchdown it resolves, so a value taken afterwards is
+    /// false exactly when it matters.
+    pub involuntary: bool,
     pub source: ContactSource,
 }
 
@@ -455,6 +470,10 @@ pub fn block_face_contact(
         toi,
         surface_velocity: block.velocity,
         impact_speed,
+        // Stamped for the whole step by the one caller that knows — see
+        // `Contact::involuntary`. A generator has no idea what the body was
+        // doing before it arrived.
+        involuntary: false,
         source: ContactSource::Block {
             kind: block.kind,
             id: block.id.clone(),

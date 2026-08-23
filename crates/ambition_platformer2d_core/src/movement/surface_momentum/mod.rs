@@ -523,6 +523,7 @@ fn step_riding(
                         body.vel,
                         hit.contact_normal,
                     ),
+                    involuntary: false,
                     source: hit.source.clone(),
                 });
             }
@@ -534,6 +535,7 @@ fn step_riding(
                     toi: 0.0,
                     surface_velocity: final_chain.velocity,
                     impact_speed: crate::collision_semantics::closing_speed(body.vel, f.normal),
+                    involuntary: false,
                     source: ride_contact_source(world, new_on, f.segment),
                 });
             }
@@ -1350,6 +1352,7 @@ fn step_airborne(
                             pre_landing_vel,
                             hit.contact_normal,
                         ),
+                        involuntary: false,
                         source: hit.source,
                     });
                 }
@@ -1372,6 +1375,7 @@ fn step_airborne(
                 // `into` above IS the closing speed — the same projection, read
                 // before the deflect cancels it.
                 impact_speed: into,
+                involuntary: false,
                 source: hit.source,
             });
         }

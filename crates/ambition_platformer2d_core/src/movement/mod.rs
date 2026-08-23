@@ -524,9 +524,23 @@ pub(crate) fn update_body_with_frame_clusters(
     // BEFORE the simulation half, which is where `tick_knockdown` clears the
     // tumble it resolves. Read after, this is always false.
     .falling_out_of_a_launch(state.tumble_until_landing);
+    // ONE READ, TWO SURFACES. The same fact the ground baseline just took is
+    // what every contact this step produces is stamped with — a body thrown
+    // into a wall and one that dashed into it are otherwise identical at the
+    // contact, and only this separates a crash from a commute.
+    //
+    // ⛔ read HERE and not after the step: the floor game clears the tumble on
+    // the touchdown it resolves, so a value taken afterwards is false exactly
+    // when it matters.
+    let arriving_out_of_a_launch = state.tumble_until_landing;
     let mut sim_events = update_body_simulation_in_frame(
         world, clusters, state, input, raw_dt, frame, tuning, contact,
     );
+    if arriving_out_of_a_launch {
+        for contact in &mut sim_events.contacts {
+            contact.involuntary = true;
+        }
+    }
     sim_events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
     events.extend(sim_events);
     events

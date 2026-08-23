@@ -335,28 +335,31 @@ pub(super) fn apply_dodge(
         // is nowhere to roll TO — cornered, on a platform, waiting out a
         // committed swing — did not exist. a body that authors no window keeps
         // the roll it always had: the press is not taken away from anybody.
-        // ⚠ A NEUTRAL DODGE STILL ROLLS, AND JON IS RIGHT THAT IT SHOULD NOT.
-        // *"when I 'press C' on the keyboard to 'dodge' as the button says, I
-        // move horizontally like a dash. Agents have told me the dash was
-        // removed many times, but it really never has been, at least
-        // semantically."* A neutral burst press falls to the ROLL below, which
-        // picks `facing` when the stick says nothing and travels
-        // `dodge_roll_speed` — a button labelled DODGE that moves you.
+        // ⭐ A NEUTRAL DODGE EVADES IN PLACE. Jon, 2026-08-23: *"when I 'press
+        // C' on the keyboard to 'dodge' as the button says, I move horizontally
+        // like a dash. Agents have told me the dash was removed many times, but
+        // it really never has been, at least semantically."* A neutral burst
+        // press used to fall to the ROLL below, which picks `facing` when the
+        // stick says nothing and travels `dodge_roll_speed` — a button labelled
+        // DODGE that moves you.
         //
-        // ⛔ THE OBVIOUS FIX HAS A MEASURED COST AND IS NOT IN. Making a neutral
-        // press spot-dodge stopped the CPUs charging smashes ENTIRELY:
-        // `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` went from
-        // green to *"no CPU held a smash in any of 3 matches of 5400 ticks...
-        // best fraction seen 0.00"*, and the mechanism is not yet pinned — the
-        // fighter brain's Dodge verb already AIMS its stick, so the two should
-        // not have met. Attributed by reverting this clause alone and watching
-        // the guard go green.
+        // ⛔⛔ THIS WAS REVERTED ONCE ON A FALSE ATTRIBUTION, and the reason is
+        // worth more than the clause. `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match`
+        // went red the day it first landed, reverting it alone went green, and
+        // that was read as causation. It cannot be: the fighter brain's `Dodge`
+        // verb AIMS its stick, and the branch below only fires on
+        // `local_stick.y > SPOT_DODGE_STICK`, which an aimed horizontal roll
+        // never satisfies. A CPU dodge cannot reach this clause at all.
         //
-        // ⇒ whoever takes this: find why an in-place evade costs the charge
-        // before re-applying it. The player-facing complaint is real and the
-        // shield roads (shield+direction) now give the genre's answer, so the
-        // pressure is off the button itself.
-        if local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
+        // ⇒ re-established by MEASUREMENT, not by argument:
+        // `a_fighter_brain_charges_a_smash_through_the_real_chain` walks brain →
+        // gesture → move → `MoveCharge` → frozen fraction with one motionless
+        // opponent and no sampling in it, and charges identically with this
+        // clause in. The emergent test that vetoed it passes too. The original
+        // failure was a match-trajectory effect, which is what an emergent test
+        // measures and what it cannot attribute.
+        if (local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
+            || local_stick.length_squared() < 0.01)
             && tuning.abilities.spot_dodge_time > 0.0
         {
             // the DESCENT is kept and everything else zeroed: a body standing

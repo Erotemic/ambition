@@ -5584,3 +5584,157 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
         "a neutral attack press stopped pummelling"
     );
 }
+
+/// ⭐⭐ THE WHOLE CHARGE CHAIN, DETERMINISTICALLY, WITH NO MATCH IN IT.
+///
+/// The claim "a CPU charges its smashes" was guarded only by
+/// `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match`, which plays
+/// three ninety-second matches and asks whether a charge appeared in any of
+/// them. That test is real and worth keeping, but it cannot say WHERE a break
+/// is: it has gone red for a dodge-semantics change and for a charge-payoff
+/// change, neither of which touches charging, and each time the reading was
+/// "the sampled matches stopped producing openings".
+///
+/// This walks the production chain end to end instead:
+///
+/// ```text
+///   fighter brain, in Advantage      (the opponent is in hitstun)
+///        ↓ melee_pressed + melee_strong_hint
+///   resolve_attack_gestures           → AttackStrength::Smash
+///        ↓
+///   trigger_moveset_moves             → MovePlayback, charged_by_smash_gesture
+///        ↓ Attack still held
+///   the clock reaches the hold point  → MoveCharge arms, fraction rises
+///        ↓ release
+///   the frozen fraction pays the hit
+/// ```
+///
+/// A break anywhere in it fails HERE, on a fixture with one opponent that never
+/// moves and a brain with no reaction delay and no noise.
+#[test]
+fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::fighter::{
+        decision::tick_fighter, FighterBrainProfile, FighterCfg, FighterState,
+    };
+    use ambition_characters::perception::{BodyPhase, PerceivedActor, SelfView, WorldView};
+
+    // No reaction delay, no APM cap, no execution noise: every tick of this is
+    // the policy, not the sampling.
+    let cfg = FighterCfg::new(FighterBrainProfile {
+        level: 5,
+        reaction_ms: 0.0,
+        apm_cap: 0.0,
+        execution_noise: 0.0,
+        rollout_depth: 0,
+        rollout_k: 0,
+        read_weight: 0.5,
+        utility_weights: Default::default(),
+    });
+    let mut state = FighterState::new(&cfg, 0x5EED);
+
+    // The opponent is IN HITSTUN and within reach: `Situation::Advantage`, which
+    // is the one situation whose charge budget is a full hold.
+    let view = WorldView {
+        self_view: SelfView {
+            pos: ae::Vec2::new(300.0, 300.0),
+            gravity_down: ae::Vec2::new(0.0, 1.0),
+            faction: ActorFaction::Player,
+            alive: true,
+            on_ground: true,
+            ..Default::default()
+        },
+        actors: vec![PerceivedActor {
+            id: "foe".to_string(),
+            pos: ae::Vec2::new(340.0, 300.0),
+            faction: ActorFaction::Enemy,
+            hostile_to_self: true,
+            alive: true,
+            on_ground: true,
+            phase: BodyPhase::Hitstun,
+            ..Default::default()
+        }],
+        // ⛔ A REAL STAGE. A default `StageView` has zero-sized bounds, and the
+        // brain normalises positions against them — the fixture's first output
+        // frame carried `locomotion.x = NaN`, which loses every comparison it
+        // is in, so the policy silently declined to press anything at all.
+        stage: ambition_characters::perception::StageView {
+            bounds: ae::Aabb::new(ae::Vec2::new(400.0, 300.0), ae::Vec2::new(400.0, 300.0)),
+        },
+        ..Default::default()
+    };
+    // ⛔ THE KIT IS THE POINT. A brain selects from `attack_kit`, so an idle
+    // snapshot carries no smash to select and the assertion below would be
+    // measuring an empty repertoire rather than a policy. The candidate is
+    // built from the SAME `charging_smash()` spec the body plays, so the frame
+    // data the brain reasons about and the timeline the charge freezes on are
+    // one authoring.
+    use ambition_characters::brain::fighter::options::{
+        AttackBinding, AttackCandidate, ActionLegality, AttackVerb,
+    };
+    let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
+    snapshot.attack_kit = vec![AttackCandidate {
+        move_id: charging_smash().id.clone(),
+        frames: charging_smash().frame_data(),
+        binding: AttackBinding {
+            verb: AttackVerb::Smash,
+            direction: AttackDir::Forward,
+        },
+        legality: ActionLegality::Now,
+    }];
+    snapshot.actor_pos = ae::Vec2::new(300.0, 300.0);
+    snapshot.actor_facing = 1.0;
+    snapshot.actor_on_ground = true;
+    snapshot.target_pos = ae::Vec2::new(340.0, 300.0);
+    snapshot.target_alive = true;
+    snapshot.alive = true;
+    snapshot.world_size = ae::Vec2::new(800.0, 600.0);
+
+    // ── the body half: the SAME frames the brain emits, into the real chain ──
+    let (mut app, body) = smash_charge_app();
+
+    let mut out = ActorControlFrame::neutral();
+    let mut pressed_smash = false;
+    let mut armed_charge = false;
+    let mut peak_fraction = 0.0f32;
+    let mut rooted_ticks = 0usize;
+    for _ in 0..240 {
+        tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+        pressed_smash |= out.melee_pressed && out.melee_strong_hint;
+        let published = out.clone();
+        set_frame(&mut app, body, move |f| *f = published.clone());
+        app.update();
+        if let Some(pb) = app.world().get::<MovePlayback>(body) {
+            if let Some(charge) = pb.charge {
+                armed_charge = true;
+                peak_fraction = peak_fraction.max(charge.fraction());
+                if pb.rooted_by_charge() {
+                    rooted_ticks += 1;
+                }
+            }
+        }
+    }
+
+    assert!(
+        pressed_smash,
+        "the brain never asked for a SMASH against an opponent in hitstun at \
+         melee range, so nothing below can observe a charge"
+    );
+    assert!(
+        armed_charge,
+        "a smash the brain pressed never resolved a `MoveCharge` — the gesture \
+         reached the body without its SMASH strength, or the move resolved no \
+         charge policy"
+    );
+    assert!(
+        rooted_ticks > 0,
+        "the charge armed but the timeline never froze, so the body walked \
+         straight through the hold point"
+    );
+    assert!(
+        peak_fraction > 0.0,
+        "the charge froze but never accrued: the brain let go of Attack before \
+         the clock reached the hold point, which is the exact defect \
+         `hold_ticks` exists to prevent ({rooted_ticks} rooted tick(s))"
+    );
+}

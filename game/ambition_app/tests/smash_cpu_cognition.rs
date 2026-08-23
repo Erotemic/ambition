@@ -285,11 +285,23 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
          so this window cannot tell shared cognition from separate cognition, and \
          the Emmy figure below means nothing"
     );
+    // ⛔⛔ A RATE, NOT A COUNT, and this compared counts across matches of
+    // DIFFERENT LENGTHS. The claim above is "the ordinary pair's reflection
+    // breaks and Emmy's does not", which is a property of the fraction of the
+    // match spent reflected — but a decisive Emmy match is a SHORT one, so a
+    // perfect mirror could lose to a long sloppy one on absolute frames.
+    // Measured: 856 of 856 (100%) against 440 of 1376 (32%), and `856 > 880`
+    // is false. The stronger result failed the weaker test.
+    let emmy_rate = emmy_mirrored as f64 / emmy_seen as f64;
+    let ordinary_rate = ordinary_mirrored as f64 / ordinary_seen as f64;
     assert!(
-        emmy_mirrored > ordinary_mirrored * 2,
-        "two Emmys held a mirror for {emmy_mirrored} of {emmy_seen} frames while \
-         two {ORDINARY} held one for {ordinary_mirrored} of {ordinary_seen} — not \
-         the decisive difference a shared cognitive stream should produce"
+        emmy_rate > ordinary_rate * 2.0,
+        "two Emmys held a mirror for {emmy_mirrored} of {emmy_seen} frames \
+         ({:.0}%) while two {ORDINARY} held one for {ordinary_mirrored} of \
+         {ordinary_seen} ({:.0}%) — not the decisive difference a shared \
+         cognitive stream should produce",
+        emmy_rate * 100.0,
+        ordinary_rate * 100.0
     );
     // ⛔⛔ THE MIRROR MAY BREAK IN EXACTLY ONE PLACE, and this is the clause
     // that says where. A shared cognitive stream keeps two bodies reflected

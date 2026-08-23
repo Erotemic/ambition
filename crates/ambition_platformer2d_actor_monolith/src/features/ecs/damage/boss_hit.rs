@@ -62,6 +62,9 @@ pub(crate) fn apply_entity_boss_damage(
             block_invuln_floor: 0.0,
             armor_hitstop_time: 0.070,
         },
+        // A boss carries no `BodyMotionFacts` and has no dodge to be inside, so
+        // there is no evade for the eligibility gate to honour.
+        false,
         // NOT unstoppable, because this path cannot tell. It takes an `amount`
         // and never sees the `HitEvent`, so it has no source to match on — and
         // the blast zone's own hit is stamped `HitTarget::Body`, which routes

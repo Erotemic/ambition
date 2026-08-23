@@ -95,6 +95,16 @@ impl Invulnerability {
     /// one of its pickups, and the engine has no business knowing it.
     pub const EMPOWERED: u32 = 1 << 1;
     pub const SCRIPTED: u32 = 1 << 2;
+    /// An authored `WindowTag::Invuln` window on the move this body is playing.
+    ///
+    /// A reason like every other, which is the whole point: hit eligibility has
+    /// ONE authority (`ambition_combat::util::body_vulnerable`), so a move that
+    /// grants intangibility is answered by every rule that already asks it —
+    /// the damage resolver, and the `unhittable` fact presentation blinks on —
+    /// with nothing new to learn. Republished every tick from the live move by
+    /// `ambition_combat::moveset::project_move_defense_windows`, so it retracts
+    /// when the window closes rather than waiting to be cleared.
+    pub const MOVE: u32 = 1 << 3;
 
     /// Nothing is holding it.
     pub const fn none() -> Self {

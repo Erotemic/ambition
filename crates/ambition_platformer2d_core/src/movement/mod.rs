@@ -374,6 +374,7 @@ fn update_body_simulation_inner(
         }
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
+        clusters.shield.parry_caught_timer = dec(clusters.shield.parry_caught_timer);
         if crate::body_clusters::tick_shield_resource(clusters.shield, tuning.abilities.shield, dt)
         {
             events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldBreak);

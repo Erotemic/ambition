@@ -193,6 +193,22 @@ pub struct BodyCombat {
     pub hitstun_timer: f32,
     /// Short HARD control-lock at the start of a knockback (no input authority).
     pub recoil_lock_timer: f32,
+    /// SUPER ARMOR: an authored `WindowTag::Armor` window on the move this body
+    /// is playing is holding it through hits.
+    ///
+    /// Not invulnerability, and deliberately not carried as one: an armoured
+    /// body IS hit and takes the damage, it simply does not answer for it — no
+    /// launch, no hitstun, no recoil lock. It lives here rather than being
+    /// threaded to the reaction because `apply_body_hit_reaction` already holds
+    /// this component and both damage roads reach it; a parameter would have to
+    /// be plumbed through two twelve-argument call chains and could be forgotten
+    /// on one of them.
+    ///
+    /// DERIVED, republished every tick from the live `MovePlayback` by
+    /// `ambition_combat::moveset::project_move_defense_windows` — so a move
+    /// ending retracts it by being rewritten rather than by anyone remembering
+    /// to clear it. Never write it from anywhere else.
+    pub armored: bool,
     // ── Actor status / attack-timeline presentation ──
     pub training_dummy: bool,
 }
@@ -225,6 +241,10 @@ impl BodyCombat {
     }
 
     /// Clear reaction timers while preserving construction-owned `training_dummy`.
+    ///
+    /// `armored` is NOT cleared here and must not be: it is republished from the
+    /// live move every tick, so clearing it would be undone within the frame and
+    /// would read as a rule this function does not own.
     pub fn reset(&mut self) {
         self.hit_flash = 0.0;
         self.hitstop_timer = 0.0;
@@ -325,6 +345,10 @@ mod hard_lock_tests {
             hitstop_timer: _,
             landing_lag_timer: _,
 
+            // Not a timer: it is a WINDOW the live move republishes every tick,
+            // so it expires by being rewritten rather than by counting down.
+            armored: _,
+
             // Not a timer.
             training_dummy: _,
         } = combat;
@@ -341,6 +365,12 @@ mod hard_lock_tests {
             hitstun_timer: _,
             recoil_lock_timer: _,
             landing_lag_timer: _,
+
+            // NOT cleared, deliberately: `project_move_defense_windows`
+            // republishes it from the live move every tick, so clearing it here
+            // would be undone inside the frame and would read as a rule this
+            // function does not own.
+            armored: _,
 
             // Construction-owned; reset does not change body identity.
             training_dummy: _,

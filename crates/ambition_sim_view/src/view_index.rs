@@ -53,6 +53,18 @@ pub struct FeatureView {
     /// for everything else, including a boss corpse — death rows are
     /// authored sprites and must not read as a lit silhouette).
     pub hit_flash_secs: f32,
+    /// Seconds left on this body's PARRY CATCH — a parry that actually caught a
+    /// strike, not a parry window standing open.
+    ///
+    /// `0.0` almost always; positive for a short beat starting on the tick a
+    /// perfect shield turned a strike away, whether the strike was a swing or a
+    /// shot. Armed by `BodyShieldState::catch_parry` at the two seams that
+    /// resolve a parry, so one fact covers both routes.
+    ///
+    /// ⛔ never `BodyShieldState::parrying()`, which answers whether the WINDOW
+    /// is open and is therefore true of every raised guard for a few ticks —
+    /// a cue driven off that one fires on every shield raise.
+    pub parry_flash_secs: f32,
     /// Health facts for the kinds that carry a pool (actors, bosses,
     /// breakables); `0/0` elsewhere. Debug overlays read these by id.
     pub hp_current: i32,
@@ -252,6 +264,7 @@ pub fn rebuild_feature_view_index(
                 rotation_rad: 0.0,
                 alive: true,
                 hit_flash_secs: 0.0,
+                parry_flash_secs: 0.0,
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
@@ -276,6 +289,7 @@ pub fn rebuild_feature_view_index(
                 rotation_rad: 0.0,
                 alive: true,
                 hit_flash_secs: 0.0,
+                parry_flash_secs: 0.0,
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
@@ -300,6 +314,7 @@ pub fn rebuild_feature_view_index(
                 rotation_rad: 0.0,
                 alive: !breakable.broken(),
                 hit_flash_secs: 0.0,
+                parry_flash_secs: 0.0,
                 hp_current: breakable.breakable.health.current,
                 hp_max: breakable.breakable.health.max,
                 training_dummy: false,
@@ -324,6 +339,7 @@ pub fn rebuild_feature_view_index(
                 rotation_rad: 0.0,
                 alive: true,
                 hit_flash_secs: 0.0,
+                parry_flash_secs: 0.0,
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
@@ -403,6 +419,7 @@ pub fn rebuild_feature_view_index(
                 // with no pool reads alive (it has nothing to die from).
                 alive: !health.is_some_and(|h| !h.alive()),
                 hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
+                parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: combat.is_some_and(|c| c.training_dummy),
@@ -438,6 +455,7 @@ pub fn rebuild_feature_view_index(
                 rotation_rad: 0.0,
                 alive: hazard.hazard.active(),
                 hit_flash_secs: 0.0,
+                parry_flash_secs: 0.0,
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
@@ -478,6 +496,8 @@ pub fn rebuild_feature_view_index(
                 // A boss corpse must not read as a lit silhouette — death
                 // rows are authored sprites (the old render-side rule).
                 hit_flash_secs: if boss_alive { combat.hit_flash } else { 0.0 },
+                // A boss carries no guard, so it never catches a parry.
+                parry_flash_secs: 0.0,
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: false,
@@ -916,6 +936,7 @@ mod view_index_tests {
             rotation_rad: 0.0,
             alive: true,
             hit_flash_secs: 0.0,
+            parry_flash_secs: 0.0,
             hp_current: 0,
             hp_max: 0,
             training_dummy: false,

@@ -272,6 +272,7 @@ mod boss_pass {
             rotation_rad: 0.0,
             alive: true,
             hit_flash_secs: 0.0,
+            parry_flash_secs: 0.0,
             hp_current: 40,
             hp_max: 40,
             training_dummy: false,

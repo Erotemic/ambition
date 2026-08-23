@@ -216,9 +216,33 @@ pub fn resolve_body_hit(
     // The one gate it does NOT bypass is `!alive()`. The blast gate is a
     // position test that re-fires every tick, so a corpse outside the world
     // must stop being killed.
+    // Is this body EVADING? — the published maneuver fact
+    // (`BodyMotionFacts::evading`), which is the one term of
+    // [`body_vulnerable`] this resolver cannot read off the values it already
+    // holds. `false` for a caller with no motion projection.
+    evading: bool,
     unstoppable: bool,
 ) -> BodyHitResolution {
-    if !unstoppable && !combat.vulnerable() {
+    // THE ONE ELIGIBILITY GATE, asked HERE — in the resolver both damage roads
+    // share — rather than by each road for itself.
+    //
+    // It used to ask only about post-hit i-frames, and the rest of the rule
+    // lived upstream on the primary player's road alone. The actor road, which
+    // is the road every match fighter takes, never asked at all: an evading
+    // fighter, a fighter inside a respawn's untouchable grant, or a fighter
+    // inside a move's authored `Invuln` window was struck normally, and the
+    // `unhittable` fact presentation blinks on said the opposite. Two answers to
+    // one question is the shape that keeps producing this bug.
+    let invulnerable = health
+        .as_deref()
+        .map(|health| health.health.invulnerable)
+        .unwrap_or_default();
+    let guard = shield
+        .as_ref()
+        .map(|g| *g.state)
+        .unwrap_or_default();
+    if !unstoppable && !crate::combat::util::body_vulnerable(invulnerable, evading, &guard, combat)
+    {
         return BodyHitResolution::Ignored;
     }
     if let Some(health) = health.as_deref() {
@@ -461,6 +485,7 @@ pub(crate) fn handle_player_damage_events(
         },
         // The player's knockback i-frames are 0.75s — the longest window in the
         // game, armed by the very launch that throws them off the stage.
+        facts.evading(),
         matches!(damage.source, crate::combat::HitSource::LeftTheWorld),
     );
     // The resolver's decision, announced for the inspector. Gated: a build with

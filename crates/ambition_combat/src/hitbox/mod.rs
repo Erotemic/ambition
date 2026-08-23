@@ -133,8 +133,16 @@ pub struct StrikeVictim {
     /// Outranks faction for "may this land": two humans share a faction, so a
     /// match could not otherwise let them hit each other.
     pub team: Option<&'static crate::targeting::MatchTeam>,
-    /// Read for the parry window only. A body without one simply cannot parry.
-    pub shield: Option<&'static ambition_platformer2d_core::BodyShieldState>,
+    // THERE IS NO `shield` FIELD, AND ITS ABSENCE IS THE DESIGN.
+    //
+    // One sat here documented "read for the parry window only", and catching a
+    // parry is not a read: it spends nothing but it PUBLISHES
+    // (`BodyShieldState::catch_parry`), and a decision that has to be followed
+    // by a write somewhere else is the shape this tree keeps paying for. Every
+    // seam that resolves a parry now takes the guard mutably by entity —
+    // `guards.get_mut(victim.entity)` — so the test and the consequence are one
+    // step. Asking for it here as well would be a second access to the same
+    // component in the same system, which Bevy refuses.
     /// This body's voice, for the cue its striker emits (the parry clang).
     pub voice: Option<&'static ambition_sfx::BodyPresentationSource>,
     /// The victim's resolved motion frame; knockback direction is interpreted in this frame.
@@ -235,6 +243,12 @@ pub fn apply_hitbox_damage(
     // The swing owner's own accumulated damage, for RAGE. Looked up exactly like
     // its grudge and its team, and read-only for the same reason.
     attacker_health: Query<&ambition_characters::actor::BodyHealth>,
+    // EVERY VICTIM'S GUARD, taken mutably and looked up by entity like the
+    // attacker rows below. This is where a perfect shield CATCHES a strike, so
+    // the guard is written, not read — see the parry arm in the victim loop.
+    // `BodyShieldState` is deliberately absent from `StrikeVictim` so this is
+    // the system's only access to it.
+    mut guards: Query<&mut ambition_platformer2d_core::BodyShieldState>,
     // The swing owner's stale queue and the move it is executing, so a repeated
     // answer is worth less. Read-only, looked up by owner, like the three above.
     attacker_stale: Query<&crate::stale::BodyStaleMoves>,
@@ -323,6 +337,26 @@ pub fn apply_hitbox_damage(
                 }
                 if !victim.reached_by(&world_volume) {
                     continue;
+                }
+                // A PERFECT SHIELD CATCHES THE STRIKE, and it is resolved HERE
+                // because this is the one seam every body-strike passes through.
+                // The two damage roads below it did not agree: the primary
+                // player's refused a parried hit inside `body_vulnerable`, and
+                // the actor road — which is the road every match fighter takes —
+                // never asked at all, so a fighter's parry was an ordinary block
+                // that spent guard and paid shieldstun.
+                //
+                // A caught parry is a NEGATION, not a block. No damage event, and
+                // no `LandedBodyHit`: the attacker's move did not connect, so it
+                // neither confirms an on-hit cancel nor wears itself out on the
+                // stale queue. The strike is still recorded as having reached
+                // this victim so it cannot re-reach it while the window is open.
+                if let Ok(mut shield) = guards.get_mut(victim.entity) {
+                    if shield.parrying() {
+                        shield.catch_parry();
+                        hits.hit.insert(victim.entity);
+                        continue;
+                    }
                 }
 
                 let victim_body = victim.aabb.aabb();

@@ -496,6 +496,30 @@ impl MovePlayback {
             .map(|c| c.policy.fraction_for(c.held_s))
     }
 
+    /// This move is holding its owner UNTOUCHABLE right now — an authored
+    /// [`WindowTag::Invuln`] window covering the clock.
+    ///
+    /// Projected onto `Invulnerability::MOVE` rather than read at each damage
+    /// site: the body's vulnerability has one authority
+    /// (`ambition_combat::util::body_vulnerable`) and a move grant that any
+    /// other rule had to learn about separately would be a second one.
+    pub fn intangible_now(&self) -> bool {
+        self.spec
+            .tagged_window_covers(self.t, |tag| matches!(tag, WindowTag::Invuln))
+    }
+
+    /// This move is ARMORING its owner right now — an authored
+    /// [`WindowTag::Armor`] window covering the clock.
+    ///
+    /// Armor is not invulnerability and deliberately does not travel with it: an
+    /// armoured body is HIT, takes the damage, and simply does not answer for it
+    /// — no launch and no hitstun. Two different questions, so two different
+    /// facts.
+    pub fn armored_now(&self) -> bool {
+        self.spec
+            .tagged_window_covers(self.t, |tag| matches!(tag, WindowTag::Armor))
+    }
+
     /// The damage/knockback scale every hit of this use lands with.
     ///
     /// A charge-active use is scaled by the fraction it FROZE at, uniformly for
@@ -1748,6 +1772,54 @@ pub fn trigger_moveset_moves(
                     .charged_by_smash_gesture(smash_gesture),
             );
             proposer.spend(&mut action_buffer);
+        }
+    }
+}
+
+/// Republish the DEFENSIVE windows of every body's live move onto the two facts
+/// the rest of combat already reads.
+///
+/// `WindowTag::Invuln` and `WindowTag::Armor` are authoring vocabulary that the
+/// runtime consumed nowhere: a move could declare either and the declaration
+/// changed nothing. They are answered here, and deliberately not by teaching the
+/// damage sites to look at move timelines:
+///
+/// * intangibility becomes `Invulnerability::MOVE`, one more reason in the
+///   bitset [`crate::util::body_vulnerable`] already reads — so the damage
+///   resolver honours it and the `unhittable` fact presentation blinks on shows
+///   it, with nothing new taught to either;
+/// * armor becomes `BodyCombat::armored`, read by `apply_body_hit_reaction`,
+///   which already holds that component on both damage roads.
+///
+/// ⭐ Both are written EVERY tick for every combat body, present move or not.
+/// That is what makes the grant retract when the window closes: a projection
+/// that only wrote while a move was playing would leave the last move's
+/// intangibility latched on a body that is no longer doing anything.
+pub fn project_move_defense_windows(
+    mut bodies: Query<(
+        &mut ambition_characters::actor::BodyCombat,
+        Option<&mut ambition_characters::actor::BodyHealth>,
+        Option<&MovePlayback>,
+    )>,
+) {
+    for (mut combat, health, playback) in &mut bodies {
+        let intangible = playback.is_some_and(MovePlayback::intangible_now);
+        let armored = playback.is_some_and(MovePlayback::armored_now);
+        // Compared before writing: these run for every combat body every tick,
+        // and an unconditional write would mark both components changed forever.
+        if combat.armored != armored {
+            combat.armored = armored;
+        }
+        if let Some(mut health) = health {
+            if health.health.invulnerable.holds(
+                ambition_characters::actor::Invulnerability::MOVE,
+            ) != intangible
+            {
+                health.health.invulnerable.set(
+                    ambition_characters::actor::Invulnerability::MOVE,
+                    intangible,
+                );
+            }
         }
     }
 }

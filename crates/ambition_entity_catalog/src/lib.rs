@@ -885,6 +885,17 @@ impl MoveSpec {
         problems
     }
 
+    /// Does a window the predicate accepts COVER proper-time `t`?
+    ///
+    /// The timeline question every defensive window asks — an authored
+    /// [`WindowTag::Invuln`] or [`WindowTag::Armor`] is in force for exactly the
+    /// span it declares, on the owner's own clock, like every other window.
+    pub fn tagged_window_covers(&self, t: f32, want: fn(&WindowTag) -> bool) -> bool {
+        self.windows
+            .iter()
+            .any(|w| want(&w.tag) && w.start_s <= t && t < w.end_s)
+    }
+
     /// The windows carrying `tag`, in declaration order.
     pub fn windows_tagged(
         &self,

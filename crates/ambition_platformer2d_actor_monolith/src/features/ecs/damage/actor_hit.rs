@@ -122,6 +122,12 @@ pub(crate) fn apply_actor_hit(
     // boss, or a match fighter with boss-class weight was unrepresentable. The caller asks the
     // attacker entity now.
     heavy_attacker: bool,
+    // Is this body inside an EVADE? The published maneuver fact
+    // (`BodyMotionFacts::evading`), resolved by the system that holds the
+    // queries — the same shape `heavy_attacker` above already uses, and for the
+    // same reason: the actor cluster is at Bevy's column ceiling and this is a
+    // read of one component by entity.
+    evading: bool,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
@@ -283,6 +289,7 @@ pub(crate) fn apply_actor_hit(
                 block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
                 armor_hitstop_time: 0.070,
             },
+            evading,
             left_the_world,
         );
         // The resolver's decision, announced for the inspector — BEFORE the

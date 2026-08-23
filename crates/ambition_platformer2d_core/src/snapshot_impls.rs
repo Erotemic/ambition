@@ -171,6 +171,10 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     break_timer: f32,
     stun_timer: f32,
     break_total: f32,
+    // A caught parry is a PRESENTATION window, and it is still rollback state:
+    // a rewind that restored the guard without it would replay a parry with no
+    // beat, and two peers would draw different frames from the same tick.
+    parry_caught_timer: f32,
 });
 
 snapshot_pod!(crate::body_clusters::BodyOffense {

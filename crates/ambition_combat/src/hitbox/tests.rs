@@ -1179,3 +1179,176 @@ mod ruleset_knockback_growth {
         assert_eq!(heavy, 180.0, "twice the weight takes half the growth");
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The perfect shield.
+//
+// A parry is a NEGATION resolved at the strike seam, and the fact it publishes
+// is about a CATCH, not about a window standing open. Both halves are pinned:
+// a raised guard that catches nothing must stay cold.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Attacker + victim + one strike volume between them, with the victim's guard
+/// in whatever state the caller wants to test.
+fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.init_resource::<CapturedLandedHits>();
+    app.add_systems(
+        Update,
+        (apply_hitbox_damage, capture_hits, capture_landed_hits).chain(),
+    );
+    let owner = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Player,
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
+            armed_player_melee(),
+        ))
+        .id();
+    let victim = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Enemy,
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(130.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            shield,
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_characters::actor::BodyHealth::restored(
+                ambition_characters::actor::Health::new(100),
+                0,
+                Default::default(),
+            ),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::new(20.0, 0.0),
+            },
+            half_extent: ae::Vec2::new(30.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback: crate::strike::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 2.0,
+            },
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    (app, victim)
+}
+
+fn caught(app: &App, victim: Entity) -> bool {
+    app.world()
+        .get::<ae::BodyShieldState>(victim)
+        .expect("the victim carries a guard")
+        .parry_caught()
+}
+
+/// A strike into an open parry window is turned away outright: no damage event
+/// reaches the victim, the attacker's move never CONNECTED, and the fact the
+/// cue reads is armed on the tick it happened.
+#[test]
+fn a_strike_into_an_open_parry_window_is_caught_and_announced() {
+    let guarding = ae::BodyShieldState {
+        active: true,
+        parry_window_timer: 0.05,
+        ..Default::default()
+    };
+    let (mut app, victim) = parry_fixture(guarding);
+    app.update();
+
+    let cap = app.world().resource::<CapturedHits>();
+    assert!(
+        cap.body_hits().is_empty(),
+        "a parried strike still produced a damage event, so the parry is a \
+         block rather than a negation"
+    );
+    assert!(
+        app.world().resource::<CapturedLandedHits>().0.is_empty(),
+        "a parried strike counted as a CONNECTION, so it would confirm an \
+         on-hit cancel and wear itself out on the stale queue"
+    );
+    assert!(
+        caught(&app, victim),
+        "the parry caught a strike and published nothing, so a cue has no \
+         moment to fire on"
+    );
+    let shield = app.world().get::<ae::BodyShieldState>(victim).unwrap();
+    assert_eq!(
+        (shield.depleted, shield.stun_timer),
+        (0.0, 0.0),
+        "the perfect shield paid integrity and shieldstun, which is what an \
+         ordinary block costs — the whole reward for the timing is that it does not"
+    );
+}
+
+/// ⭐ THE BUG THIS FACT EXISTS FOR. `parrying()` is true for a few ticks after
+/// EVERY shield raise, so a cue driven off it fires whenever anybody guards. The
+/// published fact must stay cold until something is actually caught.
+#[test]
+fn an_open_parry_window_that_catches_nothing_stays_cold() {
+    let guarding = ae::BodyShieldState {
+        active: true,
+        parry_window_timer: 0.05,
+        ..Default::default()
+    };
+    let (mut app, victim) = parry_fixture(guarding);
+    // Move the victim out of the strike's reach: the window is wide open and
+    // nothing arrives.
+    app.world_mut()
+        .get_mut::<ae::CenteredAabb>(victim)
+        .unwrap()
+        .center = ae::Vec2::new(600.0, 100.0);
+    app.update();
+    assert!(
+        app.world()
+            .get::<ae::BodyShieldState>(victim)
+            .unwrap()
+            .parrying(),
+        "the fixture meant to leave the window OPEN"
+    );
+    assert!(
+        !caught(&app, victim),
+        "merely holding the window open announced a parry, which fires the cue \
+         on every shield raise"
+    );
+}
+
+/// A guard that is up but past its window is an ordinary block: the strike
+/// resolves normally and the parry fact stays cold.
+#[test]
+fn a_guard_past_its_window_does_not_catch() {
+    let late = ae::BodyShieldState {
+        active: true,
+        parry_window_timer: 0.0,
+        ..Default::default()
+    };
+    let (mut app, victim) = parry_fixture(late);
+    app.update();
+    assert_eq!(
+        app.world().resource::<CapturedHits>().body_hits().len(),
+        1,
+        "a late guard swallowed the strike at the parry seam, so blocking and \
+         parrying have become the same thing"
+    );
+    assert!(!caught(&app, victim));
+}

@@ -756,3 +756,112 @@ fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
     }
     (best_charge, techs, tumbles)
 }
+
+/// ⭐ THE JAB STRING AND THE RAPID JAB, DRIVEN BY A REAL BUTTON, IN THE REAL
+/// GAME.
+///
+/// ⛔ NOT A UNIT TEST ON A TIMELINE, and the difference is the whole point of
+/// this file. This run has shipped four mechanics that were green and dead on
+/// arrival — a smash charge whose hold could not outlast its own startup, a tech
+/// gate that stripped the button for all of hitstun, a launch-trail threshold
+/// above the launch speeds that exist, and a post-hit window that refused the
+/// second Active window of a multi-window move. Every one of them passed its own
+/// unit test. So this one presses a physical button on a physical pad, seats a
+/// human on the shipped roster, and reads what the body actually played.
+///
+/// Holding Attack must walk the whole route: `jab` into `jab2` into `jab3`, and
+/// `jab3` must LOOP — the rapid jab is an authored `MoveLoop`, and a flurry that
+/// never took a second lap is a third jab with extra vocabulary.
+#[test]
+fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+
+    let character = ambition_demo_smash::SMASH_GEORGE_BOOUL;
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([character, character]));
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+    let countdown =
+        ambition_demo_smash::smash_roster([character, character]).opening_countdown_ticks;
+    for _ in 0..(countdown as usize + 30) {
+        app.update();
+    }
+
+    // The human's body: the one seat the roster binds to a pad.
+    let human = {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            Entity,
+            &ambition_platformer2d::characters::control::DrivingParticipant,
+        )>();
+        q.iter(world)
+            .min_by_key(|(_, driver)| driver.0 .0)
+            .map(|(entity, _)| entity)
+            .expect("the shipped roster seats a human on the first pad")
+    };
+
+    // Attack down, and never released, written at the DEVICE seam.
+    // `SeatRawFrames` is the pre-latch table a controller publishes into, one hop
+    // below `SlotControls` — so the press still crosses seat latching,
+    // `ActorControl`, the gesture resolver and the buffer before anything this
+    // slice touched sees it. ⛔ the headless demo composes `MinimalPlugins` and
+    // has no gamepad plugin at all, so a raw pad event has nothing to read it;
+    // `versus_stage` is where the pad-to-seat hop is guarded.
+    let mut played: Vec<String> = Vec::new();
+    let mut laps = 0.0f32;
+    for tick in 0..240 {
+        {
+            use ambition_platformer2d::characters::control::{PlayerSlot, SeatRawFrames};
+            let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
+            let mut frame = raw.get(PlayerSlot(0));
+            frame.attack_pressed = tick == 0;
+            frame.attack_held = true;
+            raw.set(PlayerSlot(0), frame);
+        }
+        app.update();
+        if let Some(pb) = app.world().get::<MovePlayback>(human) {
+            let id = pb.spec.id.clone();
+            if played.last() != Some(&id) {
+                played.push(id);
+            }
+            laps = laps.max(pb.looped_s);
+        }
+    }
+
+    for step in ["jab", "jab2", "jab3"] {
+        assert!(
+            played.iter().any(|id| id == step),
+            "holding Attack never reached `{step}`. What the human actually \
+             played: {played:?}. The chain reads an UNDIRECTED follow-up \
+             inside a cancel window; if `jab` is missing the press never \
+             resolved a move, and if only `jab` is there the follow-up never \
+             reached the successor its window names."
+        );
+    }
+    // ⛔ AND IT MUST NOT HAVE BOUGHT A ROUTE. George's jab window also names
+    // `smash` and `special` — his one way from his fast half to his slow half —
+    // and those are VERB names, not move ids. A hold may only take a successor
+    // the window names BY MOVE ID, so the string is reachable by holding and the
+    // route still costs a deliberate directed press. Without that rule a held
+    // button would throw a fully-charged smash out of a jab.
+    assert!(
+        !played.iter().any(|id| id.starts_with("smash")),
+        "a HELD button bought George's smash route: {played:?}"
+    );
+    eprintln!("[jab string] a held Attack played {played:?}, {laps:.3}s of looped time");
+    assert!(
+        laps > 0.0,
+        "the string reached `jab3` and the rapid jab never took a second lap \
+         (looped_s stayed {laps}). The flurry is an authored `MoveLoop` that \
+         repeats while the button is down — zero laps means the loop is a \
+         decoration on a move that plays once."
+    );
+}

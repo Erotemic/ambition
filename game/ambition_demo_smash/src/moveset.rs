@@ -9,8 +9,14 @@
 use ambition_platformer2d::characters::moveset_authoring::Strike;
 use ambition_platformer2d::entity_catalog::{
     CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
-    MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
+    MoveGates, MoveLoop, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
+
+/// Where the rapid jab's loop jumps back TO, and the instant it jumps back
+/// FROM. Named because four places have to agree — the two pulse windows live
+/// inside the stretch, the finisher starts at its end, and the guard reads both.
+pub(crate) const FLURRY_FROM_S: f32 = 0.06;
+pub(crate) const FLURRY_TO_S: f32 = 0.20;
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
 /// aerials rather than throwing a tilt in mid-air.
@@ -327,6 +333,132 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
 
 /// The fighter repertoire, as one authored contract.
 ///
+/// THE REST OF THE JAB STRING — jab 2 and the rapid jab that finishes it.
+///
+/// ⛔⛔ AUTHORED ONCE AND PUSHED INTO EVERY TABLE THAT WANTS THE STRING. The
+/// chain shipped 2026-08-23 onto the shared table alone, and the demo's headline
+/// fighter carries his OWN moveset — so George had no `jab2` and no `jab3` at
+/// all, and a census of a George mirror could only ever have counted zero. That
+/// is the same trap a sweetspot example fell into a day earlier; the answer is
+/// one authoring site rather than a second copy to keep in step.
+pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
+    // JAB 2 — the same beat again, a little harder, and the door to the
+    // finisher. Authored as its own move because it IS one: the chain is a
+    // cancel table over ordinary moves, not a mode some move enters.
+    let mut jab2 = strike(Strike {
+        id: "jab2",
+        clip: "attack",
+        startup_s: 0.04,
+        active_s: 0.06,
+        recover_s: 0.16,
+        offset: (27.0, 0.0),
+        half_extents: (18.0, 14.0),
+        damage: 3,
+        knockback: 60.0,
+        // The stage's own declaration in the stage's units: 0.02 of base.
+        knockback_growth: 60.0 * crate::SMASH_KNOCKBACK_GROWTH,
+        launch_dir: None,
+        on_hit: None,
+    });
+    jab2.gates = grounded_only();
+    let jab2 = cancelable(jab2, 0.10, 0.26, &["jab3"], CancelCondition::Always);
+
+    // JAB 3 — THE RAPID JAB, and the finisher it exits into, on ONE timeline.
+    //
+    // Holding Attack through the loop stretch keeps the flurry going; letting go
+    // (or reaching the authored maximum) drops the body into the launcher that
+    // ends the route. That is the genre's third jab, and `MoveLoop`'s own doc
+    // describes exactly this shape — "what the move authors after `to_s` is the
+    // finisher the loop exits into" — so it is one move rather than a bespoke
+    // chain of two.
+    //
+    // ⭐ THE PULSES ARE FIXED KNOCKBACK, and that is the mechanic the flurry is
+    // built on rather than a taste call: a repeating hit whose launch GREW with
+    // the victim's percent would carry them further on every lap and throw them
+    // clear of the flurry exactly when the flurry matters, so the string would
+    // dissolve at the damage where a player is counting on it. `Some(0.0)` says
+    // the same small push at 0% and at 200%. It could not be authored before
+    // 2026-08-23 — a bare `0.0` meant "the stage decides".
+    //
+    // ⚠ the numbers below are a KNOB, not a measurement: one damage and a
+    // 46 px/s hold per pulse, over a 0.14s lap, bounded at 1.2s of looped time
+    // so a held button is a commitment and not a stall.
+    let mut jab3 = strike(Strike {
+        id: "jab3",
+        clip: "attack",
+        startup_s: 0.06,
+        active_s: 0.07,
+        recover_s: 0.26,
+        offset: (30.0, -2.0),
+        half_extents: (22.0, 16.0),
+        damage: 5,
+        knockback: 105.0,
+        knockback_growth: 105.0 * crate::SMASH_KNOCKBACK_GROWTH,
+        // Away and slightly up: the jab route ends in SPACE, which is what the
+        // three-hit commitment buys — not a kill.
+        launch_dir: Some((1.0, -0.35)),
+        on_hit: None,
+    });
+    jab3.gates = grounded_only();
+    {
+        // The finisher volume the builder just made, lifted off its window so
+        // the loop can be authored in front of it. ⛔ derived, never retyped:
+        // the pulse inherits the finisher's presentation tag, so the flurry and
+        // the launcher can never draw from two different arcs.
+        let finisher = jab3.windows[1]
+            .volumes
+            .pop()
+            .expect("the strike builder authors one volume");
+        let pulse = HitVolume {
+            shape: VolumeShape::Rect {
+                offset: (28.0, 0.0),
+                half_extents: (19.0, 14.0),
+            },
+            damage: 1,
+            knockback: 46.0,
+            knockback_growth: Some(0.0),
+            launch_dir: None,
+            ..finisher.clone()
+        };
+        let active = |start_s: f32, end_s: f32, volume: HitVolume| MoveWindow {
+            start_s,
+            end_s,
+            tag: WindowTag::Active,
+            volumes: vec![volume],
+            motion_scale: 1.0,
+            sustain_effect: None,
+        };
+        jab3.windows = vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: FLURRY_FROM_S,
+                tag: WindowTag::Startup,
+                volumes: Vec::new(),
+                motion_scale: 1.0,
+                sustain_effect: None,
+            },
+            active(FLURRY_FROM_S, 0.10, pulse.clone()),
+            active(0.13, 0.17, pulse),
+            active(FLURRY_TO_S, 0.27, finisher),
+            MoveWindow {
+                start_s: 0.27,
+                end_s: 0.53,
+                tag: WindowTag::Recovery,
+                volumes: Vec::new(),
+                motion_scale: 1.0,
+                sustain_effect: None,
+            },
+        ];
+        jab3.duration_s = 0.53;
+        jab3.repeat = Some(MoveLoop {
+            from_s: FLURRY_FROM_S,
+            to_s: FLURRY_TO_S,
+            max_s: 1.2,
+        });
+    }
+    vec![jab2, jab3]
+}
+
 /// Shared by this demo's three fighters today. That is a content decision, not
 /// an architectural one: the moveset rides the CHARACTER, so giving George a
 /// heavier one is editing his definition and nothing else.
@@ -356,56 +488,19 @@ pub fn fighter_moveset() -> MovesetContract {
     // window NAMES; without one, a re-press restarted jab 1 and the fastest
     // move in the kit was a full commitment every time you threw it.
     //
-    // ON HIT, which is the genre's rule and the reason a chain is a REWARD:
-    // whiff the jab and you are committed to its recovery, land it and the
-    // route opens. The window sits inside the recovery so the follow-up is a
-    // cancel rather than a queued second press.
-    let jab = cancelable(jab, 0.11, 0.25, &["jab2"], CancelCondition::OnHit);
+    // ⭐ A JAB STRING CONTINUES ON A WHIFF, which is the genre's rule and was
+    // measured to be the difference between a live mechanic and a dead one. The
+    // window was authored `OnHit` on the argument that a chain is a REWARD —
+    // true of a smash's combo-confirm and false of a jab, which every game in
+    // this genre lets you throw three times at empty air. Measured 2026-08-23
+    // over a 90-second George mirror: the CPUs started the jab once and it did
+    // not connect, so `OnHit` refused the only chance the chain ever had.
+    // ⛔ this is the STRING's rule and not the cancel table's: every other
+    // `OnHit` window in this file is a genuine combo confirm and stays one.
+    let jab = cancelable(jab, 0.11, 0.25, &["jab2"], CancelCondition::Always);
     moves.push(jab);
 
-    // JAB 2 — the same beat again, a little harder, and the door to the
-    // finisher. Authored as its own move because it IS one: the chain is a
-    // cancel table over ordinary moves, not a mode some move enters.
-    let mut jab2 = strike(Strike {
-        id: "jab2",
-        clip: "attack",
-        startup_s: 0.04,
-        active_s: 0.06,
-        recover_s: 0.16,
-        offset: (27.0, 0.0),
-        half_extents: (18.0, 14.0),
-        damage: 3,
-        knockback: 60.0,
-        // The stage's own declaration in the stage's units: 0.02 of base.
-        knockback_growth: 60.0 * crate::SMASH_KNOCKBACK_GROWTH,
-        launch_dir: None,
-        on_hit: None,
-    });
-    jab2.gates = grounded_only();
-    let jab2 = cancelable(jab2, 0.10, 0.26, &["jab3"], CancelCondition::OnHit);
-    moves.push(jab2);
-
-    // JAB 3 — the finisher, and the only one of the three that MOVES anybody.
-    // It ends the route: no cancel window, so landing it costs its recovery
-    // like any other committed move.
-    let mut jab3 = strike(Strike {
-        id: "jab3",
-        clip: "attack",
-        startup_s: 0.06,
-        active_s: 0.07,
-        recover_s: 0.26,
-        offset: (30.0, -2.0),
-        half_extents: (22.0, 16.0),
-        damage: 5,
-        knockback: 105.0,
-        knockback_growth: 105.0 * crate::SMASH_KNOCKBACK_GROWTH,
-        // Away and slightly up: the jab route ends in SPACE, which is what the
-        // three-hit commitment buys — not a kill.
-        launch_dir: Some((1.0, -0.35)),
-        on_hit: None,
-    });
-    jab3.gates = grounded_only();
-    moves.push(jab3);
+    moves.extend(jab_string_continuations());
 
     let mut up_tilt = strike(Strike {
             id: "tilt_up",

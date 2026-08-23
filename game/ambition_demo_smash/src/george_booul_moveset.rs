@@ -72,6 +72,20 @@ pub fn george_booul_moveset() -> MovesetContract {
     //
     // The window opens with the active frames and runs through the recovery, so
     // it is the hit and its follow-through that buy the escape.
+    //
+    // ⭐ AND THE STRING GOES IN FRONT OF THE ROUTE. `jab2` is named first
+    // because it is the answer to the UNDIRECTED follow-up — a neutral re-press
+    // or a held button continues the jab — while the smash route is bought with
+    // a DIRECTED press, which never reads as a string. George had neither link
+    // until 2026-08-23: the chain shipped onto the shared table and he carries
+    // his own, so a census of a George mirror counted zero `jab2` because he had
+    // no such move, not because the brain would not choose it.
+    //
+    // ⛔ `Always` for the string and `OnHit` for the route, in ONE window,
+    // which the cancel table cannot express — so the string gets its own window
+    // and the route keeps the one it was authored with. A whiffed jab strings;
+    // it still buys nothing.
+    let jab = cancelable(jab, 0.05, 0.25, &["jab2"], CancelCondition::Always);
     let jab = cancelable(
         jab,
         0.05,
@@ -602,6 +616,16 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     .into_contract();
 
+    // ⭐ THE STRING, FROM THE ONE PLACE IT IS AUTHORED. The verb map has a slot
+    // for the jab and none for what follows it, because a chain is a cancel
+    // table over ordinary moves rather than a verb — so the continuations join
+    // the table directly. ⛔ NOT a second copy: George's own moveset is why the
+    // chain reached nobody, and a copy would put the same trap one edit away.
+    let mut repertoire = repertoire;
+    repertoire
+        .moves
+        .extend(crate::moveset::jab_string_continuations());
+
     // the disjunction is checked WHERE IT IS AUTHORED, not only in the
     // test module. These two numbers are the character; a move edited into the
     // band between them stops being George's before anything else notices, and
@@ -1069,22 +1093,54 @@ mod tests {
         assert!(heavy_hit("jab").is_none(), "a jab does not clang");
     }
 
-    /// THE JAB'S CANCEL IS A REWARD FOR CONNECTING. George's only route from
-    /// his fast half to his slow half, and it is `OnHit` so a whiff buys nothing.
+    /// THE JAB'S TWO CANCELS ARE DIFFERENT PROMISES, and the difference is the
+    /// point: the STRING continues on a whiff because every game in this genre
+    /// lets you jab at empty air three times, and the ROUTE across George's own
+    /// gap is a REWARD FOR CONNECTING, so it stays `OnHit` and a whiff buys
+    /// nothing.
+    ///
+    /// ⛔ read by what each window NAMES, never by which comes first: the
+    /// version of this test that took the first `Cancelable` window it found
+    /// started reading the string's the moment the string was authored, and
+    /// would have gone on asserting about a window it was not written for.
     #[test]
-    fn the_jab_opens_the_commitments_only_when_it_lands() {
+    fn the_jab_strings_on_a_whiff_and_opens_the_commitments_only_when_it_lands() {
         use ambition_platformer2d::entity_catalog::{CancelCondition, WindowTag};
         let jab = find(&george_booul_moveset(), "jab");
-        let window = jab
+        let cancels: Vec<(Vec<String>, CancelCondition)> = jab
             .windows
             .iter()
-            .find_map(|w| match &w.tag {
+            .filter_map(|w| match &w.tag {
                 WindowTag::Cancelable { into, condition } => Some((into.clone(), *condition)),
                 _ => None,
             })
-            .expect("the jab is George's one route across the gap");
-        assert_eq!(window.1, CancelCondition::OnHit);
-        assert!(window.0.iter().any(|t| t == "smash"));
-        assert!(window.0.iter().any(|t| t == "special"));
+            .collect();
+        let named = |target: &str| {
+            cancels
+                .iter()
+                .find(|(into, _)| into.iter().any(|t| t == target))
+                .unwrap_or_else(|| panic!("no cancel window names `{target}`"))
+        };
+        assert_eq!(
+            named("jab2").1,
+            CancelCondition::Always,
+            "a whiffed jab must still string"
+        );
+        let route = named("smash");
+        assert_eq!(
+            route.1,
+            CancelCondition::OnHit,
+            "George's route across the gap is bought by connecting"
+        );
+        assert!(route.0.iter().any(|t| t == "special"));
+        // ⭐ AND THE STRING IS NAMED FIRST. The chain takes the first successor
+        // it can resolve BY MOVE ID, so an undirected follow-up has to reach
+        // `jab2`; naming the route first would have made every held button
+        // throw a smash.
+        assert_eq!(
+            cancels[0].0.first().map(String::as_str),
+            Some("jab2"),
+            "the string has to be the first thing the jab nominates"
+        );
     }
 }

@@ -4212,6 +4212,126 @@ fn a_follow_up_press_walks_the_authored_jab_chain() {
     );
 }
 
+/// ⭐⭐ A HELD BUTTON WALKS THE STRING, WITH ONE PRESS AND NO MASH.
+///
+/// The genre's own input for continuing a jab: hold Attack and the string
+/// advances. It matters more than taste here because it is the input this
+/// game's BODIES produce. `MovePlayback`'s other two sustained mechanics both
+/// read `ResolvedAttackGesture::held` — the smash charge waits on it, the flurry
+/// loop repeats on it — and the chain read the press EDGE alone. Measured
+/// 2026-08-23 over a 90-second George mirror: the two fighter brains hold Attack
+/// for 960 body-ticks and produce ONE fresh neutral jab press in the whole
+/// match, and the trace of that single jab shows `held: None` on every tick
+/// after the one it started on. The chain's only entrance was an input nobody
+/// gives.
+#[test]
+fn a_held_button_walks_the_string_with_no_second_press() {
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "jab".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![
+            chain_link("jab", &["jab2"], None),
+            chain_link("jab2", &["jab3"], None),
+            chain_link("jab3", &[], None),
+        ],
+    };
+    let (mut app, body) = playing_app(moveset);
+    // ONE press, then the button simply stays down.
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = false;
+        f.melee_held = true;
+    });
+    let mut walked = vec![playing(&app, body).unwrap_or_default()];
+    for _ in 0..24 {
+        app.update();
+        if let Some(id) = playing(&app, body) {
+            if walked.last() != Some(&id) {
+                walked.push(id);
+            }
+        }
+    }
+    assert_eq!(
+        walked,
+        vec!["jab".to_string(), "jab2".to_string(), "jab3".to_string()],
+        "a held button should walk the authored string; it played {walked:?}"
+    );
+}
+
+/// ⛔ AND A HOLD MAY NOT START ONE. The sustain continues what is already
+/// playing and nothing else — a held button that could open a move would turn
+/// every fighter into an auto-attacker the moment somebody rested a thumb.
+#[test]
+fn a_held_button_never_starts_a_move_by_itself() {
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "jab".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![
+            chain_link("jab", &["jab2"], None),
+            chain_link("jab2", &[], None),
+        ],
+    };
+    let (mut app, body) = playing_app(moveset);
+    set_frame(&mut app, body, |f| f.melee_held = true);
+    for _ in 0..20 {
+        app.update();
+    }
+    assert_eq!(
+        playing(&app, body),
+        None,
+        "a held button with nothing playing started a move"
+    );
+}
+
+/// ⛔⛔ A HOLD REACHES A SUCCESSOR BY MOVE ID, NEVER BY VERB.
+///
+/// A cancel window's `into` list mixes two things: MOVE IDS, which are the rest
+/// of a string, and VERB NAMES, which are a ROUTE into another part of the
+/// vocabulary. George Boo'l's jab names `smash` and `special` — his one way from
+/// his fast half to his slow half, bought by connecting. A route is a deliberate
+/// DIRECTED press; if a hold could take one, resting on the button after a jab
+/// would throw a smash.
+#[test]
+fn a_hold_cannot_buy_a_route_named_by_verb() {
+    let moveset = MovesetContract {
+        verbs: [
+            (ATTACK_VERB.to_string(), "jab".to_string()),
+            (SMASH_VERB.to_string(), "smash_forward".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        // The window names the VERB, exactly as George's does.
+        moves: vec![
+            chain_link("jab", &["smash"], None),
+            chain_link("smash_forward", &[], None),
+        ],
+    };
+    let (mut app, body) = playing_app(moveset);
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = false;
+        f.melee_held = true;
+    });
+    for _ in 0..12 {
+        app.update();
+        assert_ne!(
+            playing(&app, body).as_deref(),
+            Some("smash_forward"),
+            "a held button bought a verb-named route"
+        );
+    }
+}
+
 /// A move that nominates nothing chains nowhere — the press restarts it exactly
 /// as it always did.
 #[test]

@@ -129,8 +129,18 @@ independent of whether the worker could build.
 24 callers migrated). D33 ran three slices and is parked with the monolith
 **under** its frozen baseline.
 
+⭐⭐ **REFILLED 2026-08-23.** Three seats are live on D72 (Smash), coordinated by
+[`demos/campaigns/smash-lane-coordination.md`](demos/campaigns/smash-lane-coordination.md):
+a MECHANICS lane in `.worktrees/smash-parity`, a PRESENTATION lane in
+`.worktrees/sidework`, and a coordinator on `main` holding merges, gates and CPU
+behaviour. Their open rows live in that document; the four below are what the run
+turned up that OUTLIVES the campaign and has no other home.
+
 | Lane | Owner | Executable next action |
 |---|---|---|
+| **D183 — three demos hand-roll `DefaultPlugins`, and the engine has no offscreen face** | PRESENTATION lane, 2026-08-23 | ⭐ mary-o, sanic and twintrack each declare their own `RenderMode` and their own windowed builder; **the Smash demo has NONE, so its shell has never rendered anything** and `./run_game.sh smash` loops schedules with nothing to draw to. The engine's `install_windowed_foundation` already does this job with a `gpu: bool` and its own doc says a consumer re-deriving the disables is the leak. ⇒ add the third mode — **no window, REAL backend** — beside the two it has, give Smash a builder that uses it, and leave the other three duplicated with a note |
+| **D184 — the fighter brain has no evaluation path for a MOVEMENT change** | unstaffed | ⛔⛔ three hand edits to the movement scores, three reverts, documented in the campaign doc. `brain::fighter::evaluation` measures decisions without a match and says so in its own header; `ambition_demo_smash_app`'s `bin/match_report` measures a match without decisions. **Joining them is the slice** — a rig that plays the scenario suite through a real match and reports the verb histogram beside the outcome |
+| **D185 — `Situation::Advantage` means two different things** | unstaffed | it means "they are committed, punish them" AND "they are about to hit you", because `is_punishable` covers attack startup. A fighter therefore has nowhere to decide *guard, they are swinging* — measured: a guard added to the `Neutral` arm never fires, because a fighter is never in `Neutral` while somebody winds up. What separates the two readings is whether their swing lands before yours, which `Features::frame_advantage` already computes for ATTACK options and no movement option can see |
 | **D127 — authored logic** | **unstaffed** | ⛔ M1 is complete and M2's prepared-call half LANDED (`7e7552c4b`); the `when … then` rule form is deliberately UNBUILT for want of a customer. ⇒ nothing here is dispatchable until a customer appears or M5 diagnostics are wanted — **do not re-open M1 or M2** |
 | **D128 — Smash CPU showcase** | unstaffed | ◐ **ENGINEERING IS DONE — every line closed by 2026-08-18.** Pacing ACCEPTED (Jon, 2026-08-17: under ~40s is *"if anything… brisk"*) ⇒ ⛔ do NOT retune stock count, knockback or damage. Respawn placement, standalone asset composition, CPU symmetry and all four presentation defects are ✔ — the last two were the bark width and the untextured impact quad, both photographed before and after. ⇒ **what remains is Jon watching one match**, not another capture. |
 

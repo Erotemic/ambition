@@ -169,18 +169,20 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
         ids.len()
     );
     println!(
-        "[grid-sweep] {:<30} {:>9} {:>9} {:>9} {:>7}  {}",
-        "fighter", "took0%", "took1%", "hitstun", "moves", "most thrown"
+        "[grid-sweep] {:<30} {:>9} {:>9} {:>9} {:>7} {:>10}  {}",
+        "fighter", "took0%", "took1%", "hitstun", "moves", "used/kit", "most thrown"
     );
     let mut silent: Vec<String> = Vec::new();
     for id in &ids {
-        let (taken, hitstun, moves, top) = mirror_bout(id);
+        let (taken, hitstun, moves, top, kit, distinct) = mirror_bout(id);
         println!(
-            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7}  {top}",
+            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>5}/{:<4}  {top}",
             taken[0] * 100.0,
             taken[1] * 100.0,
             hitstun[0] + hitstun[1],
             moves,
+            distinct,
+            kit,
         );
         if taken[0] + taken[1] < 0.1 {
             silent.push(id.clone());
@@ -202,7 +204,7 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
 /// One mirror match in the shipped composition: damage each seat ACCUMULATED
 /// (a KO resets the meter, so a peak measures survival rather than violence) and
 /// ticks each spent in hitstun.
-fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String) {
+fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, usize) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
@@ -261,11 +263,26 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String) {
             live.insert(entity, (id, t));
         }
     }
+    // HOW BIG IS THE KIT? "Threw six moves in a minute" is a content finding if
+    // the body only has two, and a selection finding if it has sixteen. The
+    // authored table is on the body; asking it costs one query.
+    let kit = {
+        let world = app.world_mut();
+        world
+            .query::<(
+                &MatchSeat,
+                &ambition_platformer2d::combat::moveset::ActorMoveset,
+            )>()
+            .iter(world)
+            .next()
+            .map(|(_, moveset)| moveset.0.moves.len())
+            .unwrap_or(0)
+    };
     let moves: usize = started.values().sum();
     let top = started
         .iter()
         .max_by_key(|(id, count)| (**count, std::cmp::Reverse((*id).clone())))
         .map(|(id, count)| format!("{id}×{count}"))
         .unwrap_or_else(|| "—".to_string());
-    (taken, hitstun, moves, top)
+    (taken, hitstun, moves, top, kit, started.len())
 }

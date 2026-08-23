@@ -42,8 +42,8 @@ use ambition_characters::actor::attack_gesture::{
     ResolvedAttackGesture,
 };
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
-use ambition_characters::brain::{ActorActionMessage};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::brain::ActorActionMessage;
+use ambition_characters::control::ActorControl;
 use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
@@ -774,7 +774,12 @@ pub fn advance_move_playback(
                         // Whatever the hold could not absorb — only non-zero on
                         // the tick the maximum is reached — carries the move
                         // forward, so the release is not a frame late.
-                        to_hold + if charge.charging() { 0.0 } else { spare - accrued }
+                        to_hold
+                            + if charge.charging() {
+                                0.0
+                            } else {
+                                spare - accrued
+                            }
                     } else {
                         charge.release();
                         dt
@@ -1583,9 +1588,8 @@ pub fn trigger_moveset_moves(
         // Only the UP directions RISE, which is the whole reason this genre
         // lets those two out of a crouched guard and makes everything else wait
         // for it to come down.
-        let rises_out_of_shield = |dir: AttackDir, action| {
-            unrestricted || (dir == AttackDir::Up && oos_permits(action))
-        };
+        let rises_out_of_shield =
+            |dir: AttackDir, action| unrestricted || (dir == AttackDir::Up && oos_permits(action));
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
         let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
@@ -1600,27 +1604,42 @@ pub fn trigger_moveset_moves(
         let (spec, verb_names, proposer): Resolution = if holding_captive {
             match gesture.pressed.map(|intent| intent.direction) {
                 Some(AttackDir::Neutral) => (
-                    moveset.0.move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded).cloned(),
+                    moveset
+                        .0
+                        .move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded)
+                        .cloned(),
                     &[CAPTURE_PUMMEL_VERB][..],
                     ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Forward) => (
-                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded).cloned(),
+                    moveset
+                        .0
+                        .move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded)
+                        .cloned(),
                     &[CAPTURE_THROW_FORWARD_VERB][..],
                     ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Back) => (
-                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded).cloned(),
+                    moveset
+                        .0
+                        .move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded)
+                        .cloned(),
                     &[CAPTURE_THROW_BACK_VERB][..],
                     ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Up) => (
-                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded).cloned(),
+                    moveset
+                        .0
+                        .move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded)
+                        .cloned(),
                     &[CAPTURE_THROW_UP_VERB][..],
                     ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Down) => (
-                    moveset.0.move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded).cloned(),
+                    moveset
+                        .0
+                        .move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded)
+                        .cloned(),
                     &[CAPTURE_THROW_DOWN_VERB][..],
                     ProposedVerb::Attack,
                 ),
@@ -1671,22 +1690,21 @@ pub fn trigger_moveset_moves(
             // A dedicated pogo press IS a down-air (the move carrying the pogo
             // on-hit technique); a plain melee press resolves by aim. When only
             // pogo is pressed, force Down so an aerial body reaches `attack_air_down`.
-            let (base_verb, dir, gesture_grounded) =
-                if pogo_pressed && gesture.pressed.is_none() {
-                    (ATTACK_VERB, AttackDir::Down, grounded)
-                } else if let Some(intent) = gesture.pressed {
-                    (
-                        if intent.strength == AttackStrength::Smash {
-                            SMASH_VERB
-                        } else {
-                            ATTACK_VERB
-                        },
-                        intent.direction,
-                        intent.posture == AttackPosture::Grounded,
-                    )
-                } else {
-                    (ATTACK_VERB, AttackDir::Down, grounded)
-                };
+            let (base_verb, dir, gesture_grounded) = if pogo_pressed && gesture.pressed.is_none() {
+                (ATTACK_VERB, AttackDir::Down, grounded)
+            } else if let Some(intent) = gesture.pressed {
+                (
+                    if intent.strength == AttackStrength::Smash {
+                        SMASH_VERB
+                    } else {
+                        ATTACK_VERB
+                    },
+                    intent.direction,
+                    intent.posture == AttackPosture::Grounded,
+                )
+            } else {
+                (ATTACK_VERB, AttackDir::Down, grounded)
+            };
             // A WEAPON IN HAND OWNS THIS PRESS. With something held, the
             // wearer's own repertoire is not consulted at all — the weapon
             // answers with its swing, or it answers elsewhere and nothing runs
@@ -1786,7 +1804,10 @@ pub fn trigger_moveset_moves(
             // plays to completion before another starts (its duration is a cadence
             // gate; the body-side refire cooldown remains the hard rate floor).
             (
-                moveset.0.move_for_verb_in_stance(RANGED_VERB, grounded).cloned(),
+                moveset
+                    .0
+                    .move_for_verb_in_stance(RANGED_VERB, grounded)
+                    .cloned(),
                 &[RANGED_VERB],
                 ProposedVerb::Unbuffered,
             )
@@ -1821,29 +1842,55 @@ pub fn trigger_moveset_moves(
             // CM4, move-into-move: the requested move starts same-frame iff a
             // cancel window covering `t` permits it under the hit-state
             // condition. Otherwise: today's reject, byte-identically.
-            let Some(spec) = spec else { continue };
-            // ⭐ THE CHAIN. A follow-up press inside a cancel window takes the
-            // successor that window NAMES instead of restarting the move that
-            // is playing — jab into jab2 into jab3, authored as a cancel table
-            // and nothing else.
+            // ⭐ THE CHAIN. A follow-up on the attack family inside a cancel
+            // window takes the successor that window NAMES instead of
+            // restarting the move that is playing — jab into jab2 into jab3,
+            // authored as a cancel table and nothing else.
             //
-            // Only an UNDIRECTED re-press of the attack family takes it, which
-            // is what keeps this a chain rather than a second cancel rule: in
-            // this genre a tilt out of jab 1 is a tilt, and a directed press is
-            // a genuine move-into-move that already had its answer. ⛔ no
-            // fighter id and no move-name special case — the vocabulary is the
-            // `into` list a window already authors.
+            // Only an UNDIRECTED follow-up takes it, which is what keeps this a
+            // chain rather than a second cancel rule: in this genre a tilt out
+            // of jab 1 is a tilt, and a directed press is a genuine
+            // move-into-move that already had its answer. ⛔ no fighter id and
+            // no move-name special case — the vocabulary is the `into` list a
+            // window already authors.
+            //
+            // TWO FOLLOW-UPS CONTINUE A STRING, AND HOLDING IS THE ONE THIS
+            // GAME'S BODIES ACTUALLY PRODUCE. `MovePlayback`'s other two
+            // sustained mechanics both read `ResolvedAttackGesture::held` — the
+            // smash charge waits on it and the flurry loop repeats on it — and
+            // this one read the press EDGE alone. Measured over a 90-second
+            // George mirror: the two brains hold Attack for 960 body-ticks in
+            // thirteen runs (median 66 ticks each) and produce exactly ONE
+            // fresh neutral jab press in the whole match. The chain's only
+            // entrance was the input nobody gives.
+            //
+            // ⛔ A HOLD MAY ONLY CONTINUE A STRING, NEVER START A MOVE. It is
+            // read only when no press resolved a move of its own, and it can
+            // reach nothing but a successor the playing window already NAMES —
+            // so a held button repeats exactly what was authored as a chain and
+            // nothing else.
+            //
+            // ⛔⛔ A HELD SMASH IS A CHARGE, and the two must never be the same
+            // gesture: excluded by strength here, not by asking which move is
+            // playing.
             let neutral_repress = proposer == ProposedVerb::Attack
                 && gesture.pressed.map(|intent| intent.direction) == Some(AttackDir::Neutral);
-            let spec = if neutral_repress {
-                pb.spec
-                    .cancel_successors(pb.t, pb.landed_hit)
-                    .find(|id| *id != pb.spec.id.as_str())
-                    .and_then(|id| moveset.0.move_by_id(id))
-                    .cloned()
-                    .unwrap_or(spec)
-            } else {
-                spec
+            let held_string = spec.is_none()
+                && gesture.held.is_some_and(|intent| {
+                    intent.direction == AttackDir::Neutral
+                        && intent.strength != AttackStrength::Smash
+                });
+            let successor = (neutral_repress || held_string)
+                .then(|| {
+                    pb.spec
+                        .cancel_successors(pb.t, pb.landed_hit)
+                        .find(|id| *id != pb.spec.id.as_str())
+                        .and_then(|id| moveset.0.move_by_id(id))
+                        .cloned()
+                })
+                .flatten();
+            let Some(spec) = successor.or(spec) else {
+                continue;
             };
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
@@ -1969,9 +2016,11 @@ pub fn project_move_defense_windows(
             combat.armored = armored;
         }
         if let Some(mut health) = health {
-            if health.health.invulnerable.holds(
-                ambition_characters::actor::Invulnerability::MOVE,
-            ) != intangible
+            if health
+                .health
+                .invulnerable
+                .holds(ambition_characters::actor::Invulnerability::MOVE)
+                != intangible
             {
                 health.health.invulnerable.set(
                     ambition_characters::actor::Invulnerability::MOVE,

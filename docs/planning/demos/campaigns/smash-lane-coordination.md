@@ -394,3 +394,21 @@ Three instances, one per seat, none of them a bug at the site that failed:
 ⇒ **write the sample size and the percentile into the source beside any constant
 fitted to data**, and re-measure it whenever the thing it describes changes. The
 presentation lane does this now; it is worth copying.
+
+## ⚠ The caveat on every CPU number in this document
+
+Every measurement here is **George against George, or the demo's stand-in
+duelists**. Both instruments seat through `smash_roster_at_levels`, and for at
+least one ordinary roster fighter — `npc_pirate_admiral`, which `app_it`'s duel
+guard seats successfully at rung 9 through a different path — **no fighter brain
+ever takes the noise seed**: `ladder_rig` aborts on its own guard and
+`match_report` prints empty rows.
+
+⇒ two seating paths disagree about whether an arbitrary roster character becomes
+a FIGHTER, and the disagreement is invisible until somebody tries to measure one.
+It is D189, and it is the reason D188's regression — found on exactly that
+character — could not be reproduced in either rig.
+
+⭐ So read every number in this file as *"true of this matchup"* until D189 is
+closed. The defects found through them are real; their generality is not
+established.

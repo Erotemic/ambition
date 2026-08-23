@@ -452,11 +452,36 @@ pub fn select_actor_targets(
             target.pos = actor_pos;
             target.entity = None;
         }
-        if target.entity.is_none() && !active_combatant {
-            if let Some(disposition) = disposition.as_deref_mut() {
-                if disposition.is_hostile() {
-                    *disposition = ActorDisposition::Peaceful;
+        // ⭐⭐ TARGET-DERIVED STANDING IS DERIVED IN BOTH DIRECTIONS, and until
+        // now only one of them was written. Standing a target-less hostile down
+        // to `Peaceful` while REACQUISITION reads `aggression.target_policy()`
+        // meant a body could come back to a fight without coming back to being
+        // hostile:
+        //
+        //     Hostile aggression + Hostile disposition
+        //       -> last foe disappears -> disposition stands down to Peaceful
+        //       -> a new faction foe arrives
+        //       -> target reacquired by AGGRESSION, disposition still Peaceful
+        //
+        // and that body then attacks a foe while `Peaceful` tells the
+        // interaction system it is talkable and `CombatStanding` calls it a
+        // Bystander. Two authorities disagreeing about one fact - a latch set on
+        // ABSENCE that nothing ever cleared.
+        //
+        // ⛔ THIS IS A TEMPORARY STANDING, NOT A PACIFY, and the distinction is
+        // what keeps it composable. A deliberate pacify
+        // (`brain_command`'s disposition authority) sets aggression to Passive
+        // AND disposition to Peaceful together; because that drops
+        // `target_policy` to `None`, the restore below cannot fire against it.
+        // Permanent peace stays that authority's to declare.
+        if let Some(disposition) = disposition.as_deref_mut() {
+            let fighting = target.entity.is_some() && policy == AggressionTarget::Foe;
+            if fighting {
+                if !disposition.is_hostile() {
+                    *disposition = ActorDisposition::Hostile;
                 }
+            } else if target.entity.is_none() && !active_combatant && disposition.is_hostile() {
+                *disposition = ActorDisposition::Peaceful;
             }
         }
     }

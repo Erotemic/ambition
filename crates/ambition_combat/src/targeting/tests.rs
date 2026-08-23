@@ -563,6 +563,66 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
     );
 }
 
+/// ⭐ AND IT STANDS BACK UP. The stand-down above is a TEMPORARY standing, so
+/// the same authority owes the other direction: a fighter that lost its foe and
+/// went `Peaceful` must be `Hostile` again on the tick it reacquires one.
+///
+/// ⛔ WHAT THIS DEFENDS. Reacquisition reads `aggression.target_policy()`, NOT
+/// the disposition — so before this, a body came back to the fight without
+/// coming back to being hostile, and then attacked a foe while `Peaceful` told
+/// the interaction system it was talkable and `CombatStanding` called it a
+/// Bystander. Two authorities disagreeing about one fact.
+#[test]
+fn a_fighter_that_reacquires_a_foe_is_hostile_again() {
+    let mut app = App::new();
+    let mut relations = FactionRelations::default();
+    relations.set_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    app.insert_resource(relations);
+    let fighter = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            CenteredAabb::from_center_size(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+            ActorTarget::default(),
+            ActorAggression::hostile(),
+            ActorDisposition::Hostile,
+            ActorFaction::Enemy,
+            alive(),
+        ))
+        .id();
+    app.add_systems(Update, select_actor_targets);
+
+    // No foe in the world at all: it stands down. This is the PREMISE, and
+    // without it the assertion below would pass on a body that never moved.
+    app.update();
+    assert_eq!(
+        *app.world().entity(fighter).get::<ActorDisposition>().unwrap(),
+        ActorDisposition::Peaceful,
+        "the premise: a target-less hostile stands down"
+    );
+
+    // A live faction foe arrives.
+    app.world_mut().spawn((
+        FeatureSimEntity,
+        CenteredAabb::from_center_size(ae::Vec2::new(300.0, 100.0), ae::Vec2::new(20.0, 20.0)),
+        ActorFaction::Boss,
+        alive(),
+    ));
+    app.update();
+
+    let entity = app.world().entity(fighter);
+    assert!(
+        entity.get::<ActorTarget>().unwrap().entity.is_some(),
+        "the aggression reacquired a foe, which is what makes the standing question live"
+    );
+    assert_eq!(
+        *entity.get::<ActorDisposition>().unwrap(),
+        ActorDisposition::Hostile,
+        "it is fighting again while its disposition still says Peaceful - dialogue would be \
+         offered to a body that is mid-swing, and CombatStanding would call it a Bystander"
+    );
+}
+
 #[test]
 fn active_match_combatant_stays_hostile_when_target_less() {
     let mut app = App::new();

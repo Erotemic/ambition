@@ -71,7 +71,7 @@ pub fn resolve_ledge_trumps(
             // body no longer has, and a falling fighter that kept it would be
             // the safest thing on the stage.
             if let ae::MotionModel::AxisSwept(axis) = &mut *model {
-                axis.state.dodge_roll_timer = 0.0;
+                axis.state.ledge_invuln_timer = 0.0;
             }
         }
     }

@@ -129,6 +129,23 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
+    /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
+    /// and the getup attack's.
+    ///
+    /// ⛔ it was `dodge_roll_timer`, on the argument that "that field already
+    /// gates damage — same pipeline, single source of truth". The pipeline was
+    /// the right instinct and the FIELD was the wrong place to join it: the
+    /// join belongs at [`super::BodyMotionFacts::evading`], which is what the
+    /// damage rule actually reads, and sharing the timer instead made a body
+    /// hanging on an edge indistinguishable from one mid-dodge-roll. Nothing
+    /// downstream could tell them apart — so a stale `spot_dodging` flag drew a
+    /// ledge grab as a spot dodge, and nobody could tune, blink, or reason
+    /// about one without the other.
+    ///
+    /// Separate for the same reason [`Self::air_dodge_timer`] below is separate
+    /// from the roll: two maneuvers that grant the same term are still two
+    /// maneuvers.
+    pub ledge_invuln_timer: f32,
     /// The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.
     ///
     /// one timer, two verbs, and the flag is what tells them apart — the
@@ -220,6 +237,7 @@ impl Default for AxisManeuverState {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
+            ledge_invuln_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,
             air_dodge_endlag_timer: 0.0,

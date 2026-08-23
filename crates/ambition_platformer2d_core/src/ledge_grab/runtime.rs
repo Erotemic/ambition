@@ -398,7 +398,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         axis_state.wall_clinging = false;
         axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
-        axis_state.dodge_roll_timer = LEDGE_ROLL_TIME + 0.10;
+        axis_state.ledge_invuln_timer = LEDGE_ROLL_TIME + 0.10;
         axis_state.ledge_grab = Some(state);
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeRoll);
         return true;
@@ -464,7 +464,9 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         axis_state.wall_clinging = false;
         axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
-        axis_state.dodge_roll_timer = LEDGE_GETUP_ATTACK_TIME;
+        // ⚠ the whole attack is intangible, and that is a decision rather
+        // than an inheritance now — see `LEDGE_GETUP_ATTACK_INVULN`.
+        axis_state.ledge_invuln_timer = super::LEDGE_GETUP_ATTACK_INVULN;
         axis_state.ledge_grab = Some(state);
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeGetupAttack);
         events.op_clusters(clusters.combo_trace, MovementOp::Slash);
@@ -770,17 +772,19 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         momentum_at_grab,
         ..LedgeGrabState::hanging_with_quality(contact, grab_quality)
     });
-    // Smash-Bros style ledge intangibility: a brief invuln window on
-    // grab. Reuses `dodge_roll_timer` because that field already gates
-    // damage — same pipeline, single source of truth.
+    // Smash-Bros style ledge intangibility: a brief invuln window on grab.
+    // It is the LEDGE's own timer, joined to the damage rule at
+    // `BodyMotionFacts::evading` — which is the pipeline the old comment here
+    // meant, and the right place to join it. Sharing the dodge roll's field
+    // instead made a body hanging on an edge read as one mid-evade.
     //
     // and it is EARNED, not flat. The window is bought with the time this
     // body spent off a ledge, so a fighter that was knocked away and recovered
     // gets all of it and one that drops and instantly re-catches gets the floor.
     // A flat grant made the edge a free reset you could hold forever.
     let earned = super::ledge_grab_invuln_earned(axis_state.time_off_ledge);
-    if axis_state.dodge_roll_timer < earned {
-        axis_state.dodge_roll_timer = earned;
+    if axis_state.ledge_invuln_timer < earned {
+        axis_state.ledge_invuln_timer = earned;
     }
     axis_state.time_off_ledge = 0.0;
     events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);

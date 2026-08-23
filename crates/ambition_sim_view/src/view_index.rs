@@ -964,6 +964,68 @@ mod view_index_tests {
         }
     }
 
+    /// THE PUBLICATION SEAM for a parry, and the bug it is named for.
+    ///
+    /// A caught parry is a full negation: no hit event, no landed-hit fact, no
+    /// cost to the guard. So the published `parry_flash_secs` is the ONLY thing
+    /// a spectator's cue can read, and if this row failed to carry it the cue
+    /// would be silently dead with every other test still green.
+    ///
+    /// The negative half is the whole point: a guard merely inside its parry
+    /// WINDOW must publish nothing. That window is open on every raised shield
+    /// for a few ticks, so a row that reported it would clang and flash on
+    /// every shield raise.
+    #[test]
+    fn the_published_parry_beat_is_the_catch_and_never_the_open_window() {
+        use ambition_platformer2d_actor_monolith::actor::BodyShieldState;
+
+        let published = |shield: BodyShieldState| {
+            let mut app = bevy::prelude::App::new();
+            app.init_resource::<FeatureViewIndex>();
+            app.world_mut().spawn((
+                FeatureId("seat_0".to_string()),
+                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(30.0, 48.0)),
+                ActorDisposition::Hostile,
+                shield,
+            ));
+            app.add_systems(bevy::prelude::Update, rebuild_feature_view_index);
+            app.update();
+            app.world()
+                .resource::<FeatureViewIndex>()
+                .get("seat_0")
+                .expect("the actor family published a row")
+                .parry_flash_secs
+        };
+
+        // A guard that CAUGHT a strike.
+        let caught = BodyShieldState {
+            active: true,
+            parry_caught_timer: 0.18,
+            ..Default::default()
+        };
+        assert_eq!(published(caught), 0.18, "the catch reaches the row");
+
+        // A guard whose parry window is merely OPEN — every raised shield, for
+        // its first few ticks.
+        let window_open = BodyShieldState {
+            active: true,
+            parry_window_timer: 0.10,
+            ..Default::default()
+        };
+        assert_eq!(
+            published(window_open),
+            0.0,
+            "an open window is not a parry: a cue on this fires on every raise"
+        );
+
+        // And an ordinary raised guard, well past its window.
+        let holding = BodyShieldState {
+            active: true,
+            ..Default::default()
+        };
+        assert_eq!(published(holding), 0.0);
+    }
+
     #[test]
     fn empty_index_reports_empty_and_none() {
         let idx = FeatureViewIndex::default();

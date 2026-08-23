@@ -12,11 +12,12 @@
 pub struct SpriteVisualSync;
 
 pub mod actors;
+pub mod body_cues;
 pub mod bubble_shield;
 mod camera;
 pub mod debug_viz;
-pub mod dizzy_stars;
 pub mod deferred_write_safety;
+pub mod dizzy_stars;
 mod features;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
@@ -34,7 +35,6 @@ mod primitives;
 pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
-pub mod smash_charge_cues;
 pub(crate) mod slash_visuals;
 mod unauthored_volumes;
 pub mod view_isolation;
@@ -446,7 +446,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             Update,
             (
                 launch_trail::emit_launch_trails,
-                smash_charge_cues::emit_smash_charge_cues,
+                body_cues::emit_smash_charge_cues,
+                body_cues::emit_parry_cues,
                 dizzy_stars::emit_dizzy_stars,
             )
                 .in_set(

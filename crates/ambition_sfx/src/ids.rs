@@ -56,6 +56,11 @@ sfx_ids! {
     PLAYER_RESET => "player.reset",
     PLAYER_LOW_HEALTH_PULSE => "player.low_health.pulse",
     PLAYER_STAMINA_EMPTY => "player.stamina_empty",
+    /// The bright CLANG of a perfect shield catching a strike.
+    ///
+    /// The only audible evidence a parry happened: a caught strike is negated
+    /// outright, so there is no impact and no hurt sound to hear instead.
+    PLAYER_PARRY => "player.parry",
     /// The crisp CLACK of a successful tech — the defender refusing a
     /// knockdown. Deliberately not the dash cue the getup roll uses: the two
     /// used to share one sound and a spectator could not tell them apart.

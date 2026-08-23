@@ -71,6 +71,12 @@ fn attack_gesture_history_round_trips_through_rollback_codec() {
         }),
         active: Some(intent),
         buffered_press: Some(buffered),
+        buffered_special: Some(
+            ambition_characters::actor::attack_gesture::SpecialGestureIntent {
+                direction: AttackDir::Up,
+                posture: AttackPosture::Airborne,
+            },
+        ),
     };
     let bytes = encode_state(&state);
     assert_eq!(decode_state::<AttackGestureState>(&bytes), Some(state));

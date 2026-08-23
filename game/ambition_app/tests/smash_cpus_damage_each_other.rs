@@ -22,10 +22,27 @@ const RUNG: u8 = 9;
 /// readable against each other.
 const TICKS: usize = 3_600;
 
-/// Half a pool. deliberately far below the 1.69 measured: this
-/// guards *"a fight happened"*, not the tuning, and a test that pinned the
-/// measured value would go red on every balance change.
+/// Half a pool PER MINUTE OF DUEL. deliberately far below the 1.69
+/// measured: this guards *"a fight happened"*, not the tuning, and a test that
+/// pinned the measured value would go red on every balance change.
+///
+/// ⭐ PER MINUTE OF DUEL, not per minute of wall clock, and the distinction only
+/// appeared once the duel started FINISHING. A decided match stops accumulating
+/// damage the moment a seat leaves the cast, so a fight good enough to end in
+/// twenty seconds read as a third of the damage of one that never resolved —
+/// and the winner, who by definition takes less, read lower still. Measured
+/// 2026-08-23 after the capture fix: the match is decided on tick 1232 with four
+/// stocks spent, and the two seats take 0.34 and 0.19 — which is 0.99 and 0.56
+/// at this rate. The THRESHOLD did not move; what moved is the window it is
+/// divided by.
 const A_REAL_FIGHT: f32 = 0.5;
+
+/// The shortest duel a rate may be read off.
+///
+/// ⛔ the rate is a division, and a short enough denominator makes any numerator
+/// look like a fight. Ten seconds of two fighters on the stage is the floor
+/// below which this test says nothing rather than something flattering.
+const A_MEASURABLE_DUEL: usize = 600;
 
 #[test]
 fn two_cpus_in_the_shipped_composition_damage_each_other() {
@@ -62,9 +79,29 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut last = [0.0f32; 2];
     let mut hitstun_ticks = [0usize; 2];
     let mut both_seated_ticks = 0usize;
-    for _ in 0..(countdown + TICKS) {
+    // ⭐ THE DUEL ENDS WHEN SOMEBODY WINS, and everything after that is not a
+    // measurement of a fight. A decided match despawns the loser, so the loop
+    // below would otherwise go on dividing a finished fight by a full minute.
+    let mut duel_began = false;
+    let mut decided_on: Option<usize> = None;
+    // ⭐ THE STOCK ECONOMY IS PART OF THE STRUCTURE THIS THRESHOLD IS
+    // CALIBRATED AGAINST. A knockout resets a meter, spends a stock and — once a
+    // ruleset declares a respawn beat — takes a fighter off the stage for it. A
+    // reading that does not say how many happened cannot be compared with one
+    // taken under a different economy.
+    let mut knockouts = 0usize;
+    let mut spent_cursor = None;
+    for tick in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
+        {
+            let messages = world
+                .resource::<bevy::ecs::message::Messages<
+                    ambition_platformer2d::actor::FighterStockSpent,
+                >>();
+            let cursor = spent_cursor.get_or_insert_with(|| messages.get_cursor());
+            knockouts += cursor.read(messages).count();
+        }
         let mut seated = 0usize;
         for (seat, health, combat) in world
             .query::<(&MatchSeat, &BodyHealth, Option<&BodyCombat>)>()
@@ -72,6 +109,9 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         {
             if seat.0 < 2 {
                 seated += 1;
+                if decided_on.is_some() {
+                    continue;
+                }
                 // ACCUMULATED, not peaked. A KO resets a body's percent to
                 // zero, so the highest reading a seat ever shows is capped by
                 // how long it survives — and the faster the fight, the LOWER
@@ -92,27 +132,55 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             }
         }
         if seated == 2 {
-            both_seated_ticks += 1;
+            duel_began = true;
+            if decided_on.is_none() {
+                both_seated_ticks += 1;
+            }
+        } else if duel_began && decided_on.is_none() {
+            decided_on = Some(tick);
         }
     }
 
+    // ⛔ "SEATING FAILED" AND "SOMEBODY WON" ARE NOT THE SAME READING, and the
+    // predecessor could not tell them apart: it required two seats for half the
+    // budget, which a decisive match fails BY WINNING. What makes the numbers
+    // below meaningless is a duel that never happened; what makes them better is
+    // a duel that ended.
     assert!(
-        both_seated_ticks > TICKS / 2,
-        "the match seated two fighters on only {both_seated_ticks} of {TICKS} ticks, \
-         so nothing below is a measurement of a duel"
+        both_seated_ticks >= A_MEASURABLE_DUEL,
+        "two fighters shared the stage for only {both_seated_ticks} of {TICKS} \
+         ticks (decided on {decided_on:?}), which is under the {A_MEASURABLE_DUEL}-tick \
+         floor a rate can be read off — so nothing below is a measurement of a duel"
+    );
+
+    // ⭐ REPORTED ON SUCCESS TOO. The threshold is calibrated against a match
+    // STRUCTURE — how much of a duel is spent fighting — and a respawn interval,
+    // a countdown or a grab lock each change that without changing the tuning. A
+    // guard that only speaks when it fails cannot say which of the two moved.
+    let per_minute = |seat: usize| taken[seat] / both_seated_ticks as f32 * TICKS as f32;
+    println!(
+        "[duel] {FIGHTER} rung {RUNG}: duel ran {both_seated_ticks} ticks (decided \
+         {decided_on:?}), took {:.2} / {:.2} of pool = {:.2} / {:.2} per minute of \
+         duel, hitstun {hitstun_ticks:?} ticks, {knockouts} knockouts",
+        taken[0],
+        taken[1],
+        per_minute(0),
+        per_minute(1),
     );
 
     for seat in 0..2 {
         assert!(
-            taken[seat] >= A_REAL_FIGHT,
-            "seat {seat} took {:.0}% of its pool in total over {TICKS} ticks — the \
-             CPUs are not fighting. ⚠ read the UNITS before believing this: the \
-             value is a RATIO, so {:.2} means {:.0}%, and a rig that printed it \
-             under a literal `%` is what turned a 169% duel into a documented \
-             finding that they never hit each other.",
+            per_minute(seat) >= A_REAL_FIGHT,
+            "seat {seat} took {:.0}% of its pool per minute of duel ({:.0}% over \
+             the {both_seated_ticks} ticks the duel actually ran) — the CPUs are \
+             not fighting. ⚠ read the UNITS before believing this: the value is a \
+             RATIO, so {:.2} means {:.0}%, and a rig that printed it under a \
+             literal `%` is what turned a 169% duel into a documented finding \
+             that they never hit each other.",
+            per_minute(seat) * 100.0,
             taken[seat] * 100.0,
-            taken[seat],
-            taken[seat] * 100.0,
+            per_minute(seat),
+            per_minute(seat) * 100.0,
         );
         assert!(
             hitstun_ticks[seat] > 0,

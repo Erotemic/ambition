@@ -49,6 +49,33 @@ impl AttackGestureIntent {
     }
 }
 
+/// WHAT A SPECIAL PRESS MEANT WHEN IT HAPPENED.
+///
+/// ⛔⛔ A BUFFERED PRESS MUST BE REPLAYED VERBATIM, and the special slot was the
+/// one that was not. `BodyActionBuffer::special` is a bare TIMER, so replay
+/// re-read `attack_dir_from_axis` off the LIVE stick: press Up+Special during
+/// endlag, let go, and the buffered press came out as a NEUTRAL special — the
+/// wrong move. Out of shield it was worse, because the out-of-shield rule asks
+/// whether the press RISES, so a buffered up-special replayed after the stick
+/// centred no longer even qualified.
+///
+/// ⛔ POSTURE IS DECIDED AT THE PRESS, not read off live ECS state at replay.
+/// A kit with `special_down` and `special_air_down` gets whichever the player
+/// asked for, rather than whichever the body happens to be doing a few ticks
+/// later — the same rule [`AttackGestureIntent::posture`] already states for
+/// the attack family.
+///
+/// ⚠ it lives HERE and not on `BodyActionBuffer`: the generic timer is
+/// body-core state and the semantic intent is combat's, exactly as the attack
+/// slot is split today.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SpecialGestureIntent {
+    /// Facing-relative, resolved at the instant of the press.
+    pub direction: AttackDir,
+    /// Where the body was standing when it asked.
+    pub posture: AttackPosture,
+}
+
 /// All semantic attack edges produced this tick. Press and release are separate
 /// so a tap that begins and ends between simulation ticks remains lossless.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -56,6 +83,10 @@ pub struct ResolvedAttackGesture {
     pub pressed: Option<AttackGestureIntent>,
     pub held: Option<AttackGestureIntent>,
     pub released: Option<AttackGestureIntent>,
+    /// The SPECIAL press, live or replayed from the buffer — ONE field
+    /// downstream, so nothing has to learn that buffering exists. The same
+    /// shape [`Self::pressed`] already has for the attack family.
+    pub special: Option<SpecialGestureIntent>,
 }
 
 /// Ruleset/player-owned interpretation thresholds. This component is required
@@ -143,6 +174,13 @@ pub struct AttackGestureState {
     /// and the two are armed and cleared together. Meaningless (and forced back
     /// to `None`) whenever that window is zero.
     pub buffered_press: Option<AttackGestureIntent>,
+    /// The SPECIAL press the action authority has not accepted yet.
+    ///
+    /// The twin of [`Self::buffered_press`] and armed by the same one system,
+    /// with [`ambition_platformer2d_core::BodyActionBuffer::special`] for its
+    /// clock — see [`SpecialGestureIntent`] for why a timer alone was not
+    /// enough.
+    pub buffered_special: Option<SpecialGestureIntent>,
 }
 
 impl Default for AttackGestureState {
@@ -152,6 +190,7 @@ impl Default for AttackGestureState {
             recent_flick: None,
             active: None,
             buffered_press: None,
+            buffered_special: None,
         }
     }
 }

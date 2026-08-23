@@ -749,6 +749,23 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
                 put_attack_gesture_intent(out, intent);
             }
         }
+        // The SPECIAL press waiting for its window, whose meaning cannot be
+        // recovered from the live stick a few ticks later.
+        match self.buffered_special {
+            None => put_bool(out, false),
+            Some(intent) => {
+                use crate::actor::attack_gesture::AttackPosture;
+                put_bool(out, true);
+                put_u8(out, attack_dir_tag(intent.direction));
+                put_u8(
+                    out,
+                    match intent.posture {
+                        AttackPosture::Grounded => 0,
+                        AttackPosture::Airborne => 1,
+                    },
+                );
+            }
+        }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -772,11 +789,25 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
         } else {
             None
         };
+        let buffered_special = if r.bool()? {
+            use crate::actor::attack_gesture::{AttackPosture, SpecialGestureIntent};
+            Some(SpecialGestureIntent {
+                direction: attack_dir_from_tag(r.u8()?)?,
+                posture: match r.u8()? {
+                    0 => AttackPosture::Grounded,
+                    1 => AttackPosture::Airborne,
+                    _ => return None,
+                },
+            })
+        } else {
+            None
+        };
         Some(AttackGestureState {
             flick_armed,
             recent_flick,
             active,
             buffered_press,
+            buffered_special,
         })
     }
 }
@@ -1040,8 +1071,15 @@ mod attack_gesture_wire_tests {
     /// A press held open by the input buffer is rollback state: a resimulation
     /// that restores mid-window has to replay the SAME press, or the corrected
     /// timeline throws a tilt where the original threw a smash.
+    ///
+    /// ⭐ BOTH SLOTS, and the SPECIAL one carries a direction and a posture for
+    /// the same reason the attack one carries a strength: neither can be
+    /// recovered from the live stick a few ticks later. A buffered up-special
+    /// replayed off a centred stick is a neutral special, which is a different
+    /// move.
     #[test]
     fn a_buffered_press_survives_the_wire_intact() {
+        use crate::actor::attack_gesture::SpecialGestureIntent;
         let state = AttackGestureState {
             flick_armed: false,
             recent_flick: None,
@@ -1051,6 +1089,10 @@ mod attack_gesture_wire_tests {
                 strength: AttackStrength::Smash,
                 posture: AttackPosture::Grounded,
                 phase: AttackInputPhase::Press,
+            }),
+            buffered_special: Some(SpecialGestureIntent {
+                direction: AttackDir::Up,
+                posture: AttackPosture::Airborne,
             }),
         };
         let bytes = ambition_platformer2d_core::snapshot::encode_state(&state);

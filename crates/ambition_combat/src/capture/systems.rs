@@ -83,6 +83,28 @@ pub fn acquire_captures(
     // deadline is a declared rule too, and it is decided at acquisition.
     let rules = tuning.map(|t| *t).unwrap_or_default();
     let friendly_fire = rules.friendly_fire();
+    // ⛔⛔ RESOLVED FIRST, GRANTED SECOND, because `Commands` are DEFERRED and
+    // the `captives` query below cannot see what this pass is about to insert.
+    //
+    // ⭐ THE INVARIANT THIS FUNCTION CLAIMS — "one captor, one captive" — held
+    // for every tick except the one it mattered on. Two grabs that connect on
+    // the SAME tick are two messages in one pass: neither body is in `captives`
+    // yet when the other's attempt is judged, so BOTH succeeded and each fighter
+    // became captor AND captive of the other.
+    //
+    // ⛔ and it DEADLOCKED, which is why it cost a third of a match rather than
+    // looking odd: the brain's capture policy answers `captured` FIRST and
+    // returns, so a body that is both can only ever struggle. Neither side could
+    // pummel, neither could throw, both were control-held, and the lock ended
+    // only when the hold clock ran out. Measured 2026-08-23 in the full app,
+    // `npc_pirate_admiral` rung 9 mirror: 40 captures, 2028 capture-ticks (28% of
+    // the match), ZERO pummels and ZERO throws.
+    //
+    // ⚠ a MIRROR match makes it CERTAIN rather than rare: two identical brains
+    // reach for a grab on the same tick, every time.
+    // PHASE ONE: who would each attempt catch? Resolved against the state as
+    // this pass found it, so the answer does not depend on message order.
+    let mut resolved: Vec<(CaptureAttemptRequested, Entity)> = Vec::new();
     for attempt in attempts.read() {
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
@@ -179,6 +201,74 @@ pub fn acquire_captures(
         let Some((_, _, victim)) = candidates.first().copied() else {
             continue;
         };
+        resolved.push((*attempt, victim));
+    }
+
+    // PHASE TWO: ⭐⭐ A MUTUAL GRAB HAS ONE WINNER, AND THE TIE-BREAK IS THIS
+    // FILE'S EXISTING ONE.
+    //
+    // Two bodies that reach for each other on one tick are a TIE, and there are
+    // exactly three ways out. Granting both is the deadlock above. Granting
+    // NEITHER — a clash — was tried and MEASURED, and it deletes the mechanic:
+    // in a mirror match the two brains are identical, so EVERY grab is
+    // simultaneous, and 126 attempts over a minute produced ZERO captures, zero
+    // pummels and zero throws. A capture kit that cannot be reached is the
+    // failure this campaign has spent a week policing.
+    //
+    // So one wins, which is also the genre's answer (Ultimate resolves a
+    // same-frame grab by port order). The key is `SimId`, not message order and
+    // not seat: it is the tie-break this function ALREADY uses to rank
+    // candidates, it is stable across a rollback, and it does not need the
+    // scheduler to iterate anything in a particular order.
+    //
+    // ⚠ ANY winner is a per-seat asymmetry on a symmetric stage, and there is no
+    // symmetric alternative — a mirror is a FIXED POINT, so identical inputs
+    // produce identical states however the tie is resolved, and the only
+    // resolution that preserves the reflection is the one that never grants a
+    // grab. `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`
+    // measures that reflection and had to learn this rule exists.
+    //
+    // ⛔ MUTUAL, not merely simultaneous: A catching B while B catches C is two
+    // honest grabs on one tick and both stand. Only the pair that named each
+    // other arbitrates.
+    //  a body with no `SimId` cannot participate in the tie-break, so it
+    // LOSES one rather than winning by absence — the same reading the candidate
+    // ranking above takes of a missing identity.
+    let losers: std::collections::HashSet<Entity> = resolved
+        .iter()
+        .filter(|(mine, my_victim)| {
+            resolved.iter().any(|(theirs, their_victim)| {
+                theirs.captor == *my_victim
+                    && *their_victim == mine.captor
+                    && match (
+                        identities.get(mine.captor).ok(),
+                        identities.get(theirs.captor).ok(),
+                    ) {
+                        (Some(mine), Some(theirs)) => theirs < mine,
+                        (None, Some(_)) => true,
+                        _ => false,
+                    }
+            })
+        })
+        .map(|(mine, _)| mine.captor)
+        .collect();
+    let mut taken_this_pass: std::collections::HashSet<Entity> = Default::default();
+    let mut holding_this_pass: std::collections::HashSet<Entity> = Default::default();
+    for (attempt, victim) in &resolved {
+        let (attempt, victim) = (*attempt, *victim);
+        // The losing half of a mutual pair is not a captor this tick. It is
+        // about to be one's captive instead.
+        if losers.contains(&attempt.captor) {
+            continue;
+        }
+        if taken_this_pass.contains(&attempt.captor)
+            || holding_this_pass.contains(&attempt.captor)
+            || taken_this_pass.contains(&victim)
+        {
+            continue;
+        }
+        taken_this_pass.insert(victim);
+        holding_this_pass.insert(attempt.captor);
 
         //  THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.
         //
@@ -289,7 +379,6 @@ impl CaptureFacts {
         }
     }
 }
-
 
 /// The captive's restricted channel: a mash reaches the hold, and nothing
 /// else does.
@@ -745,6 +834,123 @@ mod tests {
             "the relation was inserted without this ruleset's half — the captive \
              has no hold clock and no escape accumulator, so the grab would last \
              forever and no mash could end it"
+        );
+    }
+
+    /// ⭐⭐ TWO BODIES THAT GRAB EACH OTHER ON ONE TICK MAKE **ONE** HOLD.
+    ///
+    /// ⛔⛔ THE INVARIANT THIS FILE ALREADY CLAIMED, and it held on every tick
+    /// except the one it mattered on. `acquire_captures` asks the `captives`
+    /// QUERY whether a body is already held — and its own inserts go through
+    /// `Commands`, which are deferred, so an attempt granted earlier in the SAME
+    /// pass is invisible to the next one. Two bodies reaching for each other on
+    /// one tick therefore both succeeded, and each became captor AND captive of
+    /// the other.
+    ///
+    /// ⛔ IT DEADLOCKS, which is why it cost a third of a match rather than
+    /// looking odd. The brain's capture policy answers "am I captured" first and
+    /// returns, so a body that is both can only ever struggle: neither side
+    /// pummels, neither throws, both are control-held, and the lock ends only
+    /// when the hold clock runs out. Measured in the full app before this fix,
+    /// `npc_pirate_admiral` rung 9 mirror, 3600 ticks: 40 captures, 2028
+    /// capture-ticks (28% of the match), and ZERO pummels and ZERO throws.
+    ///
+    /// ⚠ ONE, not zero. A CLASH — granting neither — was the first fix and was
+    /// MEASURED before it was believed: it deletes the mechanic, because in a
+    /// mirror match the two brains are identical, so every grab is simultaneous.
+    /// 126 attempts over a minute produced ZERO captures, zero pummels and zero
+    /// throws. A mirror is a fixed point: identical inputs produce identical
+    /// states however a tie is resolved, so the only symmetric resolution is the
+    /// one that never grants a grab at all.
+    #[test]
+    fn two_bodies_grabbing_each_other_on_one_tick_make_one_hold() {
+        let mut app = capture_app();
+        let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
+        let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+        // Hostile to each other, so neither grab is refused by friendly fire.
+        app.world_mut()
+            .entity_mut(west)
+            .insert(crate::components::ActorFaction::Player);
+        // Facing each other, so each one's grab volume reaches the other.
+        app.world_mut()
+            .entity_mut(west)
+            .get_mut::<ae::BodyKinematics>()
+            .expect("the fixture body has kinematics")
+            .facing = -1.0;
+
+        // ONE pass, both attempts.
+        app.world_mut().write_message(attempt(east));
+        app.world_mut().write_message(attempt(west));
+        app.update();
+
+        let held: Vec<Entity> = [east, west]
+            .into_iter()
+            .filter(|body| app.world().get::<CapturedBy>(*body).is_some())
+            .collect();
+        assert_eq!(
+            held.len(),
+            1,
+            "two bodies grabbed each other on one tick and {} hold(s) came out of \
+             it. TWO is the deadlock — each is captor and captive of the other, \
+             and no fighter can act out of that. ZERO means the tie clashed, which \
+             measures as a capture kit that can never be reached in a mirror.",
+            held.len()
+        );
+        // The loser is held by the winner — not by itself, and not dangling.
+        let captive = held[0];
+        let captor = app
+            .world()
+            .get::<CapturedBy>(captive)
+            .expect("the hold that exists")
+            .captor;
+        assert_ne!(captor, captive, "a body captured itself");
+        assert!(
+            app.world().get::<CapturedBy>(captor).is_none(),
+            "the winner of the tie is ALSO held, which is the deadlock this guards"
+        );
+        // ⛔ AND THE WINNER IS THE `SimId` TIE-BREAK'S, not whichever message
+        // happened to be written first. `east` sorts before `west`.
+        assert_eq!(captive, west, "the tie went the other way");
+    }
+
+    /// ⛔ MUTUAL, NOT MERELY SIMULTANEOUS.    /// ⛔ MUTUAL, NOT MERELY SIMULTANEOUS. A catching B while B catches C is two
+    /// honest grabs on one tick and both must stand — only the pair that named
+    /// each other cancels.
+    ///
+    /// the poison for the clash above: a rule written as "drop every attempt
+    /// that shares a tick" passes that test and fails this one.
+    #[test]
+    fn a_chain_of_grabs_on_one_tick_is_not_a_clash() {
+        let mut app = capture_app();
+        // A -> B -> C, each within its neighbour's reach and facing it.
+        let a = grounded_body(&mut app, "a", ae::Vec2::new(0.0, 0.0));
+        let b = grounded_body(&mut app, "b", ae::Vec2::new(16.0, 0.0));
+        let c = grounded_body(&mut app, "c", ae::Vec2::new(32.0, 0.0));
+        // B and C hostile to A's faction so the grabs land; A and B both reach
+        // rightwards, so nobody names the body that named them.
+        for body in [b, c] {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(crate::components::ActorFaction::Player);
+        }
+        app.world_mut()
+            .entity_mut(a)
+            .insert(crate::components::ActorFaction::Enemy);
+
+        app.world_mut().write_message(attempt(a));
+        app.world_mut().write_message(attempt(b));
+        app.update();
+
+        // B is caught by A. C is B's target, and B — now a captive — may not
+        // also be a captor, so the chain stops at one hold rather than becoming
+        // a train.
+        assert!(
+            app.world().get::<CapturedBy>(b).is_some(),
+            "A's grab on B did not land, so this test measured nothing"
+        );
+        assert!(
+            app.world().get::<CapturedBy>(a).is_none(),
+            "A was captured by a grab it was not the target of"
         );
     }
 
@@ -1372,10 +1578,7 @@ mod tests {
 
         for _ in 0..2 {
             app.world_mut()
-                .write_message(crate::capture::CapturePummelRequested {
-                    captor,
-                    damage: 3,
-                });
+                .write_message(crate::capture::CapturePummelRequested { captor, damage: 3 });
             app.update();
         }
 

@@ -992,7 +992,23 @@ pub fn advance_move_playback(
         // Nothing about it is rollback state, which is why this costs no wire
         // format. it does assume `windows` is authored in time order, which
         // every spec is and `MoveFrameData` already relies on.
-        let mut handoff: Vec<(f32, Vec<std::collections::HashSet<Entity>>)> = Vec::new();
+        // ⭐⭐ ONE SET FOR THE WHOLE PULSE, not one per volume index.
+        //
+        // ⛔⛔ THE PREDECESSOR HANDED OFF BY VOLUME INDEX — "volume `v` hands to
+        // volume `v`" — which attached a swing's hit memory to an ORDINAL. A
+        // keyframe that changed how many volumes it authors, or their order,
+        // silently gave one volume's memory to a different volume; and it could
+        // not express the thing it was for, because a victim struck by the
+        // SOURSPOT on one tick was recorded only in the sourspot's ledger, so
+        // stepping into the SWEETSPOT on the next tick landed a second hit off
+        // the same swing.
+        //
+        // A pulse is ONE continuous stretch of Active time, and it owns ONE
+        // per-victim ledger shared by every sibling volume in it. A GAP in
+        // Active time starts a new pulse and earns a second hit — which is
+        // exactly what a genuine multi-hit (a drill, a rapid jab) is, and what
+        // separates one from a sweet/sour pair.
+        let mut handoff: Vec<(f32, std::collections::HashSet<Entity>)> = Vec::new();
 
         // Active windows: spawn volumes on entry, despawn on exit. The box
         // lives exactly while the OWNER'S clock is inside the window, so
@@ -1172,13 +1188,15 @@ pub fn advance_move_playback(
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
-                        // The track handoff: a window opening exactly where an
-                        // Active window closed this tick inherits who that box
-                        // already hit, so one swing is one hit per victim.
+                        // The PULSE handoff: a window opening exactly where an
+                        // Active window closed this tick continues the same
+                        // pulse, so every volume it spawns starts from what the
+                        // pulse has already hit. ⛔ not per volume index — see
+                        // the note on `handoff`.
                         let carried = handoff
                             .iter()
                             .find(|(end_s, _)| *end_s == window.start_s)
-                            .and_then(|(_, sets)| sets.get(v_idx).cloned())
+                            .map(|(_, hit)| hit.clone())
                             .unwrap_or_default();
                         let mut ec = commands.spawn((
                             hb,
@@ -1223,21 +1241,18 @@ pub fn advance_move_playback(
                     }
                 }
                 (false, Some(_)) => {
-                    // Carry this window's hit sets forward before the boxes go,
-                    // in spawn order so volume `v` hands to volume `v`. The
-                    // despawn is a deferred command, but reading now is simpler
-                    // than reasoning about when it lands.
+                    // Carry this window's ledger forward before the boxes go —
+                    // the UNION over its volumes, because they share one pulse
+                    // and a victim any of them reached is a victim the pulse
+                    // reached. The despawn is a deferred command, but reading
+                    // now is simpler than reasoning about when it lands.
                     handoff.push((
                         window.end_s,
                         pb.live_boxes
                             .iter()
                             .filter(|(idx, _)| *idx == w_idx)
-                            .map(|(_, entity)| {
-                                live_strike_volumes
-                                    .get(*entity)
-                                    .map(|hits| hits.hit.clone())
-                                    .unwrap_or_default()
-                            })
+                            .filter_map(|(_, entity)| live_strike_volumes.get(*entity).ok())
+                            .flat_map(|hits| hits.hit.iter().copied())
                             .collect(),
                     ));
                     pb.live_boxes.retain(|(idx, entity)| {
@@ -1382,9 +1397,16 @@ pub fn buffer_combat_action_presses(
         &mut ResolvedAttackGesture,
         &mut ae::BodyActionBuffer,
         Option<&ProperTimeScale>,
+        // WHERE THE BODY WAS WHEN IT ASKED. A special's direction is
+        // facing-relative and its posture decides which of `special_down` and
+        // `special_air_down` the player meant, and both have to be read at the
+        // PRESS — see `SpecialGestureIntent`. `Option` for bare test bodies,
+        // which are treated as standing and right-facing.
+        Option<&ae::BodyKinematics>,
+        Option<&ae::BodyGroundState>,
     )>,
 ) {
-    for (control, tuning, mut state, mut resolved, mut buffer, scale) in &mut bodies {
+    for (control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
         // ADR 0011: the owner's own clock, so a dilated body's leniency
         // dilates with everything else it does.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
@@ -1394,6 +1416,9 @@ pub fn buffer_combat_action_presses(
         // An expired window is an expired press, whichever half notices first.
         if buffer.attack <= 0.0 && state.buffered_press.is_some() {
             state.buffered_press = None;
+        }
+        if buffer.special <= 0.0 && state.buffered_special.is_some() {
+            state.buffered_special = None;
         }
         let frame = &control.0;
         let window = tuning.action_buffer_s.max(0.0);
@@ -1412,9 +1437,35 @@ pub fn buffer_combat_action_presses(
         if frame.pogo_pressed {
             buffer.pogo = window;
         }
+        // THE SPECIAL SLOT, resolved at the press and replayed verbatim.
+        //
+        // ⛔⛔ IT USED TO BE A BARE TIMER, and the replay re-read the direction
+        // off the LIVE stick: press Up+Special during endlag, let go, and the
+        // buffered press came out as a NEUTRAL special. Out of shield it did not
+        // even qualify, because the out-of-shield rule asks whether the press
+        // RISES. The buffer's own doc already said why that is wrong — "a
+        // buffered press must be replayed verbatim rather than reinterpreted
+        // from the live stick later" — and the attack slot beside it had obeyed
+        // it since M1.
         if frame.special_pressed {
             buffer.special = window;
+            state.buffered_special = Some(
+                ambition_characters::actor::attack_gesture::SpecialGestureIntent {
+                    direction: attack_dir_from_axis(
+                        frame.attack_axis,
+                        kin.map_or(1.0, |kin| kin.facing),
+                    ),
+                    // DECIDED HERE, not read off live ECS state at replay.
+                    posture: if ground.is_none_or(|ground| ground.on_ground) {
+                        ambition_characters::actor::attack_gesture::AttackPosture::Grounded
+                    } else {
+                        ambition_characters::actor::attack_gesture::AttackPosture::Airborne
+                    },
+                },
+            );
         }
+        // ONE field downstream, live or buffered, exactly as `pressed` is.
+        resolved.special = state.buffered_special;
     }
 }
 
@@ -1662,7 +1713,10 @@ pub fn trigger_moveset_moves(
         // Holding the shield is also what the genre asks of a player: you grab
         // OUT OF a guard you are holding, not out of one you just dropped.
         let shield_grab = frame.shield_held && gesture.pressed.is_some();
-        let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
+        // THE SPECIAL PRESS, live or replayed, WITH ITS MEANING. ⛔ the bare
+        // `action_buffer.special > 0.0` this replaces said only THAT a press was
+        // waiting, never what it was — see `SpecialGestureIntent`.
+        let special_intent = gesture.special;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
         // Set by the attack arm below when it resolves a SMASH; every other
         // verb leaves it false.
@@ -1761,17 +1815,28 @@ pub fn trigger_moveset_moves(
                 &[GRAB_VERB][..],
                 ProposedVerb::Grab,
             )
-        } else if special_pressed
-            && rises_out_of_shield(
-                attack_dir_from_axis(frame.attack_axis, kin.facing),
-                ae::OutOfShieldAction::UpSpecial,
-            )
-        {
-            let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
+        } else if special_intent.is_some_and(|intent| {
+            rises_out_of_shield(intent.direction, ae::OutOfShieldAction::UpSpecial)
+        }) {
+            // ⛔⛔ THE PRESS'S OWN DIRECTION AND POSTURE, not the live stick's.
+            // `special_intent` is `ResolvedAttackGesture::special`, which
+            // `buffer_combat_action_presses` resolves at the press and republishes
+            // every tick of its window — so a buffered Up+Special replayed after
+            // the stick has centred is still an up-special, still qualifies as one
+            // out of shield, and still picks the AIR variant if that is where the
+            // player asked from.
+            let intent = special_intent.expect("the arm above matched on it");
             (
                 moveset
                     .0
-                    .move_for_directional_verb(SPECIAL_VERB, dir, grounded)
+                    .move_for_directional_verb(
+                        SPECIAL_VERB,
+                        intent.direction,
+                        matches!(
+                            intent.posture,
+                            ambition_characters::actor::attack_gesture::AttackPosture::Grounded
+                        ),
+                    )
                     .cloned(),
                 &[SPECIAL_VERB],
                 ProposedVerb::Special,

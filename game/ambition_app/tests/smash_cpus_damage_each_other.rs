@@ -315,6 +315,16 @@ fn mirror_bout(
             live.insert(entity, (id, t));
         }
     }
+    // ⛔⛔ EVERY "ASK ONE SEATED BODY" QUERY BELOW TAKES THE LOWEST SEAT, NOT THE
+    // FIRST ROW. `.iter().next()` hands back whichever body archetype iteration
+    // happens to reach first, and that is not stable across runs: the same
+    // fighter reported `kit 26` on one sweep and `kit 0` on the next, and a
+    // `sight` column read `no-perception-component` for a body that plainly had
+    // one. A column that answers a different body on each run is worse than a
+    // missing column, because it looks like a finding.
+    //
+    // ⚠ these columns describe SEAT 0 and this is a mirror match, so seat 0 and
+    // seat 1 carry the same character. They are not a claim about both seats.
     // HOW BIG IS THE KIT? "Threw six moves in a minute" is a content finding if
     // the body only has two, and a selection finding if it has sixteen. The
     // authored table is on the body; asking it costs one query.
@@ -326,7 +336,7 @@ fn mirror_bout(
                 &ambition_platformer2d::combat::moveset::ActorMoveset,
             )>()
             .iter(world)
-            .next()
+            .min_by_key(|(seat, _)| seat.0)
             .map(|(_, moveset)| moveset.0.moves.len())
             .unwrap_or(0)
     };
@@ -345,7 +355,7 @@ fn mirror_bout(
                 &ambition_platformer2d::combat::moveset::ActorMoveset,
             )>()
             .iter(world)
-            .next()
+            .min_by_key(|(seat, _)| seat.0)
             .map(|(_, moveset)| {
                 let mut ids = std::collections::BTreeSet::new();
                 for verb in [
@@ -388,7 +398,7 @@ fn mirror_bout(
                 &ambition_platformer2d::actors::features::ecs::perception::Perception,
             )>()
             .iter(world)
-            .next()
+            .min_by_key(|(seat, _)| seat.0)
             .map(|(_, perception)| match perception {
                 ambition_platformer2d::actors::features::ecs::perception::Perception::Omniscient => {
                     "omniscient".to_string()
@@ -397,7 +407,13 @@ fn mirror_bout(
                     viewport_half,
                 } => format!("sees±{:.0}", viewport_half.x),
             })
-            .unwrap_or_else(|| "no-perception-component".to_string())
+            // ⭐ ABSENT IS NOT UNKNOWN. A body with no `Perception` reads as
+            // `Omniscient` by documented policy, and for a seated fighter that
+            // is the EXPECTED state — `ensure_perception` skips a body carrying
+            // a `MatchSeat`, so no component is exactly what the fix produces.
+            // Printed distinctly from an explicit `Omniscient` so the column can
+            // still tell "the grant was skipped" from "somebody declared it".
+            .unwrap_or_else(|| "omniscient(default)".to_string())
     };
     let moves: usize = started.values().sum();
     let top = started
@@ -438,7 +454,7 @@ fn mirror_bout(
                         &ambition_platformer2d::combat::moveset::ActorMoveset,
                     )>()
                     .iter(world)
-                    .next()
+                    .min_by_key(|(seat, _)| seat.0)
                     .and_then(|(_, moveset)| {
                         moveset
                             .0

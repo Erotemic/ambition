@@ -379,6 +379,18 @@ pub fn generate_options(
     // The kit's strongest hit, for scale-free power pricing (FB6a). Zero when
     // no candidate lands a volume, which zeroes every payoff below.
     let kit_max_damage = kit.iter().map(|c| c.frames.max_damage).max().unwrap_or(0);
+    // ⭐ THE KIT'S SLOWEST STARTUP, which is what `frame_advantage` must be
+    // normalised by for the RANKING. See the two call sites below: they ask
+    // different questions and so want different scales, and the one that asks
+    // "how exposed does this leave me" was being normalised by the move's own
+    // startup — which divides the speed out of the feature that PRICES speed.
+    // Against an uncommitted opponent, which is most of neutral, every attack in
+    // the kit then reported exactly `-1.0` and the term cancelled out of the
+    // ranking entirely, leaving reach as the only discriminator.
+    let kit_slowest_startup = kit
+        .iter()
+        .map(|c| c.frames.startup_s)
+        .fold(0.0f32, f32::max);
     // And the kit's SLOWEST startup, which is the scale frame advantage is
     // measured on.
     //
@@ -432,7 +444,7 @@ pub fn generate_options(
         .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
             use super::options::AttackVerb;
-            let fa = frame_advantage(c.frames.startup_s, their_commitment, c.frames.startup_s);
+            let fa = frame_advantage(c.frames.startup_s, their_commitment, kit_slowest_startup);
             let power = if kit_max_damage > 0 {
                 c.frames.max_damage as f32 / kit_max_damage as f32
             } else {

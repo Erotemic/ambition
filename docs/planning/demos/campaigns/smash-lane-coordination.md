@@ -160,7 +160,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 
 | Slice | Seat | State |
 |---|---|---|
-| M1 input buffer | MECHANICS | ▢ |
+| M1 input buffer | MECHANICS | ✔ merged `7d99fae57` |
 | M2 smash charge | MECHANICS | ▢ |
 | M3 invuln/armor windows | MECHANICS | ▢ |
 | M4 out-of-shield policy | MECHANICS | ▢ |
@@ -173,4 +173,5 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | M6 DI reaction window | MECHANICS | ▢ |
 | C1 CPU survival DI/SDI | COORDINATOR | ✔ |
 | C2 CPU tech | COORDINATOR | ▢ |
+| C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
 | C3 CPU charges smashes | COORDINATOR | ▢ (after M2) |

@@ -389,7 +389,20 @@ pub(super) fn integrate_normal_clusters(
             water: env_contact.water,
             can_fast_fall: abilities.abilities.fast_fall,
             can_glide: abilities.abilities.glide,
-            can_move_horizontal: abilities.abilities.move_horizontal,
+            // ⛔ A GROUNDED BODY HOLDING SHIELD DOES NOT WALK. Jon, 2026-08-23:
+            // *"If the player is holding shield... they should not be let the
+            // control move them left or right."* That is the genre's rule and it
+            // is what makes shield+direction mean ROLL rather than "shuffle
+            // sideways with the guard up": the stick behind a raised guard is
+            // choosing an evade, not steering.
+            //
+            // ⛔ GROUNDED ONLY — in the air the shield button is not a guard,
+            // and air control is not this rule's business.
+            //
+            // ⚠ It does not fight the evade: a roll and a spot dodge SET
+            // velocity directly, they do not steer through this term.
+            can_move_horizontal: abilities.abilities.move_horizontal
+                && !(input.shield_held && ground.on_ground),
             can_variable_jump: abilities.abilities.variable_jump,
         },
         input,

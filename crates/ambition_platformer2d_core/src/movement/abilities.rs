@@ -152,6 +152,9 @@ pub(super) fn apply_intent(
     // THE GUARD, because starting an action out of one is a spend. See
     // [`OutOfShieldGate`].
     shield: &mut crate::body_clusters::BodyShieldState,
+    // The evade's own state, so a shield+direction press can ask whether a DODGE
+    // is actually available rather than filling a buffer the dash will spend.
+    dodge: &BodyDodgeState,
 ) {
     let oos = tuning.abilities.shield.out_of_shield;
     let can_turn = ground.on_ground || flight.fly_enabled;
@@ -204,15 +207,61 @@ pub(super) fn apply_intent(
     //
     // ⛔ Gated on the guard being ACTIVE, so walking down a slope is untouched:
     // this is an out-of-shield option, and it is spent like one.
-    if shield.active
-        && abilities.abilities.dodge
-        && local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
-        && tuning.abilities.spot_dodge_time > 0.0
+    if shield_evade_direction(input, abilities, ground, dodge, state, tuning).is_some()
         && out_of_shield_permits(shield, oos, OutOfShieldAction::Burst)
     {
         state.buffer_burst = tuning.abilities.dash_buffer;
         spend_out_of_shield(shield, oos);
     }
+}
+
+/// SHIELD PLUS A DIRECTION IS AN EVADE, and which one is the stick's business.
+///
+/// Jon, 2026-08-23: *"Rolls happen when the player is on ground and holding
+/// shield and press left or right... if the player presses left+shield,
+/// right+shield, or down+shield, they should get the corresponding roll or dodge
+/// without bringing up the shield at all."*
+///
+/// ⛔ THE BUTTON, NOT `BodyShieldState::active`. The guard state outlives the
+/// press that raised it, so reading it makes an evade fire off a shield the
+/// player already let go of — the same tick error the shield-grab made and paid
+/// for with a red premise guard.
+///
+/// ⛔ GROUNDED ONLY. In the air, shield is not a guard and the directional
+/// evade is the air dodge, which the burst press already reaches.
+///
+/// Returns the local stick so the caller and [`apply_dodge`] cannot disagree
+/// about whether a direction was given — `apply_dodge` reads the same axis to
+/// choose spot-dodge over roll, and this only decides whether to ASK.
+fn shield_evade_direction(
+    input: InputState,
+    abilities: &BodyAbilities,
+    ground: &BodyGroundState,
+    dodge: &BodyDodgeState,
+    state: &AxisManeuverState,
+    tuning: AxisSweptParams,
+) -> Option<bevy_math::Vec2> {
+    // ⛔⛔ ONLY WHEN A DODGE IS ACTUALLY AVAILABLE — never falling through to
+    // the DASH. `apply_dodge` gives up when the evade is on cooldown and the
+    // burst buffer then reaches `apply_dash`, so a shield+direction press with a
+    // spent dodge would launch a 760px/s traversal dash out of a guard. That is
+    // the same complaint Jon made about the dodge button: *"Agents have told me
+    // the dash was removed many times, but it really never has been, at least
+    // semantically."*
+    //
+    // ⭐ Measured: without this clause the guard test read 760 — the dash speed —
+    // where it expected a body that had not moved at all.
+    if available_dodge(abilities, ground, dodge, state, tuning) != Some(BurstManeuver::GroundDodge)
+    {
+        return None;
+    }
+    if !input.shield_held || !ground.on_ground {
+        return None;
+    }
+    let stick = input.local_axis();
+    let aimed = stick.y > crate::movement::tuning::SPOT_DODGE_STICK
+        || stick.x.abs() > crate::movement::tuning::SPOT_DODGE_STICK;
+    aimed.then_some(stick)
 }
 
 /// Flight toggle: flip fly mode; on entering, clear transient wall/dash/blink
@@ -286,7 +335,20 @@ pub(super) fn apply_dodge(
         // is nowhere to roll TO — cornered, on a platform, waiting out a
         // committed swing — did not exist. a body that authors no window keeps
         // the roll it always had: the press is not taken away from anybody.
-        if local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK
+        // ⭐ A DODGE WITH NO DIRECTION DODGES IN PLACE. Jon, 2026-08-23: *"when
+        // I 'press C' on the keyboard to 'dodge' as the button says, I move
+        // horizontally like a dash. Agents have told me the dash was removed
+        // many times, but it really never has been, at least semantically."*
+        //
+        // He is right, and the semantics were the whole of it: a neutral burst
+        // press fell to the ROLL, which picks `kinematics.facing` when the stick
+        // says nothing and travels `dodge_roll_speed` in that direction. A
+        // button labelled DODGE that moves you is a dash under another name.
+        //
+        // ⛔ THE ROLL IS NOT GONE — it is what a DIRECTION asks for, which is
+        // where the genre puts it. Neutral means "get out of the way here".
+        let aimed_sideways = local_stick.x.abs() > crate::movement::tuning::SPOT_DODGE_STICK;
+        if (local_stick.y > crate::movement::tuning::SPOT_DODGE_STICK || !aimed_sideways)
             && tuning.abilities.spot_dodge_time > 0.0
         {
             // the DESCENT is kept and everything else zeroed: a body standing
@@ -611,6 +673,7 @@ mod burst_maneuver_tests {
                 tuning,
                 // Guard down: this case is about which BURST a body owns.
                 &mut crate::body_clusters::BodyShieldState::default(),
+                &crate::body_clusters::BodyDodgeState::default(),
             );
             assert_eq!(
                 state.buffer_burst > 0.0,

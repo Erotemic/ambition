@@ -754,7 +754,13 @@ fn down_on_a_raised_guard_spot_dodges_without_a_burst_press() {
             &mut scratch,
             InputState {
                 axes: crate::LocalAxes::new(0.0, 1.0),
-                // NO burst edge at all: the stick and the guard are the whole
+                // ⛔ THE BUTTON, not the body's guard state — the evade reads
+                // `shield_held`, because a guard OUTLIVES the press that raised
+                // it and an evade off a shield you already let go of is the
+                // wrong answer. A fixture that set only `shield.active` would be
+                // testing the version that was wrong.
+                shield_held: guard_up,
+                // NO burst edge at all: the stick and the button are the whole
                 // input.
                 ..Default::default()
             },
@@ -773,6 +779,111 @@ fn down_on_a_raised_guard_spot_dodges_without_a_burst_press() {
     assert!(
         !ops.contains(&MovementOp::SpotDodge),
         "holding down with NO guard dodged, so this fires while walking downhill: {ops:?}"
+    );
+}
+
+/// ⭐ A DODGE WITH NO DIRECTION DOES NOT TRAVEL. Jon, 2026-08-23: *"when I
+/// 'press C' on the keyboard to 'dodge' as the button says, I move horizontally
+/// like a dash. Agents have told me the dash was removed many times, but it
+/// really never has been, at least semantically."*
+///
+/// A neutral burst press used to fall to the ROLL, which picks `facing` when the
+/// stick says nothing and travels `dodge_roll_speed` in that direction — a
+/// button labelled DODGE that moves you is a dash under another name.
+///
+/// ⛔ THE PAIR IS THE ASSERTION: a SIDEWAYS press must still roll, or the roll
+/// has been deleted rather than moved to where the genre puts it.
+#[test]
+fn a_dodge_with_no_direction_stays_put_and_a_sideways_one_still_rolls() {
+    let evade = |stick: crate::LocalAxes| {
+        let world = test_world();
+        let mut scratch = scratch_at(world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.dodge.cooldown = 0.0;
+        let events = step_fighter(
+            &world,
+            &mut scratch,
+            InputState {
+                axes: stick,
+                movement: crate::ActionEdges::EMPTY.with(
+                    crate::MovementAction::Burst,
+                    crate::Edge {
+                        pressed: true,
+                        held: false,
+                        released: false,
+                    },
+                ),
+                ..Default::default()
+            },
+        );
+        (events.operations.clone(), scratch.kinematics.vel.x)
+    };
+
+    let (ops, travel) = evade(crate::LocalAxes::ZERO);
+    assert!(
+        ops.contains(&MovementOp::SpotDodge),
+        "a dodge with no direction rolled: {ops:?}"
+    );
+    assert_eq!(travel, 0.0, "an undirected dodge travelled {travel}px");
+
+    let (ops, travel) = evade(crate::LocalAxes::new(1.0, 0.0));
+    assert!(
+        ops.contains(&MovementOp::DodgeRoll),
+        "a sideways evade stopped rolling, so the roll is gone rather than moved: {ops:?}"
+    );
+    assert!(
+        travel > 0.0,
+        "the roll went nowhere, so this compared nothing"
+    );
+}
+
+/// ⛔ HOLDING SHIELD ROOTS A GROUNDED BODY. Jon, 2026-08-23: *"If the player is
+/// holding shield... they should not be let the control move them left or
+/// right."*
+///
+/// It is what makes shield+direction mean ROLL rather than "shuffle sideways
+/// with the guard up". The pair is the assertion: the same stick with the button
+/// UP must still walk, or this rooted the body for a reason other than the
+/// guard.
+#[test]
+fn holding_shield_stops_the_stick_from_walking_you() {
+    let walk = |shield_held: bool| {
+        let world = test_world();
+        let mut scratch = scratch_at(world.spawn);
+        for _ in 0..8 {
+            // RE-ASSERTED EVERY STEP: the rule is about a body STANDING on a
+            // floor, and the step re-samples ground contact. Setting it once
+            // before the loop measured an airborne body, which is not what this
+            // is about — air control is deliberately outside the rule.
+            scratch.ground.on_ground = true;
+            // ⛔ THE DODGE IS HELD ON COOLDOWN so this measures WALKING and not
+            // the roll. Shield+direction rolling is the rule directly above, and
+            // a roll SETS velocity — a test that let one fire would be reading
+            // `dodge_roll_speed` and calling it walking. What is being asked
+            // here is the other half: with no evade available, does the stick
+            // still steer a guarded body? It must not.
+            scratch.dodge.cooldown = 1.0;
+            step_fighter(
+                &world,
+                &mut scratch,
+                InputState {
+                    axes: crate::LocalAxes::new(1.0, 0.0),
+                    shield_held,
+                    ..Default::default()
+                },
+            );
+        }
+        scratch.kinematics.vel.x
+    };
+
+    assert_eq!(
+        walk(true),
+        0.0,
+        "a grounded body walked while holding shield"
+    );
+    assert!(
+        walk(false) > 0.0,
+        "the same stick with no guard did not walk either, so the guard is not what stopped it"
     );
 }
 

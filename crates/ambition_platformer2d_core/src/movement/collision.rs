@@ -312,6 +312,10 @@ pub(super) fn sweep_player_axis_clusters(
         {
             let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);
             let _ = apply_bounded_resolution(kinematics, gravity_dir, snap);
+            let support_normal = support_face_normal(axis, gravity_dir);
+            // BEFORE the zero below destroys it — the whole reason the contact
+            // carries it (see `Contact::impact_speed`).
+            let impact = crate::collision_semantics::closing_speed(kinematics.vel, support_normal);
             zero_axis_vel(kinematics, axis);
             if role == AxisRole::Gravity {
                 ground.on_ground = true;
@@ -319,13 +323,16 @@ pub(super) fn sweep_player_axis_clusters(
             contacts.push(block_face_contact(
                 body,
                 hit.block,
-                support_face_normal(axis, gravity_dir),
+                support_normal,
                 toi_fraction,
                 ContactKind::Support,
+                impact,
             ));
         } else if role == AxisRole::Gravity {
             let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
             if apply_bounded_resolution(kinematics, gravity_dir, push) {
+                let impact =
+                    crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
                 zero_axis_vel(kinematics, axis);
                 contacts.push(block_face_contact(
                     body,
@@ -333,6 +340,7 @@ pub(super) fn sweep_player_axis_clusters(
                     push_normal,
                     toi_fraction,
                     ContactKind::Head,
+                    impact,
                 ));
             }
         } else {
@@ -365,14 +373,21 @@ pub(super) fn sweep_player_axis_clusters(
             } else {
                 let (d, normal_sign) = depen.expect("checked is_none above");
                 kinematics.pos += axis_vec(axis, d);
+                let side_normal = axis_vec(axis, normal_sign);
+                // ⭐ THE WALL HIT, measured. This is the value nothing
+                // downstream could recover: the zero on the next line is what
+                // destroys it, and a body already stopped against a wall looks
+                // the same however hard it arrived.
+                let impact = crate::collision_semantics::closing_speed(kinematics.vel, side_normal);
                 zero_axis_vel(kinematics, axis);
-                apply_side_contact(wall, axis_vec(axis, normal_sign), gravity_dir);
+                apply_side_contact(wall, side_normal, gravity_dir);
                 contacts.push(block_face_contact(
                     body,
                     hit.block,
-                    axis_vec(axis, normal_sign),
+                    side_normal,
                     toi_fraction,
                     ContactKind::Side,
+                    impact,
                 ));
             }
         }
@@ -578,6 +593,7 @@ fn resolve_axis_repair(
         if claim.on_support {
             ground.on_ground = true;
         }
+        let impact = crate::collision_semantics::closing_speed(kinematics.vel, claim.normal);
         zero_axis_vel(kinematics, axis);
         if claim.kind == ContactKind::Side {
             apply_side_contact(wall, claim.normal, gravity_dir);
@@ -588,6 +604,7 @@ fn resolve_axis_repair(
             claim.normal,
             0.0,
             claim.kind,
+            impact,
         ));
     }
     conflict

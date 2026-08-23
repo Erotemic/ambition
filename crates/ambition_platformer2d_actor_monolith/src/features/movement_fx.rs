@@ -96,7 +96,7 @@ pub fn arm_ground_contact_anim_overlay(
     const LAND_SOFT_HOLD_SECS: f32 = 0.16;
 
     match transition {
-        ae::GroundContactTransition::Landed { impact_speed } => {
+        ae::GroundContactTransition::Landed { impact_speed, .. } => {
             let hard = impact_speed >= HARD_LAND_SPEED;
             anim.land_anim_hard = hard;
             anim.land_anim_timer = if hard {
@@ -510,6 +510,7 @@ mod tests {
         events.operations.push(ae::MovementOp::Jump);
         events.ground_contact = ae::GroundContactTransition::Landed {
             impact_speed: 640.0,
+            involuntary: false,
         };
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
@@ -677,14 +678,20 @@ mod tests {
     ) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
         let mut events = ae::FrameEvents::default();
         events.operations.push(op);
-        events.ground_contact = ae::GroundContactTransition::Landed { impact_speed };
+        events.ground_contact = ae::GroundContactTransition::Landed {
+            impact_speed,
+            involuntary: false,
+        };
         run_events(events)
     }
 
     /// A landing with no floor-game op resolving it.
     fn presentation_for_landing_only(impact_speed: f32) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
         let mut events = ae::FrameEvents::default();
-        events.ground_contact = ae::GroundContactTransition::Landed { impact_speed };
+        events.ground_contact = ae::GroundContactTransition::Landed {
+            impact_speed,
+            involuntary: false,
+        };
         run_events(events)
     }
 
@@ -774,6 +781,7 @@ mod tests {
             &mut anim,
             ae::GroundContactTransition::Landed {
                 impact_speed: 700.0,
+                involuntary: false,
             },
         );
         assert!(anim.land_anim_timer > 0.0);

@@ -121,7 +121,9 @@ fn airborne_spawn_can_land_during_its_first_tick() {
     assert_eq!(
         result.events.ground_contact,
         GroundContactTransition::Landed {
-            impact_speed: 600.0
+            impact_speed: 600.0,
+            // A body that jumped and came down chose to be here.
+            involuntary: false,
         }
     );
 }

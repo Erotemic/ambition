@@ -519,6 +519,10 @@ fn step_riding(
                     normal: hit.contact_normal,
                     toi: hit.toi,
                     surface_velocity: hit.surface_velocity,
+                    impact_speed: crate::collision_semantics::closing_speed(
+                        body.vel,
+                        hit.contact_normal,
+                    ),
                     source: hit.source.clone(),
                 });
             }
@@ -529,6 +533,7 @@ fn step_riding(
                     normal: f.normal,
                     toi: 0.0,
                     surface_velocity: final_chain.velocity,
+                    impact_speed: crate::collision_semantics::closing_speed(body.vel, f.normal),
                     source: ride_contact_source(world, new_on, f.segment),
                 });
             }
@@ -1326,6 +1331,7 @@ fn step_airborne(
             // Attaching there anyway contradicted the shed one tick later and
             // the pair flapped attach/shed at every steep-surface touch.
             if press >= press_threshold || v_t.abs() >= params.min_stick_speed {
+                let pre_landing_vel = body.vel;
                 body.pos = f.point + f.normal * body.radius;
                 body.depth_lane = surface.segment_depth(f.segment);
                 body.motion = SurfaceMotion::Riding { on, s, v_t };
@@ -1338,6 +1344,12 @@ fn step_airborne(
                         normal: hit.contact_normal,
                         toi: hit.toi,
                         surface_velocity: hit.surface_velocity,
+                        // Read before the ride rewrites `body.vel` from the
+                        // surface tangent above.
+                        impact_speed: crate::collision_semantics::closing_speed(
+                            pre_landing_vel,
+                            hit.contact_normal,
+                        ),
                         source: hit.source,
                     });
                 }
@@ -1357,6 +1369,9 @@ fn step_airborne(
                 normal: n,
                 toi: hit.toi,
                 surface_velocity: hit.surface_velocity,
+                // `into` above IS the closing speed — the same projection, read
+                // before the deflect cancels it.
+                impact_speed: into,
                 source: hit.source,
             });
         }

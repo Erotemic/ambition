@@ -159,6 +159,7 @@ fn one_way_landing_is_false_without_gravity() {
 fn contact_tangent_winding_is_consistent() {
     // Floor under down-gravity: normal up (0,-1) -> tangent rightward (1,0).
     let c = Contact {
+        impact_speed: 0.0,
         kind: ContactKind::Support,
         point: Vec2::ZERO,
         normal: Vec2::new(0.0, -1.0),
@@ -186,6 +187,7 @@ fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
         Vec2::new(0.0, -1.0),
         0.25,
         ContactKind::Support,
+        0.0,
     );
     assert!((c.point.y - 100.0).abs() < 1e-4, "on the top face");
     assert!((c.point.x - 40.0).abs() < 1e-4, "midpoint of x overlap");
@@ -207,6 +209,7 @@ fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
         Vec2::new(-1.0, 0.0),
         0.0,
         ContactKind::Side,
+        0.0,
     );
     assert!((side.point.x - 0.0).abs() < 1e-4, "on the left face");
     assert!((side.point.y - 110.0).abs() < 1e-4, "midpoint of y overlap");
@@ -219,6 +222,7 @@ fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
         Vec2::new(0.0, -1.0),
         0.0,
         ContactKind::Support,
+        0.0,
     );
     assert_eq!(carried.surface_velocity, Vec2::new(3.0, 0.0));
 }

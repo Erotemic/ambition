@@ -514,7 +514,10 @@ pub(crate) fn update_body_with_frame_clusters(
     } else {
         kernel::establish_axis_ground_contact_baseline(world, clusters, frame)
     }
-    .with_impact_velocity(clusters.kinematics.vel, frame);
+    .with_impact_velocity(clusters.kinematics.vel, frame)
+    // BEFORE the simulation half, which is where `tick_knockdown` clears the
+    // tumble it resolves. Read after, this is always false.
+    .falling_out_of_a_launch(state.tumble_until_landing);
     let mut sim_events = update_body_simulation_in_frame(
         world, clusters, state, input, raw_dt, frame, tuning, contact,
     );

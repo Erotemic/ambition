@@ -1231,6 +1231,7 @@ impl MoveSpec {
                 }
             });
         MoveFrameData {
+            charge_hold_at_s: self.charge_policy().map(|policy| policy.hold_at_s),
             total_s: self.duration_s,
             startup_s,
             active_spans,
@@ -1333,6 +1334,16 @@ impl MoveCoverage {
 pub struct MoveFrameData {
     /// Total move length.
     pub total_s: f32,
+    /// Where on this move's own timeline a SMASH-gesture use freezes, or `None`
+    /// when the move does not charge at all.
+    ///
+    /// ⛔ NOT `startup_s`, and the difference is the whole reason this exists. A
+    /// reader that wants to know when a charge BEGINS was deriving it from when
+    /// the move's first hit LANDS, which is only the same number while the hold
+    /// point happens to sit at the end of the leading Startup window. Moving the
+    /// charge pose earlier — which is what the genre does — silently made every
+    /// such reader early or late.
+    pub charge_hold_at_s: Option<f32>,
     /// Time until the first Active window opens — the tell the opponent reads.
     pub startup_s: f32,
     /// Every Active window's `(start, end)`, in declaration order.

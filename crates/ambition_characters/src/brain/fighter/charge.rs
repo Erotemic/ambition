@@ -23,22 +23,30 @@ const FULL_HOLD_TICKS: u32 = 90;
 /// itself, short enough to still come out before the answer does.
 const PARTIAL_HOLD_TICKS: u32 = 12;
 
-/// How long to hold Attack for a smash whose leading startup is `startup_s`.
+/// How long to hold Attack for a smash that freezes at `hold_at_s` on its own
+/// timeline.
 ///
-/// THE HOLD MUST OUTLAST THE STARTUP, and this is the whole reason the function
+/// THE HOLD MUST REACH THE HOLD POINT, and this is the whole reason the function
 /// takes frame data at all. Charge does not begin at the press — it begins when
-/// the timeline reaches the move's authored hold point at the end of its leading
-/// Startup window. Measured in a real match: a brain that held for the charge
-/// alone let go before the move ever got there, the freeze released on arrival
-/// at zero, and 223 armed charges produced not one held frame. A hand does not
-/// have this bug, because a hand holds from the press.
-pub fn hold_ticks(situation: Situation, startup_s: f32, tick_hz: f32) -> u32 {
+/// the move's clock arrives at the freeze. Measured in a real match: a brain
+/// that held for the charge alone let go before the move ever got there, the
+/// freeze released on arrival at zero, and 223 armed charges produced not one
+/// held frame. A hand does not have this bug, because a hand holds from the
+/// press.
+///
+/// ⛔⛔ IT IS THE HOLD POINT, NOT `startup_s`, AND THOSE ARE DIFFERENT NUMBERS.
+/// This read the move's whole leading startup, which is only the same thing
+/// while the freeze sits at the instant the strike comes out. The genre holds a
+/// smash in its WINDUP pose — earlier — and the day the hold point moves, a
+/// brain reading startup over-holds by the difference, keeping the button down
+/// through a swing it already released.
+pub fn hold_ticks(situation: Situation, hold_at_s: f32, tick_hz: f32) -> u32 {
     let charge = charge_ticks_for(situation);
     if charge == 0 {
         return 0;
     }
-    let startup_ticks = (startup_s.max(0.0) * tick_hz.max(1.0)).ceil() as u32;
-    startup_ticks.saturating_add(charge)
+    let reach_ticks = (hold_at_s.max(0.0) * tick_hz.max(1.0)).ceil() as u32;
+    reach_ticks.saturating_add(charge)
 }
 
 /// How long to keep holding once the charge has actually latched.

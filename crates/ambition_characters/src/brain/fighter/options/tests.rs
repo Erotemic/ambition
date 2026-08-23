@@ -7,6 +7,7 @@ use ambition_platformer2d_core as ae;
 fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
     MoveFrameData {
         total_s: startup_s + 0.1 + recovery_s,
+        charge_hold_at_s: None,
         startup_s,
         active_spans: vec![(startup_s, startup_s + 0.1)],
         recovery_s,

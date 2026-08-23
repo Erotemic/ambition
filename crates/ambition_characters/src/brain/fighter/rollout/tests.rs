@@ -14,6 +14,7 @@ use crate::perception::WorldView;
 fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> MoveFrameData {
     MoveFrameData {
         total_s: startup_s + 0.1 + 0.2,
+        charge_hold_at_s: None,
         startup_s,
         active_spans: vec![(startup_s, startup_s + 0.1)],
         recovery_s: 0.2,

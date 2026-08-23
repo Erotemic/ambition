@@ -50,6 +50,7 @@ pub const RIG_TICKS: u32 = (RIG_TICK_HZ as u32) * 10;
 fn rig_kit() -> Vec<AttackCandidate> {
     let frames = |startup_s: f32, reach: f32, damage: i32| ambition_entity_catalog::MoveFrameData {
         total_s: startup_s + 0.1 + 0.2,
+        charge_hold_at_s: None,
         startup_s,
         active_spans: vec![(startup_s, startup_s + 0.1)],
         recovery_s: 0.2,

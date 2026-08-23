@@ -599,16 +599,24 @@ fn decide(
             hold_ticks: match binding.verb {
                 super::options::AttackVerb::Smash => super::charge::hold_ticks(
                     situation,
-                    // The move's OWN startup, from the frame data the option
-                    // scorer already read. The charge begins at the hold point
-                    // and the hold has to reach it.
+                    // ⛔ THE MOVE'S OWN HOLD POINT, not its startup. The charge
+                    // begins where the timeline FREEZES, and a move that
+                    // resolves no policy never freezes at all — its whole
+                    // startup is the honest fallback, and holding a move that
+                    // cannot charge is a no-op the same way a string hold on a
+                    // move with no chain is.
                     options
                         .attacks
                         .iter()
                         .find(|attack| {
                             Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
                         })
-                        .map_or(0.0, |attack| attack.frames.startup_s),
+                        .map_or(0.0, |attack| {
+                            attack
+                                .frames
+                                .charge_hold_at_s
+                                .unwrap_or(attack.frames.startup_s)
+                        }),
                     cfg.tick_hz,
                 ),
                 // ⭐ A BASIC ATTACK HOLDS TOO, and for a different gesture: a

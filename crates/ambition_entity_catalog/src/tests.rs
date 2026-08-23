@@ -1409,3 +1409,23 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         "a zero maximum is how a move says it cannot be charged"
     );
 }
+
+/// The frame data a brain reads carries the move's own charge point, and says
+/// `None` for a move that does not charge at all.
+///
+/// ⛔ the fallback a reader would otherwise use is `startup_s`, which is when
+/// the first HIT lands. Deriving "when does the charge begin" from that is only
+/// right by coincidence.
+#[test]
+fn frame_data_reports_the_charge_hold_point_and_only_for_a_charging_move() {
+    let mut m = bare_move("smash", None);
+    m.windows = vec![startup(0.4)];
+    assert_eq!(
+        m.frame_data().charge_hold_at_s,
+        None,
+        "a move authoring no payoff does not charge, so it has no hold point"
+    );
+    m.smash_charge_mult = 2.0;
+    let policy = m.charge_policy().expect("a paying smash resolves a policy");
+    assert_eq!(m.frame_data().charge_hold_at_s, Some(policy.hold_at_s));
+}

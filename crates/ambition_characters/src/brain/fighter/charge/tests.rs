@@ -102,3 +102,23 @@ fn a_refused_string_hold_stays_refused_at_any_startup() {
     assert_eq!(string_hold_ticks(Situation::Disadvantage, 1.0, 60.0), 0);
     assert_eq!(string_hold_ticks(Situation::Recovery, 1.0, 60.0), 0);
 }
+
+/// ⛔⛔ THE HOLD IS MEASURED TO THE FREEZE, NOT TO THE FIRST HIT.
+///
+/// These are the same number only while a smash's charge pose sits at the very
+/// end of its windup. The genre puts it earlier, and a brain that kept reading
+/// `startup_s` would hold the button through a swing it had already released —
+/// which on this codebase is not a cosmetic error: a smash's release is what
+/// ends the freeze, so an over-hold spends the opening it was saving.
+#[test]
+fn an_earlier_charge_point_buys_a_shorter_hold() {
+    let windup_pose = hold_ticks(Situation::Neutral, 0.04, 60.0);
+    let hit_instant = hold_ticks(Situation::Neutral, 0.20, 60.0);
+    assert!(
+        windup_pose < hit_instant,
+        "a charge that begins earlier still costs a whole startup of holding: \
+         {windup_pose} vs {hit_instant}"
+    );
+    // ceil(0.04 * 60) = 3 ticks to reach the freeze, then the situation's charge.
+    assert_eq!(windup_pose, 3 + charge_ticks_for(Situation::Neutral));
+}

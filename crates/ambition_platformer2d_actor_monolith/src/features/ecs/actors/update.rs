@@ -1113,7 +1113,7 @@ pub fn integrate_sim_bodies(
             combat_tuning,
             &steering,
             resolved_frame.get(),
-            playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
+            playback.map_or(1.0, |pb| pb.motion_scale_now()),
             // LAST TICK's published tumble, which is the read this is owed:
             // the projection below is written after the step, and a tech window
             // is many ticks long.

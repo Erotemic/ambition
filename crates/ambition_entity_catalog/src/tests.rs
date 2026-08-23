@@ -1400,9 +1400,20 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         autocancel_after_s: None,
     };
     let derived = spec.charge_policy().expect("a paying smash charges");
+    // ⭐ THE HOLD SITS WHERE THE WINDUP BEGINS, and this assertion read `0.3` —
+    // the Startup window's END — until 2026-08-23. That froze the body at the
+    // instant the strike was about to come out, with the whole windup already
+    // played and the hitbox one frame away, which reads as a fighter paused
+    // mid-swing rather than one winding up.
+    //
+    // Jon: *"it needs to hold on the first frames of the smash animation, before
+    // letting the rest of the animation, which actually has the hitboxes,
+    // play."* That is the genre's charge pose. Everything after this instant —
+    // the rest of the windup and every Active window — plays on release.
     assert_eq!(
         derived.hold_at_s, 0.3,
-        "the hold must sit where the windup ends"
+        "the hold sits where the windup ENDS - see `charge_policy`, which records \
+         why Jon's 'hold on the first frames' is not in yet"
     );
     assert_eq!(derived.max_hold_s, SmashChargeSpec::DEFAULT_MAX_HOLD_S);
 

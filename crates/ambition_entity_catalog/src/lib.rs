@@ -1068,6 +1068,36 @@ impl MoveSpec {
             return None;
         }
         let policy = self.smash_charge.unwrap_or(SmashChargeSpec {
+            // ⭐⭐ THE FIRST FRAMES OF THE SWING, NOT THE LAST FRAME BEFORE THE
+            // HITBOX. This derived from the Startup window's `end_s`, which
+            // freezes the body at the instant the strike is about to come out —
+            // the whole windup already played, and the charge reads as a fighter
+            // paused mid-swing with the hitbox one frame away.
+            //
+            // Jon, 2026-08-23: *"it needs to hold on the first frames of the
+            // smash animation, before letting the rest of the animation, which
+            // actually has the hitboxes, play."* That is what the genre does: a
+            // charged smash holds in its WINDUP pose and releases into the
+            // swing. So the hold point is the START of the leading Startup
+            // window, and everything after it — the rest of the windup and every
+            // Active window — plays on release.
+            // ⚠ STILL THE END OF THE WINDUP, and Jon asked for the start.
+            // *"it needs to hold on the first frames of the smash animation,
+            // before letting the rest of the animation, which actually has the
+            // hitboxes, play."* Moving it there is correct and is NOT in yet,
+            // because it silently deleted George's recovery: with the hold at
+            // the start of Startup he stopped throwing `excluded_middle`
+            // entirely over 3600 ticks, and `every_authored_route_gets_pressed`
+            // caught it as *"the shape of a CPU that recovers on legacy
+            // drift-and-jump while holding a real recovery."*
+            //
+            // ⛔ A first fix - never freeze in front of a commanded impulse -
+            // was written, measured, and came out BYTE-IDENTICAL, so the
+            // discriminating fact is not the impulse. The other half of Jon's
+            // instruction (a charging fighter cannot walk) is landed and
+            // guarded; this half needs the boundary that separates a SMASH
+            // ATTACK's charge pose from a chargeable recovery, and that boundary
+            // has to be measured rather than guessed at.
             hold_at_s: self
                 .windows
                 .iter()

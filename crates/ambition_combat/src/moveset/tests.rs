@@ -3833,6 +3833,70 @@ fn the_released_fraction_is_frozen_for_the_rest_of_the_move() {
     }
 }
 
+/// ⛔ A CHARGING FIGHTER DOES NOT WALK. Jon, 2026-08-23: *"when the character is
+/// charging their smash attack, they should not be able to walk or move."*
+///
+/// The steering lock is a fact about CHARGING, not about a move's authoring: a
+/// smash's Startup window carries the default `motion_scale: 1.0` like every
+/// other window, so before this the body kept full steering while its clock
+/// stood still and could walk the whole stage in its windup pose.
+///
+/// ⚠ The three states are asserted together because only their CONTRAST says
+/// the rule is about the freeze rather than about the move: on the way to the
+/// hold point the body is still swinging and keeps its authored motion, at the
+/// hold point it is rooted, and after release it has its authored motion back.
+#[test]
+fn a_frozen_charge_roots_the_body_and_a_released_one_does_not() {
+    let (mut app, body) = smash_charge_app();
+    press_smash(&mut app, body, true);
+    app.update();
+
+    let playback = |app: &App| {
+        app.world()
+            .entity(body)
+            .get::<MovePlayback>()
+            .expect("the smash is playing")
+            .clone()
+    };
+
+    // Held long enough to be sitting on the hold point. `press_smash(.., true)`
+    // leaves `melee_held` set, so simply stepping keeps the button down.
+    for _ in 0..6 {
+        app.update();
+    }
+    let held = playback(&app);
+    assert!(
+        held.rooted_by_charge(),
+        "the premise: the timeline is frozen at the hold point, t = {}",
+        held.t
+    );
+    assert_eq!(
+        held.motion_scale_now(),
+        0.0,
+        "a body frozen in its charge kept {} of its steering - it can walk while charging",
+        held.motion_scale_now()
+    );
+
+    // Let go: the swing resumes and the body gets its authored motion back.
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = false;
+        f.melee_held = false;
+    });
+    for _ in 0..3 {
+        app.update();
+    }
+    let released = playback(&app);
+    assert!(
+        !released.rooted_by_charge(),
+        "the charge was released, so nothing should still be rooting the body"
+    );
+    assert_eq!(
+        released.motion_scale_now(),
+        released.spec.motion_scale_at(released.t),
+        "after release the move's OWN authored motion lock is the only authority again"
+    );
+}
+
 /// A move reached through another verb plays its plain timeline. Chargeability
 /// is a fact about the PRESS, not about the multiplier the move happens to
 /// author.

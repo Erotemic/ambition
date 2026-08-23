@@ -498,6 +498,38 @@ impl MovePlayback {
     /// to `None` the instant the move releases. ⛔ presentation must not
     /// re-derive this from move names or Startup progress — a tapped smash and
     /// a held one share both.
+    /// Is this body ROOTED by a charge right now — the timeline frozen at the
+    /// hold point with the button still down?
+    ///
+    /// ⛔ A CHARGING FIGHTER DOES NOT WALK. Jon, 2026-08-23: *"when the
+    /// character is charging their smash attack, they should not be able to
+    /// walk or move."* That is the genre's rule and it is a fact about
+    /// CHARGING, not about any one move's authoring — a smash's Startup window
+    /// carries the default `motion_scale: 1.0` like every other window, so
+    /// before this a charging body kept full steering while its clock stood
+    /// still, and could walk the whole stage in its windup pose.
+    ///
+    /// Distinct from `charge.charging()`, which is true from the move's first
+    /// tick: a body on its way TO the hold point is still swinging, and only the
+    /// freeze roots it.
+    pub fn rooted_by_charge(&self) -> bool {
+        self.charge.is_some_and(|charge| {
+            charge.charging() && self.t >= charge.policy.hold_at_s.min(self.spec.duration_s)
+        })
+    }
+
+    /// The steering authority this body has RIGHT NOW: the live window's
+    /// authored motion lock, or zero while a charge holds it.
+    ///
+    /// One place, so the two integration call sites cannot disagree about
+    /// whether a charging body may move.
+    pub fn motion_scale_now(&self) -> f32 {
+        if self.rooted_by_charge() {
+            return 0.0;
+        }
+        self.spec.motion_scale_at(self.t)
+    }
+
     pub fn smash_charge_fraction(&self) -> Option<f32> {
         self.charge
             .filter(MoveCharge::charging)

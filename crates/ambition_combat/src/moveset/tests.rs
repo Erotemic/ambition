@@ -1527,6 +1527,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
         Update,
         (
             resolve_attack_gestures,
+            buffer_combat_action_presses,
             trigger_moveset_moves,
             advance_move_playback,
             apply_hitbox_damage,
@@ -1588,7 +1589,17 @@ fn a_forward_special_selects_the_directional_move() {
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
     app.add_systems(
         Update,
-        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+        (
+            resolve_attack_gestures,
+            // ⛔ THE REAL CHAIN, and the middle link is not optional. Input
+            // leniency sits BETWEEN interpretation and the action authority in
+            // production, and it is where a special press acquires its meaning —
+            // a fixture that skips it is asking the trigger to read a raw frame
+            // no shipped body ever hands it.
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
     );
 
     let make_move = |id: &str| MoveSpec {
@@ -1662,9 +1673,22 @@ fn gesture_test_move(id: &str) -> MoveSpec {
 
 fn trigger_gesture_move(include_smash: bool, strong: bool) -> String {
     let mut app = App::new();
+    // `buffer_combat_action_presses` decays its windows on the owner's own
+    // clock, so the chain needs one.
+    app.init_resource::<WorldTime>();
     app.add_systems(
         Update,
-        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+        (
+            resolve_attack_gestures,
+            // ⛔ THE REAL CHAIN, and the middle link is not optional. Input
+            // leniency sits BETWEEN interpretation and the action authority in
+            // production, and it is where a special press acquires its meaning —
+            // a fixture that skips it is asking the trigger to read a raw frame
+            // no shipped body ever hands it.
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
     );
     let mut verbs = std::collections::BTreeMap::from([(
         "attack_forward".to_string(),
@@ -1730,7 +1754,17 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
     app.add_systems(
         Update,
-        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+        (
+            resolve_attack_gestures,
+            // ⛔ THE REAL CHAIN, and the middle link is not optional. Input
+            // leniency sits BETWEEN interpretation and the action authority in
+            // production, and it is where a special press acquires its meaning —
+            // a fixture that skips it is asking the trigger to read a raw frame
+            // no shipped body ever hands it.
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
     );
     let mv = MoveSpec {
         display_name: None,
@@ -2145,9 +2179,22 @@ fn a_fire_intent_triggers_the_ranged_move() {
     );
 
     let mut app = App::new();
+    // `buffer_combat_action_presses` decays its windows on the owner's own
+    // clock, so the chain needs one.
+    app.init_resource::<WorldTime>();
     app.add_systems(
         Update,
-        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+        (
+            resolve_attack_gestures,
+            // ⛔ THE REAL CHAIN, and the middle link is not optional. Input
+            // leniency sits BETWEEN interpretation and the action authority in
+            // production, and it is where a special press acquires its meaning —
+            // a fixture that skips it is asking the trigger to read a raw frame
+            // no shipped body ever hands it.
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
     );
     let mut control = ActorControl::default();
     control.0.fire = Some(ActorFireRequest::world_space(
@@ -2284,6 +2331,9 @@ fn a_smash_verb_projects_the_melee_read_model() {
     };
 
     let mut app = App::new();
+    // `buffer_combat_action_presses` decays its windows on the owner's own
+    // clock, so the chain needs one.
+    app.init_resource::<WorldTime>();
     app.add_systems(Update, project_moveset_melee_to_body_melee);
     let body = app
         .world_mut()
@@ -2312,9 +2362,22 @@ use ambition_entity_catalog::{CancelCondition, MoveWindow};
 /// verb on its control frame while a move plays.
 fn trigger_app() -> App {
     let mut app = App::new();
+    // `buffer_combat_action_presses` decays its windows on the owner's own
+    // clock, so the chain needs one.
+    app.init_resource::<WorldTime>();
     app.add_systems(
         Update,
-        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+        (
+            resolve_attack_gestures,
+            // ⛔ THE REAL CHAIN, and the middle link is not optional. Input
+            // leniency sits BETWEEN interpretation and the action authority in
+            // production, and it is where a special press acquires its meaning —
+            // a fixture that skips it is asking the trigger to read a raw frame
+            // no shipped body ever hands it.
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
     );
     app
 }
@@ -2984,7 +3047,17 @@ fn capture_context_app_in(
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
     app.add_systems(
         Update,
-        (resolve_attack_gestures, trigger_moveset_moves).chain(),
+        (
+            resolve_attack_gestures,
+            // ⛔ THE REAL CHAIN, and the middle link is not optional. Input
+            // leniency sits BETWEEN interpretation and the action authority in
+            // production, and it is where a special press acquires its meaning —
+            // a fixture that skips it is asking the trigger to read a raw frame
+            // no shipped body ever hands it.
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
     );
     let captor = app
         .world_mut()
@@ -4815,5 +4888,117 @@ fn a_gap_in_active_time_starts_a_new_pulse_and_hits_again() {
         vec![15, 15],
         "a move whose Active stretch has a GAP in it is a multi-hit, and its \
          second pulse must reach a body its first already hit"
+    );
+}
+
+/// ⭐⭐ D196: A BUFFERED SPECIAL IS REPLAYED VERBATIM, NOT RE-READ OFF THE STICK.
+///
+/// ⛔⛔ `BodyActionBuffer::special` was a bare TIMER while the attack slot beside
+/// it carried a whole intent, and the buffer's own doc already said why that is
+/// wrong: *"a buffered press must be replayed verbatim rather than reinterpreted
+/// from the live stick later."* Replay called `attack_dir_from_axis` on the LIVE
+/// frame, so:
+///
+/// ```text
+///   press Up+Special while the action is refused  -> buffered
+///   let the stick centre                          -> the axis is Neutral now
+///   the refusal lifts                             -> a NEUTRAL special comes out
+/// ```
+///
+/// Out of shield it was worse: the out-of-shield rule asks whether the press
+/// RISES, so a buffered up-special replayed off a centred stick no longer even
+/// QUALIFIED as one.
+#[test]
+fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
+    let make = |id: &str, duration_s: f32| MoveSpec {
+        display_name: None,
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: id.to_string(),
+            fallbacks: vec![],
+        },
+        duration_s,
+        windows: vec![],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        smash_charge: None,
+        repeat: None,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    };
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([
+            (ATTACK_VERB.to_string(), "jab".to_string()),
+            (SPECIAL_VERB.to_string(), "neutral_special".to_string()),
+            ("special_up".to_string(), "up_special".to_string()),
+        ]),
+        moves: vec![
+            make("jab", 0.05),
+            make("neutral_special", 0.3),
+            make("up_special", 0.3),
+        ],
+    };
+    let (mut app, body) = playing_app(moveset);
+    // A real leniency window, so the refused press survives to be replayed.
+    app.world_mut()
+        .get_mut::<AttackGestureTuning>(body)
+        .expect("ActorControl requires the gesture tuning")
+        .action_buffer_s = 0.20;
+
+    // The body commits to a jab, so the special below is REFUSED rather than
+    // accepted — a move is playing and it authors no cancel window.
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|pb| pb.spec.id.clone()),
+        Some("jab".to_string()),
+        "the fixture never started the move that refuses the special"
+    );
+
+    // UP + SPECIAL, into the refusal. `-y` is up: the axis is gravity-relative.
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = false;
+        f.special_pressed = true;
+        f.attack_axis = ae::LocalAxes::new(0.0, -1.0);
+    });
+    app.update();
+    assert_eq!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|pb| pb.spec.id.clone()),
+        Some("jab".to_string()),
+        "the special was ACCEPTED during the jab, so this fixture never exercised \
+         the buffer at all"
+    );
+
+    // The stick centres and the button comes up. Everything the replay could
+    // read off the live frame now says NEUTRAL.
+    set_frame(&mut app, body, |f| {
+        f.special_pressed = false;
+        f.attack_axis = ae::LocalAxes::ZERO;
+    });
+    for _ in 0..6 {
+        app.update();
+        if app
+            .world()
+            .get::<MovePlayback>(body)
+            .is_some_and(|pb| pb.spec.id != "jab")
+        {
+            break;
+        }
+    }
+
+    assert_eq!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|pb| pb.spec.id.clone()),
+        Some("up_special".to_string()),
+        "the buffered press came back as a different move than the one that was \
+         made — the replay re-read the direction off a stick that has since \
+         centred"
     );
 }

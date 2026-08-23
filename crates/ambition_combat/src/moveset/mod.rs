@@ -1361,9 +1361,16 @@ pub fn buffer_combat_action_presses(
         &mut ResolvedAttackGesture,
         &mut ae::BodyActionBuffer,
         Option<&ProperTimeScale>,
+        // WHERE THE BODY WAS WHEN IT ASKED. A special's direction is
+        // facing-relative and its posture decides which of `special_down` and
+        // `special_air_down` the player meant, and both have to be read at the
+        // PRESS — see `SpecialGestureIntent`. `Option` for bare test bodies,
+        // which are treated as standing and right-facing.
+        Option<&ae::BodyKinematics>,
+        Option<&ae::BodyGroundState>,
     )>,
 ) {
-    for (control, tuning, mut state, mut resolved, mut buffer, scale) in &mut bodies {
+    for (control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
         // ADR 0011: the owner's own clock, so a dilated body's leniency
         // dilates with everything else it does.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
@@ -1373,6 +1380,9 @@ pub fn buffer_combat_action_presses(
         // An expired window is an expired press, whichever half notices first.
         if buffer.attack <= 0.0 && state.buffered_press.is_some() {
             state.buffered_press = None;
+        }
+        if buffer.special <= 0.0 && state.buffered_special.is_some() {
+            state.buffered_special = None;
         }
         let frame = &control.0;
         let window = tuning.action_buffer_s.max(0.0);
@@ -1391,9 +1401,35 @@ pub fn buffer_combat_action_presses(
         if frame.pogo_pressed {
             buffer.pogo = window;
         }
+        // THE SPECIAL SLOT, resolved at the press and replayed verbatim.
+        //
+        // ⛔⛔ IT USED TO BE A BARE TIMER, and the replay re-read the direction
+        // off the LIVE stick: press Up+Special during endlag, let go, and the
+        // buffered press came out as a NEUTRAL special. Out of shield it did not
+        // even qualify, because the out-of-shield rule asks whether the press
+        // RISES. The buffer's own doc already said why that is wrong — "a
+        // buffered press must be replayed verbatim rather than reinterpreted
+        // from the live stick later" — and the attack slot beside it had obeyed
+        // it since M1.
         if frame.special_pressed {
             buffer.special = window;
+            state.buffered_special = Some(
+                ambition_characters::actor::attack_gesture::SpecialGestureIntent {
+                    direction: attack_dir_from_axis(
+                        frame.attack_axis,
+                        kin.map_or(1.0, |kin| kin.facing),
+                    ),
+                    // DECIDED HERE, not read off live ECS state at replay.
+                    posture: if ground.is_none_or(|ground| ground.on_ground) {
+                        ambition_characters::actor::attack_gesture::AttackPosture::Grounded
+                    } else {
+                        ambition_characters::actor::attack_gesture::AttackPosture::Airborne
+                    },
+                },
+            );
         }
+        // ONE field downstream, live or buffered, exactly as `pressed` is.
+        resolved.special = state.buffered_special;
     }
 }
 
@@ -1606,7 +1642,10 @@ pub fn trigger_moveset_moves(
         let rises_out_of_shield =
             |dir: AttackDir, action| unrestricted || (dir == AttackDir::Up && oos_permits(action));
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
-        let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
+        // THE SPECIAL PRESS, live or replayed, WITH ITS MEANING. ⛔ the bare
+        // `action_buffer.special > 0.0` this replaces said only THAT a press was
+        // waiting, never what it was — see `SpecialGestureIntent`.
+        let special_intent = gesture.special;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
         // Set by the attack arm below when it resolves a SMASH; every other
         // verb leaves it false.
@@ -1679,17 +1718,28 @@ pub fn trigger_moveset_moves(
                 &[GRAB_VERB][..],
                 ProposedVerb::Grab,
             )
-        } else if special_pressed
-            && rises_out_of_shield(
-                attack_dir_from_axis(frame.attack_axis, kin.facing),
-                ae::OutOfShieldAction::UpSpecial,
-            )
-        {
-            let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
+        } else if special_intent.is_some_and(|intent| {
+            rises_out_of_shield(intent.direction, ae::OutOfShieldAction::UpSpecial)
+        }) {
+            // ⛔⛔ THE PRESS'S OWN DIRECTION AND POSTURE, not the live stick's.
+            // `special_intent` is `ResolvedAttackGesture::special`, which
+            // `buffer_combat_action_presses` resolves at the press and republishes
+            // every tick of its window — so a buffered Up+Special replayed after
+            // the stick has centred is still an up-special, still qualifies as one
+            // out of shield, and still picks the AIR variant if that is where the
+            // player asked from.
+            let intent = special_intent.expect("the arm above matched on it");
             (
                 moveset
                     .0
-                    .move_for_directional_verb(SPECIAL_VERB, dir, grounded)
+                    .move_for_directional_verb(
+                        SPECIAL_VERB,
+                        intent.direction,
+                        matches!(
+                            intent.posture,
+                            ambition_characters::actor::attack_gesture::AttackPosture::Grounded
+                        ),
+                    )
                     .cloned(),
                 &[SPECIAL_VERB],
                 ProposedVerb::Special,

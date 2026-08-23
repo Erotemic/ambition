@@ -125,17 +125,29 @@ fn main() {
     app.insert_resource(CaptureSettings {
         output: shots.out.join("pending.png"),
         size: shots.size,
-        // ⛔ A CAPTURE IS NOT EVIDENCE ABOUT THE HUD. Asking for the UI camera
-        // is not the same as getting the HUD: this demo declares a full HUD,
-        // publishes its readouts, installs `DeclaredHudPlugin` and spawns the
-        // `FrontHudCamera` — every link exists — and no HUD appears in these
-        // shots. The likely reason is that surround layout sizes itself from a
-        // gameplay viewport, and an offscreen app has no window to provide one.
-        // Unverified: this box has no display to check it against. Until
-        // somebody looks at the windowed binary, read a blank HUD here as a
-        // limit of the tool and never as a fact about the frontend.
         include_ui: true,
     });
+    // THE SURFACE THIS RUN DRAWS TO — and the whole reason the HUD used to be
+    // missing from these shots.
+    //
+    // Every other link existed: the demo declares a full HUD, publishes its
+    // readouts, installs `DeclaredHudPlugin`, spawns the `FrontHudCamera` at
+    // `order: 9` over a non-clearing target, and the capture adopts it. What
+    // was missing is that nothing ever told the layout resolver how big this
+    // composition is. `resolve_host_gameplay_presentation` reads the primary
+    // window, finds none in an offscreen app, and — without this resource —
+    // returns early, leaving `ResolvedGameplayPresentation` at its default. So
+    // every HUD slot laid itself out against a rectangle that describes nothing.
+    //
+    // ⭐ THE RESOURCE ALREADY EXISTED FOR EXACTLY THIS, and `capture_scene` has
+    // always declared it. This tool simply never joined. A capture that cannot
+    // show a layout is worse than no capture, because it shows a DIFFERENT
+    // layout convincingly — which is precisely what these shots did for a week.
+    app.insert_resource(
+        ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+            ambition_platformer2d::engine_core::Vec2::new(shots.size.x as f32, shots.size.y as f32),
+        ),
+    );
     app.init_resource::<CaptureProgress>();
     app.init_resource::<ShootNow>();
     app.add_systems(

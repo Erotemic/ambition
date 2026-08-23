@@ -171,6 +171,9 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | W7 dizzy stars | PRESENTATION | ✔ `f04989c78` — second pooled `GuardBreaksView`; stars orbit the body's own up; the bubble now turns with the body too |
 | W7 strong-hit flash | PRESENTATION | ✔ `94686e5ec` — `hit_strength_fraction` inverts the hitlag law in the kernel; fourth arbitrated overlay cue, proportional, no threshold |
 | W7 near-KO trail tier | PRESENTATION | ✔ `466dfb028` — plume shifts smoke→ember above the near-KO speed, on P1's existing launched fact |
+| §3 ground-bounce | PRESENTATION | ◑ `49ea1d7e5` — landing dust scales with the published impact; the launch-specific splat and the WALL splat need facts (see handoff) |
+| Trail speeds re-measured | PRESENTATION | ✔ `486484969` — 330/550/770, stated percentiles of `--runs 5` peak launch; the old 650 never fired |
+| Camera cut on elimination | PRESENTATION | ✔ `3db424c86` — inward cast edges capped by SPEED, not just rate; exponential easing jerked in proportion to the collapse |
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |

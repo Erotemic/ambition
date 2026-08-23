@@ -308,6 +308,9 @@ mod tests {
                 pos: Vec2::ZERO,
                 vel,
                 size: Vec2::new(30.0, 48.0),
+                // The fighter kit's authored threshold; this fixture is about
+                // the trail, not about which body is in trouble at what speed.
+                tumble_speed: 500.0,
             });
         }
     }

@@ -526,6 +526,22 @@ pub struct LaunchedBodyFact {
     /// The body's current collision AABB — presentation offsets the trail
     /// behind the body by a fraction of it.
     pub size: ambition_platformer2d_core::Vec2,
+    /// THIS BODY'S OWN launch threshold, in px/s — the speed at which the
+    /// kernel calls a launch a tumble
+    /// (`AxisSweptParams::abilities.tumble_speed`, the value
+    /// `launch_into_tumble` gates on).
+    ///
+    /// ⭐ published so an onset can be read against the body it belongs to. It
+    /// is authored PER BODY, so a heavyweight and a featherweight are in
+    /// trouble at different speeds, and a cue fitted to one stage-wide
+    /// percentile says "this one is fast" where the body's own threshold says
+    /// "this one is in trouble" — which is the difference between a readable
+    /// tell and a speedometer.
+    ///
+    /// `0.0` for a body whose policy has no tumble at all, which is every body
+    /// outside a match: such a body never tumbles, so a threshold of zero is
+    /// the honest answer rather than a sentinel.
+    pub tumble_speed: f32,
 }
 
 /// Every body (player AND brain-driven fighter) currently in an involuntary
@@ -549,13 +565,17 @@ pub fn rebuild_launched_bodies_view(
         // sprite is drawn rather than at the tick position it is interpolating
         // away from.
         Option<&crate::presented_pose::PresentedPose>,
+        // The body's own motion policy, which is where its launch threshold is
+        // authored. Read for that ONE value; the maneuver state behind it is
+        // model-private (ADR 0024) and stays that way.
+        Option<&ambition_platformer2d_actor_monolith::features::MotionModel>,
     )>,
 ) {
     view.0.clear();
     view.0.extend(
         bodies
             .iter()
-            .filter_map(|(kin, motion, combat, presented)| {
+            .filter_map(|(kin, motion, combat, presented, model)| {
                 // Two published sim facts, one resolved answer: the tumble is the
                 // helpless half of a launch and the hitstun is the rest of it. A
                 // consumer reading only the tumble would drop the row the instant a
@@ -566,6 +586,13 @@ pub fn rebuild_launched_bodies_view(
                     pos: presented.map_or(kin.pos, |p| p.presented()),
                     vel: kin.vel,
                     size: kin.size,
+                    tumble_speed: match model {
+                        Some(ambition_platformer2d_core::MotionModel::AxisSwept(axis)) => {
+                            axis.params.abilities.tumble_speed
+                        }
+                        // A policy with no floor game has no launch threshold.
+                        _ => 0.0,
+                    },
                 })
             }),
     );

@@ -125,8 +125,15 @@ fn main() {
     app.insert_resource(CaptureSettings {
         output: shots.out.join("pending.png"),
         size: shots.size,
-        // The HUD is part of what a spectator reads, and this burst exists to
-        // answer "does a match read".
+        // ⛔ A CAPTURE IS NOT EVIDENCE ABOUT THE HUD. Asking for the UI camera
+        // is not the same as getting the HUD: this demo declares a full HUD,
+        // publishes its readouts, installs `DeclaredHudPlugin` and spawns the
+        // `FrontHudCamera` — every link exists — and no HUD appears in these
+        // shots. The likely reason is that surround layout sizes itself from a
+        // gameplay viewport, and an offscreen app has no window to provide one.
+        // Unverified: this box has no display to check it against. Until
+        // somebody looks at the windowed binary, read a blank HUD here as a
+        // limit of the tool and never as a fact about the frontend.
         include_ui: true,
     });
     app.init_resource::<CaptureProgress>();

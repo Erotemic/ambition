@@ -40,6 +40,15 @@
         // struck surface. The impact cues stay separate and only fire on contact.
         (id: Some("player.robot.slash.air"), waveform: Saw, frequency: 900.0, frequency_end: 300.0, duration: 0.090, volume: 0.14, attack: 0.002, release: 0.050, noise: 0.70),
 
+        // The two beats of a held smash. The LATCH is a mechanical cock —
+        // noise-heavy, low, and over in a twentieth of a second, so it reads as
+        // a mechanism catching rather than as a hit. The LOADED lock answers it
+        // an octave and a half up with no noise at all, because "this is as far
+        // as it goes" has to cut through a busy match and must never be
+        // mistaken for the charge starting again.
+        (id: Some("player.smash_charge.latch"), waveform: Square, frequency: 300.0, frequency_end: 170.0, duration: 0.055, volume: 0.17, attack: 0.001, release: 0.030, noise: 0.55),
+        (id: Some("player.smash_charge.loaded"), waveform: Sine, frequency: 900.0, frequency_end: 1240.0, duration: 0.070, volume: 0.16, attack: 0.002, release: 0.040, noise: 0.0),
+
         // Host/frontend cues are authored by id so shell experiences use the
         // same provider-relative procedural path as gameplay. A packed bank may
         // override these with higher-fidelity samples when present.

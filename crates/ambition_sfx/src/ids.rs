@@ -56,6 +56,14 @@ sfx_ids! {
     PLAYER_RESET => "player.reset",
     PLAYER_LOW_HEALTH_PULSE => "player.low_health.pulse",
     PLAYER_STAMINA_EMPTY => "player.stamina_empty",
+    /// The mechanical LATCH the instant a smash charge takes hold — the beat
+    /// that tells a player the hold registered and the move is now waiting on
+    /// them. Fires once per charge, on the edge, never per frame.
+    PLAYER_SMASH_CHARGE_LATCH => "player.smash_charge.latch",
+    /// The short, higher LOCK once a smash reaches maximum charge. Fires at
+    /// most once per charge: holding past maximum buys nothing and must not
+    /// keep saying so.
+    PLAYER_SMASH_CHARGE_LOADED => "player.smash_charge.loaded",
     PLAYER_ABILITY_UNLOCK => "player.ability_unlock",
 
     // Player damage-type variants (when source is typed)

@@ -397,7 +397,14 @@ fn interact_anim_timer_returns_interact() {
 fn from_name_resolves_all_new_action_rows() {
     for (name, expected) in [
         ("crouch", CharacterAnim::Crouch),
-        ("crouch_walk", CharacterAnim::Crawl),
+        // ⛔ this used to assert `Crawl`, and that alias was the defect: 23
+        // sheets author `crouch_walk` and one authors `crawl`, so the art only
+        // ever played while the body was CRAWLING and a crouch-walking body
+        // drew a statue. `Crawl` now FALLS BACK to this row, so those 23 keep
+        // drawing what they always drew.
+        ("crouch_walk", CharacterAnim::CrouchWalk),
+        ("crawl", CharacterAnim::Crawl),
+        ("crouch_jump", CharacterAnim::CrouchJump),
         ("crawl", CharacterAnim::Crawl),
         ("slide", CharacterAnim::Slide),
         ("climb", CharacterAnim::LadderClimb),
@@ -705,6 +712,66 @@ fn an_air_dodge_picks_its_own_row_and_falls_back_to_the_ground_roll() {
         CharacterAnim::DodgeRoll,
         "the grounded roll outranks it when both are somehow set"
     );
+}
+
+/// A crouch that MOVES and a crouch that LEAVES THE GROUND each get their own
+/// row, and neither could before.
+///
+/// The compact stance answered with one row whether the body was shuffling or
+/// still, so a crouch-walk was a statue. And the airborne branch ran BEFORE the
+/// compact one, so a body that jumped while ducked drew a plain jump — a crouch
+/// jump is a real move in the games this borrows from and nothing could draw
+/// one. Both fall back, so a sheet that authors neither is unchanged.
+#[test]
+fn a_crouch_that_moves_and_a_crouch_that_jumps_are_their_own_rows() {
+    let still = BodyAnimView {
+        compact: CompactBody::Crouch,
+        idle_below: 1.0,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&still), CharacterAnim::Crouch);
+
+    let shuffling = BodyAnimView {
+        speed: 40.0,
+        ..still
+    };
+    assert_eq!(
+        pick_body_anim(&shuffling),
+        CharacterAnim::CrouchWalk,
+        "a crouch with speed on it is a crouch WALK"
+    );
+
+    let leaping = BodyAnimView {
+        airborne: true,
+        moving_up: true,
+        ..still
+    };
+    assert_eq!(
+        pick_body_anim(&leaping),
+        CharacterAnim::CrouchJump,
+        "the airborne branch used to run first and swallow this"
+    );
+
+    // A body that jumped WITHOUT ducking is untouched, and so is a fall.
+    let plain = BodyAnimView {
+        airborne: true,
+        moving_up: true,
+        ..Default::default()
+    };
+    assert_eq!(pick_body_anim(&plain), CharacterAnim::Jump);
+
+    for (row, base) in [
+        (CharacterAnim::CrouchWalk, CharacterAnim::Crouch),
+        (CharacterAnim::CrouchJump, CharacterAnim::Jump),
+        // And the row `crouch_walk` used to BE keeps drawing it.
+        (CharacterAnim::Crawl, CharacterAnim::CrouchWalk),
+    ] {
+        assert_eq!(
+            row.base_pose(),
+            Some(base),
+            "a sheet without {row:?} still animates"
+        );
+    }
 }
 
 /// A knocked-down body draws the knockdown, not the hit flash it is still

@@ -223,6 +223,22 @@ pub enum CharacterAnim {
     /// `transform`) — a second-stage power-up, typically a palette flash
     /// between the two looks rather than a silhouette swap.
     Transform = 55,
+    /// Crouch-walking: the compact stance, MOVING. Matches the generator's
+    /// `crouch_walk` row.
+    ///
+    /// ⛔ this row used to alias onto [`Self::Crawl`], which meant its art only
+    /// ever played while the body was CRAWLING — a different body mode with a
+    /// different box — and a body that was crouch-walking drew a static crouch.
+    /// 23 sheets author `crouch_walk`, one authors `crawl`, and none author
+    /// both, so the split costs nothing: `Crawl` falls back to this row, which
+    /// is what those 23 were already drawing.
+    CrouchWalk = 56,
+    /// Crouching and airborne. Matches the generator's `crouch_jump` row.
+    ///
+    /// A crouch jump is a real move in the games this borrows from, and nothing
+    /// could draw one: the airborne branch of the picker ran before the compact
+    /// one, so a body that left the ground while ducked drew a plain jump.
+    CrouchJump = 57,
 }
 
 impl CharacterAnim {
@@ -292,8 +308,9 @@ impl CharacterAnim {
             "ledge_roll" => Self::LedgeRoll,
             "ledge_getup_attack" => Self::LedgeGetupAttack,
             "crouch" => Self::Crouch,
-            // The generator emits `crouch_walk` for the crawl pose.
-            "crouch_walk" | "crawl" => Self::Crawl,
+            "crouch_walk" => Self::CrouchWalk,
+            "crouch_jump" => Self::CrouchJump,
+            "crawl" => Self::Crawl,
             "slide" => Self::Slide,
             "climb" | "ladder_climb" => Self::LadderClimb,
             "swim" => Self::Swim,
@@ -338,7 +355,11 @@ impl CharacterAnim {
             Walk => Idle,
             Run => Walk,
             Crouch => Idle,
-            Crawl => Walk,
+            CrouchWalk => Crouch,
+            // Through `crouch_walk`, not straight to `Walk`: every sheet that
+            // authors one and not the other authors THIS one, and they have
+            // been drawing it for a crawl all along.
+            Crawl => CrouchWalk,
             Slide => Run,
             // Air.
             Jump => Fall,
@@ -395,6 +416,7 @@ impl CharacterAnim {
             // the ordinary hurt reaction, which is what a sheet that never drew
             // a shrink has to say about losing a form.
             Transform => Grow,
+            CrouchJump => Jump,
             Grow => Idle,
             BigShrink => Shrink,
             Shrink => Hit,

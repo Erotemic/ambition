@@ -440,6 +440,12 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
         return FloatGlide;
     }
     if v.airborne {
+        // A crouch that leaves the ground is a crouch jump, and it is a real
+        // move in the games this borrows from. Asked BEFORE the plain airborne
+        // answer, because this branch used to run first and swallowed it.
+        if matches!(v.compact, CompactBody::Crouch) && v.moving_up {
+            return CrouchJump;
+        }
         return if v.moving_up { Jump } else { Fall };
     }
     if let Some(hard) = v.landing {
@@ -451,7 +457,15 @@ pub fn pick_body_anim(v: &BodyAnimView) -> CharacterAnim {
     match v.compact {
         CompactBody::Slide => return Slide,
         CompactBody::Crawl => return Crawl,
-        CompactBody::Crouch => return Crouch,
+        // A crouch that is MOVING is a crouch walk. The compact stance used to
+        // answer with one row for both, so a shuffling duck was a statue.
+        CompactBody::Crouch => {
+            return if v.speed > v.idle_below {
+                CrouchWalk
+            } else {
+                Crouch
+            }
+        }
         CompactBody::None => {}
     }
     match v.locomotion {

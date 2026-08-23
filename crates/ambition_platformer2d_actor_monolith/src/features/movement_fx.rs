@@ -191,7 +191,42 @@ pub fn emit_movement_fx(
                     kind: ParticleKind::Dust,
                 });
             }
-            ae::MovementOp::Tech | ae::MovementOp::GetupRoll => {
+            // A TECH is not a getup roll and must not sound like one. It is the
+            // defender REFUSING the knockdown, decided in a handful of frames,
+            // and it is the one floor-game beat worth reading from across the
+            // stage. It gets a bright, fast spark ring at the contact point and
+            // its own crisp cue; the dust is a small response underneath rather
+            // than the whole effect.
+            ae::MovementOp::Tech => {
+                sfx.write_for_body(
+                    source,
+                    SfxMessage::Play {
+                        id: ambition_sfx::ids::PLAYER_TECH,
+                        pos,
+                    },
+                );
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 10,
+                    speed: 430.0,
+                    color: [0.92, 0.98, 1.0, 0.95],
+                    // Sparks SHRINK as they age, so the ring snaps shut instead
+                    // of blooming — which is what makes it read as an impact
+                    // refused rather than as more dust.
+                    kind: ParticleKind::Spark,
+                });
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 4,
+                    speed: 120.0,
+                    color: [0.80, 0.92, 1.0, 0.55],
+                    kind: ParticleKind::Dust,
+                });
+            }
+            // The getup roll keeps the travelling-dust read it always had: it
+            // IS a roll along the floor, and it shares that shape with the
+            // dodge roll on purpose.
+            ae::MovementOp::GetupRoll => {
                 sfx.write_for_body(source, SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {
                     pos,
@@ -459,6 +494,72 @@ mod tests {
             vfx.iter().all(|m| matches!(m, VfxMessage::Dust { .. })),
             "both VFX are Dust bursts"
         );
+    }
+
+    /// A TECH and a GETUP ROLL are different beats and must not sound or look
+    /// alike. They shared one arm — the dash cue and one dust burst — so a
+    /// spectator watching the floor game could not tell the defender who
+    /// refused the knockdown from the one who ate it and rolled away.
+    #[test]
+    fn a_tech_and_a_getup_roll_are_told_apart() {
+        let (tech_sfx, tech_vfx) = presentation_for(ae::MovementOp::Tech);
+        let (roll_sfx, roll_vfx) = presentation_for(ae::MovementOp::GetupRoll);
+
+        // The cues are different sounds, not the same sound twice.
+        assert!(
+            matches!(tech_sfx.as_slice(), [SfxMessage::Play { .. }]),
+            "a tech has its own cue: {tech_sfx:?}"
+        );
+        assert!(
+            matches!(roll_sfx.as_slice(), [SfxMessage::Dash { .. }]),
+            "the getup roll keeps the dash cue it shares with the dodge roll: {roll_sfx:?}"
+        );
+
+        // And the tech's flash is a SPARK ring, which the roll never emits.
+        assert!(
+            tech_vfx.iter().any(|m| matches!(
+                m,
+                VfxMessage::Burst {
+                    kind: ParticleKind::Spark,
+                    ..
+                }
+            )),
+            "the tech flashes: {tech_vfx:?}"
+        );
+        assert!(
+            roll_vfx.iter().all(|m| !matches!(
+                m,
+                VfxMessage::Burst {
+                    kind: ParticleKind::Spark,
+                    ..
+                }
+            )),
+            "the getup roll is dust, not a flash: {roll_vfx:?}"
+        );
+    }
+
+    /// Everything one movement op asks for, as `(sfx, vfx)`.
+    fn presentation_for(op: ae::MovementOp) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
+        let mut events = ae::FrameEvents::default();
+        events.operations.push(op);
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.insert_resource(TestEvents(events));
+        app.add_systems(Update, emit_system);
+        app.update();
+        let sfx = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+            .drain()
+            .map(|message| message.request)
+            .collect();
+        let vfx = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<VfxMessage>>()
+            .drain()
+            .collect();
+        (sfx, vfx)
     }
 
     #[test]

@@ -15,6 +15,7 @@ pub mod actors;
 pub mod bubble_shield;
 mod camera;
 pub mod debug_viz;
+pub mod dizzy_stars;
 pub mod deferred_write_safety;
 mod features;
 pub mod gate_portal_visuals;
@@ -446,6 +447,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             (
                 launch_trail::emit_launch_trails,
                 smash_charge_cues::emit_smash_charge_cues,
+                dizzy_stars::emit_dizzy_stars,
             )
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,

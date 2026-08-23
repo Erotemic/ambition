@@ -167,7 +167,8 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | M5 jab chains | MECHANICS | ▢ |
 | P1 launch trail | PRESENTATION | ✔ `882fe8fa5` — `LaunchedBodiesView` publishes involuntary flight; Dust plume behind the velocity vector, sim-tick cadence |
 | P2 i-frame blink | PRESENTATION | ✔ `0c29e9cf0` — `unhittable` on both body read-models is `body_vulnerable` inverted; the hit-flash overlay carries both cues, damage wins |
-| P3 tech/parry cues | PRESENTATION | ▢ BLOCKED on M7's successful-parry-contact fact; the tech half is unstarted |
+| P3 tech/parry cues | PRESENTATION | ◑ tech half done `1f96165eb` — own spark ring and cue, split from GetupRoll; parry half still BLOCKED on M7's successful-contact fact |
+| W7 dizzy stars | PRESENTATION | ✔ `f04989c78` — second pooled `GuardBreaksView`; stars orbit the body's own up; the bubble now turns with the body too |
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |

@@ -177,6 +177,7 @@ derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHur
 derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
+derived.strike_rank	derived	StrikeRank	stamped from the move's authored (window, volume) when the volume spawns
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
 encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

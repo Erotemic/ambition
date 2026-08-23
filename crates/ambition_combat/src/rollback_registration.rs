@@ -20,10 +20,8 @@ where
         OWNER,
         "resource.faction_relations",
     );
-    registrar.rollback_resource_clone::<crate::targeting::FriendlyFire>(
-        OWNER,
-        "resource.friendly_fire",
-    );
+    registrar
+        .rollback_resource_clone::<crate::targeting::FriendlyFire>(OWNER, "resource.friendly_fire");
     registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
         OWNER,
         "resource.pending_player_hit_events",
@@ -40,6 +38,21 @@ where
         |volume| volume.owner,
     );
     registrar.rollback_map_entities::<crate::moveset::StrikeVolume>(OWNER, "map.strike_volume");
+    // The authored order the arbitration reads. DERIVED rather than registered:
+    // it is stamped from the move's own `(window, volume)` indices by the same
+    // system that spawns the volume, so a rewind that restores `MovePlayback`
+    // re-spawns the volume and re-stamps the identical rank. There is nothing a
+    // snapshot could hold that the respawn would not immediately overwrite.
+    //
+    // ⚠ it still has to be DECLARED. `rollback_coverage` refuses any component
+    // on a simulated entity that is neither registered, derived nor waived, and
+    // it caught this one the run it was added — which is the whole reason that
+    // test asks about components rather than about a list somebody maintains.
+    registrar.declare_rollback_derived_component::<crate::moveset::StrikeRank>(
+        OWNER,
+        "derived.strike_rank",
+        "stamped from the move's authored (window, volume) when the volume spawns",
+    );
     registrar.rollback_component_clone_checksum::<crate::on_hit::HitboxOnHit>(
         OWNER,
         "combat.hitbox_on_hit",
@@ -50,30 +63,20 @@ where
     // registered under the ENGINE domain as `body.stale_moves` while living in
     // the movement core, so a composition with no staling rule still rewound a
     // nine-slot combat history on every body it moved.
-    registrar.rollback_component_canonical::<crate::stale::BodyStaleMoves>(
-        OWNER,
-        "combat.stale_moves",
-    );
-    registrar.rollback_component_canonical::<crate::components::BodyMelee>(
-        OWNER,
-        "actor.body_melee",
-    );
+    registrar
+        .rollback_component_canonical::<crate::stale::BodyStaleMoves>(OWNER, "combat.stale_moves");
+    registrar
+        .rollback_component_canonical::<crate::components::BodyMelee>(OWNER, "actor.body_melee");
     registrar.rollback_component_canonical::<crate::components::ActorDisposition>(
         OWNER,
         "actor.disposition",
     );
-    registrar.rollback_component_cursor::<crate::components::ActorAggression>(
-        OWNER,
-        "actor.aggression",
-    );
-    registrar.rollback_map_entities::<crate::components::ActorAggression>(
-        OWNER,
-        "map.actor_aggression",
-    );
-    registrar.rollback_component_canonical::<crate::targeting::MatchTeam>(
-        OWNER,
-        "actor.match_team",
-    );
+    registrar
+        .rollback_component_cursor::<crate::components::ActorAggression>(OWNER, "actor.aggression");
+    registrar
+        .rollback_map_entities::<crate::components::ActorAggression>(OWNER, "map.actor_aggression");
+    registrar
+        .rollback_component_canonical::<crate::targeting::MatchTeam>(OWNER, "actor.match_team");
     registrar.rollback_component_canonical::<crate::components::FighterStocks>(
         OWNER,
         "entity:fighter_stocks",
@@ -91,10 +94,8 @@ where
     // the body while it is open. Both change mid-run, so both rewind: without
     // them a rewound branch resimulates with a body the world has stopped
     // touching for a death that has not happened in that branch.
-    registrar.rollback_component_canonical::<crate::death_rules::OutOfPlay>(
-        OWNER,
-        "actor.out_of_play",
-    );
+    registrar
+        .rollback_component_canonical::<crate::death_rules::OutOfPlay>(OWNER, "actor.out_of_play");
     registrar.rollback_component_canonical::<crate::death_rules::DeathInterlude>(
         OWNER,
         "actor.death_interlude",
@@ -108,18 +109,10 @@ where
         OWNER,
         "actor.active_combatant",
     );
-    registrar.rollback_component_cursor::<crate::components::ActorTarget>(
-        OWNER,
-        "actor.target",
-    );
-    registrar.rollback_map_entities::<crate::components::ActorTarget>(
-        OWNER,
-        "map.actor_target",
-    );
-    registrar.rollback_component_resolved::<crate::moveset::MovePlayback>(
-        OWNER,
-        "actor.move_playback",
-    );
+    registrar.rollback_component_cursor::<crate::components::ActorTarget>(OWNER, "actor.target");
+    registrar.rollback_map_entities::<crate::components::ActorTarget>(OWNER, "map.actor_target");
+    registrar
+        .rollback_component_resolved::<crate::moveset::MovePlayback>(OWNER, "actor.move_playback");
     registrar.rollback_map_entities::<crate::moveset::MovePlayback>(OWNER, "map.move_playback");
     registrar.rollback_component_canonical::<crate::components::BossPatternTimer>(
         OWNER,
@@ -134,22 +127,14 @@ where
         OWNER,
         "combat.capabilities",
     );
-    registrar.rollback_component_clone::<crate::components::CombatTuning>(
-        OWNER,
-        "combat.tuning",
-    );
-    registrar.rollback_component_clone::<crate::components::ActorIdentity>(
-        OWNER,
-        "actor.identity",
-    );
+    registrar.rollback_component_clone::<crate::components::CombatTuning>(OWNER, "combat.tuning");
+    registrar.rollback_component_clone::<crate::components::ActorIdentity>(OWNER, "actor.identity");
     registrar.rollback_component_clone::<crate::components::ActorInteraction>(
         OWNER,
         "actor.interaction",
     );
-    registrar.rollback_component_clone::<crate::components::ActorRenderSize>(
-        OWNER,
-        "actor.render_size",
-    );
+    registrar
+        .rollback_component_clone::<crate::components::ActorRenderSize>(OWNER, "actor.render_size");
     registrar.rollback_component_clone::<crate::components::ActorSpriteOffset>(
         OWNER,
         "actor.sprite_offset",
@@ -169,10 +154,7 @@ where
         OWNER,
         "feature.breakable",
     );
-    registrar.rollback_component_clone::<crate::components::ChestFeature>(
-        OWNER,
-        "feature.chest",
-    );
+    registrar.rollback_component_clone::<crate::components::ChestFeature>(OWNER, "feature.chest");
     registrar.rollback_component_clone::<crate::components::Opened>(OWNER, "feature.opened");
     registrar.rollback_component_clone_probed::<crate::components::RespawnTimer>(
         OWNER,
@@ -184,14 +166,10 @@ where
         "feature.stand_timer",
         |timer| timer.0.to_bits() as u64,
     );
-    registrar.rollback_component_clone::<crate::hazard_runtime::HazardFeature>(
-        OWNER,
-        "feature.hazard",
-    );
-    registrar.rollback_component_clone::<crate::components::PogoPolicy>(
-        OWNER,
-        "feature.pogo_policy",
-    );
+    registrar
+        .rollback_component_clone::<crate::hazard_runtime::HazardFeature>(OWNER, "feature.hazard");
+    registrar
+        .rollback_component_clone::<crate::components::PogoPolicy>(OWNER, "feature.pogo_policy");
     registrar.rollback_component_clone::<crate::components::PogoTargetContributor>(
         OWNER,
         "feature.pogo_target_contributor",
@@ -202,18 +180,10 @@ where
     );
     registrar.rollback_component_clone::<crate::held_items::HeldItem>(OWNER, "actor.held_item");
     registrar.rollback_component_clone::<crate::moveset::ActorMoveset>(OWNER, "actor.moveset");
-    registrar.rollback_component_clone::<crate::moveset::MovesetMelee>(
-        OWNER,
-        "actor.moveset_melee",
-    );
-    registrar.rollback_component_clone::<crate::components::PickupFeature>(
-        OWNER,
-        "feature.pickup",
-    );
-    registrar.rollback_component_clone::<crate::components::Collected>(
-        OWNER,
-        "feature.collected",
-    );
+    registrar
+        .rollback_component_clone::<crate::moveset::MovesetMelee>(OWNER, "actor.moveset_melee");
+    registrar.rollback_component_clone::<crate::components::PickupFeature>(OWNER, "feature.pickup");
+    registrar.rollback_component_clone::<crate::components::Collected>(OWNER, "feature.collected");
     registrar.rollback_component_clone::<crate::components::RuntimeStagedActor>(
         OWNER,
         "marker.runtime_staged_actor",
@@ -271,14 +241,10 @@ where
         OWNER,
         "message.on_hit_effect",
     );
-    registrar.clear_message_on_rollback::<crate::moveset::MoveEventMessage>(
-        OWNER,
-        "message.move_event",
-    );
-    registrar.clear_message_on_rollback::<crate::events::ActorStimulus>(
-        OWNER,
-        "message.actor_stimulus",
-    );
+    registrar
+        .clear_message_on_rollback::<crate::moveset::MoveEventMessage>(OWNER, "message.move_event");
+    registrar
+        .clear_message_on_rollback::<crate::events::ActorStimulus>(OWNER, "message.actor_stimulus");
     registrar.clear_message_on_rollback::<crate::events::GameplayBannerRequested>(
         OWNER,
         "message.gameplay_banner_requested",
@@ -295,10 +261,8 @@ where
         OWNER,
         "message.set_flag_requested",
     );
-    registrar.clear_message_on_rollback::<crate::events::ActorStimulus>(
-        OWNER,
-        "message.actor_stimulus",
-    );
+    registrar
+        .clear_message_on_rollback::<crate::events::ActorStimulus>(OWNER, "message.actor_stimulus");
     registrar.clear_message_on_rollback::<crate::events::GameplayBannerRequested>(
         OWNER,
         "message.gameplay_banner_requested",
@@ -335,7 +299,6 @@ where
         "combat.hitbox_lifetime",
         |lifetime| lifetime.remaining_s.to_bits() as u64,
     );
-
 }
 
 /// Entity-free canonical projection of the staged victim-hit FIFO.

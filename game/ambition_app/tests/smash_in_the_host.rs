@@ -1007,7 +1007,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     // so the press is RETRIED until one lands undisturbed, and each attempt is constructed
     // exactly like the original — 40 frames from a standstill, which is what the calibrated
     // numbers below encode.
-    let mut travelled = None;
+    let mut measured = None;
     let mut attempts = 0usize;
     for attempt in 0..12 {
         // Settle: let any carried launch bleed off, and refuse to start an
@@ -1035,22 +1035,33 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
         } else {
             KeyCode::ArrowLeft
         };
-        let before = x(&app, slug_body);
         let mut disturbed = false;
+        // THE BODY'S OWN SPEED, not the ground it covered. Measured 2026-08-23:
+        // the accepted run had the slug at exactly its authored 80 px/s and
+        // still crossed 290px, because the opponent was TWO PIXELS away and
+        // shoving it the whole time. Distance is a proxy for top speed and a
+        // neighbour can corrupt it; `vel.x` is the quantity this test names.
+        let mut peak_speed = 0.0f32;
         Buttonlike::press(&key, app.world_mut());
         for _ in 0..FRAMES {
             app.update();
             disturbed |= hitstun(&app, slug_body) > 0.0;
+            let vx = app
+                .world()
+                .get::<ambition_platformer2d::actors::actor::BodyKinematics>(slug_body)
+                .map(|kin| kin.vel.x.abs())
+                .unwrap_or(0.0);
+            peak_speed = peak_speed.max(vx);
         }
         Buttonlike::release(&key, app.world_mut());
         attempts += 1;
         if !disturbed {
-            travelled = Some((x(&app, slug_body) - before).abs());
+            measured = Some(peak_speed);
             break;
         }
     }
 
-    let travelled = travelled.unwrap_or_else(|| {
+    let top_speed = measured.unwrap_or_else(|| {
         panic!(
             "the slug was hit during every one of {attempts} undisturbed-press \
              attempts, so its top speed could not be read from motion at all. \
@@ -1060,27 +1071,21 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
     });
 
     assert!(
-        travelled > 1.0,
+        top_speed > 1.0,
         "the puppy slug was seated and then did not move when driven \
-         ({travelled:.2}px over {FRAMES} frames) — a crawler that cannot be \
-         played is not a fighter, however correct its `ActorConfig` reads"
+         (peak {top_speed:.0} px/s over {FRAMES} frames) — a crawler that cannot \
+         be played is not a fighter, however correct its `ActorConfig` reads"
     );
-    // ```text
-    //             recoil 110 (before)    recoil 0 (the stage's body)
-    //   slug        34.85px                114.90px
-    //   goblin      92.50px                327.46px
-    // ```
-    //
-    // The DISCRIMINATION is what this test needs and it survives intact — the
-    // slug still covers about a third of what the goblin does. 200px sits
-    // between the two with room on both sides.
+    // The DISCRIMINATION is the whole point and it is now read directly: the
+    // slug authors 80 px/s and the goblin 170, so 130 sits between them with
+    // room on both sides and neither number is a distance that anything else on
+    // the stage can add to.
     assert!(
-        travelled < 200.0,
-        "the puppy slug covered {travelled:.2}px in {FRAMES} frames. Measured \
-         under exactly these conditions, its authored 80 px/s produces ~115px \
-         and the goblin's 170 px/s produces ~327px — so this body is being \
-         driven at a top speed that is not the one its character states, even \
-         though `ActorConfig` above reads correctly"
+        top_speed < 130.0,
+        "the puppy slug peaked at {top_speed:.0} px/s while driven, against its \
+         authored 80 and the goblin's 170 — so this body is being driven at a \
+         top speed that is not the one its character states, even though \
+         `ActorConfig` above reads correctly"
     );
 }
 
@@ -1592,7 +1597,9 @@ enum MatchStart {
     PreparationRefused,
     ActivationStalled,
     /// The match is live, with this many bodies wearing a `MatchSeat`.
-    Activated { seats: usize },
+    Activated {
+        seats: usize,
+    },
 }
 
 /// Press one slot's role button `presses` times.

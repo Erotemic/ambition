@@ -121,6 +121,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
     }
 }
 
@@ -1145,6 +1146,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -1393,6 +1395,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         start_impulse: None,
         smash_charge_mult: 1.7,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     };

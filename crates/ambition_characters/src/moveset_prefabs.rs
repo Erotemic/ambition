@@ -243,6 +243,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
     }
 }
 
@@ -369,6 +370,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
     }
 }
 
@@ -534,6 +536,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         // CM3: the charge move's payoff — the authored release multiplier.
         smash_charge_mult: p.smash_charge_mult,
         smash_charge: None,
+        repeat: None,
     }
 }
 
@@ -727,6 +730,7 @@ pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
     }
 }
 

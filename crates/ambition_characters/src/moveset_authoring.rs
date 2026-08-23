@@ -218,6 +218,7 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }
@@ -464,6 +465,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
     }

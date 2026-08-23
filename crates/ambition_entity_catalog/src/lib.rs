@@ -225,6 +225,22 @@ pub enum CancelCondition {
     OnWhiff,
 }
 
+impl CancelCondition {
+    /// Is this escape legal given whether the move has CONNECTED?
+    ///
+    /// One place, because [`MoveSpec::cancel_permits`] and
+    /// [`MoveSpec::cancel_successors`] both ask it, and a chain that answered
+    /// it differently from the permission would nominate a successor the
+    /// cancel then refused.
+    pub fn permits(self, landed_hit: bool) -> bool {
+        match self {
+            Self::Always => true,
+            Self::OnHit => landed_hit,
+            Self::OnWhiff => !landed_hit,
+        }
+    }
+}
+
 /// An axis-aligned or circular hit volume in ENTITY-LOCAL logical space
 /// (+x = facing; the runtime mirrors x for a left-facing actor).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -762,6 +778,15 @@ pub struct MoveSpec {
     /// is never chargeable.
     #[serde(default)]
     pub smash_charge: Option<SmashChargeSpec>,
+    /// The stretch of this move's timeline that REPEATS while its button is
+    /// held — the rapid jab, the drill, the flurry.
+    ///
+    /// `None` = a move that plays once, which is every move that has not opted
+    /// in. The loop belongs to PLAYBACK and not to a fighter: a move says which
+    /// of its own windows repeat and for how long, and the runtime does the
+    /// same thing to all of them.
+    #[serde(default)]
+    pub repeat: Option<MoveLoop>,
     /// Landing lag: the recovery this move owes if the body touches down
     /// before the move ended. Seconds of the owner's proper time, spent as a
     /// hard control lock.
@@ -791,6 +816,31 @@ pub struct MoveSpec {
 /// identity, so every existing move is unscaled (parity).
 fn default_charge_mult() -> f32 {
     1.0
+}
+
+/// The stretch of a move that repeats while its button is held.
+///
+/// Authored in the move's own proper time, like every other clock on a
+/// [`MoveSpec`]. The loop runs while the button stays down and ends on the
+/// release or at [`Self::max_s`], whichever comes first; what the move authors
+/// AFTER [`Self::to_s`] is the finisher the loop exits into, so a flurry that
+/// ends in a launcher is one timeline rather than two moves.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct MoveLoop {
+    /// Where the clock jumps BACK to.
+    pub from_s: f32,
+    /// Where it jumps back FROM.
+    pub to_s: f32,
+    /// The longest the loop may run before it exits on its own, in seconds of
+    /// looped time. A flurry nobody can end is a stall.
+    pub max_s: f32,
+}
+
+impl MoveLoop {
+    /// Is this loop authored coherently — a non-empty stretch with an end?
+    pub fn is_live(&self) -> bool {
+        self.to_s > self.from_s && self.max_s > 0.0
+    }
 }
 
 /// How a chargeable move HOLDS: where on its own timeline the charge waits,
@@ -894,6 +944,28 @@ impl MoveSpec {
         self.windows
             .iter()
             .any(|w| want(&w.tag) && w.start_s <= t && t < w.end_s)
+    }
+
+    /// The successors this move's live cancel window NAMES at proper-time `t`,
+    /// in authored order.
+    ///
+    /// The chain is the cancel table read forwards: a `Cancelable` window that
+    /// says `into: ["jab2"]` is not only permitting jab2, it is nominating it.
+    /// A follow-up press inside that window takes the nomination instead of
+    /// restarting the move that is playing, which is the whole of a jab chain
+    /// and needs no successor field of its own.
+    pub fn cancel_successors(&self, t: f32, landed_hit: bool) -> impl Iterator<Item = &str> {
+        self.windows
+            .iter()
+            .filter(move |w| w.start_s <= t && t < w.end_s)
+            .filter_map(move |w| match &w.tag {
+                WindowTag::Cancelable { into, condition } => {
+                    condition.permits(landed_hit).then_some(into)
+                }
+                _ => None,
+            })
+            .flatten()
+            .map(String::as_str)
     }
 
     /// The windows carrying `tag`, in declaration order.
@@ -1006,11 +1078,7 @@ impl MoveSpec {
             WindowTag::Cancelable { into, condition } => {
                 w.start_s <= t
                     && t < w.end_s
-                    && match condition {
-                        CancelCondition::Always => true,
-                        CancelCondition::OnHit => landed_hit,
-                        CancelCondition::OnWhiff => !landed_hit,
-                    }
+                    && condition.permits(landed_hit)
                     && into.iter().any(|entry| names.contains(&entry.as_str()))
             }
             _ => false,

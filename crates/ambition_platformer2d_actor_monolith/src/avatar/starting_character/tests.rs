@@ -1119,6 +1119,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        repeat: None,
     };
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     let prepared = crate::character_runtime::prepare_and_finalize_for_test(

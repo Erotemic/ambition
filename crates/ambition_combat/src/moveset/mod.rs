@@ -275,6 +275,13 @@ pub struct MovePlayback {
     /// the same `MoveSpec` reached through another verb plays its plain
     /// timeline. Rollback state, carried with the rest of this component.
     pub charge: Option<MoveCharge>,
+    /// Seconds of this use's proper time spent going ROUND the authored loop
+    /// ([`MoveSpec::repeat`]) — `0.0` for a move that plays once.
+    ///
+    /// Counted rather than derived from the clock, because the clock rewinds:
+    /// `t` is back where it was and only this says how long the flurry has been
+    /// running. It is what the loop's own maximum is measured against.
+    pub looped_s: f32,
 }
 
 /// One chargeable use's charge clock.
@@ -457,6 +464,7 @@ impl MovePlayback {
             // A use charges only when the press that started it asked to —
             // `charged_by_smash_gesture` is that seam.
             charge: None,
+            looped_s: 0.0,
         }
     }
 
@@ -747,7 +755,49 @@ pub fn advance_move_playback(
             _ => dt,
         };
         playback.t = (t_prev + dt).min(playback.spec.duration_s);
+
+        // THE FLURRY. An authored loop sends the clock back to its own start
+        // for as long as the button is down, and the move's remaining timeline
+        // is the finisher it exits into — so a rapid jab that ends in a
+        // launcher is ONE move rather than a chain of bespoke ones.
+        //
+        // ⛔ the loop lives HERE, in playback, and knows no fighter: a move
+        // says which of its own windows repeat and the runtime does the same
+        // thing to every move that says so.
+        //
+        // Two exits, and both are the button's: RELEASE, and the authored
+        // maximum, which is what stops a held press being a stall. A body that
+        // has stopped holding leaves on the very next crossing.
+        let looped = match playback.spec.repeat {
+            Some(spec) if spec.is_live() && playback.t >= spec.to_s => {
+                let still_held = held_attack.get(owner).is_ok_and(|g| g.held.is_some());
+                let spent = playback.looped_s + (spec.to_s - spec.from_s);
+                if still_held && spent <= spec.max_s {
+                    playback.looped_s = spent;
+                    // The overshoot rides round with the clock, so no proper
+                    // time is lost at the wrap.
+                    playback.t = spec.from_s + (playback.t - spec.to_s);
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        };
         let t = playback.t;
+        if looped {
+            // The pulse is a NEW strike: drop the volumes the previous lap
+            // opened so the window re-spawns and can hit again, and re-arm the
+            // events inside the loop so each lap sounds like one.
+            despawn_live_boxes(&mut commands, &mut playback);
+            let pb = &mut *playback;
+            let repeat = pb.spec.repeat.expect("matched above");
+            for (idx, ev) in pb.spec.events.iter().enumerate() {
+                if ev.at_s >= repeat.from_s && ev.at_s < repeat.to_s {
+                    pb.fired[idx] = false;
+                }
+            }
+        }
 
         // Timed events crossing (t_prev, t] fire exactly once, in order.
         // Split-borrow locals keep the fired flags and the spec readable
@@ -1736,6 +1786,29 @@ pub fn trigger_moveset_moves(
             // cancel window covering `t` permits it under the hit-state
             // condition. Otherwise: today's reject, byte-identically.
             let Some(spec) = spec else { continue };
+            // ⭐ THE CHAIN. A follow-up press inside a cancel window takes the
+            // successor that window NAMES instead of restarting the move that
+            // is playing — jab into jab2 into jab3, authored as a cancel table
+            // and nothing else.
+            //
+            // Only an UNDIRECTED re-press of the attack family takes it, which
+            // is what keeps this a chain rather than a second cancel rule: in
+            // this genre a tilt out of jab 1 is a tilt, and a directed press is
+            // a genuine move-into-move that already had its answer. ⛔ no
+            // fighter id and no move-name special case — the vocabulary is the
+            // `into` list a window already authors.
+            let neutral_repress = proposer == ProposedVerb::Attack
+                && gesture.pressed.map(|intent| intent.direction) == Some(AttackDir::Neutral);
+            let spec = if neutral_repress {
+                pb.spec
+                    .cancel_successors(pb.t, pb.landed_hit)
+                    .find(|id| *id != pb.spec.id.as_str())
+                    .and_then(|id| moveset.0.move_by_id(id))
+                    .cloned()
+                    .unwrap_or(spec)
+            } else {
+                spec
+            };
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
             if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {

@@ -143,6 +143,10 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         // resolved once at the move's start and then frozen — a peer that
         // reconstructed it from a differently-authored spec would agree about
         // the elapsed hold and disagree about what it bought.
+        // A LOOPED move's lap count is state: a rewind that restored the clock
+        // without it would resimulate a flurry with a fresh maximum, so one
+        // peer's rapid jab ends and the other's does not.
+        put_f32(out, self.looped_s);
         match self.charge {
             Some(charge) => {
                 put_bool(out, true);

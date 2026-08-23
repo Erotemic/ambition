@@ -7,9 +7,12 @@
 //! shader discards every fragment (no GPU work) and the source sprite renders
 //! normally.
 //!
-//! Three cues, one overlay, and the priority between them is decided in
+//! Four cues, one overlay, and the priority between them is decided in
 //! [`overlay_look`] rather than by whichever pass wrote last:
 //!
+//! - **impact flash**, a hot strength-scaled pop for exactly the hitlag a
+//!   connect bought. A jab gets almost nothing and a smash gets a wall of
+//!   light, off one resolved number and with no threshold in between;
 //! - **damage flash**, pure white, held then faded over its `hit_flash` timer;
 //! - **intangibility blink**, a pale pulse for exactly as long as the body
 //!   cannot be struck. It reads the sim's resolved `unhittable` fact, never a
@@ -20,12 +23,18 @@
 //!   held charge fills, so latched / building / loaded are three readings of
 //!   one number.
 //!
-//! The order is damage flash, then blink, then charge, and each step of it is
-//! a decision about what an opponent needs to know first. Being struck is the
-//! loudest fact and is over in a fifth of a second. Intangibility outranks the
-//! charge because misreading it wastes a whole attack, where misreading a
-//! charge costs spacing — and a body that is both is telling you the same
-//! thing either way: do not go in.
+//! The order is impact, then damage flash, then blink, then charge, and each
+//! step of it is a decision about what an opponent needs to know first. A
+//! landed hit is the loudest fact there is and it is over in a few frames;
+//! its tail is the damage flash. Intangibility outranks the charge because
+//! misreading it wastes a whole attack, where misreading a charge costs
+//! spacing — and a body that is both is telling you the same thing either way:
+//! do not go in.
+//!
+//! The two cues an impact interrupts are STATES, and they RESUME rather than
+//! restart: both are pure functions of the sim tick, so when the flash ends
+//! the blink and the pulse are exactly where they would have been. That is
+//! what lets the impact be brief without costing the state it covered.
 //!
 //! Every cue is drawn by sampling the SOURCE sprite's own atlas frame and flip
 //! flag, so silhouette and facing are preserved by construction rather than by
@@ -93,6 +102,20 @@ const CHARGE_PEAK_LOADED: f32 = 0.72;
 /// The tick count the pulse's phase wraps on. Large enough that the seam is
 /// once a minute at 60Hz, small enough that `tick as f32` keeps its precision.
 const CHARGE_PHASE_WRAP: u64 = 3600;
+
+/// The impact flash's colour: hotter and yellower than the damage flash's
+/// white, so a heavy connect and its own fading tail are two readings rather
+/// than one long one.
+const IMPACT_TINT: Vec3 = Vec3::new(1.0, 0.93, 0.74);
+
+/// Overlay intensity of an impact at the weakest connect and at the ceiling.
+///
+/// The floor is deliberately non-zero: every connect that produces hitlag at
+/// all is worth a frame of light, and the strength read is what separates a
+/// jab from a smash — not a threshold. Playtesting can add one; nothing here
+/// assumes it.
+const IMPACT_MIN_INTENSITY: f32 = 0.30;
+const IMPACT_MAX_INTENSITY: f32 = 1.0;
 
 /// Z bias for the overlay mesh — must sit IN FRONT of every other
 /// per-character overlay so the white silhouette is never covered.
@@ -411,6 +434,10 @@ pub struct OverlayFacts {
     /// The body cannot be struck right now. Resolved sim-side from the damage
     /// rule; presentation never re-derives it.
     pub unhittable: bool,
+    /// How hard the hit currently freezing this body was, `0..=1`; `0.0` when
+    /// no hitlag is running. Resolved sim-side from the hitlag the hit already
+    /// set, so nothing here touches hit resolution.
+    pub hit_strength: f32,
     /// A smash charge is being HELD, normalized `0..=1`. Resolved sim-side by
     /// `MovePlayback::smash_charge_fraction`; `None` the instant it releases.
     ///
@@ -449,6 +476,7 @@ fn overlay_facts_for_source(
             .get(source_entity)
             .map(|p| OverlayFacts {
                 hit_flash_secs: Some(p.hit_flash_secs),
+                hit_strength: p.hit_strength,
                 unhittable: p.unhittable,
                 smash_charge: p.smash_charge,
             })
@@ -464,6 +492,7 @@ fn overlay_facts_for_source(
         .get(feature.id.as_str())
         .map(|view| OverlayFacts {
             hit_flash_secs: Some(view.hit_flash_secs),
+            hit_strength: view.hit_strength,
             unhittable: view.unhittable,
             smash_charge: None,
         })
@@ -500,6 +529,12 @@ fn overlay_look(
     if matches!(source_visibility, Some(Visibility::Hidden)) {
         return (0.0, FLASH_TINT);
     }
+    // The IMPACT, first and briefest: it lasts exactly the hitlag the connect
+    // bought, which is a few frames for a jab and a real beat for a smash.
+    let impact = impact_intensity(facts.hit_strength);
+    if impact > 0.0 {
+        return (impact, IMPACT_TINT);
+    }
     let flash = facts.hit_flash_secs.map_or(0.0, normalize_hit_flash);
     if flash > 0.0 {
         return (flash, FLASH_TINT);
@@ -511,6 +546,21 @@ fn overlay_look(
         return (charge_pulse_intensity(charge, tick), CHARGE_TINT);
     }
     (0.0, FLASH_TINT)
+}
+
+/// The impact flash's intensity for a connect of this strength.
+///
+/// `0.0` means no hitlag is running, and only that: a body IN hitlag always
+/// flashes, because the weakest connect the hitlag law admits is still a
+/// connect. Between the floor and the ceiling the read is proportional, so a
+/// jab and a smash differ by how much light rather than by whether there is
+/// any — no threshold, and none needed unless playtesting asks.
+fn impact_intensity(strength: f32) -> f32 {
+    if strength <= 0.0 {
+        return 0.0;
+    }
+    let strength = strength.clamp(0.0, 1.0);
+    IMPACT_MIN_INTENSITY + (IMPACT_MAX_INTENSITY - IMPACT_MIN_INTENSITY) * strength
 }
 
 /// The smash-charge pulse's intensity at one sim tick.
@@ -701,6 +751,7 @@ mod tests {
     fn the_damage_flash_outranks_the_intangibility_blink() {
         let both = OverlayFacts {
             hit_flash_secs: Some(0.2),
+            hit_strength: 0.0,
             unhittable: true,
             smash_charge: None,
         };
@@ -713,6 +764,7 @@ mod tests {
         // And once the flash drains, the blink takes over rather than nothing.
         let after = OverlayFacts {
             hit_flash_secs: Some(0.0),
+            hit_strength: 0.0,
             unhittable: true,
             smash_charge: None,
         };
@@ -792,6 +844,7 @@ mod tests {
     fn a_charge_yields_to_both_louder_cues() {
         let charging = OverlayFacts {
             hit_flash_secs: Some(0.0),
+            hit_strength: 0.0,
             unhittable: false,
             smash_charge: Some(1.0),
         };
@@ -811,6 +864,7 @@ mod tests {
         // Struck while charging reads as struck, whatever else is true.
         let struck_while_charging = OverlayFacts {
             hit_flash_secs: Some(0.2),
+            hit_strength: 0.0,
             unhittable: true,
             smash_charge: Some(1.0),
         };
@@ -825,9 +879,85 @@ mod tests {
         }
     }
 
+    /// A connect flashes in proportion to how hard it was, with no threshold
+    /// in between — and a body that is not in hitlag does not flash at all.
+    #[test]
+    fn the_impact_flash_scales_with_the_connect_rather_than_switching_on() {
+        assert_eq!(impact_intensity(0.0), 0.0, "no hitlag, no impact");
+        assert_eq!(impact_intensity(-1.0), 0.0);
+
+        // Every connect that produced hitlag is worth light.
+        let weakest = impact_intensity(f32::EPSILON);
+        assert!(weakest >= IMPACT_MIN_INTENSITY, "{weakest}");
+
+        // Proportional across the band, monotone, and capped.
+        let mut previous = 0.0;
+        for strength in [0.1, 0.25, 0.5, 0.75, 1.0] {
+            let now = impact_intensity(strength);
+            assert!(
+                now > previous,
+                "{strength} did not rise: {now} <= {previous}"
+            );
+            previous = now;
+        }
+        assert_eq!(impact_intensity(1.0), IMPACT_MAX_INTENSITY);
+        assert_eq!(impact_intensity(9.0), IMPACT_MAX_INTENSITY);
+    }
+
+    /// The impact is the LOUDEST cue, and the states it interrupts RESUME
+    /// where they would have been rather than restarting. That is what lets it
+    /// be brief without costing the state it covered.
+    #[test]
+    fn an_impact_interrupts_the_states_without_resetting_them() {
+        let struck_mid_charge = OverlayFacts {
+            hit_flash_secs: Some(0.2),
+            hit_strength: 0.8,
+            unhittable: true,
+            smash_charge: Some(0.5),
+        };
+        let tick = 17;
+        assert_eq!(
+            overlay_look(struck_mid_charge, tick, None).1,
+            IMPACT_TINT,
+            "a landed hit outranks the flash, the blink and the pulse"
+        );
+
+        // The moment the hitlag ends, the states are exactly where the tick
+        // says they should be — not restarted from zero.
+        let after = OverlayFacts {
+            hit_strength: 0.0,
+            ..struck_mid_charge
+        };
+        let (_, tint) = overlay_look(after, tick, None);
+        assert_eq!(tint, FLASH_TINT, "the damage tail takes over next");
+
+        let blinking = OverlayFacts {
+            hit_flash_secs: Some(0.0),
+            hit_strength: 0.0,
+            unhittable: true,
+            smash_charge: Some(0.5),
+        };
+        assert_eq!(
+            overlay_look(blinking, tick, None).0,
+            blink_intensity(tick),
+            "the blink resumes at the tick's phase, not from the start"
+        );
+
+        let pulsing = OverlayFacts {
+            unhittable: false,
+            ..blinking
+        };
+        assert_eq!(
+            overlay_look(pulsing, tick, None).0,
+            charge_pulse_intensity(0.5, tick),
+            "and so does the charge pulse"
+        );
+    }
+
     fn flash(secs: f32) -> OverlayFacts {
         OverlayFacts {
             hit_flash_secs: Some(secs),
+            hit_strength: 0.0,
             unhittable: false,
             smash_charge: None,
         }
@@ -836,6 +966,7 @@ mod tests {
     fn intangible() -> OverlayFacts {
         OverlayFacts {
             hit_flash_secs: Some(0.0),
+            hit_strength: 0.0,
             unhittable: true,
             smash_charge: None,
         }

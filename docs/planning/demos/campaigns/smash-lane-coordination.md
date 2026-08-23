@@ -169,6 +169,8 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | P2 i-frame blink | PRESENTATION | ✔ `0c29e9cf0` — `unhittable` on both body read-models is `body_vulnerable` inverted; the hit-flash overlay carries both cues, damage wins |
 | P3 tech/parry cues | PRESENTATION | ◑ tech half done `1f96165eb` — own spark ring and cue, split from GetupRoll; parry half still BLOCKED on M7's successful-contact fact |
 | W7 dizzy stars | PRESENTATION | ✔ `f04989c78` — second pooled `GuardBreaksView`; stars orbit the body's own up; the bubble now turns with the body too |
+| W7 strong-hit flash | PRESENTATION | ✔ `94686e5ec` — `hit_strength_fraction` inverts the hitlag law in the kernel; fourth arbitrated overlay cue, proportional, no threshold |
+| W7 near-KO trail tier | PRESENTATION | ✔ `466dfb028` — plume shifts smoke→ember above the near-KO speed, on P1's existing launched fact |
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |

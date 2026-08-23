@@ -72,6 +72,13 @@ pub struct FeatureView {
     /// Actor rows only: the sandbag/training-dummy depiction flag the debug
     /// health overlay colors by.
     pub training_dummy: bool,
+    /// HOW HARD the hit currently freezing this body was, `0..=1`, and `0.0`
+    /// when no hitlag is running.
+    ///
+    /// Resolved by `ambition_platformer2d_core::hit_response::hit_strength_fraction`
+    /// from the hitlag the hit already set — the same quantity camera shake
+    /// reads. `0.0` for every feature that is not a body.
+    pub hit_strength: f32,
     /// This body CANNOT BE STRUCK right now — the presentation half of
     /// `ambition_combat::util::body_vulnerable`, resolved at this one site so
     /// no renderer ever re-derives hit eligibility from a pose or a move name.
@@ -195,6 +202,9 @@ impl FeatureViewIndex {
 /// `ecs_feature_view` performed.
 pub fn rebuild_feature_view_index(
     mut index: ResMut<FeatureViewIndex>,
+    // The reference the hitlag law scales from, so the published strength is a
+    // fraction rather than a raw freeze presentation would have to interpret.
+    feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     pickups: Query<(&FeatureId, &CenteredAabb, Option<&Collected>), With<PickupFeature>>,
     chests: Query<(&FeatureId, &CenteredAabb, Option<&Opened>), With<ChestFeature>>,
     breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature)>,
@@ -248,6 +258,9 @@ pub fn rebuild_feature_view_index(
     )>,
 ) {
     index.begin_rebuild();
+    // No feel tuning means no hitlag law to measure against: every body reports
+    // no strength rather than a number derived from a reference nobody set.
+    let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
     for (id, aabb, collected) in &pickups {
         index.insert_if_absent(
             id.as_str(),
@@ -268,6 +281,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                hit_strength: 0.0,
                 unhittable: false,
                 sprite_offset: None,
             },
@@ -293,6 +307,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                hit_strength: 0.0,
                 unhittable: false,
                 sprite_offset: None,
             },
@@ -318,6 +333,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: breakable.breakable.health.current,
                 hp_max: breakable.breakable.health.max,
                 training_dummy: false,
+                hit_strength: 0.0,
                 unhittable: false,
                 sprite_offset: None,
             },
@@ -343,6 +359,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                hit_strength: 0.0,
                 unhittable: false,
                 sprite_offset: None,
             },
@@ -361,8 +378,7 @@ pub fn rebuild_feature_view_index(
         shield,
         roll,
         sprite_offset,
-    ) in
-        &actors
+    ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
         // ONE actor kind. "enemy vs NPC vs training-dummy" was never a render
@@ -423,14 +439,17 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: combat.is_some_and(|c| c.training_dummy),
+                hit_strength: ae::hit_response::hit_strength_fraction(
+                    combat.map_or(0.0, |c| c.hitstop_timer),
+                    hitlag_reference,
+                ),
                 // THE DAMAGE RULE ITSELF, inverted — not a second reading of
                 // it. A body missing one of these clusters cannot be protected
                 // by it, so the default stands in.
                 unhittable: !ambition_combat::util::body_vulnerable(
-                    health.map_or_else(
-                        ambition_characters::actor::Invulnerability::none,
-                        |h| h.health.invulnerable,
-                    ),
+                    health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                        h.health.invulnerable
+                    }),
                     motion.is_some_and(|m| m.evading()),
                     &shield.copied().unwrap_or_default(),
                     &combat.copied().unwrap_or_default(),
@@ -459,6 +478,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: 0,
                 hp_max: 0,
                 training_dummy: false,
+                hit_strength: 0.0,
                 unhittable: false,
                 sprite_offset: None,
             },
@@ -501,6 +521,7 @@ pub fn rebuild_feature_view_index(
                 hp_current: health.map_or(0, |h| h.current()),
                 hp_max: health.map_or(0, |h| h.max()),
                 training_dummy: false,
+                hit_strength: 0.0,
                 unhittable: false,
                 sprite_offset: None,
             },
@@ -745,10 +766,7 @@ impl BossRenderIndex {
 /// materialized.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
-    bosses: Query<(
-        &FeatureId,
-        ambition_boss_encounter::BossClusterRef,
-    )>,
+    bosses: Query<(&FeatureId, ambition_boss_encounter::BossClusterRef)>,
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
@@ -940,6 +958,7 @@ mod view_index_tests {
             hp_current: 0,
             hp_max: 0,
             training_dummy: false,
+            hit_strength: 0.0,
             unhittable: false,
             sprite_offset: None,
         }

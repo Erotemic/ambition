@@ -61,6 +61,14 @@ pub struct BodyPoseView {
     /// is open and is therefore true of every raised guard for a few ticks —
     /// a cue driven off that one fires on every shield raise.
     pub parry_flash_secs: f32,
+    /// HOW HARD the hit currently freezing this body was, `0..=1`, and `0.0`
+    /// when no hitlag is running.
+    ///
+    /// Resolved by `ambition_platformer2d_core::hit_response::hit_strength_fraction`
+    /// from the hitlag the hit already set — the same quantity camera shake
+    /// reads. Presentation never re-derives weight from damage, knockback or a
+    /// move name, and hit resolution is untouched by anything that consumes it.
+    pub hit_strength: f32,
     /// This body CANNOT BE STRUCK right now — the presentation half of
     /// `ambition_combat::util::body_vulnerable`, resolved here so no renderer
     /// re-derives hit eligibility from a pose or a move name.
@@ -125,6 +133,7 @@ impl Default for BodyPoseView {
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
             parry_flash_secs: 0.0,
+            hit_strength: 0.0,
             unhittable: false,
             hp_current: 0,
             hp_max: 0,
@@ -146,6 +155,9 @@ impl Default for BodyPoseView {
 pub fn rebuild_body_pose_views(
     mut commands: Commands,
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
+    // The reference the hitlag law scales from, so the published strength is a
+    // fraction rather than a raw freeze presentation would have to interpret.
+    feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
     mut bodies: Query<
         (
             (
@@ -212,6 +224,9 @@ pub fn rebuild_body_pose_views(
     let gravity_dir = gravity
         .as_deref()
         .map_or(ambition_platformer2d_core::Vec2::Y, |g| g.dir);
+    // No feel tuning means no hitlag law to measure against: every body reports
+    // no strength rather than a number derived from a reference nobody set.
+    let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
     for (
         (
             entity,
@@ -334,6 +349,10 @@ pub fn rebuild_body_pose_views(
                 .or_else(|| charge.map(|_| crate::ClipRequest::only(crate::SMASH_CHARGE_CLIP))),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
+            hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(
+                combat.map_or(0.0, |c| c.hitstop_timer),
+                hitlag_reference,
+            ),
             // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
             // body missing one of these clusters cannot be protected by it, so
             // the default stands in.

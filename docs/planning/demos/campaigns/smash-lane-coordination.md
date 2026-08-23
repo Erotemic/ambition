@@ -373,3 +373,22 @@ SITUATION the body ends the next second in, and every other score is read in tha
 situation. ⛔ Do not hand-edit these; the brain has `brain::fighter::evaluation`
 and `scenarios` for exactly this, and its own doc says survival and damage need a
 match harness — which `bin/match_report` now is. Joining those two is the slice.
+
+## The one rule three lanes learned separately in two days
+
+> **A constant fitted to observed behaviour is a claim about that behaviour, and
+> it stops being true when the behaviour changes.**
+
+Three instances, one per seat, none of them a bug at the site that failed:
+
+- `TRAIL_ONSET_SPEED = 650` was fitted when launches were being thrown away, so
+  the launch trail could never fire. The real peak was 411.
+- `damage` in `match_report` read the LAST percent, so a run in which both
+  fighters died reported as a run in which nothing happened.
+- the camera's exponential chase sits `closing speed / rate` behind by
+  construction. It had always been 36 units back; nobody could see it until the
+  fight started launching bodies vertically.
+
+⇒ **write the sample size and the percentile into the source beside any constant
+fitted to data**, and re-measure it whenever the thing it describes changes. The
+presentation lane does this now; it is worth copying.

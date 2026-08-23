@@ -162,7 +162,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 |---|---|---|
 | M1 input buffer | MECHANICS | ✔ merged `7d99fae57` |
 | M2 smash charge | MECHANICS | ✔ merged `2ec892149` |
-| M3 invuln/armor windows | MECHANICS | ▢ |
+| M3 invuln/armor windows | MECHANICS | ✔ `36c24ea69` |
 | M4 out-of-shield policy | MECHANICS | ▢ |
 | M5 jab chains | MECHANICS | ▢ |
 | P1 launch trail | PRESENTATION | ✔ `882fe8fa5` — `LaunchedBodiesView` publishes involuntary flight; Dust plume behind the velocity vector, sim-tick cadence |
@@ -174,9 +174,11 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |
-| M7 successful-parry-contact fact | MECHANICS | ▢ — blocks P3 |
+| **M8 the fight stopped resolving** | MECHANICS | ▢▢ **P0** — no eliminations, no tumbles, 23% unhittable |
+| **M9 the post-hit gate deletes the tech** | MECHANICS | ▢▢ **P0** — `Burst` stripped for all of hitstun |
+| M7 successful-parry-contact fact | MECHANICS | ✔ `36c24ea69` — `parry_flash_secs` |
 | C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` |
-| C2 CPU tech | COORDINATOR | ▢ |
+| C2 CPU tech | COORDINATOR | ~ the brain presses; the gate deletes it (M8) |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
 
@@ -198,3 +200,21 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
   test targets.** A field added to a rollback-registered type broke
   `ambition_platformer2d_rollback_ggrs`'s lib test and nothing in the per-slice
   gate saw it. `cargo test --workspace --lib` is the tier that does.
+
+## The instrument
+
+```bash
+cargo run -p ambition_demo_smash_app --bin match_report -- [SECONDS] [CHARACTER]
+```
+
+Counts what two CPUs actually do to each other: damage, moves, hitstun, tumbles,
+knockdowns, evades, unhittable ticks, shields, parries, techs, the best charge
+reached, and the hardest launch handed out against the body's own tumble
+threshold. Run it after any change that claims to affect how a fight goes.
+
+⭐ **It exists because three slices in two days shipped green and inert.** The
+smash charge, directional influence and the tech each passed their unit tests
+while nothing happened in a match, and each was caught by counting rather than by
+asserting. ⛔ a unit test that drives a kernel with a synthetic input proves the
+FUNCTION and says nothing about the WIRING — the tech's kernel tests are green
+today and no body in the game can tech.

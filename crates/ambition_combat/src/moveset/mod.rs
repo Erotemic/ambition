@@ -568,6 +568,35 @@ pub struct StrikeVolume {
     pub window: usize,
 }
 
+/// Where this volume sits in its move's AUTHORED order — the sweetspot rule.
+///
+/// A move that wants a good and a bad way to land it authors two volumes: the
+/// tip that kills and the base that does not. Both are live at once and both
+/// reach a body standing between them, and the runtime spawns one hitbox per
+/// volume with its own dedup — so a single swing landed BOTH. Measured before
+/// this existed: one press, one Active window, two overlapping volumes, and a
+/// victim that took 15 and then 4, with two knockbacks. The vocabulary the
+/// parity inventory asks for was not merely unimplemented; authoring it
+/// produced a double hit.
+///
+/// ⭐ THE PRIORITY IS THE AUTHORING ORDER, and that is the genre's rule rather
+/// than a preference: Smash resolves overlapping hitboxes of one attack by
+/// their id, lowest first, so an author orders the tip before the base and the
+/// tip wins. Nothing new had to be invented to say it — a move already lists
+/// its volumes in an order, and this is the runtime finally honouring it.
+///
+/// ⛔ NOT a per-move exception and not a `priority` field: adding one would let
+/// two volumes claim the same rank and make the answer depend on query order,
+/// which is the determinism trap this repository keeps rediscovering.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StrikeRank {
+    /// The window this volume was authored in, then its index within that
+    /// window — the move's own reading order, flattened so one comparison
+    /// answers "which of these two did the author write first".
+    pub window: u16,
+    pub volume: u16,
+}
+
 impl bevy::ecs::entity::MapEntities for StrikeVolume {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         self.owner = mapper.get_mapped(self.owner);
@@ -1116,6 +1145,13 @@ pub fn advance_move_playback(
                             StrikeVolume {
                                 owner,
                                 window: w_idx,
+                            },
+                            // The authored order travels with the volume, so
+                            // the arbitration at the strike seam needs nothing
+                            // but the boxes it already has in hand.
+                            StrikeRank {
+                                window: w_idx as u16,
+                                volume: v_idx as u16,
                             },
                         ));
                         // I4: a stable identity for the transient box, derived from

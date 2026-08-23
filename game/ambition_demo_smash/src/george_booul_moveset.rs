@@ -177,6 +177,39 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     f_smash.smash_charge_mult = 1.7;
+    // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
+    // a body reached by both takes it. This is the base: the same commitment
+    // landed at the wrong distance, which hurts and does not kill.
+    //
+    // George's forward smash is his longest commitment (0.40s of windup, 0.46s
+    // of recovery), and until now every distance inside its reach paid the
+    // same. Spacing it is a skill on the move now without the move becoming
+    // two. ⛔ the ORDER in this list is the priority — writing the base first
+    // would make every forward smash a base hit and nothing would warn you.
+    for window in f_smash.windows.iter_mut().filter(|w| {
+        matches!(
+            w.tag,
+            ambition_platformer2d::entity_catalog::WindowTag::Active
+        )
+    }) {
+        let tip = window.volumes[0].clone();
+        window
+            .volumes
+            .push(ambition_platformer2d::entity_catalog::HitVolume {
+                shape: ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+                    // Inboard of the tip and overlapping it, so a body between
+                    // the two is genuinely reached by both.
+                    offset: (16.0, -4.0),
+                    half_extents: (18.0, 24.0),
+                },
+                damage: 11,
+                knockback: 82.0,
+                knockback_growth: 82.0 * crate::SMASH_KNOCKBACK_GROWTH,
+                // Flatter and weaker: a base hit puts them beside you, not away.
+                launch_dir: Some((1.0, -0.16)),
+                ..tip
+            });
+    }
     let f_smash = feel(f_smash, Feel::Heavy);
 
     let mut up_smash = strike(Strike {

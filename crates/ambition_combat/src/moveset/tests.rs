@@ -4300,3 +4300,151 @@ fn a_flurry_held_forever_still_ends() {
     }
     panic!("a flurry held past its authored maximum never ended, so holding the button is a stall");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sweetspot and sourspot.
+//
+// One move, two authored volumes, and a victim that must take exactly one of
+// them — the one the author wrote first.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A move whose Active window authors `volumes` in the given order.
+fn two_spot_move(id: &str, volumes: Vec<HitVolume>) -> MoveSpec {
+    let mut spec = uncancelable(id);
+    spec.duration_s = 0.3;
+    spec.windows = vec![MoveWindow {
+        start_s: 0.0,
+        end_s: 0.2,
+        tag: WindowTag::Active,
+        volumes,
+        sustain_effect: None,
+        motion_scale: 1.0,
+    }];
+    spec
+}
+
+fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
+    HitVolume {
+        hit_sfx: None,
+        shape: ambition_entity_catalog::VolumeShape::Rect {
+            offset,
+            half_extents: (30.0, 30.0),
+        },
+        damage,
+        knockback: 100.0,
+        knockback_growth: 0.0,
+        launch_dir: None,
+        on_hit: None,
+        vfx: None,
+    }
+}
+
+/// The full chain plus damage resolution, with one victim standing where BOTH
+/// volumes reach it.
+fn two_spot_app(volumes: Vec<HitVolume>) -> (App, Entity) {
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), "two_spots".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![two_spot_move("two_spots", volumes)],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.init_resource::<Captured>();
+    app.add_systems(
+        Update,
+        (apply_hitbox_damage, capture)
+            .chain()
+            .after(advance_move_playback),
+    );
+    app.world_mut().spawn((
+        ActorFaction::Enemy,
+        ae::CenteredAabb::from_center_size(ae::Vec2::new(24.0, 0.0), ae::Vec2::new(20.0, 40.0)),
+        ambition_platformer2d_core::BodyOffense::default(),
+        ambition_platformer2d_core::BodyMotionFacts::default(),
+        ambition_platformer2d_core::BodyShieldState::default(),
+        ambition_characters::actor::BodyCombat::default(),
+        ambition_characters::actor::BodyHealth::restored(
+            ambition_characters::actor::Health::new(100),
+            0,
+            Default::default(),
+        ),
+    ));
+    (app, body)
+}
+
+fn swing_and_collect(app: &mut App, body: Entity) -> Vec<i32> {
+    set_frame(app, body, |f| f.melee_pressed = true);
+    app.update();
+    set_frame(app, body, |f| f.melee_pressed = false);
+    for _ in 0..12 {
+        app.update();
+    }
+    app.world()
+        .resource::<Captured>()
+        .hits
+        .iter()
+        .filter(|h| matches!(h.target, crate::events::HitTarget::Body(_)))
+        .map(|h| h.damage)
+        .collect()
+}
+
+/// ⭐ ONE SWING IS ONE HIT, and it is the volume the author wrote first.
+///
+/// Measured before this rule existed: a single press with a tip and a base
+/// overlapping one body produced TWO damage events and two knockbacks, 15 then
+/// 4. A move with a good and a bad way to land it read as "land it twice",
+/// which is what made the sweetspot vocabulary unusable rather than merely
+/// missing.
+#[test]
+fn a_body_reached_by_both_spots_takes_only_the_first_authored_one() {
+    let (mut app, body) = two_spot_app(vec![spot((20.0, 0.0), 15), spot((22.0, 0.0), 4)]);
+    assert_eq!(
+        swing_and_collect(&mut app, body),
+        vec![15],
+        "one swing landed more than one of its own volumes on one body"
+    );
+}
+
+/// The order is the AUTHORING, not the damage: reverse the list and the weak
+/// one wins, because an author who writes the base first meant the base.
+#[test]
+fn reversing_the_authored_order_reverses_which_spot_lands() {
+    let (mut app, body) = two_spot_app(vec![spot((22.0, 0.0), 4), spot((20.0, 0.0), 15)]);
+    assert_eq!(
+        swing_and_collect(&mut app, body),
+        vec![4],
+        "the arbitration is picking by damage or by query order rather than by \
+         the order the move lists its volumes in"
+    );
+}
+
+/// ⛔ AND A MOVE THAT IS GENUINELY MULTI-HIT IS UNTOUCHED. Volumes that do not
+/// overlap the same body still each land: the rule stands down a loser only
+/// where a better-ranked sibling actually REACHES the victim, so a drill whose
+/// two boxes cover different bodies is not quietly halved.
+#[test]
+fn volumes_that_do_not_both_reach_the_body_both_still_land() {
+    let (mut app, body) = two_spot_app(vec![spot((20.0, 0.0), 15), spot((400.0, 0.0), 4)]);
+    // A SECOND body, standing in the far volume and nowhere near the near one.
+    app.world_mut().spawn((
+        ActorFaction::Enemy,
+        ae::CenteredAabb::from_center_size(ae::Vec2::new(400.0, 0.0), ae::Vec2::new(20.0, 40.0)),
+        ambition_platformer2d_core::BodyOffense::default(),
+        ambition_platformer2d_core::BodyMotionFacts::default(),
+        ambition_platformer2d_core::BodyShieldState::default(),
+        ambition_characters::actor::BodyCombat::default(),
+        ambition_characters::actor::BodyHealth::restored(
+            ambition_characters::actor::Health::new(100),
+            0,
+            Default::default(),
+        ),
+    ));
+    let mut landed = swing_and_collect(&mut app, body);
+    landed.sort_unstable();
+    assert_eq!(
+        landed,
+        vec![4, 15],
+        "each body should take the one volume that reaches IT — the rule is \
+         standing a volume down globally instead of per victim"
+    );
+}

@@ -93,6 +93,11 @@ struct Tally {
     /// observed at the one edge that survives the body being removed and
     /// replaced.
     kos: usize,
+    /// Every move START, by id. The decision histogram says what the brain
+    /// PRESSED; this says what the body actually threw — and the two differ
+    /// wherever the runtime takes a cancel window's nomination, which is exactly
+    /// where a chain lives.
+    started: std::collections::BTreeMap<String, usize>,
     /// Ticks this body spent HELD by somebody. A grab is the most visible beat
     /// in the genre that a CPU can simply never throw, and "moves started"
     /// cannot see it: a grab that is refused and a grab that is never attempted
@@ -340,6 +345,20 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally]) {
             tally.tumble_speed,
         );
     }
+    let mut moves: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+    for tally in totals {
+        for (id, count) in &tally.started {
+            *moves.entry(id.as_str()).or_default() += count;
+        }
+    }
+    if !moves.is_empty() {
+        let mut rows: Vec<_> = moves.into_iter().collect();
+        rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
+        println!("\nwhat the bodies actually threw:");
+        for (id, count) in rows.iter().take(12) {
+            println!("  {id:<28} {count:>5}");
+        }
+    }
     println!("\nwhy each body could not be struck, by the term that refused:");
     println!(
         "{:<6} {:>10} {:>10} {:>10} {:>14} {:>10}",
@@ -537,6 +556,7 @@ fn sample(
             };
             if fresh {
                 tally.moves_started += 1;
+                *tally.started.entry(id.clone()).or_default() += 1;
             }
             live_move[seat] = Some((id, t));
             if let Some(fraction) = charge {

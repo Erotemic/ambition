@@ -77,6 +77,11 @@ struct Tally {
     /// observed at the one edge that survives the body being removed and
     /// replaced.
     kos: usize,
+    /// Ticks this body spent HELD by somebody. A grab is the most visible beat
+    /// in the genre that a CPU can simply never throw, and "moves started"
+    /// cannot see it: a grab that is refused and a grab that is never attempted
+    /// look identical from the move table.
+    held: usize,
 }
 
 fn main() {
@@ -269,11 +274,12 @@ fn sample(
         Option<&ae::BodyMotionFacts>,
         Option<&ae::BodyShieldState>,
         Option<&ambition_platformer2d::actors::features::MotionModel>,
+        Option<&ambition_platformer2d::combat::capture::CapturedBy>,
     )>();
     let rows: Vec<_> = q
         .iter(world)
         .map(
-            |(seat, health, combat, kin, playback, facts, shield, model)| {
+            |(seat, health, combat, kin, playback, facts, shield, model, captured)| {
                 (
                     seat.0,
                     health.damage_taken(),
@@ -302,6 +308,7 @@ fn sample(
                         _ => None,
                     },
                     kin.pos.x,
+                    captured.is_some(),
                 )
             },
         )
@@ -322,6 +329,7 @@ fn sample(
         shield,
         tech_timer,
         here,
+        captured,
     ) in rows
     {
         let Some(tally) = totals.get_mut(seat) else {
@@ -332,6 +340,9 @@ fn sample(
         }
         last_damage[seat] = damage;
         tally.damage = tally.damage.max(damage);
+        if captured {
+            tally.held += 1;
+        }
         if positions
             .iter()
             .any(|(other, x)| *other != seat && (x - here).abs() <= IN_RANGE_PX)
@@ -456,6 +467,7 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!("  techs       {}", spread(|t| t.tech_armed as f32));
     println!("  in range    {}", spread(|t| t.in_range as f32));
     println!("  KOs         {}", spread(|t| t.kos as f32));
+    println!("  held        {}", spread(|t| t.held as f32));
     println!("  best charge {}", peak(|t| t.best_charge));
     println!("  peak launch {}", peak(|t| t.top_speed));
     println!(

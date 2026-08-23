@@ -23,10 +23,25 @@ pub const LEDGE_ROLL_TIME: f32 = 0.30;
 /// Duration of a getup-attack (Smash-style "ledge attack"). The
 /// player lifts to the platform on the same curve as the climb but
 /// swings during the lift; the active hitbox fires at the start and
-/// the player has invuln frames via `Player::dodge_roll_timer` for
+/// the player has invuln frames via `AxisManeuverState::ledge_invuln_timer` for
 /// the duration. Tuned slightly longer than a plain climb to give the
 /// swing time to read.
 pub const LEDGE_GETUP_ATTACK_TIME: f32 = 0.30;
+
+/// How much of a ledge getup ATTACK is intangible.
+///
+/// ⚠ THE WHOLE ATTACK, which is a design choice this constant exists to make
+/// VISIBLE rather than to settle. It was inherited rather than decided: the
+/// getup attack borrowed the dodge roll's timer for its full duration, so an
+/// attack thrown from the edge was untouchable through its own recovery — free,
+/// and the one ledge option with no punish. Ultimate covers roughly the first
+/// half of its ledge attack and leaves the tail exposed, which is what makes
+/// contesting the edge a read.
+///
+/// Left at the full duration so this split changes NOTHING about what refuses
+/// damage. Shortening it is a one-line tuning decision now that there is a line
+/// to shorten.
+pub const LEDGE_GETUP_ATTACK_INVULN: f32 = LEDGE_GETUP_ATTACK_TIME;
 
 /// How much further inboard the roll lands than the climb. The roll
 /// target is `climb_target + into_axis * LEDGE_ROLL_OVERSHOOT`,
@@ -49,7 +64,7 @@ pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.06;
 /// Intangibility window granted at the moment the player grabs a
 /// ledge. Mirrors Smash's "ledge intangibility" so a grab can't be
 /// punished by edge-guards on contact. Plumbed through
-/// `Player::dodge_roll_timer` because that field already powers the
+/// `AxisManeuverState::ledge_invuln_timer`, which is the ledge's own window and
 /// engine's "invuln while rolling" gate; reusing it keeps the damage
 /// pipeline single-source.
 pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
@@ -145,7 +160,7 @@ pub enum LedgeGetupKind {
     Climb,
     /// Smash-Bros style ledge roll: faster, covers more ground past
     /// the platform edge, and grants invulnerability for the whole
-    /// duration via `Player::dodge_roll_timer`.
+    /// duration via `AxisManeuverState::ledge_invuln_timer`.
     Roll,
     /// Smash-Bros style ledge getup attack: the player swings onto the
     /// platform, attacking on the way up. Movement follows the same

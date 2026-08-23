@@ -24,7 +24,7 @@ fn hanging_at(app: &mut App, id: &str, anchor: ae::Vec2, elapsed: f32) -> Entity
         })
     });
     // The window a grab arms, so losing it is observable.
-    axis.state.dodge_roll_timer = ae::LEDGE_GRAB_INVULN_TIME;
+    axis.state.ledge_invuln_timer = ae::LEDGE_GRAB_INVULN_TIME;
     app.world_mut()
         .spawn((SimId::placement(id), model, ae::BodyLedgeState::default()))
         .id()
@@ -47,7 +47,7 @@ fn invuln(app: &App, entity: Entity) -> f32 {
         .get::<crate::features::MotionModel>(entity)
         .expect("the body kept its motion model")
     {
-        ae::MotionModel::AxisSwept(axis) => axis.state.dodge_roll_timer,
+        ae::MotionModel::AxisSwept(axis) => axis.state.ledge_invuln_timer,
         _ => 0.0,
     }
 }

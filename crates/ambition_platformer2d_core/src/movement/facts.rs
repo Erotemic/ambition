@@ -39,6 +39,15 @@ pub struct BodyMotionFacts {
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
+    /// LEDGE intangibility is active — the grab's earned window, a getup roll,
+    /// or a getup attack.
+    ///
+    /// A sibling of [`Self::dodge_rolling`], not a refinement of it, and the
+    /// separation is the point: it read as a dodge roll until this fact
+    /// existed, so nothing downstream could tell a body hanging on an edge from
+    /// one mid-evade. Everything that only asks *"is this body untouchable
+    /// right now?"* reads [`Self::evading`], which takes both.
+    pub ledge_intangible: bool,
     /// The grounded evade is a SPOT DODGE, not a roll. A refinement OF
     /// [`Self::dodge_rolling`] rather than a sibling: both are true together,
     /// because the i-frames are the same and only the pose differs. Everything
@@ -102,7 +111,10 @@ impl BodyMotionFacts {
     /// five emit sites and miss the sixth. Adding an evade means extending this
     /// method, not auditing every caller of `body_vulnerable`.
     pub fn evading(&self) -> bool {
-        self.dodge_rolling || self.air_dodging || self.getup_invulnerable
+        self.dodge_rolling
+            || self.air_dodging
+            || self.getup_invulnerable
+            || self.ledge_intangible
     }
 
     /// Project the active policy's semantic facts. Non-axis policies have no
@@ -129,6 +141,7 @@ impl BodyMotionFacts {
             running: state.running,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
+            ledge_intangible: state.ledge_invuln_timer > 0.0,
             spot_dodging: state.dodge_roll_timer > 0.0 && state.spot_dodging,
             air_dodging: state.air_dodge_timer > 0.0,
             air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,

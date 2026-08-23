@@ -361,6 +361,7 @@ fn update_body_simulation_inner(
         state.blink_grace_timer = dec(state.blink_grace_timer);
         state.rebound_cooldown = dec(state.rebound_cooldown);
         state.dodge_roll_timer = dec(state.dodge_roll_timer);
+        state.ledge_invuln_timer = dec(state.ledge_invuln_timer);
         // The air dodge hands off to its own endlag the tick its window closes,
         // so "invulnerable" and "committed" are separable states rather than one
         // fused timer — the punish window is the half a defender reads.

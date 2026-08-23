@@ -48,6 +48,14 @@ struct Tally {
     /// term owns it is the fix.
     unhit_invuln: usize,
     unhit_evading: usize,
+    /// The LEDGE's share of `unhit_evading` — a refinement of it, not a
+    /// sibling, so the two columns do not add up to `unhittable`.
+    ///
+    /// Worth its own column because the ledge was invisible until its
+    /// intangibility was split off the dodge roll's timer: a body camped on an
+    /// edge and a body mid-evade both read as `dodge_rolling`, so "evading 659"
+    /// could have been either, and nobody could tune one without the other.
+    unhit_ledge: usize,
     unhit_parry_window: usize,
     unhit_iframes: usize,
     shielding: usize,
@@ -222,18 +230,21 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally]) {
     }
     println!("\nwhy each body could not be struck, by the term that refused:");
     println!(
-        "{:<6} {:>10} {:>10} {:>14} {:>10}",
-        "seat", "invuln", "evading", "parry-window", "i-frames"
+        "{:<6} {:>10} {:>10} {:>10} {:>14} {:>10}",
+        "seat", "invuln", "evading", "of-ledge", "parry-window", "i-frames"
     );
     for (seat, tally) in totals.iter().enumerate() {
         if tally.unhittable == 0 {
             continue;
         }
         println!(
-            "{:<6} {:>10} {:>10} {:>14} {:>10}",
+            "{:<6} {:>10} {:>10} {:>10} {:>14} {:>10}",
             seat,
             tally.unhit_invuln,
             tally.unhit_evading,
+            // A SHARE of the column before it, not a sibling: these do not sum
+            // to `unhittable`.
+            tally.unhit_ledge,
             tally.unhit_parry_window,
             tally.unhit_iframes
         );
@@ -289,6 +300,9 @@ fn sample(
                     (
                         health.health.invulnerable.any(),
                         facts.is_some_and(|f| f.evading()),
+                        // The ledge's own intangibility, which used to be
+                        // spelled as a dodge roll and so could not be counted.
+                        facts.is_some_and(|f| f.ledge_intangible),
                         shield.is_some_and(|s| s.parrying()),
                         !combat.vulnerable(),
                     ),
@@ -372,7 +386,7 @@ fn sample(
                 tally.evading += 1;
             }
         }
-        let (invuln, evading, parry_window, iframes) = vulnerable;
+        let (invuln, evading, ledge, parry_window, iframes) = vulnerable;
         if invuln || evading || parry_window || iframes {
             tally.unhittable += 1;
         }
@@ -381,6 +395,9 @@ fn sample(
         }
         if evading {
             tally.unhit_evading += 1;
+        }
+        if ledge {
+            tally.unhit_ledge += 1;
         }
         if parry_window {
             tally.unhit_parry_window += 1;

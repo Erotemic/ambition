@@ -123,8 +123,9 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
     assert!(new_state.climbing, "state should be in getup transition");
     assert_eq!(new_state.getup_kind, crate::LedgeGetupKind::Attack);
     assert!(
-        scratch.axis().dodge_roll_timer > 0.0,
-        "getup attack grants invuln frames via dodge_roll_timer"
+        scratch.axis().ledge_invuln_timer > 0.0,
+        "getup attack grants intangibility via the LEDGE's own timer — it borrowed \
+         the dodge roll's until the two were split"
     );
 }
 

@@ -713,7 +713,7 @@ fn light_horizontal_intent_can_request_a_ledge_grab() {
 /// Holding shield while hanging on a ledge triggers a Smash-Bros
 /// style roll: the getup_kind switches to Roll, the player starts
 /// climbing (interpolating along the roll trajectory), and
-/// `dodge_roll_timer` is set so the player is invulnerable for
+/// `ledge_invuln_timer` is set so the player is invulnerable for
 /// the duration of the roll.
 #[test]
 fn shield_held_starts_a_ledge_roll() {
@@ -738,8 +738,8 @@ fn shield_held_starts_a_ledge_roll() {
     assert!(state.climbing, "roll must enter the climbing state");
     assert_eq!(state.getup_kind, LedgeGetupKind::Roll);
     assert!(
-        scratch.axis().dodge_roll_timer > 0.0,
-        "ledge roll must arm dodge_roll_timer for invuln",
+        scratch.axis().ledge_invuln_timer > 0.0,
+        "ledge roll must arm the ledge's own intangibility timer",
     );
 }
 
@@ -994,7 +994,7 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
 }
 
 /// Grabbing a ledge grants brief intangibility via
-/// ``Player::dodge_roll_timer`` so an edge-guarding hit can't
+/// ``AxisManeuverState::ledge_invuln_timer`` so an edge-guarding hit can't
 /// punish the moment of contact.
 #[test]
 fn ledge_grab_arms_intangibility_window() {
@@ -1012,10 +1012,10 @@ fn ledge_grab_arms_intangibility_window() {
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched, "expected ledge grab to latch");
     assert!(
-        scratch.axis().dodge_roll_timer >= LEDGE_GRAB_INVULN_TIME - 0.001,
+        scratch.axis().ledge_invuln_timer >= LEDGE_GRAB_INVULN_TIME - 0.001,
         "grab should arm at least {}s of invuln, got {}",
         LEDGE_GRAB_INVULN_TIME,
-        scratch.axis().dodge_roll_timer,
+        scratch.axis().ledge_invuln_timer,
     );
 }
 
@@ -1049,7 +1049,7 @@ fn a_regrab_earns_less_intangibility_than_a_recovery() {
         );
         // and the clock is SPENT by the grab: the next one starts from zero.
         assert_eq!(scratch.axis().time_off_ledge, 0.0);
-        scratch.axis().dodge_roll_timer
+        scratch.axis().ledge_invuln_timer
     };
 
     let recovered = earned(crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME);
@@ -1653,5 +1653,56 @@ fn a_ledge_hang_is_carried_by_the_solid_it_is_latched_to() {
         ledge_carry_for_frame(&blocked, contact, body, body_size, down),
         LedgeCarry::KnockOff,
         "a carry into another solid knocks the hang off instead of pushing through it"
+    );
+}
+
+/// ⭐ A LEDGE GRAB IS NOT A DODGE ROLL, and the published facts have to say so.
+///
+/// The two shared `dodge_roll_timer` on the argument that "that field already
+/// gates damage". They do grant the same TERM — and joining them at the field
+/// rather than at [`crate::BodyMotionFacts::evading`] meant nothing downstream
+/// could tell a body hanging on an edge from one mid-evade: the blink could not
+/// colour them apart, a `spot_dodging` flag left over from an earlier evade drew
+/// a ledge grab as a spot dodge, and neither window could be tuned without the
+/// other.
+///
+/// Both halves are pinned here, because either alone is the bug: the grab is
+/// still untouchable, and it is untouchable for its OWN reason.
+#[test]
+fn a_ledge_grab_is_intangible_without_reading_as_a_dodge_roll() {
+    let world = world_with(vec![Block::solid(
+        "ledge",
+        Vec2::new(100.0, 100.0),
+        Vec2::new(200.0, 200.0),
+    )]);
+    let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+    scratch.abilities.abilities.ledge_grab = true;
+    scratch.axis_mut().wall_clinging = true;
+    scratch.wall.wall_normal_x = -1.0;
+    // Pre-poisoned: a stale spot-dodge flag from an earlier evade. While the two
+    // shared a timer this alone drew the grab as a spot dodge.
+    scratch.axis_mut().spot_dodging = true;
+    let mut events = crate::movement::FrameEvents::default();
+    assert!(try_start_ledge_grab_scratch(
+        &world,
+        &mut scratch,
+        InputState::default(),
+        &mut events
+    ));
+
+    let facts = crate::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        facts.ledge_intangible,
+        "the grab armed no ledge intangibility"
+    );
+    assert!(
+        facts.evading(),
+        "a body inside its ledge window is not answering the damage rule's one \
+         question, so an edge-guarding hit punishes the moment of contact"
+    );
+    assert!(
+        !facts.dodge_rolling && !facts.spot_dodging,
+        "a ledge grab still reads as a dodge roll, so nothing downstream can \
+         tell the two apart"
     );
 }

@@ -38,11 +38,24 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 // THE THREE SPEEDS, measured rather than picked — and measured against the
 // quantity the gate actually reads.
 //
-// `match_report -- 90 --runs 5`, 2026-08-23, `smash_george_booul` versus
-// itself, prints the pooled distribution of the speed a body flies at WHILE
-// LAUNCHED, one sample per tick of involuntary flight (n = 9878):
+// `match_report -- 90 --runs 5`, RE-MEASURED 2026-08-23 after the perception
+// fix (D190) and the jab/flurry work changed what a CPU match does,
+// `smash_george_booul` versus itself. The pooled distribution of the speed a
+// body flies at WHILE LAUNCHED, one sample per tick of involuntary flight
+// (n = 8002):
 //
-//     p25 49   p50 289   p75 563   p90 756   p99 1500   max 1902
+//     p25 49   p50 213   p75 494   p90 713   p99 1183   max 1901
+//
+// ⭐ AND IT IS BIMODAL, which the percentiles hide. The 100-px histogram:
+//
+//     0:3039  100:867  200:923  300:695  400:505  500:522  600:575  700:454
+//     800:191  900:121  1000:22  1100:10   [1200-1499: NOTHING]
+//     1500:64  1600:4  1700:4  1800:4  1900:2
+//
+// A 300-px gap with not one sample in it, and a second cluster above it whose
+// members are spaced by exactly one tick of gravity — a body in FREE FALL,
+// which is to say a body on its way out of the bottom of the stage. That is
+// the near-KO population, named by the data rather than by a percentile.
 //
 // Every number below is a stated percentile of THAT, and the previous set was
 // not: it was fitted to `peak launch`, the speed at the tick a launch is
@@ -65,20 +78,24 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 /// Speed at which a launch starts smoking, in world units per second.
 ///
-/// The MEDIAN tick of involuntary flight (p50 = 289). Half of what a launched
+/// The MEDIAN tick of involuntary flight (p50 = 213). Half of what a launched
 /// body does is fast enough to read; the other half is the body drifting, at
 /// the top of its arc, or still helpless long after the speed that earned it
 /// has gone. This is the onset the BLAST shares, so the two beats of a launch
 /// agree about what counts as one.
-const TRAIL_ONSET_SPEED: f32 = 290.0;
+///
+/// It was 290 — the p50 of the fight BEFORE fighters could see each other past
+/// 480 px. They now close and trade the whole match, so there are more small
+/// exchanges and the median tick of flight is slower, not faster.
+const TRAIL_ONSET_SPEED: f32 = 210.0;
 
 /// Speed at which the trail reaches full density. Past this it stops getting
 /// denser — more particles only cost fill rate.
 ///
-/// The 90th percentile of flight (756): the fastest tenth of what a launched
+/// The 90th percentile of flight (713): the fastest tenth of what a launched
 /// body does saturates, and the ramp below it spans p50 to p90 — the band an
 /// ordinary launch lives in.
-const TRAIL_FULL_SPEED: f32 = 760.0;
+const TRAIL_FULL_SPEED: f32 = 710.0;
 
 /// Sim ticks between puffs at onset density, and at full density. A stride of
 /// one is a puff every tick.
@@ -101,13 +118,22 @@ const MAX_SMOKE_ALPHA: f32 = 0.78;
 
 /// Speed at which a launch stops being hard and starts being a KILL.
 ///
-/// The 99th percentile of flight (1500), against a match that produces 2–4 KOs:
-/// the ember marks the handful of launches per match that are leaving, and its
-/// band saturates at 2240 — above the fastest tick ever sampled (1902), so it
-/// deepens all the way out rather than flattening.
+/// ⭐ THE GAP, not a percentile — because the flight distribution has TWO
+/// populations and this tier is about the second one.
 ///
-/// It was 770, the p90 of flight, which burned one launched tick in ten.
-const TRAIL_NEAR_KO_SPEED: f32 = 1500.0;
+/// The histogram above has no sample at all between 1183 and 1500, and the
+/// cluster above that gap is a body in free fall on its way out of the stage.
+/// So this sits in the middle of the empty band: every falling-to-its-death
+/// tick burns, and nothing an ordinary launch does can reach it.
+///
+/// ⛔ A percentile of the whole population would be wrong here in a way that
+/// looks right. The p99 is 1183, inside the main mass, so the ember would fire
+/// on ordinary launches; and this WAS the p99 of an older sample, which is how
+/// it came to be 1500 — correct by luck, sitting on the cluster's very edge
+/// with no margin, so a slightly slower fall missed it. The precedent is the
+/// wall splat band, which sits in the gap between a body leaning on the
+/// platform lip and a body actually arriving at one.
+const TRAIL_NEAR_KO_SPEED: f32 = 1350.0;
 
 /// The near-KO plume's colour: an ember, not smoke. A hue change rather than
 /// more of the same particles, because more grey at a speed where the plume is
@@ -136,6 +162,15 @@ pub struct TrailPuff {
 /// at [`TRAIL_FULL_SPEED`]; `.1` is how far into the near-KO band it goes.
 /// ONE onset for both beats on purpose — the blast and the plume must agree
 /// about what counts as a launch, or a hit reads as a flare with no smoke.
+/// How hard this flight reads, `0..=1`, on the trail's own band — `0.0` below
+/// the onset, `1.0` at full density.
+///
+/// Shared with the knockout beat, which is the END of a flight and must not
+/// disagree with the trail that led into it about how hard the same launch was.
+pub(crate) fn flight_intensity(speed: f32) -> f32 {
+    launch_bands(true, speed).map_or(0.0, |(t, _)| t)
+}
+
 fn launch_bands(launched: bool, speed: f32) -> Option<(f32, f32)> {
     if !launched || speed < TRAIL_ONSET_SPEED {
         return None;

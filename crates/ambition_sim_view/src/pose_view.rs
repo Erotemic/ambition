@@ -533,6 +533,23 @@ pub struct KnockoutFact {
     /// That was this fighter's LAST stock. `FighterStockSpent::eliminated`
     /// verbatim — never `remaining == 0` recomputed here.
     pub eliminated: bool,
+    /// How fast the body was travelling when it left play.
+    ///
+    /// ⭐ THE SAME QUANTITY THE LAUNCH TRAIL READS, and deliberately not the
+    /// same one hitlag reads. There are two honest answers to "how hard was
+    /// that" in this engine and they are different questions:
+    ///
+    /// * the HIT's own weight — `reaction_scale(knockback)`, which hitlag, the
+    ///   strong-hit flash and the camera shake all derive from, and which is
+    ///   settled before directional influence, crouch cancel or gravity touch
+    ///   it;
+    /// * the BODY's flight — the speed it is actually travelling, which the
+    ///   launch trail gates on.
+    ///
+    /// A knockout is the END OF A FLIGHT, so it belongs to the second. Reading
+    /// the first would make the trail and the burst that ends it disagree about
+    /// the same launch on screen.
+    pub speed: f32,
 }
 
 /// Every knockout resolved this tick. Empty on almost every tick, which is the
@@ -543,7 +560,13 @@ pub struct KnockoutsView(pub Vec<KnockoutFact>);
 /// Where each body was last seen, so a knockout can be published at the place
 /// the body left play.
 #[derive(Default)]
-pub struct LastSeenBodies(Vec<(bevy::prelude::Entity, ambition_platformer2d_core::Vec2)>);
+pub struct LastSeenBodies(
+    Vec<(
+        bevy::prelude::Entity,
+        ambition_platformer2d_core::Vec2,
+        ambition_platformer2d_core::Vec2,
+    )>,
+);
 
 /// ⛔ THE MESSAGES ARE READ BEFORE THE RECORD IS REFRESHED. Refreshing first
 /// would overwrite the knocked-out body's position with the one the respawn
@@ -559,18 +582,22 @@ pub fn rebuild_knockouts_view(
 ) {
     view.0.clear();
     for event in spent.read() {
-        let Some((_, pos)) = last_seen.0.iter().find(|(seen, _)| *seen == event.body) else {
+        let Some((_, pos, vel)) = last_seen.0.iter().find(|(seen, _, _)| *seen == event.body)
+        else {
             continue;
         };
         view.0.push(KnockoutFact {
             pos: *pos,
             eliminated: event.eliminated,
+            speed: vel.length(),
         });
     }
     last_seen.0.clear();
-    last_seen
-        .0
-        .extend(bodies.iter().map(|(entity, kin)| (entity, kin.pos)));
+    last_seen.0.extend(
+        bodies
+            .iter()
+            .map(|(entity, kin)| (entity, kin.pos, kin.vel)),
+    );
 }
 
 /// One body in INVOLUNTARY flight, resolved sim-side.
@@ -890,6 +917,11 @@ mod pose_view_tests {
             "the knockout belongs where the body left play, not where it came back"
         );
         assert!(!view.0[0].eliminated, "a stock loss is not an elimination");
+        assert_eq!(
+            view.0[0].speed,
+            Vec2::new(-1500.0, 900.0).length(),
+            "and the speed is the one it left play at, not the zero the respawn gave it"
+        );
 
         // And it does not linger: the next tick publishes nothing.
         app.update();

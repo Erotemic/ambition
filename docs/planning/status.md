@@ -421,47 +421,19 @@ streaming, a generic residency scheduler and byte shaving do not.
   [`game/systemic-progression.md`](game/systemic-progression.md),
   [`game/multiplayer.md`](game/multiplayer.md). ⚠ nothing linked that hub until
   2026-08-15, which is how the flagship customer's own map went unreachable.
-- **Super Smash Siblings:** serious platform-fighter customer and possible future
-  first-class game, but not the project focus. Its remaining body-generic work is
-  in [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
+- **Super Smash Siblings:** active platform-fighter product push and possible
+  future first-class game. Start at
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md); the canonical
+  current feature inventory is
+  [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md), and the
+  current execution campaign is
+  [`demos/campaigns/smash-fun-push-2026-08-22.md`](demos/campaigns/smash-fun-push-2026-08-22.md).
 
-  ⭐⭐ **GRABS — the third leg of the rock-paper-scissors core — are LIVE as of
-  2026-08-18.** Landed: acquisition, the hold, pose, pummel, throw, release, a
-  bounded hold with a captive escape channel, a control-hold claim registry so
-  one authority cannot free another's body. Proven in a real driven match: 14
-  holds, 2 pummels, all ended by throw
-  (`cargo run -p ambition_demo_smash_app --bin capture_probe -- 60 --force`).
-  A human could not grab at all until `988807b99` — `brain/player.rs`, the seam
-  a human's input frame crosses to reach a body, never copied `grab_pressed`;
-  no capture test could have caught it because every one writes `grab_pressed`
-  directly onto the body. The input-reachability chain
-  (`ControlSlot → action → ControlFrame → body`) is now closed at all four
-  links, three of them by the compiler and poison-verified.
-
-  ⭐⭐ **AND THE SUITE IS GREEN — `smash_it` 26/7 → 34/0 on 2026-08-20.** All
-  seven long-red guards, both repertoire ones and all five `the_stage_kills`,
-  pass with **body contact** in the movement sweep and nothing in the brain
-  moved. That MEASURES the reading of the CPU limit cycle as a missing physical
-  spacing primitive: two fighters closing on each other now STALL where they
-  meet, which is where attacks land. `ambition_platformer2d_core::movement::body_contact`
-  constrains proposed motion before the world sweep and writes no position, so
-  nothing is teleported apart; `BodyContact { resistance }` is presence-as-opt-in
-  and the smash stage grants it to its cast. ▢ the resistance number (0.85) is an
-  unmeasured feel choice and is Jon's.
-
-  ▢ **open: WHEN a CPU presses Grab.** It owns one, chooses one and presses one
-  — mostly at ~110px against a 42px reach. Fighter capture POLICY, not a bug in
-  the mechanic — the value of a hold depends on the throw it sets up, the
-  escape risk, the percent and the stage, and the generic option scorer has no
-  term for it and should not grow one. **That is D166's customer.**
-  ⛔ do not price a grab's damage to fix this — tried, made the CPU grab from
-  110px in every exchange, nine attempts, none in range, zero holds. A grab
-  deals NO damage.
-
-  ⭐ **D166's first facet landed the same day** (`5cefafc05`): George's capture
-  kit is authored content, read by the content compiler into the same
-  `MoveSpec`s the Rust literal produced. The sixteen ordinary move slots
-  deliberately did NOT move — they are authored by composing helpers.
+  Core body-generic combat, shields, capture/throws, movement/contact, stocks,
+  respawn, participant routing, and deterministic match paths are live. The
+  remaining platform-fighter depth is now tracked feature-by-feature. Small
+  reusable semantics may be added with the product feature; broader engine
+  campaigns are called out explicitly rather than gating the whole Smash push.
 - **TwinTrack:** ⭐ **a TWO-PLAYER game with a real split screen as of
   2026-08-20**, and the pressure test that paid for three engine seams. The
   laboratory twin is Emmy No-Ether, a constructed character body driven by seat

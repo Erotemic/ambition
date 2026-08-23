@@ -7,7 +7,8 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use super::components::{
-    ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
+    ActiveCombatant, ActorAggression, ActorDisposition, ActorFaction, ActorTarget, AggressionTarget,
+    CenteredAabb,
 };
 use super::FeatureSimEntity;
 use ambition_characters::actor::BodyHealth;
@@ -252,16 +253,16 @@ pub fn damage_lands_between(
     .damage_lands(friendly_fire)
 }
 
-/// Pick each non-player actor's `ActorTarget` for this frame.
+/// Pick each non-player actor's `ActorTarget` and settle target-derived standing.
 ///
-/// When no player entities exist (pre-spawn, post-death-of-all-players,
-/// headless probe with no player) every actor's `ActorTarget` is left
-/// untouched so downstream ticks see the previous frame's target rather
-/// than zeroing out.
+/// Players and non-player actors are one relational candidate population. A body
+/// with no live foe is explicitly target-less; if it is socially hostile rather
+/// than an [`ActiveCombatant`], this same authority stands it down to
+/// [`ActorDisposition::Peaceful`]. Match participation is not inferred from
+/// whether a target exists.
 ///
-/// Today's production game has exactly one player so this loop is
-/// O(n) over actors. A many-player build can swap in a spatial
-/// index here without changing the consumer side.
+/// The current implementation is O(n²) in the all-actor case. A many-body build
+/// can swap in a spatial index here without changing the consumer side.
 pub fn select_actor_targets(
     relations: Option<Res<FactionRelations>>,
     // The player carries an `ActorFaction` (Player) like every body — read it so the
@@ -308,6 +309,10 @@ pub fn select_actor_targets(
             Option<&ActorFaction>,
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&MatchTeam>,
+            // Social hostility follows target ownership: when selection proves
+            // there is no foe, this same authority may stand a non-match actor down.
+            Option<&mut ActorDisposition>,
+            Has<ActiveCombatant>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -318,8 +323,8 @@ pub fn select_actor_targets(
     let relations = relations.map(|r| r.clone()).unwrap_or_default();
     // ALIVE candidates only: a dead body (health drained to 0) is never a valid
     // target. So the instant a foe dies the actor goes target-less — it stops
-    // swinging at the corpse and (downstream) stands down — instead of chasing a
-    // dead entity until it despawns. Death zeroes `BodyHealth` on every body
+    // swinging at the corpse and stands down in this same targeting phase — instead
+    // of chasing a dead entity until it despawns. Death zeroes `BodyHealth` on every body
     // (player + actor), so this is the one uniform liveness gate.
     // ONE candidate set — the player is just another body, carrying faction Player.
     // No unconditional player special-case; nearest foe wins.
@@ -368,10 +373,17 @@ pub fn select_actor_targets(
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.0.cmp(&b.0),
     });
-    if candidates.is_empty() {
-        return;
-    }
-    for (self_entity, aabb, mut target, aggression, faction, driver, self_team) in actors.iter_mut()
+    for (
+        self_entity,
+        aabb,
+        mut target,
+        aggression,
+        faction,
+        driver,
+        self_team,
+        mut disposition,
+        active_combatant,
+    ) in actors.iter_mut()
     {
         let actor_pos = aabb.center;
         // The acting body's OWN effective allegiance (Player while possessed). A
@@ -382,13 +394,6 @@ pub fn select_actor_targets(
         let has_allegiance = faction.is_some() || player_controlled;
         let self_faction = effective_faction(faction.copied().unwrap_or_default(), driver);
         let policy = aggression.target_policy();
-        if policy == AggressionTarget::None {
-            // Passive: no combat target. Point at self so a zero direction keeps
-            // the actor's current facing.
-            target.pos = actor_pos;
-            target.entity = None;
-            continue;
-        }
         // One relational rule: a candidate is a FOE iff this actor's faction is
         // hostile to it (`FactionRelations`) OR this actor holds a grudge against
         // that exact entity (a provoked NPC chasing its attacker). The player is a
@@ -396,45 +401,46 @@ pub fn select_actor_targets(
         // Player (a born Enemy) or it's the grudge target (a provoked NPC), never
         // because it is "the player". Nearest foe wins.
         let mut best: Option<(Entity, ae::Vec2, f32)> = None;
-        for (entity, pos, cand_faction, _, cand_team) in &candidates {
-            if *entity == self_entity {
-                continue;
-            }
-            // THE one relationship policy, the same call the damage side makes.
-            //
-            // `has_allegiance` still gates the matrix arm: a body with neither an
-            // authored faction nor player control has no faction-relational foes
-            // and can only be pointed by a grudge. A TEAM, on the other hand,
-            // speaks for itself — being seated in a match IS an allegiance.
-            let relation = combat_relation(
-                has_allegiance.then_some(&relations),
-                self_faction,
-                None,
-                self_team,
-                aggression.grudge,
-                *entity,
-                *cand_faction,
-                None,
-                cand_team.as_ref(),
-            );
-            if !relation.is_target() {
-                continue;
-            }
-            let d = distance_squared(*pos, actor_pos);
-            // Deterministic nearest-foe selection: strictly-nearer wins, and an
-            // EXACT distance tie is decided by the canonical candidate ORDER
-            // established above (first-seen wins), not by comparing raw `Entity`
-            // ids. That distinction is load-bearing under GGRS: bevy_ggrs
-            // destroys and recreates rollback entities, so `Entity` values are
-            // NOT stable across a rewind and an id comparison could silently
-            // flip the target of a symmetric two-foe setup mid-resimulation
-            // .
-            let better = match best {
-                None => true,
-                Some((_, _, best_d)) => d < best_d,
-            };
-            if better {
-                best = Some((*entity, *pos, d));
+        if policy != AggressionTarget::None {
+            for (entity, pos, cand_faction, _, cand_team) in &candidates {
+                if *entity == self_entity {
+                    continue;
+                }
+                // THE one relationship policy, the same call the damage side makes.
+                //
+                // `has_allegiance` still gates the matrix arm: a body with neither an
+                // authored faction nor player control has no faction-relational foes
+                // and can only be pointed by a grudge. A TEAM, on the other hand,
+                // speaks for itself — being seated in a match IS an allegiance.
+                let relation = combat_relation(
+                    has_allegiance.then_some(&relations),
+                    self_faction,
+                    None,
+                    self_team,
+                    aggression.grudge,
+                    *entity,
+                    *cand_faction,
+                    None,
+                    cand_team.as_ref(),
+                );
+                if !relation.is_target() {
+                    continue;
+                }
+                let d = distance_squared(*pos, actor_pos);
+                // Deterministic nearest-foe selection: strictly-nearer wins, and an
+                // EXACT distance tie is decided by the canonical candidate ORDER
+                // established above (first-seen wins), not by comparing raw `Entity`
+                // ids. That distinction is load-bearing under GGRS: bevy_ggrs
+                // destroys and recreates rollback entities, so `Entity` values are
+                // NOT stable across a rewind and an id comparison could silently
+                // flip the target of a symmetric two-foe setup mid-resimulation.
+                let better = match best {
+                    None => true,
+                    Some((_, _, best_d)) => d < best_d,
+                };
+                if better {
+                    best = Some((*entity, *pos, d));
+                }
             }
         }
         if let Some((entity, pos, _)) = best {
@@ -445,6 +451,13 @@ pub fn select_actor_targets(
             // point at self so facing math reads a zero direction (hold facing).
             target.pos = actor_pos;
             target.entity = None;
+        }
+        if target.entity.is_none() && !active_combatant {
+            if let Some(disposition) = disposition.as_deref_mut() {
+                if disposition.is_hostile() {
+                    *disposition = ActorDisposition::Peaceful;
+                }
+            }
         }
     }
 }

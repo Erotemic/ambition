@@ -14,8 +14,9 @@ load-bearing**:
 
 - [Sanic](sanic.md) — momentum acceptance;
 - [Super Mary-O](super-mary-o.md) — classic axis-swept AABB platforming;
-- [Super Smash Siblings](super-smash-siblings.md) — platform-fighter, and a
-  plausible graduation candidate;
+- [Super Smash Siblings](super-smash-siblings.md) — platform-fighter product
+  charter and index to its current inventory/campaign; plausible graduation
+  candidate;
 - [Hollow Lite](hollow-lite.md) — encounters and boss authoring;
 - [TwinTrack](twintrack.md) — independent observers and reference-frame
   presentation.

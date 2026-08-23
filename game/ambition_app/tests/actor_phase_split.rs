@@ -1,14 +1,15 @@
 //! The actor monolith is split into explicit phases — this pins the SEAM between
 //! them through the real headless schedule.
 //!
-//!   tick_actor_brains      — snapshot + brain → `ActorControl` (intent), no move
-//!   integrate_actor_bodies — reads that `ActorControl` → moves `BodyKinematics`
+//!   tick_actor_brains      — snapshot + brain → frame-local decision output
+//!   publish_actor_decision_frames — decision output → `ActorControl`
+//!   integrate_sim_bodies   — reads that `ActorControl` → moves `BodyKinematics`
 //!   sync_actor_read_model  — mirrors integrated state onto the read-model comps
 //!   apply_actor_contact_damage — observes post-move overlap → HitEvent
 //!
 //! `ActorControl` is the seam between the brain phase and the movement phase. These
-//! tests drive the real sim and assert (1) the brain phase publishes a body's
-//! intent into `ActorControl`, and (2) the movement phase turns that SAME
+//! tests drive the real sim and assert (1) the decision + publish phases commit
+//! a body's intent into `ActorControl`, and (2) the movement phase turns that SAME
 //! `ActorControl` into position change — i.e. brain → intent → body flows through
 //! the separated phases. The isolation of each phase is structural: the movement
 //! query carries no `Brain` (it cannot tick one) and the brain loop calls no
@@ -42,8 +43,8 @@ fn enemy_entity(world: &mut World) -> Entity {
         .expect("spawned enemy present")
 }
 
-/// A hostile actor's brain publishes movement intent into its `ActorControl`
-/// (the brain phase's only output), and the movement phase turns that same
+/// A hostile actor's brain produces movement intent, the publish phase commits it
+/// into `ActorControl`, and the movement phase turns that same
 /// `ActorControl` into position change — the brain→body seam across the split.
 ///
 /// Every sim plugin registers into `SimSchedule` rather than naming a schedule, so the graph is
@@ -78,16 +79,16 @@ fn brain_intent_seam_holds(fixed_tick: bool) {
     let enemy = enemy_entity(sim.world_mut());
     let x_before = sim.world_mut().get::<BodyKinematics>(enemy).unwrap().pos.x;
 
-    // Step once: the brain phase writes the enemy's intent into `ActorControl`.
+    // Step once: DECIDE produces the frame and PUBLISH commits it to `ActorControl`.
     sim.step(AgentAction::default());
     let control = sim
         .world_mut()
         .get::<ActorControl>(enemy)
-        .expect("enemy carries ActorControl written by tick_actor_brains")
+        .expect("enemy carries ActorControl written by the decision publish phase")
         .0;
     assert!(
         control.locomotion.x < -0.1,
-        "the brain phase published leftward chase intent into ActorControl \
+        "the decision publish phase committed leftward chase intent into ActorControl \
          (locomotion.x = {}); the enemy is right of the player and wants to close",
         control.locomotion.x,
     );

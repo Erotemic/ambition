@@ -247,12 +247,13 @@ These cards are capability fronts, not a serial mega-campaign.
 
 ## Combat, AI and actor-behavior reservoir
 
-- ⏸ **Smash body-generic residuals — LIVE AS LEDGER ROW D72, and PAUSED at Jon's
-  direction** (do not tune the fighter until higher-leverage architecture is
-  exhausted). Card: The old migration diary is closed. Current
-  reusable gaps include grab/hold/throw, optional richer shield semantics,
-  body-scale equipment resolution if still desired, and local-N acceptance.
-  Use [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md).
+- ▢ **Smash product push — LIVE AS D72.** The product is active; do not wait on
+  unrelated architecture migrations. Use
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md) for the
+  charter, [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+  for current feature truth, and the active campaign linked from the charter for
+  execution order. `E1` features may add a small reusable engine semantic;
+  `E2` features get focused campaigns; `WAIT` rows stay deferred.
 
 - ▢ **Fighter-brain evaluation/calibration.** The brain stack exists; build the
   scenario outcome runner and calibrate the difficulty ladder through measured
@@ -294,8 +295,9 @@ These cards are capability fronts, not a serial mega-campaign.
 
 - ▢ **Super Smash Siblings.** Serious platform-fighter customer and possible
   future first-class game. Use
-  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md) and the concise
-  Smash successor plan; Ambition remains the flagship.
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md) as the product
+  index and [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)
+  as the one standing feature backlog; Ambition remains the flagship.
 
 - ▢ **TwinTrack.** Use it to force independent observer/reference-frame views,
   split-screen and relativity presentation through the same multi-view engine
@@ -365,7 +367,7 @@ routed:
 - `engine_rename_campaign.md` — the stale `Sandbox*` rename is complete (`check_retired_crate_names.py` reports none). ⇒ misfiled, not dead: architecture/product work (including couch multiplayer) was bundled into it and should move to the topic plans that own it.
 - `engine/sprite-renderer.md` — routed as REFERENCE: **measure-by-default** — a sprite ships the geometry the gameplay layer needs, so a body and its hitbox cannot silently disagree.
 - `engine/closeout-review-followups-2026-07-20.md`, `engine/binding-resolution-boundary.md` — promoted to reservoir cards above.
-- `engine/combat-model.md` — CM1–CM5, CM7, CM8 landed (verified against `cecd01ca`); current body-generic integration is owned by [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md), live as **D72**. ⛔ do not schedule the landed items again.
+- `engine/combat-model.md` — current body-generic combat ownership contract; the Smash inventory owns product feature status and D72 owns execution selection. The old Smash successor plan is superseded and archived.
 - `engine/presentation-and-shell-audit.md` — the thirteen-domain audit is closed; localization remains trigger-based (see deferred list).
 - `engine/shell-vanity-sequence.md` — VC5 only (title launcher fade-in) remains; VC1–VC4, VC6 implemented.
 - `triage/ambition-test-support.md` — strong candidate, design decisions pending. ⛔ the dependency boundary and fixture API must be piloted before promotion, not adopted wholesale.

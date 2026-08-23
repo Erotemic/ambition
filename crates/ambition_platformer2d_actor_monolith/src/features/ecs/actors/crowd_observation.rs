@@ -119,6 +119,7 @@ impl CrowdObservation {
 }
 
 /// The derived crowd picture one tick's decisions read.
+#[derive(Default)]
 pub(crate) struct CrowdFacts {
     alive_by_entity: HashMap<Entity, bool>,
     neighbor_by_id: HashMap<String, ae::Vec2>,

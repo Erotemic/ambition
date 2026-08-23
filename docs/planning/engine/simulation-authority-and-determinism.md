@@ -192,11 +192,37 @@ For the selected system, produce a decision/result representation that can be
 reasoned about independently, then apply it in a narrower mutation phase. Do not
 create a giant `SimulationContext` bag.
 
+**First actor-decision carve, 2026-08-22.** `tick_actor_brains` no longer owns
+the cross-body observation pass or body-state maintenance. The scheduled producer
+`observe_actor_decision_inputs` derives frame-local `ActorDecisionFacts` plus the
+movement-only `ActorSteering` projection; target-derived stand-down now belongs
+to `select_actor_targets`; `maintain_actor_pre_decision_state` owns only the
+existing reaction-timer decay. The surviving brain tick mutates only
+decision-owned `Brain` / `PerceptionMemory` state and emits plain
+`ActorDecisionFrames`; `publish_actor_decision_frames` is the separate, narrow
+authority that commits those results to `ActorControl`. Body access during
+decision uses the generated read-only view of `ActorClusterQueryData`, preserving
+the exact complete-cluster eligibility of the former mutable query without giving
+decision write authority over movement state. No parameter-budget context bag was
+introduced.
+
 ### S3 — make ordering explicit
 
 For each authoritative write-after-write or read-after-write dependency, encode
 it as a phase edge or data dependency. Re-run deterministic replay/rollback
 oracles after each slice.
+
+**The same slice names the schedule contract.** `ActorDecisionSet` now encodes
+`Targeting → Prepare → Observe → StateMaintenance → Decide → Publish`, with an
+explicit edge from `Publish` into `WorldPrepSet::BeforeIntegrate`. Target feud
+settlement and selection form a short local chain inside `Targeting`; later phases
+depend on that named boundary rather than either leaf. Movement preconditions,
+integration, and post-integration projection are registered in their existing
+`WorldPrepSet` phases instead of inheriting their order from one long leaf-system
+`.chain()`. A structural schedule-graph test pins those edges and memberships. The
+split also exposed and corrected a diagnostic ordering error: the causal
+movement-operation reader had run before `integrate_sim_bodies`, the writer it
+claims to observe; it now runs in `AfterIntegrate`.
 
 ### S4 — invert rollback registration ownership
 

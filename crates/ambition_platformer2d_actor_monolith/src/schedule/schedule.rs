@@ -134,9 +134,24 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     );
     // A LABEL, not a chain position: see `WorldPrepSet::ContactDamage` for why
     // chaining it would add edges nobody chose.
+    //
+    // ⭐ ONE chosen edge, though, and it is the one contact damage actually
+    // needs: it reads poses, so it runs after everything that writes them —
+    // integration and the external constraints that follow it, the captive hold
+    // among them. Stated at the SET.
+    //
+    // ⛔⛔ **not `.after(constrain_captive_bodies)`.** That system is registered
+    // TWICE on purpose (the smash demo adds a second instance in
+    // `CombatSet::Materialize`), and Bevy refuses to order against a
+    // `SystemTypeSet` with more than one instance — it panics the schedule build
+    // for every composition that installs both. A set has no such restriction,
+    // and it is the honest subject anyway: the dependency is on POSES BEING
+    // SETTLED, not on one function having run.
     app.configure_sets(
         sim,
-        WorldPrepSet::ContactDamage.in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+        WorldPrepSet::ContactDamage
+            .after(WorldPrepSet::AfterIntegrate)
+            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
 
     // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the

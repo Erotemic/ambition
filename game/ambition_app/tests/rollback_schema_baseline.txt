@@ -140,6 +140,8 @@ content.seismic_stomp_state	component-canonical	SeismicStompState	bevy_ggrs cano
 cutscene.last_room	resource-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities, moveset, and action set
+derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritative body state before every autonomous decision phase
+derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication
 derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
 derived.authored_switch_commands	derived	AuthoredSwitchCommands	authored switch verbs prepared for the active room; recomputed from the room set and LDtk project
 derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics every tick, immediately before the movement phase that reads it

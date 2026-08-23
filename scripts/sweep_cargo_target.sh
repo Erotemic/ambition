@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 #
-# Remove unreachable Cargo artifacts while preserving the configurations used
-# by run_game.sh.
+# Remove unreachable Cargo artifacts while preserving the build graphs used by
+# the normal run_game.sh and run_tests.sh workflows.
 #
 # Safe defaults:
 #   - dry-run only
 #   - keep incremental compilation state
-#   - preserve normal host and windowed-demo builds
+#   - preserve the host, common windowed demos, and backbone Rust test graph
 #
 # Examples:
-# ./scripts/sweep_cargo_target.sh
-# ./scripts/sweep_cargo_target.sh --apply
-# ./scripts/sweep_cargo_target.sh --apply --deep
-# ./scripts/sweep_cargo_target.sh --full --with-tests
+#   ./scripts/sweep_cargo_target.sh
+#   ./scripts/sweep_cargo_target.sh --apply
+#   ./scripts/sweep_cargo_target.sh --apply --deep
+#   ./scripts/sweep_cargo_target.sh --full
+#   ./scripts/sweep_cargo_target.sh --keep-cmd \
+#       'build -p ambition_app --bin ambition_game_bin --features causal'
+#
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,7 +23,8 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 apply=0
 deep=0
 full=0
-with_tests=0
+with_tests=1
+extra_mark_commands=()
 
 usage() {
     cat <<'USAGE'
@@ -34,10 +38,17 @@ Options:
   --deep          Also discard incremental compilation state.
                   Without this option, incremental/ is retained.
 
-  --full          Preserve every standard run_game.sh build shape, including
-                  release and headless versions of both standalone demos.
+  --full          Preserve all standard first-party run_game.sh demo shapes:
+                  dev/release/ship, both windowed and headless. The host's
+                  normal, release, ship, and hot-reload shapes are always kept.
 
-  --with-tests    Preserve `cargo test --no-run --workspace` artifacts.
+  --no-tests      Do not preserve the default run_tests.sh Rust build graph.
+                  Tests are preserved by default.
+
+  --keep-cmd CMD  Preserve one additional Cargo build graph. CMD is the part
+                  after `cargo`, for example:
+                    --keep-cmd 'build -p ambition_app --features causal'
+                  Repeat this option to keep multiple custom feature graphs.
 
   -h, --help      Show this help.
 
@@ -45,8 +56,11 @@ Typical use:
   ./scripts/sweep_cargo_target.sh
   ./scripts/sweep_cargo_target.sh --apply
 
-Maximum reclamation:
+Maximum reclamation while keeping the normal game/test graphs:
   ./scripts/sweep_cargo_target.sh --apply --deep
+
+Keep every standard demo shape as well:
+  ./scripts/sweep_cargo_target.sh --apply --full
 USAGE
 }
 
@@ -66,8 +80,19 @@ while [[ $# -gt 0 ]]; do
         --full)
             full=1
             ;;
-        --with-tests)
-            with_tests=1
+        --no-tests)
+            with_tests=0
+            ;;
+        --keep-cmd)
+            shift
+            [[ $# -gt 0 ]] || fail "--keep-cmd requires a Cargo command"
+            [[ -n "$1" ]] || fail "--keep-cmd requires a non-empty Cargo command"
+            extra_mark_commands+=("$1")
+            ;;
+        --keep-cmd=*)
+            mark_command="${1#--keep-cmd=}"
+            [[ -n "$mark_command" ]] || fail "--keep-cmd requires a non-empty Cargo command"
+            extra_mark_commands+=("$mark_command")
             ;;
         -h|--help)
             usage
@@ -101,36 +126,48 @@ target_dir="$(
 [[ -n "$target_dir" ]] || fail "Cargo reported an empty target directory"
 [[ "$target_dir" != "/" ]] || fail "refusing to operate on /"
 
-# These correspond to the normal build configurations reachable through
-# run_game.sh. Runtime arguments such as sandbox and --start-room do not need
-# separate entries because they do not alter the Cargo build graph.
 mark_commands=(
+    # Multi-game host. Runtime arguments do not change the Cargo graph.
     "build -p ambition_app --bin ambition_game_bin"
     "build -p ambition_app --bin ambition_game_bin --release"
+    "build -p ambition_app --bin ambition_game_bin --profile ship"
     "build -p ambition_app --bin ambition_game_bin --features dev_hot_reload"
     "build -p ambition_app --bin ambition_game_bin --features dev_hot_reload --release"
-
-    "build -p ambition_demo_sanic_app --bin sanic_demo --features visible"
-    "build -p ambition_demo_mary_o_app --bin mary_o_demo --features visible"
 )
 
-if [[ "$full" -eq 1 ]]; then
-    mark_commands+=(
-        "build -p ambition_demo_sanic_app --bin sanic_demo --features visible --release"
-        "build -p ambition_demo_sanic_app --bin sanic_demo"
-        "build -p ambition_demo_sanic_app --bin sanic_demo --release"
+# Windowed dev is the normal standalone-demo shape selected by run_game.sh.
+demo_specs=(
+    "ambition_demo_sanic_app:sanic_demo"
+    "ambition_demo_mary_o_app:mary_o_demo"
+    "ambition_demo_smash_app:smash_demo"
+    "ambition_demo_twintrack_app:twintrack_demo"
+)
 
-        "build -p ambition_demo_mary_o_app --bin mary_o_demo --features visible --release"
-        "build -p ambition_demo_mary_o_app --bin mary_o_demo"
-        "build -p ambition_demo_mary_o_app --bin mary_o_demo --release"
-    )
-fi
+for demo_spec in "${demo_specs[@]}"; do
+    IFS=: read -r demo_pkg demo_bin <<<"$demo_spec"
+    mark_commands+=("build -p $demo_pkg --bin $demo_bin --features visible")
 
+    if [[ "$full" -eq 1 ]]; then
+        mark_commands+=(
+            "build -p $demo_pkg --bin $demo_bin --features visible --release"
+            "build -p $demo_pkg --bin $demo_bin --features visible --profile ship"
+            "build -p $demo_pkg --bin $demo_bin"
+            "build -p $demo_pkg --bin $demo_bin --release"
+            "build -p $demo_pkg --bin $demo_bin --profile ship"
+        )
+    fi
+done
+
+# The default run_tests.sh Rust lane is `cargo test --workspace`. `--no-run`
+# builds the same test graph without spending time executing it during marking.
 if [[ "$with_tests" -eq 1 ]]; then
-    mark_commands+=(
-        "test --no-run --workspace"
-    )
+    mark_commands+=("test --no-run --workspace")
 fi
+
+# run_game.sh accepts arbitrary --features / --no-default-features combinations,
+# so there is no finite built-in list for those graphs. Callers can preserve the
+# exact variants they care about without teaching this script every feature.
+mark_commands+=("${extra_mark_commands[@]}")
 
 cargo_args=(mark-sweep)
 
@@ -166,6 +203,12 @@ else
     echo "Incremental state: preserve"
 fi
 
+if [[ "$with_tests" -eq 1 ]]; then
+    echo "Backbone tests: preserve"
+else
+    echo "Backbone tests: discard if otherwise unreachable"
+fi
+
 echo
 echo "Marked Cargo configurations:"
 for mark_command in "${mark_commands[@]}"; do
@@ -180,3 +223,4 @@ if [[ "$apply" -eq 1 && -d "$target_dir" ]]; then
     echo -n "Resulting size: "
     du -sh "$target_dir" | cut -f1
 fi
+

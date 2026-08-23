@@ -58,10 +58,10 @@ unblock a ledger row:
 
 | § | ruling | unblocks |
 | --- | --- | --- |
-| 26 | ✔ **BUILT** `2211d62a2` + map-assets `71f1738`. `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust + LDtk keys in one change, gate destructures exhaustively. ⛔ `BlockKind` still not in scope | D169 |
-| 19 | ✔ **BUILT** `1e6f8f815`. One `index_baked_table`; `record_index` already had the rule and the three copies disagreed | D162 |
+| 26 | **Full rename**: `World.edges: WorldEdgeMargins { fall, side, rise }`, Rust + LDtk keys in ONE change; no content migration (zero levels author a value). ⛔ `BlockKind` not in scope | D169 |
+| 19 | **Sheet registry keys by FILE ROOT.** A renderer target string may not be a durable engine identity | D162 |
 | 31 | **`SeatRawFrames` stays RAW.** Split is SOURCE-LOCAL vs WORLD-DEPENDENT — portal transforms go AFTER the boundary, beside fast-fall. ⛔ post-boundary table is NOT "confirmed" (GGRS predicts): `CanonicalSeatInput` / `TickSeatInput` | D175 · D180 |
-| 30 | ▢ **DELETE the 1.0 height warn; do not replace it with a median.** Density becomes a separately DECLARED authoring profile | D165 |
+| 30 | **DELETE the 1.0 height warn; do not replace it with a median.** Density becomes a separately DECLARED authoring profile | D165 |
 | 29 | **Sweep the crates a CARVE touches**, not the workspace. ⛔ never `--workspace --tests` | D33 |
 | 16 | **The layout tool owns a level's position, and ownership FOLLOWS THE LAYOUT MODE.** ⛔ do not bulk-rewrite the 52 specs | D163 residue |
 | 18 | **A hit's art follows BOTH** the victim's material and the blow's strength — a ~10-emitter message change | D128 residue |
@@ -1264,23 +1264,7 @@ until that room unloads, after which its authored record recreates it at home.
 *"Leave this actor permanently where I released it"* would need body `Placed`
 whereabouts plus reconstruction relocation support.
 
-- ✔ **D169 — EVERY GAME BUILT ON THIS ENGINE CARRIED A PLATFORM-FIGHTER NOUN.**
-  CLOSED 2026-08-22 by `2211d62a2` + map-assets `71f1738`, on Jon's §26 ruling.
-  `World { blast_margin, side_blast_margin, ceiling_blast_margin }` became
-  `World { edges: WorldEdgeMargins { fall, side: Option, rise: Option } }`, and
-  the LDtk keys became `fall_out_margin` / `side_out_margin` / `rise_out_margin`
-  in all six shipped worlds — one change, because the converter reads the
-  authored key BY NAME and a mapping is the shim this project refuses. Zero
-  content migration: 18 schema entries and no level authored a value.
-  `apply_world_hazard_gate` DESTRUCTURES the struct, so a fourth axis is a
-  compile error at the gate. ⛔ **`BlockKind` is the plan's other half and its
-  trigger still has not fired** — the diagnosis (one enum mixing contact law,
-  traversal permission, world consequence and contact affordance) was re-measured
-  as correct and is NOT closed by this. ⛔ the LDtk field-def test was scanning
-  sibling agents' worktrees and reported their branch state as this one's
-  failure; `.worktrees` is excluded now.
-
-- ⏸ **D169-HISTORY — the original row, kept for the measurement only.**
+- ▢ **D169 — EVERY GAME BUILT ON THIS ENGINE CARRIES A PLATFORM-FIGHTER NOUN.**
 
 Design in
 [`engine/world-geometry-and-spatial-semantics.md`](engine/world-geometry-and-spatial-semantics.md).
@@ -2412,44 +2396,6 @@ UNTRIMMED sheets   63   quad is the WHOLE frame — the legacy path
 of why they measured differently: `snakes_on_a_cartesian_plane` publishes ZERO
 per-frame rects, while `ai_slop` publishes 44, every one with a non-zero offset.
 Nothing needs building.
-
-⭐⭐⭐ **AND THE CAUSE IS NOT "THESE SHEETS ARE OLD" — MEASURED 2026-08-22.** The
-untrimmed sheets are untrimmed because their TARGET MODULES SAY SO:
-
-```text
-38  targets pass `trim=False` to `build_sheet`, and NOT ONE states a reason
- 9  more pass `trim=True`, which is already the default
- 5  targets legitimately opt out, and they are in `registry/pack_groups.py`
-    (shrine, robot_slash, glider, lasersword, lasersword_with_guns) because
-    their runtimes sample a fixed grid with no per-frame anchor compensation
-```
-
-⛔⛔ `registry/pack_groups.py` says of itself that *"all adapter, tack-on, and
-rig-document build paths ask `policy_for(target)` for layout policy instead of
-carrying independent defaults"* — and 38 targets carry an independent default
-that contradicts it, silently, with no rationale anywhere. ⇒ **a regen alone
-changes nothing for those 38**: `publish carl_stargan` was run first and produced
-zero trim offsets, which is what pointed at the flag.
-
-✔✔ **DONE — renderer `36d6863` (Carl) then `b9fb1e7` (the other 45).** The
-argument is DELETED rather than flipped, so every target takes the central
-policy. 36 targets regenerated in 6:14 and **all 36 publish trim offsets where
-they published none — 0 untrimmed left of the 36**.
-⚠ NOT touched: `carl_runga` and `martin_cutta` pass `trim="angled"` /
-`trim="strapped"`, which is a beard style on a character preset and not the
-packer flag at all.
-
-⛔⛔ **SANDBAG IS A DIFFERENT DEFECT AND MUST NOT BE PRICED AS A FLAG.** It
-hand-rolls its own sheet image and manifest in `targets/characters/sandbag.py`
-and never calls the shared `build_sheet` at all, so it reaches neither the packer
-nor the policy. Its 4.0x is a PORT.
-
-⭐ **what made the sweep safe to take in one pass**, checked before flipping
-anything: `apply_character_frame` is a SINGLE chokepoint that self-captures the
-trim basis from the spawn-built sprite, and its own doc says *"no spawn site can
-desync the basis because none provides it"*. `animate_props` is one of its four
-callers, so the four prop targets were covered by the same guarantee.
-⇒ what remains on this row is SANDBAG's port, and the height contract itself.
 
 The 61 untrimmed sheets that publish a body bbox, worst frame-vs-body area
 first — the regeneration queue:
@@ -3809,158 +3755,33 @@ independently consumable only after a small external-style `App` uses it with no
 Ambition content or policy. Never carve because a file or crate is large — a
 failure mode this repository has already named twice.
 
-- ▢ **D72 — Continue Smash as a body-generic combat customer.**
+- ▢ **D72 — Push Super Smash Siblings as a product and engine customer.**
 
-⭐ **START AT [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md)**
-(2026-08-19): a one-line-per-row table of what the platform-fighter vocabulary
-has and what it does not, plus an ordered roadmap. ⛔ grep a row before working
-it — the first pass of that table filed tech, ledge-jump getup and the short hop
-as MISSING when all three ship.
+  **Current execution authority:**
+  [`demos/campaigns/smash-fun-push-2026-08-22.md`](demos/campaigns/smash-fun-push-2026-08-22.md).
+  Work its independent slices in order; if one blocks, record the blocker there
+  and continue with another unblocked slice.
 
-⭐⭐ **THE TARGET IS SMASH-*LIKE* (Jon, 2026-08-20)**: *"Reproducing smash 4 or
-brawl, or melee (bugs are not required parity) would be nice too."* Where the
-games AGREE a gap is research — ship the standard. Where they DIFFER the answer
-is a KNOB, never a pick; a knob's default is the behaviour that already existed,
-so shipping one moves nothing. First worked example is
-`MovementTuning::parry_timing`.
+  **Canonical feature truth:**
+  [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md). It owns
+  shipped/partial/absent status, effort, implementation seam, and whether a
+  feature is product work, `E1`, `E2`, or `WAIT`. Re-grep a row before changing
+  it.
 
-✔✔ **roadmap item 7 is CLOSED — all three residues verified landed against HEAD
-2026-08-21, by grepping the claim rather than the commit titles:**
+  **Product/architecture charter:**
+  [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md). Fighters stay
+  ordinary bodies; human and CPU control share mechanics; presentation consumes
+  resolved simulation facts.
 
-```text
-counts CONTACTS not USES  ✔ `moveset/mod.rs:1679` guards on `pb.landed_hit`, and
-                            says why: "LandedBodyHit is emitted once per BODY
-                            CONTACT … a move that connects with three opponents
-                            has been used once"
-in the movement core,     ✔ it is in `ambition_combat/src/stale.rs`, registered
-under the ENGINE domain     by that crate's OWN `rollback_registration.rs`, and
-                            `#[require]`d by `ActorMoveset` so only bodies that
-                            can land a move carry the history
-evade presents as "Dash"  ✔ `("Dash", "Burst")` is in `settings.rs`'s
-                            RENAMED_ACTIONS, so even a stored remap migrates
-```
+  `E1` work is allowed to land with the feature in its current semantic owner.
+  Give `E2` work a focused campaign. Do not wait for unrelated monolith,
+  simulation-phase, capability/runtime-composition, or public-facade migrations.
+  Do not expand a `WAIT` architecture merely to close a parity row.
 
-⛔ **the original text is kept below as HISTORY** — it is what the review found,
-and deleting it would erase why three separate fixes happened. ⚠ this is the
-FOURTH stale row found on 2026-08-21 by grepping a claim before working it; the
-rule at the top of the goal earns its place daily.
+  When the active campaign closes, update the inventory, archive the campaign,
+  and replenish D72 from the highest-value remaining inventory rows rather than
+  creating another standing Smash backlog.
 
-⚠ **the ORIGINAL residue text, for the record** — stale-move accounting
-counting CONTACTS instead of USES, `BodyStaleMoves` sitting in the movement core
-under the ENGINE rollback domain, and the shared evade control still presenting
-as **Dash** on a body whose `AbilitySet::dash` is off. The third is control-surface
-shaped and belongs to whoever owns `action_scheme.rs`, not to this row.
-
-Use [`smash-body-generic-combat-2026-08-09.md`](smash-body-generic-combat-2026-08-09.md)
-and [`demos/super-smash-siblings.md`](demos/super-smash-siblings.md). The old
-migration diary is archived; only source-confirmed residuals should generate
-work.
-
-Super Smash Siblings may eventually become a first-class game, but **Ambition
-remains the flagship**. Keep both on shared body/combat/participant/world
-semantics rather than adding Smash-only engine paths.
-
-⭐⭐ **RECONCILED 2026-08-17 — this row's own rule was vindicated seven times in
-one campaign**: *"keep both on shared body/combat/participant/world semantics
-rather than adding Smash-only engine paths."* Every defect the smash work
-surfaced lived on the SHARED floor, not in smash:
-
-```text
-D155  every authored launch_dir in the GAME was vertically inverted, and a
-      tumbling launch resolved as a LANDING — hit_response + the movement
-      kernel, both Ambition's too
-D114  hitlag was read by the AVATAR road only, so any hit between two ACTORS
-      froze neither — Ambition's enemies had it as much as smash's CPUs
-D157  the ability gate that should stop a body attacking NEVER EXISTED:
-      `combat_actions` derived its slots from the moveset and the ActionSet,
-      which say what the attack IS, never whether the body may attack
-D150  a shot's allegiance was reconstructed from the firing ENTITY, so it
-      turned on its own team when the firer despawned
-D156  a sheet's drawn facing was authored three times and read zero times —
-      and the BOSS renderer had had the missing XOR since the mockingbird
-D154  an authored effect's position was body-local and its ARTWORK was not
-D152  empowerment expiry was every game's to remember, and five did
-```
-
-⇒ not one was a smash-only path, and not one was fixed by adding one — smash is
-the first customer that seats fourteen bodies, runs them CPU-vs-CPU, and
-launches them, so it reads floors Ambition's own play had never leaned on.
-
-⚠ the residuals this campaign leaves are named and small: D158's speech-bubble
-stacking (closed 2026-08-17 — the offsets were separated and the LINES were
-not), and one thing that turned out NOT to be a residual at all on inspection.
-
-⛔ **"presentation hitstop is slot-0 only" was filed as a defect and is actually
-a DESIGN FORK.** D114 already fixed the part that matters — both movement roads
-spend hitlag now, so both bodies stop on a connect; slot-0's clock-request only
-adds freezing everything else (particles, VFX, other bodies) as a flourish.
-Slot-0 is correct for what `emit_player_time_intent_system` is for — its other
-arms (bullet-time, blink-hold) are per-PLAYER feel affordances (ADR 0010/0011),
-so a second player would emit its own intent against its own clock. In a
-CPU-vs-CPU match there is no `PrimaryPlayer` at all, and this file already
-carries Jon's 2026-08-07 freeze from exactly that shape (a paused match forced
-the clock to zero with nobody to ask for the neutral pace back, running the
-world at scale 0.0 forever). ⇒ "whose hitstop owns the SCREEN when nobody is
-playing" is a real question with several defensible answers (nobody's, the most
-recent hit's, the framed fighter's), not a bug with an obvious fix. ▢ now asked,
-as §15 in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) —
-it had sat as "recorded as a fork" in this row alone since 2026-08-17. ⛔ do not
-guess it.
-
-✔✔ **THE SELF-KO CAUSE IS FIXED (2026-08-15) — architecture, not tuning.** The
-measured defect (depth 12 survives 7.4s while depth 0 survives 47.8s, a duelist
-losing three stocks to itself at 0%) is answered by giving `probe_recovery` its
-first consumer: `RecoveryLens` lowers the perceived view into a real `ae::World`
-and the body's own `AbilitySet`/`MovementTuning` into a scratch body, and
-`refine_by_rollout` now lets the kernel overrule the shadow both ways. ⭐ the
-missing half was the REPRIEVE, not the condemnation — the shadow line `Hold`s
-after `commit_ticks`, so near a ledge it condemned every verb, and the veto
-emptied, falling through to `least_bad_movement` (picks *dies latest*, not
-*lives*).
-
-✔ deleted in the same slice: `WorldView::reachable` and `SolidKind::blocks_path`
-— hand-rolled straight-line reachability with zero production consumers.
-
-⭐ the falsifier holds: two bodies at an identical position with identical
-geometry, gravity and unspent air-jump count, differing only in
-`AbilitySet::double_jump`, reach opposite verdicts; poisoning the production path
-to a default `AbilitySet` reddens exactly that test and no other — the verdict
-comes from the body's capabilities, not the stage's shape.
-
-✔ **THE LEDGE TRANSITION IS CLOSED (2026-08-15) — one predicate.** The shadow's
-walk-off test compared the body's CENTRE to `ground_span` while
-`surface_supports_body_at_rest` compares its FOOTPRINT, so `left_the_ground`
-captured a position a half-extent early (11px on the shipped fighter) at which
-the real kernel still found the body standing. Fixed: `integrate` now calls
-`ae::collision_semantics::spans_overlap_for_support`, the 1-D core extracted out
-of `perpendicular_overlap`, so the shadow asks the kernel's own question with the
-kernel's own `EDGE_OVERLAP_SLOP`; the centre test is deleted.
-`Perceived::supporting_floor` carries the identical correction from 2026-07-31 —
-this was the last centre-in-span ground test in the fighter's ledge reasoning.
-
-⚠ two limits still recorded: blast margins are probed at zero while the stage
-authors 120px (does not interact with the ledge case); cost is unmeasured, and
-the existing budget bench doesn't price the lens. Probe frequency is unchanged —
-still ≤1 per modelled verb per decision.
-
-⚠ **SUPERSEDED 2026-08-15: the tuning pause is lifted, replaced by D128.** The
-old note said "do not tune the fighter further until higher-leverage
-architecture work is exhausted" — the maintainer has since opened the
-combat-expression lane deliberately as a product-pressure slice. ⛔ its licence
-is still not tuning: D128 authors repertoire and adds reusable engine
-primitives; a dial-turning pass remains out of scope. The deterministic
-evaluation rig and its measurements stay. The S4 diagnosis is recorded in
-[`engine/fighter-brain.md`](engine/fighter-brain.md): the rollout horizon is ~12
-ticks / 0.2s, the fall from platform to blast floor is ~24 ticks / 0.4s, so a
-deeper search cannot see the cost of a ledge exit and increasingly picks
-apparently-free self-KO trajectories. ⛔ the "airborne + below the lip + outside
-the span ⇒ already dead" terminal value was implemented, measured, and REMOVED:
-it is not body-generic (air movement, jumps, flight, wall interaction, ledge
-grab, recovery attacks, impulses, portals, grapples all falsify it). A real
-committed-fall value comes from recoverability under the body's own capabilities
-— eventually a consumer of
-[`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)
-— or from a horizon long enough to contain the landing.
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
 Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
@@ -6820,61 +6641,6 @@ ResMut<CharacterCatalog | PreparedCharacter* | CharacterDefinition>  0 hits
 
 ⇒ **games already consume prepared data.** The immutability the review asks for
 is enforced by the type, not by convention, so that half of the ask is done.
-
-⭐⭐⭐ **RE-MEASURED AGAINST HEAD 2026-08-22, AND IT FALSIFIES THIS ROW'S REASON
-FOR WAITING.** The row says the capture kit was promotable because it *"came out
-as pure VALUES — six numbers of geometry, four timings, three payloads, no helper
-composition in the middle of them"*, and implies the repertoire is a different
-shape. It is not. Counted across all 17 fighters:
-
-```text
-294  strike(...) call sites
- 13  positional arguments each — id, clip, 3 timings, 2 geometry pairs,
-     damage, knockback, growth, launch_dir, landing effect
-  2  decorators applied after: vfx_at(...) and on_contact(...)
-```
-
-⇒ **a strike is already a fixed-arity record of pure values with a name.** It maps
-one-to-one onto serde; the facet does not need it to be redesigned first. What
-genuinely carries structure is the SPECIALS —
-`NeutralSpecial::Authored(..)` and `DownSpecial::ByPosture { grounded, airborne }`
-— and those are four slots of sixteen.
-
-⛔⛔ **and the 13 positional arguments are a live defect on their own.** Alice's
-jab reads `strike("challenge", "jab", 0.05, 0.05, 0.13, (24.0, 0.0), (17.0, 13.0),
-3, 48.0, 1.05, None, None)`. Two transposed numbers there change a fighter's feel
-and NOTHING catches it — not the type system, since the timings are all `f32`,
-and not a test, since no fighter's numbers are asserted individually.
-
-✔✔ **THE ENABLING SLICE LANDED — `65fb35e9d`.** `Strike` is a named-field record
-and all **304** call sites moved to it. ⛔ `Strike` is deliberately NOT
-`Serialize`: adding the derive is the FACET's slice, and doing it early would
-freeze a wire shape before a customer asked for one.
-
-⭐⭐ **proven value-preserving rather than asserted.** A temporary oracle dumped
-every `MovesetContract` the content crate authors — 14 fighters, 31,600 lines of
-`{:#?}` — before and after, and again after rustfmt reflowed the literals.
-Byte-identical both times. The oracle was deleted in the same commit; it had one
-job and no second one.
-
-⚠ **the demo's FORK is now visible at the type level.** `demo_smash`'s
-`moveset.rs` has its own 11-argument `strike`; it takes the shared `Strike` and
-DESTRUCTURES `on_hit` with a `debug_assert` rather than dropping it, because a
-dropped field is the invisible kind of divergence. ⇒ the only behavioural
-question left for unifying the two is the clip fallback chain
-(`["attack","idle"]` vs `["attack_side","attack","slash","idle"]`), and for a
-sheet with no `attack_side` they resolve identically.
-
-⛔⛔ **AND AN AUTHORED FIGHTER COMPILES NOWHERE.**
-`game/ambition_content/src/projectile_polygon_moveset.rs` (8.8K) and
-`authored/projectile_polygon.rs` are both COMMITTED and declared by no `mod`, so
-nothing builds either one. Found only because the oracle tried to call it. Left
-alone as somebody's in-flight work — but it is not in-flight in the tree, it is
-invisible in it.
-
-⇒ **what is left on this row is now the FACET itself**: derive serde on `Strike`,
-give `SmashFighterFacet` a repertoire beside its capture kit, and move one
-fighter's values into a `.ron` to prove the road.
 
 ▢ **what is genuinely open, then:** a fighter's `SmashRepertoire` is authored as
 a game-side Rust literal — `george_booul_moveset.rs:556`,

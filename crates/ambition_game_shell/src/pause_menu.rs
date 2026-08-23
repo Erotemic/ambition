@@ -35,35 +35,80 @@ use crate::{
     shell_action_edges, ActiveGameplaySession, ShellCommand, ShellHostConfiguration, ShellRouter,
 };
 
+/// The universal audio controls the shell offers every experience.
+///
+/// This is shell presentation identity, not the full settings-menu IR. The mutation law stays
+/// canonical in `ambition_persistence::settings::AudioSettings`; this enum only says which four
+/// global audio fields belong on the universal shell menu.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ShellAudioControl {
+    Mute,
+    MasterVolume,
+    MusicVolume,
+    SfxVolume,
+}
+
+impl ShellAudioControl {
+    const ALL: [Self; 4] = [
+        Self::Mute,
+        Self::MasterVolume,
+        Self::MusicVolume,
+        Self::SfxVolume,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Mute => "Mute",
+            Self::MasterVolume => "Master Volume",
+            Self::MusicVolume => "Music Volume",
+            Self::SfxVolume => "Sound Volume",
+        }
+    }
+
+    fn value(self, settings: &ambition_persistence::settings::UserSettings) -> String {
+        use ambition_persistence::settings::AudioSettings;
+
+        match self {
+            Self::Mute => if settings.audio.muted { "On" } else { "Off" }.to_owned(),
+            Self::MasterVolume => {
+                format!("{}%", AudioSettings::percent(settings.audio.master_volume))
+            }
+            Self::MusicVolume => {
+                format!("{}%", AudioSettings::percent(settings.audio.music_volume))
+            }
+            Self::SfxVolume => {
+                format!("{}%", AudioSettings::percent(settings.audio.sfx_volume))
+            }
+        }
+    }
+
+    fn adjust(self, direction: i32, settings: &mut ambition_persistence::settings::UserSettings) {
+        use ambition_persistence::settings::AudioSettings;
+
+        let step = if direction < 0 {
+            -AudioSettings::VOLUME_STEP
+        } else {
+            AudioSettings::VOLUME_STEP
+        };
+        match self {
+            Self::Mute => settings.audio.toggle_mute(),
+            Self::MasterVolume => settings.audio.nudge_master(step),
+            Self::MusicVolume => settings.audio.nudge_music(step),
+            Self::SfxVolume => settings.audio.nudge_sfx(step),
+        }
+    }
+}
+
 /// The universal menu entries, in display order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PauseEntry {
     Resume,
-    /// A global audio property, edited through the shared settings IR.
-    ///
-    /// The row carries the IR's own id rather than a shell-local copy, so
-    /// "what does turning this up mean" is answered in exactly one place —
-    /// `apply_settings_option` — for the title screen, Ambition's own system
-    /// menu, and the lunex cube alike.
-    Audio(ambition_settings_menu::settings::SettingsOptionId),
+    Audio(ShellAudioControl),
     QuitToTitle,
     QuitToDesktop,
     /// Close the menu when there is no session to resume.
     Close,
 }
-
-/// The audio properties the SHELL owns, in row order.
-///
-/// Deliberately only these four. Then in ambition itself, it would extend or compose with that IR
-/// to add the additional one it needs."* Video, controls and gameplay settings are either per-game
-/// or need a live session to preview, so they stay with the game's own system menu; audio is the
-/// one group that means the same thing on a title screen as it does mid-fight.
-const SHELL_AUDIO_OPTIONS: [ambition_settings_menu::settings::SettingsOptionId; 4] = [
-    ambition_settings_menu::settings::SettingsOptionId::Mute,
-    ambition_settings_menu::settings::SettingsOptionId::MasterVolume,
-    ambition_settings_menu::settings::SettingsOptionId::MusicVolume,
-    ambition_settings_menu::settings::SettingsOptionId::SfxVolume,
-];
 
 impl PauseEntry {
     /// Build rows from the two independent facts the menu actually cares about.
@@ -77,7 +122,7 @@ impl PauseEntry {
         if in_session {
             rows.push(PauseEntry::Resume);
         }
-        rows.extend(SHELL_AUDIO_OPTIONS.map(PauseEntry::Audio));
+        rows.extend(ShellAudioControl::ALL.map(PauseEntry::Audio));
         if !in_session {
             rows.push(PauseEntry::Close);
         }
@@ -91,7 +136,7 @@ impl PauseEntry {
     fn label(self) -> String {
         match self {
             PauseEntry::Resume => "Resume".to_owned(),
-            PauseEntry::Audio(id) => audio_label(id).to_owned(),
+            PauseEntry::Audio(control) => control.label().to_owned(),
             PauseEntry::QuitToTitle => "Quit to Title".to_owned(),
             PauseEntry::QuitToDesktop => "Quit to Desktop".to_owned(),
             PauseEntry::Close => "Close".to_owned(),
@@ -104,40 +149,11 @@ impl PauseEntry {
             // The VALUE is the detail. A settings row whose current state is
             // invisible is a switch with no indicator: you can only discover
             // what it does by changing it.
-            PauseEntry::Audio(id) => audio_value(id, settings),
+            PauseEntry::Audio(control) => control.value(settings),
             PauseEntry::QuitToTitle => "Return to the title screen.".to_owned(),
             PauseEntry::QuitToDesktop => "Exit the game.".to_owned(),
             PauseEntry::Close => "Close this menu.".to_owned(),
         }
-    }
-}
-
-fn audio_label(id: ambition_settings_menu::settings::SettingsOptionId) -> &'static str {
-    use ambition_settings_menu::settings::SettingsOptionId as Id;
-    match id {
-        Id::Mute => "Mute",
-        Id::MasterVolume => "Master Volume",
-        Id::MusicVolume => "Music Volume",
-        Id::SfxVolume => "Sound Volume",
-        // Unreachable through `SHELL_AUDIO_OPTIONS`; a label rather than a
-        // panic, because a row that appears with a wrong name is a smaller
-        // failure than a shell that refuses to draw its own menu.
-        _ => "Audio",
-    }
-}
-
-fn audio_value(
-    id: ambition_settings_menu::settings::SettingsOptionId,
-    settings: &ambition_persistence::settings::UserSettings,
-) -> String {
-    use ambition_settings_menu::settings::SettingsOptionId as Id;
-    let percent = |value: f32| format!("{}%", (value * 100.0).round() as i32);
-    match id {
-        Id::Mute => if settings.audio.muted { "On" } else { "Off" }.to_owned(),
-        Id::MasterVolume => percent(settings.audio.master_volume),
-        Id::MusicVolume => percent(settings.audio.music_volume),
-        Id::SfxVolume => percent(settings.audio.sfx_volume),
-        _ => String::new(),
     }
 }
 
@@ -389,12 +405,10 @@ fn drive_shell_pause_menu(
     // LEFT/RIGHT edit the focused row's value. Only a settings row has one, so
     // this is inert everywhere else rather than being a second confirm.
     let focused = rows.get(menu.cursor).copied().unwrap_or(PauseEntry::Close);
-    if let (PauseEntry::Audio(id), Some(settings)) = (focused, settings.as_deref_mut()) {
+    if let (PauseEntry::Audio(control), Some(settings)) = (focused, settings.as_deref_mut()) {
         let direction = i32::from(edges.increase) - i32::from(edges.decrease);
-        if direction != 0
-            && ambition_settings_menu::settings::apply_settings_option(id, direction, settings)
-        {
-            play(&mut sfx, ids::UI_MENU_MOVE);
+        if direction != 0 {
+            control.adjust(direction, settings);
         }
     }
 
@@ -459,16 +473,12 @@ fn activate_pause_entry(
     sfx: &mut SfxWriter,
 ) {
     match entry {
-        // Confirm on a settings row advances it, exactly as the shared IR
-        // defines: a toggle flips, a slider steps up. That is `apply_settings_option`'s
-        // documented behaviour for a non-negative direction, and reimplementing
-        // "what confirm means" here would be the second authority this row
-        // exists to avoid.
-        PauseEntry::Audio(id) => {
+        // Confirm on an audio row is the positive direction: mute toggles and
+        // volume sliders step up. The field-specific mutation still lives on
+        // `AudioSettings`; the shell owns only which four controls it exposes.
+        PauseEntry::Audio(control) => {
             if let Some(settings) = settings {
-                if ambition_settings_menu::settings::apply_settings_option(id, 1, settings) {
-                    play(sfx, ids::UI_MENU_ACCEPT);
-                }
+                control.adjust(1, settings);
             }
         }
         PauseEntry::Close => {
@@ -523,18 +533,13 @@ fn render_shell_pause_menu(
     // settings row whose number lags the setting is worse than no number.
     // Quantised to whole percent because that is all the row displays; a float
     // key would rebuild the page on every inaudible step.
-    let audio_key = SHELL_AUDIO_OPTIONS.iter().fold(0u64, |acc, id| {
-        let value = match id {
-            ambition_settings_menu::settings::SettingsOptionId::Mute => {
-                u64::from(settings.audio.muted)
-            }
-            other => (audio_value(*other, &settings).len() as u64)
-                .wrapping_mul(31)
-                .wrapping_add(
-                    audio_value(*other, &settings)
-                        .bytes()
-                        .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(u64::from(b))),
-                ),
+    let audio_key = ShellAudioControl::ALL.iter().fold(0u64, |acc, control| {
+        let value = match control {
+            ShellAudioControl::Mute => u64::from(settings.audio.muted),
+            other => other
+                .value(&settings)
+                .bytes()
+                .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(u64::from(b))),
         };
         acc.wrapping_mul(1_000_003).wrapping_add(value)
     });
@@ -856,15 +861,15 @@ mod tests {
         assert!(!in_game.contains(&PauseEntry::Close));
 
         // Audio is global and therefore present on all three surfaces.
-        for id in SHELL_AUDIO_OPTIONS {
+        for control in ShellAudioControl::ALL {
             for (name, rows) in [
                 ("title", &home),
                 ("frontend", &frontend),
                 ("gameplay", &in_game),
             ] {
                 assert!(
-                    rows.contains(&PauseEntry::Audio(id)),
-                    "{id:?} missing from {name} menu"
+                    rows.contains(&PauseEntry::Audio(control)),
+                    "{control:?} missing from {name} menu"
                 );
             }
         }
@@ -875,8 +880,6 @@ mod tests {
     #[test]
     fn adjusting_a_volume_row_writes_the_persisted_setting() {
         use ambition_persistence::settings::UserSettings;
-        use ambition_settings_menu::settings::SettingsOptionId;
-
         let mut app = app();
         app.init_resource::<UserSettings>();
         press_start(&mut app);
@@ -884,7 +887,7 @@ mod tests {
             &mut app,
             false,
             false,
-            PauseEntry::Audio(SettingsOptionId::MasterVolume),
+            PauseEntry::Audio(ShellAudioControl::MasterVolume),
         );
 
         let before = app.world().resource::<UserSettings>().audio.master_volume;
@@ -906,8 +909,6 @@ mod tests {
     #[test]
     fn confirming_the_mute_row_toggles_mute() {
         use ambition_persistence::settings::UserSettings;
-        use ambition_settings_menu::settings::SettingsOptionId;
-
         let mut app = app();
         app.init_resource::<UserSettings>();
         press_start(&mut app);
@@ -915,7 +916,7 @@ mod tests {
             &mut app,
             false,
             false,
-            PauseEntry::Audio(SettingsOptionId::Mute),
+            PauseEntry::Audio(ShellAudioControl::Mute),
         );
 
         assert!(!app.world().resource::<UserSettings>().audio.muted);

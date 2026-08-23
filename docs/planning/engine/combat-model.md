@@ -1,60 +1,121 @@
-# Combat model — remaining engine work
+# Combat model — engine contract
 
-> **Verified against `cecd01ca` (2026-08-13).** CM1–CM5, CM7 and CM8 from the
-> original combat campaign are implemented. The full design/execution record is
-> archived at
-> [`../../archive/planning-superseded/2026-08-13/engine/combat-model.md`](../../archive/planning-superseded/2026-08-13/engine/combat-model.md).
->
-> Current body-generic platform-fighter integration is owned by
-> [`../smash-body-generic-combat-2026-08-09.md`](../smash-body-generic-combat-2026-08-09.md).
+**State:** ACTIVE body-generic contract. Smash feature priority and gap status
+live in
+[`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md).
+The completed combat campaign record is archived at
+[`../../archive/planning-superseded/2026-08-13/engine/combat-model.md`](../../archive/planning-superseded/2026-08-13/engine/combat-model.md).
 
-## Already landed — do not schedule again
+## Scope
 
-The engine already has the shared damage/knockback axis, DI, smash-charge data,
-attack hold/release gesture signals, cancel windows/chains, per-move
-presentation validation, derived frame data, body-generic hit feedback, a shared
-victim-side shield/parry seam, equipment modifiers/grants, touch-to-collect
-`WorldItem` equipment, and Mary-O consumers of the equipment model.
+Combat owns reusable body-to-body attack and reaction semantics. It does not own
+Smash match rules, fighter identity, controller identity, stage policy, or
+presentation styling.
 
-## Remaining combat capabilities
+A feature belongs here when the mechanic should behave the same for an ordinary
+Ambition body, a Smash fighter, a human-controlled body, and a CPU-controlled
+body given the same authored state and control intent.
 
-### 1. Grab / hold / throw vocabulary
+## Current authority map
 
-Platform-fighter grabs and throws are still absent as a body-generic combat
-capability. Design them through existing control-authority/body seams rather than
-creating a Smash-only grabbed-body state machine. A successful throw must feed
-the ordinary damage/launch/DI pipeline and release the temporary hold authority.
+| Concern | Authority |
+|---|---|
+| Move timing and authored windows | `MoveSpec` / `MoveWindow` plus per-use move playback |
+| Hit geometry and authored hit payload | `HitVolume` and the move/hitbox runtime |
+| Victim eligibility and friendly/shield interaction | shared combat victim-resolution path |
+| Damage, launch, DI, hitlag, hitstun | shared hit-response/combat state |
+| Shield resource, coverage, stun, pushback, break | body shield state + shield tuning + combat resolution |
+| Capture, pummel, release, throw | `ambition_combat::capture`, `CapturedBy`, capture requests |
+| Stale-move accounting | combat-owned stale-move state |
+| Action acceptance/buffering | body/control action authority; the existing `BodyActionBuffer` is the intended combat buffer seam |
+| Presentation | resolved combat/read-model facts and events consumed by VFX/audio/camera/HUD |
 
-This is **deferred behind the current D72 feel/body-generic campaign**; do not
-rush it merely because the old CM6 sketch exists.
+Do not create a second authority because one game needs richer presentation or
+a new reaction type.
 
-### 2. Shield-stun / shield durability, if the product still wants it
+## Extension rules
 
-Current source has `BodyShieldState { active, parry_window_timer }`, directional
-blocking, parry behavior, and shared damage resolution. The older CM6 proposal's
-shield HP, shield stun, break stun, regeneration, and `OnBlock` cancel fact are
-not implemented as that model.
+1. **Add semantics at the narrow owner.** A new knockback form extends hit
+   reaction; a new cancel condition extends move/cancel semantics; a new capture
+   entry form feeds the existing capture relationship.
+2. **One body rule for every controller.** Combat systems consume resolved body
+   control/state, not raw keyboard/gamepad state or `PrimaryPlayer` identity.
+3. **Presentation does not decide combat.** Shaders, particles, audio, cameras,
+   and poses read resolved charge, shield, hit, vulnerability, launch, capture,
+   and KO facts.
+4. **Use authored policy before adding code.** Existing move windows, events,
+   gates, motion, landing lag, autocancel, on-hit effects, and rules knobs should
+   express the feature when they are sufficient.
+5. **Do not encode one mechanic through another.** Autolink is not capture;
+   fixed knockback is not a magic growth constant; invulnerability is not a
+   transparent sprite; command grabs do not need a second grabbed-body state.
+6. **Small reusable engine work may ship with the feature.** `E1` rows in the
+   Smash inventory are intended feature-driven extensions. They do not wait for
+   the actor-monolith carve, simulation-phase migration, or capability/runtime
+   composition cleanup.
+7. **Coordinated work gets a campaign.** `E2` rows still have a clear owner, but
+   touch enough systems that they should be planned/tested as a focused engine
+   slice rather than hidden inside fighter content.
+8. **Do not pre-generalize `WAIT` rows.** Require a concrete fighter/ruleset to
+   establish the actual state and transition contract first.
 
-Treat those as an optional next capability to justify from Smash feel. Extend the
-one body shield/damage authority; do not introduce a second shield subsystem.
+## Preferred reusable seams
 
-### 3. Finish body-scale equipment resolution
+The Smash inventory's `P01`–`P14` index is the current product-driven list of
+missing reusable semantics. In combat, the important families are:
 
-`ambition_characters::equipment::resolved_param` supports `BODY_SCALE`, and the
-pickup/equipment path is live, but current actor/render/collision body-size reads
-do not generally resolve `BODY_SCALE` through that fold. If equipment-authored
-body scaling remains desired, make the authoritative size/collider/presentation
-read path consume the resolved value once rather than adding demo-specific size
-patches.
+- explicit per-use move charge state;
+- hit-reaction modes such as fixed, autolink, and flinchless reaction;
+- deterministic same-move hitbox arbitration for sweetspots/parts;
+- live consumption of authored invulnerability/armor windows;
+- block-contact cancel conditions;
+- the body-owned combat action buffer;
+- one capture acquisition policy feeding the existing capture relationship;
+- resolved combat facts/events for presentation.
 
-### 4. Content-level hurt identity
+The inventory owns whether each is shipped, partial, or absent. Do not duplicate
+that status here.
 
-The engine can author attack strike cues and victim `HurtFeedback`; distinct
-shipped hurt identities remain content work where characters need them. This is
-not a new combat architecture campaign.
+## Capture
 
-## Exit
+`CapturedBy` is the one temporary hold relationship. Standing, running, pivot,
+command, aerial, tether, and hit-grab acquisition may differ in eligibility, but
+a successful acquisition enters the same capture authority. Throws leave capture
+through the ordinary launch/damage path.
 
-New combat work is done when the capability is body-generic, driven through the
-same control and victim-resolution seams for human/AI/possessed bodies, and does
-not add mode-specific duplicate authority.
+Do not merge capture with mount/possession and do not create a Smash-only captive
+body type.
+
+## Shields and defensive windows
+
+The existing body shield resource remains the one shield authority. New shield
+features extend its state/resolution rather than creating a second shield
+subsystem.
+
+Move-authored `Invuln` / `Armor` windows should affect combat eligibility or hit
+reaction in the combat runtime. Rendering may visualize the resolved result but
+must not implement the mechanic.
+
+## Damage and launch variants
+
+New reaction forms should be explicit authored policy. If a fighter needs fixed
+knockback, autolink, wind/vacuum, weight independence, shield-only tuning, or a
+per-hit hitlag modifier, represent that property on the hit/reaction payload and
+keep the ordinary formula unchanged for ordinary hits.
+
+## Body scale and equipment
+
+Equipment-driven body scaling remains separate from Smash parity. If it is still
+desired, one resolved size value must feed collision/simulation and presentation.
+Do not patch body size locally in Smash.
+
+## Exit criterion for a combat extension
+
+A combat addition is complete when:
+
+- the mechanic is body-generic and deterministic;
+- human and CPU controllers reach it through the same body state/control seam;
+- rollback/snapshot state covers gameplay-affecting state;
+- presentation consumes explicit results instead of duplicating rules; and
+- a real fighter or game feature demonstrates the semantic without a
+  character-ID or Smash-mode engine branch.

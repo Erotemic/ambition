@@ -56,6 +56,9 @@ pub fn engine_input_from_actor_control(
     combat: &ambition_characters::actor::BodyCombat,
     shield: &ae::BodyShieldState,
     control_dt: f32,
+    // Whether this body is tumbling, for the tech exemption. See
+    // [`apply_post_hit_input_gates`].
+    tumbling: bool,
 ) -> ae::InputState {
     // what is genuinely this function's own is the two lines below it. The
     // frame carries no clock — `to_input_state` leaves `control_dt` at zero on
@@ -64,7 +67,7 @@ pub fn engine_input_from_actor_control(
     // frame's.
     let mut input = actor.to_input_state();
     input.control_dt = control_dt;
-    apply_post_hit_input_gates(&mut input, feel, combat, shield);
+    apply_post_hit_input_gates(&mut input, feel, combat, shield, tumbling);
     input
 }
 
@@ -83,7 +86,31 @@ pub fn apply_post_hit_input_gates(
     // and a knockback recoil read identically to a gate and differently to a
     // trace, and the punish they open is the whole reason to break a shield.
     shield: &ae::BodyShieldState,
+    // IS THIS BODY TUMBLING? — the published projection
+    // (`ae::BodyMotionFacts::tumbling`), never the model's private maneuver
+    // state. See the tech exemption below for why this gate needs it.
+    tumbling: bool,
 ) {
+    // THE TECH PRESS SURVIVES THE STAGGER, and it is the one press that must.
+    //
+    // Every gate below strips the BURST edge, and a tumble is nothing but
+    // stagger — so a body falling out of a launch had its tech press deleted
+    // before `tick_knockdown` could read it, and teching was unreachable for
+    // EVERY body in the game, a human one included. The kernel's own tech tests
+    // pass because they hand it a synthetic `InputState` and never cross this
+    // gate. Measured in a real match: nine presses during one fall, nothing
+    // armed.
+    //
+    // Exempt only while TUMBLING, not through hitstun generally: hitstun with
+    // Burst open is a body that air-dodges out of being hit. And while
+    // tumbling the press has exactly one meaning — `tick_knockdown` consumes it
+    // for the tech and returns the input `without_evade`, so it cannot also
+    // spend an aerial evade.
+    //
+    // The same shape as the fly-toggle exemption below: an INTENT the stagger
+    // has no business eating, while the movement authority around it stays
+    // stripped.
+    let tech_press = tumbling.then(|| input.movement.get(ae::MovementAction::Burst));
     let hitstun_timer = combat.hitstun_timer;
     // Three facts that remove control outright: the knockback/landing locks the
     // body owns, the dizzy a broken guard owes, and the shieldstun a blocked hit
@@ -138,6 +165,9 @@ pub fn apply_post_hit_input_gates(
             .movement
             .set(ae::MovementAction::Blink, ae::Edge::NONE);
         input.interact_pressed = false;
+    }
+    if let Some(edge) = tech_press {
+        input.movement.set(ae::MovementAction::Burst, edge);
     }
 }
 
@@ -321,6 +351,7 @@ mod tests {
             &ambition_characters::actor::BodyCombat::default(),
             &ae::BodyShieldState::default(),
             dt,
+            false,
         );
         assert!(input.jump_pressed() && input.jump_held());
         assert!(input.burst_pressed());
@@ -339,6 +370,7 @@ mod tests {
             },
             &ae::BodyShieldState::default(),
             dt,
+            false,
         );
         assert!(!input.jump_pressed() && !input.burst_pressed());
 
@@ -355,6 +387,7 @@ mod tests {
             },
             &ae::BodyShieldState::default(),
             dt,
+            false,
         );
         assert!(!input.jump_pressed(), "hitstun eats the jump press");
         assert!(input.jump_held(), "but an in-progress jump keeps held");

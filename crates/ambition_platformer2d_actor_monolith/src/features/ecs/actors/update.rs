@@ -699,6 +699,12 @@ pub(crate) fn integrate_actor_body(
     // so a committed heavy strike damps its owner for every controller alike
     // (autonomous brain, possession, replay).
     move_motion_scale: f32,
+    // Is this body TUMBLING? The caller reads the PUBLISHED projection
+    // (`BodyMotionFacts::tumbling`), which is what the post-hit gate needs so a
+    // falling body's tech press survives the stagger. Threaded rather than
+    // derived here for the same reason `authored_tuning` below is: the fact
+    // lives on the entity and this function takes clusters.
+    tumbling: bool,
     dt: f32,
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
     // This body's own movement feel, when its character authored one.
@@ -782,6 +788,7 @@ pub(crate) fn integrate_actor_body(
         feel,
         authored_tuning,
         combat,
+        tumbling,
         contact_field,
     );
     if was_dead && em.health.alive() {
@@ -1103,6 +1110,10 @@ pub fn integrate_sim_bodies(
             &steering,
             resolved_frame.get(),
             playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
+            // LAST TICK's published tumble, which is the read this is owed:
+            // the projection below is written after the step, and a tech window
+            // is many ticks long.
+            motion_facts.tumbling,
             dt,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
@@ -1166,6 +1177,7 @@ pub fn integrate_sim_bodies(
                 h.health.invulnerable
             }),
             motion_facts.evading(),
+            motion_facts.tumbling,
             out_of_play,
             &mut hurtbox,
             &mut frame_out,

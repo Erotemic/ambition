@@ -973,6 +973,8 @@ impl ActorClusterSeed {
                 None,
                 &ambition_characters::actor::BodyCombat::default(),
                 // A single-body rig: nobody to be solid to.
+                // Not tumbling — a scratch harness body is not in a floor game.
+                false,
                 ae::BodyContactField::NONE,
             )
             .0

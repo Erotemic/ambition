@@ -145,6 +145,12 @@ impl<'a> ActorMut<'a> {
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
         combat: &ambition_characters::actor::BodyCombat,
+        // Is this body TUMBLING? Read from the PUBLISHED projection
+        // (`BodyMotionFacts::tumbling`) by the driver, which holds it; the
+        // maneuver state behind it is model-private (ADR 0024). The post-hit
+        // gate needs it so a falling body's tech press is not deleted before
+        // the kernel can read it.
+        tumbling: bool,
         // Inert for every body whose composition never granted the capability, which is every
         // body outside a smash match.
         contact_field: ae::BodyContactField<'_>,
@@ -213,6 +219,7 @@ impl<'a> ActorMut<'a> {
             feel,
             authored_tuning,
             combat,
+            tumbling,
             contact_field,
         );
 
@@ -266,6 +273,9 @@ impl<'a> ActorMut<'a> {
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
         combat: &ambition_characters::actor::BodyCombat,
+        // See `update`'s own parameter: the published tumble fact, for the
+        // tech exemption in the post-hit gate.
+        tumbling: bool,
         contact_field: ae::BodyContactField<'_>,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
@@ -317,6 +327,7 @@ impl<'a> ActorMut<'a> {
             feel,
             combat,
             self.shield,
+            tumbling,
         );
         // What stays here is what legitimately differs: WHICH tuning this body moves under (its
         // character's authored feel, else its config's).

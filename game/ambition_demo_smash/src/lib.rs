@@ -712,6 +712,20 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // shorter hurtbox — and the 15% is what makes it one at low percent
         // without saving anybody from a kill move.
         crouch_cancel_scale: 0.85,
+        // NO BLANKET MERCY WINDOW. This is the genre's answer, not a
+        // preference: Smash has no post-hit invulnerability, and repeat
+        // protection is a move's own business — one hitbox may not hit the same
+        // body twice, and SEPARATED authored Active windows are meant to, which
+        // is what a multi-hit move IS.
+        //
+        // ⛔ the engine's blanket window is 0.2s on the actor road, and George
+        // Booul's `bivalence` authors its weak pop at 0.30s and its launcher at
+        // 0.42s. A 0.2s window outlives that 0.12s gap, so the launcher could
+        // never land on the body the pop had hit: the move's whole design — "an
+        // early weak pop and a late strong throw" — was unreachable, and with
+        // both fighters George Booul a thirty-second match produced 135% of
+        // damage and not one launch.
+        hit_repeat_window_scale: 0.0,
         // A GRAB HOLDS THE HURT FIGHTER LONGER, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is

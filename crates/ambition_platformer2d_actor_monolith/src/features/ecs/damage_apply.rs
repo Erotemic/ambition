@@ -478,7 +478,12 @@ pub(crate) fn handle_player_damage_events(
         false,
         BodyHitFeel {
             hit_flash: 0.20,
-            damage_invuln_time: feel.knockback_invulnerability_time,
+            // SCALED BY THE MATCH'S RULE. This road's own window is Mario-style
+            // mercy invincibility, which is right for the game that authored it
+            // and wrong for a fighter — a platform fighter declares `0.0` and
+            // leaves repeat protection to the strike's own per-target dedup.
+            damage_invuln_time: feel.knockback_invulnerability_time
+                * feel.hit_repeat_window_scale,
             block_hit_flash: 0.0,
             block_invuln_floor: 0.12,
             armor_hitstop_time: 0.070,
@@ -1175,6 +1180,7 @@ pub fn apply_player_hit_events(
     // the baseline is only what an undeclared world keeps.
     feel.meteor_lock_time = combat_rules.meteor_lock_time;
     feel.crouch_cancel_scale = combat_rules.crouch_cancel_scale;
+    feel.hit_repeat_window_scale = combat_rules.hit_repeat_window_scale;
     // The bare authored room, for the death path that must NOT see moving
     // platforms or overlay solids. `solids()` below proves one is loaded.
     let Some(room) = collision.base() else {

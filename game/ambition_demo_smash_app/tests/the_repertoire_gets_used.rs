@@ -758,19 +758,27 @@ fn the_cpu_charges_a_smash_during_a_match() {
 /// verb that reached it. What must never be true again is that a body falling
 /// out of a launch, with a floor under it, never presses.
 ///
-/// ⚠ IGNORED, AND THE REASON IS THE POINT. The brain presses — measured, nine
-/// presses in one fall — and the body arms nothing, because
-/// `apply_post_hit_input_gates` strips `MovementAction::Burst` for the whole of
-/// hitstun. That is exactly the state a tech exists to escape, so the press is
-/// deleted before the kernel's knockdown tick can read it, and teching is
-/// unreachable for every body in the game including a human one. The kernel's
-/// own tech tests pass because they hand the kernel a synthetic `InputState` and
-/// never cross that gate.
+/// ⚠ WHAT THIS CAUGHT, AND WHAT IS LEFT.
 ///
-/// Un-ignore this the moment the gate lets a tumbling body's evade press
-/// through; it is the guard for that fix and it needs no other edit.
+/// `apply_post_hit_input_gates` stripped `MovementAction::Burst` for the whole
+/// of hitstun — exactly the state a tech exists to escape — so the press was
+/// deleted before the kernel's knockdown tick could read it. That is FIXED: the
+/// gate exempts the evade press while the body is TUMBLING, and `match_report`
+/// went from 0 techs to 15 and 36 over thirty seconds of the same two CPUs. ⛔ do
+/// not widen the exemption to hitstun generally: hitstun with Burst open is a
+/// body that air-dodges out of being hit.
+///
+/// ⚠ STILL IGNORED, and the reason has MOVED. In this fixture the press never
+/// leaves the brain: `ActorControl.burst_pressed` is false on every tick of the
+/// fall, so no gate can be at fault. Traced 2026-08-23 — the body rises to the
+/// apex, drifts down under gravity to ~0 px/s, and then its velocity is SET to
+/// its 1500 px/s terminal fall on one tick, 43 px above the floor. That is TWO
+/// ticks of "falling toward a floor", and `reeling::tech_press` reads
+/// `gap / closing` against a view delayed by the fighter's own reaction time —
+/// which cannot see a fall that short. The read is the remaining half, and
+/// `brain/fighter/` is the coordinator's.
 #[test]
-#[ignore = "the post-hit input gate strips Burst for all of hitstun, so no body can tech"]
+#[ignore = "the gate is fixed and measured; the brain's tech read cannot see a two-tick fast fall"]
 fn a_tumbling_cpu_arms_a_tech_before_it_lands() {
     use ambition_platformer2d::actors::features::MotionModel;
 

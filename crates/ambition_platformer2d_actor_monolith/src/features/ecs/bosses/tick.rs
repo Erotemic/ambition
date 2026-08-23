@@ -766,6 +766,9 @@ pub fn integrate_boss_bodies(
             &steering,
             resolved_frame.get(),
             playback.map_or(1.0, |pb| pb.spec.motion_scale_at(pb.t)),
+            // The same published read the actor loop makes: last tick's tumble,
+            // so a launched boss keeps its tech press too.
+            motion_facts.tumbling,
             dt,
             *feel_tuning,
             // A boss authors its feel through its own catalog today; when one

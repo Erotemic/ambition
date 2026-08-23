@@ -74,6 +74,15 @@ pub struct Platformer2dFeelTuningMonolith {
     /// damage road, exactly like `meteor_lock_time` beside it. `1.0` is no
     /// crouch cancel, which is what an exploration game wants.
     pub crouch_cancel_scale: f32,
+    /// What this body's POST-HIT MERCY WINDOW is multiplied by — the fraction
+    /// of its road's own window that survives. Folded in from
+    /// `DeclaredCombatRules::hit_repeat_window_scale` by the damage road,
+    /// exactly like `crouch_cancel_scale` beside it. `1.0` is the window the
+    /// road authors, which is what an exploration game wants; `0.0` is a game
+    /// with no blanket window, where a strike's own per-target dedup is the
+    /// only repeat rule — see the declared field for why a platform fighter
+    /// needs that.
+    pub hit_repeat_window_scale: f32,
     /// Post-hit invulnerability after enemy/boss knockback.
     pub knockback_invulnerability_time: f32,
     /// Post-respawn invulnerability after lava/spike-style hazard recovery.
@@ -115,6 +124,7 @@ impl Default for Platformer2dFeelTuningMonolith {
             boss_knockback_y: 330.0,
             meteor_lock_time: 0.0,
             crouch_cancel_scale: 1.0,
+            hit_repeat_window_scale: 1.0,
             hitstun_control_scale: 0.18,
             enemy_hitstun_time: 0.24,
             boss_hitstun_time: 0.36,

@@ -7,7 +7,7 @@ fn seen(v: &WorldView) -> Perceived<'_> {
     Perceived::cheating(v)
 }
 use crate::actor::ActorFaction;
-use crate::perception::{SelfView, StageView};
+use crate::perception::{PerceivedSolid, SelfView, SolidKind, StageView};
 
 /// A 800×600 stage with its origin at 0 — the same envelope CC3's invariant 3
 /// polices, which is what `StageView` means by "offstage".
@@ -251,4 +251,47 @@ fn airborne_with_nothing_underneath_is_recovering_even_inside_the_room() {
     let mut terrainless = airborne_at(600.0);
     terrainless.terrain.clear();
     assert_ne!(classify(seen(&terrainless)), Situation::Recovery);
+}
+
+/// THE CORNER IS A SHARE OF THE FLOOR, so the same body at the same FRACTION of
+/// two differently sized platforms gets the same answer.
+///
+/// The property, not the pixel count. An absolute margin is a claim about one
+/// stage's size, and the Smash demo's 480px platform made HALF of itself a
+/// corner under the old 120px one — which is why 43% of every decision its
+/// fighters made was answered from `Disadvantage`.
+#[test]
+fn cornering_scales_with_the_floor_a_body_stands_on() {
+    let floor = |min_x: f32, max_x: f32| PerceivedSolid {
+        aabb: ae::Aabb::new(
+            ae::Vec2::new((min_x + max_x) / 2.0, 340.0),
+            ae::Vec2::new((max_x - min_x) / 2.0, 16.0),
+        ),
+        kind: SolidKind::Solid,
+    };
+    // A body a quarter of the way in from the left edge of its floor, on a
+    // narrow platform and on one four times wider.
+    let stood_at = |min_x: f32, max_x: f32| {
+        let width = max_x - min_x;
+        let mut me = me_at(min_x + width * 0.25, 300.0);
+        me.half_extent = ae::Vec2::new(10.0, 24.0);
+        WorldView {
+            self_view: me,
+            stage: StageView {
+                bounds: ae::Aabb::new(ae::Vec2::new(2000.0, 300.0), ae::Vec2::new(2000.0, 300.0)),
+            },
+            actors: vec![foe_at(min_x + width * 0.75, 300.0)],
+            terrain: vec![floor(min_x, max_x)],
+            ..Default::default()
+        }
+    };
+
+    let narrow = stood_at(1500.0, 1900.0);
+    let wide = stood_at(400.0, 2000.0);
+    assert_eq!(
+        classify(seen(&narrow)),
+        classify(seen(&wide)),
+        "the same body at the same fraction of two floors classified differently, \
+         so the corner is still a pixel count wearing a fraction's name"
+    );
 }

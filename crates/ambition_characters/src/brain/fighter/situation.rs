@@ -16,6 +16,15 @@ use crate::perception::{BodyPhase, Perceived, PerceivedActor};
 /// "cornered" means — not that it is about to die.
 pub const CORNER_MARGIN_PX: f32 = 120.0;
 
+/// How much of a floor's own width, at each end, counts as its corner.
+///
+/// The fallback above is a pixel count and therefore a claim about one stage's
+/// size. This is the same claim made relatively, which is what "lost its retreat
+/// option" actually means: the outer sixth of whatever you are standing on. On
+/// the Smash demo's 480px platform it is 72px a side, leaving the middle 70%
+/// uncornered — against the absolute margin's middle 50%.
+pub const CORNER_SHARE_OF_FLOOR: f32 = 0.15;
+
 /// A body is "landing" when it is airborne, moving toward the ground fast enough
 /// that it cannot change its mind, and low enough that it is committed. Landing
 /// lag is the most reliable punish window in a platform fighter.
@@ -91,9 +100,27 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     };
 
     // Cornering considers both room/blastzone bounds and the local floor edge.
+    //
+    // THE FLOOR TERM IS A SHARE OF THE FLOOR, not a pixel count. Measured
+    // 2026-08-23 on the Smash demo: its platform is 480px wide and the absolute
+    // margin was 120, so a body was "cornered" anywhere outside the middle 240 —
+    // exactly HALF the stage it was standing on, permanently. 43% of every
+    // decision the fighters made was answered from `Disadvantage`, and the
+    // dodge that arm prices highest was the second most common decision in the
+    // game. That is a claim about a stage size nobody re-checked, not a fact
+    // about the fight.
+    //
+    // The doc on [`CORNER_MARGIN_PX`] says what this means — *"has lost its
+    // retreat option"* — and losing your retreat is relative to the ground you
+    // are standing on. A body with no floor under it keeps the absolute margin;
+    // it has no width to take a share of.
     let floor_edge = view.floor_edge_distance().unwrap_or(f32::INFINITY);
+    let corner_margin = view
+        .supporting_floor()
+        .map(|floor| (floor.max.x - floor.min.x) * CORNER_SHARE_OF_FLOOR)
+        .unwrap_or(CORNER_MARGIN_PX);
     let cornered =
-        view.stage.distance_to_edge(me.pos) < CORNER_MARGIN_PX || floor_edge < CORNER_MARGIN_PX;
+        view.stage.distance_to_edge(me.pos) < CORNER_MARGIN_PX || floor_edge < corner_margin;
     if me.phase == BodyPhase::Hitstun || cornered {
         return Situation::Disadvantage;
     }

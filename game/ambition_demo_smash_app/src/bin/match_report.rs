@@ -174,7 +174,25 @@ fn collect_decisions(app: &App, into: &mut DecisionTally) {
             .get("chose")
             .map(|value| format!("{value}"))
             .unwrap_or_else(|| "?".to_string());
-        *into.entry((situation, chose)).or_default() += 1;
+        *into
+            .entry((situation.clone(), format!("move {chose}")))
+            .or_default() += 1;
+        // THE ATTACK IS A SECOND DECISION, and counting only the movement verb
+        // hid that. The mechanics lane found the jab chain inert CPU-versus-CPU
+        // and had to reach for a separate move-id histogram to see it, because
+        // this one reported no attack row at all — it was not that the brain
+        // never attacked, it was that the instrument only asked one of the two
+        // questions the fact answers. `"none"` is a real answer here, distinct
+        // from a move called none.
+        let attack = decided
+            .get("attack")
+            .map(|value| format!("{value}"))
+            .unwrap_or_else(|| "?".to_string());
+        if attack != "none" {
+            *into
+                .entry((situation, format!("attack {attack}")))
+                .or_default() += 1;
+        }
     }
 }
 

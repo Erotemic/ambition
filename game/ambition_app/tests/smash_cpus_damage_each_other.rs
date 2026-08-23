@@ -169,17 +169,18 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
         ids.len()
     );
     println!(
-        "[grid-sweep] {:<34} {:>9} {:>9} {:>9}",
-        "fighter", "took0%", "took1%", "hitstun"
+        "[grid-sweep] {:<30} {:>9} {:>9} {:>9} {:>7}  {}",
+        "fighter", "took0%", "took1%", "hitstun", "moves", "most thrown"
     );
     let mut silent: Vec<String> = Vec::new();
     for id in &ids {
-        let (taken, hitstun) = mirror_bout(id);
+        let (taken, hitstun, moves, top) = mirror_bout(id);
         println!(
-            "[grid-sweep] {id:<34} {:>8.0}% {:>8.0}% {:>9}",
+            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7}  {top}",
             taken[0] * 100.0,
             taken[1] * 100.0,
-            hitstun[0] + hitstun[1]
+            hitstun[0] + hitstun[1],
+            moves,
         );
         if taken[0] + taken[1] < 0.1 {
             silent.push(id.clone());
@@ -201,7 +202,7 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
 /// One mirror match in the shipped composition: damage each seat ACCUMULATED
 /// (a KO resets the meter, so a peak measures survival rather than violence) and
 /// ticks each spent in hitstun.
-fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2]) {
+fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
@@ -216,6 +217,12 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2]) {
     let mut taken = [0.0f32; 2];
     let mut last = [0.0f32; 2];
     let mut hitstun = [0usize; 2];
+    // WHAT THEY THREW, because 0% has two completely different causes and this
+    // is what tells them apart: a fighter that starts no moves is missing a
+    // repertoire or a brain, and one that starts plenty and deals nothing is
+    // missing reach, hit volumes, or a victim it can legally strike.
+    let mut started = std::collections::BTreeMap::<String, usize>::new();
+    let mut live = std::collections::BTreeMap::<bevy::prelude::Entity, (String, f32)>::new();
     for _ in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
@@ -234,6 +241,31 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2]) {
                 }
             }
         }
+        let rows: Vec<(bevy::prelude::Entity, String, f32)> = world
+            .query::<(
+                bevy::prelude::Entity,
+                &MatchSeat,
+                &ambition_platformer2d::combat::moveset::MovePlayback,
+            )>()
+            .iter(world)
+            .map(|(entity, _, pb)| (entity, pb.spec.id.clone(), pb.t))
+            .collect();
+        for (entity, id, t) in rows {
+            let fresh = match live.get(&entity) {
+                Some((last_id, last_t)) => last_id != &id || t < *last_t,
+                None => true,
+            };
+            if fresh {
+                *started.entry(id.clone()).or_default() += 1;
+            }
+            live.insert(entity, (id, t));
+        }
     }
-    (taken, hitstun)
+    let moves: usize = started.values().sum();
+    let top = started
+        .iter()
+        .max_by_key(|(id, count)| (**count, std::cmp::Reverse((*id).clone())))
+        .map(|(id, count)| format!("{id}×{count}"))
+        .unwrap_or_else(|| "—".to_string());
+    (taken, hitstun, moves, top)
 }

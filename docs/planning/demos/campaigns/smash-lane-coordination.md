@@ -177,7 +177,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | M8 the fight stopped resolving | MECHANICS | ✔ `3af675f55` — a blanket 0.2s post-hit window was refusing the second Active window of a multi-window move |
 | M9 the post-hit gate deletes the tech | MECHANICS | ✔ `3af675f55` — Burst exempt while tumbling |
 | M7 successful-parry-contact fact | MECHANICS | ✔ `36c24ea69` — `parry_flash_secs` |
-| C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` |
+| C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` — live, but its effect on KO count is below this measurement's noise floor |
 | C2 CPU tech | COORDINATOR | ✔ — 15–56 techs per 30s match |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
 | P6 the camera cuts when a fighter leaves play | PRESENTATION | ▢ — 38.4 units against 33.8 ordinary |
@@ -242,3 +242,30 @@ proxy is a different number.** Both were paid for on the same day —
   standing two pixels away was shoving the body.
 - two guards raced the fight's PACE to reach their own question instead of
   seating one stock and asking it.
+
+## What the CPU's directional influence is actually worth
+
+Measured 2026-08-23, seven execution-noise streams of a 90s match, the reflex
+switched off behind an env var and back on:
+
+```
+                 damage            unhittable            KOs
+DI on      142–342–399        1258–1827–2505        2–3–4
+DI off     268–311–471        1085–1455–2043        2–3–4
+```
+
+⇒ **the KO count is identical.** DI is live — the demo declares
+`SMASH_DI_MAX_ANGLE = 0.31` rad (~18°, the genre's own figure), the stick is
+held, and the rotation happens — but at this stage's blast margins its effect on
+who dies is below the noise floor of seven samples.
+
+⭐ So the honest claim for the slice is the one about BEHAVIOUR, not outcomes: a
+reeling body used to hold whatever it had been walking toward, and now it holds
+something chosen — which is visible in flight and is what a spectator reads as a
+fighter reacting. ⛔ Do not write down that CPU DI improves survival. It has not
+been shown, and the same seven-run rig is how anyone would show it.
+
+⭐ **and the same rig should be pointed at every behaviour slice before it is
+believed.** The differential — the reflex off, the reflex on, everything else
+fixed — is the only thing that separates "the mechanic runs" from "the mechanic
+matters", and four of this campaign's slices ran for days without mattering.

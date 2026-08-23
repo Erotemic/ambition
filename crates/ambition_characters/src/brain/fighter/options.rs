@@ -395,10 +395,22 @@ pub fn generate_options(
     // ⚠ the test that should have caught it asserted `slower <= faster` and both
     // sides were `-1.0`, so it passed while its own comment said *"a slower move
     // is a worse one"*. It is a strict `<` now.
-    let slowest_startup = kit
-        .iter()
-        .map(|c| c.frames.startup_s)
-        .fold(0.0f32, f32::max);
+    // ⛔⛔ AND FIXING IT ALONE IS NOT SHIPPABLE, which is why this is still the
+    // move's own startup. Measured 2026-08-23: scaling by the kit's slowest
+    // startup instead does exactly what it should to the ranking — jab 0 -> 7 in
+    // thirty seconds, `smash_up` back on the board, and George vs George gains
+    // damage 292-389-402 -> 369-418-498, tumbling 98-210-589 -> 358-572-1006,
+    // techs 36-111-258 -> 110-226-343 across five 90s streams. And then
+    // `npc_pirate_admiral` vs itself falls from taking 169% of its pool in a
+    // minute to 49%, because preferring speed over reach makes that kit whiff.
+    //
+    // The weights were fitted while this feature was CONSTANT. Making it vary
+    // re-prices every attack in every kit at once, and a change that doubles one
+    // matchup while thirding another needs the ladder rig
+    // (`brain::fighter::evaluation` + `scenarios`), not a coordinator's
+    // judgement. Tracked as D188.
+    // ⇒ the scale to pass, when the weights are refitted, is
+    // `kit.iter().map(|c| c.frames.startup_s).fold(0.0, f32::max)`.
     let mut attacks: Vec<AttackOption> = kit
         .iter()
         // AN ATTACK THE BODY CANNOT BEGIN IS NOT AN OPTION. (measured
@@ -420,7 +432,7 @@ pub fn generate_options(
         .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
             use super::options::AttackVerb;
-            let fa = frame_advantage(c.frames.startup_s, their_commitment, slowest_startup);
+            let fa = frame_advantage(c.frames.startup_s, their_commitment, c.frames.startup_s);
             let power = if kit_max_damage > 0 {
                 c.frames.max_damage as f32 / kit_max_damage as f32
             } else {

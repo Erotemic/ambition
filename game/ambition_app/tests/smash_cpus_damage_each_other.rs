@@ -58,7 +58,8 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
 
-    let mut peak = [0.0f32; 2];
+    let mut taken = [0.0f32; 2];
+    let mut last = [0.0f32; 2];
     let mut hitstun_ticks = [0usize; 2];
     let mut both_seated_ticks = 0usize;
     for _ in 0..(countdown + TICKS) {
@@ -71,7 +72,20 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         {
             if seat.0 < 2 {
                 seated += 1;
-                peak[seat.0] = peak[seat.0].max(health.damage_percent());
+                // ACCUMULATED, not peaked. A KO resets a body's percent to
+                // zero, so the highest reading a seat ever shows is capped by
+                // how long it survives — and the faster the fight, the LOWER
+                // that number goes. Measured 2026-08-23: a scorer fix that
+                // raised damage, tumbling and teching across every stream pushed
+                // this seat's peak from 1.69 to 0.49, because it was dying
+                // before it could accumulate. Summing the rises is immune to
+                // that; it is also what "each fighter must accumulate
+                // substantial damage" says.
+                let now = health.damage_percent();
+                if now > last[seat.0] {
+                    taken[seat.0] += now - last[seat.0];
+                }
+                last[seat.0] = now;
                 if combat.is_some_and(|c| c.hitstun_timer > 0.0) {
                     hitstun_ticks[seat.0] += 1;
                 }
@@ -90,21 +104,21 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
 
     for seat in 0..2 {
         assert!(
-            peak[seat] >= A_REAL_FIGHT,
-            "seat {seat} peaked at {:.0}% of its pool over {TICKS} ticks — the CPUs \
-             are not fighting. ⚠ read the UNITS before believing this: the value is \
-             a RATIO, so {:.2} means {:.0}%, and a rig that printed it under a \
-             literal `%` is what turned a 169% duel into a documented finding that \
-             they never hit each other.",
-            peak[seat] * 100.0,
-            peak[seat],
-            peak[seat] * 100.0,
+            taken[seat] >= A_REAL_FIGHT,
+            "seat {seat} took {:.0}% of its pool in total over {TICKS} ticks — the \
+             CPUs are not fighting. ⚠ read the UNITS before believing this: the \
+             value is a RATIO, so {:.2} means {:.0}%, and a rig that printed it \
+             under a literal `%` is what turned a 169% duel into a documented \
+             finding that they never hit each other.",
+            taken[seat] * 100.0,
+            taken[seat],
+            taken[seat] * 100.0,
         );
         assert!(
             hitstun_ticks[seat] > 0,
             "seat {seat} never entered hitstun, so whatever moved its damage meter \
-             to {:.0}% was not the other fighter",
-            peak[seat] * 100.0,
+             by {:.0}% was not the other fighter",
+            taken[seat] * 100.0,
         );
     }
 }

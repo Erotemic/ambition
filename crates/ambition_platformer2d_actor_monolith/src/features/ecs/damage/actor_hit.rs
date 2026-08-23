@@ -426,6 +426,7 @@ pub(crate) fn apply_actor_hit(
                 gravity_dir,
                 boss_hit,
                 Some(&k),
+                event.damage,
                 di_input_local,
                 crate::features::ecs::damage_apply::VictimStance {
                     grounded: em.ground.on_ground,

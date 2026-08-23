@@ -191,15 +191,67 @@ pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTu
 /// prevents independent literals from drifting apart.
 pub const MIN_HITLAG_SCALE: f32 = 0.5;
 
-/// Scales with the hit exactly as hitstun does, so a jab taps and a smash
-/// *lands*; the perceived weight of a connect is mostly this. Floored at
-/// [`MIN_HITLAG_SCALE`] so even the weakest connect is a readable beat rather
-/// than nothing, and it rides the same [`reaction_scale`] ceiling.
+/// Damage at which a hit freezes for exactly [`HitResponseTuning::hitlag_time`].
+///
+/// The MEDIAN staled damage a landed hit deals, so an ordinary connect lands on
+/// the reference — the same rationale [`STANDARD_LAUNCH_SPEED`] was chosen by.
+/// Measured 2026-08-23 over 3 x 90s smash CPU-vs-CPU, `smash_george_booul` vs
+/// itself (⚠ one matchup), every `HitEvent` that reached a victim: n = 203,
+/// `min 1  p25 5  p50 11  p75 14  p90 19  max 20`, mean 10.5.
+///
+/// It reads the STALED damage, which is what `hitbox` puts on the event after
+/// `rules.stale_scale` — the damage actually dealt, which is the number the
+/// genre computes its freeze from too.
+pub const HITLAG_REFERENCE_DAMAGE: f32 = 11.0;
+
+/// The constant half of the genre's affine hitlag law, as a fraction of the
+/// reference freeze.
+///
+/// Melee and its successors compute hitlag as `damage * 0.65 + 6` frames — a
+/// term proportional to damage PLUS a fixed floor, and the floor is most of a
+/// weak hit's freeze. At [`HITLAG_REFERENCE_DAMAGE`] = 11 that formula gives
+/// 13.15 frames of which the constant 6 is `0.456`, so this is that shape
+/// expressed against our own reference rather than a second set of frame
+/// numbers to keep in step.
+const HITLAG_BASE_SCALE: f32 = 0.46;
+
+/// Ceiling on hitlag's damage scaling.
+///
+/// ⛔ DELIBERATELY NOT [`MAX_HITSTUN_SCALE`], which is what hitlag used to ride
+/// while it was computed from knockback. Decoupling the freeze from the launch
+/// is the entire point of reading damage: in the genre a stale hit on a
+/// high-percent victim has a SHORT freeze and an enormous launch, and one
+/// ceiling shared with hitstun cannot express that.
+///
+/// `1.5` is the scale the hardest hit this tree authors reaches (damage 20 →
+/// 1.44), rounded up so authoring a little past today's hardest move is not
+/// silently clipped.
+pub const MAX_HITLAG_SCALE: f32 = 1.5;
+
+/// How long a connect freezes, from the DAMAGE it dealt.
+///
+/// ⭐ FROM DAMAGE, NOT FROM KNOCKBACK, and that is the genre's rule rather than
+/// a taste call. Knockback grows with the victim's percent, so a law reading it
+/// makes the same move freeze longer as a match goes on: measured before this
+/// changed, one authored damage value produced freezes spanning 2.2x to 4.6x
+/// across a single match, and an 11-damage hit could freeze for less time than
+/// a 3-damage one. What varies hugely in this genre is the LAUNCH; the freeze
+/// tracks the hit.
+///
+/// Floored at [`MIN_HITLAG_SCALE`] so even the weakest connect is a readable
+/// beat rather than nothing, and capped at [`MAX_HITLAG_SCALE`].
 ///
 /// both sides freeze for the SAME duration, which is what makes a connect
 /// read as one event rather than two things happening near each other.
-pub fn hitlag_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
-    tuning.hitlag_time * reaction_scale(knockback, tuning).max(MIN_HITLAG_SCALE)
+pub fn hitlag_duration(damage: i32, tuning: &HitResponseTuning) -> f32 {
+    tuning.hitlag_time * hitlag_scale(damage)
+}
+
+/// The damage term of the hitlag law, in units of the reference freeze.
+pub fn hitlag_scale(damage: i32) -> f32 {
+    let share = damage.max(0) as f32 / HITLAG_REFERENCE_DAMAGE;
+    (HITLAG_BASE_SCALE + (1.0 - HITLAG_BASE_SCALE) * share)
+        .clamp(MIN_HITLAG_SCALE, MAX_HITLAG_SCALE)
 }
 
 /// HOW HARD the hit currently freezing a body was, in `0..=1`.
@@ -220,7 +272,7 @@ pub fn hit_strength_fraction(hitstop_seconds: f32, reference_hitlag_seconds: f32
         return 0.0;
     }
     let scale = hitstop_seconds / reference_hitlag_seconds;
-    let span = MAX_HITSTUN_SCALE - MIN_HITLAG_SCALE;
+    let span = MAX_HITLAG_SCALE - MIN_HITLAG_SCALE;
     if span <= 0.0 {
         return 0.0;
     }
@@ -307,9 +359,9 @@ mod hitlag_tests {
     #[test]
     fn hit_strength_recovers_the_weight_of_the_connect() {
         let t = tuning();
-        let weakest = hitlag_duration(Some(&launch(0.0)), &t);
-        let ordinary = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED)), &t);
-        let heaviest = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED * 100.0)), &t);
+        let weakest = hitlag_duration(0, &t);
+        let ordinary = hitlag_duration(HITLAG_REFERENCE_DAMAGE as i32, &t);
+        let heaviest = hitlag_duration(1_000, &t);
 
         let strength = |stop| hit_strength_fraction(stop, t.hitlag_time);
         assert_eq!(strength(weakest), 0.0, "the weakest connect is the floor");
@@ -322,11 +374,11 @@ mod hitlag_tests {
 
         // Monotone across the whole band — a harder hit never reads softer.
         let mut previous = -1.0;
-        for speed in [0.0, 40.0, STANDARD_LAUNCH_SPEED, 600.0, 5_000.0] {
-            let now = strength(hitlag_duration(Some(&launch(speed)), &t));
+        for damage in [0, 1, 5, HITLAG_REFERENCE_DAMAGE as i32, 20, 500] {
+            let now = strength(hitlag_duration(damage, &t));
             assert!(
                 now >= previous,
-                "{speed} went backwards: {now} < {previous}"
+                "{damage} went backwards: {now} < {previous}"
             );
             previous = now;
         }
@@ -364,38 +416,63 @@ mod hitlag_tests {
         }
     }
 
-    /// A connect is ONE event, so it buys ONE freeze.
+    /// A connect is ONE event, so it buys ONE freeze — and the freeze is the
+    /// HIT's, not the launch's.
     #[test]
-    fn hitlag_is_one_duration_for_both_bodies_and_scales_with_the_hit() {
+    fn hitlag_is_one_duration_for_both_bodies_and_scales_with_the_damage() {
         let t = tuning();
-        let reference = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED)), &t);
-        assert!((reference - t.hitlag_time).abs() < 1e-6);
+        let reference = hitlag_duration(HITLAG_REFERENCE_DAMAGE as i32, &t);
+        assert!(
+            (reference - t.hitlag_time).abs() < 1e-6,
+            "the reference damage freezes for exactly the reference time"
+        );
 
-        // a heavier connect freezes longer — this is most of what "weight"
+        // A heavier connect freezes longer — this is most of what "weight"
         // feels like, and a flat constant cannot express it.
-        let heavy = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED * 3.0)), &t);
-        assert!(heavy > reference * 2.5, "a big launch lands hard: {heavy}");
+        let heavy = hitlag_duration(20, &t);
+        assert!(heavy > reference, "a big hit lands harder: {heavy}");
 
         // …and the weakest connect is still a readable beat, never nothing.
-        let poke = hitlag_duration(Some(&launch(1.0)), &t);
-        assert!(poke >= t.hitlag_time * 0.5 - 1e-6 && poke < reference);
+        let poke = hitlag_duration(1, &t);
+        assert!(poke >= t.hitlag_time * MIN_HITLAG_SCALE - 1e-6 && poke < reference);
 
-        // the poison: hitlag and hitstun read the SAME scale off the SAME
-        // hit. If one grows and the other does not, the pause and the stun have
-        // drifted apart and the connect stops reading as a single event.
-        for speed in [40.0_f32, STANDARD_LAUNCH_SPEED, 600.0] {
-            let k = launch(speed);
-            let lag = hitlag_duration(Some(&k), &t) / t.hitlag_time;
-            let stun = hitstun_duration(Some(&k), &t) / t.hitstun_time;
-            // Floors differ deliberately (0.5 vs 0.35), so compare only where
-            // neither is clamped.
-            if lag > 0.5 + 1e-6 && stun > 0.35 + 1e-6 {
-                assert!(
-                    (lag - stun).abs() < 1e-6,
-                    "lag {lag} and stun {stun} must ride one scale at {speed}"
-                );
-            }
+        // …and nothing runs away with it.
+        assert!(hitlag_duration(10_000, &t) <= t.hitlag_time * MAX_HITLAG_SCALE + 1e-6);
+    }
+
+    /// ⭐ THE POINT OF THE LAW: the freeze is DECOUPLED from the launch.
+    ///
+    /// Knockback grows with the victim's percent, so a freeze computed from it
+    /// makes the same move freeze longer as a match goes on. Measured on the
+    /// old law over one match, a single authored damage value produced freezes
+    /// spanning 2.2x to 4.6x, and an 11-damage hit could freeze for LESS time
+    /// than a 3-damage one.
+    ///
+    /// This is the assertion the old law could not satisfy, and it is the
+    /// reason `hitlag_duration` no longer takes a `HitKnockback` at all — the
+    /// signature is what makes the mistake unavailable rather than merely
+    /// discouraged.
+    #[test]
+    fn one_damage_is_one_freeze_however_hard_the_launch() {
+        let t = tuning();
+        let stale_jab_at_high_percent = hitlag_duration(3, &t);
+        let fresh_jab_at_zero = hitlag_duration(3, &t);
+        assert_eq!(stale_jab_at_high_percent, fresh_jab_at_zero);
+
+        // And the ordering is the DAMAGE ordering, at every rung.
+        let mut previous = 0.0;
+        for damage in [1, 3, 5, 11, 14, 20] {
+            let now = hitlag_duration(damage, &t);
+            assert!(now >= previous, "damage {damage} froze less: {now}");
+            previous = now;
         }
+
+        // HITSTUN still rides the launch, and that is deliberate: a body thrown
+        // harder stays helpless longer. The two laws now read different terms,
+        // which is the whole separation.
+        let soft = hitstun_duration(Some(&launch(STANDARD_LAUNCH_SPEED)), &t);
+        let hard = hitstun_duration(Some(&launch(STANDARD_LAUNCH_SPEED * 3.0)), &t);
+        assert!(hard > soft, "hitstun must still grow with the launch");
     }
 }
 

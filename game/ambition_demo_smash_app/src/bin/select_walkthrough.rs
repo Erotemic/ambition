@@ -51,7 +51,21 @@ fn main() {
 
     // Human hands can select portraits directly. The CPU has no hand, so P1
     // borrows its token to choose that card's fighter.
-    for (owner_slot, driving_seat, character) in [(0usize, 0u8, 4usize), (1, 1, 0), (2, 0, 6)] {
+    //
+    // ⛔⛔ THE CARDS ARE DERIVED, NOT SPELLED. These were the literals `4`, `0`
+    // and `6`, and the demo shell's own catalog carries three fighters — so the
+    // walkthrough asked the layout for a portrait cell that does not exist and
+    // died on `expect("an authored portrait")`, naming ART for what was an INDEX.
+    // A roster is content and changes; a tap written by eye against yesterday's
+    // grid is a tool that breaks the first time somebody adds or removes a
+    // fighter. Spread across whatever is actually there instead.
+    let cards = fighters.len();
+    assert!(
+        cards >= 2,
+        "the composition seats {cards} fighter(s), so there is no choosing to walk          through — this is a finding about the catalog, not about the screen"
+    );
+    let picks = [(0usize, 0u8, cards - 1), (1, 1, 0), (2, 0, cards / 2)];
+    for (owner_slot, driving_seat, character) in picks {
         if matches!(
             app.world()
                 .resource::<SmashSelect>()

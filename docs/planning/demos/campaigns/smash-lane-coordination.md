@@ -478,3 +478,28 @@ poison runs) is unaffected. Anything else goes to the coordinator to run on main
 And the general form is worth more than the instance: when a bisect finds no
 transition anywhere in history, ask what the bisect was holding constant before
 concluding the subject was always broken.
+
+⭐⭐⭐ **TWO CONSTANTS WITH THE SAME VALUE MAKE A MEASUREMENT UNABLE TO ATTRIBUTE
+ITSELF — and the move is to change ONE of them.** The grid sweep found six
+characters whose median gap sat between 491 and 515 px with *nothing at all
+between 295 and 491*: a hole, not a tail, and plainly a threshold. But
+`DEFAULT_VIEWPORT_HALF.x`, past which a brain cannot see a foe, and
+`PLATFORM_WIDTH`, past which there is no floor, are **both 480**. "Blind past
+480" and "standing in opposite corners of a 480-wide platform" predict the
+identical gap, and no amount of extra precision in the same measurement could
+separate them.
+
+Viewport to 2000, platform untouched: all six collapsed to 18–278 and every
+silent fighter started fighting, while every fighter already inside 480 came out
+byte-identical. ⇒ this is the same family as *"a constant fitted to a PROXY for
+the quantity its gate reads"* and *"identical numbers are a finding, not a
+pass"*, and the general form is worth more than any of the three: **interrogate
+what the instrument was holding fixed.**
+
+⛔ And the consequence for this campaign's own history: every CPU-versus-CPU
+number taken before `d4c681a8b` was measured on a stage where some fighters could
+not see each other. George-vs-George sat at gap 28 and is unaffected, so the
+census work stands — but D188's regression evidence (`npc_pirate_admiral` falling
+169% → 49% under the `frame_advantage` flip) was taken on a fighter at gap 502,
+i.e. one that was blind for most of the match. **That number has to be re-taken
+before it is allowed to block the fix again.**

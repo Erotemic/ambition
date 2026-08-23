@@ -35,6 +35,10 @@ snapshot_pod!(crate::smash_capture::SmashHoldState {
     held_for: f32,
     mash_credit: f32,
     escape_seconds: f32,
+    // The throw edge is an INPUT LATCH and it must rewind: a rollback past the
+    // frame the captor centred the stick has to un-arm it, or a replay throws
+    // where the live session pummelled.
+    throw_armed: bool,
 });
 
 snapshot_pod!(crate::actor::body::BodyCombat {

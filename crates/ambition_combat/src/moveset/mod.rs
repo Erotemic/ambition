@@ -1619,6 +1619,10 @@ pub fn trigger_moveset_moves(
     // there is no mirrored `Capturing` component to read instead: one authority,
     // scanned. At most one captive per captor and a handful per stage.
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
+    // The platform-fighter half of a hold, for the throw edge. Separate from
+    // `captives` because the RELATION is generic and this is not: a ruleset
+    // without a throw vocabulary carries no row here and arms nothing.
+    hold_states: Query<&ambition_characters::smash_capture::SmashHoldState>,
     // THE GUARD, and the body's own shield policy. Starting an action out of a
     // raised shield is a SPEND — see `OutOfShieldGate` — so this is taken
     // mutably and looked up by entity, the same shape the strike seam uses.
@@ -1768,9 +1772,13 @@ pub fn trigger_moveset_moves(
             // edge — it is the input event, not the stick's position — so
             // Attack+direction throws exactly as it always did, and every
             // existing fixture and CPU that presses it keeps working.
+            // ⛔ THE RULESET'S LATCH, read off the ruleset's own component. A
+            // hold with no `SmashHoldState` is one this ruleset has no throw
+            // vocabulary for, and it arms nothing — the same reading
+            // `tick_capture_holds` takes of an absent hold state.
             let armed = crate::capture::captive_of(entity, &captives)
-                .and_then(|victim| captives.get(victim).ok())
-                .is_some_and(|(_, held)| held.throw_armed);
+                .and_then(|victim| hold_states.get(victim).ok())
+                .is_some_and(|state| state.throw_armed);
             let throw_dir = match gesture.pressed.map(|intent| intent.direction) {
                 // An aimed attack press: its own direction, unchanged.
                 Some(dir) => Some(dir),

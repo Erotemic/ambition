@@ -450,6 +450,25 @@ pub struct SmashHoldState {
     /// pummelled, which turns a pummel from a decision into a free extension of
     /// the advantage you already have.
     pub escape_seconds: f32,
+    /// Has the captor's stick returned to NEUTRAL since this hold began?
+    ///
+    /// ⛔⛔ A DIRECTION ALONE THROWS, SO IT HAS TO BE A NEW DIRECTION. You walk
+    /// into a grab, so the stick that reached it is usually already pointing
+    /// somewhere — reading the live axis on the first held tick threw the
+    /// victim instantly, before the captor could pummel or choose.
+    ///
+    /// ⭐ ARMED BY NEUTRAL rather than by remembering the direction at capture:
+    /// a captor who grabs holding forward and keeps holding forward has not
+    /// pressed anything, and one who centres and pushes forward again has —
+    /// same final direction, different input.
+    ///
+    /// ⛔ AND IT LIVES HERE, NOT ON `CapturedBy`, which is the whole reason this
+    /// component exists. "Centre the stick before a direction throws" is a
+    /// platform-fighter INPUT rule, not a fact about who holds whom or what
+    /// release must restore. A game that constrains bodies without a throw
+    /// vocabulary should not pay to rewind this, exactly as it does not pay to
+    /// rewind `pummels_landed`.
+    pub throw_armed: bool,
 }
 
 impl SmashHoldState {

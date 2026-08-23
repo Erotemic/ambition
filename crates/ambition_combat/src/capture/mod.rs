@@ -29,20 +29,6 @@ pub struct CapturedBy {
     ///
     /// not assumed to be `1.0`.
     pub prior_gravity_scale: f32,
-    /// Has the captor's stick returned to NEUTRAL since this capture began?
-    ///
-    /// ⛔⛔ A DIRECTION ALONE THROWS, SO IT HAS TO BE A NEW DIRECTION. The stick
-    /// that reached the grab is usually already pointing somewhere — you walk
-    /// into a grab — and reading the live axis on the first captive tick threw
-    /// the victim instantly, before the captor could pummel or choose. The
-    /// genre's rule is *press a direction after the grab connects*, and a press
-    /// needs a baseline.
-    ///
-    /// ⭐ ARMED BY NEUTRAL rather than by remembering which way the stick was
-    /// pointing: a captor who grabs while holding forward and keeps holding
-    /// forward has not pressed anything, and one who releases to centre and
-    /// pushes forward again has — even though both end on the same direction.
-    pub throw_armed: bool,
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -130,7 +116,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, -2.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             })
             .id();
 
@@ -174,7 +159,6 @@ mod tests {
             captor: before,
             hold_offset_local: ae::Vec2::new(16.0, -2.0),
             prior_gravity_scale: 0.0,
-            throw_armed: true,
         };
         held.map_entities(&mut ToFixed(after));
         assert_eq!(

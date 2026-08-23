@@ -340,6 +340,7 @@ mod actor_decision_phase_tests {
     const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 11] = [
         (
             "sample_capture_escape",
+            "arm_smash_throw_edge",
             crate::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
@@ -907,6 +908,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (
                 ambition_combat::capture::systems::sample_capture_escape,
+                // The captor's stick, read for the throw edge. Beside the
+                // captive's escape sampling because both are the RULESET's
+                // reading of a capture's inputs, and both are scoped by asking
+                // for `SmashHoldState`.
+                ambition_combat::capture::systems::arm_smash_throw_edge,
                 crate::avatar::blank_scripted_control_frames,
                 ambition_combat::capture::systems::restrict_captor_control,
                 ambition_combat::capture::systems::tick_capture_holds,

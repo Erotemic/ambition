@@ -3121,14 +3121,21 @@ fn capture_context_app_in(
             });
     }
     if held {
-        app.world_mut().spawn(crate::capture::CapturedBy {
-            captor,
-            hold_offset_local: ae::Vec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
-            // Armed: these fixtures are asking what a captor's PRESS resolves
-            // to, not whether the stick has been re-centred since the grab.
-            throw_armed: true,
-        });
+        // ⭐ THE RULESET'S HALF RIDES BESIDE THE RELATION, which is the shape
+        // production builds: `acquire_captures` inserts both. Armed, because
+        // these fixtures ask what a captor's PRESS resolves to, not whether the
+        // stick has been re-centred since the grab.
+        app.world_mut().spawn((
+            crate::capture::CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
+            },
+            ambition_characters::smash_capture::SmashHoldState {
+                throw_armed: true,
+                ..Default::default()
+            },
+        ));
     }
     app.update();
     (app, captor)
@@ -5433,7 +5440,7 @@ fn a_held_charge_has_no_live_strike_and_releases_into_one() {
 /// somebody while you decided. The genre's rule is *press a direction after the
 /// grab connects*, and a press needs a baseline.
 ///
-/// ⭐ THE REAL ARMING SYSTEM IS IN THE CHAIN. `restrict_captor_control` is what
+/// ⭐ THE REAL ARMING SYSTEM IS IN THE CHAIN. `arm_smash_throw_edge` is what
 /// sets the edge in production, and it is what sets it here — a fixture that
 /// poked `throw_armed` itself would prove only that the field is readable.
 #[test]
@@ -5449,7 +5456,7 @@ fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() 
     app.add_systems(
         Update,
         (
-            crate::capture::systems::restrict_captor_control,
+            crate::capture::systems::arm_smash_throw_edge,
             resolve_attack_gestures,
             buffer_combat_action_presses,
             trigger_moveset_moves,
@@ -5472,13 +5479,15 @@ fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() 
             ActorControl(frame),
         ))
         .id();
-    app.world_mut().spawn(crate::capture::CapturedBy {
-        captor,
-        hold_offset_local: ae::Vec2::new(16.0, 0.0),
-        prior_gravity_scale: 1.0,
+    app.world_mut().spawn((
+        crate::capture::CapturedBy {
+            captor,
+            hold_offset_local: ae::Vec2::new(16.0, 0.0),
+            prior_gravity_scale: 1.0,
+        },
         // As acquisition writes it. THE FIXTURE DOES NOT ARM THIS.
-        throw_armed: false,
-    });
+        ambition_characters::smash_capture::SmashHoldState::default(),
+    ));
 
     let set_axis = |app: &mut App, axis: ae::LocalAxes| {
         let mut entity = app.world_mut().entity_mut(captor);
@@ -5540,7 +5549,7 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
         app.add_systems(
             Update,
             (
-                crate::capture::systems::restrict_captor_control,
+                crate::capture::systems::arm_smash_throw_edge,
                 resolve_attack_gestures,
                 buffer_combat_action_presses,
                 trigger_moveset_moves,
@@ -5562,12 +5571,14 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
                 ActorControl(frame),
             ))
             .id();
-        app.world_mut().spawn(crate::capture::CapturedBy {
-            captor,
-            hold_offset_local: ae::Vec2::new(16.0, 0.0),
-            prior_gravity_scale: 1.0,
-            throw_armed: false,
-        });
+        app.world_mut().spawn((
+            crate::capture::CapturedBy {
+                captor,
+                hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                prior_gravity_scale: 1.0,
+            },
+            ambition_characters::smash_capture::SmashHoldState::default(),
+        ));
         app.update();
         played(&app, captor)
     };

@@ -523,6 +523,61 @@ BEATS A THEORY.** Every refutation came from running the same code at two inputs
 that prints before it steps is off by the input pipeline's latency; print after
 the step, or print enough frames that latency reads as a delay and not a stall.
 
+- ▢ **D200 — THE SMASH CORRECTNESS CLOSEOUT.** (GPT review of `370abbbcf`,
+  extended by a second review of the merged tree at `3cebefd62`)
+
+Ten named correctness defects in the platform-fighter kernel. **Six are closed
+and pushed**; what remains is listed here so the next session does not re-derive
+the list from a chat log.
+
+✔ **CLOSED.** The strike-pulse ledger (one continuous swing lands once, sibling
+sweet/sour volumes share the per-victim set); buffered Special keeps its
+direction and posture; the charge payoff has ONE authority (`MoveCharge` — the
+timeline road paid the FULL multiplier on every non-charging use); a held charge
+can no longer stand inside its own live hitbox; the CPU holds Attack to the
+move's real charge point rather than to its first hit; a direction held through
+a grab no longer throws on the first captive tick; same-tick capture is a
+deterministic MATCHING (no body is ever both captor and captive, and the outcome
+does not depend on message order); empowered i-frames no longer stack the shared
+blink under a character's own presentation.
+
+▢ **OPEN — the bounded match-level impact hitstop.** CPU-vs-CPU connects produce
+local hitlag but no global freeze, because the screen-freeze path runs through a
+`PrimaryPlayer` time intent. A successful connect should emit a BOUNDED
+`ImpactHitstop` request into `ambition_time` arbitration that expires on
+unscaled tick time, so the normal clock wins back automatically. ⛔ no imperative
+`set scale = 0 … remember to set it back` — that lifecycle is where the old
+stuck-at-zero bug came from. Bullet time and blink hold stay participant-scoped.
+
+▢ **OPEN — the charge pose is DERIVED, not authored.** Every smash in the roster
+takes a global `CHARGE_POSE_FRACTION`, and the validator guards only "strictly
+before the first Active window". The review asked for a per-move authored hold
+point inside the intended leading Startup. ⚠ AND THE FRACTION IS NOT SETTLED:
+swept against a real match, `0.50` leaves George offstage 169 ticks pressing his
+route home 5 times, while `0.25` leaves him offstage 394 ticks pressing it ZERO
+times. Not his recovery breaking — the decision-log guard is green at both — but
+an earlier pose moves when the opponent's smashes connect. Jon asked for the
+first FRAMES and 0.50 of a 0.3s windup is nine of them.
+
+⭐⭐ **THE LESSON THIS ROW EXISTS TO CARRY: FOUR EMERGENT TESTS MISATTRIBUTED A
+CHANGE IN ONE PASS.** `every_authored_route_gets_pressed` blamed the CPU's
+recovery for a charge-payoff change and again for a charge-pose change;
+`the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` blamed the neutral
+dodge for a failure it does not cause (the dodge clause cannot even reach a CPU,
+whose Dodge verb aims its stick); `two_emmys_hold_a_mirror...` compared ABSOLUTE
+mirrored frames across matches of different lengths and failed a PERFECT 856/856
+mirror against a sloppy 440/1376 one. Every one is a match-distribution
+measurement read as a mechanism failure. ⇒ a targeted invariant test AND a real
+production-path test, per defect — `a_fighter_brain_charges_a_smash_through_the_real_chain`
+is the shape: brain → gesture → move → `MoveCharge` → frozen fraction, one
+motionless opponent, no sampling in it.
+
+⚠ **and a guard can be green for the wrong reason.** The capture-chain test was
+poisoned by deleting the victim check and stayed GREEN — a chain's second edge is
+refused by the captor check — and its fixture had made B and C allies, so with
+friendly fire off the "chain" it claimed to test resolved one edge. Both are
+fixed; the general form is that a poison has to target the clause, not the file.
+
 - ▢ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.**
   (found 2026-08-21, by GPT review of `f3b4b83a1`)
 

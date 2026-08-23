@@ -204,71 +204,73 @@ pub fn acquire_captures(
         resolved.push((*attempt, victim));
     }
 
-    // PHASE TWO: ⭐⭐ A MUTUAL GRAB HAS ONE WINNER, AND THE TIE-BREAK IS THIS
-    // FILE'S EXISTING ONE.
+    // PHASE TWO: ⭐⭐ THE ACCEPTED CAPTURES ARE A MATCHING, and that one word is
+    // the whole rule: NO BODY MAY BE BOTH A CAPTOR AND A CAPTIVE on the same
+    // tick, whatever shape the attempts make.
     //
-    // Two bodies that reach for each other on one tick are a TIE, and there are
-    // exactly three ways out. Granting both is the deadlock above. Granting
-    // NEITHER — a clash — was tried and MEASURED, and it deletes the mechanic:
-    // in a mirror match the two brains are identical, so EVERY grab is
-    // simultaneous, and 126 attempts over a minute produced ZERO captures, zero
-    // pummels and zero throws. A capture kit that cannot be reached is the
-    // failure this campaign has spent a week policing.
+    // ⛔⛔ THIS WAS A SPECIAL CASE FOR MUTUAL PAIRS AND THAT WAS NOT ENOUGH.
+    // `A↔B` was arbitrated by `SimId`, which fixed the measured mirror deadlock
+    // — but `B→C` and `A→B` on one tick left B captive of A AND captor of C,
+    // recreating exactly the contradictory state the pair rule existed to
+    // prevent. Worse, it depended on MESSAGE ORDER: `A→B` then `B→C` granted one
+    // edge, the reverse granted both. Found by a GPT review reading the accept
+    // condition, which rejected `taken(victim)` but never `holding(victim)`.
     //
-    // So one wins, which is also the genre's answer (Ultimate resolves a
-    // same-frame grab by port order). The key is `SimId`, not message order and
-    // not seat: it is the tie-break this function ALREADY uses to rank
-    // candidates, it is stable across a rollback, and it does not need the
-    // scheduler to iterate anything in a particular order.
+    // ⇒ ONE loop, ONE set, ONE question: accept an edge iff NEITHER endpoint has
+    // already participated in an accepted one. `A↔B`, `A→B→C`, `A→C←B` and the
+    // three-cycle stop being four cases and become instances of the invariant.
+    // The mutual-pair arbitration is DELETED rather than kept beside this: it is
+    // the two-body instance of the same greedy pass.
+    //
+    // ⭐ AND THE ORDER IS THE PRIORITY, NOT THE MAILBOX. `resolved` is sorted by
+    // the captor's `SimId` and then the victim's, so the outcome is a property of
+    // the world rather than of which message the reader happened to visit first,
+    // and it is stable across a rollback. A body with no `SimId` sorts LAST and
+    // therefore loses a contest rather than winning one by absence — the same
+    // reading the candidate ranking above takes of a missing identity.
     //
     // ⚠ ANY winner is a per-seat asymmetry on a symmetric stage, and there is no
     // symmetric alternative — a mirror is a FIXED POINT, so identical inputs
     // produce identical states however the tie is resolved, and the only
     // resolution that preserves the reflection is the one that never grants a
-    // grab. `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`
-    // measures that reflection and had to learn this rule exists.
-    //
-    // ⛔ MUTUAL, not merely simultaneous: A catching B while B catches C is two
-    // honest grabs on one tick and both stand. Only the pair that named each
-    // other arbitrates.
-    //  a body with no `SimId` cannot participate in the tie-break, so it
-    // LOSES one rather than winning by absence — the same reading the candidate
-    // ranking above takes of a missing identity.
-    let losers: std::collections::HashSet<Entity> = resolved
-        .iter()
-        .filter(|(mine, my_victim)| {
-            resolved.iter().any(|(theirs, their_victim)| {
-                theirs.captor == *my_victim
-                    && *their_victim == mine.captor
-                    && match (
-                        identities.get(mine.captor).ok(),
-                        identities.get(theirs.captor).ok(),
-                    ) {
-                        (Some(mine), Some(theirs)) => theirs < mine,
-                        (None, Some(_)) => true,
-                        _ => false,
-                    }
-            })
+    // grab. Granting NEITHER was tried and MEASURED: 126 attempts over a minute
+    // produced ZERO captures, zero pummels, zero throws. One winner it is, which
+    // is also the genre's answer (Ultimate resolves a same-frame grab by port).
+    // `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters` measures
+    // that reflection and had to learn this rule exists.
+    resolved.sort_by(|(a_attempt, a_victim), (b_attempt, b_victim)| {
+        let key = |captor: Entity, victim: Entity| {
+            (
+                identities.get(captor).ok().cloned(),
+                identities.get(victim).ok().cloned(),
+            )
+        };
+        let (a_captor_id, a_victim_id) = key(a_attempt.captor, *a_victim);
+        let (b_captor_id, b_victim_id) = key(b_attempt.captor, *b_victim);
+        // `None` sorts last: no identity, no standing in a contest.
+        match (a_captor_id, b_captor_id) {
+            (Some(a), Some(b)) => a.cmp(&b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        }
+        .then_with(|| match (a_victim_id, b_victim_id) {
+            (Some(a), Some(b)) => a.cmp(&b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
         })
-        .map(|(mine, _)| mine.captor)
-        .collect();
-    let mut taken_this_pass: std::collections::HashSet<Entity> = Default::default();
-    let mut holding_this_pass: std::collections::HashSet<Entity> = Default::default();
+    });
+    // ONE set. A body that appears in an accepted edge — in EITHER role — is
+    // spent for this tick.
+    let mut spent: std::collections::HashSet<Entity> = Default::default();
     for (attempt, victim) in &resolved {
         let (attempt, victim) = (*attempt, *victim);
-        // The losing half of a mutual pair is not a captor this tick. It is
-        // about to be one's captive instead.
-        if losers.contains(&attempt.captor) {
+        if spent.contains(&attempt.captor) || spent.contains(&victim) {
             continue;
         }
-        if taken_this_pass.contains(&attempt.captor)
-            || holding_this_pass.contains(&attempt.captor)
-            || taken_this_pass.contains(&victim)
-        {
-            continue;
-        }
-        taken_this_pass.insert(victim);
-        holding_this_pass.insert(attempt.captor);
+        spent.insert(victim);
+        spent.insert(attempt.captor);
 
         //  THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.
         //
@@ -296,10 +298,6 @@ pub fn acquire_captures(
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
             hold_offset_local: attempt.hold_offset,
-            // ⛔ A FRESH CAPTURE IS NOT ARMED. The stick that walked into this
-            // grab is still pointing wherever it was; the captor has to let go
-            // of it before a direction means "throw".
-            throw_armed: false,
             //  REMEMBERED, not assumed: a flying body's scale is not 1.0, and a
             // release that wrote a constant would land it on the floor.
             prior_gravity_scale: participants
@@ -433,6 +431,44 @@ pub fn sample_capture_escape(
             || frame.projectile_pressed;
         if pressed {
             held.mash_credit += rules.grab_mash_seconds;
+        }
+    }
+}
+
+/// The captor centred its stick, so a DIRECTION now means "throw".
+///
+/// ⛔⛔ THIS IS RULESET STATE AND IT LIVES IN A RULESET SYSTEM. It was first
+/// written inside `restrict_captor_control` — the generic restricted-control
+/// projection — mutating the generic `CapturedBy` relation to implement a
+/// platform-fighter input gesture. A GPT review caught it: "centre the stick
+/// before a direction-alone throw" is not a fact about who holds whom or what
+/// release restores, and a game that constrains bodies without a throw
+/// vocabulary should not pay to rewind it.
+///
+/// ⭐ THE QUERY IS THE BOUNDARY. Asking for `SmashHoldState` is what scopes this
+/// to holds this ruleset has an opinion about; a capture without one is simply
+/// not seen here, exactly as `tick_capture_holds` reads it.
+pub fn arm_smash_throw_edge(
+    captors: Query<(Entity, &ambition_characters::control::ActorControl)>,
+    mut holds: Query<(
+        &CapturedBy,
+        &mut ambition_characters::smash_capture::SmashHoldState,
+    )>,
+) {
+    if holds.is_empty() {
+        return;
+    }
+    let centred: std::collections::HashSet<Entity> = captors
+        .iter()
+        .filter(|(_, control)| control.0.attack_axis == ae::LocalAxes::ZERO)
+        .map(|(entity, _)| entity)
+        .collect();
+    for (held, mut state) in &mut holds {
+        // ⛔ LATCHED, never cleared here. The edge is spent by the throw that
+        // consumes it and by the hold ending; un-arming on a re-press would
+        // make a captor who flicks the stick twice unable to throw at all.
+        if !state.throw_armed && centred.contains(&held.captor) {
+            state.throw_armed = true;
         }
     }
 }
@@ -623,7 +659,6 @@ mod tests {
             captor,
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
             prior_gravity_scale: 1.0,
-            throw_armed: true,
         });
 
         app.update();
@@ -918,45 +953,166 @@ mod tests {
         assert_eq!(captive, west, "the tie went the other way");
     }
 
-    /// ⛔ MUTUAL, NOT MERELY SIMULTANEOUS.    /// ⛔ MUTUAL, NOT MERELY SIMULTANEOUS. A catching B while B catches C is two
-    /// honest grabs on one tick and both must stand — only the pair that named
-    /// each other cancels.
+    /// ⛔⛔ NO BODY IS EVER BOTH A CAPTOR AND A CAPTIVE, and the accepted
+    /// captures do not depend on which message the reader visited first.
     ///
-    /// the poison for the clash above: a rule written as "drop every attempt
-    /// that shares a tick" passes that test and fails this one.
+    /// This replaces a test that wrote ONE message order and asserted only two
+    /// of the three bodies. It passed while `B→C` then `A→B` left B captive of A
+    /// AND captor of C — the exact contradictory state the mutual-pair rule
+    /// existed to prevent, reached by a shape the pair rule never looked at.
+    /// Found by a GPT review reading the accept condition: it rejected a victim
+    /// already TAKEN this pass, but never one already HOLDING.
+    ///
+    /// ⭐ BOTH ORDERS, AND THE WHOLE RELATIONSHIP SET. An arbitration that
+    /// depends on the mailbox produces different sets from the same world, so
+    /// the two orders are compared against each OTHER as well as against the
+    /// invariant.
     #[test]
-    fn a_chain_of_grabs_on_one_tick_is_not_a_clash() {
-        let mut app = capture_app();
+    fn a_chain_of_grabs_on_one_tick_never_makes_a_body_both_roles() {
         // A -> B -> C, each within its neighbour's reach and facing it.
-        let a = grounded_body(&mut app, "a", ae::Vec2::new(0.0, 0.0));
-        let b = grounded_body(&mut app, "b", ae::Vec2::new(16.0, 0.0));
-        let c = grounded_body(&mut app, "c", ae::Vec2::new(32.0, 0.0));
-        // B and C hostile to A's faction so the grabs land; A and B both reach
-        // rightwards, so nobody names the body that named them.
-        for body in [b, c] {
+        let build = || {
+            let mut app = capture_app();
+            let a = grounded_body(&mut app, "a", ae::Vec2::new(0.0, 0.0));
+            let b = grounded_body(&mut app, "b", ae::Vec2::new(16.0, 0.0));
+            let c = grounded_body(&mut app, "c", ae::Vec2::new(32.0, 0.0));
+            // ⛔⛔ ALTERNATING FACTIONS, because friendly fire is OFF and the
+            // grab asks `damage_lands_between`. The version this replaces made
+            // B and C allies, so B→C was refused at resolution and the "chain"
+            // it claimed to test never existed — which is also why it could
+            // assert nothing about C.
             app.world_mut()
-                .entity_mut(body)
+                .entity_mut(a)
+                .insert(crate::components::ActorFaction::Enemy);
+            app.world_mut()
+                .entity_mut(b)
                 .insert(crate::components::ActorFaction::Player);
+            app.world_mut()
+                .entity_mut(c)
+                .insert(crate::components::ActorFaction::Enemy);
+            (app, a, b, c)
+        };
+
+        let run = |forward: bool| -> Vec<(usize, Option<usize>)> {
+            let (mut app, a, b, c) = build();
+            if forward {
+                app.world_mut().write_message(attempt(a));
+                app.world_mut().write_message(attempt(b));
+            } else {
+                app.world_mut().write_message(attempt(b));
+                app.world_mut().write_message(attempt(a));
+            }
+            app.update();
+            let index = |e: Entity| [a, b, c].iter().position(|x| *x == e).unwrap();
+            [a, b, c]
+                .iter()
+                .enumerate()
+                .map(|(i, body)| {
+                    (
+                        i,
+                        app.world().get::<CapturedBy>(*body).map(|h| index(h.captor)),
+                    )
+                })
+                .collect()
+        };
+
+        let forward = run(true);
+        let reversed = run(false);
+        assert_eq!(
+            forward, reversed,
+            "the accepted captures changed with the MESSAGE ORDER, so the \
+             arbitration is a property of the mailbox rather than of the world"
+        );
+
+        for set in [&forward, &reversed] {
+            let captives: Vec<usize> = set.iter().filter_map(|(i, by)| by.map(|_| *i)).collect();
+            let captors: Vec<usize> = set.iter().filter_map(|(_, by)| *by).collect();
+            for body in &captives {
+                assert!(
+                    !captors.contains(body),
+                    "body {body} is both a captive and a captor in {set:?} — the \
+                     contradictory state the whole arbitration exists to refuse"
+                );
+            }
+            assert!(
+                !captives.is_empty(),
+                "no grab landed at all, so this measured nothing: {set:?}"
+            );
         }
-        app.world_mut()
-            .entity_mut(a)
-            .insert(crate::components::ActorFaction::Enemy);
 
-        app.world_mut().write_message(attempt(a));
-        app.world_mut().write_message(attempt(b));
-        app.update();
+        // ⭐ AND THE SPECIFIC OUTCOME, so a rule that refuses EVERYTHING also
+        // fails: A holds B, and C — B's target — walks away free.
+        assert_eq!(
+            forward,
+            vec![(0, None), (1, Some(0)), (2, None)],
+            "expected A holding B with C free"
+        );
+    }
 
-        // B is caught by A. C is B's target, and B — now a captive — may not
-        // also be a captor, so the chain stops at one hold rather than becoming
-        // a train.
-        assert!(
-            app.world().get::<CapturedBy>(b).is_some(),
-            "A's grab on B did not land, so this test measured nothing"
+    /// ⛔⛔ TWO CAPTORS REACHING ONE VICTIM: EXACTLY ONE GETS THE HOLD.
+    ///
+    /// ⭐ THIS IS THE TOPOLOGY THAT EXERCISES THE VICTIM CHECK, and the chain
+    /// test above does NOT — I poisoned it by deleting `spent.contains(&victim)`
+    /// and it stayed green, because a chain's second edge is refused by the
+    /// CAPTOR check instead. A guard that is green for the wrong reason is worth
+    /// less than no guard, so the topology that isolates the clause lives here.
+    ///
+    /// Both message orders, because "whichever attempt the reader visited first"
+    /// is not a rule.
+    #[test]
+    fn two_captors_reaching_one_victim_yield_exactly_one_hold() {
+        let build = || {
+            let mut app = capture_app();
+            let a = grounded_body(&mut app, "a", ae::Vec2::new(0.0, 0.0));
+            let c = grounded_body(&mut app, "c", ae::Vec2::new(16.0, 0.0));
+            let b = grounded_body(&mut app, "b", ae::Vec2::new(32.0, 0.0));
+            // B reaches LEFT, so both A and B name C and nobody names each other.
+            app.world_mut()
+                .entity_mut(b)
+                .get_mut::<ae::BodyKinematics>()
+                .expect("the fixture body carries kinematics")
+                .facing = -1.0;
+            app.world_mut()
+                .entity_mut(c)
+                .insert(crate::components::ActorFaction::Player);
+            (app, a, b, c)
+        };
+
+        let run = |forward: bool| -> (usize, Option<usize>, Option<usize>) {
+            let (mut app, a, b, c) = build();
+            if forward {
+                app.world_mut().write_message(attempt(a));
+                app.world_mut().write_message(attempt(b));
+            } else {
+                app.world_mut().write_message(attempt(b));
+                app.world_mut().write_message(attempt(a));
+            }
+            app.update();
+            let index = |e: Entity| [a, b, c].iter().position(|x| *x == e).unwrap();
+            let held: usize = [a, b, c]
+                .iter()
+                .filter(|body| app.world().get::<CapturedBy>(**body).is_some())
+                .count();
+            (
+                held,
+                app.world().get::<CapturedBy>(c).map(|h| index(h.captor)),
+                app.world().get::<CapturedBy>(a).map(|h| index(h.captor)),
+            )
+        };
+
+        let forward = run(true);
+        let reversed = run(false);
+        assert_eq!(
+            forward, reversed,
+            "which captor won changed with the MESSAGE ORDER"
         );
-        assert!(
-            app.world().get::<CapturedBy>(a).is_none(),
-            "A was captured by a grab it was not the target of"
+        assert_eq!(
+            forward.0, 1,
+            "expected exactly one body held; got {} — two captors both took the \
+             same victim, or the contest refused both",
+            forward.0
         );
+        assert_eq!(forward.1, Some(0), "C is held, and by A (the lower SimId)");
+        assert_eq!(forward.2, None, "a captor became a captive");
     }
 
     /// AN AIRBORNE VICTIM IS NOT CAPTURED BY A STANDING GRAB (v1).
@@ -1003,7 +1159,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1063,7 +1218,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1130,7 +1284,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1198,7 +1351,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1241,7 +1393,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.25,
-                throw_armed: true,
             },
             ambition_characters::control::ScriptedControl,
             // The hold as a CLAIM: a bare marker is nobody's, and the release
@@ -1312,7 +1463,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1345,7 +1495,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.75,
-                throw_armed: true,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1403,7 +1552,6 @@ mod tests {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
-                    throw_armed: true,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.  built the way acquisition
@@ -1486,7 +1634,6 @@ mod tests {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
-                    throw_armed: true,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.
@@ -1584,7 +1731,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1654,7 +1800,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1775,7 +1920,6 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(18.0, 0.0),
                 prior_gravity_scale: 1.0,
-                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1884,31 +2028,13 @@ pub fn constrain_captive_bodies(
 /// the genre. That is a property of the RELATIONSHIP, so it belongs on whatever
 /// component expresses it, not baked in here.
 pub fn restrict_captor_control(
-    mut captives: Query<&mut CapturedBy>,
+    captives: Query<&CapturedBy>,
     mut captors: Query<(Entity, &mut ambition_characters::control::ActorControl)>,
 ) {
     let holding: std::collections::HashSet<Entity> =
         captives.iter().map(|held| held.captor).collect();
     if holding.is_empty() {
         return;
-    }
-    // ⭐ THE THROW EDGE IS ARMED HERE, and this is the system that already pairs
-    // a captor with its control frame — the same join, and the note below
-    // already records that `attack_axis` survives on purpose because it IS the
-    // capture vocabulary. A direction alone throws, so it has to be a NEW
-    // direction: the captor's stick must pass through neutral once before one
-    // counts, or walking into a grab throws the victim on the first held tick.
-    let neutral: std::collections::HashSet<Entity> = captors
-        .iter()
-        .filter(|(entity, control)| {
-            holding.contains(entity) && control.0.attack_axis == ae::LocalAxes::ZERO
-        })
-        .map(|(entity, _)| entity)
-        .collect();
-    for mut held in &mut captives {
-        if neutral.contains(&held.captor) {
-            held.throw_armed = true;
-        }
     }
     for (entity, mut control) in &mut captors {
         if !holding.contains(&entity) {

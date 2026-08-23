@@ -4018,10 +4018,6 @@ fn on_the_smash_pad_a_held_player_can_mash_free() {
                 captor,
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
                 prior_gravity_scale: 1.0,
-                // Armed: these host fixtures drive the captor with explicit
-                // presses and ask what those resolve to, not whether the stick
-                // has been re-centred since the grab connected.
-                throw_armed: true,
             },
             ambition_platformer2d::characters::smash_capture::SmashHoldState::lasting(
                 ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
@@ -4109,10 +4105,6 @@ fn on_the_smash_pad_attacking_while_holding_pummels() {
                 captor: body,
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
                 prior_gravity_scale: 1.0,
-                // Armed: these host fixtures drive the captor with explicit
-                // presses and ask what those resolve to, not whether the stick
-                // has been re-centred since the grab connected.
-                throw_armed: true,
             },
             ambition_platformer2d::characters::smash_capture::SmashHoldState::lasting(
                 ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()
@@ -4181,10 +4173,6 @@ fn on_the_smash_pad_forward_and_attack_while_holding_throws() {
                 captor: body,
                 hold_offset_local: ambition_platformer2d::engine_core::Vec2::new(20.0, -2.0),
                 prior_gravity_scale: 1.0,
-                // Armed: these host fixtures drive the captor with explicit
-                // presses and ask what those resolve to, not whether the stick
-                // has been re-centred since the grab connected.
-                throw_armed: true,
             },
             ambition_platformer2d::characters::smash_capture::SmashHoldState::lasting(
                 ambition_platformer2d::combat::rules::ResolvedCombatTuning::default()

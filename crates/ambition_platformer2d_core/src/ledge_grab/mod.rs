@@ -28,20 +28,27 @@ pub const LEDGE_ROLL_TIME: f32 = 0.30;
 /// swing time to read.
 pub const LEDGE_GETUP_ATTACK_TIME: f32 = 0.30;
 
-/// How much of a ledge getup ATTACK is intangible.
+/// How much of a ledge getup ATTACK is intangible: the swing, not the tail.
 ///
-/// ⚠ THE WHOLE ATTACK, which is a design choice this constant exists to make
-/// VISIBLE rather than to settle. It was inherited rather than decided: the
-/// getup attack borrowed the dodge roll's timer for its full duration, so an
-/// attack thrown from the edge was untouchable through its own recovery — free,
-/// and the one ledge option with no punish. Ultimate covers roughly the first
-/// half of its ledge attack and leaves the tail exposed, which is what makes
-/// contesting the edge a read.
+/// The genre's answer rather than a preference. Every Smash title covers the
+/// early part of a ledge attack and leaves its recovery exposed, and that
+/// exposure is the mechanic — it is what makes contesting an edge a READ
+/// instead of a coin flip, because the defender who guesses the attack has
+/// something to punish.
 ///
-/// Left at the full duration so this split changes NOTHING about what refuses
-/// damage. Shortening it is a one-line tuning decision now that there is a line
-/// to shorten.
-pub const LEDGE_GETUP_ATTACK_INVULN: f32 = LEDGE_GETUP_ATTACK_TIME;
+/// ⛔ it was the WHOLE attack, and nobody chose that: the getup attack borrowed
+/// the dodge roll's timer for its full duration, so an attack thrown from the
+/// edge was untouchable through its own recovery — free, and the one ledge
+/// option with no punish. That is a rule the engine fell into by which field
+/// somebody reached for.
+///
+/// HALF, because this maneuver's hitbox fires at the START of the lift (see
+/// [`LEDGE_GETUP_ATTACK_TIME`]): the covered half is the swing and the exposed
+/// half is the body still rising with nothing left to hit you with. That is the
+/// same claim the moveset road spells as "cover through the last Active window"
+/// — this maneuver is a kernel getup with no authored windows to name, so the
+/// fraction is how it says it.
+pub const LEDGE_GETUP_ATTACK_INVULN: f32 = LEDGE_GETUP_ATTACK_TIME * 0.5;
 
 /// How much further inboard the roll lands than the climb. The roll
 /// target is `climb_target + into_axis * LEDGE_ROLL_OVERSHOOT`,

@@ -4517,7 +4517,7 @@ mod launched {
                     knockback:
                         ambition_platformer2d::combat::strike::HitboxKnockback::LaunchSpeed {
                             base: UP_TILT_KNOCKBACK,
-                            growth: UP_TILT_GROWTH,
+                            growth: Some(UP_TILT_GROWTH),
                         },
                     launch_dir,
                     frame_down: EVec2::new(0.0, 1.0),

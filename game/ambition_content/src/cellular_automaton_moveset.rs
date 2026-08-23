@@ -75,7 +75,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
                     knockback: 140.0,
                     // Flat, exactly as the row authored it — the stage's
                     // ruleset decides whether knockback grows with percent.
-                    knockback_growth: 0.0,
+                    knockback_growth: None,
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
@@ -603,8 +603,8 @@ mod tests {
         assert_eq!(volume.damage, 3);
         assert_eq!(volume.knockback, 140.0);
         assert_eq!(
-            volume.knockback_growth, 0.0,
-            "flat, exactly as the row authored it"
+            volume.knockback_growth, None,
+            "the row authors no growth, so the STAGE decides it"
         );
     }
 

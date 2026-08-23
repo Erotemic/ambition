@@ -1,4 +1,3 @@
-
 use super::*;
 // Named here because this is where they are used.
 use crate::events::HitEvent;
@@ -528,19 +527,20 @@ fn a_swing_that_catches_two_bodies_stales_the_move_once() {
 #[test]
 fn a_moveset_brings_its_own_stale_ring() {
     let mut app = App::new();
-    let body = app
-        .world_mut()
-        .spawn(ActorMoveset(Default::default()))
-        .id();
+    let body = app.world_mut().spawn(ActorMoveset(Default::default())).id();
     assert!(
-        app.world().get::<crate::stale::BodyStaleMoves>(body).is_some(),
+        app.world()
+            .get::<crate::stale::BodyStaleMoves>(body)
+            .is_some(),
         "inserting a moveset did not bring the stale ring, so staling is silently \
          off for every body whose spawn road does not name it"
     );
     //  and the floor: a body with no moveset does not pay for one.
     let bare = app.world_mut().spawn_empty().id();
     assert!(
-        app.world().get::<crate::stale::BodyStaleMoves>(bare).is_none(),
+        app.world()
+            .get::<crate::stale::BodyStaleMoves>(bare)
+            .is_none(),
         "a body that cannot attack is carrying combat history anyway"
     );
 }
@@ -1210,7 +1210,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
             .expect("the active window spawns the volume");
         let knockback = match hb.knockback {
             crate::strike::HitboxKnockback::LaunchSpeed { base, growth } => {
-                assert_eq!(growth, 0.0, "charge fixture authors no growth");
+                assert_eq!(growth, None, "charge fixture authors no growth");
                 base
             }
             other => panic!("moveset melee must author a launch speed, got {other:?}"),
@@ -1897,8 +1897,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 #[test]
 fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
-    use ambition_characters::brain::{ActorActionMessage};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -1978,8 +1978,8 @@ use ambition_characters::control::{ActorControl};
 fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     use ambition_characters::actor::control::ActorFireRequest;
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec, RangedStyle};
-    use ambition_characters::brain::{ActorActionMessage};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -2061,8 +2061,8 @@ use ambition_characters::control::{ActorControl};
 #[test]
 fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
-    use ambition_characters::brain::{ActorActionMessage};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::control::ActorControl;
     for facing in [-1.0f32, 1.0] {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
@@ -2772,7 +2772,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         },
         damage: 5,
         knockback: 0.0,
-        knockback_growth: 0.0,
+        knockback_growth: None,
         launch_dir: None,
         on_hit: None,
         //  no `vfx` tag: a bladed volume would resolve the fixture manifest
@@ -3316,7 +3316,11 @@ fn uncancelable(id: &str) -> MoveSpec {
     }
 }
 
-fn set_frame(app: &mut App, body: Entity, edit: impl FnOnce(&mut ambition_characters::actor::control::ActorControlFrame)) {
+fn set_frame(
+    app: &mut App,
+    body: Entity,
+    edit: impl FnOnce(&mut ambition_characters::actor::control::ActorControlFrame),
+) {
     let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
     edit(&mut control.0);
 }
@@ -3348,7 +3352,11 @@ fn a_refused_attack_press_is_replayed_once_when_the_authority_accepts_it() {
          that arrives while a move is refusing replacement"
     );
     assert!(
-        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack > 0.0,
+        app.world()
+            .get::<ae::BodyActionBuffer>(body)
+            .unwrap()
+            .attack
+            > 0.0,
         "the refused press left no buffered window, so it was dropped exactly \
          as it was before the buffer was fed"
     );
@@ -3368,7 +3376,10 @@ fn a_refused_attack_press_is_replayed_once_when_the_authority_accepts_it() {
          authority could accept it"
     );
     assert_eq!(
-        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack,
+        app.world()
+            .get::<ae::BodyActionBuffer>(body)
+            .unwrap()
+            .attack,
         0.0,
         "accepting the action must SPEND the slot"
     );
@@ -3409,7 +3420,10 @@ fn a_press_older_than_the_window_is_never_spent() {
         app.update();
     }
     assert_eq!(
-        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack,
+        app.world()
+            .get::<ae::BodyActionBuffer>(body)
+            .unwrap()
+            .attack,
         0.0,
         "the window did not decay"
     );
@@ -3558,7 +3572,7 @@ fn charging_smash() -> MoveSpec {
                     },
                     damage: 5,
                     knockback: 100.0,
-                    knockback_growth: 0.0,
+                    knockback_growth: None,
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
@@ -3842,7 +3856,10 @@ fn a_non_smash_use_of_the_same_move_never_charges() {
         .world()
         .get::<MovePlayback>(body)
         .expect("the tilt started a move");
-    assert_eq!(pb.spec.id, "fsmash", "the fixture meant to reach the SAME move");
+    assert_eq!(
+        pb.spec.id, "fsmash",
+        "the fixture meant to reach the SAME move"
+    );
     assert!(
         pb.charge.is_none(),
         "a tilt froze its timeline: charge mode is being entered from the \
@@ -4104,7 +4121,11 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     (app, body)
 }
 
-fn chain_link(id: &str, into: &[&str], repeat: Option<ambition_entity_catalog::MoveLoop>) -> MoveSpec {
+fn chain_link(
+    id: &str,
+    into: &[&str],
+    repeat: Option<ambition_entity_catalog::MoveLoop>,
+) -> MoveSpec {
     let mut windows = vec![MoveWindow {
         start_s: 0.0,
         end_s: 0.10,
@@ -4334,7 +4355,7 @@ fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
         },
         damage,
         knockback: 100.0,
-        knockback_growth: 0.0,
+        knockback_growth: None,
         launch_dir: None,
         on_hit: None,
         vfx: None,

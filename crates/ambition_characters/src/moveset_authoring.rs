@@ -438,7 +438,12 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
                     },
                     damage,
                     knockback,
-                    knockback_growth,
+                    // The BUILDER's zero still means "this stage decides", which
+                    // is what every caller of it has always meant. A move that
+                    // wants FIXED knockback says so on the volume — see
+                    // `HitVolume::knockback_growth` — because a builder that
+                    // took one number could not express both.
+                    knockback_growth: (knockback_growth > 0.0).then_some(knockback_growth),
                     launch_dir,
                     on_hit,
                     // The blade tag: the move runtime draws the slash from the

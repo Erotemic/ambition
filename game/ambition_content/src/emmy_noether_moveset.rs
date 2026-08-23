@@ -111,7 +111,7 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
         },
         damage: 3,
         knockback: 58.0,
-        knockback_growth: 1.35,
+        knockback_growth: Some(1.35),
         launch_dir: Some((0.2, -0.9)),
         on_hit: None,
         vfx: Some(SLASH_POKE_VFX.to_string()),
@@ -791,7 +791,7 @@ mod tests {
         m.windows
             .iter()
             .flat_map(|w| w.volumes.iter())
-            .map(|v| v.knockback_growth)
+            .filter_map(|v| v.knockback_growth)
             .fold(0.0f32, f32::max)
     }
 

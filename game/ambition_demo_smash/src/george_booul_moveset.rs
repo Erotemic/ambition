@@ -204,7 +204,7 @@ pub fn george_booul_moveset() -> MovesetContract {
                 },
                 damage: 11,
                 knockback: 82.0,
-                knockback_growth: 82.0 * crate::SMASH_KNOCKBACK_GROWTH,
+                knockback_growth: Some(82.0 * crate::SMASH_KNOCKBACK_GROWTH),
                 // Flatter and weaker: a base hit puts them beside you, not away.
                 launch_dir: Some((1.0, -0.16)),
                 ..tip
@@ -381,7 +381,7 @@ pub fn george_booul_moveset() -> MovesetContract {
                     },
                     damage: 13,
                     knockback: 170.0,
-                    knockback_growth: 3.40,
+                    knockback_growth: Some(3.40),
                     launch_dir: Some((0.85, -0.55)),
                     on_hit: None,
                     vfx: Some("slash_arc".to_string()),

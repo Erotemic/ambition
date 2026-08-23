@@ -45,7 +45,7 @@ pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
                 },
                 damage: 1,
                 knockback: 0.0,
-                knockback_growth: 0.0,
+                knockback_growth: None,
                 launch_dir: None,
                 on_hit: None,
                 vfx: Some("slash_arc".to_string()),

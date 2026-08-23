@@ -716,9 +716,7 @@ fn report_the_smash_kit_every_selectable_fighter_has() {
     // target.
     let short: Vec<&String> = rows
         .iter()
-        .filter(|row| {
-            !row.contains(&format!("{:>2}/{} presses", KIT_TOTAL, KIT_TOTAL))
-        })
+        .filter(|row| !row.contains(&format!("{:>2}/{} presses", KIT_TOTAL, KIT_TOTAL)))
         .collect();
     assert!(
         short.is_empty(),
@@ -997,24 +995,25 @@ fn every_fighters_growth_is_a_tuning_choice_and_never_a_unit_slip() {
                 if volume.knockback <= 0.0 {
                     continue;
                 }
-                // Zero growth is a sentinel: unauthored growth defers to the
-                // ruleset's `base * ruleset_growth`. Every fighter carries seven
-                // prefab-derived swings (`attack`, `attack_up`, the aerials) at
-                // `knockback: 120, growth: 0`, and flagging those would have made
-                // this guard fire on the whole grid for the one case that needs no
-                // fixing. The slip this hunts is an AUTHORED number in the wrong
-                // unit, which is a different thing from no number at all.
-                if volume.knockback_growth <= 0.0 {
+                // Unauthored growth defers to the ruleset's `base *
+                // ruleset_growth`, and a stated zero is FIXED knockback — a
+                // deliberate choice, not a unit slip. Every fighter carries
+                // seven prefab-derived swings (`attack`, `attack_up`, the
+                // aerials) that author no growth at all, and flagging those
+                // would have made this guard fire on the whole grid for the one
+                // case that needs no fixing. The slip this hunts is an AUTHORED
+                // NON-ZERO number in the wrong unit.
+                let Some(authored) = volume.knockback_growth.filter(|g| *g > 0.0) else {
                     continue;
-                }
+                };
                 this_fighter += 1;
                 let expected = volume.knockback * declared;
-                let ratio = volume.knockback_growth / expected;
+                let ratio = authored / expected;
                 if ratio < 1.0 / MAX_TUNING_FACTOR || ratio > MAX_TUNING_FACTOR {
                     offenders.push(format!(
                         "{id}/{} launches at {} and grows {}/point, but the stage \
                          declares {declared} of base = {expected}/point ({ratio:.3}× off)",
-                        mv.id, volume.knockback, volume.knockback_growth,
+                        mv.id, volume.knockback, authored,
                     ));
                 }
             }

@@ -26,7 +26,7 @@ use ambition_characters::actor::attack_gesture::{
 use ambition_characters::actor::ActorFaction;
 use ambition_characters::brain::fighter::{FighterBrainProfile, FighterCfg, FighterState};
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::control::ActorControl;
 use ambition_characters::perception::{PerceivedActor, SelfView, StageView, WorldView};
 use ambition_combat::moveset::{ActorMoveset, MovePlayback};
 use ambition_entity_catalog::{
@@ -72,7 +72,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
                 },
                 damage,
                 knockback: 0.0,
-                knockback_growth: 0.0,
+                knockback_growth: None,
                 launch_dir: None,
                 on_hit: None,
                 vfx: None,

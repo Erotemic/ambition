@@ -49,6 +49,21 @@ pub struct LandedBodyHit {
 /// Feel multipliers pass through unchanged. Launch-speed growth is resolved against the victim's
 /// accumulated damage and weight; authored nonzero growth overrides the ruleset fraction of base
 /// launch speed.
+/// The least damage a hit may be reduced to: one for a volume that authors
+/// damage, none for one that does not.
+///
+/// ⭐ the distinction the unconditional `max(1)` could not make. Staling and
+/// difficulty may wear a real hit down but must never wear it to nothing — and
+/// a WINDBOX authors no damage on purpose, so flooring it to one turns a push
+/// into a hit and makes the whole category unauthorable.
+fn damage_floor(authored: i32) -> i32 {
+    if authored > 0 {
+        1
+    } else {
+        0
+    }
+}
+
 fn resolved_hitbox_knockback_magnitude(
     knockback: HitboxKnockback,
     victim_damage_taken: i32,
@@ -58,11 +73,10 @@ fn resolved_hitbox_knockback_magnitude(
     match knockback {
         HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
         HitboxKnockback::LaunchSpeed { base, growth } => {
-            let growth = if growth > 0.0 {
-                growth
-            } else {
-                base * ruleset_growth.max(0.0)
-            };
+            // ⭐ `Some(0.0)` is FIXED knockback and `None` is "the volume did not
+            // decide". Reading a bare `0.0` as unspecified made the documented
+            // fixed-knockback case the one value you could not author.
+            let growth = growth.unwrap_or_else(|| base * ruleset_growth.max(0.0));
             let launch_speed =
                 crate::util::scaled_knockback(base, growth, victim_damage_taken, victim_weight)
                     .max(0.0);
@@ -299,9 +313,7 @@ pub fn apply_hitbox_damage(
         // here. `HitSide` selects descriptive source vocabulary only; it does not
         // select a different overlap/dedup/knockback algorithm.
         let melee_source = match (hitbox.source, hitbox.anchor) {
-            (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => {
-                Some(HitSource::Melee)
-            }
+            (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => Some(HitSource::Melee),
             (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::Melee),
             (HitSide::Boss, _) => Some(HitSource::Melee),
             (HitSide::Player, HitboxAnchor::World { .. }) | (HitSide::Neutral, _) => None,
@@ -451,8 +463,17 @@ pub fn apply_hitbox_damage(
                     volume: world_volume.clone(),
                     // the DAMAGE stales with the launch. A move worn out that
                     // still filled the percent meter at full rate would be half a
-                    // mechanic — and `max(1)` keeps a fully stale hit a hit.
-                    damage: ((hitbox.damage as f32 * stale).round() as i32).max(1),
+                    // mechanic — and the floor keeps a fully stale hit a hit.
+                    //
+                    // ⭐ THE FLOOR IS ONE, OR NONE, and which depends on what the
+                    // author wrote. A volume that authors damage keeps at least a
+                    // point of it however stale it gets; a volume that authors
+                    // NO damage is a WINDBOX, and flooring it to one turned a
+                    // push into a hit. The floor was unconditional, so a
+                    // damageless volume was unauthorable: you could write
+                    // `damage: 0` and the runtime dealt one.
+                    damage: ((hitbox.damage as f32 * stale).round() as i32)
+                        .max(damage_floor(hitbox.damage)),
                     source: source_kind.clone(),
                     attacker: Some(hitbox.owner),
                     target: HitTarget::Body(victim.entity),
@@ -478,7 +499,7 @@ pub fn apply_hitbox_damage(
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
-                    damage: hitbox.damage.max(1),
+                    damage: hitbox.damage.max(damage_floor(hitbox.damage)),
                     source: source_kind,
                     attacker: Some(hitbox.owner),
                     target: HitTarget::UnresolvedFeatures,
@@ -506,7 +527,7 @@ pub fn apply_hitbox_damage(
                     hit_events.write(HitEvent {
                         strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
-                        damage: hitbox.damage.max(1),
+                        damage: hitbox.damage.max(damage_floor(hitbox.damage)),
                         source: HitSource::Melee,
                         attacker: Some(hitbox.owner),
                         target: HitTarget::Volume,

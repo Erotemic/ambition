@@ -35,33 +35,45 @@ use ambition_sim_view::LaunchedBodiesView;
 use ambition_time::SimTick;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
-// THE THREE SPEEDS, measured rather than picked.
+// THE THREE SPEEDS, measured rather than picked — and measured against the
+// quantity the gate actually reads.
 //
-// `match_report -- 30 --runs 5` on the merged tree reports per-run PEAK launch
-// speed at 332 / 442 / 770 (min / median / max across runs). Every number below
-// is a stated percentile of that distribution, and the first version of this
-// file had none of them: `TRAIL_ONSET_SPEED` was 650, chosen off the stage's
-// `tumble_speed` as a proxy for "a hit that sent someone", and the trail
-// therefore never fired in a match at all.
+// `match_report -- 90 --runs 5`, 2026-08-23, George versus George, prints the
+// pooled distribution of the speed a body flies at WHILE LAUNCHED, one sample
+// per tick of involuntary flight (n = 9878):
 //
-// ⛔ do not re-pick these off a single run. One thirty-second sample is how the
-// 650 happened. Measure across runs, and ideally across matchups — these five
-// are all George versus George, which is the honest limit of this pick.
+//     p25 49   p50 289   p75 563   p90 756   p99 1500   max 1902
+//
+// Every number below is a stated percentile of THAT, and the previous set was
+// not: it was fitted to `peak launch`, the speed at the tick a launch is
+// WRITTEN. Those are different distributions — gravity keeps working, so a
+// launched body routinely passes 1500 px/s in a match whose peak launch reads
+// 1000 — and the gap is why `TRAIL_NEAR_KO_SPEED = 770` had drifted to the 90th
+// percentile of flight while its own comment claimed it was reserved for the
+// very top of what a fight produces. One tick of flight in ten is not reserved.
+//
+// ⛔ do not re-pick these off `peak launch`, and do not re-pick them off a
+// single run: the first version of this file used 650 (the stage's
+// `tumble_speed`, a proxy for "a hit that sent someone") and the trail never
+// fired in a match at all. These five runs are all one matchup, which is the
+// honest limit of this pick.
 
 /// Speed at which a launch starts smoking, in world units per second.
 ///
-/// The MINIMUM observed per-run peak (0th percentile): the weakest match's best
-/// launch still trails, so the effect is part of the match's language rather
-/// than a once-a-game event. Set at the median peak instead and a typical match
-/// would show the trail exactly once.
-const TRAIL_ONSET_SPEED: f32 = 330.0;
+/// The MEDIAN tick of involuntary flight (p50 = 289). Half of what a launched
+/// body does is fast enough to read; the other half is the body drifting, at
+/// the top of its arc, or still helpless long after the speed that earned it
+/// has gone. This is the onset the BLAST shares, so the two beats of a launch
+/// agree about what counts as one.
+const TRAIL_ONSET_SPEED: f32 = 290.0;
 
 /// Speed at which the trail reaches full density. Past this it stops getting
 /// denser — more particles only cost fill rate.
 ///
-/// Roughly the 75th percentile of observed per-run peaks, between the median
-/// (442) and the max (770).
-const TRAIL_FULL_SPEED: f32 = 550.0;
+/// The 90th percentile of flight (756): the fastest tenth of what a launched
+/// body does saturates, and the ramp below it spans p50 to p90 — the band an
+/// ordinary launch lives in.
+const TRAIL_FULL_SPEED: f32 = 760.0;
 
 /// Sim ticks between puffs at onset density, and at full density. A stride of
 /// one is a puff every tick.
@@ -84,11 +96,13 @@ const MAX_SMOKE_ALPHA: f32 = 0.78;
 
 /// Speed at which a launch stops being hard and starts being a KILL.
 ///
-/// The MAXIMUM observed per-run peak (100th percentile), so the ember is
-/// reserved for a launch at the very top of what the fight produces and
-/// saturates only above anything measured. It was 2600 — four times anything
-/// observed, and unreachable.
-const TRAIL_NEAR_KO_SPEED: f32 = 770.0;
+/// The 99th percentile of flight (1500), against a match that produces 2–4 KOs:
+/// the ember marks the handful of launches per match that are leaving, and its
+/// band saturates at 2240 — above the fastest tick ever sampled (1902), so it
+/// deepens all the way out rather than flattening.
+///
+/// It was 770, the p90 of flight, which burned one launched tick in ten.
+const TRAIL_NEAR_KO_SPEED: f32 = 1500.0;
 
 /// The near-KO plume's colour: an ember, not smoke. A hue change rather than
 /// more of the same particles, because more grey at a speed where the plume is
@@ -399,7 +413,7 @@ mod tests {
     /// published — and only the first one flares.
     #[test]
     fn the_front_of_a_launch_flares_and_a_sustained_tumble_does_not() {
-        let hard = Vec2::new(1500.0, 0.0);
+        let hard = Vec2::new(TRAIL_ONSET_SPEED * 2.0, 0.0);
 
         let mut app = harness();
         set_launched_beat(&mut app, Some(hard), 0.09);
@@ -473,7 +487,11 @@ mod tests {
     #[test]
     fn the_flare_does_not_thicken_with_the_frame_rate() {
         let mut app = harness();
-        set_launched_beat(&mut app, Some(Vec2::new(1500.0, 0.0)), 0.09);
+        set_launched_beat(
+            &mut app,
+            Some(Vec2::new(TRAIL_ONSET_SPEED * 2.0, 0.0)),
+            0.09,
+        );
         app.update();
         assert_eq!(sparks(&drain(&mut app)).len(), 1);
         for _ in 0..3 {

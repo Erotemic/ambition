@@ -457,3 +457,22 @@ rect. Every shot taken before that fix was showing a different layout —
 convincingly. ⛔ A capture that is wrong in a way that looks right is worse than
 no capture; the camera-framing work in particular was judged against a stage that
 was not letterboxed into a real gameplay rect.
+
+⭐⭐ **A failure that is BYTE-IDENTICAL across every commit you bisect is the
+signature of a cause your bisect cannot vary — not evidence that it never
+passed.** The mechanics lane saw two `app_it` tests fail in its worktree, walked
+them back 35 first-parent commits, found the same bytes at every one, and
+correctly reported them as not-its-own. Both pass in the MAIN tree at the same
+code. The asset trees are gitignored, so a worktree does not carry them: they are
+absolute symlinks into main's live assets, which change under a lane every time
+the coordinator commits. So the lane was running its OWN CODE against MAIN'S
+CURRENT ASSETS, and a bisect over commits could only ever move the code half. The
+two tests it chose — a census of what the game can SHOW and a walk toward
+geometry that comes out of content — read exactly the half that was pinned.
+
+⇒ **the rule for every lane in a worktree: a test that reads assets or content is
+measuring main's assets against your code.** Pure-Rust measurement (unit suites,
+poison runs) is unaffected. Anything else goes to the coordinator to run on main.
+And the general form is worth more than the instance: when a bisect finds no
+transition anywhere in history, ask what the bisect was holding constant before
+concluding the subject was always broken.

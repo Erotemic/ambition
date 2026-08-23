@@ -45,8 +45,8 @@ pub use local_view::{
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
 pub use pose_view::{
-    rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
-    ShieldRingsView,
+    rebuild_body_pose_views, rebuild_launched_bodies_view, rebuild_shield_rings_view, BodyPoseView,
+    LaunchedBodiesView, LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
 };
 pub use presented_pose::{
     PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
@@ -63,7 +63,8 @@ pub use view_index::{
 /// [`ActorRenderIndex`] / [`BossRenderIndex`] (materialized identity facts),
 /// [`NameplateIndex`], [`BossFrameIndex`], the per-actor POSE snapshot
 /// ([`ActorAnimIndex`]: overlay advance + anim pick), the player-bodied
-/// [`BodyPoseView`] components, and [`ShieldRingsView`]. All let observers
+/// [`BodyPoseView`] components, [`ShieldRingsView`] and
+/// [`LaunchedBodiesView`]. All let observers
 /// read a snapshot instead of live-querying the sim's ECS.
 pub struct FeatureViewSyncSchedulePlugin;
 
@@ -75,6 +76,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // initializes it; consumers only read.
         app.init_resource::<ActorAnimIndex>();
         app.init_resource::<ShieldRingsView>();
+        app.init_resource::<LaunchedBodiesView>();
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
@@ -112,6 +114,9 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // the per-body half of the pose read-model (E4 slices 1–4).
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
+                // Which bodies are in an INVOLUNTARY flight, so a
+                // flight-readability cue never has to infer that from speed.
+                rebuild_launched_bodies_view,
                 // Which bodies' characters author their own attack art, so no
                 // render system has to ask the catalog — see the module docs
                 // for why an absent catalog must stay ABSENT here.

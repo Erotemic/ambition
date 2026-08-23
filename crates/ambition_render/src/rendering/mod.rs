@@ -23,6 +23,7 @@ mod health;
 mod hit_flash;
 mod item_visuals;
 pub mod label_layout;
+pub mod launch_trail;
 pub mod mark_beacon;
 pub mod morph_ball;
 pub mod moving_platforms;
@@ -429,6 +430,19 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 features::draw_unclaimed_feature_views,
             )
                 .chain()
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                )
+                .run_if(session_presentation_is_ready),
+        );
+
+        // The hard-launch smoke trail. It reads only the pose read-model and
+        // writes only `VfxMessage`, so it needs no edge against the sprite
+        // chain — but it does belong in the same set, which is what carries the
+        // session gate and what `schedule_tests` pins.
+        app.add_systems(
+            Update,
+            launch_trail::emit_launch_trails
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
                 )

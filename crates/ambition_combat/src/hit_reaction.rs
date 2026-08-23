@@ -55,6 +55,35 @@ pub fn apply_body_hit_reaction(
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
+    // SUPER ARMOR: the hit landed and the body does not answer for it.
+    //
+    // Armor is about AUTHORITY, not about damage — the caller has already
+    // decided the percent and this function never touched it — so what an
+    // armoured body keeps is its trajectory and its control: no launch, no
+    // carry, no hitstun, no recoil lock. It does NOT keep hitlag: the freeze on
+    // contact is what makes a hit read as a hit, and an armoured trade that
+    // passed through in silence would look like a whiff to both players.
+    //
+    // ⛔ the velocity is not written at all rather than written as zero. An
+    // armoured body is still going wherever it was going, which is the whole
+    // reason a move authors the window.
+    if combat.armored {
+        combat.hitstop_timer = combat
+            .hitstop_timer
+            .max(ae::hit_response::hitlag_duration(knockback, &response));
+        #[cfg(feature = "causal")]
+        return BodyReaction {
+            velocity: *vel,
+            di_input_local,
+            hitstun: 0.0,
+            had_knockback: knockback.is_some(),
+        };
+        #[cfg(not(feature = "causal"))]
+        {
+            let _ = (di_input_local, body_pos, body_facing, gravity_dir, stance, flight);
+            return;
+        }
+    }
     // Crouching reduces launch magnitude; no separate damage threshold applies.
     let launch = ae::hit_response::knockback_velocity(
         body_pos,
@@ -184,5 +213,81 @@ pub fn hit_response_tuning(
         hitstun_max_scale: ae::hit_response::MAX_HITSTUN_SCALE,
         hitlag_time: feel.hitlag_time,
         di_max_angle: feel.di_max_angle,
+    }
+}
+
+#[cfg(test)]
+mod super_armor_tests {
+    use super::*;
+
+    fn feel() -> Platformer2dFeelTuningMonolith {
+        Platformer2dFeelTuningMonolith::default()
+    }
+
+    fn hard_knockback() -> crate::HitKnockback {
+        crate::HitKnockback {
+            dir: 1.0,
+            magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(600.0),
+            source_pos: ae::Vec2::new(0.0, 0.0),
+            impact_pos: ae::Vec2::new(10.0, 0.0),
+            launch_dir: None,
+        }
+    }
+
+    fn react(armored: bool) -> (ae::Vec2, ae::BodyFlightState, BodyCombat) {
+        let mut vel = ae::Vec2::new(120.0, 0.0);
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat {
+            armored,
+            ..Default::default()
+        };
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            ae::Vec2::new(20.0, 0.0),
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+            false,
+            Some(&hard_knockback()),
+            ae::Vec2::ZERO,
+            VictimStance::default(),
+            feel(),
+        );
+        (vel, flight, combat)
+    }
+
+    /// Armor is about AUTHORITY, not about damage: the hit lands (damage is the
+    /// caller's business and this function never touched it) and the body keeps
+    /// its trajectory and its control.
+    #[test]
+    fn an_armoured_body_is_neither_launched_nor_stunned() {
+        let (plain_vel, plain_flight, plain_combat) = react(false);
+        assert_ne!(
+            plain_vel,
+            ae::Vec2::new(120.0, 0.0),
+            "the fixture's knockback must move an UNARMOURED body, or nothing \
+             below is a comparison"
+        );
+        assert!(plain_combat.hitstun_timer > 0.0);
+
+        let (vel, flight, combat) = react(true);
+        assert_eq!(
+            vel,
+            ae::Vec2::new(120.0, 0.0),
+            "armor stopped the launch by zeroing the body's velocity — an \
+             armoured body is still going where it was going"
+        );
+        assert_eq!(flight.pending_launch, ae::Vec2::ZERO);
+        assert_eq!(combat.hitstun_timer, 0.0, "armor must not leave hitstun");
+        assert_eq!(combat.recoil_lock_timer, 0.0);
+        assert_eq!(flight.carried_hold, 0.0);
+        assert!(
+            combat.hitstop_timer > 0.0,
+            "the hit still has to READ: an armoured trade that passed through in \
+             silence looks like a whiff to both players"
+        );
+        // ... and the launch the plain body took is exactly what was refused.
+        let _ = (plain_flight, plain_combat);
     }
 }

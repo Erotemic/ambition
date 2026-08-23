@@ -3908,3 +3908,138 @@ fn the_charge_is_part_of_the_playback_checksum() {
         "whether a use charges at all is invisible to the checksum"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Move invulnerability and super armor.
+//
+// `WindowTag::Invuln` and `WindowTag::Armor` were authoring vocabulary the
+// runtime consumed nowhere. What is pinned here is that each becomes a fact the
+// EXISTING rule reads — one eligibility gate, one reaction — and that both
+// retract when the window closes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Invuln over `[0.0, 0.1)`, Armor over `[0.1, 0.2)`, plain after that.
+fn defended_move() -> MoveSpec {
+    let window = |start_s: f32, end_s: f32, tag: WindowTag| MoveWindow {
+        start_s,
+        end_s,
+        tag,
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    };
+    MoveSpec {
+        display_name: None,
+        id: "defended".to_string(),
+        clip: ClipBinding {
+            clip: "defended".to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.3,
+        windows: vec![
+            window(0.0, 0.1, WindowTag::Invuln),
+            window(0.1, 0.2, WindowTag::Armor),
+        ],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        smash_charge: None,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+fn defense_app() -> (App, Entity) {
+    let mut app = App::new();
+    app.add_systems(Update, project_move_defense_windows);
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_characters::actor::BodyHealth::restored(
+                ambition_characters::actor::Health::new(100),
+                0,
+                Default::default(),
+            ),
+        ))
+        .id();
+    (app, body)
+}
+
+fn defense_of(app: &App, body: Entity) -> (bool, bool) {
+    let world = app.world();
+    (
+        world
+            .get::<ambition_characters::actor::BodyHealth>(body)
+            .unwrap()
+            .health
+            .invulnerable
+            .holds(ambition_characters::actor::Invulnerability::MOVE),
+        world
+            .get::<ambition_characters::actor::BodyCombat>(body)
+            .unwrap()
+            .armored,
+    )
+}
+
+/// Each authored window is in force for exactly its own span, and the body is
+/// plain outside both — read off the two facts the rest of combat consults, not
+/// off the timeline.
+#[test]
+fn the_authored_defensive_windows_answer_for_exactly_their_own_spans() {
+    let (mut app, body) = defense_app();
+    for (t, expected) in [
+        (0.05, (true, false)),
+        (0.15, (false, true)),
+        (0.25, (false, false)),
+    ] {
+        app.world_mut()
+            .entity_mut(body)
+            .insert(MovePlayback::new_at(defended_move(), 1.0, t));
+        app.update();
+        assert_eq!(
+            defense_of(&app, body),
+            expected,
+            "at t = {t} the move's authored windows resolved (invuln, armored) \
+             = {:?}",
+            defense_of(&app, body)
+        );
+    }
+}
+
+/// ⭐ A grant cleared only when somebody remembers is a grant that never
+/// clears. The projection runs for every combat body, move or no move, so the
+/// move ENDING is what retracts it.
+#[test]
+fn a_move_that_ends_takes_its_grants_with_it() {
+    let (mut app, body) = defense_app();
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new_at(defended_move(), 1.0, 0.05));
+    app.update();
+    assert_eq!(defense_of(&app, body), (true, false));
+
+    // The move is over — the component is gone, exactly as
+    // `advance_move_playback` leaves it.
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+    assert_eq!(
+        defense_of(&app, body),
+        (false, false),
+        "a body with no move at all is still holding the last one's \
+         intangibility"
+    );
+}
+
+/// Chargeability, intangibility and armor are per-USE facts of the move that is
+/// playing; a body playing an ordinary move is granted nothing.
+#[test]
+fn an_ordinary_move_grants_neither() {
+    let (mut app, body) = defense_app();
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(uncancelable("plain"), 1.0));
+    app.update();
+    assert_eq!(defense_of(&app, body), (false, false));
+}

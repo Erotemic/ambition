@@ -240,7 +240,18 @@ pub fn apply_feature_hit_events(
     // on its authored silhouette by the player, and the player could not be hit on
     // its own. `strike_reaches_victim` is the single shared rule, so the two paths
     // cannot drift again.
-    victim_volumes: Query<&crate::combat::components::DamageableVolumes>,
+    // BUNDLED, and the bundle is the point: this system is AT Bevy's system-param
+    // ceiling, so a second by-entity victim read rides with the first rather
+    // than becoming a seventeenth parameter that does not compile.
+    //
+    // `victim_volumes` answers WHAT geometry a strike must reach;
+    // `victim_motion` answers whether the body it reached is inside an evade —
+    // one term of the shared eligibility gate, which the actor cluster query
+    // has no column left to carry.
+    (victim_volumes, victim_motion): (
+        Query<&crate::combat::components::DamageableVolumes>,
+        Query<&ambition_platformer2d_core::BodyMotionFacts>,
+    ),
     mut banner: ResMut<GameplayBanner>,
     combat_banter: Option<Res<crate::features::banter::CombatBanterRegistry>>,
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
@@ -594,6 +605,12 @@ pub fn apply_feature_hit_events(
                 di_input_local,
                 hurt,
                 heavy_attacker,
+                // The victim's published evade, read by entity: the actor
+                // cluster query is at Bevy's column ceiling, and this is the
+                // same by-entity shape `heavy_attacker` above uses.
+                victim_motion
+                    .get(actor_entity)
+                    .is_ok_and(ambition_platformer2d_core::BodyMotionFacts::evading),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

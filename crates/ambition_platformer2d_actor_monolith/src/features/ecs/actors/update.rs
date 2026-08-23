@@ -1902,6 +1902,11 @@ mod body_combat_rebuild_contract {
             recoil_lock_timer: _,
             hitstop_timer: _,
             landing_lag_timer: _,
+            // ── Republished every tick from the live move by
+            // `project_move_defense_windows`, which is the ONE writer. This
+            // sync must never touch it: a second writer would fight the
+            // projection for the same field on alternating frames.
+            armored: _,
             // ── Authored at construction (AC3.1.D), not re-derived per frame.
             training_dummy: _,
         } = combat;

@@ -610,6 +610,34 @@ mod vulnerability_gate_tests {
     }
 
     #[test]
+    /// ⭐ THE M3 CONTRACT. A move's authored `Invuln` window is one more REASON
+    /// in the same bitset, so the gate answers it with nothing new taught — and
+    /// so does `unhittable`, which is this expression inverted. A move grant
+    /// gated anywhere else would give presentation a second answer to read.
+    #[test]
+    fn a_move_invuln_window_is_answered_by_the_one_gate() {
+        let shield = BodyShieldState::default();
+        let combat = BodyCombat::default();
+        let mut invulnerable = Invulnerability::none();
+        assert!(body_vulnerable(invulnerable, false, &shield, &combat));
+
+        invulnerable.set(Invulnerability::MOVE, true);
+        assert!(
+            !body_vulnerable(invulnerable, false, &shield, &combat),
+            "a body inside its move's authored Invuln window was struck — the              grant is being gated somewhere this rule cannot see"
+        );
+
+        // And it is ONE reason among several: releasing it must not release a
+        // grant somebody else is holding.
+        invulnerable.set(Invulnerability::SCRIPTED, true);
+        invulnerable.set(Invulnerability::MOVE, false);
+        assert!(
+            !body_vulnerable(invulnerable, false, &shield, &combat),
+            "the move window's release dropped a scripted grant it does not own"
+        );
+    }
+
+    #[test]
     fn parrying_alone_makes_a_body_untouchable() {
         let (inv, evading, mut shield, combat) = open();
         shield.active = true;

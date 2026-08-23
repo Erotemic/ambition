@@ -148,6 +148,11 @@ impl Plugin for CombatSchedulePlugin {
                     // move that has already been cancelled by the ground.
                     ambition_platformer2d_actor_monolith::combat::moveset::resolve_aerial_landings,
                     ambition_platformer2d_actor_monolith::combat::moveset::advance_move_playback,
+                    // Right behind the clock that moves them: a move's authored
+                    // Invuln / Armor windows are republished onto the two facts
+                    // the rest of combat already reads, so eligibility keeps ONE
+                    // authority and nothing downstream learns to read timelines.
+                    ambition_platformer2d_actor_monolith::combat::moveset::project_move_defense_windows,
                 )
                     .chain()
                     .run_if(gameplay_allowed),

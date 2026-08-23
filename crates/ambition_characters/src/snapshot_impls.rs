@@ -44,6 +44,11 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     damage_invuln_timer: f32,
     hitstun_timer: f32,
     recoil_lock_timer: f32,
+    // DERIVED and still encoded: it is republished from the live move every
+    // tick, so a restore converges — but the tick a rewind lands ON reads it
+    // before the projection runs again, and a peer that decided a launch from a
+    // stale armor bit has already diverged.
+    armored: bool,
     training_dummy: bool,
 });
 

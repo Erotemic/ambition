@@ -122,6 +122,8 @@ fn resolver_ignores_a_hit_inside_the_i_frame_window() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(res, BodyHitResolution::Ignored);
@@ -149,6 +151,8 @@ fn resolver_ignores_a_hit_on_a_dead_body() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(res, BodyHitResolution::Ignored);
@@ -178,6 +182,8 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(res, BodyHitResolution::Blocked);
@@ -208,6 +214,8 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -238,6 +246,8 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         2.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -266,6 +276,8 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
         0.1,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -296,6 +308,8 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -324,6 +338,8 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         1.0,
         true,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -350,6 +366,8 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -906,6 +924,8 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(res, BodyHitResolution::Armored);
@@ -936,6 +956,8 @@ fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -1194,6 +1216,8 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
 
@@ -1232,6 +1256,8 @@ fn losing_a_purse_arms_the_same_beat_as_losing_armor() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
 
@@ -1273,6 +1299,8 @@ fn empty_wallet_shield_does_not_make_the_body_immortal() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
 
@@ -1343,6 +1371,8 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
             1.0,
             false,
             TEST_FEEL,
+            // Not evading — these fixtures exercise the resolver itself.
+            false,
             false,
         );
         assert_ne!(
@@ -1381,6 +1411,8 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
             1.0,
             false,
             TEST_FEEL,
+            // Not evading — these fixtures exercise the resolver itself.
+            false,
             true,
         );
         assert_eq!(
@@ -1422,6 +1454,8 @@ fn the_blast_zone_kills_a_body_that_cannot_be_damaged_to_death() {
         1.0,
         true,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
     assert_eq!(
@@ -1450,6 +1484,8 @@ fn the_blast_zone_kills_a_body_that_cannot_be_damaged_to_death() {
         1.0,
         true,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         true,
     );
     assert_eq!(
@@ -1490,6 +1526,8 @@ fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         true,
     );
     assert_eq!(res, BodyHitResolution::Ignored);
@@ -1645,6 +1683,8 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
                 block_invuln_floor: 0.1,
                 armor_hitstop_time: 0.0,
             },
+            // Not evading — this fixture is about the guard.
+            false,
             false,
         );
         (resolution, health.health.current)
@@ -1715,6 +1755,8 @@ fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
 
@@ -1758,6 +1800,8 @@ fn an_unlimited_guard_is_not_pushed() {
         1.0,
         false,
         TEST_FEEL,
+        // Not evading — these fixtures exercise the resolver itself.
+        false,
         false,
     );
 

@@ -731,6 +731,13 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
                 put_attack_gesture_intent(out, intent);
             }
         }
+        match self.buffered_press {
+            None => put_bool(out, false),
+            Some(intent) => {
+                put_bool(out, true);
+                put_attack_gesture_intent(out, intent);
+            }
+        }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -749,10 +756,16 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
         } else {
             None
         };
+        let buffered_press = if r.bool()? {
+            Some(read_attack_gesture_intent(r)?)
+        } else {
+            None
+        };
         Some(AttackGestureState {
             flick_armed,
             recent_flick,
             active,
+            buffered_press,
         })
     }
 }
@@ -763,6 +776,7 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureTuning {
         put_f32(out, self.rearm_threshold);
         put_u8(out, self.flick_window_ticks);
         put_f32(out, self.directional_deadzone);
+        put_f32(out, self.action_buffer_s);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -771,6 +785,7 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureTuning {
             rearm_threshold: r.f32()?,
             flick_window_ticks: r.u8()?,
             directional_deadzone: r.f32()?,
+            action_buffer_s: r.f32()?,
         })
     }
 }
@@ -1001,5 +1016,39 @@ impl SnapshotState for crate::control::SlotInteractionState {
                 };
         }
         Some(state)
+    }
+}
+
+#[cfg(test)]
+mod attack_gesture_wire_tests {
+    use crate::actor::attack_gesture::{
+        AttackDir, AttackGestureIntent, AttackGestureState, AttackInputPhase, AttackPosture,
+        AttackStrength,
+    };
+
+    /// A press held open by the input buffer is rollback state: a resimulation
+    /// that restores mid-window has to replay the SAME press, or the corrected
+    /// timeline throws a tilt where the original threw a smash.
+    #[test]
+    fn a_buffered_press_survives_the_wire_intact() {
+        let state = AttackGestureState {
+            flick_armed: false,
+            recent_flick: None,
+            active: None,
+            buffered_press: Some(AttackGestureIntent {
+                direction: AttackDir::Forward,
+                strength: AttackStrength::Smash,
+                posture: AttackPosture::Grounded,
+                phase: AttackInputPhase::Press,
+            }),
+        };
+        let bytes = ambition_platformer2d_core::snapshot::encode_state(&state);
+        let back = ambition_platformer2d_core::snapshot::decode_state::<AttackGestureState>(&bytes)
+            .expect("the encoding decodes");
+        assert_eq!(
+            back, state,
+            "the buffered press did not round-trip, so a rollback across the \
+             buffer window replays a different press than the one that was made"
+        );
     }
 }

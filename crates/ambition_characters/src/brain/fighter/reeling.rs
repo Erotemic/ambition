@@ -109,13 +109,18 @@ pub fn survival_stick(view: Perceived<'_>) -> Option<ae::LocalAxes> {
 /// before the PERCEIVED contact lands inside the real one, and the press stays
 /// live for the whole window either way.
 ///
-/// ⚠ THE PRESS DOES NOT REACH THE BODY YET, and that is not this function's
-/// defect. `apply_post_hit_input_gates` strips `MovementAction::Burst` for the
-/// whole of hitstun — which is precisely the state a tech exists to escape — so
-/// a tumbling body's tech press is deleted before the kernel's knockdown tick
-/// can read it. Measured: the brain pressed nine times in one fall and the body
-/// armed nothing. See the ignored guard in
-/// `the_repertoire_gets_used::a_tumbling_cpu_arms_a_tech_before_it_lands`.
+/// ⭐ THE PRESS REACHES THE BODY. It did not when this was written:
+/// `apply_post_hit_input_gates` stripped `MovementAction::Burst` for the whole of
+/// hitstun — precisely the state a tech exists to escape — so a tumbling body's
+/// press was deleted before `tick_knockdown` could read it, and teching was
+/// unreachable for every body in the game, a human one included. That gate now
+/// exempts the Burst EDGE while tumbling.
+///
+/// ⛔ Exempt while TUMBLING only, and that distinction is load-bearing for
+/// anything reading this to escape a juggle: hitstun with Burst open is a body
+/// that air-dodges out of being hit, so a victim in hitstun and NOT tumbling has
+/// no escape press by design. Its only agency is the stick — see
+/// [`survival_stick`].
 pub fn tech_press(view: Perceived<'_>) -> bool {
     let me = &view.self_view;
     if !me.alive || !me.tumbling || me.on_ground {

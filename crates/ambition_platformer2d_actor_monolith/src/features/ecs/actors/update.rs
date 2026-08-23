@@ -955,6 +955,28 @@ pub fn snapshot_body_contact(
 /// It integrates position ONLY — it ticks no brain and mirrors no read-model.
 /// Surface-walker anti-clump steering reads the neighbor index
 /// [`observe_actor_decision_inputs`] published to [`ActorSteering`].
+/// The cue and event writers this integration publishes through.
+///
+/// ONE PARAMETER RATHER THAN FOUR, and the reason is a hard ceiling rather than
+/// taste. A Bevy system takes at most sixteen parameters; this one sat at
+/// sixteen and the `causal` feature adds the seventeenth, so **with that feature
+/// on `integrate_sim_bodies` stopped being a system at all** — and the error
+/// says `no method named `in_set``, naming the registration rather than the
+/// limit, which is why an optional feature could be unbuildable without anyone
+/// noticing. Bundling is what the camera resolve already does for the same
+/// reason.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct BodyIntegrationCues<'w> {
+    pub sfx: ambition_sfx::SfxWriter<'w>,
+    pub vfx: MessageWriter<'w, ambition_vfx::vfx::VfxMessage>,
+    pub hit_events: MessageWriter<'w, HitEvent>,
+    /// The kernel's operation list, for the causal instrument. `Option` so a
+    /// composition with no inspector registers nothing and publishes nothing —
+    /// the rule the damage path already documents.
+    #[cfg(feature = "causal")]
+    pub movement_ops: Option<MessageWriter<'w, crate::causal::BodyMovementOps>>,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_sim_bodies(
     // A13: whose cues each body emits, looked up by entity. A separate read-only
@@ -978,15 +1000,7 @@ pub fn integrate_sim_bodies(
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut sfx: ambition_sfx::SfxWriter,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut hit_events: MessageWriter<HitEvent>,
-    // The kernel's operation list, for the causal instrument. `Option` so a
-    // composition with no inspector registers nothing and publishes nothing —
-    // the rule the damage path already documents.
-    #[cfg(feature = "causal")] mut movement_ops: Option<
-        MessageWriter<crate::causal::BodyMovementOps>,
-    >,
+    mut cues: BodyIntegrationCues,
     mut actors: Query<
         (
             Entity,
@@ -1117,11 +1131,11 @@ pub fn integrate_sim_bodies(
             dt,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
-            &mut sfx,
-            &mut vfx,
-            &mut hit_events,
+            &mut cues.sfx,
+            &mut cues.vfx,
+            &mut cues.hit_events,
             #[cfg(feature = "causal")]
-            movement_ops.as_mut(),
+            cues.movement_ops.as_mut(),
             contact.field_for(actor_entity, &mut contact_scratch),
         );
         // Publish the semantic movement facts this step produced (ADR 0024):
@@ -1673,7 +1687,10 @@ fn build_enemy_brain_snapshot(
         // Semantic side-contact FACT from the shared movement kernel. The brain
         // decides whether it means "turn around"; integration never mutates
         // facing merely because a wall exists.
-        side_contact_normal: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
+        side_contact_normal: body
+            .wall
+            .on_wall
+            .then_some(body.wall.wall_normal_x.signum()),
         // the LOGIC is unchanged and is not a detail: a wall means "turn
         // around" to a walker and means "keep going" to a body whose entire
         // locomotion is walls.

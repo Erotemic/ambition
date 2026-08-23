@@ -2,6 +2,14 @@
 //!
 //! `cargo run -p ambition_demo_smash_app --bin match_report -- [SECONDS] [CHARACTER] [--runs N]`
 //!
+//! ⭐ **With `--features causal` it also prints WHAT THE BRAIN DECIDED, grouped by
+//! the situation it was answering.** The outcome half of this report says what a
+//! fight did; the decision half says why, and separating a behaviour change from
+//! its second-order consequences needs both at once. Three hand edits to the
+//! fighter's movement scores were reverted in one night for want of exactly this
+//! pairing: the change did what it said to the verb it named, and the damage came
+//! two steps away, through the situation classifier.
+//!
 //! Every mechanic in this demo is authored, tuned and reachable; the question
 //! that keeps going unanswered is whether anybody USES it. Three separate
 //! slices — the smash charge, directional influence, the tech — shipped green
@@ -110,12 +118,16 @@ fn main() {
         }
     }
 
+    #[cfg(feature = "causal")]
+    let mut decisions = DecisionTally::new();
     let all: Vec<Vec<Tally>> = (0..runs)
         .map(|i| {
             run_one(
                 &character,
                 seconds,
                 0x5F37_7A11_u64.wrapping_mul(i as u64 + 1),
+                #[cfg(feature = "causal")]
+                &mut decisions,
             )
         })
         .collect();
@@ -125,11 +137,91 @@ fn main() {
     } else {
         report_spread(&character, seconds, &all);
     }
+    #[cfg(feature = "causal")]
+    report_decisions(&decisions);
+}
+
+/// Every `(situation, verb)` the brain chose, counted. Empty without the causal
+/// feature, which is why the printer is behind the same gate.
+#[cfg(feature = "causal")]
+type DecisionTally = std::collections::BTreeMap<(String, String), usize>;
+
+/// Count this tick's fighter decisions off the causal log.
+///
+/// ⭐ THE FACT, not the trace line. `AMBITION_FIGHTER_TRACE=1` prints the same
+/// content as prose and counting it means a regex over wording somebody may
+/// improve; `first("fighter_decision").get("chose")` is a field lookup. That is
+/// the reason the fact exists and its own doc says so.
+#[cfg(feature = "causal")]
+fn collect_decisions(app: &App, into: &mut DecisionTally) {
+    let Some(log) = app
+        .world()
+        .get_resource::<ambition_platformer2d::causal::CausalRecording>()
+    else {
+        return;
+    };
+    let Some(stamped) = log.tick() else { return };
+    for subject in log.subjects_on(stamped) {
+        let explanation = log.explain(stamped, &subject);
+        let Some(decided) = explanation.first("fighter_decision") else {
+            continue;
+        };
+        let situation = decided
+            .get("situation")
+            .map(|value| format!("{value}"))
+            .unwrap_or_else(|| "?".to_string());
+        let chose = decided
+            .get("chose")
+            .map(|value| format!("{value}"))
+            .unwrap_or_else(|| "?".to_string());
+        *into.entry((situation, chose)).or_default() += 1;
+    }
+}
+
+#[cfg(feature = "causal")]
+fn report_decisions(decisions: &DecisionTally) {
+    if decisions.is_empty() {
+        println!(
+            "\nno fighter decisions were recorded — the causal feature is on but \
+             nothing published, which is a defect in the recording rather than a \
+             quiet fight"
+        );
+        return;
+    }
+    println!("\nwhat the brain decided, by the question it was answering:");
+    let total: usize = decisions.values().sum();
+    let mut rows: Vec<_> = decisions.iter().collect();
+    rows.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
+    for ((situation, chose), count) in rows {
+        println!(
+            "  {:<14} {:<28} {:>6}  {:>5.1}%",
+            situation,
+            chose,
+            count,
+            100.0 * *count as f32 / total as f32
+        );
+    }
+    println!("  {:<14} {:<28} {:>6}", "", "total", total);
 }
 
 /// One match, under one execution-noise stream.
-fn run_one(character: &str, seconds: usize, noise_seed: u64) -> Vec<Tally> {
+fn run_one(
+    character: &str,
+    seconds: usize,
+    noise_seed: u64,
+    #[cfg(feature = "causal")] decisions: &mut DecisionTally,
+) -> Vec<Tally> {
     let mut app = build_demo_app();
+    #[cfg(feature = "causal")]
+    {
+        app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
+        ambition_platformer2d::causal::record_domains(
+            &mut app,
+            ambition_platformer2d::causal::RecordingPolicy::only([
+                ambition_platformer2d::causal::domains::BRAIN,
+            ]),
+        );
+    }
     for _ in 0..30 {
         app.update();
     }
@@ -182,6 +274,8 @@ fn run_one(character: &str, seconds: usize, noise_seed: u64) -> Vec<Tally> {
             &mut hitstun_was,
             &mut last_damage,
         );
+        #[cfg(feature = "causal")]
+        collect_decisions(&app, decisions);
     }
 
     totals

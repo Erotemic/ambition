@@ -174,12 +174,14 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | P4 bubble shield | PRESENTATION | ✔ `e5210712b` — filled field in front of the body, shieldstun flare, near-break danger flicker (part of W7) |
 | P5 charge pulse/SFX | PRESENTATION | ✔ `19ec18c42` — authored `smash_charge` row routed ahead of the move's chain, third overlay cue quickens with the fraction, latch/lock cues authored procedurally |
 | M6 DI reaction window | MECHANICS | ▢ |
-| **M8 the fight stopped resolving** | MECHANICS | ▢▢ **P0** — no eliminations, no tumbles, 23% unhittable |
-| **M9 the post-hit gate deletes the tech** | MECHANICS | ▢▢ **P0** — `Burst` stripped for all of hitstun |
+| M8 the fight stopped resolving | MECHANICS | ✔ `3af675f55` — a blanket 0.2s post-hit window was refusing the second Active window of a multi-window move |
+| M9 the post-hit gate deletes the tech | MECHANICS | ✔ `3af675f55` — Burst exempt while tumbling |
 | M7 successful-parry-contact fact | MECHANICS | ✔ `36c24ea69` — `parry_flash_secs` |
 | C1 CPU survival DI/SDI | COORDINATOR | ✔ `0a564b8ef` |
-| C2 CPU tech | COORDINATOR | ~ the brain presses; the gate deletes it (M8) |
+| C2 CPU tech | COORDINATOR | ✔ — 15–56 techs per 30s match |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
+| P6 the camera cuts when a fighter leaves play | PRESENTATION | ▢ — 38.4 units against 33.8 ordinary |
+| M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ▢ |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
 
 ## Measurements this campaign made, that outlive it
@@ -218,3 +220,25 @@ while nothing happened in a match, and each was caught by counting rather than b
 asserting. ⛔ a unit test that drives a kernel with a synthetic input proves the
 FUNCTION and says nothing about the WIRING — the tech's kernel tests are green
 today and no body in the game can tech.
+
+## What day one actually cost, and the rule it bought
+
+Five mechanics shipped green and inert before anybody noticed: the smash charge,
+directional influence, the tech, the launch trail, and — the one that explains
+the rest — **a fighter's authored strong throw, which had never once landed.** A
+blanket 0.2s post-hit invulnerability window outlived the 0.12s gap between two
+Active windows of the same move, so the second was refused by the i-frames the
+first armed. Eight ignored strikes in thirty seconds, and they were the eight
+biggest. Every launch number anyone had measured was the weak pop.
+
+⭐ **THE RULE: a number measured once is a coin flip, and a number measured by a
+proxy is a different number.** Both were paid for on the same day —
+
+- one 30s sample judged an option-scorer change; the suite went from two
+  failures to four. `match_report --runs N` prints `min–median–max` now.
+- `damage` read the LAST percent, and a KO resets a body to zero, so a run in
+  which both fighters died reported as a run in which nothing happened.
+- a test read distance travelled as a stand-in for top speed, and an opponent
+  standing two pixels away was shoving the body.
+- two guards raced the fight's PACE to reach their own question instead of
+  seating one stock and asking it.

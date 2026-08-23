@@ -1,323 +1,471 @@
-# Smash parity — inventory and roadmap
+# Smash parity — current feature inventory
 
-What the platform-fighter vocabulary already has, what it does not, and the
-order to close the gap. Status was read off HEAD on 2026-08-19; re-grep a row
-before working it.
+This is the working inventory for the Smash demo: what already ships, what is
+partial, and what can be added cleanly with the engine we have now.
 
-`✔` shipped · `~` partial (named in the row) · `▢` absent from source
+Source audit: 2026-08-22, snapshot `1e6f8f81`. Re-check the named seam against
+HEAD before changing a row.
 
-## ⭐⭐ THE TARGET IS SMASH-*LIKE*, AND WHERE THE GAMES DIFFER THE ANSWER IS A KNOB
+`✔` shipped · `~` partial · `▢` absent
 
-**Jon, 2026-08-20, verbatim:**
+Effort: `S` small slice · `M` medium slice · `C` multi-slice campaign
 
-> Our point is to build a smash-like game, not exactly ultimate. It would be nice
-> if there was a set of knobs we could tune to reproduce ultimate, but it doesn't
-> have to be ultimate. Reproducing smash 4 or brawl, or melee (bugs are not
-> reuqired parity) would be nice too
+Engine column:
 
-⇒ **so a `▢` here means "no knob covers this", NOT "we differ from Ultimate".**
-Where the games agree, a missing mechanic is research and you go and ship the
-standard. Where they DIFFER FROM EACH OTHER — and they differ constantly — the
-question is not *"which one is right"* but *"what is the knob, and what does each
-setting reproduce"*. Picking one throws the others away.
+- `—` — content, demo, UI, or presentation work; no new engine mechanic.
+- `E1` — one small reusable engine semantic is needed. This is good feature-driven
+  engine work and should be done now when the feature is implemented.
+- `E2` — coordinated engine work across several systems, but ownership is clear.
+  Treat it as its own campaign rather than hiding it inside fighter content.
+- `WAIT` — do not expand the current architecture for this feature yet.
 
-```text
-perfect shield     PRESS-timed (Smash 4, and ours) | RELEASE-timed (Ultimate)
-```
+## Scope and implementation rules
 
-⇒ that pair is `MovementTuning::parry_timing`, shipped 2026-08-20 as the FIRST
-knob under this ruling. ⭐ **it is the worked example**: the question arrived as
-"which one is right" (§27), the ruling reshaped it into "what is the knob", and
-the answer changed no shipped body's feel because a knob's default is the
-behaviour that already existed.
+The target is Smash-like platform fighting, not byte-for-byte Ultimate. When
+Smash games differ on an authored rule, prefer a tuning/rules knob whose default
+preserves the current game. Physics bugs do not need parity.
 
-⚠ **bugs are not required parity.** Melee's wavedash and L-cancel are artefacts
-of its physics rather than authored rules; reproducing Melee does not oblige
-reproducing them. A knob that spans the games spans their RULES.
+For every missing feature:
 
-⛔ **A `▢` IS A CLAIM WITH A GREP BEHIND IT, OR IT IS NOT A ROW.** This table's
-first pass filed eight features as missing that ship — tech, ledge-jump getup,
-the short hop, and five sprite rows the picker already selects — because it was
-assembled from doc comments rather than from consumers. A comment that says *"not
-yet auto-routed"* measures when the comment was written, so **an inventory of
-GAPS built from prose dates the prose, not the code.** Grep the consumer before
-you add a `▢`, and before you work one.
+1. Re-grep the current consumer before implementing it. A missing animation
+   selection is not evidence that the mechanic or art is missing.
+2. Human and CPU fighters use the same body/combat mechanic. Do not add a
+   player-only simulation path.
+3. Put gameplay truth in the owning simulation domain. Presentation consumes
+   resolved facts/events; shaders and particles do not infer hit eligibility,
+   charge state, or shield state independently.
+4. Add a reusable semantic only when a real feature needs it. Do not build a
+   generic platform-fighter scripting framework in advance.
+5. Do not wait for the actor-monolith carve, simulation-phase migration, or
+   capability/runtime composition cleanup. The gaps marked `E1`/`E2` below have
+   usable owners now.
+6. Broad fighter-AI architecture work is the exception: the AI-policy ownership
+   migration is still open. Add only the smallest option/observation support
+   needed for a new mechanic; defer large strategy rewrites.
 
-## Defense
+## Shipped baseline
 
-| Feature | | Where |
+These are not backlog items. Preserve them and build new features on their
+existing seams.
+
+| Area | Current capability | Where |
 |---|---|---|
-| Shield held, directional (front only) | ~ | `combat/util.rs::shield_blocks_hit`, `core::BodyShieldState` |
-| Shield health, decay while held, regen | ✔ | `core::ShieldTuning`, `tick_shield_resource` |
-| Shield break → dizzy hard-lock, ring shatters | ✔ | `break_shield`, `MovementOp::ShieldBreak` |
-| Shieldstun (a blocked hit costs the blocker tempo) | ✔ | `ShieldTuning::stun_per_damage` |
-| Shield pushback (a blocked hit costs the blocker space) | ✔ | `ShieldTuning::pushback_per_damage`, applied inside the block via `GuardUnderFire` |
-| Shield shrink → poke (a spent guard exposes the head and feet) | ✔ | `ShieldTuning::min_coverage`, `combat::util::guard_covers_hit` |
-| Shield-drop lag | ▢ | — |
-| Parry (perfect-shield window), press- or release-timed | ✔ | `MovementTuning::parry_timing` — `OnRaise` is Smash 4's (the default) and `OnRelease` is Ultimate's; the stage declares which via `MatchBody`. Drawn as its own row since 2026-08-20 |
-| Shieldstun is VISIBLE, not just true | ✔ | `body_state_clip` asks for `shield_hit` off `BodyShieldState::stun_timer` — the beat a blocked hit costs a defender |
-| Ground dodge roll, air dodge (once per airtime) | ✔ | `BodyDodgeState`, `AxisManeuverState::dodge_roll_timer` |
-| Tumble → knockdown → tech → getup (roll / attack / stand) | ✔ | `core/movement/knockdown.rs` |
-| Wall tech | ✔ | `knockdown::tick_knockdown` reads `BodyWallState`; `WALL_TECH_SPEED` pushes off the normal |
-| Ceiling tech | ▢ | a head contact is not yet a surface the tech press can land on |
+| Move authoring | Timeline windows, local hit volumes, move events, gates, self-motion, landing lag and autocancel | `ambition_entity_catalog::MoveSpec`, `MoveWindow`, `HitVolume`; `ambition_combat::moveset` |
+| Multi-hit moves | Separated Active windows can re-hit; contiguous Active windows preserve the victim set for one moving hit track | `ambition_combat::moveset` |
+| Cancels | Authored cancel windows support `Always`, `OnHit`, and `OnWhiff` | `WindowTag::Cancelable`, `CancelCondition` |
+| Ground attacks | Directional attacks, smashes, and dash attack selection | `trigger_moveset_moves`, `BodyMotionFacts::running` |
+| Aerial attacks | Directional aerial move selection, landing lag, autocancel | `ambition_combat::moveset` |
+| Damage | Percent, weight, scaled knockback, hitlag, hitstun, DI | `ambition_platformer2d_core::hit_response` |
+| Smash rules | SDI, crouch cancel, rage, stale-move queue, spike/meteor-lock policy | `DeclaredCombatRules`, `BodyStaleMoves` |
+| Shield | Health, drain, regen, shrink-to-poke, shieldstun, pushback, break and dizzy | `BodyShieldState`, `ShieldTuning`, combat shield resolution |
+| Parry | Press-timed or release-timed perfect shield is already a rules knob | `MovementTuning::parry_timing` |
+| Evade | Ground roll, spot dodge, directional air dodge, one air dodge per airtime | movement dodge state/facts |
+| Knockdown | Tumble, knockdown, floor tech, wall tech, getup stand/roll/attack | `movement/knockdown.rs` |
+| Jumping | Full hop, jump squat/short hop, double jump, wall jump, fast fall | `ambition_platformer2d_core::movement` |
+| Hitstun drift | After the hard lock, directional control returns at the authored hitstun-control scale | post-hit input gates + movement tuning |
+| Body contact | Fighter jostle/body pushback | movement sweep/body contact |
+| Footstool | Grounded/airborne victim reactions and phantom-footstool behavior | `features/ecs/footstool.rs` |
+| Ledge | Grab, intangibility, climb/roll/attack/jump getups, trump ownership, drop-through | `ledge_grab`, `ledge_trump` |
+| Capture | Grab relationship, shield bypass, pummel, four throws, mash escape, damage-scaled hold time | `ambition_combat::capture`, `characters/smash_capture.rs` |
+| Dash grab | A running grab is derived from each fighter's standing grab | `SmashCaptureRepertoire`, `grab_dash` |
+| Match | Stocks, blast zones, elimination, timer, stock/damage timeout tiebreak | `ambition_combat::stocks`, `features/stocks_match.rs` |
+| Teams | Friendly-fire policy exists in match combat rules | `DeclaredCombatRules::friendly_fire` |
+| Respawn | Per-seat placement, velocity reset, timed untouchable grant | Smash respawn placement/empowerment systems |
+| Items | World item identity/custody, pickup, held-item use, throw, item physics | `items/pickup`, `GroundItem`, `ItemCustody`, `HeldItem` |
+| Presentation | Character pose routing, shield ring, hit sparks, KO burst, hit-strength camera shake, shield-break burst | render/VFX/movement FX |
+| Match ceremony | 3–2–1–GO and basic winner presentation | Smash demo match presentation |
+| Character select | Per-connected-pad cursor before joining, role cycle, fighter selection, selecting a fighter auto-claims an absent slot, random selection | `game/ambition_demo_smash/src/select*` |
+| Frontend exit | Universal pause/system menu can Quit to Title from character select | `ambition_game_shell::pause_menu` |
+| Taunt | A generic taunt action/move is reachable; directional variants remain backlog | Smash input/moveset routing |
+| Input customization | Per-user binding overrides/remaps, controller profiles/deadzones, `StrongAttack` semantic hint, analog `AimStick` | `ambition_input` |
 
-## Grabs
+## 1. Attack and move semantics
 
-| Feature | | Where |
-|---|---|---|
-| Grab as a relationship, not a hit | ✔ | `combat/capture.rs::CapturedBy` |
-| Grab beats shield | ✔ | same |
-| Pummel | ✔ | `CapturePummelRequested` |
-| Four throws authored per fighter | ✔ | `characters/smash_capture.rs`; every moveset authors all four as of 2026-08-20 — until then 16 of 18 authored only the forward throw and three of a grab's four directions were dead inputs |
-| Mash escape | ✔ | `capture.rs`; `DeclaredCombatRules::grab_mash_seconds`, 14.4f per press |
-| Timed hold limit | ✔ | `grab_hold_max_seconds`; the baseline's flat 4.0s is `FLAT_GRAB_HOLD_SECONDS` |
-| Escape difficulty scales with victim damage | ✔ | `grab_hold_base_seconds` + `grab_hold_per_damage`, Ultimate's 90 + 1.7p, read ONCE at the grab |
-| Grab release (grounded/aerial) as its own beat | ▢ | — |
-| Dash grab / pivot grab distinction | ▢ | one standing grab per fighter |
-| Command grabs (a special that captures) | ▢ | the capture effect is reachable; no fighter authors one |
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| True hold/release smash charge | ~ | M | E1 | `smash_charge_mult` already scales payoff, but charge is inferred from ordinary Startup time. Add optional charge policy to `MoveSpec` and per-use hold/release state to `MovePlayback`; freeze the timeline at the authored hold point, release on button-up/max, and freeze the charge fraction for the rest of that use. |
+| Charge-start/full cues and charge pose | ▢ | S | — | Presentation reads the resolved charge state; one latch/cocking cue on entry, one loaded cue at max, accelerating pulse while charging. No input polling in rendering. |
+| Charge storage | ▢ | M | E1 | Persist an explicitly authored stored charge value on the fighter only for moves that opt in. Do not make every smash globally store charge. |
+| Jab 1 → 2 → 3 chains | ▢ | M | E1 | Use existing cancel windows and literal move IDs. Extend trigger resolution so a follow-up press can select an authored successor instead of restarting jab 1. |
+| Rapid jab + finisher | ▢ | M | E1 | Add authored repeat/loop semantics to move playback, then an authored release/timeout finisher. Do not implement a fighter-ID loop. |
+| Combat action input buffer | ~ | M | E1 | `BodyActionBuffer` is rollback-registered with attack/pogo/projectile slots, but current source documents that nothing writes them. Feed semantic press edges into this existing body-owned buffer, decay it deterministically, and spend a slot only when the normal action authority accepts the action. Do not add per-move grace timers or buffer raw device input. |
+| Move invulnerability windows | ~ | S | E1 | `WindowTag::Invuln` already exists in the authoring schema but runtime does not consume it. Make hit eligibility read the active move window. |
+| Move super-armor windows | ~ | M | E1 | `WindowTag::Armor` already exists. Resolve hit damage normally while suppressing/altering reaction according to the active window. |
+| Damage-threshold armor | ▢ | M | E1 | After basic armor is live, make armor policy carry a threshold when a real move needs it. Keep it in hit reaction, not character code. |
+| Knockback-threshold armor | ▢ | M | E1 | Same reaction-policy seam; compare resolved launch/reaction, not attacker identity. |
+| On-block cancel windows | ~ | S/M | E1 | `CancelCondition` explicitly deferred `OnBlock`; shield contact now exists. Publish/store “this move was blocked” beside the existing landed-hit fact and add `OnBlock`. |
+| Sweetspot/sourspot hitboxes | ▢ | M | E1 | Add deterministic same-move hitbox arbitration/priority so overlapping strong/weak volumes cannot both hit the same victim on one contact. |
+| Same-frame hitbox parts | ▢ | M | E1 | Build on hitbox arbitration when a move needs several independently meaningful regions rather than only a priority winner. |
+| Fixed/set knockback | ▢ | S/M | E1 | Add an explicit hit-reaction mode to `HitVolume`; do not encode it as `knockback_growth = 0` and special-case the formula elsewhere. |
+| Autolink/follow-owner knockback | ▢ | M | E1 | Add a reusable reaction mode that steers the victim toward an authored owner-local follow point with bounded velocity correction. Use separated Active windows for re-hits. Do not use `CapturedBy` or teleport. |
+| Weight-independent knockback | ▢ | S/M | E1 | A compact reaction modifier on the hit payload; keep ordinary hits unchanged. |
+| Windboxes / flinchless push | ▢ | M | E1 | Hit reaction may apply velocity without damage/hitstun. Keep contact/faction/shield arbitration in the normal hit path. |
+| Vacuum / suction hitboxes | ▢ | M | E1 | Same flinchless-reaction primitive with an inward owner-local target/direction. |
+| Extra shield damage | ▢ | S/M | E1 | Author shield-resource damage separately from body percent; resolve it in shield contact, not by inflating normal damage. |
+| Unblockable strike flag | ▢ | S/M | E1 | Add explicit guard-interaction policy to the hit payload. Do not infer unblockable behavior from move IDs. |
+| Hitbox clanking | ▢ | C | E2 | Add deterministic hitbox-vs-hitbox arbitration before victim resolution, including tie/priority rules and one resolved clang result. |
+| Attack rebound after clang | ▢ | S/M | E1 | Consume the generic clank result; apply authored/standard recoil through move/body motion authority. |
+| Cannot-clank/transcendent hit | ▢ | S | E1 | A hitbox policy after clank arbitration exists. |
+| Per-hit hitlag multiplier | ▢ | S/M | E1 | Optional scalar on `HitVolume`/resolved strike. Useful for multihits and heavy impacts without changing global hitlag tuning. |
+| Per-hit hitstun multiplier | ▢ | S/M | E1 | Same payload; add only when a move needs reaction distinct from knockback. |
+| Per-hit SDI multiplier | ▢ | S/M | E1 | Same payload; useful for multihit escape tuning. |
+| Cannot-tech hit property | ▢ | S/M | E1 | Store the restriction in the resolved launch/reaction state so the tech system owns eligibility. |
+| Edge-cancel move recovery | ▢ | M | E1 | Define authored recovery behavior when ground support disappears; integrate at move/ground-contact lifecycle rather than cancelling from rendering or stage code. |
+| Pivot smash | ▢ | S/M | E1 | Content/selection after the ground-turnaround phase in §4 exists. Do not invent pivot timing only inside attack selection. |
 
-## Movement
+## 2. Defense, shield, evade, and tech depth
 
-| Feature | | Where |
-|---|---|---|
-| Full hop, double jump, wall jump, fast fall | ✔ | `core::movement` |
-| Jump squat, and a release inside it short-hops | ✔ | `movement/simulation.rs::tick_jump_squat` |
-| Short hop as its own authored height (not a velocity cut) | ~ | the MECHANIC ships — releasing jump during jump-squat shortens the hop, deferred to takeoff through the body's own `AxisJumpLaw` (`cut_ascent_now`, guarded by `a_button_released_during_the_squat_still_shortens_the_hop`). Only Ultimate's per-fighter authored HEIGHT is absent, and `abilities.rs` + `simulation.rs` refuse it in writing: *"not a second short hop mechanic"*, *"two mechanisms for one feel knob"*. ⇒ this is a ruled difference, not a gap — reopen only with a fighter that needs a height its jump law cannot express |
-| Footstool jump — claims the press, costs no air jump, 4f i-frames, Team-Attack gated | ✔ | `features/ecs/footstool.rs`; grounded victim flinches, airborne one tumbles (`ae::footstool_victim`) |
-| Phantom footstool (a target mid-move is not interrupted) | ✔ | the stomper still takes the bounce; `BodyMelee::phase()` is the committed test |
-| Jostle / body pushback between fighters | ✔ | LANDED `da884be08`. AVOID PUSHOUT is about PORTALS (§25); body contact is an OPT-IN capability of the movement SWEEP — proposed motion constrained BEFORE integration, never separated after — and smash grants it to its cast. ⭐ it turned the whole suite green, 26/7 → 34/0. ⛔ an acceleration term cannot work: the kernel overwrites `vx` toward the input target. ▢ the resistance number (0.85) is an unmeasured feel choice |
-| Ledge grab with intangibility window | ✔ | `core/ledge_grab/` |
-| Ledge getup: climb / roll / attack | ✔ | `LedgeGetupKind` |
-| Ledge jump getup | ✔ | `MovementOp::LedgeJump` |
-| Ledge trump (stealing an occupied ledge) | ~ | `features/ecs/ledge_trump.rs`; the trumped body is DROPPED, where Ultimate pops it outward into a brief helpless state |
-| Ledge intangibility scales with airtime (a regrab earns near nothing) | ✔ | `ledge_grab_invuln_earned` off `AxisManeuverState::time_off_ledge` |
-| Spot dodge (down + evade, in place) | ✔ | `MovementOp::SpotDodge`, `MovementTuning::spot_dodge_time`; the `spot_dodge` row already shipped |
-| Platform drop-through | ✔ | `core::collision_semantics` |
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Filled shrinking bubble shield | ~ | S | — | Current `bubble_shield.rs` is a thin procedural ring but already receives integrity/parry facts. Replace the texture/material presentation; preserve the existing shield simulation. |
+| Shield-hit ripple/deformation | ▢ | S | — | Drive a short cosmetic pulse from resolved shield contact/shieldstun. |
+| Low-shield danger treatment | ~ | S | — | Current ring shrinks/reddens; strengthen presentation without changing resource values. |
+| Shield-drop lag | ▢ | S/M | E1 | Add a short release commitment in shield/movement action arbitration. Keep it tunable by rules/body tuning. |
+| Out-of-shield action policy | ▢ | M | E1 | One explicit shield-release action policy decides which actions may start during/after shield release; then author shield grab, jump, Up-B, up-smash rules through it. Do not scatter per-move exceptions. |
+| Shield grab | ▢ | S | E1 | Capture already exists; enable grab through the OOS action policy. |
+| Jump / Up-B / up-smash out of shield | ▢ | S/M | E1 | Same OOS policy with authored/ruleset availability. |
+| Shield shift/tilt | ▢ | M | E1 | Let resolved defensive aim bias the shield coverage center/shape. Keep coverage in shield semantics; rendering mirrors the resolved shield view. |
+| Shield drop through one-way platform | ▢ | S/M | E1 | Reuse the existing one-way drop-through mechanism, but admit the Smash shield/down gesture through the shield/OOS action policy. The movement kernel still receives the ordinary semantic drop-through request; do not create shield-specific collision rules. |
+| Dodge staling | ▢ | M | E1 | Small per-body evade history modifies startup/i-frames/endlag. It belongs with dodge state, not global move staling. |
+| Spot-dodge attack cancel near tail | ▢ | S/M | E1 | Explicit cancel window on the dodge lifecycle; do not let arbitrary attacks ignore dodge endlag. |
+| Invulnerability/intangibility blink | ▢ | S | E1 | Publish one resolved presentation fact from actual hit eligibility (dodge, tech/getup, ledge, respawn, move invuln) and reuse the overlay-material pattern. |
+| Tech flash/SFX | ~ | S | — | Tech exists but currently shares light movement feedback. Route a distinct one-shot cue from successful Tech, separate from getup roll. |
+| Parry flash/chime | ▢ | S | — | Trigger on successful parry contact, not merely on the parry window. Ordinary shield block stays visually distinct. |
+| Ceiling tech | ▢ | M | E1 | Extend tech surface classification from floor/wall to head/ceiling contact using existing contact facts. |
+| Wall-tech jump | ▢ | S/M | E1 | Add the jump outcome to wall-tech resolution; reuse wall normal and tech timing. |
+| Untechable high-launch threshold | ▢ | S/M | E1 | Make tech eligibility depend on resolved impact/launch state through one rules knob. |
+| ASDI | ▢ | M | E1 | Extend hitlag displacement semantics; keep it distinct from already-shipped SDI. |
+| Hitfall | ▢ | M | E1 | Author/resolve a post-hit downward acceleration or fast-fall transition without bypassing the movement kernel. |
+| Prone damage / jab lock | ▢ | M | E1 | Extend knockdown/prone state with a bounded damage reaction and lock/reset rule. |
+| Partial-body intangibility | ▢ | C | E2 | Requires hurtbox-region identity/policy. Add only when a fighter move needs “arm/head intangible”; do not special-case sprite bones in damage code. |
 
-## Damage and knockback
+## 3. Damage, launch, and impact presentation
 
-| Feature | | Where |
-|---|---|---|
-| Percent damage, weight, scaled knockback | ✔ | `core/hit_response.rs` |
-| Hitlag, hitstun | ✔ | same |
-| DI | ✔ | `hit_response::di_adjust` |
-| Spike (a downward hit drives the victim, no attacker rebound) | ✔ | `rules::DownwardHitStyle::Spike`, declared by the smash stage |
-| Meteor lock (a spiked body cannot recover for a window; the window ending IS the cancel) | ✔ | `DeclaredCombatRules::meteor_lock_time`, declared 0.30 by the smash stage and 0.0 by versus |
-| Crouch cancel (a crouching victim takes less launch) | ✔ | `DeclaredCombatRules::crouch_cancel_scale`, declared 0.85 by smash |
-| SDI (a frozen body shifts itself during hitlag) | ✔ | `hit_response::smash_di_shift` off `MovementTuning::sdi_step`; a HOLD where the genre counts stick inputs |
-| Rage (damage taken raises knockback dealt) | ✔ | `DeclaredCombatRules::rage_per_damage` + `rage_max_scale`, declared 0.004/1.4 by smash |
-| Stale-move queue (repeat use weakens) | ✔ | `BodyStaleMoves` (a nine-slot ring of move-id hashes) + `DeclaredCombatRules::stale_step`/`stale_floor` |
-| Charge attacks, landing lag, autocancel | ✔ | `combat/moveset` |
-| Dash attack (Attack out of a RUN) | ✔ | `move_for_attack` asks `attack_dash` off `BodyMotionFacts::running`, ahead of the direction; authored by all fifteen fighters |
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Hard-launch smoke/speed trail | ▢ | S | — | Gate cosmetic emission on semantic tumble/launched state plus speed, not world velocity alone. |
+| Strong/near-KO launch trail tier | ▢ | S | — | Presentation threshold layered on the same launch fact after the base trail reads well. |
+| Strong-hit impact flash | ~ | S | — | Hit sparks/camera shake already scale with strength; add a brief high-strength flash without changing hit resolution. |
+| Finish zoom on probable KO hit | ▢ | M | E1 | Combat publishes a resolved “finish-zoom eligible/probable KO” event/fact; camera/VFX consume it. Never let camera code predict physics independently. |
+| Ground-bounce / wall-splat feedback | ▢ | S/M | — | Route distinct presentation from actual collision/reaction state. Add a gameplay splat state only if a move/ruleset needs one. |
+| Launch animation distinct from tumble | ~ | S/M | E1 | Publish the initial launch beat if the animation layer cannot distinguish it from sustained tumble. |
+| HUD percent punch/shake | ▢ | S | — | Cosmetic reaction to resolved damage/strong-hit events. |
 
-## Match rules
+## 4. Ground movement and neutral
 
-| Feature | | Where |
-|---|---|---|
-| Stocks, elimination, outcome | ✔ | `combat/stocks.rs` |
-| Blast zones | ✔ | `demo_smash_app/tests/the_stage_kills.rs` |
-| Timer mode | ✔ | `MatchRules::time_remaining`, DERIVED from `ActiveMatch::activated_on` (no rollback state); smash declares 8 minutes |
-| Timeout tiebreak: stocks, then damage | ✔ | `stocks_match::clock_outcome` |
-| Sudden death | ▢ | a level timeout is a DRAW; sudden death is a second match staged from the first's result |
-| Teams and friendly fire toggle | ~ | `DeclaredCombatRules::friendly_fire` IS the toggle (smash declares `false`); no menu exposes it |
-| Items | ~ | `combat/held_items.rs` holds one; no pickup, throw or spawner |
-| Final Smash | ▢ | — |
-| Respawn platform | ~ | the MECHANIC ships and only the PLATFORM is absent: `place_respawning_fighters` puts each returning fighter at `respawn_placement(stage_centre(), seat)` — per-seat, so two returning on one frame do not land inside each other, guarded by a spacing test — zeroes the velocity that threw it off, and grants 2.0s of `Empowerment::UNTOUCHABLE` through the same rollback-registered timed grant a star pickup uses. ⇒ what is missing is the standable PLATFORM and its DROP-OFF, and ⛔ **they are ONE mechanic, not two — tried and reverted 2026-08-22.** An `Empowerment::ENDS_ON_ACTION` bit spending the grant when a move plays is the genre's rule and it is unshippable alone: `a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not` went red because a fighter KO'd mid-swing respawns with its input still held, re-triggers the same move on the frame it materialises, and spends the protection before its owner touches anything. In the genre you cannot act during it BECAUSE you are standing on the platform. ⇒ reopen as the platform; the drop-off falls out of it |
+Current `BodyMotionFacts` distinguishes traversal dash from platform-fighter
+`running`, but there is no platform-fighter locomotion phase for initial dash,
+turnaround, or walk/run gait. Add that vocabulary once and derive the techniques
+below from it.
 
-## Presentation
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Walk distinct from run | ▢ | M | E1 | Add/resolve gait state from analog input and speed instead of treating all grounded locomotion as one continuum. |
+| Initial dash | ▢ | M | E1 | Add a deterministic initial-dash phase to grounded locomotion; do not reuse the separate traversal-dash ability. |
+| Foxtrot | ▢ | S/M | E1 | Repeated initial-dash transitions after initial-dash exists. |
+| Dash dance | ▢ | M | E1 | Opposite-direction initial-dash transition with authored/tuned timing. |
+| Turnaround / pivot phase | ▢ | M | E1 | Ground locomotion owns facing reversal timing and publishes the phase as a fact. |
+| Pivot grab | ▢ | S | — | `grab_dash` already ships; select/authored pivot grab from the turnaround fact after that fact exists. |
+| Run cancel into shield | ▢ | S/M | E1 | Ground action arbitration from the gait phase. |
+| Run cancel into crouch | ▢ | S/M | E1 | Same ground action arbitration. |
+| Crouch walk | ▢ | M | E1 | Movement mode/tuning within crouch, not a second actor controller path. |
+| Reverse aerial rush | ▢ | S/M | — | Should emerge from turnaround → jump → back-air once turnaround timing exists; do not add an RAR state. |
+| Teeter at platform edge | ▢ | S/M | E1 | Small grounded edge microstate/fact for control/animation; collision stays unchanged. |
+| Walk-stop/crouch-start/crouch-end pose beats | ▢ | S | E1 | Publish the transition facts only if animation needs them; do not infer them from sprite phase. |
 
-| Feature | | Where |
-|---|---|---|
-| Sprite rows authored for most poses | ✔ | `sprite_sheet::CharacterAnim` (56 rows) |
-| Taunt: input verb, authored move, drawn row | ✔ | `ControlSlot::Taunt`, `moveset_authoring::taunt`, one per fighter |
-| Directional taunts (up / down / side) | ▢ | the verb chain supports it; no fighter authors one |
-| Taunt voice line or cue | ▢ | — |
-| Grab / held / pummel / throw poses | ✔ | the rows SHIP (Carl draws `grab_hold`, `pummel`, `throw_forward/back/up/down`, `grabbed`); `smash_capture::bound` asks per verb, `BodyAnimFacts::held`/`holding` for the two poses no move owns |
-| Shield bubble, shrinking and reddening with integrity | ✔ | `render/rendering/bubble_shield.rs` |
-| Shield-up sprite pose | ✔ | `pick_body_anim` draws `Block` off `shield.active` |
-| Dizzy pose for a broken shield | ✔ | the `dizzy` row ships; `body_state_clip` asks for it off `FighterClipFacts::guard_broken` |
-| A captive draws as HELD | ✔ | `BodyAnimFacts::held` → `FighterClipFacts` → the `grabbed` row, with `Hit` as the tail |
-| Rows drawn but never selected | ~ | `Charge`, `Punch`, `LedgeClimb`, `Interact` |
-| Hit sparks, KO burst, screen shake | ✔ | `ambition_vfx` |
-| Shield-break shatter burst and tone | ✔ | `features/movement_fx.rs` |
-| Grab / pummel / throw cues | ✔ | `smash_capture`: the reach, the impact and the release each burst |
-| Parry cue | ▢ | — |
+## 5. Air movement, recovery, and ledges
 
-## ⛔⛔ HALF THE SHEET IS ART NOTHING CAN ASK FOR
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| B-reverse | ▢ | M | E1 | Special-start facing/momentum policy based on resolved directional intent. Keep move selection and momentum rule separate. |
+| Wavebounce | ▢ | M | E1 | Same special-start semantic with stronger momentum reversal; do not make it a fighter-specific velocity hack. |
+| Double-jump cancel | ▢ | M | E1 | Explicit jump-resource/move interaction when a fighter or ruleset opts in. |
+| Fast-fall after launch/bounce recovery | ▢ | S/M | E1 | Reuse fast-fall state once hitstun/control gates permit it. |
+| Once-per-airtime recovery budget | ▢ | S/M | E1 | Add only if play confirms repeatable Up-B/recovery is a problem. Prefer an integer recovery-use budget so fighters can author 0/1/N uses. |
+| Generic post-recovery helpless state | ▢ | M | E1 | Add only when authored move recovery cannot express the commitment cleanly. Keep it body-generic. |
+| Ledge-trump outward pop/commitment | ~ | S/M | E1 | Ownership arbitration already drops the old holder. Add the resolved outward reaction/brief commitment to the trump result. |
+| Two-frame ledge vulnerability | ▢ | S/M | E1 | Local ledge-acquisition timing rule; do not hard-code it in hurtbox rendering. |
+| Ledge regrab count/limit | ▢ | S/M | E1 | Ledge state owns regrab history/penalty. Existing airtime-scaled intangibility remains the baseline. |
+| Edgehog vs trump rules knob | ▢ | M | E1 | Same ledge-occupancy authority; expose policy at match/ruleset level if supporting multiple Smash generations. |
+| Tether recovery | ▢ | M | E1 | Reuse the existing grapple/spatial-link machinery and integrate ledge/recovery eligibility only where needed. |
+| Tether grab | ▢ | M | E1 | Grapple/tether acquisition feeds generic capture semantics. |
+| Teleport recovery | ▢ | S/M | — | Blink already supplies the movement primitive; author a fighter move and recovery commitment rather than a new teleport subsystem. |
+| Stall-then-fall move | ▢ | S/M | — | Existing move windows/self-motion are sufficient unless a fighter proves a missing semantic. |
 
-Measured 2026-08-20 — Carl's published sheet against every string literal in
-`crates/` and `game/`:
+## 6. Grabs and capture depth
 
-```text
-133 rows drawn        66 of them mentioned NOWHERE in the code
-```
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Distinct grab-release beat/pose | ▢ | S/M | E1 | Capture lifecycle already has release. Publish a short released/escaped fact if presentation needs to distinguish it. |
+| Pivot grab | ▢ | S | — | Depends on §4 turnaround/pivot fact; capture itself needs no new mechanic. |
+| Grounded command grab | ▢ | S/M | E1 | A special requests generic capture acquisition/effect instead of normal knockback. |
+| Aerial command grab | ▢ | M | E1 | Generalize capture eligibility/posture policy; do not duplicate `CapturedBy`. |
+| Hit-grab | ▢ | M | E1 | A normal blockable hitbox whose successful victim hit transitions into generic capture. Shield interaction remains hitbox semantics. |
+| Tether grab | ▢ | M | E1 | Spatial tether feeds the same capture request/eligibility path. |
+| Grab-vs-grab cancellation | ▢ | S/M | E1 | Deterministic simultaneous capture arbitration in the capture domain. |
+| Cargo carry | ▢ | C | E2 | Captor locomotion while `CapturedBy` remains authoritative. Needs one explicit movement/capture contract; do not encode it as repeated captive teleports. |
+| Moving/cargo throws | ▢ | M | E1 | Extend cargo/capture state only after cargo carry exists. |
+| Grab escape / pummel reaction poses | ~ | S | E1 | Capture already knows the state; publish/select the captive-side pose fact rather than adding art first. |
 
-⭐ **and that is ONE gap, not sixty-six.** A large group of the sixty-six names a
-state the engine ALREADY HAS and simply never asks a sheet about:
+## 7. Character-mechanic primitives worth adding when a fighter needs them
 
-```text
-jump_squat                  AxisManeuverState::jump_squat_timer   ✔ asked, 2026-08-20
-wall_tech · wall_tech_jump  landed the same day; the tech does not say WHICH surface
-footstool_jump              MovementOp::Footstool fires; a one-tick op has no FACT
-launch                      the first beat of a tumble, distinct from `tumble`
-parry · shield_hit          ✔ asked, 2026-08-20 — `parrying()` and
-                            `stun_timer > 0.0`, two rows in `body_state_clip`
-shield_raise
-· shield_release            TRANSITION beats: the sim publishes the STATE
-                            (`active`), not its edges
-shield_break_launch
-· _fall · _collapse
-· _recover                  ONE `break_timer` covers a four-beat sequence, and
-                            the beat is a fraction of the break's own length.
-                            ⛔ `break_timer / ShieldTuning::break_stun_time` is
-                            NOT computable at the readers: both pose sites hold
-                            `BodyShieldState` and no tuning, and reaching for
-                            `MotionModel::shield_tuning()` there would put
-                            presentation back inside policy internals.
-                            ⭐ THE ANSWER IS ONE f32 ON THE COMPONENT:
-                            `break_total`, stamped from the tuning at the moment
-                            the guard shatters. Then `break_timer / break_total`
-                            is the phase for every reader, threading nothing.
-                            ⚠ it is NOT a derive memo — it is the authority for
-                            how long THIS break was, written once, so a rewind
-                            restores the same answer. Costs a codec edge, a
-                            version bump and the three baselines
-ledge_catch · ledge_drop
-· ledge_jump · ledge_attack  LedgeGetupKind and MovementOp::LedgeJump exist
-getup_attack · getup_roll
-· tech_roll                 the anim doc already names why: ONE
-                            `getup_invulnerable` flag, so the sim has not made
-                            the distinction the rows draw
-turnaround · teeter
-· walk_stop · crouch_start
-· crouch_end · stumble      locomotion detail with no published fact
-smash_charge                MoveSpec::smash_charge_mult exists
-grabbed_pummel
-· grab_escape              capture states with no fact on the CAPTIVE
-platform_drop               drop-through ships
-prone_damage · ground_bounce
-· splat · roll_back         floor-game detail
-```
+These are good feature-driven engine additions. Implement each through a real
+fighter rather than building an unused framework.
 
-⚠ **the rest are genuinely unreachable** and should stay that way until a
-mechanic wants them: bury, trip, item handling (`item_pickup` through
-`item_throw`), sleep, stamina, and Carl's own flavour rows (`stargaze`,
-`use_telescope`, `cosmic_drift`).
+| Mechanic | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Rising autolink spin Up-B | ▢ | M | E1 | Use the autolink reaction from §1 for intermediate separated Active windows and ordinary launch on the final hit. Do not use capture. |
+| Counter | ▢ | M | E1 | Authored defensive window records/consumes a qualifying contact and emits an authored retaliation. One generic contact primitive, no fighter-ID branch. |
+| Reflector move | ▢ | M | E1 | Reuse/generalize projectile ownership/trajectory transfer already demonstrated by projectile parry reflection. |
+| Projectile absorber | ▢ | M | E1 | Defensive volume consumes a projectile and emits an authored resource/effect. Keep projectile identity/custody in projectile authority. |
+| Armored move | ~ | S/M | E1 | Consume `WindowTag::Armor`. |
+| Invincible move/startup | ~ | S | E1 | Consume `WindowTag::Invuln`. |
+| Wind/vacuum special | ▢ | M | E1 | Use flinchless reaction modes from §1. |
+| Command-grab special | ▢ | M | E1 | Use generic capture acquisition. |
+| Chargeable projectile | ~ | S/M | E1 | Reuse move/held charge semantics where applicable; do not create a separate “charge manager.” |
+| Stored projectile charge | ▢ | M | E1 | Fighter-owned stored resource for the authored move. |
+| Remote mine / remote detonation | ▢ | M | E1 | Persistent projectile occurrence plus authored owner trigger; maintain stable simulation identity. |
+| Returning/boomerang projectile | ▢ | M | E1 | Projectile motion policy with owner-relative return target. |
+| Homing projectile | ▢ | M | E1 | Projectile owns deterministic steering toward a semantic target; AI/perception may choose target but does not move the projectile. |
+| Pogo/bounce-on-hit attack | ✔ | — | — | Existing on-hit pogo effect; author content instead of another mechanic. |
+| Self-damage/recoil move | ▢ | S | E1 | Owner-side on-hit/on-use effect through existing effect/event seam. |
+| Heal/lifesteal on hit | ▢ | S/M | E1 | Resolved hit effect targeting owner resource/health. |
+| Fighter resource meter | ▢ | M/C | E1 | Character-owned rollback state plus authored spend/gain effects. Build for one fighter; do not create a global fighter-meter manager. |
+| Transformation/stance | ▢ | C | WAIT | Wait for a concrete fighter to define what changes: moveset, body tuning, art, hurtboxes, resource, or all of them. Do not prebuild a universal stance framework. |
 
-⇒ **the pattern this branch hit five times is systemic**: `grabbed`, `pummel`,
-`dizzy`, `spot_dodge` and `dash_attack` were all drawn and never requested. The
-fix was usually one row in `body_state_clip` or one verb in `bound()`, never a
-frame of art. ⛔ **so "the sprite is missing" should be the LAST hypothesis**,
-after "nothing asks for it".
+## 8. Items
 
-⚠ **but `dash_attack` cost FOUR edits, not one, and that is the shape to expect
-when the missing thing is a whole mechanic rather than a row.** The verb had to
-be bound in `bound()`, registered in the runtime's verb vocabulary, given a
-reachable STATE to select it (`BodyMotionFacts::running` — the first attempt read
-the traversal dash's timer, which the fighter kit switches off), and then given
-priority over the smash gesture, because the flick that enters a run is the same
-input that makes a press a smash. ⭐ each of the four was invisible to the tests
-that covered the previous one; only pressing the key in the host found the last
-two.
+The item system is no longer absent. It already has world objects, custody,
+pickup, held-use, throw, and physics. The main Smash blocker is that key pickup /
+throw / held-use paths still resolve through the singular `ControlledSubject`.
+A Smash match needs the same item actions for every participating body.
 
-## The rest of Ultimate's list
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| All-participant pickup/use/throw | ~ | C | E2 | Make item action systems iterate eligible bodies and read each body's `ActorControl`/custody. Preserve `ItemCustody` as the one object-ownership authority. Do not add a second Smash-only item system. |
+| Deterministic match item spawning | ▢ | M | E1 | Match/stage owns spawn locations and deterministic spawn schedule; item domain materializes stable identified objects. |
+| Weighted item spawn table | ▢ | M | — | Authored rules/content data consumed by the deterministic spawner. |
+| Items on/off and spawn-rate rules | ▢ | S/M | E1 | Match rules choose whether/how often the existing spawner runs. |
+| Directional item throws | ▢ | M | E1 | Extend throw intent with body-local direction and author launch tuning. |
+| Smash throws | ▢ | S/M | E1 | Strong directional throw variant after directional throws exist. |
+| Z-drop / neutral drop | ▢ | S | E1 | Custody transition from Held → InWorld with minimal/zero launch. |
+| Airborne/ground item catch | ▢ | M | E1 | Deterministic item/body interception that transitions custody; do not treat it as inventory acquisition. |
+| Thrown-item damage/knockback | ~ | M | E1 | Route free-flight item contact through normal combat hit attribution. |
+| Stable thrower/KO attribution | ▢ | M | E1 | Preserve thrower/side causal identity on the thrown object until the interaction expires. |
+| Healing food | ▢ | S | — | Content/effect on top of pickup/use. |
+| Melee weapon item | ~ | S/M | — | Held-item action sets already exist; author/tune a Smash item. |
+| Projectile weapon/ammo item | ~ | S/M | — | Existing held ranged behavior is the base. |
+| Bomb/timed explosive | ~ | S/M | — | Existing thrown bomb/grenade paths are the base; adapt content/rules for Smash. |
+| Container/crate that yields items | ▢ | M | E1 | Existing breakable/world-item seams should emit deterministic item spawn requests. |
+| Item lifetime/despawn policy | ▢ | S/M | E1 | Item occurrence owns lifetime; match rules may tune it. |
+| Item whitelist/rules UI | ▢ | M | — | UI over authored item/rules data after match spawning is generic. |
 
-The mechanics above are the ones a platform fighter needs to feel like one.
-These are the remainder of Smash Ultimate's surface, kept so the next session
-does not have to enumerate the genre again. None is on the roadmap yet; promote
-one when it has a reason.
+## 9. Input and character-select depth
 
-**Ground movement.** Walk as a distinct gait from run · initial dash and
-foxtrot · dash-dance · pivot and turnaround · run-cancel by crouch or shield.
+The generic input/remap layer is already strong. Smash-specific work should
+translate device intent into existing body-generic attack/control semantics rather
+than add controller-brand branches to combat.
 
-**Air movement.** ~~Directional air dodge~~ — SHIPS, verified 2026-08-20:
-`apply_dodge`'s airborne arm aims along the stick in the body's own frame, any
-diagonal, and a neutral stick dodges in place. That IS Ultimate's, and the row
-was describing it as a gap · ~~aerial drift out of hitstun~~ — SHIPS:
-`apply_post_hit_input_gates` scales the axes by
-`Platformer2dFeelTuningMonolith::hitstun_control_scale` once the HARD lock
-clears, preserving the attack verb ⚠ **grep the INPUT GATE, not the movement
-kernel** — the kernel never reads `hitstun_timer`, which is why a first pass
-concluded there was no penalty at all · double-jump cancel · b-reverse and
-wavebounce · fast-fall out of a bounce.
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Right-stick smash/tilt attack mode (C-stick) | ▢ | M | E1 | `AimStick` and `StrongAttack` already exist. Replace the one-way strong bool at the attack-gesture seam with an explicit strength hint (`Auto`/`Tilt`/`Smash`) so tilt-stick can force Tilt even at full deflection and smash-stick can force Smash. The input adapter generates the attack press/axis; moveset selection stays unchanged. |
+| Smash-input sensitivity options | ~ | S | — | `AttackGestureTuning` already owns flick threshold/re-arm/window. Expose selected presets/values through Smash settings rather than inventing another gesture detector. |
+| Tap-jump option | ▢ | S/M | E1 | Optional input policy converts a fresh upward movement edge into the normal Jump semantic. Movement still sees only Jump; do not teach the movement kernel about keyboards/sticks. |
+| Short-hop aerial macro | ▢ | S/M | E1 | If desired for Ultimate-like controls, resolve simultaneous Jump+Attack into the ordinary jump-squat short-hop path plus buffered attack. Do not add a second short-hop physics rule. |
+| Alternate costume/color per seat | ▢ | M | — | Character-select/staging metadata chooses a presentation variant; gameplay character identity/moveset remains the same. Ensure duplicate-character seats remain visually distinguishable. |
+| Player tags/names | ▢ | S/M | — | Seat/profile presentation on select/HUD/results; do not store the display tag as fighter simulation identity. |
+| Ready/start affordance polish | ~ | S/M | — | Current select already resolves participants and start; improve readiness feedback without adding a second roster authority. |
 
-**Attack surface.** ~~Dash attack as its own verb~~ — landed 2026-08-20, and it
-took THREE tries to become reachable ⛔⛔ **a GAIT is not the traversal dash**:
-the selector first asked `BodyMotionFacts::dashing`, which is
-`AbilitySet::dash`'s timer, and `SMASH_FIGHTER_KIT` switches that ability OFF on
-purpose — so the move was unreachable in the only game that authors one, and
-every unit test passed because each TOLD the selector the body was dashing.
-`BodyMotionFacts::running` is the fact it wanted ⛔⛔ **and then a RUN had to
-pre-empt the SMASH GESTURE**, because the two inputs are the same one: a
-direction FLICK inside the window makes a press a smash, and flicking a
-direction is how a player enters a run, so the canonical input (tap forward,
-press Attack) produced `smash_forward`. All four games answer Attack-out-of-a-run
-with the running attack and none lets a forward smash come straight out of one
-⇒ no knob, ship the standard · pivot smash · jab combos with
-a rapid-jab finisher · charge storage · a two-frame ledge-vulnerability window ·
-z-drop and item throws · edge-cancel.
+## 10. Stages and stage selection
 
-**Defense.** ~~Perfect shield as a RELEASE-timed parry~~ — SHIPPED as a KNOB
-2026-08-20 (§27): `ParryTiming::OnRaise` is Smash 4's and `OnRelease` is
-Ultimate's, and the stage declares which · shield tilt to cover a limb · shield-drop into an aerial ·
-ASDI and hitfall (⚠ NOT SDI — that shipped 2026-08-20 and is in the
-**Damage and knockback** table; listing it here as a remainder was the same
-double-entry as the crouch-cancel row).
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Stage-select screen | ▢ | C | — | Use the shell/experience preflight seam; stage selection is presentation/staging, not fighter simulation. |
+| Stage metadata and thumbnails | ▢ | M | — | Authored stage catalog consumed by stage-select UI. |
+| Random stage | ▢ | S | — | Deterministic choice from the allowed stage catalog/rules selection. |
+| Multiple real Smash layouts | ~ | C | — | Mostly authored map/content work using existing platforms, one-ways, moving platforms and hazards. |
+| Moving-platform stage | ▢ | S/M | — | Existing moving-platform mechanics; author and tune a stage. |
+| Hazard stage | ▢ | S/M | — | Existing hazard/damage vocabulary; author stage hazards. |
+| Hazards on/off rules knob | ▢ | M | E1 | Stage hazard activation reads match rules; do not duplicate hazard entities for on/off variants. |
+| Battlefield-style standardized form | ▢ | M | — | Prefer authored standardized stage variants first. Generalize transformation only if several stages need it. |
+| Omega/flat standardized form | ▢ | M | — | Same: authored variants are enough until repetition proves a generator is useful. |
+| Per-stage blast zones/respawn anchors/camera tuning | ~ | M | E1 | Keep these stage-owned facts. Extend the stage spec only for values not already authored; do not make fighters know stage geometry. |
+| Stage preview in select UI | ▢ | S | — | Thumbnail/render presentation only. |
+| Training-grid stage | ▢ | S/M | — | Content useful for tuning and diagnostics. |
 
-**Match surface.** Time, stamina and coin rulesets · sudden death · handicap ·
-Final Smash and the meter alternative · items and item spawn rate · stage
-hazards toggle · Battlefield and Omega stage forms · echo fighters · spirits and
-equipment · training-mode readouts (damage-per-hit, launch distance, hitbox
-overlay).
+## 11. Match rules, modes, and ceremony
 
-**Presentation.** Screen KO and star KO variants · the launch-star zoom · victory
-poses and the results screen · announcer and per-fighter voice · damage-percent
-shake · the shield-break dizzy stars.
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Standable respawn platform/drop-off | ~ | M | E1 | Respawn placement and untouchable grant already exist. Add the platform as the period during which the fighter cannot act; drop/expire into normal play. Do not use “held input immediately spends invulnerability” as the substitute. |
+| Sudden death | ▢ | M | E1 | Treat timeout draw/tie as input to a short second match phase with authored starting damage/rules. Do not mutate the finished match back into Active ad hoc. |
+| True Time mode scoring | ▢ | M | E1 | Track KO/fall score as match scoring rather than deriving winner only from remaining stocks. |
+| Stamina mode | ▢ | M | E1 | Match elimination policy on health/damage threshold; reuse body combat and match outcome infrastructure. |
+| Coin mode | ▢ | M | E1 | Feasible but low priority; implement as match scoring/resource only if desired. |
+| Stock count selector | ▢ | S | — | Rules UI over existing stock configuration. |
+| Timer selector | ▢ | S | — | Rules UI over existing time configuration. |
+| Teams selector | ▢ | M | — | Staging/UI over existing participant/team representation. |
+| Friendly-fire toggle UI | ~ | S | — | `DeclaredCombatRules::friendly_fire` already exists. |
+| Rules presets | ▢ | M | — | Named authored `MatchRules` bundles. |
+| Handicap / starting damage | ▢ | S/M | E1 | Staging applies authored initial percent/body tuning; keep it in match preparation. |
+| Rematch | ▢ | S/M | — | Re-stage the same prepared selections/rules through the normal match preparation path. |
+| Random character | ▢ | S | — | Character-select staging choice. |
+| Random stage | ▢ | S | — | Stage-select staging choice. |
+| CPU difficulty selector | ▢ | S/M | — | UI/staging chooses existing/new brain tuning profile; avoid branching simulation by controller kind. |
+| Full results screen | ~ | M | — | Basic winner presentation exists; build a post-match screen from resolved outcome/stat facts. |
+| Per-player KO/fall/damage stats | ▢ | M | E1 | Accumulate deterministic match stats from causal combat/stock events, then present after match. |
+| Victory poses/camera/fanfare | ▢ | M | — | Presentation after outcome; fighter content supplies pose/audio identifiers. |
+| Last-stock / stock-loss cues | ▢ | S | — | Presentation from stock-spend facts. |
+| Final-Smash-like meter + authored super | ▢ | C | E1 | A compact fighter resource + authored super move is feasible. Do not start with a cinematic global Final Smash manager. |
 
-## Roadmap
+## 12. Additional presentation and audio
 
-Ordered by fun per slice. Each exposes the numbers a Smash game keeps tunable
-and leaves the values rough; tuning is not this lane's licence.
+Presentation tied directly to charge, defense, and launch is listed with its owning
+mechanic above. These are the remaining standalone presentation gaps.
 
-1. ~~**Shield as a resource**~~, ~~**shieldstun**~~, ~~**Taunt**~~, ~~**stale
-   moves and rage**~~ and ~~**the footstool's victim reaction**~~ — landed
-   2026-08-19/20.
-2. ~~**The missing sprite rows**~~ — landed 2026-08-20, and the row was WRONG:
-   the art ships. Carl's sheet has `grabbed`, `pummel`, `throw_forward/_back/
-   _up/_down`, `grab_hold` and `dizzy`; nothing ever asked the sheet for them.
-3. **Grab depth** — ~~escape difficulty scaling with damage~~ (landed
-   2026-08-20: `DeclaredCombatRules::grab_hold_*`, Ultimate's 90 + 1.7p read
-   ONCE at the grab); still open are dash/pivot grabs and grab release as its
-   own beat.
-4. ~~**Ledge trump and ledge-intangibility decay**~~ — both landed 2026-08-20,
-   and the second row's word was wrong: the genre buys the window with AIRTIME,
-   not a regrab counter. Still open on the ledge: the trumped body is dropped
-   where Ultimate pops it outward into a brief helpless state.
-5. **Match rules** — ~~timer~~ (landed 2026-08-20, derived from the activation
-   tick); still open are sudden death, a menu for the friendly-fire toggle the
-   rules already carry, and the respawn platform.
-6. ~~**SDI**~~, ~~**crouch cancel**~~, ~~**wall tech**~~, ~~**spot dodge**~~ and
-   ~~**jostle**~~ (all landed 2026-08-20); still open: ceiling tech.
-7. **What the 2026-08-20 review left open.** ~~Dash attack keyed to the wrong
-   state~~ and ~~the footstool claim's lifetime~~ landed the same day; three
-   items did not:
-   - ~~**Stale-move accounting counts CONTACTS, not USES.**~~ Landed 2026-08-20
-     (v55): the recording folds into `mark_move_playback_landed_hits`'s
-     false→true edge, which already meant *this use connected* for the
-     OnHit/OnWhiff cancels, and the separate `Settle` system is deleted. A swing
-     that catches two fighters staled the move twice.
-   - ~~**`BodyStaleMoves` lives in the movement core**~~ — moved to
-     `ambition_combat::stale` and registered as `combat.stale_moves` by combat's
-     own seam (v55). `ActorMoveset` `#[require]`s it, so the bodies carrying a
-     nine-slot history are the bodies that can land a move rather than every
-     body in every platformer composition. ⚠ the behaviour was always opt-in
-     through `stale_step`; a rule being switchable was never a reason for its
-     STORAGE to be global.
-   - **The shared evade control is still called `Dash`** — ⚠ TAKEN by the
-     main lane 2026-08-20, not this one's to work. `action_scheme.rs`
-     derives `ControlSlot::Dash` from `abilities.dash || abilities.dodge`, so a
-     Smash fighter — `dash: false`, `dodge: true` — puts a **Dash** button on
-     the touch overlay for a body that has no traversal dash. The kernel is
-     already correct (it calls the shared channel a BURST internally and
-     resolves `GroundDodge | AirDodge | Dash`); it is the upper half that still
-     spells the old word. A Smash body must present **Dodge**.
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Dizzy stars on shield break | ▢ | S | — | Cosmetic while guard-break timer/state is active. |
+| Shield-break launch/fall/collapse/recover pose sequence | ~ | M | E1 | If art has distinct rows, publish one normalized break phase/state from the authoritative break occurrence. Do not make presentation reach back into `ShieldTuning` to reconstruct timing. |
+| Ledge-grab spark | ▢ | S | — | One-shot from ledge acquisition. |
+| Respawn-platform materialize/vanish FX | ▢ | S | — | Presentation on platform lifecycle. |
+| Offscreen fighter indicators/magnifiers | ▢ | M | E1 | Camera/presentation consumes fighter visibility and projected direction; combat remains unchanged. |
+| Screen KO / star KO variants | ▢ | M | E1 | Resolve KO presentation kind from exit trajectory/rules, then render it. Do not change stock authority. |
+| Directional taunts | ▢ | S/M | — | Input/move selection plus authored content; ordinary taunt already ships. |
+| Taunt voice cue | ▢ | S | — | Authored fighter audio on taunt event. |
+| Hurt/KO/attack voice families | ▢ | M | — | Character audio content routed from existing semantic hit/KO/move events. |
+| Announcer countdown/GO/winner voice | ▢ | M | — | Match ceremony already has the states; add audio presentation. |
+| Victory fanfare | ▢ | S/M | — | One-shot/sting audio after outcome. |
+| Controller rumble/haptics | ▢ | M | E1 | Add only through the input/backend's normal output capability; drive from resolved impact events, never from fighter-specific code. |
+
+## 13. Training and tuning tools
+
+These are not match mechanics, but they reduce the cost of every later Smash
+feature. Prefer live runtime facts over duplicating the offline sprite author's
+geometry model.
+
+| Feature | Status | Effort | Engine | Elegant implementation |
+|---|---:|---:|---:|---|
+| Live hitbox/hurtbox overlay | ▢ | M | E1 | Render the actual resolved runtime volumes/ownership; the offline sprite tool's `debug-hitboxes` is not a substitute. |
+| Current move/frame-data display | ▢ | S/M | — | Read `MovePlayback` + authored windows: move id, startup/active/recovery, current phase. |
+| Pause simulation | ▢ | S/M | E1 | Use the time/simulation clock authority; do not pause by skipping random systems. |
+| Single-frame advance | ▢ | M | E1 | Advance exactly one simulation tick through the existing frame-stepped/time seam. |
+| Reset fighters to spawn | ▢ | S | — | Training command uses normal reset/placement authority. |
+| Reset/set percent | ▢ | S | — | Training command mutates combat state through a narrow debug/training API. |
+| Dummy stand/shield/jump/tech behaviors | ▢ | M | — | Small controller/brain profiles using ordinary `ActorControl`, not special simulation paths. |
+| Dummy DI/SDI direction | ▢ | S/M | — | Controller profile emits ordinary directional intent. |
+| Short input record/replay | ▢ | C | E1 | Record semantic control frames keyed to simulation ticks, replay through the ordinary controller seam. |
+| Combo counter | ▢ | M | E1 | Consume resolved hit/hitstun escape facts; do not infer combos from wall-clock timing. |
+| True-combo / escape-window diagnostic | ▢ | M | E1 | Ask whether the victim had a legal control/defense escape between hits. |
+| Launch-vector visualization | ▢ | S/M | — | Present the actual resolved launch vector. |
+| Predicted blast-zone trajectory | ▢ | M | E1 | Debug-only deterministic projection using the same movement/launch parameters; clearly separate prediction from authority. |
+| Shield-health numeric debug | ▢ | S | — | Read `BodyShieldState`. |
+| Hit/shield advantage readout | ▢ | M | E1 | Compute from authoritative remaining hitstun/shieldstun and attacker recovery clocks. |
+| Rollback input/state reproduction capture | ~ | C | E2 | Extend existing trace/replay seams only if current reproduction tooling cannot capture a Smash defect. Avoid a second replay format. |
+
+## 14. CPU adoption
+
+New mechanics must work for CPU bodies because simulation is controller-agnostic.
+That does not mean every mechanic needs sophisticated CPU strategy immediately.
+
+Safe now: add the smallest semantic option/observation support required to make
+new mechanics reachable by the existing fighter brain. Examples include choosing
+a tap/partial/full smash charge, recognizing a recovery-use budget, selecting a
+new ledge option, or authoring a reflector/command-grab option.
+
+Useful but secondary after the corresponding mechanic exists:
+
+- charge timing strategy;
+- shield/OOS punish choices;
+- parry probability by skill;
+- tech direction and wall-tech jump choices;
+- ledge option selection, ledgetraps, and edgeguards;
+- command-grab use against shield;
+- reflector/counter decisions;
+- item pickup/use/throw decisions;
+- recovery-resource awareness.
+
+`WAIT`: broad rollout/planner redesign, multi-opponent strategy overhaul, or a
+large expansion of fighter policy in its current dependency-floor home. Those
+should follow the planned AI-policy ownership migration rather than making that
+migration larger.
+
+## 15. Engine primitives that unlock many rows
+
+If several feature rows are being assigned in parallel, coordinate around these
+shared semantic additions rather than implementing one-off variants:
+
+1. **True move charge state** — `MoveSpec` charge policy + per-use
+   `MovePlayback` state.
+2. **Hit reaction policy** — ordinary / fixed / autolink / flinchless, with
+   optional small modifiers such as weight independence and per-hit hitlag.
+3. **Same-move hitbox arbitration** — priority/identity for sweetspots and
+   later hitbox parts.
+4. **Consume existing `WindowTag::Invuln` / `Armor`.**
+5. **`CancelCondition::OnBlock`** backed by an actual block-contact fact.
+6. **Platform-fighter ground locomotion phase** — walk/run, initial dash,
+   turnaround/pivot; foxtrot/dash-dance derive from it.
+7. **Combat action buffering** — activate the existing rollback-registered
+   `BodyActionBuffer` for semantic attack/pogo/projectile presses and spend a
+   buffered action only through the normal action-acceptance path.
+8. **Explicit attack-strength hint** — `Auto` / `Tilt` / `Smash` at the semantic
+   attack-gesture seam, so right-stick control modes do not spoof stick history.
+9. **Shield/OOS action arbitration** — one place for shield-drop commitment and
+   legal out-of-shield actions.
+10. **Complete tech surface/result vocabulary** — floor/wall/ceiling and
+   wall-tech jump.
+11. **Capture acquisition policy** — standing/running/pivot, command, aerial,
+   and hit-grab all feed the same `CapturedBy` relationship.
+12. **Recovery-use budget** only if real fighter play needs it.
+13. **Participant-generic item action path** — every eligible body uses its own
+    `ActorControl` and the existing `ItemCustody` authority.
+14. **Resolved presentation facts/events** for facts such as charge,
+    unhittable state, launch beat, shield-break phase, and finish-zoom
+    eligibility. Add only the facts presentation cannot already read cleanly.
+
+None of these requires the actor-monolith carve or simulation-phase migration as
+a prerequisite. Keep each change in its current semantic owner and do not expand
+transitional adapters solely to make the feature fit.
+
+## 16. Features not worth generalizing yet
+
+These are either low return or would encourage architecture before a concrete
+fighter/ruleset defines the requirement:
+
+- a universal stance/transformation framework;
+- a generic status-effect scripting VM;
+- an exhaustive clone of every Ultimate hitbox flag;
+- full cinematic Final Smash infrastructure before a simple resource + authored
+  super proves the gameplay need;
+- Spirits/equipment parity, assist-trophy/Pokéball-scale summoning, and large
+  collectible/meta systems;
+- broad fighter-AI planner expansion before AI-policy ownership moves;
+- online matchmaking/lobby work as part of this parity inventory;
+- Melee bug parity such as accidental wavedash/L-cancel behavior. If a similar
+  technique is wanted as an authored rule, add that rule deliberately.
+
+## 17. Suggested implementation order
+
+This is an ordering by dependency and visible payoff, not a requirement to
+finish one category before touching another.
+
+1. **Combat feel:** true smash charge; charge cues; launch trail; i-frame blink;
+   tech/parry feedback; filled shield bubble.
+2. **Combat vocabulary:** activate the combat action buffer; consume
+   invuln/armor windows; `OnBlock`; fixed/autolink reaction; sweetspot
+   arbitration; Pointed Polygon autolink Up-B.
+3. **Ground game and controls:** walk/run phase, initial dash, turnaround/pivot,
+   foxtrot, dash-dance, pivot grab/smash, then right-stick attack mode.
+4. **Defense depth:** shield-drop/OOS policy, shield shift, dodge staling,
+   ceiling tech, wall-tech jump.
+5. **Stage and match completeness:** respawn platform, stage select, multiple
+   stage layouts, rules UI, sudden death/rematch/results.
+6. **Character primitives:** counter, reflector, command grab, wind/vacuum,
+   stored charge/resource mechanics as real fighters request them.
+7. **Items:** participant-generic item interaction, match spawner/rules, then a
+   small proof set of food/melee/ranged/bomb items.
+8. **Training tools:** live hitboxes, frame data, reset/set damage, frame step,
+   dummy behaviors, combo/launch diagnostics.
+9. **CPU adoption:** teach the current semantic option model enough to use and
+   answer the mechanics above; leave broad planner architecture for its own
+   migration.

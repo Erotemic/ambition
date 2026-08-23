@@ -1906,7 +1906,7 @@ The key types are in:
 
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
 - [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
-- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session.rs`](../../crates/ambition_platformer2d/src/session.rs)
 
 The model is:
 
@@ -2451,7 +2451,7 @@ Source entrypoints:
 - [`../../crates/ambition_game_shell/src/session.rs`](../../crates/ambition_game_shell/src/session.rs)
 - [`../../crates/ambition_platformer2d_provider/src/lifecycle.rs`](../../crates/ambition_platformer2d_provider/src/lifecycle.rs)
 - [`../../crates/ambition_platformer2d_runtime/src/session_world.rs`](../../crates/ambition_platformer2d_runtime/src/session_world.rs)
-- [`../../crates/ambition_platformer2d/src/session_world.rs`](../../crates/ambition_platformer2d/src/session_world.rs)
+- [`../../crates/ambition_platformer2d/src/session.rs`](../../crates/ambition_platformer2d/src/session.rs)
 - [`../../crates/ambition_platformer2d_shared_tangle/src/`](../../crates/ambition_platformer2d_shared_tangle/src/)
 - [`../../crates/ambition_platformer2d_core/src/movement/`](../../crates/ambition_platformer2d_core/src/movement/)
 - [`../../crates/ambition_platformer2d_actor_monolith/src/schedule/`](../../crates/ambition_platformer2d_actor_monolith/src/schedule/)

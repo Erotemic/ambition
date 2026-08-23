@@ -159,6 +159,8 @@
     "cutscene.last_room",
     "cutscene.playback",
     "derived.actor_action_scheme",
+    "derived.actor_decision_facts",
+    "derived.actor_decision_frames",
     "derived.actor_steering",
     "derived.authored_switch_commands",
     "derived.body_contact_snapshot",

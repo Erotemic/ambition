@@ -2,9 +2,11 @@
 //!
 //! This crate is the E9 umbrella surface: a downstream game should depend on
 //! `ambition_platformer2d` plus its own content crate instead of copying the app shell's wall
-//! of lower `ambition_*` dependencies. It deliberately re-exports the engine,
-//! host, renderer, model, and vocabulary crates without depending on any named
-//! game content or the `ambition_app` shell.
+//! of lower `ambition_*` dependencies. The supported API is organized by game
+//! concepts (`actor`, `character`, `participant`, `session`, `sim`, `world`,
+//! `view`) rather than by the crates that currently implement them. Temporary
+//! crate mirrors remain for first-party migration, but they are not the SDK
+//! boundary and are removed as real consumers stop naming them.
 
 pub mod app;
 pub mod demo_shell;
@@ -14,7 +16,7 @@ pub mod demo_shell;
 pub mod game_assets;
 pub mod prelude;
 pub mod scripted_input;
-pub mod session_world;
+pub mod session;
 
 /// The platformer experience-provider protocol (authoring identity + the one
 /// shared preparation/activation lifecycle). Lives in
@@ -163,7 +165,6 @@ pub use ambition_encounter as encounter;
 pub use ambition_entity_catalog as entity_catalog;
 pub use ambition_game_shell as game_shell;
 pub use ambition_input as input;
-pub use ambition_interaction as interaction;
 #[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
 #[cfg(feature = "ambition_items")]
@@ -197,8 +198,6 @@ pub use ambition_render as render;
 pub use ambition_settings_menu as settings_menu;
 #[cfg(feature = "ambition_sfx")]
 pub use ambition_sfx as sfx;
-#[cfg(feature = "ambition_sfx_bank")]
-pub use ambition_sfx_bank as sfx_bank;
 pub use ambition_sim_view as sim_view;
 pub use ambition_sprite_sheet as sprite_sheet;
 pub use ambition_time as time;
@@ -208,6 +207,29 @@ pub use ambition_touch_input as touch_input;
 pub use ambition_ui_nav as ui_nav;
 #[cfg(feature = "ambition_vfx")]
 pub use ambition_vfx as vfx;
+/// Participants: local seats and the device/channel topology that feeds them.
+///
+/// This is a curated control-authority surface. A consumer should not need to
+/// know that device discovery currently lives in `ambition_input`.
+pub mod participant {
+    pub use ambition_input::{
+        InstalledActions, LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
+        ParticipantId, SemanticActionId, GAMEPLAY_CONTEXT,
+    };
+}
+
+/// Items as simulation state, when the item capability is installed.
+#[cfg(feature = "ambition_items")]
+pub mod item {
+    pub use ambition_platformer2d_actor_monolith::items::pickup::{GroundItem, ItemCustody};
+}
+
+/// User-facing gameplay settings, when persistence/settings support is installed.
+#[cfg(feature = "ambition_persistence")]
+pub mod settings {
+    pub use ambition_persistence::settings::UserSettings;
+}
+
 /// Bodies: what a game queries, moves and transits.
 ///
 /// A curated domain module, second of the set ADR 0031's decision 1 lists. It
@@ -287,6 +309,20 @@ pub mod actor {
     pub use ambition_platformer2d_core::movement::{transit_body, TransitVelocity};
     pub use ambition_platformer2d_core::BodyClusterQueryData;
     pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    pub use ambition_platformer2d_core::{BodyFlightState, BodyMotionFacts, BodyMode};
+    pub use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
+    /// The body-local safe-position state used by reset/hazard observers.
+    ///
+    /// The implementation type still carries its historical player-centric name;
+    /// the SDK does not.
+    pub use ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState as BodySafetyState;
+    /// Canonical fallback body size for a body not yet materialized.
+    pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
+
+    /// Boss spawn policy belongs to actor construction at the SDK boundary even
+    /// though its implementation is split between the catalog and encounter crates.
+    pub use ambition_boss_encounter::BossOverrides;
+    pub use ambition_entity_catalog::placements::BossBrain;
 
     /// What a game spawns and configures.
     pub use ambition_platformer2d_actor_monolith::features::{
@@ -371,6 +407,10 @@ pub mod sim {
 
     /// Simulation time. Not wall time — a game reads the clock the sim advances.
     pub use ambition_time::WorldTime;
+    /// How device/screen/body axes are interpreted by scripted or participant input.
+    pub use ambition_platformer2d_core::InputFrameMode;
+    /// The deterministic per-tick input artifact used by replay and harnesses.
+    pub use ambition_platformer2d_core::InputStream;
 
     /// One frame of input, and the one seam that delivers it.
     pub use ambition_input::ControlFrame;
@@ -453,9 +493,9 @@ pub mod view {
     ///
     /// Exported so a consumer can ask whether its backdrop is DRAWN and whether
     /// it MOVES — two questions `fixtures/external_consumer` now asks, and could
-    /// not ask at all while the component sat behind a private module. It went
-    /// into `ambition_platformer2d::renderer` first, which is the raw crate re-export, and
-    /// `outlander-names-only-the-public-sdk` caught that immediately: a third
+    /// not ask at all while the component sat behind a private module. Its first
+    /// facade path was a raw renderer-crate mirror; `outlander-names-only-the-public-sdk`
+    /// caught that immediately: a third
     /// party reaching through the facade into an implementation module is the
     /// leak ADR 0031 exists to close, and "the test needed it" is how those get
     /// made.
@@ -486,6 +526,8 @@ pub mod rollback;
 pub mod world {
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;
+    /// The authored/base gravity and its resolved live field.
+    pub use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityField};
 
     pub use ambition_platformer2d_world::{
         collision, debug_label, placements, platforms, rooms, world_manifest,
@@ -505,6 +547,7 @@ pub mod engine {
     pub use ambition_platformer2d_runtime::{
         add_headless_foundation, init_engine_states, Platformer2dSimulationFoundationPlugin,
         PlatformerEnginePlugins, SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
+        SIM_TICK_HZ,
     };
 }
 
@@ -513,12 +556,6 @@ pub mod windowed_host {
     #[cfg(feature = "input")]
     pub use ambition_platformer2d_host::HostInputBindingsPlugin;
     pub use ambition_platformer2d_host::{HostCameraPlugin, PlatformerHostPlugins};
-}
-
-/// Default renderer facade.
-#[cfg(feature = "ambition_render")]
-pub mod renderer {
-    pub use ambition_render::*;
 }
 
 /// The generic platformer PRESENTATION face: a camera, the room's static visuals,

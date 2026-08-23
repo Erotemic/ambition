@@ -418,17 +418,32 @@ correct-looking programs that nothing in the API surfaces.
 
 ## The modules a game names
 
+The public surface is named for game concepts. These are curated modules: adding
+something to an implementation crate does not make it public here automatically.
+
 | Module | Holds |
 |---|---|
-| `ambition_platformer2d::app` | everything above, plus `app::prelude` |
+| `ambition_platformer2d::app` | application composition, plus `app::prelude` |
+| `ambition_platformer2d::engine` | simulation-host selection and engine foundation assembly |
+| `ambition_platformer2d::participant` | participant ids, semantic actions, local devices/seats/channels |
+| `ambition_platformer2d::session` | prepared/live session identity and canonical session-world access |
 | `ambition_platformer2d::world` | rooms and geometry — `world::prelude` is the one to import |
-| `ambition_platformer2d::actor` | `PrimaryPlayer`, `BodyKinematics`, spawn requests, ability sets |
-| `ambition_platformer2d::sim` | `ControlFrame`, `drive_control_frame`, `WorldTime`, schedule sets |
+| `ambition_platformer2d::actor` | body state, spawn/construction requests, ability sets |
 | `ambition_platformer2d::character` | catalogs, action sets, sheets, brains |
+| `ambition_platformer2d::item` | item simulation state when the item capability is installed |
+| `ambition_platformer2d::settings` | user gameplay settings when persistence is installed |
+| `ambition_platformer2d::sim` | input frames, participant driving, simulation time and schedule sets |
 | `ambition_platformer2d::view` | `GameAssets`, `Platformer2dAssetCatalog`, `RoomVisual` |
-| `ambition_platformer2d::rollback` | the rollback session mode, the snapshot vocabulary, and the registration verbs |
+| `ambition_platformer2d::presentation` | generic visible-game presentation when rendering is installed |
+| `ambition_platformer2d::windowed_host` | window/input host plugin groups |
+| `ambition_platformer2d::rollback` | rollback sessions, snapshot vocabulary and registration verbs |
+| `ambition_platformer2d::content` | the optional runtime content compiler |
+| `ambition_platformer2d::causal` | the optional causal inspector |
+| `ambition_platformer2d::provider` | the experience-provider protocol |
 | `ambition_platformer2d::bevy` | Bevy itself, re-exported |
 
-Anything else under `ambition_platformer2d::` is an implementation crate this facade mirrors,
-carries no stability promise, and is measured as a leak by
-`scripts/check_absence_contracts.py`.
+There are still crate-shaped mirrors under `ambition_platformer2d::` while the
+first-party games migrate. They carry no SDK compatibility promise. Real
+consumers are ratcheted against naming them by `scripts/check_absence_contracts.py`;
+when a consumer needs a missing concept, add the narrow semantic seam instead of
+teaching it an implementation-crate path.

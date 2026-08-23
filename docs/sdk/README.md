@@ -23,6 +23,12 @@ material, not recurring acceptance ceremony.
 | Capability-selective dependency closure | **PARTIAL** — see the current Engine 1.0 composition plan |
 | Runtime content revision / broader hot reload | **INCREMENTAL** — grow from real authoring customers |
 
+The reusable simulation harness and capability-demo host tests are also SDK
+customers. They are constrained to semantic facade modules (`actor`, `engine`,
+`participant`, `session`, `sim`, `world`, and installed capability surfaces),
+so adding a raw implementation-crate import there fails the architecture
+ratchet instead of expanding the public API by accident.
+
 The historical campaign that established the first facade boundary is archived
 at
 [`../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md`](../archive/planning-superseded/2026-08-13/engine/api-1.0-campaign.md).

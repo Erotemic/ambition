@@ -11,7 +11,7 @@
 | [`prelude`](src/prelude.rs) | Curated imports for games built on the Ambition engine facade. |
 | [`rollback`](src/rollback.rs) | **Rollback, as a supported promise.** |
 | [`scripted_input`](src/scripted_input.rs) | **Drive the local participant from a script, through the production input pipeline.** |
-| [`session_world`](src/session_world.rs) | Canonical live session-world surface. |
+| [`session`](src/session.rs) | Canonical live session-world surface. |
 
 _6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

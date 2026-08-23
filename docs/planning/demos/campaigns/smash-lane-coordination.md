@@ -404,10 +404,12 @@ guard seats successfully at rung 9 through a different path — **no fighter bra
 ever takes the noise seed**: `ladder_rig` aborts on its own guard and
 `match_report` prints empty rows.
 
-⇒ two seating paths disagree about whether an arbitrary roster character becomes
-a FIGHTER, and the disagreement is invisible until somebody tries to measure one.
-It is D189, and it is the reason D188's regression — found on exactly that
-character — could not be reproduced in either rig.
+⇒ **CORRECTED**: it is not two seating paths disagreeing. Both use the same
+roster helper; what differs is the APP. `app_it` builds the FULL app and the rigs
+build the demo shell, whose catalog carries `smash_george_booul` and two stand-in
+duelists and nothing else. It is D189, and it is the reason D188's regression —
+found on a character the demo shell does not carry — could not be reproduced in
+either rig.
 
 ⭐ So read every number in this file as *"true of this matchup"* until D189 is
 closed. The defects found through them are real; their generality is not

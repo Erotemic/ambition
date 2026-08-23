@@ -137,6 +137,27 @@ fn main() {
         })
         .collect();
 
+    // ⛔ AN EMPTY REPORT IS AN ANSWER NOBODY CAN READ. A character this demo's
+    // composition does not carry seats no fighter, every tally stays zero, and
+    // the tables below print their headers over nothing — which reads as "the
+    // fight was quiet" rather than "you asked about somebody who is not here".
+    // Measured 2026-08-23 with `npc_pirate_admiral`, which `app_it` seats
+    // successfully because it runs the FULL app; this bin runs the demo shell.
+    if all.iter().all(|run| {
+        run.iter()
+            .all(|tally| tally.damage == 0 && tally.moves_started == 0)
+    }) {
+        eprintln!(
+            "match_report: nothing was seated for '{character}'. This binary composes the \
+             SMASH DEMO shell, whose catalog is smaller than the full app's — \
+             `{}`, `{}` and `{}` are the ids it carries. A character the composition \
+             does not have seats no fighter brain, so every column would be zero.",
+            ambition_demo_smash::SMASH_GEORGE_BOOUL,
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        );
+        std::process::exit(2);
+    }
     if runs == 1 {
         report_one(&character, seconds, &all[0]);
     } else {

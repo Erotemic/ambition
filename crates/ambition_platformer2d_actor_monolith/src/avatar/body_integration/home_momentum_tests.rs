@@ -59,6 +59,8 @@ fn step_as(
         false,
         // In play: this rig is about momentum, not about dying.
         false,
+        // Not tumbling: these fixtures are about momentum, not the floor game.
+        false,
         &mut r.hurtbox,
         &mut r.frame_out,
         &mut r.model,

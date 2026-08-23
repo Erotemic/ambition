@@ -284,9 +284,15 @@ pub(crate) fn apply_actor_hit(
             caps.never_dies,
             crate::features::ecs::damage_apply::BodyHitFeel {
                 hit_flash: 0.16,
-                damage_invuln_time: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
+                // SCALED BY THE MATCH'S RULE, so a game whose moves author
+                // their own multi-hit cadence can say it has no blanket window
+                // — see `DeclaredCombatRules::hit_repeat_window_scale`. An
+                // undeclared world multiplies by `1.0`.
+                damage_invuln_time: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S
+                    * feel.hit_repeat_window_scale,
                 block_hit_flash: 0.16,
-                block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
+                block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S
+                    * feel.hit_repeat_window_scale,
                 armor_hitstop_time: 0.070,
             },
             evading,

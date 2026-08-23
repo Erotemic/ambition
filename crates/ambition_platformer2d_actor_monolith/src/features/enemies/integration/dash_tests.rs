@@ -72,6 +72,8 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
             ae::BodyContactField::NONE,
         );
     }
@@ -131,6 +133,8 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
             ae::BodyContactField::NONE,
         );
         let expected = -gravity;
@@ -182,6 +186,8 @@ fn walk_run_staggered(combat: ambition_characters::actor::BodyCombat, ticks: u32
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &combat,
+            // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
             ae::BodyContactField::NONE,
         );
     }
@@ -275,6 +281,8 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
         None,
         &ambition_characters::actor::BodyCombat::default(),
+        // Not tumbling — this fixture is not about the floor game.
+        false,
         ae::BodyContactField::NONE,
     );
     let crate::features::MotionModel::AxisSwept(axis) = &model else {
@@ -327,6 +335,8 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
             ae::BodyContactField::NONE,
         );
     }
@@ -411,6 +421,8 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
             &ambition_characters::actor::BodyCombat::default(),
+            // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
             ae::BodyContactField::NONE,
         );
     }

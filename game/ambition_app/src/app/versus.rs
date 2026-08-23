@@ -540,6 +540,12 @@ fn track_versus_roster(
                 // reward, and a rule nothing can reach is a rule that lies about
                 // what the stage does.
                 crouch_cancel_scale: 1.0,
+                // and the engine's own post-hit window stands. This stage's
+                // moves author no separated multi-hit window, so there is
+                // nothing here for a shorter window to make reachable, and
+                // shortening one to match another stage would be tuning this
+                // round against a game it is not.
+                hit_repeat_window_scale: 1.0,
                 // a versus round ends on health, and its grabs are the
                 // engine's flat hold rather than a percent mechanic.
                 grab_hold_base_seconds:

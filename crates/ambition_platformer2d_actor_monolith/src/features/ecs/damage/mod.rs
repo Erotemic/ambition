@@ -418,6 +418,9 @@ pub fn apply_feature_hit_events(
     let mut feel = feel_tuning.map(|r| *r).unwrap_or_default();
     let resolved_rules = combat_rules.map(|r| *r).unwrap_or_default();
     feel.di_max_angle = resolved_rules.di_max_angle;
+    // The MATCH's post-hit window, folded the way `di_max_angle` above is. An
+    // undeclared world scales by `1.0` and keeps the repeat guard it always had.
+    feel.hit_repeat_window_scale = resolved_rules.hit_repeat_window_scale;
     // AE6: the MATCH's friendly-fire rule, not the world's baseline toggle —
     // the same value the body resolver reads.
     let friendly_fire = resolved_rules.friendly_fire();

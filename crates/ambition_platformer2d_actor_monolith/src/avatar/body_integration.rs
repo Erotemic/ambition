@@ -77,6 +77,11 @@ pub fn integrate_home_body(
     combat: &BodyCombat,
     invulnerable: ambition_characters::actor::Invulnerability,
     evading: bool,
+    // Is this body TUMBLING? The published projection
+    // (`BodyMotionFacts::tumbling`), read by the caller for the same reason
+    // `evading` beside it is. The post-hit gate needs it so a falling body's
+    // tech press is not deleted before the kernel can read it.
+    tumbling: bool,
     // Whether participant rules have removed this body from play.
     out_of_play: bool,
     hurtbox: &mut ae::CenteredAabb,
@@ -92,7 +97,14 @@ pub fn integrate_home_body(
     contact_field: ae::BodyContactField<'_>,
 ) -> Option<ae::Vec2> {
     let input =
-        engine_input_from_actor_control(actor_control, feel, combat, clusters.shield, frame_dt);
+        engine_input_from_actor_control(
+            actor_control,
+            feel,
+            combat,
+            clusters.shield,
+            frame_dt,
+            tumbling,
+        );
     // Ledge/platform carry is handled inside the shared simulation kernel.
     let result = ambition_characters::actor::step_body(
         motion_model,

@@ -123,6 +123,25 @@ pub struct DeclaredCombatRules {
     /// kill move is still a kill, so the option stops mattering by itself
     /// exactly where the genre stops using it.
     pub crouch_cancel_scale: f32,
+    /// POST-HIT MERCY WINDOW, as a fraction of the one this game's own feel
+    /// tuning authors. `1.0` (the baseline) keeps each damage road's window
+    /// exactly as it was; `0.0` says this game has NO blanket window at all.
+    ///
+    /// ⭐ the window and a strike's own per-target dedup are two answers to one
+    /// question, and a platform fighter needs the second. `HitboxHits` already
+    /// stops a lingering volume re-hitting, and SEPARATED authored Active
+    /// windows are meant to re-hit — that is what a multi-hit move IS. A
+    /// blanket window longer than the gap an author wrote makes the later pulse
+    /// unreachable: George Booul's `bivalence` authors a weak pop at 0.30s and
+    /// a launcher at 0.42s, and the launcher could never land on the body the
+    /// pop had hit, because a 0.2s window outlives a 0.12s gap. The kill move
+    /// in the demo's most-watched mode had never once connected.
+    ///
+    /// A SCALE rather than an absolute so the undeclared identity is exactly
+    /// today's behaviour on both roads, which arm different windows: the actor
+    /// road's is a repeat guard and the player road's is Mario-style mercy
+    /// invincibility, and neither is wrong for the game that authored it.
+    pub hit_repeat_window_scale: f32,
     /// How long a grab holds a body at 0%, in seconds. Ultimate's 90 frames.
     pub grab_hold_base_seconds: f32,
     /// How much longer per point of the CAPTIVE's damage. Ultimate's 1.7
@@ -178,6 +197,8 @@ pub struct ResolvedCombatTuning {
     pub stale_floor: f32,
     /// See [`DeclaredCombatRules::crouch_cancel_scale`].
     pub crouch_cancel_scale: f32,
+    /// See [`DeclaredCombatRules::hit_repeat_window_scale`].
+    pub hit_repeat_window_scale: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -268,6 +289,7 @@ impl ResolvedCombatTuning {
                 stale_step: rules.stale_step,
                 stale_floor: rules.stale_floor,
                 crouch_cancel_scale: rules.crouch_cancel_scale,
+                hit_repeat_window_scale: rules.hit_repeat_window_scale,
                 grab_hold_base_seconds: rules.grab_hold_base_seconds,
                 grab_hold_per_damage: rules.grab_hold_per_damage,
                 grab_hold_max_seconds: rules.grab_hold_max_seconds,
@@ -290,6 +312,7 @@ impl ResolvedCombatTuning {
                 stale_step: 0.0,
                 stale_floor: 1.0,
                 crouch_cancel_scale: 1.0,
+                hit_repeat_window_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -323,6 +346,7 @@ impl Default for ResolvedCombatTuning {
             stale_step: 0.0,
             stale_floor: 1.0,
             crouch_cancel_scale: 1.0,
+            hit_repeat_window_scale: 1.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_hold_per_damage: 0.0,
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -388,6 +412,7 @@ mod tests {
                 stale_step: 0.0,
                 stale_floor: 1.0,
                 crouch_cancel_scale: 1.0,
+                hit_repeat_window_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -421,6 +446,7 @@ mod tests {
             stale_step: 0.0,
             stale_floor: 1.0,
             crouch_cancel_scale: 1.0,
+            hit_repeat_window_scale: 1.0,
             grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_hold_per_damage: 0.0,
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
@@ -444,6 +470,7 @@ mod tests {
                 stale_step: 0.0,
                 stale_floor: 1.0,
                 crouch_cancel_scale: 1.0,
+                hit_repeat_window_scale: 1.0,
                 grab_hold_base_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_hold_per_damage: 0.0,
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,

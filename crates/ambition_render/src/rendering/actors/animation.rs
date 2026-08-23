@@ -6,6 +6,49 @@ use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_sprite_sheet::character::CharacterAnimator;
 
+/// How a stance compaction (crouch / crawl / slide / morph) squashes the DRAWN
+/// art, for a sheet that has no row for the compact pose.
+///
+/// The RATIO is what the collision box did — `current AABB height / base
+/// height`, clamped (0, 1]. The PIVOT is which point of the quad holds still
+/// while that happens, and the two sprite-placement schemes disagree about it,
+/// so it cannot be assumed:
+///
+/// - A FEET-ANCHORED quad puts the body's feet AT the transform, so scaling
+///   about the anchor already holds them.
+/// - An AUTHORED-OFFSET quad is anchored at its CENTRE — the placement is
+///   carried by the translation (`sync_visuals`) — so the same scale lifts the
+///   art clear of the floor. Its foot line is the quad's own +gravity edge.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct StanceSquash {
+    pub(crate) ratio_y: f32,
+    /// Hold the quad's +gravity edge rather than its anchor.
+    pub(crate) about_quad_foot: bool,
+}
+
+impl StanceSquash {
+    /// A body at full standing height — nothing to squash.
+    pub(crate) const NONE: Self = Self {
+        ratio_y: 1.0,
+        about_quad_foot: false,
+    };
+
+    /// The squashed height and the anchor that keeps the pivot where it was, in
+    /// Bevy sprite-local units (`+y` up, anchor normalized to the quad).
+    fn squash(self, height: f32, anchor_y: f32) -> (f32, f32) {
+        let scaled = height * self.ratio_y;
+        if !self.about_quad_foot || self.ratio_y >= 1.0 || scaled <= f32::EPSILON {
+            return (scaled, anchor_y);
+        }
+        // Scale the quad's extents about its foot edge, then re-express the
+        // result as an anchor: the translation is fixed by the placement above
+        // and only the anchor can move the quad relative to it.
+        let foot = -(anchor_y + 0.5) * height;
+        let top = foot + ((0.5 - anchor_y) * height - foot) * self.ratio_y;
+        (scaled, 0.5 - top / scaled)
+    }
+}
+
 /// The shared animation TAIL every animated actor (player, enemy, NPC) runs:
 /// request the chosen anim, tick the animator by the entity's dt, push the
 /// resulting atlas frame onto the sprite, apply the gravity-aware facing flip,
@@ -31,19 +74,14 @@ pub(crate) fn apply_character_frame(
     facing: f32,
     gravity_dir: ambition_platformer2d_core::Vec2,
     color: Color,
-    // Body-mode stance compaction (crouch/crawl/slide/morph shrinks the AABB and
-    // slides `pos` down to keep feet planted). `current AABB height / base height`,
-    // clamped (0, 1]; `1.0` for a body at full standing height. Applied to the
-    // TRIMMED per-frame height so trimmed sheets match the untrimmed stance-scale in
-    // `sync_visuals` instead of restoring the standing height at the lowered pos.
-    stance_ratio_y: f32,
+    stance: StanceSquash,
 ) {
     // The stance squash is a PLACEHOLDER for sheets that lack a row for the compact pose (the
     // fallback then shows standing art at a shrunken AABB).
-    let stance_ratio_y = if animator.spec.maps(anim) {
-        1.0
+    let stance = if animator.spec.maps(anim) {
+        StanceSquash::NONE
     } else {
-        stance_ratio_y
+        stance
     };
     match clip {
         Some(request) => animator.request_clip(request.chain(), anim),
@@ -94,10 +132,9 @@ pub(crate) fn apply_character_frame(
     // left/right.
     if let (Some((mut size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
         // Crouch/crawl/slide/morph: scale the trimmed height by the collision-shrink
-        // ratio so the feet stay planted (the normalized anchor preserves foot
-        // alignment). Without this a trimmed sheet renders standing height at the
-        // lowered crouch pos and sinks through the floor.
-        size.y *= stance_ratio_y;
+        // ratio so the feet stay planted. Without this a trimmed sheet renders
+        // standing height at the lowered crouch pos and sinks through the floor.
+        (size.y, anchor_v.y) = stance.squash(size.y, anchor_v.y);
         sprite.custom_size = Some(size);
         if flip {
             anchor_v.x = -anchor_v.x;
@@ -152,7 +189,13 @@ pub fn animate_player(
             pose.facing,
             pose.gravity_dir,
             Color::WHITE,
-            pose.stance_ratio_y,
+            StanceSquash {
+                ratio_y: pose.stance_ratio_y,
+                // The authored placement carries the body on the TRANSLATION and
+                // anchors the quad at its centre, so the squash has nothing at
+                // the feet to pivot on unless it takes the quad's own edge.
+                about_quad_foot: pose.authored_offset.is_some(),
+            },
         );
     }
 }
@@ -225,7 +268,7 @@ pub fn animate_characters(
             Color::WHITE,
             // Enemies/NPCs don't drive the crouch stance-scale seam (their compaction,
             // if any, is authored per-anim); full standing height.
-            1.0,
+            StanceSquash::NONE,
         );
     }
 }
@@ -282,7 +325,8 @@ pub fn animate_feature_sprites(
             1.0,
             ambition_platformer2d_core::Vec2::Y,
             Color::WHITE,
-            1.0,
+            // An animated feature doesn't crouch — full standing height.
+            StanceSquash::NONE,
         );
     }
 }
@@ -346,7 +390,7 @@ pub fn animate_props(
             ambition_platformer2d_core::Vec2::Y,
             Color::WHITE,
             // Props don't crouch — full standing height.
-            1.0,
+            StanceSquash::NONE,
         );
     }
 }
@@ -493,5 +537,70 @@ mod tests {
             "exactly the three west-drawn paperdoll sheets (and their quality tiers) declare a \
              left-drawn art facing; every other sheet must keep the +x default"
         );
+    }
+}
+
+#[cfg(test)]
+mod stance_squash_tests {
+    use super::StanceSquash;
+
+    /// Sprite-local extents (`+y` up) of a quad of `height` anchored at `anchor_y`.
+    fn extents(height: f32, anchor_y: f32) -> (f32, f32) {
+        (-(anchor_y + 0.5) * height, (0.5 - anchor_y) * height)
+    }
+
+    /// The feet-anchored scheme plants the body AT the transform, so the squash
+    /// must leave the anchor alone — anything else moves a quad whose placement
+    /// was already correct.
+    #[test]
+    fn squashing_about_the_anchor_leaves_the_anchor_where_it_was() {
+        let squash = StanceSquash {
+            ratio_y: 0.5,
+            about_quad_foot: false,
+        };
+        let (height, anchor) = squash.squash(100.0, -0.3);
+        assert!((height - 50.0).abs() < 1e-4);
+        assert!((anchor - -0.3).abs() < 1e-6, "the anchor moved to {anchor}");
+    }
+
+    /// The authored-offset scheme anchors the quad at its CENTRE and carries the
+    /// placement on the translation, so the squash has to hold the art's own
+    /// foot edge. Without this the crouch lifts the body clear of the floor by
+    /// half of everything below the frame centre.
+    #[test]
+    fn squashing_about_the_quad_foot_holds_the_foot_edge() {
+        for (anchor_in, ratio) in [(0.0_f32, 0.5_f32), (-0.3, 0.4), (0.2, 0.85)] {
+            let squash = StanceSquash {
+                ratio_y: ratio,
+                about_quad_foot: true,
+            };
+            let (foot_before, top_before) = extents(100.0, anchor_in);
+            let (height, anchor) = squash.squash(100.0, anchor_in);
+            let (foot_after, top_after) = extents(height, anchor);
+            assert!(
+                (foot_after - foot_before).abs() < 1e-3,
+                "ratio {ratio} anchor {anchor_in}: the foot edge moved {} \
+                 (before {foot_before}, after {foot_after})",
+                foot_after - foot_before
+            );
+            assert!(
+                ((top_after - foot_after) - (top_before - foot_before) * ratio).abs() < 1e-3,
+                "ratio {ratio} anchor {anchor_in}: the quad is not {ratio} as tall"
+            );
+        }
+    }
+
+    /// A body at full standing height is untouched by either pivot — the
+    /// no-crouch path must be byte-identical to having no squash at all.
+    #[test]
+    fn a_standing_body_is_left_exactly_as_it_was() {
+        for about_quad_foot in [false, true] {
+            let squash = StanceSquash {
+                ratio_y: 1.0,
+                about_quad_foot,
+            };
+            assert_eq!(squash.squash(120.0, -0.42), (120.0, -0.42));
+        }
+        assert_eq!(StanceSquash::NONE.squash(120.0, -0.42), (120.0, -0.42));
     }
 }

@@ -147,25 +147,25 @@ pub fn sync_sprite_posed_bodies(
         let posed_collision = body_mode.map_or(geometry.collision, |mode| {
             mode.body_mode.shape(geometry.collision).size
         });
+        // In a reversed or horizontal-gravity room a resize anchored to world +y
+        // pushed the body into or off its own support. The module's contract is
+        // that the +gravity face stays planted; the direction has to be the
+        // body's, not the default's.
+        let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
+            (Some(field), Some(zones)) => {
+                ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(
+                    ae::Aabb::new(kin.pos, kin.size * 0.5),
+                    zones,
+                    field.dir,
+                )
+            }
+            (Some(field), None) => field.dir,
+            _ => ae::DEFAULT_GRAVITY_DIR,
+        };
         if kin.size != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op: hold the +gravity
             // face and move the centre by half the change, so a withdraw/emerge never drives the
             // body through the ground it is standing on.
-            //
-            // In a reversed or horizontal-gravity room the resize anchored the wrong face and
-            // pushed the body into or off its own support. The module's contract is that the
-            // +gravity face stays planted; the direction has to be the body's, not the default's.
-            let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
-                (Some(field), Some(zones)) => {
-                    ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(
-                        ae::Aabb::new(kin.pos, kin.size * 0.5),
-                        zones,
-                        field.dir,
-                    )
-                }
-                (Some(field), None) => field.dir,
-                _ => ae::DEFAULT_GRAVITY_DIR,
-            };
             ae::resize_feet_planted(&mut kin, posed_collision, gravity_dir);
         }
         if render_size.map(|r| r.0) != Some(geometry.render) {
@@ -173,10 +173,23 @@ pub fn sync_sprite_posed_bodies(
                 .entity(entity)
                 .try_insert(ActorRenderSize(geometry.render));
         }
-        if offset.map(|o| o.0) != Some(geometry.sprite_offset) {
+        // The stance moved the body's CENTRE without moving its FEET, and the
+        // quad is placed relative to that centre — so the placement owes the
+        // same shift back, or the art is drawn where a STANDING body's centre
+        // would have put it: a quarter of the body's height into the floor for
+        // a half-height crouch.
+        //
+        // `geometry.sprite_offset` answers "where does the frame go so the
+        // POSE's rectangle lands on the box", and that box is the one the SHEET
+        // measured. `resize_feet_planted` then slid the centre by half the
+        // stance shrink along gravity, so the same term reverses it. Both facts
+        // are published from here, by the one pass that knows both.
+        let stance_shift = gravity_dir * ((geometry.collision - posed_collision) * 0.5);
+        let sprite_offset = geometry.sprite_offset - stance_shift;
+        if offset.map(|o| o.0) != Some(sprite_offset) {
             commands
                 .entity(entity)
-                .try_insert(ActorSpriteOffset(geometry.sprite_offset));
+                .try_insert(ActorSpriteOffset(sprite_offset));
         }
     }
 }

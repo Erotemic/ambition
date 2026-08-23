@@ -239,3 +239,119 @@ fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
         "the quad size is published too, so the renderer never re-derives it"
     );
 }
+
+/// Where a body's ART stands, for one stance. The two facts the renderer is
+/// handed — `ActorRenderSize` and `ActorSpriteOffset` — rebuilt into the world
+/// rectangle the sheet's body occupies once the quad is placed, the way
+/// `sync_visuals` places it: the quad is `render`, drawn centred at
+/// `pos + offset`.
+fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32) {
+    let standing = geometry(CharacterAnim::Idle);
+    let mut app = bevy::prelude::App::new();
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpritePosedBody::new(SNAKE, SCALE),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(0.0, ground - standing.collision.y * 0.5),
+                vel: ae::Vec2::ZERO,
+                size: standing.collision,
+                facing: 1.0,
+            },
+            ae::BodyBaseSize {
+                base_size: standing.collision,
+            },
+            ae::BodyModeState {
+                body_mode: mode,
+                ..Default::default()
+            },
+        ))
+        .id();
+    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    // Twice: the stance is applied ONCE, on the tick the mode changes, while this
+    // pass runs every tick. A placement that only survives the first tick is not
+    // a placement.
+    app.update();
+    app.update();
+
+    let kin = *app
+        .world()
+        .get::<ae::BodyKinematics>(entity)
+        .expect("kinematics");
+    let render = app
+        .world()
+        .get::<ActorRenderSize>(entity)
+        .expect("the quad size is published")
+        .0;
+    let offset = app
+        .world()
+        .get::<ActorSpriteOffset>(entity)
+        .expect("the quad placement is published")
+        .0;
+    // Rebuilt from the manifest rather than from the helper, so a sign flip in
+    // either fails here instead of looking plausible on screen.
+    let record = record_for_target(SNAKE).expect("baked snake record");
+    let metrics = record.body_metrics.as_ref().expect("snake body metrics");
+    let bbox = metrics
+        .pose_body_bbox(CharacterAnim::Idle)
+        .expect("pose bbox");
+    let frame_origin = kin.pos + offset - render * 0.5;
+    let art_min = frame_origin + ae::Vec2::new(bbox.x as f32, bbox.y as f32) * SCALE;
+    let art_max = art_min + ae::Vec2::new(bbox.w as f32, bbox.h as f32) * SCALE;
+    (art_min, art_max, kin.pos.y + kin.size.y * 0.5)
+}
+
+/// The ground a crouching body's ART stands on must be the ground its COLLIDER
+/// stands on.
+///
+/// Two facts are published from one centre. `resize_feet_planted` holds the
+/// +gravity face and slides `pos` toward the feet by half the stance shrink, so
+/// a crouching body's centre is no longer the centre of the rectangle the SHEET
+/// measured. The quad's placement is an offset from that centre — so an offset
+/// derived from the sheet rectangle alone draws the art where a STANDING body's
+/// centre would have put it, a quarter of the body's height into the floor.
+///
+/// Guards the OUTPUT — where the art lands — rather than the arithmetic that
+/// gets it there.
+#[test]
+fn a_crouching_body_draws_its_art_on_the_ground_its_collider_stands_on() {
+    let ground = 100.0_f32;
+    for mode in [ae::BodyMode::Standing, ae::BodyMode::Crouching] {
+        let (_, art_max, collider_foot) = drawn_body_rect(mode, ground);
+        // The collision half: the stance composes with the pose, and the resize
+        // holds the feet.
+        assert!(
+            (collider_foot - ground).abs() < 1e-3,
+            "{mode:?}: the collider's feet left the ground \
+             (foot {collider_foot}, ground {ground})"
+        );
+        // The placement half: so does the art.
+        assert!(
+            (art_max.y - ground).abs() < 1e-3,
+            "{mode:?}: the drawn body's feet are {:.3} below the ground its \
+             collider stands on (art foot {}, ground {ground}) — the art sinks \
+             through the floor",
+            art_max.y - ground,
+            art_max.y,
+        );
+    }
+}
+
+/// A stance must not silently resize the drawn body.
+///
+/// The quad is the whole sheet frame in every pose, and the offset is a
+/// TRANSLATION. A "fix" that scaled the art to the shorter box would put the
+/// feet on the ground while squashing a body whose sheet authored real crouch
+/// art — so the rectangle's extents are pinned alongside its foot line.
+#[test]
+fn a_stance_moves_the_art_without_resizing_it() {
+    let ground = 100.0_f32;
+    let (stand_min, stand_max, _) = drawn_body_rect(ae::BodyMode::Standing, ground);
+    let (crouch_min, crouch_max, _) = drawn_body_rect(ae::BodyMode::Crouching, ground);
+    assert!(
+        ((stand_max - stand_min) - (crouch_max - crouch_min)).length() < 1e-3,
+        "the drawn body changed size with the stance: standing {:?}, crouching {:?}",
+        stand_max - stand_min,
+        crouch_max - crouch_min
+    );
+}

@@ -710,24 +710,29 @@ fn the_cpu_charges_a_smash_and_arms_a_tech_during_a_match() {
             }
         }
         let mut motion = world.query::<(&MatchSeat, &MotionModel)>();
-        let armed: Vec<(bool, bool)> = motion
+        let armed: Vec<bool> = motion
             .iter(world)
             .filter_map(|(_, model)| match model {
-                ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis) => Some((
-                    axis.state.tech_press_timer > 0.0,
-                    axis.state.tumble_timer > 0.0,
-                )),
+                ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis) => {
+                    Some(axis.state.tech_press_timer > 0.0)
+                }
                 _ => None,
             })
             .collect();
-        for (pressed, tumbling) in armed {
+        for pressed in armed {
             if pressed {
                 tech_presses += 1;
             }
-            if tumbling {
-                tumbles += 1;
-            }
         }
+        // THE PUBLISHED FACT, which is what the brain's tech read keys on. The
+        // raw `tumble_timer` is only the helpless head of a tumble; control
+        // returns before the tumble does, and the whole stretch until the
+        // landing is the window a tech exists for.
+        let mut facts = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::engine_core::BodyMotionFacts,
+        )>();
+        tumbles += facts.iter(world).filter(|(_, f)| f.tumbling).count();
     }
 
     assert!(
@@ -740,10 +745,18 @@ fn the_cpu_charges_a_smash_and_arms_a_tech_during_a_match() {
     // launched hard enough to tumble has no landing to tech, and the assertion
     // below would be measuring the absence of tumbles rather than the absence of
     // the read.
+    let damage: Vec<i32> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::characters::actor::BodyHealth,
+        )>();
+        q.iter(world).map(|(_, h)| h.damage_taken()).collect()
+    };
     assert!(
         tumbles > 0,
         "no body tumbled in {WINDOW} ticks, so this cannot say anything about \
-         teching"
+         teching. damage at the end: {damage:?}"
     );
     assert!(
         tech_presses > 0,

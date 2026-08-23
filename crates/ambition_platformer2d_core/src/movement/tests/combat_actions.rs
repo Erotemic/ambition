@@ -856,3 +856,29 @@ fn a_held_direction_rolls_out_of_the_knockdown() {
     assert_eq!(scratch.axis().knockdown_timer, 0.0, "the roll ends it");
     assert!(scratch.axis().getup_invuln_timer > 0.0);
 }
+
+/// A caught parry is a BEAT, not a latch: it decays on the body's own clock
+/// like every other timer beside it.
+///
+/// Without this the flag armed at the strike seam would stay true for the rest
+/// of the match and the cue would fire once and never stop.
+#[test]
+fn a_caught_parry_decays_like_every_other_timer() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.shield.catch_parry();
+    assert!(scratch.shield.parry_caught());
+
+    let armed = scratch.shield.parry_caught_timer;
+    step_scratch(&world, &mut scratch, InputState::default());
+    assert!(
+        scratch.shield.parry_caught_timer < armed,
+        "the caught-parry beat did not decay, so it is a latch that never clears"
+    );
+    // Long enough that any plausible window is over.
+    for _ in 0..120 {
+        step_scratch(&world, &mut scratch, InputState::default());
+    }
+    assert!(!scratch.shield.parry_caught());
+}

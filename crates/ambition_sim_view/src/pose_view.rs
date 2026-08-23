@@ -49,6 +49,18 @@ pub struct BodyPoseView {
     pub clip: Option<crate::ClipRequest>,
     /// Seconds remaining on the damage flash (`BodyCombat::hit_flash`).
     pub hit_flash_secs: f32,
+    /// Seconds left on this body's PARRY CATCH — a parry that actually caught a
+    /// strike, not a parry window standing open.
+    ///
+    /// `0.0` almost always; positive for a short beat starting on the tick a
+    /// perfect shield turned a strike away, whether the strike was a swing or a
+    /// shot. Armed by `BodyShieldState::catch_parry` at the two seams that
+    /// resolve a parry, so one fact covers both routes.
+    ///
+    /// ⛔ never `BodyShieldState::parrying()`, which answers whether the WINDOW
+    /// is open and is therefore true of every raised guard for a few ticks —
+    /// a cue driven off that one fires on every shield raise.
+    pub parry_flash_secs: f32,
     /// This body CANNOT BE STRUCK right now — the presentation half of
     /// `ambition_combat::util::body_vulnerable`, resolved here so no renderer
     /// re-derives hit eligibility from a pose or a move name.
@@ -112,6 +124,7 @@ impl Default for BodyPoseView {
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
+            parry_flash_secs: 0.0,
             unhittable: false,
             hp_current: 0,
             hp_max: 0,
@@ -307,6 +320,7 @@ pub fn rebuild_body_pose_views(
                     )?)
                 }),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
+            parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
             // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
             // body missing one of these clusters cannot be protected by it, so
             // the default stands in.

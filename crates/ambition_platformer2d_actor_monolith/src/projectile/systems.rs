@@ -377,6 +377,11 @@ pub fn step_projectiles(
         ambition_combat::hitbox::StrikeVictim,
         (Without<LiveProjectile>, Without<BossConfig>),
     >,
+    // The victims' guards, taken mutably by entity: a parried shot CATCHES on
+    // the shield, which is a write. `StrikeVictim` deliberately carries no
+    // shield for this reason — see its own note — so this is the system's only
+    // access to the component.
+    mut guards: Query<&mut ae::BodyShieldState, Without<LiveProjectile>>,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
     ecs_bosses: Query<
@@ -552,7 +557,19 @@ pub fn step_projectiles(
                 // body's own shot, back at its foes) and reverses + boosts its
                 // velocity. Shared by every body; only the HEAL is player reward
                 // policy. A body with no shield state simply cannot parry.
-                if victim.shield.is_some_and(|shield| shield.parrying()) {
+                // The SAME catch the melee strike seam resolves, from the
+                // other route a strike arrives on: one fact, both roads.
+                let parried = guards
+                    .get_mut(victim.entity)
+                    .map(|mut shield| {
+                        let caught = shield.parrying();
+                        if caught {
+                            shield.catch_parry();
+                        }
+                        caught
+                    })
+                    .unwrap_or(false);
+                if parried {
                     reflect_parried_shot(
                         &mut commands,
                         proj_entity,

@@ -403,6 +403,15 @@ pub struct BodyDodgeState {
     pub air_dodge_spent: bool,
 }
 
+/// How long a caught parry stays readable, in seconds of the body's own time.
+///
+/// A READ window, not a mechanic: nothing about hit eligibility, shield cost or
+/// timing consults it, so the number only has to outlive a frame. It is a
+/// constant rather than a `ShieldTuning` row for exactly that reason — a game
+/// that wants a different parry FEEL tunes `parry_window_time`, which is the
+/// value with consequences.
+pub const PARRY_CAUGHT_READ_TIME: f32 = 0.20;
+
 /// Shield/parry cluster.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyShieldState {
@@ -432,6 +441,20 @@ pub struct BodyShieldState {
     ///
     /// `0.0` when no break is running, which is what makes the phase `None`.
     pub break_total: f32,
+    /// A parry CAUGHT a strike, and this is what is left of the beat.
+    ///
+    /// The distinction [`Self::parrying`] cannot make. That one answers whether
+    /// the window is OPEN, which is true of every raised guard for a few ticks
+    /// and says nothing about whether anything was caught — so a cue driven off
+    /// it fires on every shield raise, which is the wrong beat. This is armed
+    /// only where a strike was actually swallowed by the window, by
+    /// [`Self::catch_parry`], which is the ONE site every route calls.
+    ///
+    /// A DURATION rather than a flag because a parry is over in one tick and a
+    /// reader is not: presentation samples state, and a bool set and cleared
+    /// inside a sim tick can be missed entirely. Same shape as
+    /// `BodyCombat::hit_flash` for the same reason.
+    pub parry_caught_timer: f32,
 }
 
 impl BodyShieldState {
@@ -446,6 +469,21 @@ impl BodyShieldState {
     /// because such a shield has a zero timer.
     pub fn parrying(self) -> bool {
         self.parry_window_timer > 0.0
+    }
+
+    /// This shield's parry window just caught a strike.
+    pub fn parry_caught(self) -> bool {
+        self.parry_caught_timer > 0.0
+    }
+
+    /// Record that this shield's parry window CAUGHT a strike.
+    ///
+    /// ⭐ THE one arming site. Every route a parry can happen on — a melee
+    /// strike the damage gate refused, a shot the guard turned around — calls
+    /// this rather than each publishing its own signal, so a consumer reads one
+    /// fact and a route added later is visible for free.
+    pub fn catch_parry(&mut self) {
+        self.parry_caught_timer = PARRY_CAUGHT_READ_TIME;
     }
 
     /// The guard was broken and the body is still paying for it.

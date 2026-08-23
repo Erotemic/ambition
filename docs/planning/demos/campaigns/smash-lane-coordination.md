@@ -186,6 +186,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | P6 the camera cuts when a fighter leaves play | PRESENTATION | ✔ `694366fa6` — the easing WAS the cause; a speed cap now absorbs any size |
 | P7 nobody has SEEN any of this | PRESENTATION | ▢ — an offscreen capture binary for the Smash demo |
 | M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ▢ |
+| C5 a guard has no home in the situation vocabulary | COORDINATOR | ▢ — see below |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |
 
 ## Measurements this campaign made, that outlive it
@@ -306,3 +307,29 @@ update and returns; and cameras do not exist at `Startup` in a shell-composed
 demo, so adoption must run every frame and the shot must wait for
 `CaptureTarget::adopted > 0`. ⭐ On a machine with no display, print the pixel
 histogram — a transparent PNG and a white scene preview identically.
+
+## C5 — a fighter has nowhere to decide "guard, they are swinging"
+
+The shield is offered in exactly one situation, `Disadvantage`, and gated on a
+hostile being somewhere in a swing. So a fighter standing in the open watches an
+attack wind up and walks into it.
+
+⛔ **The obvious fix does not fire, and the reason is the vocabulary rather than
+the score.** I added the guard to the `Neutral` arm, gated on a hostile in
+`AttackStartup` with under 0.12s of startup left, and measured it with the reflex
+switched off and on across five 90s streams: **byte-identical results, parries
+0–2–5 either way.** A fighter is never IN `Neutral` while somebody winds up —
+`classify` returns `Advantage` the moment a foe becomes punishable, and
+`is_punishable` covers attack startup.
+
+⇒ `Advantage` today means "they are committed, punish them", and it silently also
+means "they are about to hit you". Those are the same fact read from two ends,
+and the thing that separates them is whether their swing reaches you before
+yours reaches them — which `Features::frame_advantage` already computes for the
+ATTACK options and no movement option can see.
+
+⭐ So the slice is not a score change. It is either a fifth situation, or giving
+the movement options the frame-advantage read the attack options already have.
+⛔ Do not attempt it by re-pricing `Shield`: measured 2026-08-23, re-pricing the
+evade by hand took the smash suite from two failures to four, and this brain has
+an evaluation rig (`brain::fighter::evaluation`, `scenarios`) for exactly this.

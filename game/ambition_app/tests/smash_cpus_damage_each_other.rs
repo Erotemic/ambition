@@ -231,6 +231,7 @@ fn mirror_bout(
     let mut taken = [0.0f32; 2];
     let mut last = [0.0f32; 2];
     let mut hitstun = [0usize; 2];
+    let mut grounded_hitstun = [0usize; 2];
     // WHAT THEY THREW, because 0% has two completely different causes and this
     // is what tells them apart: a fighter that starts no moves is missing a
     // repertoire or a brain, and one that starts plenty and deals nothing is
@@ -242,8 +243,15 @@ fn mirror_bout(
     for _ in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
-        for (seat, health, combat) in world
-            .query::<(&MatchSeat, &BodyHealth, Option<&BodyCombat>)>()
+        for (seat, health, combat, ground) in world
+            .query::<(
+                &MatchSeat,
+                &BodyHealth,
+                Option<&BodyCombat>,
+                Option<
+                    &ambition_platformer2d::actors::avatar::movement_components::BodyGroundState,
+                >,
+            )>()
             .iter(world)
         {
             if seat.0 < 2 {
@@ -252,8 +260,20 @@ fn mirror_bout(
                     taken[seat.0] += now - last[seat.0];
                 }
                 last[seat.0] = now;
-                if combat.is_some_and(|c| c.hitstun_timer > 0.0) {
+                let stunned = combat.is_some_and(|c| c.hitstun_timer > 0.0);
+                if stunned {
                     hitstun[seat.0] += 1;
+                    // ⭐⭐ IS THE VICTIM ON THE FLOOR WHILE IT IS BEING HIT?
+                    // This is the column that decides D191, because a GROUNDED
+                    // body in hitstun has no agency at all: `survival_stick`
+                    // refuses it deliberately (holding a stick on the floor is
+                    // walking out of hitstun) and `apply_post_hit_input_gates`
+                    // exempts the Burst edge only while TUMBLING. An AIRBORNE
+                    // juggle is a fight the victim is losing; a GROUNDED one is
+                    // a fight it is not allowed to play.
+                    if ground.is_some_and(|g| g.on_ground) {
+                        grounded_hitstun[seat.0] += 1;
+                    }
                 }
             }
         }
@@ -480,7 +500,14 @@ fn mirror_bout(
         taken,
         hitstun,
         moves,
-        format!("{top} {top_secs:.2}s gap{median_gap:.0} {sight}"),
+        format!(
+            "{top} {top_secs:.2}s gap{median_gap:.0} grounded-stun {}% {sight}",
+            if hitstun[0] + hitstun[1] == 0 {
+                0
+            } else {
+                100 * (grounded_hitstun[0] + grounded_hitstun[1]) / (hitstun[0] + hitstun[1])
+            }
+        ),
         kit,
         started.len(),
         reachable,

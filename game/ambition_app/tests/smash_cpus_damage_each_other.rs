@@ -174,9 +174,9 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
     );
     let mut silent: Vec<String> = Vec::new();
     for id in &ids {
-        let (taken, hitstun, moves, top, kit, distinct, reachable) = mirror_bout(id);
+        let (taken, hitstun, moves, top, kit, distinct, reachable, asked) = mirror_bout(id);
         println!(
-            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>4}/{:>3}/{:<4}  {top}",
+            "[grid-sweep] {id:<30} {:>8.0}% {:>8.0}% {:>9} {:>7} {:>4}/{:>3}/{:<4}  {top:<28} {asked}",
             taken[0] * 100.0,
             taken[1] * 100.0,
             hitstun[0] + hitstun[1],
@@ -205,7 +205,18 @@ fn every_fighter_on_the_grid_can_fight_its_mirror() {
 /// One mirror match in the shipped composition: damage each seat ACCUMULATED
 /// (a KO resets the meter, so a peak measures survival rather than violence) and
 /// ticks each spent in hitstun.
-fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, usize, usize) {
+fn mirror_bout(
+    fighter: &str,
+) -> (
+    [f32; 2],
+    [usize; 2],
+    usize,
+    String,
+    usize,
+    usize,
+    usize,
+    String,
+) {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
@@ -225,6 +236,7 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, us
     // repertoire or a brain, and one that starts plenty and deals nothing is
     // missing reach, hit volumes, or a victim it can legally strike.
     let mut started = std::collections::BTreeMap::<String, usize>::new();
+    let mut situations = std::collections::BTreeMap::<String, usize>::new();
     let mut live = std::collections::BTreeMap::<bevy::prelude::Entity, (String, f32)>::new();
     for _ in 0..(countdown + TICKS) {
         app.update();
@@ -241,6 +253,30 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, us
                 last[seat.0] = now;
                 if combat.is_some_and(|c| c.hitstun_timer > 0.0) {
                     hitstun[seat.0] += 1;
+                }
+            }
+        }
+        // WHICH QUESTION IS THE BRAIN ANSWERING? `situation_of` is the classifier
+        // itself, asked of the live state — not a re-derivation. A fighter that
+        // throws one move three times a second is answering the SAME question
+        // every tick, and this is the column that says which one.
+        {
+            let mut brains = world.query::<&ambition_platformer2d::characters::brain::Brain>();
+            for brain in brains.iter(world) {
+                if let ambition_platformer2d::characters::brain::Brain::StateMachine(
+                    ambition_platformer2d::characters::brain::StateMachineCfg::Fighter {
+                        state,
+                        ..
+                    },
+                ) = brain
+                {
+                    if let Some(situation) =
+                        ambition_platformer2d::characters::brain::fighter::decision::situation_of(
+                            state,
+                        )
+                    {
+                        *situations.entry(format!("{situation:?}")).or_default() += 1;
+                    }
                 }
             }
         }
@@ -328,5 +364,24 @@ fn mirror_bout(fighter: &str) -> ([f32; 2], [usize; 2], usize, String, usize, us
         .max_by_key(|(id, count)| (**count, std::cmp::Reverse((*id).clone())))
         .map(|(id, count)| format!("{id}×{count}"))
         .unwrap_or_else(|| "—".to_string());
-    (taken, hitstun, moves, top, kit, started.len(), reachable)
+    let asked = {
+        let total: usize = situations.values().sum::<usize>().max(1);
+        let mut rows: Vec<_> = situations.iter().collect();
+        rows.sort_by_key(|(_, count)| std::cmp::Reverse(**count));
+        rows.iter()
+            .take(2)
+            .map(|(name, count)| format!("{name} {:.0}%", 100.0 * **count as f32 / total as f32))
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    (
+        taken,
+        hitstun,
+        moves,
+        top,
+        kit,
+        started.len(),
+        reachable,
+        asked,
+    )
 }

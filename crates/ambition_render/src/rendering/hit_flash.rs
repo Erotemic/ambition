@@ -1,21 +1,30 @@
-//! White-flash hit feedback for character sprites.
+//! The character-body overlay: damage flash and intangibility blink.
 //!
-//! Every character that can take damage (player, enemies, NPCs,
-//! bosses) flashes pure white for the duration of its `hit_flash`
-//! timer. The effect is implemented as a sibling `Material2d` mesh
-//! drawn on top of the source sprite — the same world-space sibling
-//! pattern content-owned overlays use (the [`super::ActorOverlaySet`]
-//! seam) — with a tiny shader
-//! that just outputs `vec4(1, 1, 1, sample.alpha * intensity)`. When
-//! the timer expires the overlay is hidden (no GPU work) and the
-//! source sprite renders normally.
+//! ONE sibling `Material2d` mesh per character sprite carries both cues — the
+//! same world-space sibling pattern content-owned overlays use (the
+//! [`super::ActorOverlaySet`] seam) — with a tiny shader that outputs a flat
+//! tint masked by the source sprite's alpha. When neither cue is showing the
+//! shader discards every fragment (no GPU work) and the source sprite renders
+//! normally.
 //!
-//! Source-of-truth for the flash timer:
+//! Two cues, one overlay, and the priority between them is decided in
+//! [`overlay_look`] rather than by whichever pass wrote last:
 //!
-//! - Actor (NPC / enemy): `ActorStatus::hit_flash` on the unified
-//!   `hit_flash: f32` (seconds remaining).
-//! - Boss: the boss encounter hit-flash field exposed through the read-model seam.
-//! - Player: [`ambition_characters::actor::BodyCombat::hit_flash`].
+//! - **damage flash**, pure white, held then faded over its `hit_flash` timer;
+//! - **intangibility blink**, a pale pulse for exactly as long as the body
+//!   cannot be struck. It reads the sim's resolved `unhittable` fact, never a
+//!   pose, a move name or an animation row, so it covers every grant the
+//!   damage rule honours — dodge, tech/getup, ledge, respawn protection, the
+//!   i-frames a hit leaves — and gains a new one the day the damage rule does.
+//!
+//! The damage flash WINS while it is running: being struck is the louder fact,
+//! and it is also the only one of the two that is over in a fifth of a second.
+//!
+//! Source-of-truth per body kind:
+//!
+//! - Actor (NPC / enemy / seated fighter): the `FeatureView` row, by feature id.
+//! - Boss: the boss encounter fields exposed through the same read-model seam.
+//! - Player-bodied: the `BodyPoseView` component on the sprite's own entity.
 
 use bevy::{
     image::TextureAtlasLayout,
@@ -42,6 +51,21 @@ const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 const FLASH_HOLD_FRACTION: f32 = 0.80;
 
 const REFERENCE_FLASH_SECONDS: f32 = 0.24;
+
+/// The intangibility blink, in SIM TICKS per cycle. Sim-derived rather than
+/// wall-clock so the pulse is the same in a capture, a replay and on screen,
+/// and the same at any refresh rate. At the shipped 60Hz step this is a ~6Hz
+/// pulse — fast enough to read as "cannot be hit", slow enough not to strobe.
+const BLINK_PERIOD_TICKS: u64 = 10;
+
+/// Peak overlay intensity of the blink. Well under the damage flash's 1.0: the
+/// tell has to be legible without erasing the silhouette it is drawn over.
+const BLINK_PEAK_INTENSITY: f32 = 0.55;
+
+/// The two cue colours. White is the strike; the pale blue is "you cannot
+/// touch this right now".
+const FLASH_TINT: Vec3 = Vec3::new(1.0, 1.0, 1.0);
+const BLINK_TINT: Vec3 = Vec3::new(0.62, 0.86, 1.0);
 
 /// Z bias for the overlay mesh — must sit IN FRONT of every other
 /// per-character overlay so the white silhouette is never covered.
@@ -76,6 +100,10 @@ pub struct HitFlashMaterial {
     #[texture(2)]
     #[sampler(3)]
     pub color_texture: Handle<Image>,
+    /// `rgb` is the silhouette colour; `a` is unused. A uniform rather than a
+    /// shader constant because ONE overlay draws every cue.
+    #[uniform(4)]
+    pub tint: Vec4,
 }
 
 impl Material2d for HitFlashMaterial {
@@ -159,6 +187,7 @@ pub fn attach_hit_flash_overlays(
             // up whenever the source's hit_flash timer is positive.
             control: Vec4::new(0.0, flip_flag(sprite), 0.0, 0.0),
             color_texture: sprite.image.clone(),
+            tint: FLASH_TINT.extend(1.0),
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
@@ -223,6 +252,8 @@ pub fn sync_hit_flash_overlays() {}
 pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
+    // The blink's phase. Sim-derived: see `BLINK_PERIOD_TICKS`.
+    tick: Res<ambition_time::SimTick>,
     // Sim-built read-models (E4 slices 2+5): a feature's flash timer rides
     // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
     // on the SAME entity that carries the sprite.
@@ -239,7 +270,7 @@ pub fn sync_hit_flash_overlays(
             &HitFlashSource,
             // The source's OWN visibility. The overlay is a separate root entity
             // that stays `Visible` forever (see the spawn site), so it does not
-            // inherit a hidden source — see `overlay_intensity`.
+            // inherit a hidden source — see `overlay_look`.
             Option<&Visibility>,
         ),
         Without<HitFlashOverlay>,
@@ -278,9 +309,8 @@ pub fn sync_hit_flash_overlays(
         // through this lookup. A future refactor that unifies them
         // into a single `HitFlash` component can collapse this to
         // one query without changing the overlay sync.
-        let hit_flash_secs =
-            hit_flash_secs_for_source(source_entity, feature, player, &feature_views, &poses);
-        let intensity = overlay_intensity(hit_flash_secs, source_visibility.copied());
+        let facts = overlay_facts_for_source(source_entity, feature, player, &feature_views, &poses);
+        let (intensity, tint) = overlay_look(facts, tick.0, source_visibility.copied());
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
             overlays.get_mut(source.overlay)
@@ -307,6 +337,7 @@ pub fn sync_hit_flash_overlays(
             material.uv_rect = uv_rect;
             material.control = Vec4::new(intensity, flip, 0.0, 0.0);
             material.color_texture = source_sprite.image.clone();
+            material.tint = tint.extend(1.0);
         }
     }
 }
@@ -337,48 +368,66 @@ pub fn cleanup_hit_flash_overlays(
     }
 }
 
-/// Unified hit_flash seconds dispatch.
+/// What the overlay must show for one source this frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct OverlayFacts {
+    /// Seconds left on the damage flash, if this source has that timer at all.
+    pub hit_flash_secs: Option<f32>,
+    /// The body cannot be struck right now. Resolved sim-side from the damage
+    /// rule; presentation never re-derives it.
+    pub unhittable: bool,
+}
+
+/// Unified overlay-fact dispatch.
 ///
-/// One entry point for every character type the
-/// universal-Brain unification covers — caller doesn't need
-/// to know whether the source is a player, enemy, NPC, or
-/// boss. All four arms read the per-tick countdown that
-/// damage code already maintains, so adding hit feedback to
-/// a new actor type is just "give it one of these timers and
-/// the overlay attaches itself".
+/// One entry point for every character type the universal-Brain unification
+/// covers — caller doesn't need to know whether the source is a player, enemy,
+/// NPC, or boss. Both roads publish the same two facts on their own read-model
+/// row, so adding overlay feedback to a new body kind is "publish the row".
 ///
-/// Source-of-truth per type:
-///
-/// | type | timer storage | set by damage |
-/// |------|---------------|---------------|
-/// | player | `BodyCombat::hit_flash` | `world_flow` damage paths |
-/// | enemy  | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
-/// | NPC    | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
-/// | boss   | `BossEncounter::hit_flash` (boss cluster)   | boss damage paths |
-fn hit_flash_secs_for_source(
+/// | type | read-model row |
+/// |------|----------------|
+/// | player-bodied | `BodyPoseView` on the sprite's own entity |
+/// | enemy / NPC / seated fighter | the `FeatureView` row, by feature id |
+/// | boss | the `FeatureView` row, by feature id |
+fn overlay_facts_for_source(
     source_entity: Entity,
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
     feature_views: &ambition_sim_view::FeatureViewIndex,
     poses: &Query<&ambition_sim_view::BodyPoseView>,
-) -> Option<f32> {
+) -> OverlayFacts {
     // Player path: the entity that carries `PlayerVisual` is the same one
-    // that carries the sim-built `BodyPoseView`, so read ITS flash timer —
+    // that carries the sim-built `BodyPoseView`, so read ITS row —
     // per-entity, so player clones flash independently.
     if player.is_some() {
-        return poses.get(source_entity).ok().map(|p| p.hit_flash_secs);
+        return poses
+            .get(source_entity)
+            .map(|p| OverlayFacts {
+                hit_flash_secs: Some(p.hit_flash_secs),
+                unhittable: p.unhittable,
+            })
+            .unwrap_or_default();
     }
-    // Feature path: the flash timer is a `FeatureView` fact (actors and
-    // bosses alike; the "no silhouette over a boss corpse" rule is applied
-    // at the rebuild site). Kinds without a timer carry 0.0.
-    feature_views
-        .get(feature?.id.as_str())
-        .map(|view| view.hit_flash_secs)
+    // Feature path: the facts ride the `FeatureView` row (actors, seated
+    // fighters and bosses alike; the "no silhouette over a boss corpse" rule
+    // is applied at the rebuild site). Kinds with no body carry the defaults.
+    feature
+        .and_then(|feature| feature_views.get(feature.id.as_str()))
+        .map(|view| OverlayFacts {
+            hit_flash_secs: Some(view.hit_flash_secs),
+            unhittable: view.unhittable,
+        })
+        .unwrap_or_default()
 }
 
-/// The overlay's shader intensity for one source this frame.
+/// The overlay's shader intensity AND colour for one source this frame.
 ///
-/// A hidden body flashes nothing. The overlay is a separate ROOT entity that
+/// This is where the two cues are ARBITRATED, once, instead of each pass
+/// writing the material and the last one winning. The damage flash outranks
+/// the blink: a body struck out of its own dodge should read as struck.
+///
+/// A hidden body shows nothing. The overlay is a separate ROOT entity that
 /// stays `Visibility::Visible` permanently — a deliberate workaround for the
 /// `InheritedVisibility`-propagation gotcha documented at its spawn site — and it
 /// is textured with the SOURCE sprite's own image. So it does not inherit a hidden
@@ -390,11 +439,32 @@ fn hit_flash_secs_for_source(
 /// under a hidden ancestor: a fully-hidden hierarchy has an ancestor whose
 /// overlay is likewise suppressed, and the shader's `discard` arm makes a
 /// zero-intensity overlay free either way.
-fn overlay_intensity(hit_flash_secs: Option<f32>, source_visibility: Option<Visibility>) -> f32 {
+fn overlay_look(
+    facts: OverlayFacts,
+    tick: u64,
+    source_visibility: Option<Visibility>,
+) -> (f32, Vec3) {
     if matches!(source_visibility, Some(Visibility::Hidden)) {
-        return 0.0;
+        return (0.0, FLASH_TINT);
     }
-    hit_flash_secs.map(normalize_hit_flash).unwrap_or(0.0)
+    let flash = facts.hit_flash_secs.map_or(0.0, normalize_hit_flash);
+    if flash > 0.0 {
+        return (flash, FLASH_TINT);
+    }
+    if facts.unhittable {
+        return (blink_intensity(tick), BLINK_TINT);
+    }
+    (0.0, FLASH_TINT)
+}
+
+/// The blink's intensity at one sim tick: a triangle wave over
+/// [`BLINK_PERIOD_TICKS`], peaking at [`BLINK_PEAK_INTENSITY`].
+///
+/// A triangle rather than an on/off square because a hard square at 6Hz reads
+/// as a dropped frame; the ramp reads as a pulse.
+fn blink_intensity(tick: u64) -> f32 {
+    let phase = (tick % BLINK_PERIOD_TICKS) as f32 / BLINK_PERIOD_TICKS as f32;
+    BLINK_PEAK_INTENSITY * (1.0 - (2.0 * phase - 1.0).abs())
 }
 
 /// Map raw seconds-remaining into a [0, 1] intensity. Holds at 1.0
@@ -525,13 +595,15 @@ mod tests {
     /// right over the ball. That is a live suspect for tracks.md's "morph ball
     /// still draws the robot".
     #[test]
-    fn a_hidden_source_flashes_nothing_however_hard_it_was_hit() {
-        assert_eq!(
-            overlay_intensity(Some(10.0), Some(Visibility::Hidden)),
-            0.0,
-            "a hidden body must not draw, and the overlay draws the body"
-        );
-        assert_eq!(overlay_intensity(Some(0.2), Some(Visibility::Hidden)), 0.0);
+    fn a_hidden_source_shows_nothing_however_hard_it_was_hit() {
+        assert_eq!(look(flash(10.0), 0).0, 0.0);
+        assert_eq!(look(flash(0.2), 0).0, 0.0);
+        // And the blink is hidden by the same rule, at its own peak tick.
+        assert_eq!(look(intangible(), BLINK_PERIOD_TICKS / 2).0, 0.0);
+
+        fn look(facts: OverlayFacts, tick: u64) -> (f32, Vec3) {
+            overlay_look(facts, tick, Some(Visibility::Hidden))
+        }
     }
 
     /// The guard is narrow: a visible, inherited, or unknown source flashes
@@ -541,12 +613,77 @@ mod tests {
     #[test]
     fn a_visible_source_still_flashes_exactly_as_before() {
         for vis in [Some(Visibility::Visible), Some(Visibility::Inherited), None] {
-            assert_eq!(
-                overlay_intensity(Some(10.0), vis),
-                normalize_hit_flash(10.0),
-                "{vis:?} must not change the flash"
-            );
-            assert_eq!(overlay_intensity(None, vis), 0.0, "no flash, no intensity");
+            let (intensity, tint) = overlay_look(flash(10.0), 0, vis);
+            assert_eq!(intensity, normalize_hit_flash(10.0), "{vis:?}");
+            assert_eq!(tint, FLASH_TINT);
+            assert_eq!(overlay_look(OverlayFacts::default(), 0, vis).0, 0.0);
+        }
+    }
+
+    /// THE PRIORITY, stated once: a body struck out of its own dodge reads as
+    /// struck. Without this the blink would overwrite the flash on the exact
+    /// frames the flash exists to mark.
+    #[test]
+    fn the_damage_flash_outranks_the_intangibility_blink() {
+        let both = OverlayFacts {
+            hit_flash_secs: Some(0.2),
+            unhittable: true,
+        };
+        // Every tick of the blink cycle, including its peak.
+        for tick in 0..BLINK_PERIOD_TICKS * 2 {
+            let (intensity, tint) = overlay_look(both, tick, None);
+            assert_eq!(tint, FLASH_TINT, "tick {tick}");
+            assert_eq!(intensity, normalize_hit_flash(0.2), "tick {tick}");
+        }
+        // And once the flash drains, the blink takes over rather than nothing.
+        let after = OverlayFacts {
+            hit_flash_secs: Some(0.0),
+            unhittable: true,
+        };
+        let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
+        assert_eq!(tint, BLINK_TINT);
+        assert!(intensity > 0.0);
+    }
+
+    /// The blink runs for exactly as long as the body is unhittable, pulses
+    /// rather than holding, and never reaches the flash's full white.
+    #[test]
+    fn the_blink_pulses_only_while_the_body_cannot_be_struck() {
+        let mut peak: f32 = 0.0;
+        let mut trough = f32::MAX;
+        for tick in 0..BLINK_PERIOD_TICKS {
+            let (intensity, tint) = overlay_look(intangible(), tick, None);
+            assert_eq!(tint, BLINK_TINT);
+            peak = peak.max(intensity);
+            trough = trough.min(intensity);
+        }
+        assert!(peak > trough, "a blink that never varies is a tint");
+        assert!(peak <= BLINK_PEAK_INTENSITY);
+        assert!(peak < 1.0, "the blink must not erase the silhouette");
+        // Hittable again: the overlay goes dark on the very next tick.
+        assert_eq!(overlay_look(OverlayFacts::default(), 0, None).0, 0.0);
+    }
+
+    /// A merely raised shield is not intangibility. The predicate lives in the
+    /// simulation, so all this side owes is: no fact, no blink.
+    #[test]
+    fn nothing_blinks_without_the_resolved_fact() {
+        for tick in 0..BLINK_PERIOD_TICKS * 3 {
+            assert_eq!(overlay_look(OverlayFacts::default(), tick, None).0, 0.0);
+        }
+    }
+
+    fn flash(secs: f32) -> OverlayFacts {
+        OverlayFacts {
+            hit_flash_secs: Some(secs),
+            unhittable: false,
+        }
+    }
+
+    fn intangible() -> OverlayFacts {
+        OverlayFacts {
+            hit_flash_secs: Some(0.0),
+            unhittable: true,
         }
     }
 }

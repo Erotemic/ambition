@@ -49,6 +49,15 @@ pub struct BodyPoseView {
     pub clip: Option<crate::ClipRequest>,
     /// Seconds remaining on the damage flash (`BodyCombat::hit_flash`).
     pub hit_flash_secs: f32,
+    /// This body CANNOT BE STRUCK right now — the presentation half of
+    /// `ambition_combat::util::body_vulnerable`, resolved here so no renderer
+    /// re-derives hit eligibility from a pose or a move name.
+    ///
+    /// Covers every body-generic grant at once because the damage rule does:
+    /// dodge / spot dodge / air dodge, tech and getup, the ledge grab's earned
+    /// intangibility, the timed untouchable a respawn hands out, and the
+    /// i-frames a hit leaves behind.
+    pub unhittable: bool,
     pub hp_current: i32,
     pub hp_max: i32,
     /// The body is in morph-ball mode (draws the procedural sphere instead
@@ -93,6 +102,7 @@ impl Default for BodyPoseView {
             gravity_dir: ambition_platformer2d_core::Vec2::Y,
             anim: CharacterAnim::Idle,
             hit_flash_secs: 0.0,
+            unhittable: false,
             hp_current: 0,
             hp_max: 0,
             morph_ball: false,
@@ -286,6 +296,18 @@ pub fn rebuild_body_pose_views(
                     )?)
                 }),
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
+            // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
+            // body missing one of these clusters cannot be protected by it, so
+            // the default stands in.
+            unhittable: !ambition_combat::util::body_vulnerable(
+                health.map_or_else(
+                    ambition_characters::actor::Invulnerability::none,
+                    |h| h.health.invulnerable,
+                ),
+                motion_facts.is_some_and(|m| m.evading()),
+                &shield.copied().unwrap_or_default(),
+                &combat.copied().unwrap_or_default(),
+            ),
             hp_current: health.map_or(0, |h| h.current()),
             hp_max: health.map_or(0, |h| h.max()),
             morph_ball: body_mode
@@ -309,15 +331,24 @@ pub fn rebuild_body_pose_views(
 }
 
 /// One raised bubble shield, resolved sim-side. The renderer positions one
-/// pooled ring sprite per row.
+/// pooled bubble sprite per row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShieldRingFact {
     pub pos: ambition_platformer2d_core::Vec2,
     pub size: ambition_platformer2d_core::Vec2,
     pub parrying: bool,
     /// `1.0` whole, `0.0` about to break — and `1.0` for a body whose guard is
-    /// not a resource, so the ring reads the same for every body that has one.
+    /// not a resource, so the bubble reads the same for every body that has one.
     pub integrity: f32,
+    /// Seconds of SHIELDSTUN still owed — positive for exactly the beat after
+    /// this guard absorbed a hit.
+    ///
+    /// Raw seconds, like `BodyPoseView::hit_flash_secs`: the timer is the
+    /// resolved fact, and how long a hit should stay visible is a presentation
+    /// constant. Publishing a normalized fraction instead would put a
+    /// presentation decision in the simulation and need `ShieldTuning` here to
+    /// make it.
+    pub stun_secs: f32,
 }
 
 /// Every body (player AND brain-driven actor) whose shield is currently
@@ -347,8 +378,64 @@ pub fn rebuild_shield_rings_view(
                 size: kin.size,
                 parrying: shield.parrying(),
                 integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
+                stun_secs: shield.stun_timer,
             },
         ));
+}
+
+/// One body in INVOLUNTARY flight, resolved sim-side.
+///
+/// A row exists only while the body is launched — tumbling from a hit, or
+/// still inside the hitstun that hit gave it. Presentation reads the row's
+/// speed to decide how hard the launch reads; it never has to ask why a body
+/// is moving fast, which is the question velocity alone answers wrongly for a
+/// run, a fast fall or a recovery.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LaunchedBodyFact {
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub vel: ambition_platformer2d_core::Vec2,
+    /// The body's current collision AABB — presentation offsets the trail
+    /// behind the body by a fraction of it.
+    pub size: ambition_platformer2d_core::Vec2,
+}
+
+/// Every body (player AND brain-driven fighter) currently in an involuntary
+/// flight, in query order — the read-model behind the hard-launch trail.
+///
+/// Pooled rather than a per-entity component for the reason
+/// [`ShieldRingsView`] is: the effect is world particles with no owner entity
+/// to hang a view on, and a seated fighter's sprite is a SEPARATE entity from
+/// its body, joined by feature id. A pooled row is the one shape both roads
+/// share.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LaunchedBodiesView(pub Vec<LaunchedBodyFact>);
+
+pub fn rebuild_launched_bodies_view(
+    mut view: ResMut<LaunchedBodiesView>,
+    bodies: Query<(
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        Option<&ambition_platformer2d_core::BodyMotionFacts>,
+        Option<&BodyCombat>,
+        // The presented position, so the plume leaves the body where the
+        // sprite is drawn rather than at the tick position it is interpolating
+        // away from.
+        Option<&crate::presented_pose::PresentedPose>,
+    )>,
+) {
+    view.0.clear();
+    view.0.extend(bodies.iter().filter_map(|(kin, motion, combat, presented)| {
+        // Two published sim facts, one resolved answer: the tumble is the
+        // helpless half of a launch and the hitstun is the rest of it. A
+        // consumer reading only the tumble would drop the row the instant a
+        // launched body stopped tumbling, mid-flight.
+        let launched = motion.is_some_and(|f| f.tumbling)
+            || combat.is_some_and(|c| c.hitstun_timer > 0.0);
+        launched.then(|| LaunchedBodyFact {
+            pos: presented.map_or(kin.pos, |p| p.presented()),
+            vel: kin.vel,
+            size: kin.size,
+        })
+    }));
 }
 
 #[cfg(test)]

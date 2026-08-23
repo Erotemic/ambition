@@ -320,22 +320,49 @@ sheets publishing the body_metrics the good road needs        194 of 196
 ⭐⭐ `world_per_pixel` IS the common unit Jon's hurtbox note says was never
 established.
 
-⚠ **THE TWO ADOPTERS ARE THE TWO SHEETS WITH NO PER-POSE HURTBOX** (measured
-2026-08-22, full-file scan of all 49 `authored_body: true` sheet RONs — count of
-the literal `hurtbox:` per file, not a windowed search; 185 sheet RONs in
-`assets/sprites`, and the 49 is this roster having GROWN from the 37 the block
-below counts on 2026-08-16, not a disagreement with it). 47 publish per-animation
-hurtbox rects; `mary_o_v2` and `player_robot_v3` publish **zero**, so
-`BodyMetrics::pose_body_bbox` falls through to the single static `body_pixel_bbox`
-for every pose and their compact box is the STANDING rectangle scaled by
-`BodyMode::shape`, not one their crouch art authored. Upstream of that: **no SVG
-rig under `targets/characters/rigged/` carries any `gameplay_geometry.hurtboxes`
-at all** (12 of 12 empty) — the per-pose rects come only from the procedural
-target road, so this is a gap in the rig pipeline, not in these two characters.
-⛔ it reads as a combat bug and is a CONTENT gap; the combat side works from
-move-local hit volumes and the body's own box, so nothing is biting today.
-`mary_o_v2` has no `crouch` row at all, and `player_robot_v3`'s crouch row does
-not crouch — head at standing height, feet 4-12 px below the standing foot line.
+✔✔ **THE TWO ADOPTERS PUBLISH PER-POSE BODIES NOW, AND THE REASON THEY DID NOT
+WAS NOT A PIPELINE GAP** (closed 2026-08-22, renderer `a2e05bb`). A first pass
+here wrote it up as one — 47 of 49 `authored_body` sheets carry per-animation
+hurtbox rects and these two carried zero — and that framing was **wrong**:
+`pose_bodies="authored"` is a DECLARATION, and `player_robot_v3`'s own comment
+says why (`block`'s alpha union is 128 px wide and `dash`'s 143 against a 57 px
+torso, so a measured body inflates every time he flourishes). ⛔ **read the
+consumer's decision site before calling an absence a gap.**
+
+⛔⛔ **The real defect was one field with TWO consumers.** `hurtbox_parts` — the
+AUTHORED road, which Emmy and the cellular automaton have used all along —
+deliberately dropped its `bbox`, and the comment saying so was right about the
+damage consumer, which prefers `parts`. But `BodyMetrics::pose_body_bbox` reads
+`bbox` and *nothing else*, so a parts-only row fell through to the sheet's one
+static rectangle: **authoring a pose's hurtbox made that pose's BODY less
+specific, not more, and silently.** `hurtbox_with_union` now publishes the
+parts' union beside them — the same authored parts, summarised for the consumer
+that can only read one rectangle.
+
+⭐ **Author a per-pose body by CALIBRATING ON IDLE.** Both new modules
+(`player_robot_v3_gameplay`, `_mary_o_v2_gameplay`) reproduce the character's
+existing authored box to the pixel for `idle`, so a standing body does not move
+and only the other poses are new information. v3 takes rigid offsets from the
+rig skeleton (arms and antenna excluded — that is what keeps `block` at 58 px);
+Mary-O keeps her authored width and floor and lets only the CEILING follow the
+drawing, downward only (her jump art reaches 12 px higher because her CAP does).
+
+```text
+player_robot_v3   idle 57x91    crouch 58x79    block 58x92   dash 71x82
+mary_o_v2_tall    idle 56x168   crouch 56x126   (75%)
+mary_o_v2_fire    idle 56x168   crouch 56x125
+mary_o_v2 (small) idle 56x84    no crouch row — small Mario cannot duck
+```
+
+▢ **NOTHING CONSUMES IT FOR A CROUCHING PLAYER YET, and closing that is a
+DECISION not a wire.** `sync_sprite_posed_bodies` resolves its pose from
+`ActorAnimOverride`, which only `transform_beat` ever pins, so a crouching
+player still resolves `Idle` geometry and `BodyMode::Crouching.shape()` halves
+it. Pinning the pose as well would compose both and DOUBLE-crouch. The 0.5 is a
+defended constant (*"a two-tile body crouches to exactly one tile"*) and
+Mary-O's authored crouch is 75% of standing, not 50% — so adopting the sheet's
+crouch box makes her taller when crouched and she may stop fitting one-tile
+gaps. ⊙ whose crouch box wins is Jon's.
 
 ✔ **the crouch SINK that sat on top of this is CLOSED** (`a9f26a27e`,
 2026-08-22). `resize_feet_planted` holds the +gravity face and slides `pos`

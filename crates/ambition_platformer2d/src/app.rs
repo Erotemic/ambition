@@ -28,7 +28,7 @@ use crate::world::rooms::RoomMetadata;
 /// `ambition_platformer2d::prelude`.
 pub mod prelude {
     pub use super::{
-        host_status, AssetSource, CompositionError, GameModule, HostStatus, ModuleDraft,
+        host_status, AssetSource, CompositionError, Display, GameModule, HostStatus, ModuleDraft,
         ModuleManifest, PlatformerApp, SessionMode, StartAt, EMPTY_CHARACTER_ROSTER_RON,
         MINIMAL_CHARACTER_ROSTER_RON,
     };
@@ -662,11 +662,48 @@ pub enum StartAt {
     Launcher,
 }
 
+/// How a windowed face meets the GPU and the desktop.
+///
+/// Three, because "windowed" was two questions wearing one boolean: whether
+/// there is a real wgpu backend, and whether there is a window on it. The
+/// combination that had no name is the one a capture tool needs.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Display {
+    /// A real backend presenting to a real window. The shipped game.
+    #[default]
+    Window,
+    /// A real backend with NO window: frames are rendered and can be read back,
+    /// nothing is presented.
+    ///
+    /// This is the face an offscreen capture needs, and it is an ENGINE fact
+    /// rather than a tool's, for the same reason [`Self::NoGpu`] is: disabling
+    /// `winit` also removes the app RUNNER, so an offscreen app must be stepped
+    /// by its caller. A consumer rediscovering that is the leak, not the
+    /// convenience.
+    Offscreen,
+    /// No backend at all — the render graph is built against `backends: None`.
+    /// For GPU-less CI that still has to assert something was DRAWN. There is
+    /// no `RenderApp`, so nothing can be read back.
+    NoGpu,
+}
+
+impl Display {
+    /// Is there a real wgpu backend behind this face?
+    fn has_backend(self) -> bool {
+        !matches!(self, Self::NoGpu)
+    }
+
+    /// Is anything presented to a desktop window?
+    fn has_window(self) -> bool {
+        matches!(self, Self::Window)
+    }
+}
+
 /// How the game meets a display.
 #[derive(Clone, Debug)]
 enum Face {
     Headless,
-    Windowed { title: String, gpu: bool },
+    Windowed { title: String, display: Display },
 }
 
 /// The lowering of every declared capability, in declaration order.
@@ -710,7 +747,7 @@ impl PlatformerApp {
     pub fn windowed(title: impl Into<String>) -> Self {
         Self::with_face(Face::Windowed {
             title: title.into(),
-            gpu: true,
+            display: Display::Window,
         })
     }
 
@@ -727,13 +764,26 @@ impl PlatformerApp {
     /// For GPU-less CI that still has to assert something was DRAWN. This is an
     /// engine concern — the five disables it implies are rule 3, and a consumer
     /// re-deriving them is the leak, not the convenience.
-    pub fn without_gpu(mut self) -> Self {
-        if let Face::Windowed { gpu, .. } = &mut self.face {
-            *gpu = false;
-        } else {
-            self.draft
-                .conflicts
-                .push("`without_gpu` needs a windowed face; headless has no render graph".into());
+    pub fn without_gpu(self) -> Self {
+        self.set_display(Display::NoGpu, "without_gpu")
+    }
+
+    /// Render for real, present to nothing.
+    ///
+    /// The face an offscreen capture runs on: a full render graph on a real
+    /// backend, with no window and therefore no `winit` — which also means no
+    /// app runner, so the caller steps the app itself. That is what makes a
+    /// burst of frames exactly as long as the caller says.
+    pub fn offscreen(self) -> Self {
+        self.set_display(Display::Offscreen, "offscreen")
+    }
+
+    fn set_display(mut self, display: Display, verb: &str) -> Self {
+        match &mut self.face {
+            Face::Windowed { display: slot, .. } => *slot = display,
+            Face::Headless => self.draft.conflicts.push(format!(
+                "`{verb}` needs a windowed face; headless has no render graph"
+            )),
         }
         self
     }
@@ -844,6 +894,10 @@ impl PlatformerApp {
             }
         }
         let prepares_art = matches!(face, Face::Windowed { .. }) || game_assets;
+        debug_assert!(
+            !matches!(face, Face::Windowed { display, .. } if display.has_backend() && !prepares_art),
+            "a face with a real backend always prepares the art it would draw"
+        );
         // ── Slice H ── a facade built without the `ambition_render` capability
         // has no presentation to install, and a composition that prepares art
         // must be REFUSED here rather than silently drawing nothing. This
@@ -934,7 +988,7 @@ impl PlatformerApp {
         // ── Rules 2, 3, 4 ── the Bevy foundation.
         match &face {
             Face::Headless => crate::engine::add_headless_foundation(app),
-            Face::Windowed { title, gpu } => install_windowed_foundation(app, title, *gpu),
+            Face::Windowed { title, display } => install_windowed_foundation(app, title, *display),
         }
 
         // ── The cast and the silence, per experience, through the seams a
@@ -1479,9 +1533,14 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
 }
 
 /// `DefaultPlugins`, configured. Rules 2, 3 and 4.
-fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
+///
+/// Public because a standalone demo shell needs exactly this and nothing else:
+/// three demos hand-roll their own `DefaultPlugins` today and each re-derives
+/// the disables that [`Display`] documents. A fourth copy would be the leak.
+pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
+    let window = display.has_window();
     let plugins = DefaultPlugins
         .set(bevy::asset::AssetPlugin {
             // Rule 2: the engine knows where its own content is.
@@ -1489,46 +1548,68 @@ fn install_windowed_foundation(app: &mut App, title: &str, gpu: bool) {
             ..Default::default()
         })
         .set(WindowPlugin {
-            primary_window: gpu.then(|| Window {
+            primary_window: window.then(|| Window {
                 title: title.to_string(),
                 ..Default::default()
             }),
-            exit_condition: if gpu {
+            // Without a window there is nothing whose closing could mean "quit",
+            // so the app exits when its caller says so and not before.
+            exit_condition: if window {
                 ExitCondition::OnAllClosed
             } else {
                 ExitCondition::DontExit
             },
-            close_when_requested: gpu,
+            close_when_requested: window,
             ..Default::default()
         });
 
-    if gpu {
-        app.add_plugins(plugins);
-    } else {
+    match display {
+        Display::Window => app.add_plugins(plugins),
+        // Rule 3, offscreen half: a REAL backend and a real render graph, with
+        // no window in front of it.
+        //
+        // Disabling `winit` is what removes the window, and it takes the app
+        // RUNNER with it — so an offscreen app is stepped by its caller rather
+        // than by `run()`. That is the property a capture wants (a burst is
+        // exactly as many frames as it asks for) and the trap a consumer falls
+        // into (`run()` returns immediately and nothing is ever drawn), which is
+        // why this lives here and is written down.
+        //
+        // The core pipeline and gizmo passes STAY, unlike the no-GPU face
+        // below: without them the graph produces no picture, and a capture that
+        // reads back an empty texture reports success on a transparent PNG.
+        Display::Offscreen => {
+            let plugins = plugins.disable::<bevy::winit::WinitPlugin>();
+            #[cfg(not(target_arch = "wasm32"))]
+            let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
+            app.add_plugins(plugins)
+        }
         // Rule 3. A `backends: None` renderer has no RenderApp, and
         // process-global logging / Ctrl+C handlers belong to an executable
         // rather than to a manually stepped fixture.
-        use bevy::render::settings::{RenderCreation, WgpuSettings};
-        use bevy::render::RenderPlugin;
-        let plugins = plugins
-            .disable::<bevy::log::LogPlugin>()
-            .disable::<bevy::core_pipeline::CorePipelinePlugin>()
-            .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
-            .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
-                    backends: None,
+        Display::NoGpu => {
+            use bevy::render::settings::{RenderCreation, WgpuSettings};
+            use bevy::render::RenderPlugin;
+            let plugins = plugins
+                .disable::<bevy::log::LogPlugin>()
+                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
+                .set(RenderPlugin {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                        backends: None,
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                }),
-                ..Default::default()
-            })
-            .disable::<bevy::winit::WinitPlugin>();
-        //  desktop only: there is no terminal, and no such plugin, on the web.
-        // `disable` on a plugin that does not exist for the target is a COMPILE
-        // error, not a no-op, so the cfg has to move the call and not the type.
-        #[cfg(not(target_arch = "wasm32"))]
-        let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
-        app.add_plugins(plugins);
-    }
+                })
+                .disable::<bevy::winit::WinitPlugin>();
+            //  desktop only: there is no terminal, and no such plugin, on the web.
+            // `disable` on a plugin that does not exist for the target is a COMPILE
+            // error, not a no-op, so the cfg has to move the call and not the type.
+            #[cfg(not(target_arch = "wasm32"))]
+            let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
+            app.add_plugins(plugins)
+        }
+    };
 
     // Rule 4: after Bevy's StatesPlugin exists, before the sim plugins whose
     // run conditions read the state.

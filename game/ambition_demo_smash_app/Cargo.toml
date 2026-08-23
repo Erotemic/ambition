@@ -7,6 +7,15 @@ authors.workspace = true
 description = "The smash demo's thin SHELL. The first place a stock is actually spent in a running session rather than in a unit test."
 autotests = false
 
+# The offscreen capture burst. `visible` because it needs the presentation it
+# photographs; without the feature the app has no renderer to capture from.
+[[bin]]
+name = "match_shots"
+path = "src/bin/match_shots.rs"
+required-features = ["visible", "capture"]
+test = false
+bench = false
+
 [[bin]]
 name = "smash_demo"
 path = "src/main.rs"
@@ -24,6 +33,9 @@ input = ["ambition_platformer2d/input"]
 # same components — which is what makes the brain's decision and the body's
 # received frame ONE joined line rather than two streams to correlate by eye.
 causal = ["ambition_platformer2d/causal"]
+# The offscreen capture module and its PNG encoder, for `match_shots`. Off by
+# default and never enabled by anything that ships.
+capture = ["ambition_platformer2d/capture"]
 
 [dependencies]
 # A demo app depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.

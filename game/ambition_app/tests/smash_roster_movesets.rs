@@ -42,6 +42,21 @@ const KNOWN_UNARMED: &[&str] = &[
     // AND EMMY LEFT IT THE SAME DAY, for the same two reasons.
     //
     // he is NOT unarmed in a match: the stage arms every seat (see the companion test below).
+    //
+    // ⭐ AND THIS ONE IS HERE FOR A DIFFERENT REASON THAN THE FIVE ABOVE, which
+    // is why it is not simply appended. The others are on this list because
+    // nobody has given them a kit yet. `projectile_polygon` is RANGED BY
+    // DESIGN — its catalog row names `ranger_arrow` and its combat distinction
+    // is a body-authored projectile from a head-mounted cannon — and it already
+    // carries a full authored moveset (`projectile_polygon_moveset`). It has no
+    // catalog-row MELEE, which is what this census measures, and it does not
+    // need one.
+    //
+    // ⛔ So do not read this list as "fighters that cannot fight". It is
+    // "fighters whose CATALOG ROW gives them no melee", and those are two
+    // different populations now that the grid has a ranged character on it. If
+    // a third reason ever lands here, this list has outlived its question.
+    "projectile_polygon",
 ];
 
 #[test]

@@ -4591,3 +4591,229 @@ fn volumes_that_do_not_both_reach_the_body_both_still_land() {
          standing a volume down globally instead of per victim"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE STRIKE PULSE — one continuous Active interval, one per-victim ledger.
+//
+// ⭐⭐ The sweetspot arbitration resolves a TIE: which of two volumes takes a
+// body reached by BOTH on one tick. That is not "one swing lands once", and the
+// tests above cannot tell the two apart because they stand the victim where
+// both volumes overlap at once. These stand it where only ONE reaches, and move
+// it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A narrow spot, so a body can be inside one and outside its sibling.
+fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
+    HitVolume {
+        hit_sfx: None,
+        shape: ambition_entity_catalog::VolumeShape::Rect {
+            offset,
+            half_extents: (8.0, 30.0),
+        },
+        damage,
+        knockback: 100.0,
+        knockback_growth: None,
+        launch_dir: None,
+        on_hit: None,
+        vfx: None,
+    }
+}
+
+/// The two-spot chain with the victim's position under the caller's control,
+/// and a move whose Active stretch is authored by the caller.
+fn pulse_app(spec: MoveSpec, victim_x: f32) -> (App, Entity, Entity) {
+    let moveset = MovesetContract {
+        verbs: [(ATTACK_VERB.to_string(), spec.id.clone())]
+            .into_iter()
+            .collect(),
+        moves: vec![spec],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.init_resource::<Captured>();
+    app.add_systems(
+        Update,
+        (apply_hitbox_damage, capture)
+            .chain()
+            .after(advance_move_playback),
+    );
+    let victim = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Enemy,
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(victim_x, 0.0),
+                ae::Vec2::new(8.0, 40.0),
+            ),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_characters::actor::BodyHealth::restored(
+                ambition_characters::actor::Health::new(100),
+                0,
+                Default::default(),
+            ),
+        ))
+        .id();
+    (app, body, victim)
+}
+
+fn stand_at(app: &mut App, victim: Entity, x: f32) {
+    let mut aabb = app
+        .world_mut()
+        .get_mut::<ae::CenteredAabb>(victim)
+        .expect("the victim publishes a footprint");
+    aabb.center = ae::Vec2::new(x, 0.0);
+}
+
+/// Swing, then walk the victim through `stations` — one tick each.
+fn swing_across(app: &mut App, body: Entity, victim: Entity, stations: &[f32]) -> Vec<i32> {
+    set_frame(app, body, |f| f.melee_pressed = true);
+    app.update();
+    set_frame(app, body, |f| f.melee_pressed = false);
+    for x in stations {
+        stand_at(app, victim, *x);
+        app.update();
+    }
+    for _ in 0..12 {
+        app.update();
+    }
+    app.world()
+        .resource::<Captured>()
+        .hits
+        .iter()
+        .filter(|h| matches!(h.target, crate::events::HitTarget::Body(_)))
+        .map(|h| h.damage)
+        .collect()
+}
+
+/// A move whose Active stretch is TWO CONTIGUOUS windows with DIFFERENT volume
+/// counts and orders — the case the by-index handoff could not express.
+fn two_keyframe_move(id: &str, first: Vec<HitVolume>, second: Vec<HitVolume>) -> MoveSpec {
+    let mut spec = uncancelable(id);
+    spec.duration_s = 0.4;
+    spec.windows = vec![
+        MoveWindow {
+            start_s: 0.0,
+            end_s: 0.05,
+            tag: WindowTag::Active,
+            volumes: first,
+            sustain_effect: None,
+            motion_scale: 1.0,
+        },
+        MoveWindow {
+            start_s: 0.05,
+            end_s: 0.25,
+            tag: WindowTag::Active,
+            volumes: second,
+            sustain_effect: None,
+            motion_scale: 1.0,
+        },
+    ];
+    spec
+}
+
+/// ⭐⭐ SOUR THEN SWEET IS ONE HIT.
+///
+/// The victim is struck by the far volume on one tick and steps into the near
+/// one on the next. Before the pulse ledger the near volume's OWN ledger was
+/// empty and no sibling reached the body at that instant, so the same swing
+/// landed a second time for a second damage and a second knockback.
+#[test]
+fn stepping_from_the_sour_spot_into_the_sweet_one_is_still_one_hit() {
+    let (mut app, body, victim) = pulse_app(
+        two_spot_move(
+            "two_spots",
+            vec![narrow_spot((0.0, 0.0), 15), narrow_spot((60.0, 0.0), 4)],
+        ),
+        60.0,
+    );
+    assert_eq!(
+        swing_across(&mut app, body, victim, &[60.0, 60.0, 0.0, 0.0]),
+        vec![4],
+        "one swing landed twice across ticks: the sour spot, then the sweet one"
+    );
+}
+
+/// ⭐⭐ AND SWEET THEN SOUR, which is the same defect the other way round and
+/// would survive a fix that only remembered the BEST hit.
+#[test]
+fn stepping_from_the_sweet_spot_into_the_sour_one_is_still_one_hit() {
+    let (mut app, body, victim) = pulse_app(
+        two_spot_move(
+            "two_spots",
+            vec![narrow_spot((0.0, 0.0), 15), narrow_spot((60.0, 0.0), 4)],
+        ),
+        0.0,
+    );
+    assert_eq!(
+        swing_across(&mut app, body, victim, &[0.0, 0.0, 60.0, 60.0]),
+        vec![15],
+        "one swing landed twice across ticks: the sweet spot, then the sour one"
+    );
+}
+
+/// ⛔⛔ AND ACROSS A KEYFRAME THAT CHANGES THE VOLUME COUNT AND ORDER.
+///
+/// The predecessor handed a closing window's ledgers to the next one BY VOLUME
+/// INDEX — "volume `v` hands to volume `v`" — so a swing that authors one
+/// volume in its first keyframe and two in its second gave the first's memory to
+/// whichever volume happened to be written first, and the other started empty.
+/// The pulse owns the ledger, so the ordinal cannot matter.
+#[test]
+fn a_keyframe_that_changes_its_volumes_does_not_reset_the_pulse() {
+    let (mut app, body, victim) = pulse_app(
+        two_keyframe_move(
+            "two_keyframes",
+            // One volume, far out.
+            vec![narrow_spot((60.0, 0.0), 4)],
+            // Two volumes, near one FIRST — so index 0 is a different volume in
+            // the second keyframe than it was in the first.
+            vec![narrow_spot((0.0, 0.0), 15), narrow_spot((60.0, 0.0), 4)],
+        ),
+        60.0,
+    );
+    assert_eq!(
+        swing_across(&mut app, body, victim, &[60.0, 0.0, 0.0, 0.0]),
+        vec![4],
+        "the pulse's ledger did not survive a keyframe whose volume list changed \
+         shape, so the swing landed again out of the new window"
+    );
+}
+
+/// ⭐ AND A REAL GAP EARNS A SECOND HIT, which is what a multi-hit IS.
+///
+/// the poison for all three above: a fix that simply never let a move
+/// hit twice would pass them and delete the drill, the rapid jab and every
+/// pulsing move in the genre.
+#[test]
+fn a_gap_in_active_time_starts_a_new_pulse_and_hits_again() {
+    let mut spec = uncancelable("two_pulses");
+    spec.duration_s = 0.5;
+    spec.windows = vec![
+        MoveWindow {
+            start_s: 0.0,
+            end_s: 0.05,
+            tag: WindowTag::Active,
+            volumes: vec![narrow_spot((0.0, 0.0), 15)],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        },
+        // THE GAP: no Active coverage between 0.05 and 0.20.
+        MoveWindow {
+            start_s: 0.20,
+            end_s: 0.35,
+            tag: WindowTag::Active,
+            volumes: vec![narrow_spot((0.0, 0.0), 15)],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        },
+    ];
+    let (mut app, body, victim) = pulse_app(spec, 0.0);
+    assert_eq!(
+        swing_across(&mut app, body, victim, &[0.0, 0.0, 0.0, 0.0]),
+        vec![15, 15],
+        "a move whose Active stretch has a GAP in it is a multi-hit, and its \
+         second pulse must reach a body its first already hit"
+    );
+}

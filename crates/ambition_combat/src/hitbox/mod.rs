@@ -263,7 +263,7 @@ pub fn apply_hitbox_damage(
     //
     // This is the whole of the sweetspot rule's input: which other volumes one
     // move has live right now, and which of them the author wrote first.
-    strike_ranks: Query<(&Hitbox, &crate::moveset::StrikeRank)>,
+    strike_ranks: Query<(Entity, &Hitbox, &crate::moveset::StrikeRank)>,
     // EVERY VICTIM'S GUARD, taken mutably and looked up by entity like the
     // attacker rows below. This is where a perfect shield CATCHES a strike, so
     // the guard is written, not read — see the parry arm in the victim loop.
@@ -294,6 +294,26 @@ pub fn apply_hitbox_damage(
     // the resource is borrowed once and each rule takes what it needs.
     let rules = tuning.as_deref().copied().unwrap_or_default();
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
+    // ⭐⭐ THE PULSE'S LEDGER, collected here and written to every sibling after
+    // the sweep. `(striker, owner, victim)`.
+    //
+    // ⛔⛔ "ONE SWING LANDS ONCE" WAS NOT WHAT THE ARBITRATION ABOVE
+    // IMPLEMENTED. It resolves a TIE — which of two overlapping volumes takes a
+    // body reached by both, on one tick — and the ledger it deduplicates
+    // against belonged to ONE hitbox. So a victim struck by the sourspot on one
+    // tick, stepping into the sweetspot on the next, was unknown to the
+    // sweetspot's own empty ledger and was hit AGAIN by the same swing. Both
+    // orders, and no test could see it: they placed the victim where both
+    // volumes overlapped AT ONCE, which is the tie and not the invariant.
+    //
+    // ⚠ A DESIGN COLLISION, not an oversight. The arbitration's own note
+    // defended "a sourspot whose sweetspot window has closed is free again on
+    // the very next tick, which is what a lingering late hit should be" — and
+    // that sentence and "one swing lands once" cannot both be true of
+    // independent per-volume ledgers. The pulse is the level that owns both: a
+    // late sourspot is the SAME pulse and does not re-hit, while a genuine
+    // multi-hit puts a GAP in Active time and earns its second hit.
+    let mut pulse_records: Vec<(Entity, Entity, Entity)> = Vec::new();
     for (hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
         // Actors carry `CenteredAabb`; bare fixtures may carry only
@@ -383,8 +403,8 @@ pub fn apply_hitbox_damage(
                 // about, and a sourspot whose sweetspot window has closed is
                 // free again on the very next tick, which is what a lingering
                 // late hit should be.
-                if let Ok((_, rank)) = strike_ranks.get(hitbox_entity) {
-                    let outranked = strike_ranks.iter().any(|(sibling, sibling_rank)| {
+                if let Ok((_, _, rank)) = strike_ranks.get(hitbox_entity) {
+                    let outranked = strike_ranks.iter().any(|(_, sibling, sibling_rank)| {
                         sibling.owner == hitbox.owner
                             && sibling_rank < rank
                             && strike_reaches_victim(
@@ -401,6 +421,7 @@ pub fn apply_hitbox_damage(
                     if shield.parrying() {
                         shield.catch_parry();
                         hits.hit.insert(victim.entity);
+                        pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
                         continue;
                     }
                 }
@@ -489,6 +510,7 @@ pub fn apply_hitbox_damage(
                     contact: impact,
                 });
                 hits.hit.insert(victim.entity);
+                pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
             }
 
             // Publish the unresolved feature half of the strike after body targets
@@ -542,6 +564,33 @@ pub fn apply_hitbox_damage(
             HitSide::Neutral => {}
             // These sides were consumed by `melee_source` and continued above.
             HitSide::Enemy | HitSide::Boss | HitSide::Npc => unreachable!(),
+        }
+    }
+
+    // THE PULSE RECORDS ITS VICTIMS ON EVERY SIBLING, so a swing that lands
+    // with one of its volumes cannot land again with another.
+    //
+    // ⛔ written AFTER the sweep, not during it: the sweep holds `hits`
+    // mutably for the striking box, and the siblings are rows of the same
+    // query. Deferring is also what keeps the order irrelevant — a set union
+    // is the same however it is built.
+    //
+    // ⚠ MOVE VOLUMES ONLY. A projectile or a stage hazard has no pulse and no
+    // siblings, so it keeps the per-hitbox ledger it always had; membership of
+    // a pulse is exactly `StrikeRank`, which only `advance_move_playback`
+    // grants.
+    let siblings: Vec<(Entity, Entity)> = strike_ranks
+        .iter()
+        .map(|(entity, hitbox, _)| (entity, hitbox.owner))
+        .collect();
+    for (striker, owner, victim) in pulse_records {
+        for (sibling, sibling_owner) in &siblings {
+            if *sibling_owner != owner || *sibling == striker {
+                continue;
+            }
+            if let Ok((_, _, mut hits)) = hitboxes.get_mut(*sibling) {
+                hits.hit.insert(victim);
+            }
         }
     }
 }

@@ -960,7 +960,23 @@ pub fn advance_move_playback(
         // Nothing about it is rollback state, which is why this costs no wire
         // format. it does assume `windows` is authored in time order, which
         // every spec is and `MoveFrameData` already relies on.
-        let mut handoff: Vec<(f32, Vec<std::collections::HashSet<Entity>>)> = Vec::new();
+        // ⭐⭐ ONE SET FOR THE WHOLE PULSE, not one per volume index.
+        //
+        // ⛔⛔ THE PREDECESSOR HANDED OFF BY VOLUME INDEX — "volume `v` hands to
+        // volume `v`" — which attached a swing's hit memory to an ORDINAL. A
+        // keyframe that changed how many volumes it authors, or their order,
+        // silently gave one volume's memory to a different volume; and it could
+        // not express the thing it was for, because a victim struck by the
+        // SOURSPOT on one tick was recorded only in the sourspot's ledger, so
+        // stepping into the SWEETSPOT on the next tick landed a second hit off
+        // the same swing.
+        //
+        // A pulse is ONE continuous stretch of Active time, and it owns ONE
+        // per-victim ledger shared by every sibling volume in it. A GAP in
+        // Active time starts a new pulse and earns a second hit — which is
+        // exactly what a genuine multi-hit (a drill, a rapid jab) is, and what
+        // separates one from a sweet/sour pair.
+        let mut handoff: Vec<(f32, std::collections::HashSet<Entity>)> = Vec::new();
 
         // Active windows: spawn volumes on entry, despawn on exit. The box
         // lives exactly while the OWNER'S clock is inside the window, so
@@ -1136,13 +1152,15 @@ pub fn advance_move_playback(
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
-                        // The track handoff: a window opening exactly where an
-                        // Active window closed this tick inherits who that box
-                        // already hit, so one swing is one hit per victim.
+                        // The PULSE handoff: a window opening exactly where an
+                        // Active window closed this tick continues the same
+                        // pulse, so every volume it spawns starts from what the
+                        // pulse has already hit. ⛔ not per volume index — see
+                        // the note on `handoff`.
                         let carried = handoff
                             .iter()
                             .find(|(end_s, _)| *end_s == window.start_s)
-                            .and_then(|(_, sets)| sets.get(v_idx).cloned())
+                            .map(|(_, hit)| hit.clone())
                             .unwrap_or_default();
                         let mut ec = commands.spawn((
                             hb,
@@ -1187,21 +1205,18 @@ pub fn advance_move_playback(
                     }
                 }
                 (false, Some(_)) => {
-                    // Carry this window's hit sets forward before the boxes go,
-                    // in spawn order so volume `v` hands to volume `v`. The
-                    // despawn is a deferred command, but reading now is simpler
-                    // than reasoning about when it lands.
+                    // Carry this window's ledger forward before the boxes go —
+                    // the UNION over its volumes, because they share one pulse
+                    // and a victim any of them reached is a victim the pulse
+                    // reached. The despawn is a deferred command, but reading
+                    // now is simpler than reasoning about when it lands.
                     handoff.push((
                         window.end_s,
                         pb.live_boxes
                             .iter()
                             .filter(|(idx, _)| *idx == w_idx)
-                            .map(|(_, entity)| {
-                                live_strike_volumes
-                                    .get(*entity)
-                                    .map(|hits| hits.hit.clone())
-                                    .unwrap_or_default()
-                            })
+                            .filter_map(|(_, entity)| live_strike_volumes.get(*entity).ok())
+                            .flat_map(|hits| hits.hit.iter().copied())
                             .collect(),
                     ));
                     pb.live_boxes.retain(|(idx, entity)| {

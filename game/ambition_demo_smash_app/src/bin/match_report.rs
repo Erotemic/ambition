@@ -1,6 +1,6 @@
 //! Count what two CPUs actually DO to each other over a match.
 //!
-//! `cargo run -p ambition_demo_smash_app --bin match_report -- [SECONDS] [CHARACTER]`
+//! `cargo run -p ambition_demo_smash_app --bin match_report -- [SECONDS] [CHARACTER] [--runs N]`
 //!
 //! Every mechanic in this demo is authored, tuned and reachable; the question
 //! that keeps going unanswered is whether anybody USES it. Three separate
@@ -12,6 +12,13 @@
 //! It is observational and has no pass/fail threshold. The one guard that DOES
 //! assert lives in `tests/the_repertoire_gets_used.rs`; this prints the whole
 //! vocabulary so a number that moved can be seen next to the ones that did not.
+//!
+//! ⛔ `--runs N` IS NOT DECORATION, AND ONE RUN IS NOT A MEASUREMENT. Two
+//! fighters carry an execution-noise stream each, and a single thirty-second
+//! sample of a fight is noisy enough that tuning against it makes things worse:
+//! measured 2026-08-23, an option-scorer change judged on one run took the smash
+//! suite from two failures to four. With `--runs` the spread is printed as
+//! `min–median–max`, which is the shape a threshold should be picked off.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
@@ -63,10 +70,40 @@ struct Tally {
 fn main() {
     let mut args = std::env::args().skip(1);
     let seconds: usize = args.next().and_then(|v| v.parse().ok()).unwrap_or(30);
-    let character = args
-        .next()
-        .unwrap_or_else(|| ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string());
+    let mut character = ambition_demo_smash::SMASH_GEORGE_BOOUL.to_string();
+    let mut runs = 1usize;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--runs" => {
+                runs = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .filter(|n| *n > 0)
+                    .unwrap_or(1);
+            }
+            other => character = other.to_string(),
+        }
+    }
 
+    let all: Vec<Vec<Tally>> = (0..runs)
+        .map(|i| {
+            run_one(
+                &character,
+                seconds,
+                0x5F37_7A11_u64.wrapping_mul(i as u64 + 1),
+            )
+        })
+        .collect();
+
+    if runs == 1 {
+        report_one(&character, seconds, &all[0]);
+    } else {
+        report_spread(&character, seconds, &all);
+    }
+}
+
+/// One match, under one execution-noise stream.
+fn run_one(character: &str, seconds: usize, noise_seed: u64) -> Vec<Tally> {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -74,7 +111,7 @@ fn main() {
     // BOTH SEATS CPU. `SmashSelect::roster` makes every locked seat a HUMAN,
     // which is right for a couch game and wrong here: a report driven through it
     // measures two fighters standing still while nobody presses anything.
-    let characters = [character.as_str(), character.as_str()];
+    let characters = [character, character];
     let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -91,6 +128,19 @@ fn main() {
         app.update();
     }
 
+    // THE STREAM IS FORCED, and this rig supplies it rather than modelling how a
+    // live fighter gets one — the point is the SPREAD across streams, exactly as
+    // `ladder_probe` documents for the same reason.
+    {
+        use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+        let world = app.world_mut();
+        let mut q = world.query::<&mut Brain>();
+        for (index, mut brain) in q.iter_mut(world).enumerate() {
+            if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut *brain {
+                state.noise = noise_seed.wrapping_mul(index as u64 + 1).wrapping_add(1);
+            }
+        }
+    }
     let ticks = seconds * 60;
     let mut totals: Vec<Tally> = vec![Tally::default(); 4];
     let mut live_move: Vec<Option<(String, f32)>> = vec![None; 4];
@@ -107,6 +157,11 @@ fn main() {
         );
     }
 
+
+    totals
+}
+
+fn report_one(character: &str, seconds: usize, totals: &[Tally]) {
     println!("match_report: {character} vs {character}, {seconds}s of CPU-versus-CPU\n");
     println!(
         "{:<6} {:>7} {:>7} {:>8} {:>8} {:>7} {:>8} {:>7} {:>7} {:>7} {:>7} {:>7} {:>8} {:>8}",
@@ -322,4 +377,57 @@ fn sample(
             live_move[seat] = None;
         }
     }
+}
+
+/// `min–median–max` across runs, which is the shape a threshold should be picked
+/// off. One number from one run is a sample of a noisy process, and this rig
+/// exists because a change judged on one made the suite worse.
+fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
+    println!(
+        "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n",
+        all.len()
+    );
+    let spread = |pick: fn(&Tally) -> f32| -> String {
+        let mut values: Vec<f32> = all
+            .iter()
+            .map(|run| run.iter().map(pick).sum::<f32>())
+            .collect();
+        values.sort_by(f32::total_cmp);
+        let median = values[values.len() / 2];
+        format!(
+            "{:.0}–{:.0}–{:.0}",
+            values.first().copied().unwrap_or(0.0),
+            median,
+            values.last().copied().unwrap_or(0.0)
+        )
+    };
+    let peak = |pick: fn(&Tally) -> f32| -> String {
+        let mut values: Vec<f32> = all
+            .iter()
+            .map(|run| run.iter().map(pick).fold(0.0f32, f32::max))
+            .collect();
+        values.sort_by(f32::total_cmp);
+        format!(
+            "{:.2}–{:.2}–{:.2}",
+            values.first().copied().unwrap_or(0.0),
+            values[values.len() / 2],
+            values.last().copied().unwrap_or(0.0)
+        )
+    };
+    println!("  damage      {}", spread(|t| t.damage as f32));
+    println!("  moves       {}", spread(|t| t.moves_started as f32));
+    println!("  hitstun     {}", spread(|t| t.hitstun as f32));
+    println!("  tumbling    {}", spread(|t| t.tumbling as f32));
+    println!("  downed      {}", spread(|t| t.knocked_down as f32));
+    println!("  evading     {}", spread(|t| t.evading as f32));
+    println!("  unhittable  {}", spread(|t| t.unhittable as f32));
+    println!("  shielding   {}", spread(|t| t.shielding as f32));
+    println!("  parries     {}", spread(|t| t.parries_caught as f32));
+    println!("  techs       {}", spread(|t| t.tech_armed as f32));
+    println!("  best charge {}", peak(|t| t.best_charge));
+    println!("  peak launch {}", peak(|t| t.top_speed));
+    println!(
+        "\nmin–median–max across runs. Counts are summed over both seats; charge and \
+         launch are the best either seat reached."
+    );
 }

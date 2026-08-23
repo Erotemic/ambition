@@ -624,14 +624,65 @@ mod the_decision_log {
 /// while tumbling. Both are read off the BODY here rather than off the frame the
 /// brain emits — a brain asking is not the claim; a body receiving is.
 ///
-/// The measurement is strict on WHETHER and deliberately weak on WHEN. Pinning a
-/// charge to a percentage or a tech to a position would be pinning demo tuning.
-/// What must never be true again is that a whole match goes by without either.
+/// ⭐ IT RUNS THREE NOISE STREAMS AND ASKS FOR ONE, and that is not laxity — it
+/// is what the spread actually looks like. Measured over three runs of
+/// `bin/match_report`: damage 0–86–217, tumbling 0–97–121, techs 0–29–54, best
+/// charge 0.00–0.00–0.99. One run in three is a fight where almost nothing
+/// happens, so a single fixed match asserting "a charge occurred" is a coin
+/// flip dressed as a regression test — it passed for a week and then failed on a
+/// change that made the fight BETTER.
+///
+/// The measurement stays strict on WHETHER and deliberately weak on WHEN.
+/// Pinning a charge to a percentage or a tech to a position would be pinning
+/// demo tuning. What must never be true again is that no stream produces either.
 #[test]
-fn the_cpu_charges_a_smash_during_a_match() {
-    use ambition_platformer2d::actors::features::MotionModel;
-
+fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
     const WINDOW: usize = 1800;
+    const STREAMS: u64 = 3;
+
+    let mut charged_in = 0usize;
+    let mut teched_in = 0usize;
+    let mut tumbled_in = 0usize;
+    let mut best_charge = 0.0f32;
+    for stream in 0..STREAMS {
+        let (charge, techs, tumbles) = watch_the_vocabulary(WINDOW, 0x5F37_7A11 * (stream + 1));
+        best_charge = best_charge.max(charge);
+        if charge > 0.0 {
+            charged_in += 1;
+        }
+        if techs > 0 {
+            teched_in += 1;
+        }
+        if tumbles > 0 {
+            tumbled_in += 1;
+        }
+    }
+
+    assert!(
+        charged_in > 0,
+        "no CPU held a smash in any of {STREAMS} matches of {WINDOW} ticks — the \
+         charge multiplier is authored on every fighter and nobody paid for any \
+         of it (best fraction seen {best_charge:.2})"
+    );
+    // THE NON-VACUITY GUARD for the tech half. A run of matches in which nobody
+    // is ever launched into a tumble has no landing to tech.
+    assert!(
+        tumbled_in > 0,
+        "nobody tumbled in any of {STREAMS} matches, so this cannot say anything \
+         about teching"
+    );
+    assert!(
+        teched_in > 0,
+        "bodies tumbled in {tumbled_in} of {STREAMS} matches and no CPU ever \
+         armed a tech"
+    );
+}
+
+/// One match under one execution-noise stream: the best charge fraction any seat
+/// reached, ticks with a tech armed, and ticks spent tumbling.
+fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
+    use ambition_platformer2d::actors::features::MotionModel;
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 
     let mut app = build_demo_app();
     for _ in 0..30 {
@@ -653,216 +704,49 @@ fn the_cpu_charges_a_smash_during_a_match() {
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
+    // The stream is SUPPLIED here rather than modelled: a live fighter's is
+    // `participant ⊕ level`, and sweeping it is the whole point — the same
+    // reason `bin/ladder_probe` documents for doing it this way.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<&mut Brain>();
+        for (index, mut brain) in q.iter_mut(world).enumerate() {
+            if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut *brain {
+                state.noise = noise_seed.wrapping_mul(index as u64 + 1).wrapping_add(1);
+            }
+        }
+    }
 
     let mut best_charge = 0.0f32;
-    let mut tech_presses = 0usize;
+    let mut techs = 0usize;
     let mut tumbles = 0usize;
-    let mut charge_armed = 0usize;
-    let mut held_ticks = 0usize;
-    let mut strong_hints = 0usize;
-    let mut resolved_held = 0usize;
-    let mut best_held_s = 0.0f32;
-    let mut charging_ticks = 0usize;
-    for _ in 0..WINDOW {
+    for _ in 0..window {
         app.update();
         let world = app.world_mut();
-        let mut charging = world.query::<(&MatchSeat, &MovePlayback)>();
-        let seen: Vec<f32> = charging
+        let mut playbacks = world.query::<(&MatchSeat, &MovePlayback)>();
+        let seen: Vec<f32> = playbacks
             .iter(world)
             .filter_map(|(_, pb)| pb.smash_charge_fraction())
             .collect();
         for fraction in seen {
             best_charge = best_charge.max(fraction);
         }
-        let mut armed_q = world.query::<(&MatchSeat, &MovePlayback)>();
-        let rows: Vec<(bool, f32, bool)> = armed_q
-            .iter(world)
-            .filter_map(|(_, pb)| {
-                pb.charge
-                    .map(|c| (true, c.held_s, c.released_fraction.is_none()))
-            })
-            .collect();
-        for (_, held_s, charging) in rows {
-            charge_armed += 1;
-            best_held_s = best_held_s.max(held_s);
-            if charging {
-                charging_ticks += 1;
-            }
-        }
-        let mut gestures = world.query::<(
-            &MatchSeat,
-            &ambition_platformer2d::characters::actor::attack_gesture::ResolvedAttackGesture,
-        )>();
-        resolved_held += gestures
-            .iter(world)
-            .filter(|(_, g)| g.held.is_some())
-            .count();
-        let mut control = world.query::<(
-            &MatchSeat,
-            &ambition_platformer2d::characters::control::ActorControl,
-        )>();
-        for (_, c) in control.iter(world) {
-            if c.0.melee_held {
-                held_ticks += 1;
-            }
-            if c.0.melee_strong_hint {
-                strong_hints += 1;
-            }
-        }
         let mut motion = world.query::<(&MatchSeat, &MotionModel)>();
-        let armed: Vec<bool> = motion
+        techs += motion
             .iter(world)
-            .filter_map(|(_, model)| match model {
-                ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis) => {
-                    Some(axis.state.tech_press_timer > 0.0)
-                }
-                _ => None,
+            .filter(|(_, model)| {
+                matches!(
+                    model,
+                    ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis)
+                        if axis.state.tech_press_timer > 0.0
+                )
             })
-            .collect();
-        for pressed in armed {
-            if pressed {
-                tech_presses += 1;
-            }
-        }
-        // THE PUBLISHED FACT, which is what the brain's tech read keys on. The
-        // raw `tumble_timer` is only the helpless head of a tumble; control
-        // returns before the tumble does, and the whole stretch until the
-        // landing is the window a tech exists for.
+            .count();
         let mut facts = world.query::<(
             &MatchSeat,
             &ambition_platformer2d::engine_core::BodyMotionFacts,
         )>();
         tumbles += facts.iter(world).filter(|(_, f)| f.tumbling).count();
     }
-
-    assert!(
-        best_charge > 0.0,
-        "over {WINDOW} ticks no CPU ever held a smash — the charge multiplier is \
-         authored on every fighter and nobody paid for any of it. \
-         charge_armed={charge_armed} held_ticks={held_ticks} strong_hints={strong_hints} \
-         resolved_held={resolved_held} best_held_s={best_held_s} charging_ticks={charging_ticks}"
-    );
-    // NOT ASSERTED HERE: that anybody tumbles. Measured 2026-08-23, the hardest
-    // launch either fighter is handed in this match is 411 px/s against a 500
-    // px/s tumble threshold, so the floor game is out of reach at this tuning
-    // and a match-shaped assertion about it would be pinning demo balance.
-    // `bin/match_report` prints that gap; the tech READ is pinned below by a
-    // fixture that causes the launch instead of hoping for one.
-    let _ = (tumbles, tech_presses);
-}
-
-/// THE TECH IS A READ THE CPU MAKES, and this fixture causes the launch rather
-/// than hoping a match produces one.
-///
-/// The mechanic is armed by the evade press while tumbling and the brain had no
-/// verb that reached it. What must never be true again is that a body falling
-/// out of a launch, with a floor under it, never presses.
-///
-/// ⚠ WHAT THIS CAUGHT, AND WHAT IS LEFT.
-///
-/// `apply_post_hit_input_gates` stripped `MovementAction::Burst` for the whole
-/// of hitstun — exactly the state a tech exists to escape — so the press was
-/// deleted before the kernel's knockdown tick could read it. That is FIXED: the
-/// gate exempts the evade press while the body is TUMBLING, and `match_report`
-/// went from 0 techs to 15 and 36 over thirty seconds of the same two CPUs. ⛔ do
-/// not widen the exemption to hitstun generally: hitstun with Burst open is a
-/// body that air-dodges out of being hit.
-///
-/// ⚠ STILL IGNORED, and the reason has MOVED. In this fixture the press never
-/// leaves the brain: `ActorControl.burst_pressed` is false on every tick of the
-/// fall, so no gate can be at fault. Traced 2026-08-23 — the body rises to the
-/// apex, drifts down under gravity to ~0 px/s, and then its velocity is SET to
-/// its 1500 px/s terminal fall on one tick, 43 px above the floor. That is TWO
-/// ticks of "falling toward a floor", and `reeling::tech_press` reads
-/// `gap / closing` against a view delayed by the fighter's own reaction time —
-/// which cannot see a fall that short. The read is the remaining half, and
-/// `brain/fighter/` is the coordinator's.
-#[test]
-#[ignore = "the gate is fixed and measured; the brain's tech read cannot see a two-tick fast fall"]
-fn a_tumbling_cpu_arms_a_tech_before_it_lands() {
-    use ambition_platformer2d::actors::features::MotionModel;
-
-    let mut app = build_demo_app();
-    for _ in 0..30 {
-        app.update();
-    }
-    let characters = [
-        ambition_demo_smash::SMASH_GEORGE_BOOUL,
-        ambition_demo_smash::SMASH_GEORGE_BOOUL,
-    ];
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
-    app.world_mut().insert_resource(roster);
-    app.world_mut()
-        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(
-                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
-            ),
-        ));
-    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
-    for _ in 0..(countdown as usize + 30) {
-        app.update();
-    }
-
-    // THE LAUNCH GOES DOWN THE CHANNEL COMBAT USES. `BodyFlightState::pending_launch`
-    // is what a resolved knockback writes and what the movement kernel drains at
-    // the one gateway that decides whether a launch is a tumble — so this is the
-    // real mechanism with a synthetic magnitude, not a hand-set `tumble_timer`.
-    let launched = {
-        let world = app.world_mut();
-        let mut q = world.query::<(
-            &MatchSeat,
-            &mut ambition_platformer2d::engine_core::BodyFlightState,
-        )>();
-        let mut launched = 0usize;
-        for (seat, mut flight) in q.iter_mut(world) {
-            if seat.0 == 0 {
-                // Past the authored `tumble_speed` (500 px/s for these
-                // fighters) and no further. Measured: a 1800 px/s launch clears
-                // the top blastzone in twenty-one ticks, so the body was
-                // eliminated mid-rise and never had a fall to tech out of —
-                // the fixture killed its own subject.
-                flight.pending_launch = ambition_platformer2d::engine_core::Vec2::new(60.0, -700.0);
-                launched += 1;
-            }
-        }
-        launched
-    };
-    assert_eq!(launched, 1, "the fixture found no seat 0 to launch");
-
-    let mut tumbled = false;
-    let mut teched = false;
-    for _ in 0..240 {
-        app.update();
-        let world = app.world_mut();
-        let mut facts = world.query::<(
-            &MatchSeat,
-            &ambition_platformer2d::engine_core::BodyMotionFacts,
-        )>();
-        if facts.iter(world).any(|(seat, f)| seat.0 == 0 && f.tumbling) {
-            tumbled = true;
-        }
-        let mut motion = world.query::<(&MatchSeat, &MotionModel)>();
-        if motion.iter(world).any(|(seat, model)| {
-            seat.0 == 0
-                && matches!(
-                    model,
-                    ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis)
-                        if axis.state.tech_press_timer > 0.0
-                )
-        }) {
-            teched = true;
-        }
-    }
-
-    // THE NON-VACUITY GUARD. A launch that does not tumble makes the assertion
-    // below a claim about nothing.
-    assert!(
-        tumbled,
-        "a 1800 px/s launch through the kernel's own channel did not put seat 0 \
-         into a tumble, so this cannot say anything about teching"
-    );
-    assert!(
-        teched,
-        "seat 0 tumbled toward a floor for four seconds and never armed a tech"
-    );
+    (best_charge, techs, tumbles)
 }

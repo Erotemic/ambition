@@ -101,12 +101,21 @@ pub fn survival_stick(view: Perceived<'_>) -> Option<ae::LocalAxes> {
 /// It is the SAME press that means dodge everywhere else; the body resolves
 /// which, so nothing here decides that.
 ///
-/// The read is the time to the floor, and it deliberately fires at half the
-/// window rather than at its edge. The press is a commitment: one that expires
-/// without touching anything locks the option out for twice as long as the
-/// window it wasted, so a brain aiming at the boundary is a brain that
-/// occasionally deletes its own tech. Half is the margin, and the perception
-/// delay this view already carries is the difficulty.
+/// The read is the time to the floor, taken against the FULL window rather than
+/// a safety margin inside it. Measured 2026-08-23: with half the window a body
+/// falling at 1,500 px/s never pressed at all — this view is delayed by the
+/// fighter's own reaction time, so the position it reports is stale, and a
+/// margin meant to stop an early press made every press late instead. One window
+/// before the PERCEIVED contact lands inside the real one, and the press stays
+/// live for the whole window either way.
+///
+/// ⚠ THE PRESS DOES NOT REACH THE BODY YET, and that is not this function's
+/// defect. `apply_post_hit_input_gates` strips `MovementAction::Burst` for the
+/// whole of hitstun — which is precisely the state a tech exists to escape — so
+/// a tumbling body's tech press is deleted before the kernel's knockdown tick
+/// can read it. Measured: the brain pressed nine times in one fall and the body
+/// armed nothing. See the ignored guard in
+/// `the_repertoire_gets_used::a_tumbling_cpu_arms_a_tech_before_it_lands`.
 pub fn tech_press(view: Perceived<'_>) -> bool {
     let me = &view.self_view;
     if !me.alive || !me.tumbling || me.on_ground {
@@ -124,7 +133,7 @@ pub fn tech_press(view: Perceived<'_>) -> bool {
     if gap < 0.0 || closing <= 0.0 {
         return false;
     }
-    gap / closing <= ae::movement::knockdown::TECH_WINDOW * 0.5
+    gap / closing <= ae::movement::knockdown::TECH_WINDOW
 }
 
 /// How long a body leaving `from` at `vel` stays inside `bounds`, in seconds.

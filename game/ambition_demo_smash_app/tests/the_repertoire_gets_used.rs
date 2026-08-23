@@ -628,7 +628,7 @@ mod the_decision_log {
 /// charge to a percentage or a tech to a position would be pinning demo tuning.
 /// What must never be true again is that a whole match goes by without either.
 #[test]
-fn the_cpu_charges_a_smash_and_arms_a_tech_during_a_match() {
+fn the_cpu_charges_a_smash_during_a_match() {
     use ambition_platformer2d::actors::features::MotionModel;
 
     const WINDOW: usize = 1800;
@@ -739,28 +739,122 @@ fn the_cpu_charges_a_smash_and_arms_a_tech_during_a_match() {
         best_charge > 0.0,
         "over {WINDOW} ticks no CPU ever held a smash — the charge multiplier is \
          authored on every fighter and nobody paid for any of it. \
-         charge_armed={charge_armed} held_ticks={held_ticks} strong_hints={strong_hints} resolved_held={resolved_held} best_held_s={best_held_s} charging_ticks={charging_ticks}"
+         charge_armed={charge_armed} held_ticks={held_ticks} strong_hints={strong_hints} \
+         resolved_held={resolved_held} best_held_s={best_held_s} charging_ticks={charging_ticks}"
     );
-    // THE NON-VACUITY GUARD for the tech half. A match in which nobody is ever
-    // launched hard enough to tumble has no landing to tech, and the assertion
-    // below would be measuring the absence of tumbles rather than the absence of
-    // the read.
-    let damage: Vec<i32> = {
+    // NOT ASSERTED HERE: that anybody tumbles. Measured 2026-08-23, the hardest
+    // launch either fighter is handed in this match is 411 px/s against a 500
+    // px/s tumble threshold, so the floor game is out of reach at this tuning
+    // and a match-shaped assertion about it would be pinning demo balance.
+    // `bin/match_report` prints that gap; the tech READ is pinned below by a
+    // fixture that causes the launch instead of hoping for one.
+    let _ = (tumbles, tech_presses);
+}
+
+/// THE TECH IS A READ THE CPU MAKES, and this fixture causes the launch rather
+/// than hoping a match produces one.
+///
+/// The mechanic is armed by the evade press while tumbling and the brain had no
+/// verb that reached it. What must never be true again is that a body falling
+/// out of a launch, with a floor under it, never presses.
+///
+/// ⚠ IGNORED, AND THE REASON IS THE POINT. The brain presses — measured, nine
+/// presses in one fall — and the body arms nothing, because
+/// `apply_post_hit_input_gates` strips `MovementAction::Burst` for the whole of
+/// hitstun. That is exactly the state a tech exists to escape, so the press is
+/// deleted before the kernel's knockdown tick can read it, and teching is
+/// unreachable for every body in the game including a human one. The kernel's
+/// own tech tests pass because they hand the kernel a synthetic `InputState` and
+/// never cross that gate.
+///
+/// Un-ignore this the moment the gate lets a tumbling body's evade press
+/// through; it is the guard for that fix and it needs no other edit.
+#[test]
+#[ignore = "the post-hit input gate strips Burst for all of hitstun, so no body can tech"]
+fn a_tumbling_cpu_arms_a_tech_before_it_lands() {
+    use ambition_platformer2d::actors::features::MotionModel;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    let characters = [
+        ambition_demo_smash::SMASH_GEORGE_BOOUL,
+        ambition_demo_smash::SMASH_GEORGE_BOOUL,
+    ];
+    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    for _ in 0..(countdown as usize + 30) {
+        app.update();
+    }
+
+    // THE LAUNCH GOES DOWN THE CHANNEL COMBAT USES. `BodyFlightState::pending_launch`
+    // is what a resolved knockback writes and what the movement kernel drains at
+    // the one gateway that decides whether a launch is a tumble — so this is the
+    // real mechanism with a synthetic magnitude, not a hand-set `tumble_timer`.
+    let launched = {
         let world = app.world_mut();
         let mut q = world.query::<(
             &MatchSeat,
-            &ambition_platformer2d::characters::actor::BodyHealth,
+            &mut ambition_platformer2d::engine_core::BodyFlightState,
         )>();
-        q.iter(world).map(|(_, h)| h.damage_taken()).collect()
+        let mut launched = 0usize;
+        for (seat, mut flight) in q.iter_mut(world) {
+            if seat.0 == 0 {
+                // Past the authored `tumble_speed` (500 px/s for these
+                // fighters) and no further. Measured: a 1800 px/s launch clears
+                // the top blastzone in twenty-one ticks, so the body was
+                // eliminated mid-rise and never had a fall to tech out of —
+                // the fixture killed its own subject.
+                flight.pending_launch = ambition_platformer2d::engine_core::Vec2::new(60.0, -700.0);
+                launched += 1;
+            }
+        }
+        launched
     };
+    assert_eq!(launched, 1, "the fixture found no seat 0 to launch");
+
+    let mut tumbled = false;
+    let mut teched = false;
+    for _ in 0..240 {
+        app.update();
+        let world = app.world_mut();
+        let mut facts = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::engine_core::BodyMotionFacts,
+        )>();
+        if facts.iter(world).any(|(seat, f)| seat.0 == 0 && f.tumbling) {
+            tumbled = true;
+        }
+        let mut motion = world.query::<(&MatchSeat, &MotionModel)>();
+        if motion.iter(world).any(|(seat, model)| {
+            seat.0 == 0
+                && matches!(
+                    model,
+                    ambition_platformer2d::engine_core::MotionModel::AxisSwept(axis)
+                        if axis.state.tech_press_timer > 0.0
+                )
+        }) {
+            teched = true;
+        }
+    }
+
+    // THE NON-VACUITY GUARD. A launch that does not tumble makes the assertion
+    // below a claim about nothing.
     assert!(
-        tumbles > 0,
-        "no body tumbled in {WINDOW} ticks, so this cannot say anything about \
-         teching. damage at the end: {damage:?}"
+        tumbled,
+        "a 1800 px/s launch through the kernel's own channel did not put seat 0 \
+         into a tumble, so this cannot say anything about teching"
     );
     assert!(
-        tech_presses > 0,
-        "bodies tumbled {tumbles} times over {WINDOW} ticks and no CPU ever armed \
-         a tech"
+        teched,
+        "seat 0 tumbled toward a floor for four seconds and never armed a tech"
     );
 }

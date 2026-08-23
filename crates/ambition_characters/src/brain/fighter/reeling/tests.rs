@@ -165,11 +165,10 @@ fn falling(gap: f32, speed: f32) -> WorldView {
     view
 }
 
-/// THE READ: a tumbling body about to touch down presses. Half the window at
-/// this speed is a gap of `speed * TECH_WINDOW / 2`.
+/// THE READ: a tumbling body about to touch down presses.
 #[test]
 fn a_tumbling_body_techs_the_landing_it_can_see_coming() {
-    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    let close = ae::movement::knockdown::TECH_WINDOW * 600.0 * 0.5;
     assert!(tech_press(Perceived::cheating(&falling(close, 600.0))));
 }
 
@@ -185,7 +184,7 @@ fn a_body_still_high_above_the_floor_does_not_spend_its_tech() {
 /// Rising out of a launch is not a landing, however close the floor is.
 #[test]
 fn a_body_moving_away_from_the_floor_does_not_tech() {
-    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    let close = ae::movement::knockdown::TECH_WINDOW * 600.0 * 0.5;
     assert!(!tech_press(Perceived::cheating(&falling(close, -600.0))));
 }
 
@@ -194,7 +193,7 @@ fn a_body_moving_away_from_the_floor_does_not_tech() {
 /// button, so it would come out as an air dodge.
 #[test]
 fn an_ordinary_fall_is_not_teched() {
-    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    let close = ae::movement::knockdown::TECH_WINDOW * 600.0 * 0.5;
     let mut view = falling(close, 600.0);
     view.self_view.tumbling = false;
     assert!(!tech_press(Perceived::cheating(&view)));
@@ -204,7 +203,7 @@ fn an_ordinary_fall_is_not_teched() {
 /// blastzone has a recovery problem, not a landing one.
 #[test]
 fn a_body_over_the_void_does_not_tech() {
-    let close = ae::movement::knockdown::TECH_WINDOW * 0.5 * 600.0 * 0.5;
+    let close = ae::movement::knockdown::TECH_WINDOW * 600.0 * 0.5;
     let mut view = falling(close, 600.0);
     view.terrain.clear();
     assert!(!tech_press(Perceived::cheating(&view)));

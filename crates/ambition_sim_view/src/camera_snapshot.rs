@@ -897,10 +897,17 @@ pub struct ResolvedCameraSnapshot {
 struct CastFraming {
     /// Cast bounds drive target center, minimum view size, and must-frame clamp relaxation.
     bounds: ae::Aabb,
-    /// How many bodies the cast resolved to. A DROP in this is the
-    /// discontinuity the close-rate cap exists for — see
+    /// How many bodies the cast resolved to. A DROP in this is ONE of the two
+    /// discontinuities the close-rate cap exists for — see
     /// [`CAST_FRAMING_CLOSE_MAX_UNITS_PER_S`].
     members: usize,
+    /// A cast member did not TRAVEL to where it now is — it was put there.
+    ///
+    /// The other discontinuity, and the one that was missed: a fighter that
+    /// loses a stock never leaves the cast, it is teleported from the blast
+    /// zone back onto the respawn platform, so the population is unchanged and
+    /// the box collapses inward by the width of the stage in a single tick.
+    teleported: bool,
     /// The body the presented-pose sample is taken from — the first seat, so
     /// the choice is stable rather than whichever entity sorted first.
     anchor: bevy::prelude::Entity,
@@ -968,10 +975,46 @@ const CAST_FRAMING_SETTLE_SECONDS: f32 = 0.5;
 
 /// Does this frame's cast population mean a discontinuity is starting?
 ///
-/// A DROP only. A cast that gained a member (a respawn) grew its box outward,
-/// and outward edges are adopted immediately — there is nothing to smooth.
+/// A DROP only. A cast that GAINED a member grew its box outward, and outward
+/// edges are adopted immediately — there is nothing to smooth.
+///
+/// ⛔ This is not the whole question, and reading it as though it were is how
+/// the respawn lurch survived: a fighter losing a stock is a member that
+/// neither left nor joined. See [`CastFraming::teleported`].
 fn a_cast_member_was_lost(previous: Option<usize>, now: usize) -> bool {
     previous.is_some_and(|previous| now < previous)
+}
+
+/// Which cast members arrived somewhere they could not have travelled to?
+///
+/// `last_seen` is this system's own record of where each member was on the
+/// previous resolve, updated in place. A member with no record yet is new and
+/// cannot have teleported.
+///
+/// ⭐ THE PREDICATE IS `presented_pose`'s, deliberately. That module already
+/// refuses to EXTRAPOLATE across a teleport; this one must refuse to CHASE
+/// one, and both are the same question about the same bodies. A second
+/// implementation here would be a second opinion that drifts.
+///
+/// One tick is assumed rather than measured, which is the conservative
+/// direction: a frame that advanced two ticks could read a very fast body as a
+/// teleport, and the only consequence is that the cap arms for half a second
+/// during play it would not otherwise touch.
+fn placed_cast_members(
+    last_seen: &mut Vec<(bevy::prelude::Entity, ae::Vec2)>,
+    now: &[(bevy::prelude::Entity, ae::Vec2, ae::Vec2)],
+) -> Vec<bevy::prelude::Entity> {
+    let mut placed = Vec::new();
+    for (entity, pos, vel) in now {
+        if let Some((_, was)) = last_seen.iter().find(|(seen, _)| seen == entity) {
+            if !crate::presented_pose::travelled_under_own_power(*was, *pos, *vel, 1) {
+                placed.push(*entity);
+            }
+        }
+    }
+    last_seen.clear();
+    last_seen.extend(now.iter().map(|(entity, pos, _)| (*entity, *pos)));
+    placed
 }
 
 /// How far an inward edge may move this frame, in world units.
@@ -992,6 +1035,15 @@ fn cast_close_allowance(settling_seconds: f32, dt: f32) -> f32 {
 /// `outward` is `+1` for a maximum edge and `-1` for a minimum. Expansion is immediate;
 /// contraction eases at [`CAST_FRAMING_CLOSE_HZ`] and is additionally capped at
 /// `max_step` world units this frame. Easing the box keeps center, zoom, and clamp coherent.
+///
+/// ⛔ EXPANSION MUST STAY IMMEDIATE. Capping it while a discontinuity settles
+/// looks like the obvious way to absorb a respawn — the teleport moves one edge
+/// inward and the opposite edge outward in the same tick — and it took the
+/// stock-loss lurch from 143 units to 6.7. It also put a live fighter outside
+/// the frame on four body-frames of one match, which
+/// `every_live_fighter_stays_inside_the_frame` caught: a body launched during
+/// the settle window outruns a capped edge. The respawn is absorbed by taking
+/// the PLACED body out of the box instead — see `frame_the_cast`.
 fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_step: f32) -> f32 {
     if (current - previous) * outward >= 0.0 {
         return current;
@@ -1007,12 +1059,23 @@ fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_ste
     previous + step
 }
 
+/// Framing bounds and stable anchor for the declared cast.
+///
+/// ⛔ EVERY MEMBER IS IN THE BOX, INCLUDING ONE THAT WAS JUST PLACED. Leaving a
+/// respawning fighter out looks like the clean way to absorb the teleport — it
+/// took the stock-loss lurch from 143 units to 6.7 — and
+/// `every_live_fighter_stays_inside_the_frame` refused it on 8 body-frames at up
+/// to 97 units, correctly: the excluded body IS the respawning fighter, it is
+/// alive and drawn on the respawn platform, and a frame that does not contain it
+/// is a frame with a live fighter outside it. The camera has to move.
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
     bodies: &bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+    last_seen: &mut Vec<(bevy::prelude::Entity, ae::Vec2)>,
 ) -> Option<CastFraming> {
     let mut anchor = None;
     let mut members = 0usize;
+    let mut now: Vec<(bevy::prelude::Entity, ae::Vec2, ae::Vec2)> = Vec::new();
     let (mut min, mut max) = (
         ae::Vec2::new(f32::MAX, f32::MAX),
         ae::Vec2::new(f32::MIN, f32::MIN),
@@ -1023,12 +1086,14 @@ fn frame_the_cast(
         };
         anchor.get_or_insert(*entity);
         members += 1;
+        now.push((*entity, kin.pos, kin.vel));
         let half = kin.size / 2.0;
         min.x = min.x.min(kin.pos.x - half.x);
         min.y = min.y.min(kin.pos.y - half.y);
         max.x = max.x.max(kin.pos.x + half.x);
         max.y = max.y.max(kin.pos.y + half.y);
     }
+    let teleported = !placed_cast_members(last_seen, &now).is_empty();
     let anchor = anchor?;
     Some(CastFraming {
         bounds: ae::Aabb {
@@ -1036,6 +1101,7 @@ fn frame_the_cast(
             max: max.into(),
         },
         members,
+        teleported,
         anchor,
     })
 }
@@ -1069,21 +1135,31 @@ pub fn resolve_camera_observation(
         bevy::prelude::With<crate::local_view::LocalView>,
     >,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
-    // The cast framing currently being PRESENTED, eased toward the cast's
-    // real bounding box on the way IN. See `CAST_FRAMING_CLOSE_HZ`.
+    // THE CAST FRAMING'S PRESENTED STATE, as one param.
     //
-    //  a `Local` beside `last_camera_room` rather than a field on
-    // `CameraEaseState`, and for the same reason that one is: what the CAST
-    // spans is a fact about the world this system resolves ONCE, above the
-    // per-observer loop, while `CameraEaseState` is per view. Presentation-only
-    // either way — nothing in the simulation reads it.
-    mut live_cast: bevy::prelude::Local<Option<ae::Aabb>>,
-    // The cast population last seen, and how long the close-rate cap stays
-    // armed after it dropped. Presentation-only, beside `live_cast` and for the
-    // same reason: what the CAST spans is resolved once, above the per-observer
-    // loop.
-    mut live_members: bevy::prelude::Local<Option<usize>>,
-    mut settling: bevy::prelude::Local<f32>,
+    //  `Local`s rather than fields on `CameraEaseState`, and for the same
+    // reason `last_camera_room` is one: what the CAST spans is a fact about the
+    // world this system resolves ONCE, above the per-observer loop, while
+    // `CameraEaseState` is per view. Presentation-only either way — nothing in
+    // the simulation reads any of it.
+    //
+    //  grouped into a tuple because this system is at Bevy's parameter
+    // ceiling, which is the same pressure that produced `followed_body` below.
+    // They are one thing anyway: the box being presented, the population and
+    // the positions it was last seen at, and how long the discontinuity cap
+    // stays armed.
+    cast_framing_state: (
+        // The box eased toward the cast's real bounds on the way IN. See
+        // `CAST_FRAMING_CLOSE_HZ`.
+        bevy::prelude::Local<Option<ae::Aabb>>,
+        // The population last seen — a DROP arms the cap.
+        bevy::prelude::Local<Option<usize>>,
+        // Where each member was last seen — a member that did not TRAVEL to
+        // where it now is arms the cap too. See `placed_cast_members`.
+        bevy::prelude::Local<Vec<(bevy::prelude::Entity, ae::Vec2)>>,
+        // How long the cap stays armed.
+        bevy::prelude::Local<f32>,
+    ),
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
@@ -1115,6 +1191,7 @@ pub fn resolve_camera_observation(
     ),
 ) {
     let (body_kinematics, presented, subject_frames) = followed_body;
+    let (mut live_cast, mut live_members, mut cast_last_seen, mut settling) = cast_framing_state;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
         (
@@ -1160,23 +1237,27 @@ pub fn resolve_camera_observation(
                     subject,
                 ),
                 None => {
-                    let Some(cast) = frame_the_cast(&framed.0, &body_kinematics) else {
+                    let Some(cast) =
+                        frame_the_cast(&framed.0, &body_kinematics, &mut cast_last_seen)
+                    else {
                         //  forget the eased framing with the cast, or the next
                         // match opens by closing in from the last one's final
                         // spread instead of at its own true framing.
                         *live_cast = None;
                         *live_members = None;
+                        cast_last_seen.clear();
                         *settling = 0.0;
                         return;
                     };
                     // A FLOOR, so authored zoom still wins when wider.
                     let dt = time.delta_secs().max(0.0);
                     let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
-                    // THE CAP IS FOR DISCONTINUITIES, and a cast losing a
-                    // member is the only one this resolve can have. Arm it
-                    // there; leave ordinary closing to the rate alone, or the
-                    // view lags every approach for the whole match.
-                    if a_cast_member_was_lost(*live_members, cast.members) {
+                    // THE CAP IS FOR DISCONTINUITIES, and this resolve has
+                    // TWO. A cast can lose a member, and a member can be put
+                    // somewhere rather than travel there. Arm on either; leave
+                    // ordinary closing to the rate alone, or the view lags
+                    // every approach for the whole match.
+                    if a_cast_member_was_lost(*live_members, cast.members) || cast.teleported {
                         *settling = CAST_FRAMING_SETTLE_SECONDS;
                     }
                     *live_members = Some(cast.members);
@@ -1803,7 +1884,7 @@ mod cast_framing_tests {
             "a settling collapse must be capped"
         );
 
-        // And the arming rule: only a LOST member is a discontinuity.
+        // And ONE of the two arming rules — the population half.
         assert!(a_cast_member_was_lost(Some(4), 3), "an elimination arms it");
         assert!(
             !a_cast_member_was_lost(Some(3), 3),
@@ -1817,6 +1898,64 @@ mod cast_framing_tests {
             !a_cast_member_was_lost(None, 2),
             "the first frame adopts rather than settling"
         );
+    }
+
+    /// A FIGHTER THAT LOSES A STOCK NEVER LEAVES THE CAST, and that is why the
+    /// population test alone could not see it.
+    ///
+    /// Measured before this existed: over one 5,400-tick CPU match the three
+    /// largest single-tick camera steps were the three stock losses — 143.7,
+    /// 86.3 and 82.1 world units against a p99 of 13.1 for every other tick in
+    /// the match. The elimination, which DOES drop the population, was already
+    /// smooth at 3.3. The cap was doing its job perfectly for the case it knew
+    /// about and was blind to its sibling.
+    ///
+    /// The negative cases are the whole test: a body travelling fast under its
+    /// own power must NOT arm the cap, or this becomes the general speed limit
+    /// that was already tried and reverted for lagging every approach.
+    #[test]
+    fn a_respawned_fighter_is_a_discontinuity_even_though_the_cast_is_the_same_size() {
+        use bevy::prelude::Entity;
+        let body = Entity::from_raw_u32(1).unwrap();
+        let other = Entity::from_raw_u32(2).unwrap();
+
+        // First sight of a member cannot be a teleport.
+        let mut seen = Vec::new();
+        assert!(placed_cast_members(
+            &mut seen,
+            &[(body, ae::Vec2::new(100.0, 0.0), ae::Vec2::ZERO)]
+        )
+        .is_empty());
+
+        // Ordinary travel, at a speed a launch really reaches.
+        assert!(placed_cast_members(
+            &mut seen,
+            &[(body, ae::Vec2::new(125.0, 0.0), ae::Vec2::new(1500.0, 0.0))]
+        )
+        .is_empty());
+
+        // THE RESPAWN: `reset_body_clusters` zeroes velocity and puts the body
+        // over the platform, so the step is enormous and nothing was moving.
+        assert_eq!(
+            placed_cast_members(
+                &mut seen,
+                &[(body, ae::Vec2::new(900.0, -400.0), ae::Vec2::ZERO)]
+            ),
+            vec![body],
+            "and it names WHICH body, so the caller can sit it out of the box"
+        );
+
+        // A second member joining is not a teleport — it has no history, and a
+        // cast that GREW is the case the population rule already handles by
+        // adopting the outward edge immediately.
+        assert!(placed_cast_members(
+            &mut seen,
+            &[
+                (body, ae::Vec2::new(900.0, -400.0), ae::Vec2::ZERO),
+                (other, ae::Vec2::new(-900.0, -400.0), ae::Vec2::ZERO),
+            ]
+        )
+        .is_empty());
     }
 
     /// The cap has to be small enough that a collapse lands as ordinary motion.

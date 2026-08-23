@@ -25,6 +25,7 @@ mod health;
 mod hit_flash;
 mod item_visuals;
 pub mod label_layout;
+pub mod knockout;
 pub mod launch_trail;
 pub mod mark_beacon;
 pub mod morph_ball;
@@ -446,6 +447,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             Update,
             (
                 launch_trail::emit_launch_trails,
+                knockout::emit_knockout_beat,
                 body_cues::emit_smash_charge_cues,
                 body_cues::emit_parry_cues,
                 dizzy_stars::emit_dizzy_stars,

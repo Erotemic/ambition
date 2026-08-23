@@ -512,6 +512,67 @@ pub fn rebuild_guard_breaks_view(
         }));
 }
 
+/// One knockout, resolved sim-side, WITH THE PLACE IT HAPPENED.
+///
+/// ⭐ THE POSITION IS THE WHOLE REASON THIS VIEW EXISTS.
+/// `FighterStockSpent` carries an `Entity`, and by the time any consumer can
+/// look that entity is somewhere else or gone: `place_respawning_fighters`
+/// reads the same message inside `CombatSet::Settle` and teleports the body
+/// onto the respawn platform on the same tick, and an eliminated body is
+/// despawned outright. A consumer that resolved the entity itself would draw
+/// the knockout over the respawn platform — an effect that fires, looks
+/// deliberate, and marks the wrong spot.
+///
+///  the same shape as `Contact::impact_speed`, which is captured at the
+/// site that destroys it for exactly the same reason.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct KnockoutFact {
+    /// Where the body was on the tick BEFORE the knockout resolved — the last
+    /// place it was under its own steam, near the blast line it crossed.
+    pub pos: ambition_platformer2d_core::Vec2,
+    /// That was this fighter's LAST stock. `FighterStockSpent::eliminated`
+    /// verbatim — never `remaining == 0` recomputed here.
+    pub eliminated: bool,
+}
+
+/// Every knockout resolved this tick. Empty on almost every tick, which is the
+/// point: a consumer draws one beat per row and nothing the rest of the match.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct KnockoutsView(pub Vec<KnockoutFact>);
+
+/// Where each body was last seen, so a knockout can be published at the place
+/// the body left play.
+#[derive(Default)]
+pub struct LastSeenBodies(Vec<(bevy::prelude::Entity, ambition_platformer2d_core::Vec2)>);
+
+/// ⛔ THE MESSAGES ARE READ BEFORE THE RECORD IS REFRESHED. Refreshing first
+/// would overwrite the knocked-out body's position with the one the respawn
+/// just gave it, which is the whole failure this view exists to avoid.
+pub fn rebuild_knockouts_view(
+    mut view: ResMut<KnockoutsView>,
+    mut last_seen: bevy::prelude::Local<LastSeenBodies>,
+    mut spent: bevy::prelude::MessageReader<ambition_combat::stocks::FighterStockSpent>,
+    bodies: Query<(
+        bevy::prelude::Entity,
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+    )>,
+) {
+    view.0.clear();
+    for event in spent.read() {
+        let Some((_, pos)) = last_seen.0.iter().find(|(seen, _)| *seen == event.body) else {
+            continue;
+        };
+        view.0.push(KnockoutFact {
+            pos: *pos,
+            eliminated: event.eliminated,
+        });
+    }
+    last_seen.0.clear();
+    last_seen
+        .0
+        .extend(bodies.iter().map(|(entity, kin)| (entity, kin.pos)));
+}
+
 /// One body in INVOLUNTARY flight, resolved sim-side.
 ///
 /// A row exists only while the body is launched — tumbling from a hit, or
@@ -767,6 +828,72 @@ mod pose_view_tests {
             "a sustained tumble is NOT a launch beat, and reporting one here \
              would make every trailing body flash forever"
         );
+    }
+
+    /// A KNOCKOUT IS PUBLISHED WHERE THE BODY LEFT PLAY, not where the respawn
+    /// put it a fraction of a tick later.
+    ///
+    /// The fixture is the real sequence: the body is at the blast line, then on
+    /// one tick a stock is spent AND the body is teleported to the respawn
+    /// platform — which is what `place_respawning_fighters` does inside
+    /// `CombatSet::Settle`, before anything downstream looks.
+    ///
+    /// The published position is the whole test. Refresh the record before
+    /// reading the message and this still produces a knockout, at the respawn
+    /// platform, every time — an effect that fires, looks deliberate, and marks
+    /// the wrong spot.
+    #[test]
+    fn a_knockout_is_published_where_the_body_left_play() {
+        use ambition_platformer2d_actor_monolith::actor::BodyKinematics;
+        use ambition_platformer2d_core::Vec2;
+
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<KnockoutsView>();
+        app.add_message::<ambition_combat::stocks::FighterStockSpent>();
+        app.add_systems(bevy::prelude::Update, rebuild_knockouts_view);
+
+        let blast_line = Vec2::new(-820.0, 610.0);
+        let respawn_platform = Vec2::new(0.0, -180.0);
+        let body = app
+            .world_mut()
+            .spawn(BodyKinematics {
+                pos: blast_line,
+                vel: Vec2::new(-1500.0, 900.0),
+                size: Vec2::new(30.0, 48.0),
+                facing: -1.0,
+            })
+            .id();
+
+        // A quiet tick: the record learns where the body is, and nothing is
+        // published, because almost every tick of a match has no knockout.
+        app.update();
+        assert!(app.world().resource::<KnockoutsView>().0.is_empty());
+
+        // The knockout tick: the stock is spent and the body is placed.
+        app.world_mut()
+            .write_message(ambition_combat::stocks::FighterStockSpent {
+                body,
+                remaining: 2,
+                eliminated: false,
+            });
+        app.world_mut()
+            .entity_mut(body)
+            .get_mut::<BodyKinematics>()
+            .unwrap()
+            .pos = respawn_platform;
+        app.update();
+
+        let view = app.world().resource::<KnockoutsView>();
+        assert_eq!(view.0.len(), 1, "one stock spent is one beat: {view:?}");
+        assert_eq!(
+            view.0[0].pos, blast_line,
+            "the knockout belongs where the body left play, not where it came back"
+        );
+        assert!(!view.0[0].eliminated, "a stock loss is not an elimination");
+
+        // And it does not linger: the next tick publishes nothing.
+        app.update();
+        assert!(app.world().resource::<KnockoutsView>().0.is_empty());
     }
 
     /// A content pose pin reaches the PLAYER's view, not only an actor's.

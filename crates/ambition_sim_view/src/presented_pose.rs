@@ -186,7 +186,11 @@ pub fn draw_pos(pose: &BodyPoseView, presented: Option<&PresentedPose>) -> Vec2 
 
 /// Could a body carrying `vel` have travelled `from → to` in `ticks` ticks under
 /// its own power? A teleport answers no, and must not be extrapolated across.
-fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: u32) -> bool {
+///
+/// Shared with the camera's cast framing, which must not CHASE a body that did
+/// not travel any more than this must extrapolate one. Both are asking "did
+/// this body get here by moving", and one predicate is how they cannot drift.
+pub(crate) fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: u32) -> bool {
     let expected = vel.length() * NOMINAL_TICK_DT * ticks.max(1) as f32;
     from.distance(to) <= expected * TRAVEL_SLACK + TRAVEL_FLOOR_PX
 }

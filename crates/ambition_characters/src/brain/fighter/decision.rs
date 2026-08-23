@@ -259,6 +259,24 @@ pub fn tick_fighter(
     }
 
     state.held = frame.clone();
+
+    // REELING IS A REFLEX, AND IT IS AN OVERLAY RATHER THAN AN INTENT.
+    //
+    // DI and the hitlag shift are read off the held stick on the frames a hit
+    // resolves, which the decision cadence does not line up with: a brain that
+    // thinks every five ticks would DI whatever it happened to be walking
+    // toward. So the survival stick is recomputed every tick and written to the
+    // emitted frame only.
+    //
+    // It is deliberately NOT stored in `state.held`. Held intent is what this
+    // brain decided; a reflex is what its body is doing to it. Storing it would
+    // leave the fighter drifting along the last launch for the rest of the
+    // decision interval after hitstun ended.
+    if let Some(view) = state.perception.perceive() {
+        if let Some(stick) = super::reeling::survival_stick(view) {
+            frame.locomotion = stick;
+        }
+    }
     *out = frame;
 }
 

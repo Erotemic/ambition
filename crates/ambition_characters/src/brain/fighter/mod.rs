@@ -16,6 +16,7 @@ pub mod habit;
 pub mod options;
 pub mod profile;
 pub mod recovery;
+pub mod reeling;
 pub mod rollout;
 pub mod scenarios;
 pub mod situation;
@@ -27,6 +28,7 @@ pub use profile::{
     profile_for_level, AuthoredFighterLadder, FighterBrainLadder, FighterBrainProfile,
 };
 pub use recovery::{BodyKit, RecoveryLens, RecoveryQuery};
+pub use reeling::survival_stick;
 pub use rollout::{
     refine_by_rollout, shadow_step, RefinedChoice, ShadowEvent, ShadowIntent, ShadowState,
     ShadowTuning,

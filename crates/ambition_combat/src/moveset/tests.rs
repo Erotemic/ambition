@@ -3125,6 +3125,9 @@ fn capture_context_app_in(
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
+            // Armed: these fixtures are asking what a captor's PRESS resolves
+            // to, not whether the stick has been re-centred since the grab.
+            throw_armed: true,
         });
     }
     app.update();
@@ -5419,5 +5422,165 @@ fn a_held_charge_has_no_live_strike_and_releases_into_one() {
         saw_strike,
         "releasing the charge never produced a strike at all, so the freeze is \
          eating the swing rather than delaying it"
+    );
+}
+
+/// ⛔⛔ A DIRECTION HELD BEFORE THE GRAB IS NOT A THROW COMMAND.
+///
+/// You walk into a grab, so the stick that reached it is already pointing
+/// somewhere. Reading the live axis on the first captive tick threw the victim
+/// the instant the capture landed — no pummel, no choice, and no way to hold
+/// somebody while you decided. The genre's rule is *press a direction after the
+/// grab connects*, and a press needs a baseline.
+///
+/// ⭐ THE REAL ARMING SYSTEM IS IN THE CHAIN. `restrict_captor_control` is what
+/// sets the edge in production, and it is what sets it here — a fixture that
+/// poked `throw_armed` itself would prove only that the field is readable.
+#[test]
+fn a_direction_held_through_the_grab_does_not_throw_until_it_is_pressed_again() {
+    use ambition_characters::actor::control::ActorControlFrame;
+
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (
+            crate::capture::systems::restrict_captor_control,
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
+    );
+
+    // Walking into the grab: forward on the stick before it connects.
+    let mut frame = ActorControlFrame::default();
+    frame.attack_axis = ae::LocalAxes::X;
+    let captor = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                facing: 1.0,
+                ..Default::default()
+            },
+            ActorFaction::Enemy,
+            ActorMoveset(capture_context_moveset()),
+            ActorControl(frame),
+        ))
+        .id();
+    app.world_mut().spawn(crate::capture::CapturedBy {
+        captor,
+        hold_offset_local: ae::Vec2::new(16.0, 0.0),
+        prior_gravity_scale: 1.0,
+        // As acquisition writes it. THE FIXTURE DOES NOT ARM THIS.
+        throw_armed: false,
+    });
+
+    let set_axis = |app: &mut App, axis: ae::LocalAxes| {
+        let mut entity = app.world_mut().entity_mut(captor);
+        let mut control = entity
+            .get_mut::<ActorControl>()
+            .expect("the captor carries a control frame");
+        control.0.attack_axis = axis;
+    };
+
+    // ── still holding forward ───────────────────────────────────────────────
+    for _ in 0..8 {
+        app.update();
+        assert_eq!(
+            played(&app, captor),
+            None,
+            "a direction that was already held when the grab connected threw \
+             the captive; the captor never pressed anything"
+        );
+        set_axis(&mut app, ae::LocalAxes::X);
+    }
+
+    // ── back to neutral: the edge arms ──────────────────────────────────────
+    set_axis(&mut app, ae::LocalAxes::ZERO);
+    app.update();
+    assert_eq!(
+        played(&app, captor),
+        None,
+        "centring the stick threw the captive — neutral is not a direction"
+    );
+
+    // ── and now a direction IS a press ──────────────────────────────────────
+    set_axis(&mut app, ae::LocalAxes::X);
+    app.update();
+    assert_eq!(
+        played(&app, captor).as_deref(),
+        Some("fthrow"),
+        "a direction pressed after the capture did not throw, so the edge \
+         armed and then refused the press it was armed for"
+    );
+}
+
+/// ⛔ THE ATTACK PRESS DOES NOT WAIT FOR THE EDGE, and it must not: a press IS
+/// an edge — the input event, not the stick's position — so Attack+direction
+/// throws exactly as it always did and Attack alone still pummels. Both are
+/// asked here on a capture that has NEVER been armed, which is the state every
+/// grab starts in and the state that would break them if the gate were put in
+/// the wrong place.
+#[test]
+fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
+    use ambition_characters::actor::control::ActorControlFrame;
+
+    let build = |axis: ae::LocalAxes| {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.add_systems(
+            Update,
+            (
+                crate::capture::systems::restrict_captor_control,
+                resolve_attack_gestures,
+                buffer_combat_action_presses,
+                trigger_moveset_moves,
+            )
+                .chain(),
+        );
+        let mut frame = ActorControlFrame::default();
+        frame.attack_axis = axis;
+        frame.melee_pressed = true;
+        let captor = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    facing: 1.0,
+                    ..Default::default()
+                },
+                ActorFaction::Enemy,
+                ActorMoveset(capture_context_moveset()),
+                ActorControl(frame),
+            ))
+            .id();
+        app.world_mut().spawn(crate::capture::CapturedBy {
+            captor,
+            hold_offset_local: ae::Vec2::new(16.0, 0.0),
+            prior_gravity_scale: 1.0,
+            throw_armed: false,
+        });
+        app.update();
+        played(&app, captor)
+    };
+
+    assert_eq!(
+        build(ae::LocalAxes::X).as_deref(),
+        Some("fthrow"),
+        "Attack+forward stopped throwing on an unarmed capture — the edge was \
+         put in front of the press road as well as the stick road"
+    );
+    assert_eq!(
+        build(ae::LocalAxes::ZERO).as_deref(),
+        Some("pummel"),
+        "a neutral attack press stopped pummelling"
     );
 }

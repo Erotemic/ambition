@@ -296,6 +296,10 @@ pub fn acquire_captures(
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
             hold_offset_local: attempt.hold_offset,
+            // ⛔ A FRESH CAPTURE IS NOT ARMED. The stick that walked into this
+            // grab is still pointing wherever it was; the captor has to let go
+            // of it before a direction means "throw".
+            throw_armed: false,
             //  REMEMBERED, not assumed: a flying body's scale is not 1.0, and a
             // release that wrote a constant would land it on the floor.
             prior_gravity_scale: participants
@@ -619,6 +623,7 @@ mod tests {
             captor,
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
             prior_gravity_scale: 1.0,
+            throw_armed: true,
         });
 
         app.update();
@@ -998,6 +1003,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1057,6 +1063,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1123,6 +1130,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1190,6 +1198,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1232,6 +1241,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.25,
+                throw_armed: true,
             },
             ambition_characters::control::ScriptedControl,
             // The hold as a CLAIM: a bare marker is nobody's, and the release
@@ -1302,6 +1312,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1334,6 +1345,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.75,
+                throw_armed: true,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1391,6 +1403,7 @@ mod tests {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
+                    throw_armed: true,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.  built the way acquisition
@@ -1473,6 +1486,7 @@ mod tests {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
                     prior_gravity_scale: 1.0,
+                    throw_armed: true,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.
@@ -1570,6 +1584,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1639,6 +1654,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1759,6 +1775,7 @@ mod tests {
                 captor,
                 hold_offset_local: ae::Vec2::new(18.0, 0.0),
                 prior_gravity_scale: 1.0,
+                throw_armed: true,
             },
             fresh_hold(),
         ));
@@ -1867,13 +1884,31 @@ pub fn constrain_captive_bodies(
 /// the genre. That is a property of the RELATIONSHIP, so it belongs on whatever
 /// component expresses it, not baked in here.
 pub fn restrict_captor_control(
-    captives: Query<&CapturedBy>,
+    mut captives: Query<&mut CapturedBy>,
     mut captors: Query<(Entity, &mut ambition_characters::control::ActorControl)>,
 ) {
     let holding: std::collections::HashSet<Entity> =
         captives.iter().map(|held| held.captor).collect();
     if holding.is_empty() {
         return;
+    }
+    // ⭐ THE THROW EDGE IS ARMED HERE, and this is the system that already pairs
+    // a captor with its control frame — the same join, and the note below
+    // already records that `attack_axis` survives on purpose because it IS the
+    // capture vocabulary. A direction alone throws, so it has to be a NEW
+    // direction: the captor's stick must pass through neutral once before one
+    // counts, or walking into a grab throws the victim on the first held tick.
+    let neutral: std::collections::HashSet<Entity> = captors
+        .iter()
+        .filter(|(entity, control)| {
+            holding.contains(entity) && control.0.attack_axis == ae::LocalAxes::ZERO
+        })
+        .map(|(entity, _)| entity)
+        .collect();
+    for mut held in &mut captives {
+        if neutral.contains(&held.captor) {
+            held.throw_armed = true;
+        }
     }
     for (entity, mut control) in &mut captors {
         if !holding.contains(&entity) {

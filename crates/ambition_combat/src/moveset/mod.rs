@@ -1756,11 +1756,27 @@ pub fn trigger_moveset_moves(
             // is nothing to throw toward, and a captor standing still holding a
             // captive must stay held rather than resolve some default throw.
             let aimed = attack_dir_from_axis(frame.attack_axis, kin.facing);
+            // ⛔⛔ THE STICK ROAD NEEDS AN EDGE, NOT A LEVEL. You walk into a
+            // grab, so the stick that reached it is usually already pointing
+            // somewhere — and reading the live axis on the first captive tick
+            // threw the victim instantly, before the captor could pummel or
+            // choose. `CapturedBy::throw_armed` says the captor's stick has
+            // been back to neutral since this capture began, which is what
+            // turns "still holding forward" into "pressed forward".
+            //
+            // ⛔ THE ATTACK PRESS DOES NOT WAIT FOR IT. A press is already an
+            // edge — it is the input event, not the stick's position — so
+            // Attack+direction throws exactly as it always did, and every
+            // existing fixture and CPU that presses it keeps working.
+            let armed = crate::capture::captive_of(entity, &captives)
+                .and_then(|victim| captives.get(victim).ok())
+                .is_some_and(|(_, held)| held.throw_armed);
             let throw_dir = match gesture.pressed.map(|intent| intent.direction) {
                 // An aimed attack press: its own direction, unchanged.
                 Some(dir) => Some(dir),
-                // No press. The stick decides, and only when it says something.
-                None if aimed != AttackDir::Neutral => Some(aimed),
+                // No press. The stick decides, and only once it has been
+                // released since the grab.
+                None if armed && aimed != AttackDir::Neutral => Some(aimed),
                 None => None,
             };
             match throw_dir {

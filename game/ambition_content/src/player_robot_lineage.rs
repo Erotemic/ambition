@@ -212,8 +212,39 @@ fn definition_from(
 ///
 /// The collision body still includes the head for world collision. The hurtbox
 /// begins near the shoulders, retains the feet, and excludes arm/head overhang.
+///
+/// ⛔ **A STANCE MOVES THE CENTRE, AND THIS VOLUME IS PLACED AT THE CENTRE.**
+/// The edges below are fractions of the body box, but they are baked to world
+/// offsets here and `hurtbox_world_aabb` puts them at `pos`. A crouch halves
+/// the box and slides `pos` toward the feet, so a volume measured against the
+/// STANDING box hangs a quarter of the standing height through the floor — you
+/// could see it under the platform with the combat overlay on. So the crouch
+/// gets its own profile, measured against the box it will actually be worn
+/// with. `HurtboxDoc::poses` and `BodyPoseClock` already carried this seam
+/// end to end; nothing authored it.
 fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc {
-    // Fractions of the authored body box, per edge.
+    HurtboxDoc {
+        default: Some(forgiving_timeline(body_world)),
+        poses: std::iter::once((
+            ambition_platformer2d_actor_monolith::character_runtime::hurtbox::POSE_CROUCH
+                .to_string(),
+            // The same rule the stance applies to the collision box, applied to
+            // the volume worn inside it — asked of `BodyMode::shape` rather than
+            // restated, so the two cannot disagree about what crouching means.
+            forgiving_timeline(
+                ambition_platformer2d_core::player_state::BodyMode::Crouching
+                    .shape(body_world)
+                    .size,
+            ),
+        ))
+        .collect(),
+        moves: Default::default(),
+    }
+}
+
+/// The forgiving torso volume for one body box, in that box's own frame.
+fn forgiving_timeline(body_world: ambition_platformer2d_core::Vec2) -> HurtboxTimeline {
+    // Fractions of the body box, per edge.
     const LEFT: f32 = 0.09;
     const RIGHT: f32 = 0.21;
     const TOP: f32 = 0.43;
@@ -228,21 +259,16 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
         (1.0 - LEFT - RIGHT) * 0.5 * body_world.x,
         (1.0 - TOP - BOTTOM) * 0.5 * body_world.y,
     );
-    HurtboxDoc {
-        // The body shape is pose-independent, so one default timeline is authoritative.
-        default: Some(HurtboxTimeline {
-            keyframes: vec![HurtboxKeyframe {
-                at_s: 0.0,
-                volumes: vec![HurtboxVolume {
-                    shape: VolumeShape::Rect {
-                        offset: (offset.x, offset.y),
-                        half_extents: (half_extents.x, half_extents.y),
-                    },
-                }],
+    HurtboxTimeline {
+        keyframes: vec![HurtboxKeyframe {
+            at_s: 0.0,
+            volumes: vec![HurtboxVolume {
+                shape: VolumeShape::Rect {
+                    offset: (offset.x, offset.y),
+                    half_extents: (half_extents.x, half_extents.y),
+                },
             }],
-        }),
-        poses: Default::default(),
-        moves: Default::default(),
+        }],
     }
 }
 
@@ -335,6 +361,62 @@ mod tests {
             standing.y,
             ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT,
         );
+    }
+
+    /// A crouching robot's hurtbox stays inside the box a crouching robot wears.
+    ///
+    /// The volume is placed at the body's CENTRE, and a stance moves the centre
+    /// without moving the feet. So a volume measured against the standing box
+    /// and worn while crouching hangs through the floor — a quarter of the
+    /// standing height of it, visible under the platform with the combat overlay
+    /// on. Guards the OUTPUT: where the volume's edges land relative to the box
+    /// it is actually worn with, not which numbers went in.
+    #[test]
+    fn a_crouching_robots_hurtbox_stays_inside_a_crouching_robot() {
+        use ambition_entity_catalog::VolumeShape;
+        use ambition_platformer2d_actor_monolith::character_runtime::hurtbox::POSE_CROUCH;
+
+        let catalog = crate::character_catalog::load_catalog();
+        let definition = definition_from(&catalog, &V3);
+        let doc = definition.hurtboxes.as_ref().expect("v3 authors a hurtbox");
+        let pixels =
+            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
+                .expect("v3's sheet authors a body box");
+        let standing = pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
+
+        for (pose, body) in [
+            (None, standing),
+            (
+                Some((POSE_CROUCH, 0.0)),
+                ambition_platformer2d_core::player_state::BodyMode::Crouching
+                    .shape(standing)
+                    .size,
+            ),
+        ] {
+            let volumes = doc
+                .volumes_for(None, pose)
+                .unwrap_or_else(|| panic!("{pose:?} resolves to a timeline"));
+            let VolumeShape::Rect {
+                offset,
+                half_extents,
+            } = volumes[0].shape
+            else {
+                panic!("the torso is a rect: {:?}", volumes[0].shape);
+            };
+            // Feet are the +gravity face of the box the body wears in this pose.
+            let feet = body.y * 0.5;
+            assert!(
+                offset.1 + half_extents.1 <= feet,
+                "{pose:?}: the hurtbox reaches {} below the body centre against \
+                 feet at {feet} — it is {} units through the floor",
+                offset.1 + half_extents.1,
+                offset.1 + half_extents.1 - feet,
+            );
+            assert!(
+                offset.1 - half_extents.1 >= -feet,
+                "{pose:?}: the hurtbox reaches above the body's own crown"
+            );
+        }
     }
 
     /// The forgiving hurtbox is strictly inside the box that carries it.

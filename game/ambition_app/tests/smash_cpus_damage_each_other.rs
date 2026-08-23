@@ -373,6 +373,32 @@ fn mirror_bout(
             })
             .unwrap_or(0)
     };
+    // ⭐⭐ CAN THE BRAIN SEE THE FOE AT ALL? `Perception` has two modes and the
+    // difference is a hard cliff, not a falloff: `Omniscient` knows the nearest
+    // hostile ANYWHERE, `Sighted { viewport_half }` is BLIND past the box (plus
+    // decaying memory pursuit). `DEFAULT_VIEWPORT_HALF.x` is 480 world px, and
+    // the platform is 480 wide — so whether a pair at gap 500 is inside or
+    // outside its own senses is the question the gap column raises and cannot
+    // answer. This column answers it.
+    let sight = {
+        let world = app.world_mut();
+        world
+            .query::<(
+                &MatchSeat,
+                &ambition_platformer2d::actors::features::ecs::perception::Perception,
+            )>()
+            .iter(world)
+            .next()
+            .map(|(_, perception)| match perception {
+                ambition_platformer2d::actors::features::ecs::perception::Perception::Omniscient => {
+                    "omniscient".to_string()
+                }
+                ambition_platformer2d::actors::features::ecs::perception::Perception::Sighted {
+                    viewport_half,
+                } => format!("sees±{:.0}", viewport_half.x),
+            })
+            .unwrap_or_else(|| "no-perception-component".to_string())
+    };
     let moves: usize = started.values().sum();
     let top = started
         .iter()
@@ -438,7 +464,7 @@ fn mirror_bout(
         taken,
         hitstun,
         moves,
-        format!("{top} {top_secs:.2}s gap{median_gap:.0}"),
+        format!("{top} {top_secs:.2}s gap{median_gap:.0} {sight}"),
         kit,
         started.len(),
         reachable,

@@ -109,6 +109,22 @@ Before a push: `cargo test --workspace --lib`.
    policy. ⛔ do not scatter per-move exceptions.
 5. **M5. Jab 1→2→3 chains and rapid jab.** Authored successor selection through
    the existing cancel windows; no fighter-ID loop.
+6. **M6. DI needs a reaction window.** Measured 2026-08-22: `di_input_local` is
+   sampled at the hit-resolution frame — the stick the victim happens to be
+   holding when the hitbox connects — and `apply_player_knockback` applies the
+   rotated launch immediately. Both Melee and Ultimate read DI at the END of
+   hitlag, which is exactly what makes hitlag a decision rather than a pause. As
+   shipped, `di_max_angle` is a tuned rule no human can aim: reacting to a hit
+   you have not been dealt yet is not an input. Resolve the launch at hitlag
+   release, or store the pre-DI launch and rotate it when the freeze ends. SDI
+   already reads the stick during hitlag correctly, so the seam exists.
+
+   ⚠ Measured beside it, and worth a look while you are in there: a body with no
+   hitstun keeps a written 4,800 px/s launch for exactly ONE tick — air control
+   resolves horizontal velocity from the held stick on the next one. Hitstun is
+   the only thing that gates that. Check that the hitstun control scale really
+   does leave a launch intact for a body holding inward, because if it does not,
+   knockback is cancellable by walking.
 
 ### PRESENTATION
 
@@ -135,11 +151,16 @@ demo's most-watched mode. Work `crates/ambition_characters/src/brain/fighter/`
 options/observations as each mechanic lands, and keep the smallest option surface
 that exposes the new verb. ⛔ do not start the AI-policy ownership migration.
 
+Measured at the start of the run: the fighter brain has **no DI, no SDI and no
+tech**. `MovementVerb` offers Approach/Retreat/Jump/Dash/Dodge/Shield/Blink/
+Recover and nothing a reeling body can use, so every CPU took every launch
+straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
+
 ## Status
 
 | Slice | Seat | State |
 |---|---|---|
-| M1 input buffer | MECHANICS | ▢ |
+| M1 input buffer | MECHANICS | ✔ merged `7d99fae57` |
 | M2 smash charge | MECHANICS | ▢ |
 | M3 invuln/armor windows | MECHANICS | ▢ |
 | M4 out-of-shield policy | MECHANICS | ▢ |
@@ -149,4 +170,8 @@ that exposes the new verb. ⛔ do not start the AI-policy ownership migration.
 | P3 tech/parry cues | PRESENTATION | ▢ |
 | P4 bubble shield | PRESENTATION | ▢ |
 | P5 charge pulse/SFX | PRESENTATION | ▢ |
-| CPU verb adoption | COORDINATOR | ▢ |
+| M6 DI reaction window | MECHANICS | ▢ |
+| C1 CPU survival DI/SDI | COORDINATOR | ✔ |
+| C2 CPU tech | COORDINATOR | ▢ |
+| C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
+| C3 CPU charges smashes | COORDINATOR | ▢ (after M2) |

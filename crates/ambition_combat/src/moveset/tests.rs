@@ -3237,3 +3237,269 @@ fn an_airborne_body_reaches_no_grounded_only_capture_move() {
         "a grounded captor stopped reaching its own pummel"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Combat action input buffer.
+//
+// The invariant under test is the LIFECYCLE, never the window length: a press
+// the action authority refuses is re-proposed until it is accepted or expires,
+// it is accepted at most once, and the press that is replayed is the press that
+// was made.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A body with one buffering verb chain and nothing else, so a refusal is
+/// unambiguously the trigger's and not some other gate's.
+fn buffer_app(moveset: MovesetContract, buffer_s: f32) -> (App, Entity) {
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+        )
+            .chain(),
+    );
+    let body = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 32.0),
+                facing: 1.0,
+            },
+            ActorMoveset(moveset),
+            ActorControl(ambition_characters::actor::control::ActorControlFrame::neutral()),
+        ))
+        .id();
+    app.world_mut()
+        .get_mut::<AttackGestureTuning>(body)
+        .expect("ActorControl requires the gesture tuning")
+        .action_buffer_s = buffer_s;
+    (app, body)
+}
+
+/// A move with no `Cancelable` window: it refuses every replacement for its
+/// whole duration, which is what "endlag" means to the trigger.
+fn uncancelable(id: &str) -> MoveSpec {
+    MoveSpec {
+        display_name: None,
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: id.to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 1.0,
+        windows: vec![],
+        events: vec![],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+    }
+}
+
+fn set_frame(app: &mut App, body: Entity, edit: impl FnOnce(&mut ambition_characters::actor::control::ActorControlFrame)) {
+    let mut control = app.world_mut().get_mut::<ActorControl>(body).unwrap();
+    edit(&mut control.0);
+}
+
+fn playing(app: &App, body: Entity) -> Option<String> {
+    app.world()
+        .get::<MovePlayback>(body)
+        .map(|pb| pb.spec.id.clone())
+}
+
+/// The whole point: an attack pressed while the body cannot act starts on the
+/// first tick it can, and starts EXACTLY ONE move.
+#[test]
+fn a_refused_attack_press_is_replayed_once_when_the_authority_accepts_it() {
+    let (mut app, body) = buffer_app(swat_moveset(), 0.5);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(uncancelable("endlag"), 1.0));
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+
+    assert_eq!(
+        playing(&app, body).as_deref(),
+        Some("endlag"),
+        "the trigger must still refuse the press: this fixture is about a press \
+         that arrives while a move is refusing replacement"
+    );
+    assert!(
+        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack > 0.0,
+        "the refused press left no buffered window, so it was dropped exactly \
+         as it was before the buffer was fed"
+    );
+
+    // The button is long since up, and the move ends.
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = false;
+        f.melee_held = false;
+    });
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+
+    assert_eq!(
+        playing(&app, body).as_deref(),
+        Some("swat"),
+        "the buffered press did not start the move on the first tick the \
+         authority could accept it"
+    );
+    assert_eq!(
+        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack,
+        0.0,
+        "accepting the action must SPEND the slot"
+    );
+
+    // ... and it is spent: the next opening starts nothing.
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+    assert_eq!(
+        playing(&app, body),
+        None,
+        "one press started two moves — the buffered proposal outlived its \
+         acceptance"
+    );
+    assert!(
+        app.world()
+            .get::<AttackGestureState>(body)
+            .unwrap()
+            .buffered_press
+            .is_none(),
+        "the intent outlived its clock; the two are one fact"
+    );
+}
+
+/// Leniency is a WINDOW, not a queue. A press older than the window is a press
+/// the player got wrong.
+#[test]
+fn a_press_older_than_the_window_is_never_spent() {
+    let (mut app, body) = buffer_app(swat_moveset(), 0.05);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(uncancelable("endlag"), 1.0));
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+
+    // 0.05s of window against 0.016s ticks: four more ticks bury it.
+    for _ in 0..4 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack,
+        0.0,
+        "the window did not decay"
+    );
+
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+    assert_eq!(
+        playing(&app, body),
+        None,
+        "a press from before the window started a move anyway"
+    );
+}
+
+/// The buffer replays the PRESS, not the stick. A press classified as a smash
+/// stays a smash even after the flick that classified it has aged out — which
+/// is exactly what re-reading the live input at spend time would lose.
+#[test]
+fn a_buffered_smash_is_still_a_smash_after_its_flick_expires() {
+    let moveset = MovesetContract {
+        verbs: [
+            (ATTACK_VERB.to_string(), "jab".to_string()),
+            ("smash_forward".to_string(), "fsmash".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        moves: vec![uncancelable("jab"), uncancelable("fsmash")],
+    };
+    let (mut app, body) = buffer_app(moveset, 0.5);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(uncancelable("endlag"), 1.0));
+
+    // A forward flick, then the press inside its window: a forward smash.
+    set_frame(&mut app, body, |f| f.attack_axis = ae::LocalAxes::X);
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+
+    // The stick stays forward, so the flick can never re-arm, and its four-tick
+    // window runs out. A press resolved HERE would be a forward TILT.
+    for _ in 0..6 {
+        app.update();
+    }
+
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+    assert_eq!(
+        playing(&app, body).as_deref(),
+        Some("fsmash"),
+        "the buffered press was re-resolved against the stale stick instead of \
+         being replayed, so a buffered smash came out as a tilt"
+    );
+}
+
+/// The grab is a bare edge with no intent to carry, and it buffers through the
+/// same window and the same spend.
+#[test]
+fn a_refused_grab_press_is_replayed_and_spent() {
+    let moveset = MovesetContract {
+        verbs: [(GRAB_VERB.to_string(), "grab".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![uncancelable("grab")],
+    };
+    let (mut app, body) = buffer_app(moveset, 0.5);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(uncancelable("endlag"), 1.0));
+    set_frame(&mut app, body, |f| f.grab_pressed = true);
+    app.update();
+    set_frame(&mut app, body, |f| f.grab_pressed = false);
+    assert!(app.world().get::<ae::BodyActionBuffer>(body).unwrap().grab > 0.0);
+
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+    assert_eq!(playing(&app, body).as_deref(), Some("grab"));
+    assert_eq!(
+        app.world().get::<ae::BodyActionBuffer>(body).unwrap().grab,
+        0.0,
+        "accepting the grab must spend its slot"
+    );
+}
+
+/// A body whose ruleset turns leniency off behaves exactly as it did before the
+/// buffer was fed: the press is spendable only on the tick it arrives.
+#[test]
+fn a_zero_window_restores_the_drop_it_replaced() {
+    let (mut app, body) = buffer_app(swat_moveset(), 0.0);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(uncancelable("endlag"), 1.0));
+    set_frame(&mut app, body, |f| f.melee_pressed = true);
+    app.update();
+    set_frame(&mut app, body, |f| f.melee_pressed = false);
+    app.world_mut().entity_mut(body).remove::<MovePlayback>();
+    app.update();
+    assert_eq!(
+        playing(&app, body),
+        None,
+        "a zero window still queued the press"
+    );
+}

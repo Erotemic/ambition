@@ -221,10 +221,13 @@ pub struct AttackCandidate {
 /// class over.
 ///
 /// the third state is deliberately absent and named here so it is not
-/// invented twice. Once `BodyActionBuffer` is actually fed, a press that
-/// cannot execute *now* but would be consumed on the first actionable frame
-/// becomes `BufferableSoon`, and the brain may legitimately issue it. Until
-/// then, "legal eventually" must not read as "press now".
+/// invented twice. `BodyActionBuffer` IS fed now, so a press that cannot
+/// execute this tick but would be consumed on the first actionable frame is a
+/// real option — `BufferableSoon` — and issuing it is what a person pressing
+/// into the tail of endlag is doing. What is still missing is the fact it needs:
+/// the brain cannot see the buffer's remaining window against the body's
+/// remaining lock, and without that comparison "legal eventually" still must not
+/// read as "press now".
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ActionLegality {
     /// Nothing owns the body, or the running move's cancel windows admit this

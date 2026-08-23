@@ -1057,6 +1057,90 @@ pub fn resolve_attack_gestures(
     }
 }
 
+/// Feed semantic combat press edges into the body-owned action buffer, and
+/// re-propose a buffered press on every tick of its window.
+///
+/// The buffer PROPOSES; [`trigger_moveset_moves`] still decides. A slot lives
+/// until the action authority accepts the action — which spends it — or until
+/// the authored window ([`AttackGestureTuning::action_buffer_s`]) runs out. So
+/// an attack pressed a frame before endlag ends starts on the frame endlag
+/// ends, and a press that was genuinely too early still costs the player the
+/// press.
+///
+/// ⛔ NO per-move grace timers, and no device input: what is buffered is the
+/// resolved control state every controller already produces, so leniency is one
+/// mechanic for a human, a CPU, a replay and a policy alike.
+///
+/// The attack slot's clock lives on [`ae::BodyActionBuffer`] and its MEANING on
+/// [`AttackGestureState::buffered_press`]; this is the one system that writes
+/// either, which is what keeps them from disagreeing.
+pub fn buffer_combat_action_presses(
+    world_time: Res<WorldTime>,
+    mut bodies: Query<(
+        &ActorControl,
+        &AttackGestureTuning,
+        &mut AttackGestureState,
+        &mut ResolvedAttackGesture,
+        &mut ae::BodyActionBuffer,
+        Option<&ProperTimeScale>,
+    )>,
+) {
+    for (control, tuning, mut state, mut resolved, mut buffer, scale) in &mut bodies {
+        // ADR 0011: the owner's own clock, so a dilated body's leniency
+        // dilates with everything else it does.
+        let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
+        if !buffer.is_empty() {
+            buffer.tick(dt);
+        }
+        // An expired window is an expired press, whichever half notices first.
+        if buffer.attack <= 0.0 && state.buffered_press.is_some() {
+            state.buffered_press = None;
+        }
+        let frame = &control.0;
+        let window = tuning.action_buffer_s.max(0.0);
+        if let Some(intent) = resolved.pressed {
+            buffer.attack = window;
+            state.buffered_press = Some(intent);
+        } else if let Some(intent) = state.buffered_press {
+            // ONE press field downstream: a buffered press and a live one are
+            // the same event to every consumer, so nothing has to learn that
+            // buffering exists.
+            resolved.pressed = Some(intent);
+        }
+        if frame.grab_pressed {
+            buffer.grab = window;
+        }
+        if frame.pogo_pressed {
+            buffer.pogo = window;
+        }
+        if frame.special_pressed {
+            buffer.special = window;
+        }
+    }
+}
+
+/// Which buffered verb a resolution consumed, so acceptance spends exactly the
+/// slot that proposed the move.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ProposedVerb {
+    /// Nothing buffered proposed this (a taunt, a ranged intent, no move).
+    Unbuffered,
+    Attack,
+    Grab,
+    Special,
+}
+
+impl ProposedVerb {
+    fn spend(self, buffer: &mut ae::BodyActionBuffer) {
+        match self {
+            ProposedVerb::Unbuffered => {}
+            ProposedVerb::Attack => buffer.spend_attack(),
+            ProposedVerb::Grab => buffer.grab = 0.0,
+            ProposedVerb::Special => buffer.special = 0.0,
+        }
+    }
+}
+
 /// Name the writer of a move's self-motion impulse.
 ///
 /// Two call sites author the same impulse — the plain trigger and the CANCEL path — and they
@@ -1165,6 +1249,11 @@ pub fn trigger_moveset_moves(
         //
         // `Option` for bare test bodies, which are treated as standing.
         Option<&ae::BodyMotionFacts>,
+        // The body's buffered combat presses. This system is the SPEND site:
+        // `buffer_combat_action_presses` re-proposes a press every tick of its
+        // window, and accepting one is what ends the proposal — so a buffered
+        // press starts exactly one move.
+        &mut ae::BodyActionBuffer,
     )>,
     // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -1191,6 +1280,7 @@ pub fn trigger_moveset_moves(
         playback,
         held,
         motion_facts,
+        mut action_buffer,
     ) in &mut bodies
     {
         let body_frame = resolved_frame
@@ -1203,35 +1293,48 @@ pub fn trigger_moveset_moves(
         // directional throw verbs while holding a captive; throws ignore strike
         // charge strength, and an unauthored throw resolves to no move.
         let holding_captive = crate::capture::captive_of(entity, &captives).is_some();
+        // A BUFFERED EDGE IS AN EDGE. `buffer_combat_action_presses` holds a
+        // press open for its authored window and this reads the two the same
+        // way, so the resolution chain below does not know which one arrived.
+        // (`gesture.pressed` is already unified upstream — the buffer republishes
+        // into it, intent and all.)
+        let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
+        let special_pressed = frame.special_pressed || action_buffer.special > 0.0;
+        let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
         //  every branch below asks for a move IN THIS STANCE. The capture kit
         // declares its whole vocabulary grounded-only, and a captor carried into
         // the air was still able to pummel and throw because the exact-verb
         // lookup did not read the gate its own repertoire had authored.
-        let (spec, verb_names): (Option<MoveSpec>, &[&str]) = if holding_captive {
+        let (spec, verb_names, proposer): (Option<MoveSpec>, &[&str], ProposedVerb) = if holding_captive {
             match gesture.pressed.map(|intent| intent.direction) {
                 Some(AttackDir::Neutral) => (
                     moveset.0.move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded).cloned(),
                     &[CAPTURE_PUMMEL_VERB][..],
+                    ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Forward) => (
                     moveset.0.move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_FORWARD_VERB][..],
+                    ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Back) => (
                     moveset.0.move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_BACK_VERB][..],
+                    ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Up) => (
                     moveset.0.move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_UP_VERB][..],
+                    ProposedVerb::Attack,
                 ),
                 Some(AttackDir::Down) => (
                     moveset.0.move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded).cloned(),
                     &[CAPTURE_THROW_DOWN_VERB][..],
+                    ProposedVerb::Attack,
                 ),
-                None => (None, &[][..]),
+                None => (None, &[][..], ProposedVerb::Unbuffered),
             }
-        } else if frame.grab_pressed {
+        } else if grab_pressed {
             // A free body's grab. The move's own Active window carries the
             // capture attempt; this only starts the move.
             //
@@ -1248,8 +1351,9 @@ pub fn trigger_moveset_moves(
                     .move_for_flat_verb(GRAB_VERB, grounded, running)
                     .cloned(),
                 &[GRAB_VERB][..],
+                ProposedVerb::Grab,
             )
-        } else if frame.special_pressed {
+        } else if special_pressed {
             let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
             (
                 moveset
@@ -1257,13 +1361,14 @@ pub fn trigger_moveset_moves(
                     .move_for_directional_verb(SPECIAL_VERB, dir, grounded)
                     .cloned(),
                 &[SPECIAL_VERB],
+                ProposedVerb::Special,
             )
-        } else if gesture.pressed.is_some() || frame.pogo_pressed {
+        } else if gesture.pressed.is_some() || pogo_pressed {
             // A dedicated pogo press IS a down-air (the move carrying the pogo
             // on-hit technique); a plain melee press resolves by aim. When only
             // pogo is pressed, force Down so an aerial body reaches `attack_air_down`.
             let (base_verb, dir, gesture_grounded) =
-                if frame.pogo_pressed && gesture.pressed.is_none() {
+                if pogo_pressed && gesture.pressed.is_none() {
                     (ATTACK_VERB, AttackDir::Down, grounded)
                 } else if let Some(intent) = gesture.pressed {
                     (
@@ -1349,7 +1454,7 @@ pub fn trigger_moveset_moves(
             } else {
                 &[ATTACK_VERB, "any_attack"]
             };
-            (spec, verb_names)
+            (spec, verb_names, ProposedVerb::Attack)
         } else if frame.taunt_pressed {
             // LAST in the chain on purpose: a taunt loses to every verb that
             // does something, so a press that overlaps a real action is that
@@ -1364,6 +1469,7 @@ pub fn trigger_moveset_moves(
                     )
                     .cloned(),
                 &[TAUNT_VERB][..],
+                ProposedVerb::Unbuffered,
             )
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
@@ -1373,9 +1479,10 @@ pub fn trigger_moveset_moves(
             (
                 moveset.0.move_for_verb_in_stance(RANGED_VERB, grounded).cloned(),
                 &[RANGED_VERB],
+                ProposedVerb::Unbuffered,
             )
         } else {
-            (None, &[])
+            (None, &[], ProposedVerb::Unbuffered)
         };
 
         if let Some(mut pb) = playback {
@@ -1444,6 +1551,9 @@ pub fn trigger_moveset_moves(
                     MovePlayback::new(spec, kin.facing)
                         .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
                 );
+            // ACCEPTED — the proposal is over. A buffered press that starts a
+            // move must not start the next one behind it.
+            proposer.spend(&mut action_buffer);
             continue;
         }
 
@@ -1478,6 +1588,7 @@ pub fn trigger_moveset_moves(
                 MovePlayback::new(spec, kin.facing)
                     .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
             );
+            proposer.spend(&mut action_buffer);
         }
     }
 }

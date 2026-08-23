@@ -167,7 +167,7 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | M5 jab chains | MECHANICS | ▢ |
 | P1 launch trail | PRESENTATION | ✔ `882fe8fa5` — `LaunchedBodiesView` publishes involuntary flight; Dust plume behind the velocity vector, sim-tick cadence |
 | P2 i-frame blink | PRESENTATION | ✔ `0c29e9cf0` — `unhittable` on both body read-models is `body_vulnerable` inverted; the hit-flash overlay carries both cues, damage wins |
-| P3 tech/parry cues | PRESENTATION | ◑ tech half done `1f96165eb` — own spark ring and cue, split from GetupRoll; parry half still BLOCKED on M7's successful-contact fact |
+| P3 tech/parry cues | PRESENTATION | ✔ tech `1f96165eb` + parry `bbf06b133` — parry flash/chime read `parry_flash_secs`, never `parrying()`; guarded at the publication seam too |
 | W7 dizzy stars | PRESENTATION | ✔ `f04989c78` — second pooled `GuardBreaksView`; stars orbit the body's own up; the bubble now turns with the body too |
 | W7 strong-hit flash | PRESENTATION | ✔ `94686e5ec` — `hit_strength_fraction` inverts the hitlag law in the kernel; fourth arbitrated overlay cue, proportional, no threshold |
 | W7 near-KO trail tier | PRESENTATION | ✔ `466dfb028` — plume shifts smoke→ember above the near-KO speed, on P1's existing launched fact |

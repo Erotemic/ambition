@@ -123,34 +123,39 @@ without one cannot be compared to anything.
 `foreign_builds` is sampled from `/proc` rather than `pgrep -f`, which matches
 its own shell and so can never report zero — a tighter regex does not fix it.
 
-## Waiting on subagents is not stopping
+## Waiting on subagents is not stopping — and then it was not a condition at all
 
 **2026-08-15, Jon.** A coordinator that spawns subagents and yields the turn to
 wait for them is *ending a turn*, which is the only event a Stop hook can
 observe. The guard blocked that yield and told the agent to resume — every
-yield, each block injecting the whole preamble. That is the guard pushing an
-agent through precisely the behaviour it wanted.
+yield, each block injecting the whole preamble.
 
-The stand-down reads the transcript for work that went async and never reported
-back. Jon's requirement shaped the heartbeat: *"sometimes something goes in
-flight and gets hung"* — so a wait whose outstanding set has not moved in an hour
-is blocked anyway to ask how the subagents are doing, because from inside a Stop
-hook a hung task and a slow one are indistinguishable.
+So the guard learned to read the transcript for work that went async and never
+reported back, and to stand down while any was outstanding. Two parser bugs were
+caught by tests rather than by reading: matching `running in background with ID`
+without the trailing id counted a `grep` whose own output quoted the phrase, and
+keying the compact boundary on a literal JSON fragment saw nothing once the
+separator had a space in it.
 
-Two parser bugs, both caught by tests rather than by reading:
+**2026-08-23, Jon, deleting all of it:** *"I often see rando shells that you
+often just forget about and they just exist and are never killed. That pattern
+happens ALL THE TIME. So the goal guard should never be using that as a
+condition."*
 
-- matching `running in background with ID` **without the trailing id** counted a
-  `grep` whose own output quoted the phrase. The guard believed a task was in
-  flight that had never existed — the same prose-versus-thing confusion
-  `check_absence_contracts.py` records three times;
-- keying the compact boundary on the literal `"subtype":"compact_boundary"` saw
-  nothing the moment the JSON separator had a space in it.
+He is right, and the failure it produced was measured before he said it: an
+abandoned poll loop or a superseded gate run never sends a completion, so the
+outstanding set was almost never empty and the run was **unguarded by default**.
+Twenty-one consecutive waits, a nineteen-hour-old clock under a four-hour
+ceiling, zero blocks. Every fix applied to it — a clock that only restarted when
+something reported, a ceiling read before every stand-down — made a mechanism
+that should not have existed slightly less wrong.
 
-⚠ **Still unverified:** the launch/completion pairing is confirmed for
-background `Bash` tasks. Agent-tool subagents are documented to report through
-the same channel and the join key (`tool_use_id`) is not tool-specific, but no
-transcript on this machine has ever contained one — every `isSidechain` count
-was zero. If subagents are not standing the guard down, look here first.
+⭐ **the general form: before making X a condition, ask how often X is true when
+nothing is wrong.** A stand-down that always applies is the inverse of a check
+that cannot fail, and it costs the same thing — the whole instrument.
+
+⇒ `--pause` (one turn) and `--hold` (until lifted) remain. Both are explicit,
+both say so loudly, and neither can be entered by accident.
 
 ## "Extend the timer" was two edits, and one of them was invisible
 

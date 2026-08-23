@@ -509,14 +509,16 @@ def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
     # A test that is green through its own motivating case is not coverage, it is furniture.
 
 
-# ── Waiting on background work is not stopping ────────────────────────────────
+# ── Background work is NOT a reason to stand down ─────────────────────────────
 #
-# A coordinator that spawns subagents and yields to wait for them ENDS A TURN,
-# which is the only thing a Stop hook can see. Blocking it there is the guard
-# pushing an agent through the exact behaviour it wanted. These tests pin the
-# stand-down AND its three bounds, because "I am waiting" is the cheapest
-# sentence an agent that wants out can write — so the wait is read from the
-# TRANSCRIPT, never from anything the agent claims.
+# The guard used to read the transcript for async tool calls that had never
+# reported back and stay quiet while any were outstanding. Jon, 2026-08-23:
+# *"I often see rando shells that you often just forget about and they just
+# exist and are never killed. That pattern happens ALL THE TIME. So the goal
+# guard should never be using that as a condition."* An abandoned poll loop
+# never reports, so the set was almost never empty and the run was unguarded by
+# default — a stand-down that always applies is the inverse of a check that
+# cannot fail. `--pause` and `--hold` remain, and they are explicit.
 
 
 def transcript(repo: Path, *records: dict, name: str = "t.jsonl") -> str:
@@ -540,136 +542,19 @@ def launched(tool_use_id: str, task_id: str = "task1") -> dict:
     }
 
 
-def finished(tool_use_id: str) -> dict:
-    return {
-        "type": "queue-operation",
-        "note": f"<task-notification><tool-use-id>{tool_use_id}</tool-use-id>"
-        "<status>completed</status></task-notification>",
-    }
-
-
-def test_work_still_in_flight_stands_the_guard_down(repo: Path) -> None:
+def test_work_still_in_flight_does_not_buy_silence(repo: Path) -> None:
+    """⛔⛔ THE POISON FOR THE WHOLE MECHANISM THAT USED TO LIVE HERE."""
     arm(repo, checks=[FAIL])
     out = run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
-    assert out.get("decision") != "block", "a coordinator waiting is not a coordinator stopping"
-    assert "standing down" in out.get("systemMessage", "")
-
-
-def test_a_stand_down_says_the_goal_is_still_armed(repo: Path) -> None:
-    """Silence that looks like a release is how a run gets abandoned."""
-    arm(repo, checks=[FAIL])
-    out = run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
-    assert "STILL ARMED" in out["systemMessage"]
-    assert json.loads((repo / ".goal" / "active.json").read_text())["checks"]
-
-
-def test_finished_work_does_not_stand_it_down(repo: Path) -> None:
-    arm(repo, checks=[FAIL])
-    tp = transcript(repo, launched("toolu_A"), finished("toolu_A"))
-    assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
-
-
-def test_prose_about_backgrounding_is_not_work_in_flight(repo: Path) -> None:
-    """The poison: a grep whose OUTPUT quotes the launch phrase. The first cut of
-    this parser counted it as a live task, which would have bought silence for a
-    coordinator that had launched nothing at all."""
-    arm(repo, checks=[FAIL])
-    tp = transcript(
-        repo,
-        {
-            "type": "assistant",
-            "message": {
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": "toolu_Z",
-                        "content": "grep output: running in background with ID",
-                    }
-                ]
-            },
-        },
+    assert out.get("decision") == "block", (
+        "a launched background task stood the guard down, and forgetting one is "
+        "the normal case rather than the exception"
     )
-    assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
 
 
-def test_an_unreadable_transcript_blocks_rather_than_stands_down(repo: Path) -> None:
-    """Not being able to tell whether work is in flight is not evidence that it
-    is. Every failure in this parser has to fail toward the old behaviour."""
+def test_an_unreadable_transcript_still_blocks(repo: Path) -> None:
     arm(repo, checks=[FAIL])
     assert run(repo, stdin={"transcript_path": "/nope/nope.jsonl"})["decision"] == "block"
-
-
-def test_a_stalled_wait_is_asked_about_on_the_heartbeat(repo: Path) -> None:
-    """A stale in-flight wait should prompt a short progress check."""
-    arm(repo, checks=[FAIL])
-    tp = transcript(repo, launched("toolu_A"))
-    run(repo, stdin={"transcript_path": tp})
-    state = state_of(repo)
-    stale = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=2)).isoformat()
-    state["last_wait_nudge_at"] = stale
-    (repo / ".goal" / "state.json").write_text(json.dumps(state))
-    out = run(repo, stdin={"transcript_path": tp})
-    assert out["decision"] == "block"
-    assert "HAS NOT MOVED" in out["reason"]
-    assert "GOAL STILL OPEN" not in out["reason"], "the nudge is short, not the preamble"
-
-
-def test_a_wait_that_never_ends_stops_buying_silence(repo: Path) -> None:
-    """A task that was KILLED never sends a completion, so without a ceiling one
-    `TaskStop` would stand the guard down for the rest of the session."""
-    arm(repo, checks=[FAIL])
-    tp = transcript(repo, launched("toolu_A"))
-    run(repo, stdin={"transcript_path": tp})
-    state = state_of(repo)
-    old = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=9)).isoformat()
-    state["waiting_since"] = old
-    (repo / ".goal" / "state.json").write_text(json.dumps(state))
-    assert run(repo, stdin={"transcript_path": tp})["decision"] == "block"
-
-
-def test_a_wait_whose_task_list_KEEPS_GROWING_still_hits_the_ceiling(repo: Path) -> None:
-    """⛔⛔ THE POISON, and it is the one the ceiling test above holds fixed.
-
-    That test keeps the SAME task outstanding, so it only ever exercised the
-    unchanged-key path. A coordinator launches a NEW background command most
-    turns, so its pending set grows every turn — and a changed key used to
-    return from its own branch before the ceiling was ever read. Measured on
-    this repository 2026-08-23: 19h of silence under a 4h ceiling, 21 waits,
-    zero blocks, while Jon asked three times why the goal was not firing.
-    """
-    arm(repo, checks=[FAIL])
-    run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
-    state = state_of(repo)
-    state["waiting_since"] = (
-        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=9)
-    ).isoformat()
-    (repo / ".goal" / "state.json").write_text(json.dumps(state))
-    grown = transcript(
-        repo, launched("toolu_A"), launched("toolu_B", "task2"), launched("toolu_C", "task3")
-    )
-    assert run(repo, stdin={"transcript_path": grown})["decision"] == "block", (
-        "launching more work must not buy fresh quiet for a wait past its ceiling"
-    )
-
-
-def test_something_actually_returning_still_earns_a_fresh_wait(repo: Path) -> None:
-    """The other direction, or the fix above would just delete the stand-down: a
-    coordinator whose subagents land one by one is making progress and keeps
-    earning quiet."""
-    arm(repo, checks=[FAIL])
-    both = transcript(repo, launched("toolu_A"), launched("toolu_B", "task2"))
-    run(repo, stdin={"transcript_path": both})
-    state = state_of(repo)
-    state["waiting_since"] = (
-        _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=9)
-    ).isoformat()
-    (repo / ".goal" / "state.json").write_text(json.dumps(state))
-    landed = transcript(
-        repo, launched("toolu_A"), launched("toolu_B", "task2"), finished("toolu_A")
-    )
-    out = run(repo, stdin={"transcript_path": landed})
-    assert out.get("decision") != "block", "a wait that is MOVING is a wait"
-    assert state_of(repo)["waiting_since"] > state["waiting_since"], "the clock restarts"
 
 
 # ── The full goal text is worth tokens sometimes, not every turn ──────────────
@@ -1088,9 +973,7 @@ def test_every_quiet_stand_down_records_what_it_decided(repo: Path) -> None:
     the same observation from outside — no state changed either way."""
     arm(repo, checks=[FAIL], max_stalled_blocks=99)
     _stop(repo, "holder")
-
-    run(repo, stdin={"session_id": "holder", "transcript_path": transcript(repo, launched("toolu_A"))})
-    assert "outstanding" in state_of(repo)["last_verdict"], "a wait left no trace"
+    assert "blocked" in state_of(repo)["last_verdict"]
 
     assert _stop(repo, "a-stranger") == {}, "a stranger must still be untouched"
     verdict = state_of(repo)["last_verdict"]

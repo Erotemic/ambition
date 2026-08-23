@@ -7,8 +7,9 @@ fires. Release conditions include an absolute deadline, a maximum run duration,
 a stalled-commit limit, and a crash fuse.
 
 `--pause` skips one Stop; `--hold` skips Stops until `--unhold`, while deadlines
-continue to run. `--extend` moves both clock-based releases. Coordinator waits
-may temporarily stand the guard down while background work is outstanding.
+continue to run. `--extend` moves both clock-based releases. Those are the only
+ways to stand the guard down: it does NOT infer one from outstanding background
+work, because abandoned shells are the normal state of a long session.
 
 Goals are repository-local but session-scoped. The first stopping session claims
 an unowned goal; `--share` permits additional sessions to join the same goal.
@@ -61,19 +62,6 @@ MAX_CONSECUTIVE_CRASHES = 3
 # has gone to bed.
 PAUSE_TTL_MINUTES = 30.0
 
-# ── Waiting on background work (coordinator mode) ─────────────────────────────
-#
-# A coordinator that spawns background subagents and yields the turn to wait for
-# them is ENDING A TURN, which is the only thing this hook can see. Without the
-# stand-down below it gets blocked and told to resume — every yield, forever,
-# each block injecting the whole goal. That is not a stall the guard should push
-# through; it is the agent doing exactly the right thing.
-#
-# While launched work has not reported back, the guard stands down. The wait is
-# derived from transcript tool events, heartbeat blocks still surface stalled
-# work, and WAIT_CEILING_HOURS bounds the stand-down if completion never arrives.
-WAIT_HEARTBEAT_MINUTES = 60.0
-WAIT_CEILING_HOURS = 4.0
 
 # How often the FULL goal text is reprinted in a block reason. The preamble runs
 # to several thousand tokens and it is identical every turn, so repeating it at
@@ -635,31 +623,6 @@ def clear_goal(
 
 # ── Reading the transcript for what the hook input does not say ───────────────
 
-# A tool result announcing that its work went async. BOTH forms matter and only
-# one of them was obvious: a call made with `run_in_background` says "running in
-# background with ID", and a FOREGROUND call that outlived its timeout says
-# "moved to the background (ID". Matching only the first misses every task that
-# went async by timing out — which is the shape a HUNG task arrives in, so the
-# miss would land exactly where the heartbeat is needed most.
-#
-# ⛔ THE ID IS PART OF THE PATTERN, and leaving it out cost a false positive on
-# the first run: a `grep` whose OUTPUT contained the phrase "running in
-# background with ID" registered as a launch, so the guard believed a task was
-# in flight that had never existed. Requiring `: <id>` is what separates the
-# announcement from prose about the announcement — the same distinction
-# `check_absence_contracts.py` learned three times.
-_ASYNC_LAUNCH = re.compile(
-    r"running in background with ID: (\w+)|moved to the background \(ID: (\w+)\)"
-)
-# The completion notification. `<tool-use-id>` is the join key because it is on
-# BOTH sides; the human-readable task id is only in prose on the launch side.
-_TASK_DONE = re.compile(
-    r"<tool-use-id>(\w+)</tool-use-id>|<task-id>(\w+)</task-id>"
-)
-# Matched as a bare token and then CONFIRMED by parsing, because the first
-# version keyed on the literal `"subtype":"compact_boundary"` and silently saw
-# nothing the moment the separator had a space in it. A transcript writer's
-# whitespace is not part of the contract.
 _COMPACT_BOUNDARY = "compact_boundary"
 
 
@@ -690,24 +653,15 @@ def transcript_tail(hook_input: dict) -> list[str]:
 def transcript_signals(hook_input: dict) -> dict:
     """What the transcript knows that the Stop payload does not.
 
-    `pending`: tool_use ids whose work went async and never reported back.
-    `last_compact_at`: when this session was last compacted, if it was.
+    `last_compact_at`: when this session was last compacted, if it was — the one
+    thing that makes a block reprint the whole goal instead of the short form.
 
-    ⚠ VERIFIED FOR BACKGROUND `Bash` TASKS ONLY. Agent-tool subagents are
-    documented to report through the same completion channel, and the join key
-    used here (`tool_use_id`) is not tool-specific, but no transcript available
-    when this was written contained one — every `isSidechain` count was zero. If
-    a coordinator's subagents are NOT standing the guard down, that is the first
-    thing to check, and the check is: grep the transcript for the launch phrases
-    above and see which one the Agent tool actually emits.
+    ⛔ IT NO LONGER TRACKS IN-FLIGHT WORK. It used to return the set of async
+    tool calls that had never reported back, and `mode_stop` stood down while it
+    was non-empty. See the note there: abandoned background shells are the
+    normal state of a long session, so that set is almost never empty and the
+    guard almost never enforced.
     """
-    launched: set[str] = set()
-    done: set[str] = set()
-    # A launch announces a human-readable task id; a completion carries both that
-    # and the tool_use_id. Keeping the alias means EITHER key clears the wait,
-    # which is the difference between a guard that works and one that nags about
-    # a task that finished under a name it did not recognise.
-    alias: dict[str, str] = {}
     last_compact = None
     for line in transcript_tail(hook_input):
         if not line.strip():
@@ -721,38 +675,7 @@ def transcript_signals(hook_input: dict) -> dict:
             stamp = parse_deadline(record.get("timestamp")) if confirmed else None
             if stamp and (last_compact is None or stamp > last_compact):
                 last_compact = stamp
-        for match in _TASK_DONE.finditer(line):
-            done.add(match.group(1) or match.group(2))
-        if "tool_result" not in line:
-            continue
-        try:
-            record = json.loads(line)
-        except ValueError:
-            continue
-        message = record.get("message")
-        content = message.get("content") if isinstance(message, dict) else None
-        if not isinstance(content, list):
-            continue
-        for block in content:
-            if not isinstance(block, dict) or block.get("type") != "tool_result":
-                continue
-            tool_use_id = block.get("tool_use_id")
-            if not isinstance(tool_use_id, str):
-                continue
-            # Match the ANNOUNCEMENT, not the word "background" — a grep whose
-            # own output mentions backgrounding would otherwise register as a
-            # launch, and this file has spent three separate incidents on
-            # patterns that matched prose about the thing instead of the thing.
-            match = _ASYNC_LAUNCH.search(json.dumps(block.get("content")))
-            if match:
-                launched.add(tool_use_id)
-                task_id = match.group(1) or match.group(2)
-                if task_id:
-                    alias[tool_use_id] = task_id
-    pending = {
-        t for t in launched if t not in done and alias.get(t) not in done
-    }
-    return {"pending": pending, "last_compact_at": last_compact}
+    return {"last_compact_at": last_compact}
 
 
 # ── Hook output shapes ────────────────────────────────────────────────────────
@@ -939,103 +862,6 @@ def take_pause(root: Path) -> dict | None:
     return pending
 
 
-def handle_wait(root: Path, signals: dict) -> int | None:
-    """Stand down while launched background work has not reported back.
-
-    Returns an exit code when this turn was handled as a WAIT, or None to carry
-    on into the checks. Three outcomes:
-
-    * nothing pending, or the wait has run past WAIT_CEILING_HOURS — None, and
-      the ordinary block path runs. ⛔ the ceiling is checked before EVERY
-      stand-down, not only on the unchanged-key path: a wait whose set keeps
-      changing is exactly the one that needs it.
-    * pending and the heartbeat is not due — stand down silently.
-    * pending and the heartbeat IS due — block, but with a SHORT reason asking
-      about the subagents rather than the goal preamble. Work in flight hangs,
-      and a coordinator waiting on a dead task is indistinguishable from a
-      healthy one until somebody asks.
-
-    The wait resets whenever the outstanding SET changes, so a coordinator whose
-    subagents are landing one by one keeps earning fresh quiet, while one whose
-    set has not moved gets asked about it on the hour.
-    """
-    pending = signals.get("pending") or set()
-    if not pending:
-        return None
-    state = load_json(state_path(root)) or {}
-    key = ",".join(sorted(pending))
-    previous = state.get("wait_key") or ""
-
-    # ⛔⛔ THE CLOCK RESTARTS ONLY WHEN SOMETHING ACTUALLY REPORTED, and it is
-    # READ BEFORE ANY STAND-DOWN. A coordinator's pending set GROWS most turns,
-    # so both a restarting clock and an early return on a changed key hand it
-    # unlimited silence. A killed task never reports and stays pending for the
-    # session; surviving that is what the ceiling is for.
-    outstanding = set(previous.split(",")) if previous else set()
-    if outstanding - pending or not state.get("waiting_since"):
-        state["waiting_since"] = now_utc().isoformat()
-        state["last_wait_nudge_at"] = now_utc().isoformat()
-    since = parse_deadline(state.get("waiting_since"))
-
-    if since and now_utc() - since >= _dt.timedelta(hours=WAIT_CEILING_HOURS):
-        # No longer a credible wait. Fall through and block as normal; the
-        # ordinary block path clears both keys, so the NEXT wait starts fresh.
-        return None
-
-    state["wait_key"] = key
-    state["waits"] = as_int(state.get("waits"), 0) + 1
-    last_nudge = parse_deadline(state.get("last_wait_nudge_at")) or since
-    due = last_nudge is None or now_utc() - last_nudge >= _dt.timedelta(
-        minutes=WAIT_HEARTBEAT_MINUTES
-    )
-    if not due:
-        held_h = (now_utc() - since).total_seconds() / 3600.0 if since else 0.0
-        state["last_verdict"] = (
-            f"stood down: {len(pending)} background task(s) outstanding, "
-            f"{held_h:.1f}h of {WAIT_CEILING_HOURS:.0f}h"
-        )
-        state["last_verdict_at"] = now_utc().isoformat()
-        write_state(root, state)
-        if key != previous:
-            emit(
-                {
-                    "systemMessage": (
-                        f"Goal guard: standing down — {len(pending)} background "
-                        "task(s) launched from this session have not reported "
-                        "back. The goal is STILL ARMED. It asks how they are "
-                        f"doing in {WAIT_HEARTBEAT_MINUTES:.0f} minutes, and "
-                        f"enforces normally again after {WAIT_CEILING_HOURS:.0f}h."
-                    )
-                }
-            )
-        return 0
-
-    state["last_wait_nudge_at"] = now_utc().isoformat()
-    held = (now_utc() - since).total_seconds() / 3600.0 if since else 0.0
-    state["last_verdict"] = f"blocked: background work has not moved in {held:.1f}h"
-    state["last_verdict_at"] = now_utc().isoformat()
-    write_state(root, state)
-    emit(
-        {
-            "decision": "block",
-            "reason": (
-                f"BACKGROUND WORK HAS NOT MOVED IN {held:.1f}h. The same "
-                f"{len(pending)} task(s) have been outstanding since this wait "
-                "began, and nothing has reported back since. That is either "
-                "long-running work or a HUNG one, and from here they look "
-                "identical.\n\nCheck on them NOW — read each one's output, and "
-                "kill and relaunch anything wedged. A task that was stopped "
-                "never sends a completion, so it stays outstanding forever and "
-                "this will keep asking.\n\nIf they are all healthy, say so in "
-                "one line and go back to waiting; do NOT start unrelated work "
-                "to fill the time. The goal is still armed and unchanged in "
-                ".goal/active.json."
-            ),
-        }
-    )
-    return 0
-
-
 # ── Modes ─────────────────────────────────────────────────────────────────────
 
 
@@ -1115,14 +941,15 @@ def mode_stop(root: Path, hook_input: dict) -> int:
         )
         return 0
 
-    # Waiting on background work is not stopping. Decided BEFORE the checks for
-    # the same reason the pause is: the point is to hand the turn back now, and
-    # the checks take minutes. A coordinator that yields ten times an hour must
-    # not pay a full `cargo check --all-targets` for each yield.
+    # ⛔⛔ OUTSTANDING BACKGROUND WORK IS NOT A REASON TO STAND DOWN, and this
+    # used to consult one. Jon, 2026-08-23: *"I often see rando shells that you
+    # often just forget about and they just exist and are never killed. That
+    # pattern happens ALL THE TIME. So the goal guard should never be using that
+    # as a condition."* An abandoned poll loop or a superseded gate run never
+    # reports a completion, so "something is in flight" was true almost always
+    # and the run was unguarded by default — the inverse of a check that cannot
+    # fail. A deliberate stand-down is `--pause` (one turn) or `--hold`.
     signals = transcript_signals(hook_input)
-    waited = handle_wait(root, signals)
-    if waited is not None:
-        return waited  # handle_wait records its own verdict
 
     results = run_checks(goal, root)
     if results and all(r.ok for r in results):
@@ -1164,8 +991,6 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             # wait ran past its ceiling). BOTH keys drop: a wait that survived
             # its ceiling has just paid a full block, and the next one earns its
             # own quiet from zero rather than inheriting an expired clock.
-            "wait_key": None,
-            "waiting_since": None,
             "last_verdict": "blocked: "
             + ", ".join(r.name for r in results if not r.ok),
             "last_verdict_at": now_utc().isoformat(),
@@ -1602,13 +1427,6 @@ def mode_status(root: Path, *, quick: bool = False) -> int:
     if state.get("pauses"):
         print(f"pauses spent: {state['pauses']}, last {state.get('last_pause_at', '?')}")
     print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
-    waiting = parse_deadline(state.get("waiting_since"))
-    if waiting:
-        held_h = (now_utc() - waiting).total_seconds() / 3600.0
-        print(
-            f"standing down on background work: {held_h:.1f}h of "
-            f"{WAIT_CEILING_HOURS:.0f}h, then it enforces again"
-        )
     verdict = state.get("last_verdict")
     stamped = parse_deadline(state.get("last_verdict_at"))
     if verdict:

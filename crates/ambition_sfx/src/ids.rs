@@ -56,6 +56,10 @@ sfx_ids! {
     PLAYER_RESET => "player.reset",
     PLAYER_LOW_HEALTH_PULSE => "player.low_health.pulse",
     PLAYER_STAMINA_EMPTY => "player.stamina_empty",
+    /// The crisp CLACK of a successful tech — the defender refusing a
+    /// knockdown. Deliberately not the dash cue the getup roll uses: the two
+    /// used to share one sound and a spectator could not tell them apart.
+    PLAYER_TECH => "player.tech",
     /// The mechanical LATCH the instant a smash charge takes hold — the beat
     /// that tells a player the hold registered and the move is now waiting on
     /// them. Fires once per charge, on the edge, never per frame.

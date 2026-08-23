@@ -40,6 +40,12 @@
         // struck surface. The impact cues stay separate and only fire on contact.
         (id: Some("player.robot.slash.air"), waveform: Saw, frequency: 900.0, frequency_end: 300.0, duration: 0.090, volume: 0.14, attack: 0.002, release: 0.050, noise: 0.70),
 
+        // A successful tech: a short, hard, bright clack with a fast upward
+        // snap. It has to cut through the hit that caused it, land in well
+        // under a tenth of a second, and never be mistaken for the getup
+        // roll's dash whoosh.
+        (id: Some("player.tech"), waveform: Square, frequency: 520.0, frequency_end: 880.0, duration: 0.050, volume: 0.19, attack: 0.001, release: 0.028, noise: 0.30),
+
         // The two beats of a held smash. The LATCH is a mechanical cock —
         // noise-heavy, low, and over in a twentieth of a second, so it reads as
         // a mechanism catching rather than as a hit. The LOADED lock answers it

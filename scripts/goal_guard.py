@@ -892,10 +892,25 @@ def handle_wait(root: Path, signals: dict) -> int | None:
         return None
     state = load_json(state_path(root)) or {}
     key = ",".join(sorted(pending))
-    if state.get("wait_key") != key:
+    previous = state.get("wait_key")
+    if previous != key:
         # A new or changed wait: something returned, or something new launched.
+        #
+        # ⛔⛔ THE CLOCK ONLY RESTARTS WHEN SOMETHING ACTUALLY REPORTED. It used
+        # to restart on ANY change, which made the ceiling below unreachable for
+        # the one caller that needs it most: a coordinator that launches a
+        # background gate every few minutes grows the pending set every time, so
+        # `waiting_since` was pushed forward forever and the guard stood down
+        # SILENTLY for hours. Jon, 2026-08-23: "Goal is not firing."
+        #
+        # A killed task never sends a completion, so it stays pending for the
+        # session — that is what the ceiling exists to survive. Growing the set
+        # must therefore NOT buy fresh quiet; only shrinking it may.
+        outstanding = set(previous.split(",")) if previous else set()
+        something_returned = bool(outstanding - pending)
         state["wait_key"] = key
-        state["waiting_since"] = now_utc().isoformat()
+        if something_returned or not state.get("waiting_since"):
+            state["waiting_since"] = now_utc().isoformat()
         state["last_wait_nudge_at"] = now_utc().isoformat()
         state["waits"] = as_int(state.get("waits"), 0) + 1
         write_state(root, state)

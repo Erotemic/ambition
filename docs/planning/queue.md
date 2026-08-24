@@ -4652,6 +4652,29 @@ failure mode this repository has already named twice.
   and replenish D72 from the highest-value remaining inventory rows rather than
   creating another standing Smash backlog.
 
+  ⭐⭐ **THE CAMPAIGN'S MECHANICAL WORK IS DONE — 2026-08-24.** Every `O` slice
+  and `W1`–`W7` are shipped and marked in both the campaign and the inventory:
+  autolink knockback (kernel + authoring + an authored customer), the rising
+  spin, once-per-airtime recovery, the respawn release rule AND its platform, the
+  shield-drop lag that was already there, and the HUD punch. ⛔ **NOT ARCHIVED**,
+  because `W8` is a PLAYTEST and it is Jon's — the file is where his observations
+  land, and archiving it would send them nowhere.
+
+  ⇒ **replenished from the inventory, smallest-first, so the next session has
+  work that fits a slice rather than a campaign:**
+
+  | row | why it is next |
+  | --- | --- |
+  | Z-drop / neutral drop (`▢ S`) | a custody transition `Held → InWorld` with zero launch — the item road already owns both ends |
+  | Self-damage / recoil move (`▢ S`) | an owner-side `on_hit` through the effect seam that already exists |
+  | Stock + timer selectors (`▢ S`) | rules UI over configuration the ruleset already reads; no mechanic |
+  | Cannot-clank / transcendent hit (`▢ S`) | one hitbox policy after clank arbitration, which ships |
+  | Pivot grab (`▢ S`, twice) | ⛔ BLOCKED on the §4 turnaround/pivot FACT; the capture side needs nothing. Do not start it from the capture end |
+
+  ⛔ every one of these was re-read against the inventory on 2026-08-24, not
+  copied from an older list — and the pivot-grab pair is listed WITH its blocker
+  precisely because two rows name it and neither says so on its own.
+
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
 Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).

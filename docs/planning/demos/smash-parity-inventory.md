@@ -202,7 +202,7 @@ below from it.
 | Generic post-recovery helpless state | ▢ | M | E1 | Add only when authored move recovery cannot express the commitment cleanly. Keep it body-generic. |
 | Ledge-trump outward pop/commitment | ~ | S/M | E1 | Ownership arbitration already drops the old holder. Add the resolved outward reaction/brief commitment to the trump result. |
 | Two-frame ledge vulnerability | ▢ | S/M | E1 | Local ledge-acquisition timing rule; do not hard-code it in hurtbox rendering. |
-| Ledge regrab count/limit | ▢ | S/M | E1 | Ledge state owns regrab history/penalty. Existing airtime-scaled intangibility remains the baseline. |
+| Ledge regrab count/limit | ✔ by another key | — | E1 | RESEARCHED 2026-08-24: the genre's punishment for stalling from below is DIMINISHING intangibility, and `ledge_invuln_for(time_off_ledge)` already delivers it — 0.10s to 0.50s linear over 1.20s of pre-catch airtime, so a fast regrab gets the floor. A regrab COUNT would be a second authority over one punishment. Reopen only if play shows the airtime key failing where a count would not. |
 | Edgehog vs trump rules knob | ▢ | M | E1 | Same ledge-occupancy authority; expose policy at match/ruleset level if supporting multiple Smash generations. |
 | Tether recovery | ▢ | M | E1 | Reuse the existing grapple/spatial-link machinery and integrate ledge/recovery eligibility only where needed. |
 | Tether grab | ▢ | M | E1 | Grapple/tether acquisition feeds generic capture semantics. |

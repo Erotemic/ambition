@@ -587,9 +587,18 @@ hit now takes the hang.
     punishment on top of two that already bite. ⇒ what is worth measuring next
     is whether the CPU ever EDGE-GUARDS, because a rule nobody exercises reads
     exactly like a rule that does not exist.
-  - a LEDGE-GRAB LIMIT. `LEDGE_REGRAB_COOLDOWN` is a cooldown, not a count:
-    nothing tracks regrabs per airtime, which is Ultimate's answer to stalling
-    from below.
+  - a LEDGE-GRAB LIMIT. ⇒ RESEARCHED 2026-08-24 and the answer is that the
+    MECHANISM ALREADY EXISTS under a different key. The genre's punishment for
+    stalling from below is DIMINISHING ledge intangibility, and Ambition scales
+    it by PRE-CATCH AIRTIME rather than by a regrab count:
+    `ledge_invuln_for(time_off_ledge)` is linear from 0.10s to 0.50s over
+    `LEDGE_INVULN_FULL_AIRTIME` (1.20s). A fighter dropping and regrabbing in a
+    third of a second gets the floor; one returning from a real launch gets the
+    whole window. ⛔ so a COUNT would be a second authority over one punishment,
+    which is the shape this project keeps removing. The parity row's own note
+    already said so — *"existing airtime-scaled intangibility remains the
+    baseline"*. Reopen only if play shows the airtime key failing where a count
+    would not.
   - DAMAGE-SCALED GETUP. `LEDGE_CLIMB_TIME` and friends are constants, so a
     fighter at 150% gets up exactly as fast as one at 0%.
 

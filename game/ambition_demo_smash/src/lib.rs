@@ -782,6 +782,11 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // continues untouched, which is what makes a heavy swing beat a jab
         // instead of trading with it.
         clank_damage_window: 9.0,
+        // …and the trade throws both fighters back. Well under a launch — this
+        // is a reset of the exchange, not a punish — but far enough that the two
+        // are no longer inside each other's next swing, which is what makes
+        // trading a decision rather than a stutter.
+        clank_rebound_speed: 190.0,
         // A GRAB HOLDS THE HURT FIGHTER LONGER, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is

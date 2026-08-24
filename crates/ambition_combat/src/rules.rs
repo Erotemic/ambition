@@ -180,6 +180,18 @@ pub struct DeclaredCombatRules {
     /// other, which is what every game in this engine did before this field
     /// existed and what a non-fighter should keep doing.
     pub clank_damage_window: f32,
+    /// How hard a traded attack throws its own thrower BACKWARD, in engine
+    /// units per second.
+    ///
+    /// ⭐ THE REBOUND IS WHAT MAKES A CLANK A MECHANIC. Without it two attacks
+    /// simply vanish and both fighters stand where they were, mid-animation,
+    /// with nothing having happened — which reads as the game dropping inputs.
+    /// The genre pushes both bodies apart and takes their moves away, so a trade
+    /// resets the exchange instead of freezing it.
+    ///
+    /// `0.0` = a clank cancels the attacks and moves nobody. Irrelevant while
+    /// [`Self::clank_damage_window`] is zero, because then nothing clanks.
+    pub clank_rebound_speed: f32,
 }
 
 /// The rules combat actually reads this tick.
@@ -211,6 +223,8 @@ pub struct ResolvedCombatTuning {
     /// See [`DeclaredCombatRules::clank_damage_window`]. `0.0` = attacks pass
     /// through each other, which is what an undeclared world does.
     pub clank_damage_window: f32,
+    /// See [`DeclaredCombatRules::clank_rebound_speed`].
+    pub clank_rebound_speed: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -308,6 +322,7 @@ impl ResolvedCombatTuning {
                 grab_mash_seconds: rules.grab_mash_seconds,
                 friendly_fire: rules.friendly_fire,
                 clank_damage_window: rules.clank_damage_window,
+                clank_rebound_speed: rules.clank_rebound_speed,
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -336,6 +351,7 @@ impl ResolvedCombatTuning {
                 // landed, and turning that on to buy a Smash feature is the
                 // mistake `downward_hit` above already names.
                 clank_damage_window: 0.0,
+                clank_rebound_speed: 0.0,
             },
         }
     }
@@ -371,6 +387,7 @@ impl Default for ResolvedCombatTuning {
             grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: false,
             clank_damage_window: 0.0,
+            clank_rebound_speed: 0.0,
         }
     }
 }
@@ -438,6 +455,7 @@ mod tests {
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
                 clank_damage_window: 0.0,
+                clank_rebound_speed: 0.0,
             }),
             baseline_di,
             true,
@@ -472,6 +490,7 @@ mod tests {
             grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: true,
             clank_damage_window: 0.0,
+            clank_rebound_speed: 0.0,
         });
         assert_eq!(
             ResolvedCombatTuning::resolve(declared, 0.12, false).di_max_angle,
@@ -496,6 +515,7 @@ mod tests {
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
                 clank_damage_window: 0.0,
+                clank_rebound_speed: 0.0,
             }
         );
     }

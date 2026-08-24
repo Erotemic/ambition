@@ -191,6 +191,74 @@ fn opposed(
     crate::targeting::can_damage(*a_faction, *b_faction, rules.friendly_fire())
 }
 
+/// What a trade COSTS both fighters: their moves end, and both are thrown back.
+///
+/// ⭐⭐ WITHOUT THIS A CLANK IS NOT A MECHANIC. Cancelling the volumes alone
+/// leaves both fighters standing where they were, playing an animation that can
+/// no longer hit anything — which reads as the game having dropped two inputs.
+/// The genre ends both attacks and pushes both bodies apart, so a trade RESETS
+/// the exchange rather than freezing it.
+///
+/// ⛔ A HARD LOCK, not hitstun, and the same one the footstool flinch takes:
+/// being traded with is not being hit. Nobody took damage, nobody is in
+/// knockback, and what makes the moment matter is the frames neither fighter can
+/// act in — which is the same read for both, because a clank has no winner.
+///
+/// ⭐ THE PUSH IS AWAY FROM THE OTHER BODY, resolved from the two positions
+/// rather than from either one's facing: two fighters who traded are by
+/// definition reaching toward each other, and facing is the thing a spinning or
+/// mid-turn body is least reliable about.
+pub fn rebound_from_clanks(
+    mut commands: Commands,
+    mut clanked: MessageReader<AttacksClanked>,
+    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    mut bodies: Query<(
+        &mut ae::BodyKinematics,
+        &mut ambition_characters::actor::BodyCombat,
+    )>,
+    mut playing: Query<&mut crate::moveset::MovePlayback>,
+) {
+    let rules = tuning.as_deref().copied().unwrap_or_default();
+    let lock = feel
+        .as_deref()
+        .copied()
+        .unwrap_or_default()
+        .knockback_recoil_lock_time;
+    for clank in clanked.read() {
+        let (a, b) = clank.owners;
+        // The axis, once, from the pair. `get_many` is not used because the two
+        // owners are looked up mutably one at a time below.
+        let (Ok(a_pos), Ok(b_pos)) = (
+            bodies.get(a).map(|(kin, _)| kin.pos),
+            bodies.get(b).map(|(kin, _)| kin.pos),
+        ) else {
+            continue;
+        };
+        let apart = b_pos - a_pos;
+        // Two bodies at the SAME point have no axis, and inventing one would
+        // pick a direction out of floating-point noise. They keep their lock and
+        // lose their moves; nobody is pushed.
+        let axis = if apart.length_squared() > f32::EPSILON {
+            apart.normalize()
+        } else {
+            ae::Vec2::ZERO
+        };
+        for (body, away) in [(a, -axis), (b, axis)] {
+            if let Ok((mut kin, mut combat)) = bodies.get_mut(body) {
+                kin.vel += away * rules.clank_rebound_speed;
+                combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
+            }
+            // AND THE MOVE ENDS. Through the one teardown path, which despawns
+            // whatever volumes the move still owns — a swing whose strike was
+            // traded away must not keep spawning later windows.
+            if let Ok(mut playback) = playing.get_mut(body) {
+                crate::moveset::cancel_move_playback(&mut commands, body, &mut playback);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -401,6 +469,96 @@ mod tests {
             "an undeclared world clanked — every Ambition room just changed to \
              buy a Smash feature"
         );
+    }
+
+    /// ⭐⭐ A TRADE COSTS BOTH FIGHTERS: their moves end and both are pushed
+    /// apart. Driven by the REAL arbitration, not a hand-written message, so
+    /// this fails if the two systems ever disagree about who traded.
+    ///
+    /// ⛔ THE DIRECTIONS ARE OPPOSITE AND THAT IS THE ASSERTION. A rebound that
+    /// pushed both bodies the same way would be a shove, and would pass any test
+    /// that only asked whether velocity changed.
+    #[test]
+    fn a_trade_ends_both_moves_and_throws_both_fighters_apart() {
+        let mut app = clank_app();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            clank_damage_window: 9.0,
+            clank_rebound_speed: 200.0,
+            ..Default::default()
+        });
+        app.insert_resource(crate::feel::Platformer2dFeelTuningMonolith::default());
+        app.add_systems(Update, rebound_from_clanks.after(arbitrate_attack_clanks));
+
+        let left = body(&mut app, 0.0, ActorFaction::Player);
+        let right = body(&mut app, 40.0, ActorFaction::Enemy);
+        for owner in [left, right] {
+            app.world_mut().entity_mut(owner).insert((
+                ambition_characters::actor::BodyCombat::default(),
+                crate::moveset::MovePlayback::new(swinging_move(), 1.0),
+            ));
+        }
+        swing(&mut app, left, 20.0, 10);
+        swing(&mut app, right, -20.0, 10);
+        app.update();
+
+        let vel = |app: &App, body: Entity| {
+            app.world()
+                .get::<ae::BodyKinematics>(body)
+                .expect("still a body")
+                .vel
+                .x
+        };
+        assert!(
+            vel(&app, left) < 0.0,
+            "the left fighter was not thrown back: {}",
+            vel(&app, left)
+        );
+        assert!(
+            vel(&app, right) > 0.0,
+            "the right fighter was not thrown back: {}",
+            vel(&app, right)
+        );
+
+        for (owner, name) in [(left, "left"), (right, "right")] {
+            assert!(
+                app.world()
+                    .get::<crate::moveset::MovePlayback>(owner)
+                    .is_none(),
+                "the {name} fighter's move survived the trade, so it plays on \
+                 with no hitbox — which reads as the game dropping the input"
+            );
+            assert!(
+                app.world()
+                    .get::<ambition_characters::actor::BodyCombat>(owner)
+                    .is_some_and(|c| c.recoil_lock_timer > 0.0),
+                "the {name} fighter can act immediately, so a trade costs it \
+                 nothing but its swing"
+            );
+        }
+    }
+
+    /// A move for the fighters above to be mid-way through. Only its existence
+    /// and its teardown matter.
+    fn swinging_move() -> ambition_entity_catalog::MoveSpec {
+        ambition_entity_catalog::MoveSpec {
+            display_name: None,
+            id: "swing".to_string(),
+            clip: ambition_entity_catalog::ClipBinding {
+                clip: "swing".to_string(),
+                fallbacks: vec![],
+            },
+            duration_s: 1.0,
+            windows: vec![],
+            events: vec![],
+            gates: Default::default(),
+            start_impulse: None,
+            smash_charge_mult: 1.0,
+            smash_charge: None,
+            repeat: None,
+            landing_lag_s: None,
+            autocancel_after_s: None,
+            sprite_spin_hz: None,
+        }
     }
 
     /// ⭐ AND ATTACKS THAT DO NOT REACH EACH OTHER ARE NOT A TRADE.

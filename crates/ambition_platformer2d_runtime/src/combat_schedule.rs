@@ -258,6 +258,10 @@ impl Plugin for CombatSchedulePlugin {
                     // asks about a victim, or whichever one the query yields
                     // first lands before anybody knows it was cancelled.
                     ambition_combat::clank::arbitrate_attack_clanks,
+                    // …and what the trade costs, immediately after, so the
+                    // moves it ends are gone before the damage sweep looks at
+                    // anything they own.
+                    ambition_combat::clank::rebound_from_clanks,
                     ambition_platformer2d_actor_monolith::features::apply_hitbox_damage,
                     ambition_platformer2d_actor_monolith::combat::moveset::mark_move_playback_landed_hits,
                 )

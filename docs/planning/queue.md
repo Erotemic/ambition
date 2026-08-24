@@ -616,31 +616,72 @@ fixing a right one. Before moving anything else into the reaction, classify it:
 there are two. The goal is NARROW roads around one honest shared reaction, not a
 mega-function that knows every game's death, economy and movement policy.
 
-- ▢ **D202 — CONTROL IS PUBLISHED IN TWO PHASES, SO EVERY RESTRICTION OVER IT
-  RUNS TWICE.** (found 2026-08-24 working D200 §8b)
+- ▢ **D202 — CONTROL IS PUBLISHED IN TWO PHASES. ✔ THE DOUBLE RESTRICTION IS
+  CLOSED; THE DOUBLE PUBLICATION REMAINS.** (found 2026-08-24 working D200 §8b)
 
 A possessed body's `ActorControl` is written in `PlayerInputSet::Brain`
 (`tick_controlled_brains`). An autonomous body's is written a whole phase later
-in `ActorDecisionSet::Publish` (`publish_actor_decision_frames`). Anything that
-has to act on FINISHED control therefore appears once after each — today
-`sample_capture_escape` and `blank_scripted_control_frames`, registered as a
-pair in `PlayerInputSet::ControlGate` and again in
-`WorldPrepSet::BeforeIntegrate`.
+in `ActorDecisionSet::Publish` (`publish_actor_decision_frames`). ⚠ and read the
+CHAIN, not the enum: `configure_platformer2d_simulation_phases` orders
+`PlayerInput → WorldPrep → …`, while the phase enum happens to DECLARE
+`WorldPrep` first. The chain is the authority.
 
-⚠ **and it is correct today, by an invariant nothing enforces.** Sampling
-credits a captive's mash out of the frame; blanking removes it, and that is also
-what stops the other pair from crediting the same press. A human captive is
-credited by the first pair and sees a zeroed frame at the second; an AI captive
-sees a zeroed frame at the first and is credited by the second. Exactly one
-credit each — but delete the blank from either site and a held human escapes at
-double rate, silently. Both registration sites now say so.
+✔✔ **CLOSED 2026-08-24 — ONE RESTRICTION PHASE, AFTER BOTH PUBLICATIONS.**
+`PlayerInputSet::ControlGate` and `PlayerInputSet::BodyMode` are re-parented into
+`WorldPrep`, between `ActorDecisionSet::Publish` and
+`WorldPrepSet::BeforeIntegrate`, and the duplicated restrictions are DELETED —
+one `sample_capture_escape`, one `blank_scripted_control_frames`, one
+`arm_smash_throw_edge`, one `restrict_captor_control`, gating every body in the
+world. The hidden invariant is gone with them: the pair used to be correct only
+because the FIRST blank stopped the SECOND sampler crediting the same human
+press, so deleting either blank doubled a held human's escape rate in silence.
 
-⇒ **the fix is one publication phase, not a third copy of the pair.** Three
-consumers sit between the two today (`gate_worn_player_control`,
-`sustain_bubble_shield`, `update_body_mode`), all of which want gated control, so
-this is a schedule move with rollback-visible ordering consequences and not a
-consolidation-pass edit. ⛔ do not solve it with middleware or a registry: one
-named set after control publication is the whole shape.
+⭐ **THE SETS KEEP THEIR NAMES AND THE NAMES NOW LIE A LITTLE**, which is stated
+at the enum rather than papered over: `PlayerInputSet::ControlGate` does not live
+in `PlayerInput` and cannot, because half the frames it gates do not exist yet
+there. Renaming the enum is a wide mechanical change for a later slice.
+
+⛔⛔ **AND THE MOVE'S OWN FIRST VERSION WAS WRONG, in a way the suite would not
+have caught.** Leaving the sample-then-blank pair in `BeforeIntegrate` put it
+AFTER the gate consumers, so a scripted body's stale control reached
+`update_body_mode` and `sustain_bubble_shield` for one phase before being
+blanked. ⇒ the restriction group (sample · throw edge · blank · restrict captor)
+moved into the head of the gate; the pre-integration group (`tick_capture_holds`,
+`steer_mount_from_rider`, `advance_moving_platforms`, `snapshot_body_contact`)
+stayed in `BeforeIntegrate`, which is what keeps `steer_mount_from_rider` reading
+a GATED rider frame as it always did.
+
+⚠ **TWO CALL SITES HAD TO MOVE WITH IT, and both were the same mistake:**
+naming a leaf set AND its parent phase in one registration. `twintrack`'s
+`capture_twintrack_interaction` was `.in_set(ControlGate).in_set(PlayerInput)` —
+a redundant restatement that became `SetsHaveOrderButIntersect` the moment the
+leaf moved. `sanic`'s post-gate pair was `.in_set(PlayerInput).after(WornControlGateSet)`,
+which became a genuine CYCLE. ⇒ a membership declares itself; restating its
+parent pins a fact the call site does not own.
+
+⇒ guarded by `each_restriction_over_published_control_is_registered_exactly_once`
+(a COUNT, in the SHIPPED app — the failure was two, not zero, and the monolith's
+own phase-membership test builds a world with only `WorldPrepSchedulePlugin` and
+never saw the second copy) and
+`the_one_control_gate_lives_after_the_later_publication` (the count is satisfied
+by a single copy in the WRONG place, which is the state the second copy papered
+over; the poison asserts `PlayerInputSet::Brain` did NOT move).
+⚠ tooling: `Schedule::graph().systems` is EMPTIED by a successful `initialize` —
+Bevy moves them into the executable — so a registration count must be taken
+BEFORE building, and a swallowed `initialize` error makes every set read as
+empty rather than as unbuilt. Both are asserted in the fixture.
+
+▢ **WHAT IS STILL OPEN: control is still PUBLISHED twice.** The target remains
+one canonical publication boundary, which means moving `tick_controlled_brains`
+out of `PlayerInputSet::Brain` down beside `publish_actor_decision_frames`. ⭐
+MEASURED as viable: `tick_controlled_brains` reads only `SlotControls` +
+`DrivingParticipant` + the body's motion policy, all settled in
+`PlayerInputSet::Device`, and the whole actor decision chain
+(`Targeting → Decide`) never borrows `ActorControl` — `actors/update.rs` says so
+in as many words, and `assess_dormancy`, which DOES write it, can never reach a
+possessed body (a driven body is its own observer, at distance zero). ⛔ do not
+solve it with middleware, a registry, or a generic control framework: one named
+set after publication is the whole shape.
 
 ▢ **AND THE SAME SEAM OWES THE DUAL-WRITE BRIDGE, re-homed here 2026-08-24 when
 D200 closed.** `shape_seat_frame` writes BOTH `SeatRawFrames` and `SlotControls`,

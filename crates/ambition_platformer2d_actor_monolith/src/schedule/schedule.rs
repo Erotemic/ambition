@@ -17,8 +17,8 @@ use bevy::prelude::*;
 // function because it still refers to actor-system anchors.
 use ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized;
 use ambition_platformer2d_shared_tangle::schedule::{
-    CombatSet, GameplaySimulationRoot, PlayerInputSet, PlayerSimulationSet, RoomTransitionSet,
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt, WorldPrepSet,
+    CombatSet, GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith, PlayerInputSet,
+    PlayerSimulationSet, RoomTransitionSet, SimScheduleExt, WorldPrepSet,
 };
 
 /// Configure the chained ordering between [`Platformer2dSimulationPhaseMonolith`] variants.
@@ -101,12 +101,19 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             PlayerInputSet::CharacterProjection,
             PlayerInputSet::Persona,
             PlayerInputSet::Brain,
-            PlayerInputSet::ControlGate,
-            PlayerInputSet::BodyMode,
         )
             .chain()
             .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
     );
+    // ⛔⛔ `ControlGate` AND `BodyMode` ARE NOT IN THIS PHASE, and they cannot
+    // be. Both act on FINISHED control, and control is finished for a possessed
+    // body here (`Brain`) but not for an autonomous one until
+    // `ActorDecisionSet::Publish`, a whole phase later. A gate that ran here ran
+    // BEFORE half the frames it exists to gate — which is exactly why every
+    // restriction over control was registered TWICE (D202).
+    //
+    // ⇒ they are placed by `configure_actor_decision_phases`, in `WorldPrep`,
+    // between the second publication and integration. The enum's own docs say so.
 
     app.configure_sets(
         sim,
@@ -218,7 +225,11 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         )
             .chain(),
     )
-    .configure_sets(sim, Platformer2dSimulationPhaseMonolith::Trace.after(Platformer2dSimulationPhaseMonolith::CoreSimulation))
+    .configure_sets(
+        sim,
+        Platformer2dSimulationPhaseMonolith::Trace
+            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+    )
     // Presentation visual chain: must observe this frame's
     // FeatureViewIndex rebuild. Owning the ordering at the set level
     // means every system added to `PresentationVisualSync` inherits
@@ -227,7 +238,8 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // ordering survives.
     .configure_sets(
         sim,
-        Platformer2dSimulationPhaseMonolith::PresentationVisualSync.after(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+        Platformer2dSimulationPhaseMonolith::PresentationVisualSync
+            .after(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
     );
 
     app.configure_sets(

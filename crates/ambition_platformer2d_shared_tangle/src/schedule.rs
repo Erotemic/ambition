@@ -288,12 +288,20 @@ pub enum PlayerInputSet {
     /// The universal-brain seam: this frame's slot input becomes each controlled
     /// body's `ActorControl`.
     Brain,
-    /// Everything that may VETO or rewrite the control frame the brain just
-    /// wrote — scripted blanking, worn-kit gating, a sustained shield. After the
-    /// brain, before anything reads the frame.
+    /// Everything that may VETO or rewrite a published control frame — worn-kit
+    /// gating, a sustained shield.
+    ///
+    /// ⛔⛔ IT DOES NOT LIVE IN `PlayerInput`, whatever this enum is called.
+    /// Control is published TWICE — a possessed body's in [`Self::Brain`], an
+    /// autonomous body's in the actor decision chain a phase later — and a
+    /// restriction over control has exactly one legal home: after the LATER of
+    /// them. This set is placed in `WorldPrep` between publication and
+    /// integration; a copy that ran here would run before every AI frame in the
+    /// world, which is why every restriction used to be registered twice (D202).
     ControlGate,
     /// Body-mode policy (crouch / morph / climb) and the actor pose sync, both
-    /// of which consume the finished control frame.
+    /// of which consume the finished control frame. Placed beside
+    /// [`Self::ControlGate`] and for the same reason.
     BodyMode,
 }
 

@@ -736,8 +736,13 @@ impl Plugin for TwinTrackExperiencePlugin {
                 .run_if(ambition_platformer2d::runtime::in_mode(
                     TWINTRACK_EXPERIENCE,
                 ))
-                .in_set(PlayerInputSet::ControlGate)
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+                // ⛔ THE LEAF SET ALONE. Naming the parent phase BESIDE it was
+                // redundant while `ControlGate` lived in `PlayerInput` and became
+                // a schedule-build error the moment it moved to `WorldPrep`
+                // (D202) — the system was then in two ordered phases at once.
+                // A membership declares itself; restating its parent pins a fact
+                // that is not this call site's to know.
+                .in_set(PlayerInputSet::ControlGate),
         )
         .add_systems(
             sim,

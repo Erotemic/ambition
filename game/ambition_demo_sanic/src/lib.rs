@@ -203,8 +203,8 @@ pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 pub fn is_ring_placement(
     record: &ambition_platformer2d::world::placements::PlacementRecord,
 ) -> bool {
-    use ambition_platformer2d::entity_catalog::PickupKind;
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+    use ambition_platformer2d::entity_catalog::PickupKind;
     record.name == "ring"
         && matches!(
             &record.schema,
@@ -1192,11 +1192,17 @@ impl Plugin for SanicRulesPlugin {
         // technique edges the gate resolved — the fragile before-gate raw-verb
         // interception windows are GONE (neither a plain melee edge nor a raw
         // Utility edge is the API any more).
+        //  IN `WorldPrep`, WHICH IS WHERE THE GATE IS. The gate used to sit in
+        // `PlayerInput`, and it moved because a restriction over control has to
+        // run after BOTH publications and an autonomous body's lands in
+        // `WorldPrep` (D202). "After the gate" is the real requirement here, so
+        // the phase follows it — pinning `PlayerInput` beside it is what turned
+        // the move into a schedule CYCLE rather than a relocation.
         let sanic_post_gate = (
             ball_dash::capture_ball_dash_input,
             toggle_sanic_form,
         )
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
         if self.hosted {
             app.add_systems(
@@ -2050,11 +2056,12 @@ pub fn scatter_rings_on_hit(
                 name: "ring".to_string(),
                 aabb: ae::Aabb::new(event.pos, size * 0.5),
                 payload: {
-                    let mut spec = ambition_platformer2d::entity_catalog::placements::PickupSpec::new(
-                        ambition_platformer2d::entity_catalog::PickupKind::Currency {
-                            amount: 1,
-                        },
-                    );
+                    let mut spec =
+                        ambition_platformer2d::entity_catalog::placements::PickupSpec::new(
+                            ambition_platformer2d::entity_catalog::PickupKind::Currency {
+                                amount: 1,
+                            },
+                        );
                     spec.sprite = Some(RING_SPRITE_KIND.to_string());
                     spec
                 },

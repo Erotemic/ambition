@@ -164,11 +164,11 @@ pub use ecs::{
     RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
     RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
-pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,
     publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
 };
+pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
     ActorSpawnState, ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
@@ -301,6 +301,31 @@ fn configure_actor_decision_phases(app: &mut App) {
         sim,
         ActorDecisionSet::Publish.before(crate::schedule::WorldPrepSet::BeforeIntegrate),
     );
+    // ⭐⭐ THE ONE RESTRICTION PHASE, AND IT IS AFTER BOTH PUBLICATIONS (D202).
+    //
+    // A possessed body's `ActorControl` is written in `PlayerInputSet::Brain`, a
+    // whole phase earlier; an autonomous body's is written just above. Anything
+    // that acts on FINISHED control therefore has exactly one legal home — after
+    // the LATER of the two — and putting these sets in `PlayerInput` (where their
+    // names still say they live) meant they ran before every AI frame in the
+    // world. The answer was a SECOND copy of each restriction registered here,
+    // and the pair was correct only by an invariant nothing enforced: the first
+    // blank is what stopped the second sampler crediting the same human press.
+    //
+    // ⇒ one placement, one copy. `WorldPrepSet::BeforeIntegrate` still owns the
+    // capture pair (sample-then-blank) because that chain has same-tick
+    // dependencies of its own; these two sets sit between publication and it.
+    app.configure_sets(
+        sim,
+        (
+            ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate,
+            ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::BodyMode,
+        )
+            .chain()
+            .after(ActorDecisionSet::Publish)
+            .before(crate::schedule::WorldPrepSet::BeforeIntegrate)
+            .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+    );
 }
 
 #[cfg(test)]
@@ -324,10 +349,7 @@ mod actor_decision_phase_tests {
         ("assess_dormancy", ActorDecisionSet::Prepare),
         ("project_authored_fighter_ladder", ActorDecisionSet::Prepare),
         ("collect_perception_peers", ActorDecisionSet::Observe),
-        (
-            "collect_perception_projectiles",
-            ActorDecisionSet::Observe,
-        ),
+        ("collect_perception_projectiles", ActorDecisionSet::Observe),
         ("observe_actor_decision_inputs", ActorDecisionSet::Observe),
         (
             "maintain_actor_pre_decision_state",
@@ -337,23 +359,7 @@ mod actor_decision_phase_tests {
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
     ];
 
-    const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 12] = [
-        (
-            "sample_capture_escape",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
-        ),
-        (
-            "arm_smash_throw_edge",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
-        ),
-        (
-            "blank_scripted_control_frames",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
-        ),
-        (
-            "restrict_captor_control",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
-        ),
+    const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 8] = [
         (
             "tick_capture_holds",
             crate::schedule::WorldPrepSet::BeforeIntegrate,
@@ -438,9 +444,7 @@ mod actor_decision_phase_tests {
 
         let world_prep = graph
             .system_sets
-            .get_key(
-                crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep.intern(),
-            )
+            .get_key(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
             .expect("WorldPrep must be registered");
         for phase in DECISION_PHASES {
             let phase_key = graph
@@ -896,21 +900,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // ⛔⛔ THE SECOND SAMPLE-THEN-BLANK PAIR, and it is here because
-                // AUTONOMOUS control is published in `ActorDecisionSet::Publish`
-                // — a phase after the possessed body's frame landed, and after
-                // the runtime's copy of this pair already ran. Each publication
-                // gets exactly one pair: the blank is what keeps the other pair
-                // from crediting the same press twice. See D202 for the seam
-                // that would leave one of each.
-                ambition_combat::capture::systems::sample_capture_escape,
-                // The captor's stick, read for the throw edge. Beside the
-                // captive's escape sampling because both are the RULESET's
-                // reading of a capture's inputs, and both are scoped by asking
-                // for `SmashHoldState`.
-                ambition_combat::capture::systems::arm_smash_throw_edge,
-                crate::avatar::blank_scripted_control_frames,
-                ambition_combat::capture::systems::restrict_captor_control,
                 ambition_combat::capture::systems::tick_capture_holds,
                 steer_mount_from_rider,
                 crate::avatar::advance_moving_platforms,

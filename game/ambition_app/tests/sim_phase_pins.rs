@@ -18,7 +18,13 @@ fn systems_in(app: &mut App, schedule: impl ScheduleLabel, set: impl SystemSet) 
     app.world_mut()
         .resource_scope(|world, mut schedules: Mut<Schedules>| {
             let built = schedules.get_mut(label)?;
-            let _ = built.initialize(world);
+            // ⛔ THE BUILD ERROR IS NOT SWALLOWED. A failed `initialize` leaves a
+            // partial graph, and every query below then answers `None` — which
+            // reads as "this set has no systems" when what happened is that the
+            // schedule did not build at all.
+            built
+                .initialize(world)
+                .unwrap_or_else(|e| panic!("the sim schedule failed to build: {e:?}"));
             built
                 .graph()
                 .systems_in_set(set.intern())
@@ -84,4 +90,132 @@ fn the_core_simulation_sub_phases_live_where_core_simulation_does() {
              there, so unlike `CoreSimulation` there is not even an empty husk"
         );
     }
+}
+
+/// ⛔⛔ EVERY RESTRICTION OVER PUBLISHED CONTROL IS REGISTERED EXACTLY ONCE.
+///
+/// It was not. Control is published twice — a possessed body's in
+/// `PlayerInputSet::Brain`, an autonomous body's in the actor decision chain a
+/// phase later — and `PlayerInputSet::ControlGate` sat in `PlayerInput`, before
+/// the second one. The answer had been a SECOND copy of each restriction later
+/// in the frame, and the pair was correct only by an invariant nothing enforced:
+/// the first blank was what stopped the second sampler crediting the same human
+/// press. Delete either blank and a held human escapes at double rate, silently.
+///
+/// ⭐ THIS IS A COUNT, NOT A PRESENCE — the failure was two, not zero. And it
+/// runs against the SHIPPED app, which is the only composition where both
+/// registration sites exist: the monolith's own phase-membership test builds a
+/// world with just `WorldPrepSchedulePlugin` and never saw the second copy.
+#[test]
+fn each_restriction_over_published_control_is_registered_exactly_once() {
+    use bevy::ecs::schedule::Schedules;
+
+    let mut app = shipped_app();
+    let label = GgrsSchedule.intern();
+    // ⛔ NOT INITIALIZED FIRST, deliberately. A built schedule MOVES its systems
+    // out of the graph into the executable, so counting after `initialize` reads
+    // zero for everything — which would look like "this system is gone" for the
+    // whole list. The registration count is a fact about the graph as it was
+    // ASSEMBLED, and that is what this asks for.
+    let (total, counts) =
+        app.world_mut()
+            .resource_scope(|_world, mut schedules: Mut<Schedules>| {
+                let built = schedules.get_mut(label).expect("the sim schedule exists");
+                let graph = built.graph();
+                let count_of = |leaf: &str| {
+                    graph
+                        .systems
+                        .iter()
+                        .filter(|(_, system, _)| {
+                            format!("{}", system.name()).rsplit("::").next() == Some(leaf)
+                        })
+                        .count()
+                };
+                (
+                    graph.systems.iter().count(),
+                    [
+                        "sample_capture_escape",
+                        "blank_scripted_control_frames",
+                        "gate_worn_player_control",
+                        "sustain_bubble_shield",
+                        "update_body_mode",
+                    ]
+                    .map(|leaf| (leaf, count_of(leaf))),
+                )
+            });
+    assert!(
+        total > 100,
+        "the sim schedule's graph holds {total} systems, so it has already been \
+         built and every count below would read zero for the wrong reason"
+    );
+    for (leaf, n) in counts {
+        assert_eq!(
+            n, 1,
+            "`{leaf}` is registered {n} times in the shipped sim schedule. Two means \
+             control is being restricted once per publication phase again, and the \
+             copies are load-bearing on each other (D202); zero means it stopped \
+             running at all"
+        );
+    }
+}
+
+/// ... AND THE ONE COPY RUNS AFTER BOTH PUBLICATIONS.
+///
+/// The count above is satisfied by a single copy in the WRONG place — back in
+/// `PlayerInput`, gating the human frame and no AI frame in the world — which is
+/// the state the second copy existed to paper over. So the placement is asserted
+/// beside it: `ControlGate` is a child of `WorldPrep`, and NOT of `PlayerInput`,
+/// whatever the enum it belongs to is called.
+#[test]
+fn the_one_control_gate_lives_after_the_later_publication() {
+    use ambition_platformer2d::platformer::schedule::PlayerInputSet;
+
+    let mut app = shipped_app();
+    for (set, phase, expected) in [
+        (PlayerInputSet::ControlGate, Phase::WorldPrep, true),
+        (PlayerInputSet::ControlGate, Phase::PlayerInput, false),
+        (PlayerInputSet::BodyMode, Phase::WorldPrep, true),
+        (PlayerInputSet::BodyMode, Phase::PlayerInput, false),
+        // The poison: the publication the gate is measured against did NOT move.
+        (PlayerInputSet::Brain, Phase::PlayerInput, true),
+    ] {
+        let count = systems_in(&mut app, GgrsSchedule, set)
+            .expect("the set is registered in the shipped app");
+        assert!(count > 0, "{set:?} has no members at all");
+        let in_phase = systems_in(&mut app, GgrsSchedule, phase).unwrap_or(0);
+        assert!(in_phase > 0, "{phase:?} has no members at all");
+        let nested = set_is_inside(&mut app, GgrsSchedule, set, phase);
+        assert_eq!(
+            nested, expected,
+            "{set:?} inside {phase:?} should be {expected}"
+        );
+    }
+}
+
+/// Is `set` a descendant of `parent` in the schedule's hierarchy?
+fn set_is_inside(
+    app: &mut App,
+    schedule: impl ScheduleLabel,
+    set: impl SystemSet,
+    parent: impl SystemSet,
+) -> bool {
+    use bevy::ecs::schedule::NodeId;
+
+    let label = schedule.intern();
+    app.world_mut()
+        .resource_scope(|world, mut schedules: Mut<Schedules>| {
+            let built = schedules.get_mut(label).expect("the schedule exists");
+            let _ = built.initialize(world);
+            let graph = built.graph();
+            let (Some(child), Some(parent)) = (
+                graph.system_sets.get_key(set.intern()),
+                graph.system_sets.get_key(parent.intern()),
+            ) else {
+                return false;
+            };
+            graph
+                .hierarchy()
+                .graph()
+                .contains_edge(NodeId::Set(parent), NodeId::Set(child))
+        })
 }

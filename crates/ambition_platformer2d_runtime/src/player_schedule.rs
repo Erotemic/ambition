@@ -174,22 +174,30 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // ⛔⛔ SAMPLE-THEN-BLANK IS ONE PAIR AND IT RUNS ONCE PER
-                // CONTROL PUBLICATION. Sampling reads the captive's mash out of
-                // the frame; blanking is what takes it away, and it is also what
-                // stops the NEXT publication's copy of this pair (in
-                // `WorldPrepSet::BeforeIntegrate`) from crediting the same press
-                // a second time. Splitting them — or deleting the blank here and
-                // leaving the sample — doubles a held human's escape rate
-                // silently.
+                // ⛔⛔ ONE SAMPLE-THEN-BLANK, AND THIS IS THE ONE (D202).
                 //
-                // ⚠ THE PAIR EXISTS TWICE BECAUSE CONTROL IS PUBLISHED TWICE:
-                // a possessed body's frame lands in `PlayerInputSet::Brain`
-                // (above) and an autonomous body's in `ActorDecisionSet::Publish`
-                // (a whole phase later). One publication phase would leave one
-                // pair — see D202.
+                // Sampling reads the captive's mash out of the frame; blanking is
+                // what takes it away. The pair used to exist TWICE — once here
+                // and once in `WorldPrepSet::BeforeIntegrate` — because this set
+                // ran BEFORE autonomous control was published and could not gate
+                // it. That was correct only by an invariant nothing enforced: the
+                // first blank was what stopped the second sampler crediting the
+                // same human press, so deleting either blank doubled a held
+                // human's escape rate in silence.
+                //
+                // ⇒ this whole SET now runs in `WorldPrep`, after BOTH
+                // publications, so one copy gates every body in the world. The
+                // pair moved back into it from `BeforeIntegrate` because a scripted
+                // body must be blanked BEFORE the gate consumers below read its
+                // frame — see `configure_actor_decision_phases`.
                 ambition_combat::capture::systems::sample_capture_escape,
+                // The captor's stick, read for the throw edge. Beside the
+                // captive's escape sampling because both are the RULESET's
+                // reading of a capture's inputs, and both are scoped by asking
+                // for `SmashHoldState`.
+                ambition_combat::capture::systems::arm_smash_throw_edge,
                 ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames,
+                ambition_combat::capture::systems::restrict_captor_control,
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any
@@ -198,8 +206,8 @@ impl Plugin for PlayerSchedulePlugin {
                     .in_set(ambition_platformer2d_actor_monolith::avatar::WornControlGateSet),
                 // A folded `bubble_shield` special MOVE forces `shield_held` for
                 // its duration, so pressing Special raises the ONE shield through
-                // the same kernel path a held guard does. After the gate (which
-                // keeps the persona's shield verb alive), before WorldPrep.
+                // the same kernel path a held guard does. After the gate, which
+                // keeps the persona's shield verb alive.
                 ambition_platformer2d_actor_monolith::avatar::sustain_bubble_shield,
             )
                 .chain()
@@ -208,10 +216,12 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // Body-mode policy (crouch / morph / climb) consumes the
-                // CONTROLLED body's freshly-produced ActorControl + its slot
-                // gestures, so it runs AFTER the brain phase and before
-                // WorldPrep movement consumes the resize/mode change.
+                // Body-mode policy (crouch / morph / climb) consumes FINISHED
+                // control + its slot gestures, so it runs after both publication
+                // phases and the gate above, and before `WorldPrepSet::Integrate`
+                // consumes the resize/mode change. ⭐ an autonomous body's mode
+                // now follows THIS tick's decision rather than the last one — the
+                // AI frame did not exist yet when this sat in `PlayerInput`.
                 ambition_platformer2d_actor_monolith::body_mode::update_body_mode,
                 ambition_platformer2d_actor_monolith::avatar::sync_player_actor_poses,
             )

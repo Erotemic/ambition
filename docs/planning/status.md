@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `11ffb209a` (2026-08-24 local project date).
+**Snapshot:** `HEAD` (see `git log -1`) (2026-08-24 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -74,6 +74,16 @@ every time. Retreat is away from the THREAT, so that is the direction it asks in
 gated the raise and not the sustain, and a held Shield also fills the air-dodge
 buffer once airborne — so walking off a ledge guarding produced the exact state
 `air_guard: false` exists to forbid.
+
+✔ **D202's double restriction is CLOSED.** Control is published twice — a
+possessed body's in `PlayerInputSet::Brain`, an autonomous body's a phase later —
+so every restriction over control was registered twice, and the pair was correct
+only by an invariant nothing enforced: the first blank stopped the second sampler
+crediting the same human press. `ControlGate` and `BodyMode` are re-parented into
+`WorldPrep` after both publications, and one copy of each restriction gates
+everybody. ⚠ the sets keep names that now lie about their phase, stated at the
+enum. ⇒ still open: control is still PUBLISHED twice; the row records the
+measurement that moving `tick_controlled_brains` is viable.
 
 ⚠ **D201's reference facts were WRONG and are corrected in the row.** Ultimate
 does NOT allow an indefinite hang (6.5s under 100%, 5s at or above), its 6-grab

@@ -83,8 +83,23 @@ there plus a parameter on the six systems that call it.
   no production cross-room snapshot caller exercising source-snapshot selection,
   decode/compatibility rejection before mutation, rollback entity identity and
   remapping, restoration of non-room authoritative state, and atomic commit.
-  Room-transition use of `RoomConstructionPlan::apply_to_world` does not by itself
-  prove this operation.
+
+  ⛔ **`RoomConstructionPlan::apply_to_world` DOES NOT EXIST — re-checked
+  2026-08-24.** This item named it as the thing that does not prove the
+  operation, and the workspace has only two COMMENTS mentioning it; the verb is
+  `ConstructionPlan::commit(&self, ctx: &mut ConstructionExecCtx<..>)`
+  (`shared_tangle/src/construction/mod.rs`). ⇒ do not go looking for the old
+  symbol.
+
+  ⚠ **and measure the road before building for it.** The save file
+  (`ambition_persistence::save_data`) persists LEDGER FACTS — encounters,
+  switches, boss defeats, quests, flags, dialogue visits, occurrences — and a
+  room is REBUILT from its authored spec plus that ledger. There is no per-room
+  entity snapshot on the durable road at all, by design. The five properties
+  above are the ROLLBACK snapshot's, which GGRS exercises within a session. ⇒ the
+  operation this item wants proven is a rollback snapshot crossing a ROOM
+  BOUNDARY, not a save/load feature — say which of the two a future slice means
+  before pricing it, because they are different systems that share a word.
 
 - ✔ **Prove possession → transition → carried body end to end (2026-08-19).**
   `carried_item_crosses_rooms::an_item_carried_by_a_possessed_body_survives_the_door_too`

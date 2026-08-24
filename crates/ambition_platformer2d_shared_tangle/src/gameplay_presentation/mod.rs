@@ -10,6 +10,10 @@
 //! 3. Screen occupancy — what controls/HUD reserve ([`ScreenOccluder`]);
 //! 4. Activation — which profile applies ([`PresentationEnvironment`]).
 //!
+//! Shared defense effects are authored beside those layout policies but remain
+//! a separate concern: semantic defense causes are mapped to presentation cues
+//! by the active route, never by the damage rule or a game-name branch.
+//!
 //! Everything here is pure: no windows, no rendering, no touch input, no game
 //! content, no provider. The host resolves once per frame and every consumer
 //! reads the single [`ResolvedGameplayPresentation`] — no camera, HUD, touch,
@@ -19,6 +23,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Resource};
 
 mod control_regions;
+mod defense;
 mod hud;
 mod presets;
 mod resolve;
@@ -26,6 +31,10 @@ mod resolve;
 #[cfg(test)]
 mod tests;
 
+pub use defense::{
+    ActiveDefensePresentationPolicy, DefenseCueCauses, DefensePresentationCatalog,
+    DefensePresentationCues, DefensePresentationPolicy,
+};
 pub use control_regions::{
     ControlAnchor, ControlFootprint, ControlFootprints, ControlPlacement, ControlPlacementPolicy,
     PlacedControl, ResolvedControlRegions,

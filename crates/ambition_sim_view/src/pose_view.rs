@@ -78,12 +78,11 @@ pub struct BodyPoseView {
     /// intangibility, the timed untouchable a respawn hands out, and the
     /// i-frames a hit leaves behind.
     pub unhittable: bool,
-    /// Would this body STILL be untouchable if it were not empowered? See
-    /// [`crate::view_index::FeatureView::unhittable_beyond_empowerment`] — the
-    /// reason preserved across the presentation boundary, so a character whose
-    /// own presentation already reads as untouchable does not also get the
-    /// shared i-frame blink stacked on top of it.
-    pub unhittable_beyond_empowerment: bool,
+    /// WHY the canonical damage gate is closed, preserved as semantic
+    /// presentation vocabulary. Shared route policy decides which causes opt
+    /// into generic cues; character-owned effects may independently consume
+    /// their own gameplay state and therefore compose with them.
+    pub defense_cues: crate::DefenseCueCauses,
     pub hp_current: i32,
     pub hp_max: i32,
     /// The body is in morph-ball mode (draws the procedural sphere instead
@@ -141,7 +140,7 @@ impl Default for BodyPoseView {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
-            unhittable_beyond_empowerment: false,
+            defense_cues: crate::DefenseCueCauses::NONE,
             hp_current: 0,
             hp_max: 0,
             morph_ball: false,
@@ -215,9 +214,12 @@ pub fn rebuild_body_pose_views(
                 bevy::prelude::Has<
                     ambition_sprite_sheet::character::SpritePosedBody,
                 >,
+                // Match/ruleset respawn protection is a semantic presentation
+                // cause independent of the current Empowered implementation.
+                bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
                 // The move this body is playing, so the drawn row can be the
                 // one the move NAMES — the same request the actor path carries
-                // on `ActorAnimFrame::clip` (sprite redirect P0). Fifteen members
+                // on `ActorAnimFrame::clip` (sprite redirect P0). Sixteen members
                 // in this sub-tuple; Bevy's limit is sixteen.
                 Option<&ambition_combat::moveset::MovePlayback>,
                 Option<&mut BodyPoseView>,
@@ -260,6 +262,7 @@ pub fn rebuild_body_pose_views(
             authored_render,
             authored_offset,
             sheet_authored_body,
+            respawn_grace,
             playback,
             pose,
         ),
@@ -371,19 +374,14 @@ pub fn rebuild_body_pose_views(
                 &shield.copied().unwrap_or_default(),
                 &combat.copied().unwrap_or_default(),
             ),
-            // The SAME rule, asked again with one reason removed.
-            unhittable_beyond_empowerment: !ambition_combat::util::body_vulnerable(
-                {
-                    let mut reasons = health
-                        .map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
-                            h.health.invulnerable
-                        });
-                    reasons.set(ambition_characters::actor::Invulnerability::EMPOWERED, false);
-                    reasons
-                },
-                motion_facts.is_some_and(|m| m.evading()),
+            defense_cues: crate::defense_cue_causes(
+                health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                    h.health.invulnerable
+                }),
+                motion_facts,
                 &shield.copied().unwrap_or_default(),
                 &combat.copied().unwrap_or_default(),
+                respawn_grace,
             ),
             hp_current: health.map_or(0, |h| h.current()),
             hp_max: health.map_or(0, |h| h.max()),

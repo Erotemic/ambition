@@ -104,6 +104,9 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                 ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveHudDeclaration,
             >()
             .init_resource::<
+                ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
+            >()
+            .init_resource::<
                 ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts,
             >()
             .configure_sets(
@@ -134,6 +137,17 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                         .after(activate_prepared_platformer_sessions)
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
+                        ),
+                    // Defense presentation is route-owned too: a multi-game host may
+                    // keep Mary-O and Smash installed simultaneously, so build-order
+                    // insertion cannot be the authority.
+                    crate::authoring::select_active_defense_presentation
+                        .after(activate_prepared_platformer_sessions)
+                        .before(
+                            ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
+                        )
+                        .before(
+                            ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
                         ),
                     // After the profile SELECTION rather than before the layout resolve: it
                     // reads what that system just published, and the camera resolve it feeds

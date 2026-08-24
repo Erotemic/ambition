@@ -697,6 +697,9 @@ impl Plugin for TwinTrackExperiencePlugin {
                         .with_font_size(17.0),
                 ),
         )
+        .with_defense_presentation(
+            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        )
         .install(app, twintrack_prepared_session_world);
 
         participants::install(app);

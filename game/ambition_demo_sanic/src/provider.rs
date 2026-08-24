@@ -80,6 +80,9 @@ impl Plugin for SanicExperiencePlugin {
                         .centered(),
                 ),
         )
+        .with_defense_presentation(
+            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        )
         .install(app, sanic_prepared_session_world);
         app.add_systems(bevy::prelude::Update, publish_sanic_ring_readout);
         app.add_plugins(SanicRulesPlugin::hosted());

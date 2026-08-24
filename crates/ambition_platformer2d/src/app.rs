@@ -1528,6 +1528,9 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
             format!("Prepare {id}"),
             crate::provider::AuthoredCatalogFragments::new(starting_character.clone(), id.clone()),
         )
+        .with_defense_presentation(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        )
         .install(app, move || prepared.clone());
     }))
 }

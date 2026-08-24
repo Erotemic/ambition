@@ -387,6 +387,59 @@ Shield · 6 Jump`, against C6's `341 · 142 · 136 · 69 · 75 · 17`. Dodge is 
 FIRST among defensive answers by a wide margin and Shield has nearly vanished, so
 C6's own numbers should be re-taken before anything is concluded from them.
 
+## C7 — THE PARRY IS UNREACHABLE FOR A CPU, and raise timing is not the fix
+
+Measured 2026-08-24. `match_report -- 30` prints the parry window's own share of
+unhittable ticks:
+
+```text
+seat   invuln   evading   of-ledge   parry-window   i-frames
+0         120       368         30             19          0
+1         202       299         58             14          0
+```
+
+**33 window ticks across both seats in 30 seconds**, against ~128 ticks of
+shielding, and five 30s runs produce `parries 0–0–1`. The genre's most rewarding
+defensive option effectively does not happen.
+
+⭐ **the diagnosis is right and the obvious fix is wrong.** A parry is a TIMING:
+`ParryTiming::OnRaise` opens the window on the raise and it lasts
+`PARRY_WINDOW_TIME` (0.15s, nine frames — generous; Ultimate's is about five).
+The brain guards on `threatened` = *any hostile is attacking*, which is true from
+the first frame of a wind-up, so the window is spent on the TELL and the body
+holds a plain shield through the hit.
+
+⛔ **BUILT AND REVERTED.** `SelfView::parry_window_s` published from the body's
+own `AxisSweptParams`, and `threatened` narrowed to *a live hitbox, OR a wind-up
+whose remaining startup fits inside my own window*. It fails on its own success
+metric and costs a lot, five 30s runs against the same baseline:
+
+```text
+              baseline          raise-timed
+parries     0–0–1             0–0–2        ← the point, and it did not move
+shielding   35–123–200        30–73–85     ← 40% less guarding
+unhittable  978–1006–1102     733–869–954
+hitstun     614–748–1027      935–1024–1183
+damage      231–270–393       252–301–393
+KOs         2–3–4             1–2–4        ← a KO of median, gone
+```
+
+⇒ so it buys nothing and sells the shield. Reverted, `parry_window_s` with it —
+an unused published fact is the same green-and-inert failure as an unfired branch.
+
+⇒ **what this eliminates and what it leaves.** Raise timing is not the lever.
+The remaining candidates, in order of what they'd cost:
+  - `ParryTiming::OnRelease` is FULLY LIVE and untried by this ruleset (a
+    one-word edit in `SMASH_MATCH_BODY`, guarded by
+    `the_parry_window_opens_where_the_ruleset_says_it_does`). It is Ultimate's
+    rule. ⚠ but the CPU releases its guard when the threat has PASSED, so the
+    same mistiming may simply move to the other end — measure before believing.
+  - a deliberate parry ATTEMPT as its own option, committed to like an attack,
+    rather than a property of whenever the guard happened to go up.
+⛔ do not widen `PARRY_WINDOW_TIME` to manufacture the number. Nine frames is
+already twice the genre's, and a window that catches by being wide is not the
+mechanic.
+
 ## C6 — the movement scores are a coupled system, and hand-editing them fails
 
 Three attempts, three reverts, and the third is the one that explains the other

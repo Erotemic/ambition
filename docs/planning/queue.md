@@ -1774,8 +1774,9 @@ meaningfully different consumer before freezing a public prefab/content API.
 this row, and keep the row's claim to "there are open items" so it cannot rot
 into a stale summary of them.
 
-- ▢ **D167 — THE LIVE-STATE ↔ PERSISTENCE ↔ ROOM-CONSTRUCTION BOUNDARY. Two
-  legs closed 2026-08-20; two open.**
+- ✔ **D167 — THE LIVE-STATE ↔ PERSISTENCE ↔ ROOM-CONSTRUCTION BOUNDARY. CLOSED
+  2026-08-24: all four legs landed, and the two that read as open were markers on
+  their own ✔.**
 
 Jon's architectural review of `4af278e77`, 2026-08-19. Its headline is that the
 custody work found a boundary worth making crisp, and that this pays off across
@@ -1854,7 +1855,25 @@ lane reads frozen catalogs at execution time and is composed BESIDE the
 capability lanes rather than inside them, so a future capability that needs
 services fails the bound instead of quietly joining.
 
-▢ **(the case, kept because the MEASUREMENT is the reusable half.)** Gravity was
+⊙ **(the case, kept because the MEASUREMENT is the reusable half — ⛔ NOT OPEN
+WORK.)** ⚠ **re-checked 2026-08-24: the composition owner EXISTS and is the ✔
+directly above.** `CapabilityLanes` holds gravity AND portal and carries every
+operation this paragraph asks for — `prepare`, `claim_planned_ids`,
+`write_deterministic_dump`, `debug_assert_binding`, `commit`, `verify`,
+`respawn`, `extend_committed_ids` — each destructuring `Self` exhaustively, and
+`spawn/mod.rs` names the lanes 16 times against the 48 it did before. ⇒ the
+eleven enrollments are gone; the plan knows it HAS lanes.
+
+⛔ **and the ACTOR lane sitting beside rather than inside is a DECISION, not the
+remainder of this item** — `Services = ()` is a bound on the capability set, and
+the actor lane reads frozen catalogs at execution time, so a future capability
+needing services fails the bound instead of quietly joining. Do not read its
+separateness as unfinished work.
+
+⇒ **this is the SECOND stale ▢ in this row**, both of them the argument FOR a
+change that the ✔ above them records landing. A row that keeps its reasoning
+should mark it ⊙; a ▢ says "somebody do this". The case as it was written:
+Gravity was
 the right second customer and the extraction validated the federation design; the
 measurement is what it cost `RoomFeatureConstructionPlan` — roughly ELEVEN
 enrollments (plan field, receipt field, preparation, predicted roster, plan

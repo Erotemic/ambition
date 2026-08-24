@@ -385,6 +385,9 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     // all" case, encoded as one byte: `0` is `None`, and a policy sets bit 0
     // so it can never collide with it.
     put_u8(out, encode_out_of_shield(a.shield.out_of_shield));
+    // Whether a guard may be raised airborne — a ruleset RULE, so it travels
+    // with the rest of the shield policy rather than being re-derived.
+    put_u8(out, u8::from(a.shield.air_guard));
     put_f32(out, a.footstool.rise_speed);
     put_f32(out, a.footstool.press_speed);
     put_f32(out, a.footstool.flinch_time);
@@ -486,6 +489,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
                 min_coverage: r.f32()?,
                 drop_lag: r.f32()?,
                 out_of_shield: decode_out_of_shield(r.u8()?),
+                air_guard: r.u8()? != 0,
             },
             footstool: crate::FootstoolTuning {
                 rise_speed: r.f32()?,

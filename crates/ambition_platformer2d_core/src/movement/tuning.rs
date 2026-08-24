@@ -740,6 +740,20 @@ pub struct ShieldTuning {
     /// move by move is a table nobody can read and everybody has to extend.
     #[serde(default)]
     pub out_of_shield: Option<OutOfShield>,
+    /// May this guard be raised while the body is AIRBORNE?
+    ///
+    /// `true` (the default) is what every body did before this existed, and it
+    /// is right for a game whose shield is a deployable bubble: Ambition's
+    /// `bubble_shield` special forces the guard up for its whole duration and is
+    /// not grounded-gated, so a body that could not guard in the air would lose
+    /// its signature defensive move mid-jump.
+    ///
+    /// ⛔ A PLATFORM FIGHTER SETS THIS FALSE, and that is the genre's rule
+    /// rather than a taste: no Smash title has an airborne shield — pressing it
+    /// in the air is the AIR DODGE. Left true, the same press both evades and
+    /// guards, which is neither.
+    #[serde(default = "crate::default_true")]
+    pub air_guard: bool,
     /// Seconds of hard commitment owed for LOWERING the guard by itself —
     /// shield drop lag.
     ///
@@ -814,6 +828,8 @@ impl ShieldTuning {
         // No out-of-shield rule and no drop cost: the engine baseline, and what
         // every body did before the policy existed.
         out_of_shield: None,
+        // A deployable bubble works wherever the body is. See the field.
+        air_guard: true,
         drop_lag: 0.0,
     };
 
@@ -831,6 +847,9 @@ impl ShieldTuning {
         // A guard is a LAUNCHING PLATFORM in this genre, and these five are what
         // it launches. Everything else waits for it to come down.
         out_of_shield: Some(OutOfShield::PLATFORM_FIGHTER),
+        // ⛔ NO AIRBORNE SHIELD, which is the genre's rule in every title. The
+        // same press in the air is the AIR DODGE.
+        air_guard: false,
         // 11 frames, Ultimate's shield-drop. The commitment that makes holding
         // a guard a decision rather than a free stance: an out-of-shield option
         // is fast, and letting go is not.

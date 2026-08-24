@@ -213,6 +213,8 @@ pub struct EditableMovementTuning {
     /// the foundation crate carries no reflection and a rule is not a slider.
     #[reflect(ignore)]
     pub shield_out_of_shield: Option<ae::OutOfShield>,
+    /// Carried, not edited — see the note at the construction site.
+    pub shield_air_guard: bool,
     /// Footstool: the hop, the shove, the stun, and the head band. 0.0 rise = off.
     pub footstool_rise_speed: f32,
     pub footstool_press_speed: f32,
@@ -318,6 +320,10 @@ impl EditableMovementTuning {
                 min_coverage: self.shield_min_coverage,
                 drop_lag: self.shield_drop_lag,
                 out_of_shield: self.shield_out_of_shield,
+                // NOT editable, for the same reason `parry_timing` is not:
+                // whether a guard exists in the air is a rules DECLARATION about
+                // which game a stage reproduces, not a slider.
+                air_guard: self.shield_air_guard,
             },
             footstool: ae::FootstoolTuning {
                 rise_speed: self.footstool_rise_speed,
@@ -405,6 +411,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             shield_min_coverage: value.shield.min_coverage,
             shield_drop_lag: value.shield.drop_lag,
             shield_out_of_shield: value.shield.out_of_shield,
+            shield_air_guard: value.shield.air_guard,
             footstool_rise_speed: value.footstool.rise_speed,
             footstool_press_speed: value.footstool.press_speed,
             footstool_flinch_time: value.footstool.flinch_time,

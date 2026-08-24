@@ -306,6 +306,82 @@ fn step_air_dodger(
     )
 }
 
+/// ⭐⭐ SHIELD IN THE AIR IS THE AIR DODGE — the genre's rule, and the last line
+/// of the "dodges come off the shield button" table.
+///
+/// The grounded evade needs a DIRECTION because a guard is the other thing the
+/// press could have meant. Airborne there is nothing else, so a bare press is
+/// the whole gesture.
+///
+/// ⛔ THE OTHER HALF IS ASSERTED HERE TOO, which is why this is one test: a
+/// press that both air-dodged and raised a guard would be neither mechanic.
+#[test]
+fn a_shield_press_in_the_air_is_the_air_dodge_and_raises_no_guard() {
+    let world = test_world();
+    let mut scratch = airborne_scratch(&world);
+    let mut tuning = air_dodge_tuning();
+    tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+    let events = crate::test_support::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            shield_held: true,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!(
+        events.operations.contains(&MovementOp::AirDodge),
+        "a shield press in the air did nothing: {:?}",
+        events.operations
+    );
+    assert!(
+        !scratch.shield.active,
+        "the same press also put a guard up, in a genre that has none in the air"
+    );
+    assert!(
+        scratch.dodge.air_dodge_spent,
+        "the dodge was not spent, so a held button would buy another every tick"
+    );
+}
+
+/// A ruleset that ALLOWS an airborne guard is untouched: the press raises the
+/// shield and buys no dodge.
+///
+/// ⛔ this is Ambition, not a hypothetical. `sustain_bubble_shield` forces
+/// `shield_held` for the whole `bubble_shield` special and that special is not
+/// grounded-gated, so a blanket genre law would have taken the protagonist's
+/// signature defensive move away mid-jump.
+#[test]
+fn a_deployable_bubble_still_guards_in_the_air() {
+    let world = test_world();
+    let mut scratch = airborne_scratch(&world);
+    let mut tuning = air_dodge_tuning();
+    tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+    tuning.base.shield.air_guard = true;
+    let events = crate::test_support::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState {
+            shield_held: true,
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!(
+        scratch.shield.active,
+        "a body whose ruleset allows an airborne guard did not get one"
+    );
+    assert!(
+        !events.operations.contains(&MovementOp::AirDodge),
+        "the guard ALSO air-dodged, which is the double meaning this rule exists \
+         to prevent: {:?}",
+        events.operations
+    );
+}
+
 /// An air dodge is not a roll fired off the ground. It publishes its own
 /// op, sets its own timer, leaves the roll's timer alone, and travels where the
 /// STICK points — here down-and-forward, which a roll (side-only, and gated on
@@ -1064,14 +1140,35 @@ fn a_jump_out_of_shield_is_allowed_and_takes_the_guard_with_it() {
         !scratch.shield.active && scratch.shield.parry_window_timer <= 0.0,
         "the spent guard came straight back up under the same press"
     );
-    // Letting go and pressing again is a NEW guard.
+    // ⛔ AND NOT IN THE AIR, which is where the jump just put it.
+    // `ShieldTuning::PLATFORM_FIGHTER` sets `air_guard: false`: no title in this
+    // genre has an airborne shield, and the same press up there is the air
+    // dodge. It also keeps the jump-out-of-shield SPEND honest — a body that
+    // could re-guard mid-rise never really paid it.
     shield_step(&world, &mut scratch, false);
     for _ in 0..4 {
         shield_step(&world, &mut scratch, true);
     }
     assert!(
+        !scratch.ground.on_ground,
+        "the fixture landed before it could measure the airborne refusal"
+    );
+    assert!(
+        !scratch.shield.active,
+        "a guard went up in mid-air, where this genre has none"
+    );
+
+    // Back on the ground the same release-and-press IS a new guard. The rule was
+    // never about altitude — it is that a SPENT guard stays down under the press
+    // that spent it — so this is the half that still has to hold.
+    shield_step(&world, &mut scratch, false);
+    scratch.ground.on_ground = true;
+    for _ in 0..4 {
+        shield_step(&world, &mut scratch, true);
+    }
+    assert!(
         scratch.shield.active,
-        "a released and re-pressed button did not buy a new guard"
+        "a released and re-pressed button did not buy a new guard on the ground"
     );
 }
 

@@ -232,6 +232,31 @@ pub(super) fn apply_intent(
         state.buffer_burst = tuning.abilities.dash_buffer;
         spend_out_of_shield(shield, oos);
     }
+    // ⭐⭐ SHIELD IN THE AIR IS THE AIR DODGE, and in this genre it is the only
+    // thing that button means up there. The grounded rule above needs a
+    // DIRECTION because a guard is the other thing the press could have meant;
+    // airborne there is nothing else, so a bare press is the whole gesture.
+    //
+    // ⛔⛔ ONLY WHERE THE BUTTON MEANS NOTHING ELSE. A ruleset that ALLOWS an
+    // airborne guard (`ShieldTuning::air_guard` — Ambition's deployable bubble)
+    // is a game where the press already has a meaning up there, and taking it as
+    // a dodge too fires both: `a_deployable_bubble_still_guards_in_the_air` saw
+    // exactly `[AirDodge, ShieldUp]` from one press before this clause existed.
+    //
+    // ⛔ NO OUT-OF-SHIELD SPEND, because there is no guard to leave: the same
+    // condition that lets this fire is the one that refused the guard.
+    //
+    // ⛔ HELD, NOT AN EDGE, and it does not repeat: `air_dodge_spent` is
+    // once-per-airtime, so a held button buys exactly one dodge per trip through
+    // the air — the same shape the grounded evade gets from its cooldown, and
+    // the reason no shield PRESS edge had to be invented.
+    if input.shield_held
+        && !ground.on_ground
+        && !tuning.abilities.shield.air_guard
+        && available_dodge(abilities, ground, dodge, state, tuning) == Some(BurstManeuver::AirDodge)
+    {
+        state.buffer_burst = tuning.abilities.dash_buffer;
+    }
 }
 
 /// SHIELD PLUS A DIRECTION IS AN EVADE, and which one is the stick's business.
@@ -459,13 +484,17 @@ pub fn resolve_shield(
     // A broken guard cannot be raised until the dizzy runs out — the whole
     // point of breaking it.
     broken: bool,
+    // ⛔ AND WHETHER THIS BODY MAY GUARD WHERE IT IS. `false` refuses the RAISE
+    // and leaves an existing guard alone, because a body that left the ground
+    // guarding has not made a new decision — see `ShieldTuning::air_guard`.
+    may_raise_here: bool,
 ) -> bool {
     if !ability_enabled || broken {
         *active = false;
         *parry_window_timer = 0.0;
         return false;
     }
-    let want = shield_held && !dash_active;
+    let want = shield_held && !dash_active && (may_raise_here || *active);
     let fresh = want && !*active;
     let released = *active && !want;
     match parry_timing {
@@ -498,6 +527,8 @@ pub fn resolve_shield(
 pub(super) fn apply_shield(
     shield: &mut BodyShieldState,
     state: &AxisManeuverState,
+    // WHERE the body is, because a ruleset may refuse an airborne guard.
+    ground: &BodyGroundState,
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
@@ -521,6 +552,7 @@ pub(super) fn apply_shield(
         tuning.abilities.parry_window_time,
         tuning.abilities.parry_timing,
         broken,
+        ground.on_ground || tuning.abilities.shield.air_guard,
     );
     if fresh {
         events.op_clusters(combo_trace, MovementOp::ShieldUp);
@@ -962,6 +994,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert!(!active && parry == 0.0 && !fresh, "no ability → no guard");
 
@@ -977,6 +1010,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert!(
             active && parry == 0.2 && fresh,
@@ -993,6 +1027,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert!(active && !fresh, "sustained hold is not a fresh parry");
 
@@ -1007,6 +1042,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert!(!active && !fresh, "dashing blocks the guard");
 
@@ -1022,6 +1058,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert!(!active, "releasing the button drops the guard");
         assert_eq!(parry, 0.0, "a press-timed window outlived the guard");
@@ -1049,6 +1086,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRelease,
             false,
+            true,
         );
         assert!(active, "the guard still goes up");
         assert_eq!(parry, 0.0, "a release-timed parry armed on the PRESS");
@@ -1062,6 +1100,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRelease,
             false,
+            true,
         );
         assert!(!active, "the guard came down");
         assert_eq!(parry, 0.2, "the release did not open the window");
@@ -1085,6 +1124,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert_eq!(parry, 0.2, "a press-timed parry did not arm on the press");
         resolve_shield(
@@ -1096,6 +1136,7 @@ mod resolve_shield_tests {
             0.2,
             crate::ParryTiming::OnRaise,
             false,
+            true,
         );
         assert_eq!(parry, 0.0, "a press-timed window survived the drop");
     }

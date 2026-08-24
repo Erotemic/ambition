@@ -292,10 +292,30 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
     // perfect mirror could lose to a long sloppy one on absolute frames.
     // Measured: 856 of 856 (100%) against 440 of 1376 (32%), and `856 > 880`
     // is false. The stronger result failed the weaker test.
+    // ⛔⛔ THE MARGIN WAS 2.0 AND IT WAS FITTED BEFORE ANY SHARED ACTION WAS
+    // ABSOLUTE-DIRECTIONAL. Re-derived 2026-08-24 when the platform fighter
+    // stopped guarding in the air (`ShieldTuning::air_guard`) and a shield press
+    // up there became the AIR DODGE. That one rule moved BOTH ends, and the
+    // mechanism is the dodge's own geometry:
+    //
+    //   `vel = (frame.side() * aim.x + frame.down() * aim.y) * air_dodge_speed`
+    //
+    //   - a NEUTRAL stick sets velocity to ZERO, and two bodies that both halt
+    //     in mid-air keep whatever reflection they had. The INDEPENDENT pair
+    //     rose from a recorded 32% to 52%.
+    //   - a DIRECTIONAL stick aims in the gravity frame's axes, not
+    //     facing-relative — which is correct for the genre — so two mirrored
+    //     bodies sharing one stream dodge the same ABSOLUTE way and stop being
+    //     each other's reflection. Emmy fell from a recorded 100% to 84%.
+    //
+    // ⇒ so the claim is unchanged and only the constant moved, because the
+    // world it was measured in did. 84% against 52% is still decisive; the same
+    // shape as before, with the floor raised and the ceiling lowered by one
+    // mechanic that belongs to both pairs equally.
     let emmy_rate = emmy_mirrored as f64 / emmy_seen as f64;
     let ordinary_rate = ordinary_mirrored as f64 / ordinary_seen as f64;
     assert!(
-        emmy_rate > ordinary_rate * 2.0,
+        emmy_rate > ordinary_rate * 1.5,
         "two Emmys held a mirror for {emmy_mirrored} of {emmy_seen} frames \
          ({:.0}%) while two {ORDINARY} held one for {ordinary_mirrored} of \
          {ordinary_seen} ({:.0}%) — not the decisive difference a shared \

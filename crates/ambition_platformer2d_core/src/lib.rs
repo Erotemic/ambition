@@ -29,6 +29,11 @@ pub(crate) mod test_support;
 pub mod world;
 
 // Public mechanics surface.
+/// `#[serde(default)]` for a bool whose absent value is `true`.
+pub(crate) fn default_true() -> bool {
+    true
+}
+
 pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use bevy_math::Vec2;
 pub use body_clusters::{

@@ -217,6 +217,7 @@ pub(crate) fn update_body_control_in_frame(
     abilities::apply_shield(
         clusters.shield,
         state,
+        clusters.ground,
         clusters.abilities,
         clusters.combo_trace,
         input,

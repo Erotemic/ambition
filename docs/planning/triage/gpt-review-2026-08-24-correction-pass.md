@@ -22,8 +22,15 @@ fixture that cannot reach the case.
 one, and the evidence is a grep rather than an argument:**
 
 ```text
-P0-1 clank never reaches authored moves   ▢ arbitrate_attack_clanks: With<HitboxLifetime>
-                                            advance_move_playback: "NO HitboxLifetime on purpose"
+P0-1 clank never reaches authored moves   ✔ FIXED: queries StrikeVolume, orders by
+                                            SimId::strike_volume, resolves per ATTACK PAIR,
+                                            ends the losing MOVE, and only grounded attacks
+                                            clank. Acceptance test drives two real
+                                            MovePlayback attacks and poison-reddens on the
+                                            original With<HitboxLifetime> filter.
+                                            ⚠ Smash declares the window 0.0 — turned on it
+                                            re-tunes the whole ground game (measured), so the
+                                            THRESHOLD wants a play session
 P0-2 helpless never reaches move starts   ✔ FIXED: ONE rule in ambition_combat::moveset,
                                             asked by trigger_moveset_moves (which REFUSES
                                             the start), the HOME road and the ACTOR road.

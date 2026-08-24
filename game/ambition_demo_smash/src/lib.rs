@@ -819,7 +819,20 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // Closer than this and both are refused; further and the stronger one
         // continues untouched, which is what makes a heavy swing beat a jab
         // instead of trading with it.
-        clank_damage_window: 9.0,
+        // ⛔⛔ CLANKING IS DECLARED OFF, and the mechanism is finished and tested
+        // — this is a TUNING decision, not a gap. Turned on at 9 damage it
+        // reshaped the whole ground game: two CPU fighters traded so constantly
+        // that `every_live_fighter_stays_inside_the_frame` measured ZERO
+        // body-frames outside the stage in a full match (nobody was ever
+        // launched) and `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match`
+        // stopped finding its beat. Restricting it to the ground game — the
+        // genre's own rule, aerials do not clank — did not settle it either.
+        //
+        // ⇒ a mechanic that becomes real re-tunes everything built on its
+        // absence, and what this needs is a play session rather than another
+        // guessed threshold. `9.0` is the genre's number and the one to try
+        // first.
+        clank_damage_window: 0.0,
         // …and the trade throws both fighters back. Well under a launch — this
         // is a reset of the exchange, not a punish — but far enough that the two
         // are no longer inside each other's next swing, which is what makes

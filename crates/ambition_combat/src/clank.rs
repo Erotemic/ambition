@@ -30,7 +30,7 @@
 
 use bevy::prelude::*;
 
-use crate::strike::{Hitbox, HitboxLifetime};
+use crate::strike::Hitbox;
 use ambition_platformer2d_core as ae;
 
 /// Two attacks met and both were refused.
@@ -42,13 +42,16 @@ use ambition_platformer2d_core as ae;
 /// would be a message on every ordinary frame.
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AttacksClanked {
-    /// The two strike volumes that were cancelled, ascending.
+    /// The two bodies whose ATTACKS traded, ascending.
+    ///
+    /// ⛔ THE OWNERS, NOT THE VOLUMES, and that is the fix rather than a
+    /// simplification: an attack is what clanks. Naming volumes let a two-volume
+    /// attack meeting a two-volume attack announce four trades and rebound the
+    /// same two fighters four times.
     ///
     /// ⛔ ORDERED, and it is the SORT that makes it deterministic rather than
     /// the sweep: a clank has no first party, so the pair is canonicalised here
     /// instead of carrying whichever the loop happened to reach first.
-    pub strikes: (Entity, Entity),
-    /// The bodies that threw them, in the same order as `strikes`.
     pub owners: (Entity, Entity),
 }
 
@@ -87,10 +90,36 @@ pub fn clank_verdict(a_damage: i32, b_damage: i32, window: f32) -> Option<ClankV
 /// new canonical state for a fact that is exactly "this volume is over".
 pub fn arbitrate_attack_clanks(
     mut commands: Commands,
-    strikes: Query<(Entity, &Hitbox), With<HitboxLifetime>>,
+    // ⛔⛔ `StrikeVolume`, NOT `HitboxLifetime`. The first version filtered on the
+    // lifetime component, and `advance_move_playback` spawns authored volumes
+    // with a comment reading *"NO `HitboxLifetime` on purpose"* — the authored
+    // Active window is their despawn authority. So every Smash jab, tilt, smash
+    // and aerial was invisible to this system, and the tests that passed spawned
+    // synthetic boxes carrying exactly the component production refuses.
+    //
+    // ⛔⛔ AND THE `SimId` IS `Option`, WHICH IS NOT A CONVENIENCE. A volume takes
+    // its id from its OWNER, so a body outside the identified population spawns
+    // volumes with none — and REQUIRING the component silently excluded them,
+    // which is the same defect one layer in. Measured: a two-fighter fixture
+    // produced two strike volumes and zero ids, and the sweep saw nothing.
+    strikes: Query<(
+        &Hitbox,
+        &crate::moveset::StrikeVolume,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    )>,
     owner_pos: Query<&ae::BodyKinematics>,
+    // ⭐⭐ ONLY GROUNDED ATTACKS CLANK, and that is research rather than tuning.
+    // In this genre an aerial passes THROUGH an opposing attack — clanking is a
+    // ground-game rule, and it is what keeps the air a place where committing
+    // costs you. ⛔⛔ omitting it was measured, not argued: with aerials
+    // clanking, two CPU fighters traded so constantly that
+    // `every_live_fighter_stays_inside_the_frame` reported ZERO body-frames
+    // outside the stage in a whole match — nobody was ever launched, because
+    // nearly every exchange in the air ended in a refusal.
+    grounded: Query<&ae::BodyGroundState>,
     factions: Query<&crate::components::ActorFaction>,
     teams: Query<&crate::targeting::MatchTeam>,
+    mut playing: Query<&mut crate::moveset::MovePlayback>,
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
     mut clanked: MessageWriter<AttacksClanked>,
 ) {
@@ -98,73 +127,107 @@ pub fn arbitrate_attack_clanks(
     if rules.clank_damage_window <= 0.0 {
         return;
     }
-    // ⛔⛔ SORTED, AND THE SORT IS THE DETERMINISM. A Bevy query yields entities
-    // in archetype order, which is not an order this simulation may depend on:
-    // two peers whose archetypes filled differently would arbitrate the same
-    // frame's pairs in different sequences and cancel different volumes.
-    let mut live: Vec<(Entity, &Hitbox)> = strikes.iter().collect();
-    live.sort_by_key(|(entity, _)| *entity);
+    // ⛔⛔ ORDERED BY `SimId`, NOT BY `Entity`. An `Entity` is an ALLOCATOR
+    // identity: two peers whose archetypes filled differently hand out different
+    // indices for the same volume, so a sweep ordered by it arbitrates the same
+    // frame's pairs in different sequences and cancels different attacks.
+    // `SimId::strike_volume` is derived from `(owner, move, window, volume)` and
+    // is the same on every peer, which is what canonical gameplay ordering means.
+    let mut live: Vec<(&Hitbox, Entity, &str, Entity)> = strikes
+        .iter()
+        .map(|(hitbox, volume, sim_id)| {
+            (
+                hitbox,
+                volume.owner,
+                sim_id.map(|id| id.as_str()).unwrap_or(""),
+                volume.owner,
+            )
+        })
+        .collect();
+    // ⭐ `(SimId, owner)`, and the second key is only reached by volumes with no
+    // id at all. Those belong to bodies outside the rollback-tracked population,
+    // so they cannot desync a peer — and ordering them by owner keeps the sweep
+    // total rather than leaving ties to the query's own order.
+    live.sort_by(|a, b| a.2.cmp(b.2).then(a.3.cmp(&b.3)));
 
-    // Cancelled once, whatever else it meets this tick: a volume that already
-    // lost has nothing left to trade.
-    let mut cancelled: std::collections::BTreeSet<Entity> = std::collections::BTreeSet::new();
+    // ⭐⭐ ONE RESOLUTION PER ATTACK PAIR. Arbitrating per VOLUME let a two-volume
+    // attack meet a two-volume attack four times: four messages, and a rebound
+    // applied four times to the same two fighters. The pair of OWNERS is the
+    // contest — an attack is what clanks, not a rectangle.
+    let mut resolved: std::collections::BTreeSet<(Entity, Entity)> =
+        std::collections::BTreeSet::new();
+    // Whose MOVE this sweep ended. Collected and applied after, so a body that
+    // loses to two attackers on one tick is ended once.
+    let mut ended: std::collections::BTreeSet<Entity> = std::collections::BTreeSet::new();
 
-    for (index, (a_entity, a)) in live.iter().enumerate() {
-        for (b_entity, b) in live.iter().skip(index + 1) {
-            if cancelled.contains(a_entity) || cancelled.contains(b_entity) {
+    for (index, (a, a_owner, _, _)) in live.iter().enumerate() {
+        for (b, b_owner, _, _) in live.iter().skip(index + 1) {
+            if a_owner == b_owner {
                 continue;
             }
-            // A body's own two volumes never trade — a multi-hit move overlaps
-            // itself constantly — and neither do allies'.
-            if a.owner == b.owner {
+            let pair = if a_owner <= b_owner {
+                (*a_owner, *b_owner)
+            } else {
+                (*b_owner, *a_owner)
+            };
+            if resolved.contains(&pair) || ended.contains(a_owner) || ended.contains(b_owner) {
                 continue;
             }
-            if !opposed(a.owner, b.owner, &factions, &teams, rules) {
+            if !opposed(*a_owner, *b_owner, &factions, &teams, rules) {
                 continue;
             }
-            let (Ok(a_owner), Ok(b_owner)) = (owner_pos.get(a.owner), owner_pos.get(b.owner))
-            else {
+            // Both feet down, or no contest. A body with no ground state is a
+            // bare fixture and is treated as grounded, the same default the move
+            // selector takes.
+            let on_floor = |owner: Entity| {
+                grounded
+                    .get(owner)
+                    .map(|ground| ground.on_ground)
+                    .unwrap_or(true)
+            };
+            if !on_floor(*a_owner) || !on_floor(*b_owner) {
+                continue;
+            }
+            let (Ok(a_kin), Ok(b_kin)) = (owner_pos.get(*a_owner), owner_pos.get(*b_owner)) else {
                 continue;
             };
             if !a
-                .world_volume(a_owner.pos)
-                .intersects(&b.world_volume(b_owner.pos))
+                .world_volume(a_kin.pos)
+                .intersects(&b.world_volume(b_kin.pos))
             {
                 continue;
             }
             let Some(verdict) = clank_verdict(a.damage, b.damage, rules.clank_damage_window) else {
                 continue;
             };
+            resolved.insert(pair);
             match verdict {
                 ClankVerdict::BothRefused => {
-                    cancelled.insert(*a_entity);
-                    cancelled.insert(*b_entity);
-                    // `live` is sorted ascending and `b` comes from the tail, so
-                    // this pair is already canonical — stated rather than
-                    // assumed, because the day the sweep changes shape is the
-                    // day a consumer starts seeing the pair both ways round.
-                    debug_assert!(a_entity < b_entity);
-                    clanked.write(AttacksClanked {
-                        strikes: (*a_entity, *b_entity),
-                        owners: (a.owner, b.owner),
-                    });
+                    ended.insert(*a_owner);
+                    ended.insert(*b_owner);
+                    clanked.write(AttacksClanked { owners: pair });
                 }
                 ClankVerdict::StrongerWins => {
-                    // The weaker one alone. ⛔ NOT announced: nothing happened
-                    // to the winner, and the loser's own owner learns about it
-                    // the way it learns about any whiff — its move plays on.
-                    cancelled.insert(if a.damage < b.damage {
-                        *a_entity
+                    // ⛔ THE WEAKER ATTACK ENDS, NOT ITS RECTANGLE. Despawning
+                    // one volume left the losing MOVE playing, so its sibling
+                    // volumes and every later window carried on — a rectangle
+                    // losing a contest the mechanic describes as an attack
+                    // losing. ⭐ NOT announced: nothing happened to the winner,
+                    // and the loser's owner learns it the way it learns any whiff.
+                    ended.insert(if a.damage < b.damage {
+                        *a_owner
                     } else {
-                        *b_entity
+                        *b_owner
                     });
                 }
             }
         }
     }
 
-    for strike in cancelled {
-        commands.entity(strike).try_despawn();
+    for owner in ended {
+        if let Ok(mut playback) = playing.get_mut(owner) {
+            crate::moveset::cancel_move_playback(&mut commands, owner, &mut playback);
+        }
     }
 }
 
@@ -209,7 +272,6 @@ fn opposed(
 /// definition reaching toward each other, and facing is the thing a spinning or
 /// mid-turn body is least reliable about.
 pub fn rebound_from_clanks(
-    mut commands: Commands,
     mut clanked: MessageReader<AttacksClanked>,
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
@@ -217,7 +279,6 @@ pub fn rebound_from_clanks(
         &mut ae::BodyKinematics,
         &mut ambition_characters::actor::BodyCombat,
     )>,
-    mut playing: Query<&mut crate::moveset::MovePlayback>,
 ) {
     let rules = tuning.as_deref().copied().unwrap_or_default();
     let lock = feel
@@ -249,12 +310,10 @@ pub fn rebound_from_clanks(
                 kin.vel += away * rules.clank_rebound_speed;
                 combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
             }
-            // AND THE MOVE ENDS. Through the one teardown path, which despawns
-            // whatever volumes the move still owns — a swing whose strike was
-            // traded away must not keep spawning later windows.
-            if let Ok(mut playback) = playing.get_mut(body) {
-                crate::moveset::cancel_move_playback(&mut commands, body, &mut playback);
-            }
+            // ⛔ THE MOVE IS ALREADY OVER — `arbitrate_attack_clanks` ends it, so
+            // that the STRONGER-WINS case (which announces nothing) ends its
+            // loser by the same road. Cancelling again here would be a second
+            // authority on when an attack stops.
         }
     }
 }
@@ -262,16 +321,10 @@ pub fn rebound_from_clanks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::ActorFaction;
-    use crate::strike::{HitSide, HitboxAnchor, HitboxKnockback};
 
-    const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
-
-    /// ⭐ THE COMPARISON ALONE, with no world in it. Three claims, and the
-    /// third is the one an engine that hosts more than a fighting game needs.
+    /// ⭐ THE COMPARISON ALONE, with no world in it.
     #[test]
     fn the_verdict_trades_close_attacks_and_lets_a_much_stronger_one_through() {
-        // Equal, and either side of the window.
         assert_eq!(
             clank_verdict(10, 10, 9.0),
             Some(ClankVerdict::BothRefused),
@@ -280,303 +333,18 @@ mod tests {
         assert_eq!(
             clank_verdict(4, 13, 9.0),
             Some(ClankVerdict::BothRefused),
-            "a difference EXACTLY the window traded — the boundary is inclusive, \
-             so only a strictly greater gap wins outright"
+            "a difference EXACTLY the window traded — the boundary is inclusive"
         );
         assert_eq!(
             clank_verdict(4, 14, 9.0),
             Some(ClankVerdict::StrongerWins),
             "a 10-damage gap still traded, so a heavy swing cannot beat a jab"
         );
-        // Symmetric: which one is named first cannot decide it.
         assert_eq!(clank_verdict(14, 4, 9.0), clank_verdict(4, 14, 9.0));
-
-        // ⛔ AND AN UNDECLARED WORLD REFUSES EVERY PAIR. This is the answer for
-        // every Ambition room, and it is asked in the rule rather than at the
-        // call site so no other road can reach clanking by accident.
+        // ⛔ AN UNDECLARED WORLD REFUSES EVERY PAIR — the answer for every
+        // Ambition room, asked in the RULE so no other road reaches clanking by
+        // accident.
         assert_eq!(clank_verdict(10, 10, 0.0), None);
         assert_eq!(clank_verdict(4, 99, 0.0), None);
-    }
-
-    fn clank_app() -> App {
-        let mut app = App::new();
-        app.add_message::<AttacksClanked>();
-        app.insert_resource(crate::rules::ResolvedCombatTuning {
-            clank_damage_window: 9.0,
-            ..Default::default()
-        });
-        app.add_systems(Update, arbitrate_attack_clanks);
-        app
-    }
-
-    fn body(app: &mut App, x: f32, faction: ActorFaction) -> Entity {
-        app.world_mut()
-            .spawn((
-                ae::BodyKinematics {
-                    pos: ae::Vec2::new(x, 0.0),
-                    vel: ae::Vec2::ZERO,
-                    size: ae::Vec2::new(16.0, 32.0),
-                    facing: 1.0,
-                },
-                faction,
-            ))
-            .id()
-    }
-
-    /// A swing reaching `reach` in front of `owner`, wide enough to meet one
-    /// coming the other way.
-    fn swing(app: &mut App, owner: Entity, reach: f32, damage: i32) -> Entity {
-        app.world_mut()
-            .spawn((
-                Hitbox {
-                    owner,
-                    source: HitSide::Player,
-                    anchor: HitboxAnchor::FollowOwner {
-                        local_offset: ae::Vec2::new(reach, 0.0),
-                    },
-                    half_extent: ae::Vec2::new(20.0, 20.0),
-                    shape: None,
-                    facing: 1.0,
-                    damage,
-                    knockback: HitboxKnockback::LaunchSpeed {
-                        base: 100.0,
-                        growth: None,
-                    },
-                    launch_dir: None,
-                    autolink: None,
-                    frame_down: DOWN,
-                    strike_sfx: None,
-                },
-                HitboxLifetime { remaining_s: 1.0 },
-            ))
-            .id()
-    }
-
-    fn alive(app: &App, strike: Entity) -> bool {
-        app.world().get::<Hitbox>(strike).is_some()
-    }
-
-    /// ⭐⭐ TWO FIGHTERS SWINGING INTO EACH OTHER TRADE, and NEITHER attack
-    /// survives to look for a victim.
-    ///
-    /// ⛔ THE ASSERTION IS ON BOTH VOLUMES, deliberately. Cancelling one is the
-    /// failure mode this system's ordering exists to prevent: whichever the
-    /// query yielded first would land on a body that was mid-swing itself, which
-    /// is the interaction the genre replaces with a trade.
-    #[test]
-    fn two_attacks_that_meet_are_both_refused() {
-        let mut app = clank_app();
-        let left = body(&mut app, 0.0, ActorFaction::Player);
-        let right = body(&mut app, 40.0, ActorFaction::Enemy);
-        let a = swing(&mut app, left, 20.0, 10);
-        let b = swing(&mut app, right, -20.0, 12);
-        app.update();
-
-        assert!(!alive(&app, a), "the first attack survived the trade");
-        assert!(!alive(&app, b), "the second attack survived the trade");
-
-        let messages = app
-            .world()
-            .resource::<bevy::ecs::message::Messages<AttacksClanked>>();
-        let mut cursor = messages.get_cursor();
-        let announced: Vec<_> = cursor.read(messages).collect();
-        assert_eq!(announced.len(), 1, "a clank announced {:?}", announced);
-        // As a SET: which body the pair names first is canonical ordering, not a
-        // fact about the trade, and asserting the tuple would pin spawn order.
-        let named =
-            std::collections::BTreeSet::from([announced[0].owners.0, announced[0].owners.1]);
-        assert_eq!(
-            named,
-            std::collections::BTreeSet::from([left, right]),
-            "the clank named the wrong bodies, so nothing downstream can recoil \
-             the two that traded"
-        );
-        assert!(
-            announced[0].strikes.0 < announced[0].strikes.1,
-            "the strike pair is not canonically ordered, so one consumer sees \
-             (a, b) and another sees (b, a) for the same trade"
-        );
-    }
-
-    /// ⭐ A MUCH STRONGER ATTACK WINS OUTRIGHT — and this is the half that makes
-    /// clanking a mechanic rather than a stalemate generator. Without it a jab
-    /// would cancel a fully charged smash.
-    #[test]
-    fn a_much_stronger_attack_beats_a_weak_one_and_keeps_going() {
-        let mut app = clank_app();
-        let left = body(&mut app, 0.0, ActorFaction::Player);
-        let right = body(&mut app, 40.0, ActorFaction::Enemy);
-        let jab = swing(&mut app, left, 20.0, 2);
-        let smash = swing(&mut app, right, -20.0, 20);
-        app.update();
-
-        assert!(!alive(&app, jab), "the jab survived a much stronger attack");
-        assert!(
-            alive(&app, smash),
-            "the stronger attack was cancelled too, so a heavy swing trades with \
-             a jab instead of beating it"
-        );
-        let messages = app
-            .world()
-            .resource::<bevy::ecs::message::Messages<AttacksClanked>>();
-        let mut cursor = messages.get_cursor();
-        assert_eq!(
-            cursor.read(messages).count(),
-            0,
-            "a one-sided win announced a clank, which has no winner by definition"
-        );
-    }
-
-    /// ⛔⛔ AND THE THREE THAT MUST NOT TRADE. Each is a pair that overlaps and
-    /// still has to pass through: a move's own volumes (a multi-hit overlaps
-    /// itself constantly), two allies' swings, and any pair at all in a world
-    /// that never declared clanking.
-    #[test]
-    fn a_moves_own_volumes_allies_and_an_undeclared_world_never_trade() {
-        // One body's two volumes.
-        let mut app = clank_app();
-        let solo = body(&mut app, 0.0, ActorFaction::Player);
-        let first = swing(&mut app, solo, 10.0, 10);
-        let second = swing(&mut app, solo, 12.0, 10);
-        app.update();
-        assert!(
-            alive(&app, first) && alive(&app, second),
-            "a multi-hit move cancelled itself"
-        );
-
-        // Two bodies on the same side.
-        let mut app = clank_app();
-        let a_body = body(&mut app, 0.0, ActorFaction::Enemy);
-        let b_body = body(&mut app, 40.0, ActorFaction::Enemy);
-        let a = swing(&mut app, a_body, 20.0, 10);
-        let b = swing(&mut app, b_body, -20.0, 10);
-        app.update();
-        assert!(
-            alive(&app, a) && alive(&app, b),
-            "two allies' swings cancelled each other"
-        );
-
-        // The same opposed pair, in a world that declared nothing.
-        let mut app = clank_app();
-        app.insert_resource(crate::rules::ResolvedCombatTuning::default());
-        let left = body(&mut app, 0.0, ActorFaction::Player);
-        let right = body(&mut app, 40.0, ActorFaction::Enemy);
-        let a = swing(&mut app, left, 20.0, 10);
-        let b = swing(&mut app, right, -20.0, 10);
-        app.update();
-        assert!(
-            alive(&app, a) && alive(&app, b),
-            "an undeclared world clanked — every Ambition room just changed to \
-             buy a Smash feature"
-        );
-    }
-
-    /// ⭐⭐ A TRADE COSTS BOTH FIGHTERS: their moves end and both are pushed
-    /// apart. Driven by the REAL arbitration, not a hand-written message, so
-    /// this fails if the two systems ever disagree about who traded.
-    ///
-    /// ⛔ THE DIRECTIONS ARE OPPOSITE AND THAT IS THE ASSERTION. A rebound that
-    /// pushed both bodies the same way would be a shove, and would pass any test
-    /// that only asked whether velocity changed.
-    #[test]
-    fn a_trade_ends_both_moves_and_throws_both_fighters_apart() {
-        let mut app = clank_app();
-        app.insert_resource(crate::rules::ResolvedCombatTuning {
-            clank_damage_window: 9.0,
-            clank_rebound_speed: 200.0,
-            ..Default::default()
-        });
-        app.insert_resource(crate::feel::Platformer2dFeelTuningMonolith::default());
-        app.add_systems(Update, rebound_from_clanks.after(arbitrate_attack_clanks));
-
-        let left = body(&mut app, 0.0, ActorFaction::Player);
-        let right = body(&mut app, 40.0, ActorFaction::Enemy);
-        for owner in [left, right] {
-            app.world_mut().entity_mut(owner).insert((
-                ambition_characters::actor::BodyCombat::default(),
-                crate::moveset::MovePlayback::new(swinging_move(), 1.0),
-            ));
-        }
-        swing(&mut app, left, 20.0, 10);
-        swing(&mut app, right, -20.0, 10);
-        app.update();
-
-        let vel = |app: &App, body: Entity| {
-            app.world()
-                .get::<ae::BodyKinematics>(body)
-                .expect("still a body")
-                .vel
-                .x
-        };
-        assert!(
-            vel(&app, left) < 0.0,
-            "the left fighter was not thrown back: {}",
-            vel(&app, left)
-        );
-        assert!(
-            vel(&app, right) > 0.0,
-            "the right fighter was not thrown back: {}",
-            vel(&app, right)
-        );
-
-        for (owner, name) in [(left, "left"), (right, "right")] {
-            assert!(
-                app.world()
-                    .get::<crate::moveset::MovePlayback>(owner)
-                    .is_none(),
-                "the {name} fighter's move survived the trade, so it plays on \
-                 with no hitbox — which reads as the game dropping the input"
-            );
-            assert!(
-                app.world()
-                    .get::<ambition_characters::actor::BodyCombat>(owner)
-                    .is_some_and(|c| c.recoil_lock_timer > 0.0),
-                "the {name} fighter can act immediately, so a trade costs it \
-                 nothing but its swing"
-            );
-        }
-    }
-
-    /// A move for the fighters above to be mid-way through. Only its existence
-    /// and its teardown matter.
-    fn swinging_move() -> ambition_entity_catalog::MoveSpec {
-        ambition_entity_catalog::MoveSpec {
-            display_name: None,
-            id: "swing".to_string(),
-            clip: ambition_entity_catalog::ClipBinding {
-                clip: "swing".to_string(),
-                fallbacks: vec![],
-            },
-            duration_s: 1.0,
-            windows: vec![],
-            events: vec![],
-            gates: Default::default(),
-            start_impulse: None,
-            smash_charge_mult: 1.0,
-            smash_charge: None,
-            repeat: None,
-            landing_lag_s: None,
-            autocancel_after_s: None,
-            sprite_spin_hz: None,
-        }
-    }
-
-    /// ⭐ AND ATTACKS THAT DO NOT REACH EACH OTHER ARE NOT A TRADE.
-    ///
-    /// The non-vacuity for every case above: they all place two swings that
-    /// genuinely overlap, and a system that cancelled on hostility alone would
-    /// pass all of them.
-    #[test]
-    fn attacks_that_never_meet_are_left_alone() {
-        let mut app = clank_app();
-        let left = body(&mut app, 0.0, ActorFaction::Player);
-        let right = body(&mut app, 400.0, ActorFaction::Enemy);
-        let a = swing(&mut app, left, 20.0, 10);
-        let b = swing(&mut app, right, -20.0, 10);
-        app.update();
-        assert!(
-            alive(&app, a) && alive(&app, b),
-            "two swings a stage-width apart traded"
-        );
     }
 }

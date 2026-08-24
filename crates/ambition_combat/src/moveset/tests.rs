@@ -5612,6 +5612,133 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
     );
 }
 
+/// A move with a REAL Active window and a real volume, so
+/// `advance_move_playback` actually spawns a strike the arbitration can see.
+///
+/// ⛔ `uncancelable` authors `windows: vec![]` — it spawns nothing, and a
+/// clank fixture built on it is a fixture that cannot reach the case, which is
+/// the exact defect this whole slice is repairing.
+fn clashing_swing() -> MoveSpec {
+    let mut spec = uncancelable("swing");
+    spec.duration_s = 0.5;
+    spec.windows = vec![MoveWindow {
+        start_s: 0.02,
+        end_s: 0.30,
+        tag: WindowTag::Active,
+        volumes: vec![HitVolume {
+            shape: ambition_entity_catalog::VolumeShape::Rect {
+                // Reaching FORWARD, and wide enough that two fighters 30px apart
+                // meet in the middle.
+                offset: (14.0, 0.0),
+                half_extents: (18.0, 16.0),
+            },
+            damage: 10,
+            knockback: 100.0,
+            knockback_growth: None,
+            launch_dir: None,
+            autolink: None,
+            on_hit: None,
+            vfx: None,
+            hit_sfx: None,
+        }],
+        motion_scale: 1.0,
+        sustain_effect: None,
+    }];
+    spec
+}
+
+/// ⭐⭐ TWO REAL AUTHORED ATTACKS TRADE — through `advance_move_playback`, which
+/// is the only road that spawns the volumes a match actually contains.
+///
+/// ⛔⛔ THE DEFECT THIS EXISTS TO PREVENT RECURRING, found by review 2026-08-24:
+/// `arbitrate_attack_clanks` filtered on `With<HitboxLifetime>`, and authored
+/// volumes are spawned with a comment reading *"NO `HitboxLifetime` on purpose"*
+/// because their Active window owns their lifetime. Every Smash jab, tilt, smash
+/// and aerial was invisible to the system — and the tests passed, because they
+/// hand-spawned boxes carrying exactly the component production refuses.
+///
+/// ⇒ **a synthetic hitbox is not proof of a moveset mechanic.** This fixture
+/// starts two moves and lets the runtime build their volumes.
+#[test]
+fn two_authored_attacks_that_meet_trade_and_both_moves_end() {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<crate::clank::AttacksClanked>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    app.insert_resource(crate::rules::ResolvedCombatTuning {
+        clank_damage_window: 9.0,
+        ..Default::default()
+    });
+    app.add_systems(
+        Update,
+        (advance_move_playback, crate::clank::arbitrate_attack_clanks).chain(),
+    );
+
+    // Two fighters facing each other, close enough that their swings meet.
+    let fighter = |app: &mut App, x: f32, faction: ActorFaction, facing: f32| {
+        app.world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(x, 0.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 32.0),
+                    facing,
+                },
+                faction,
+                MovePlayback::new(clashing_swing(), facing),
+            ))
+            .id()
+    };
+    let left = fighter(&mut app, 0.0, ActorFaction::Player, 1.0);
+    let right = fighter(&mut app, 30.0, ActorFaction::Enemy, -1.0);
+
+    // ⛔ STOP ON THE TICK OF THE TRADE. A Bevy message survives two updates, so
+    // running on past it and then reading would report zero announcements and
+    // blame the arbitration for the double-buffer.
+    let mut ticks = 0;
+    while app.world().get::<MovePlayback>(left).is_some() && ticks < 40 {
+        app.update();
+        ticks += 1;
+    }
+    assert!(
+        app.world().get::<MovePlayback>(left).is_none(),
+        "the left fighter's ATTACK survived the trade — the arbitration is \
+         cancelling rectangles rather than attacks, so its sibling and later \
+         windows carry on"
+    );
+    assert!(
+        app.world().get::<MovePlayback>(right).is_none(),
+        "the right fighter's attack survived the trade"
+    );
+
+    let messages = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<crate::clank::AttacksClanked>>();
+    let mut cursor = messages.get_cursor();
+    let announced: Vec<_> = cursor.read(messages).collect();
+    assert_eq!(
+        announced.len(),
+        1,
+        "the trade was announced {} times — one per VOLUME rather than one per \
+         ATTACK, which rebounds the same two fighters once for each rectangle",
+        announced.len()
+    );
+    let named = std::collections::BTreeSet::from([announced[0].owners.0, announced[0].owners.1]);
+    assert_eq!(
+        named,
+        std::collections::BTreeSet::from([left, right]),
+        "the clank named the wrong bodies"
+    );
+}
+
 /// ⭐⭐ A HELPLESS FIGHTER CANNOT START A MOVE — at the MOVE-START AUTHORITY.
 ///
 /// ⛔⛔ THE DEFECT THIS PINS, found by review 2026-08-24: `body_is_helpless` was

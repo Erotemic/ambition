@@ -184,8 +184,8 @@ below from it.
 | Turnaround / pivot phase | ▢ | M | E1 | Ground locomotion owns facing reversal timing and publishes the phase as a fact. |
 | Pivot grab | ▢ | S | — | `grab_dash` already ships; select/authored pivot grab from the turnaround fact after that fact exists. |
 | Run cancel into shield | ▢ | S/M | E1 | Ground action arbitration from the gait phase. |
-| Run cancel into crouch | ▢ | S/M | E1 | Same ground action arbitration. |
-| Crouch walk | ▢ | M | E1 | Movement mode/tuning within crouch, not a second actor controller path. |
+| Run cancel into crouch | ▢ | S/M | E1 | ⚠ ORDER THIS AFTER `Crouch walk`, which measured that crouching costs nothing: cancelling a run into a state that keeps full run speed is not a cancel. Same ground action arbitration. |
+| Crouch walk | ▢ | M | E1 | ⛔⛔ AND THE MEASUREMENT SAYS SOMETHING WORSE THAN "absent" (2026-08-24): a crouching body moves at FULL RUN SPEED. The movement kernel reads `BodyMode` only for `Climbing` — `Crouching` never reaches the locomotion law at all — while crouch DOES shrink the hurtbox (`BodyShape`) and DOES shorten a launch (`crouch_cancel_scale`). ⇒ crouching is a free defensive win with no cost, which is the opposite of the genre's trade. The row is therefore not "add a slower gait" but "give crouch its price"; movement mode/tuning within crouch, not a second actor controller path. |
 | Reverse aerial rush | ▢ | S/M | — | Should emerge from turnaround → jump → back-air once turnaround timing exists; do not add an RAR state. |
 | Teeter at platform edge | ▢ | S/M | E1 | Small grounded edge microstate/fact for control/animation; collision stays unchanged. |
 | Walk-stop/crouch-start/crouch-end pose beats | ▢ | S | E1 | Publish the transition facts only if animation needs them; do not infer them from sprite phase. |

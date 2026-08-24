@@ -298,6 +298,47 @@ a PrimaryPlayerOnly body carrying the full cluster query + PlayerBlinkCameraStat
 and `camera_snap_timer > 0.0`. Its poison is deleting the
 `snap_after_placement` call.
 
+- ▢ **D210 — FOUR P0 DEFECTS FROM THE 2026-08-24 REVIEW, ALL VERIFIED AT HEAD,
+  NONE FIXED.** (opened 2026-08-24; the review is
+  [`triage/gpt-review-2026-08-24-correction-pass.md`](triage/gpt-review-2026-08-24-correction-pass.md),
+  which is the AUTHORITY — this row is the pointer)
+
+⛔⛔ **DO NOT ADD A PARITY ROW UNTIL THESE CLOSE.** Two rows were marked ✔ on
+tests that proved a nearby SURROGATE road, and the ledger said so for a day.
+
+```text
+P0-1 clank never reaches authored moves   arbitrate_attack_clanks: With<HitboxLifetime>
+                                          advance_move_playback: "NO HitboxLifetime on purpose"
+P0-2 helpless never reaches move starts   trigger_moveset_moves takes &ActorControl +
+                                          &ResolvedAttackGesture; the gate clears InputState
+P0-3 sudden death ends on first hit       one damage point makes the tiebreak a Winner, the
+                                          guard answers None, the fall-through settles
+P0-4 zero-velocity items float            pickup/mod.rs `if item.vel == Vec2::ZERO { continue }`
+```
+
+⚠ **P0-4 HAS BEEN ATTEMPTED AND REVERTED** — removing the early-out is right for
+the item and breaks MINT BANKING (`a_mint_banked_where_it_fell...` → *"found
+[]"*). The come-to-rest road has to be settled in the same slice. See the triage.
+
+⭐⭐ **THE DISCIPLINE THIS ROW EXISTS TO ENFORCE: PRODUCTION-PATH POISON BEFORE
+CLOSING A PARITY ROW.** A synthetic fixture is not proof of a moveset mechanic —
+the clank tests spawned boxes carrying exactly the component the production road
+refuses, and passed.
+
+⛔ and the review's own prohibitions travel with the work: P0-1 must NOT be fixed
+by swapping the query filter (order by `SimId::strike_volume`, resolve per ATTACK
+PAIR, and a losing attack must not continue through its sibling volumes); P0-2
+wants ONE derived rule gating move STARTS plus both integration roads, and
+"recovery still playing" means the move whose `spends_recovery` spent the charge,
+not any `MovePlayback`; P0-3's stage half also has to move out of literal
+`Update`, because it writes rollback-canonical `BodyHealth`.
+
+⭐ **P1s, after the four**: withdraw `Exit Match` once `StocksMatchSettled` says
+this match is settled; one live-match clock that excludes the opening countdown
+and pause, used by BOTH the time limit and item cadence; a match/session context
+seed for `sim_random` before it founds "random stage"; and multi-side sudden
+death must carry the tied leaders rather than resetting every survivor.
+
 ### ✔ LANDED 2026-08-15 — six worker lanes, all merged, validated and pushed
 
 ⚠ **this block is history, not work.** Kept because each row's *evidence* is

@@ -603,7 +603,14 @@ fn construct_giant_host(
     else {
         unreachable!("dispatch pairs this fn with GiantHost parameters")
     };
-    crate::features::populate_giant_host_into(
+    // ⭐ THE HOST IS AN ORDINARY ENEMY BODY PLUS THE LIMB ROUTING STATE, and
+    // saying so here is the point of the move. This was `populate_giant_host_into`
+    // in `features/ecs/spawn_actors.rs` — a five-line wrapper whose only caller in
+    // the tree was this function, holding GIANT-CREATURE construction knowledge
+    // inside the generic spawn file. The shared call it wraps stays where it is;
+    // what is gone is a name crossing the boundary to say something only
+    // construction cares about.
+    crate::features::spawn_enemy_with_faction_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -615,6 +622,10 @@ fn construct_giant_host(
         paths,
         *faction,
     );
+    ctx.commands.entity(root.entity()).insert((
+        ambition_characters::actor::limb::LimbIntents::default(),
+        ambition_characters::actor::limb::LimbRouteState::default(),
+    ));
 }
 
 fn construct_giant_hand(
@@ -625,7 +636,13 @@ fn construct_giant_hand(
     let ActorConstructionParams::GiantHand { authored } = parameters else {
         unreachable!("dispatch pairs this fn with GiantHand parameters")
     };
-    crate::features::populate_giant_hand_into(
+    //  THE SAME ROAD THE HOST TAKES, and that is load-bearing history: the
+    // hand used to be built from an ARCHETYPE row while the giant beside it was
+    // built from its character, so two limbs of one creature came down two
+    // construction paths. Non-hostile by construction — the limb fan-out is its
+    // only driver, and targeting must ignore it. The `Limb` component and the
+    // host's rig entry come from the `ambition.limb` relation, not from here.
+    crate::features::spawn_enemy_with_faction_into(
         ctx.commands,
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
@@ -634,6 +651,8 @@ fn construct_giant_hand(
         ctx.session,
         root.entity(),
         authored,
+        &[],
+        crate::features::ActorFaction::Enemy,
     );
 }
 

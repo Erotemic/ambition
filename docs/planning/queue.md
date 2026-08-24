@@ -4750,11 +4750,35 @@ has real spawn-side callers too               spawn_staged_actor_into
                                               spawn_enemy_with_faction_into  (widest)
 ```
 
-⇒ the first two are the same shape as the pair already deleted and can follow
-them; the other four are genuinely shared and moving them would be relocating a
-dependency rather than removing one. ⛔ so this edge THINS to four functions and
-does not vanish — which is worth saying plainly, because "the cycle is broken"
-was the claim this measurement started out believing.
+⇒ ✔ **the first two FOLLOWED the pair already deleted (2026-08-24).** Both were
+thin wrappers over the shared `spawn_enemy_with_faction_into` carrying
+GIANT-CREATURE knowledge inside the generic spawn file — the host is that call
+plus `LimbIntents`/`LimbRouteState`, the hand is that call with an empty path
+list and a non-hostile faction. Inlined at their one call site and deleted, along
+with the re-export lines in BOTH shells (`features/ecs/mod.rs` and
+`features/mod.rs` — the double layer is exactly what defeats a path-based count).
+
+⇒ ⛔ **the other four are genuinely shared and STAY.** Moving them would relocate
+a dependency, not remove one.
+
+⚠ **AND TWO MORE CANDIDATES WERE MEASURED AND REFUSED, which is the part worth
+keeping** — both looked construction-only under a grep that excluded the defining
+file, and neither is:
+
+```text
+is_limbed_host        called FOUR times inside spawn_actors.rs itself
+GiantHandPlan +       construction is the only consumer, but giant_hand_plans
+giant_hand_plans        calls giant_hand_feature_id, which has NINE other users
+                        there — the move swaps one edge symbol for another
+```
+
+⇒ ⛔⛔ **excluding the defining file from a reference count is the third way this
+row's measurement has been fooled today** (after counting a test file and being
+defeated by a re-export shell). Count IN the definition's own file; a symbol its
+own module uses is not yours to take.
+
+⇒ so the edge stands at four shared spawn functions plus the giant plan pair, and
+"the cycle is broken" — which this measurement started out believing — is FALSE.
 ⛔ everything else construction names through `crate::features` resolves outward
 (`ActorFaction` → `ambition_characters`, `ActorAggression` → `ambition_combat`)
 or is the mount vocabulary, which is its own question.

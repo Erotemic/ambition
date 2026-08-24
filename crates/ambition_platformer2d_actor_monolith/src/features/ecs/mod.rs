@@ -85,15 +85,15 @@ pub use crate::combat::{
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
 };
-pub(crate) use actors::{
-    maintain_actor_pre_decision_state, observe_actor_decision_inputs,
-    publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
-};
 pub use actors::{
     apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
     snapshot_body_contact, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
     tick_actor_brains, tick_npc_idle_barks, ActorSteering, AxisSweptMotion, MomentumMotion,
     MotionModel,
+};
+pub(crate) use actors::{
+    maintain_actor_pre_decision_state, observe_actor_decision_inputs,
+    publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
 };
 pub use aggression::{
     apply_actor_stimuli, arm_requested_challenges, tick_pending_challenges, ChallengeRequested,
@@ -163,8 +163,8 @@ pub use spawn_actors::{
     SpawnActorKind, SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{
-    giant_hand_plans, is_limbed_host, populate_giant_hand_into, populate_giant_host_into,
-    spawn_boss_with_overrides_into, spawn_enemy_with_faction_into, spawn_staged_actor_into,
+    giant_hand_plans, is_limbed_host, spawn_boss_with_overrides_into,
+    spawn_enemy_with_faction_into, spawn_staged_actor_into,
 };
 pub use target_volumes::{
     derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,

@@ -112,8 +112,16 @@ functions construction calls through the `crate::features::` RE-EXPORT. ⇒ **sp
 production from test AND resolve through re-exports before pricing any carve** —
 this row's own laundering rule, which the row then failed against itself. One
 real edge did die (two twenty-line inserts filed under "spawn" by topic, whose
-only caller in the tree was construction); the edge THINS to four shared
-functions and does not vanish.
+only caller in the tree was construction), and two giant-creature wrappers
+followed it; the edge THINS to four shared functions and does not vanish.
+
+⛔⛔ **THREE WAYS A REFERENCE COUNT LIED IN ONE AFTERNOON, all on the same row** —
+worth carrying to any carve, not just this one: it counted a TEST file as domain
+coupling; it was defeated by a `crate::features::` re-export shell (two layers
+deep) hiding the real `features/ecs` path; and a grep that EXCLUDED the defining
+file made a symbol its own module calls four times look like somebody else's.
+⇒ count production only, resolve through re-exports, and count IN the definition's
+own file.
 
 ⚠ **D201's reference facts were WRONG and are corrected in the row.** Ultimate
 does NOT allow an indefinite hang (6.5s under 100%, 5s at or above), its 6-grab

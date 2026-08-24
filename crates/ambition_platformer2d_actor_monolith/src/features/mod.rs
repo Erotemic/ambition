@@ -91,8 +91,7 @@ pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 pub(crate) use ecs::spawn_staged_actor_into;
 pub use ecs::GiantHandPlan;
 pub(crate) use ecs::{
-    giant_hand_plans, is_limbed_host, populate_giant_hand_into, populate_giant_host_into,
-    spawn_boss_with_overrides_into, spawn_enemy_with_faction_into,
+    giant_hand_plans, is_limbed_host, spawn_boss_with_overrides_into, spawn_enemy_with_faction_into,
 };
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 // the CAST half of the conversation port: a bark line for a character in

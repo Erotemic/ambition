@@ -8,7 +8,7 @@ use super::brain_builders::enemy_default_brain;
 use super::*;
 use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_characters::actor::limb::{LimbIntents, LimbRouteState, LimbSlot};
+use ambition_characters::actor::limb::LimbSlot;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -1466,71 +1466,6 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // character-first road above had already done both on its own.
     //
     //  a body is built from a character.
-}
-
-/// Populate a limbed host with the host-owned [`LimbIntents`] and
-/// [`LimbRouteState`]. [`LimbRig`] membership is installed by `ambition.limb`
-/// relation wiring.
-pub(crate) fn populate_giant_host_into(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
-    profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
-    paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    faction: super::ActorFaction,
-) {
-    spawn_enemy_with_faction_into(
-        commands,
-        catalog,
-        authored_sheets,
-        prepared,
-        profiles,
-        session_scope,
-        root,
-        authored,
-        paths,
-        faction,
-    );
-    commands
-        .entity(root)
-        .insert((LimbIntents::default(), LimbRouteState::default()));
-}
-
-/// Populate one giant hand body onto an executor-allocated root. The `Limb`
-/// component and the host's rig entry are installed by the `ambition.limb`
-/// relation, not here — this builds the ordinary actor body and marks it
-/// non-hostile so targeting ignores it (the fan-out is its only driver).
-pub(crate) fn populate_giant_hand_into(
-    commands: &mut Commands,
-    catalog: &CharacterCatalog,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    prepared: &crate::character_runtime::PreparedCharacterRegistry,
-    profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
-) {
-    //  the same road the HOST takes. This built its seed with `new_in` —
-    // the archetype road — so a hand's health, weight and hostility could only
-    // come from a `giant_gnu_hands` row, while the giant beside it was already
-    // being built from its character. Two limbs of one creature, on two
-    // construction paths.
-    spawn_enemy_with_faction_into(
-        commands,
-        catalog,
-        authored_sheets,
-        prepared,
-        profiles,
-        session_scope,
-        root,
-        authored,
-        &[],
-        super::ActorFaction::Enemy,
-    );
 }
 
 /// One giant hand's fully-resolved construction facts, computed at PLAN time

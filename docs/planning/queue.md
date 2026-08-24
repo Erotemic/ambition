@@ -523,6 +523,49 @@ BEATS A THEORY.** Every refutation came from running the same code at two inputs
 that prints before it steps is off by the input pipeline's latency; print after
 the step, or print enough frames that latency reads as a delay and not a stall.
 
+- ▢ **D203 — A HIT TAKES TWO ROADS, AND THEY HAVE DRIFTED APART.** (Jon,
+  2026-08-24: *"the ledge damage issue sounds like a player actor unification we
+  need to at least log as a todo"*)
+
+He is right, and the ledge was the symptom rather than the thing. A damaging hit
+resolves down one of two roads — `apply_player_hit_events` → `apply_player_knockback`
+(`damage_apply.rs`, 1,326 lines) or `apply_feature_hit_events` → `apply_actor_hit`
+(`damage/actor_hit.rs`, 665 lines) — and both end in the SAME shared
+`apply_body_hit_reaction`. What has drifted is everything each road does AROUND
+that call.
+
+⛔⛔ **AND IN AN ARENA THE WHOLE ROSTER IS ACTORS**, which is what makes a
+player-only rule invisible until somebody plays the demo. ⇒ every divergence
+below is a rule one fighter obeys and another does not, in the same match.
+
+MEASURED at HEAD, 2026-08-24:
+
+| rule | player road | actor road |
+| --- | --- | --- |
+| `knock_off_ledge` — a hit takes the hang | ✔ | ✔ **as of `c3d7cdba7`; it was PLAYER-ONLY until then** |
+| `refresh_movement_resources_clusters` — a hit gives the air options back | ✔ | ⛔ **NO** |
+| `safe_respawn_player` / `ClockResetRequest` | ✔ | — (a ruleset owns actor death) |
+| wallet armor | ✔ | partial |
+| `cling_breaks_on_hit` — a struck crawler is peeled off its surface | — | ✔ |
+| `kill_disposition` / respawn timer / KO banner | — | ✔ |
+
+⭐ **THE NEXT ONE IS ALREADY FOUND AND IT IS A FAIRNESS DEFECT.**
+`refresh_movement_resources_clusters` restores air jumps, dash charges and the
+air dodge, and the genre's rule is that being HIT gives them back — that is how a
+launched fighter recovers. The kernel refreshes on ground contact and on a
+bounce; the extra "and on a hit" call exists only on the player road
+(`damage_apply.rs:868`). ⇒ a CPU fighter launched offstage having already spent
+its double jump reads `air_jumps_left: 0`, which is exactly what
+`SelfView::air_jumps_left` calls *"the recovery budget"* — so the brain cannot
+route a recovery it would have had as a human. Same stage, same hit, two rules.
+
+⇒ **the shape of the fix is NOT "call the same six things twice".** Both roads
+already funnel into one reaction; what belongs there is everything that is a fact
+about BEING HIT (the hang, the air budget, the cling), leaving each road only
+what is genuinely its own (a ruleset owns actor death; a save file owns the
+player's respawn). ⛔ do not merge the roads wholesale — the asymmetries that are
+real are the reason there are two.
+
 - ▢ **D202 — CONTROL IS PUBLISHED IN TWO PHASES, SO EVERY RESTRICTION OVER IT
   RUNS TWICE.** (found 2026-08-24 working D200 §8b)
 

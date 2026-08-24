@@ -37,7 +37,7 @@
 
 * A sword respects an authored hurtbox and a bolt never has — `step_projectiles` tests the coarse `CenteredAabb` while melee consults `DamageableVolumes`. [agent-found]
 
-  ▢ Found 2026-08-08 and deliberately not fixed, because it changes how bolts connect and the feel call is yours.
+  ✔ Found 2026-08-08, deferred for the feel call, and CLOSED 2026-08-22 once you ruled for it — see below.
   * ◐ Half of it LANDED since: projectiles now resolve victims through `StrikeVictim`, the same named role melee uses, so a body publishing an EMPTY volume list offers no target — a bolt no longer lands on something a sword passes through. ~~Only the PRECISION half is left~~ — ✔ **CLOSED 2026-08-22**: you ruled for it (decision 1) and `step_projectiles` now asks the same `strike_reaches_victim` rule melee does. ⛔ this is a real feel change on shipped content and it is the intended one: a shot that used to land on a body whose authored volume is tighter than its box will now miss it, and one that grazes an edge will now connect.
 
 * In smash if you throw out an attack you hurt yourself.
@@ -306,7 +306,12 @@ absent from the other three, so dropping off the lip cost you everything), and a
 fighter can now reach the ledge at all to guard it — the corner test asked for the
 nearest edge in both terms, so the CPU flipped to "cornered" 90px from the lip and
 retreated. What remains is a hang time limit and a regrab count, both re-researched
-because D201's first pass had the reference facts wrong — queued there.
+because D201's first pass had the reference facts wrong. The hang limit is now
+SHIPPED too — a body that hangs past 5 s is dropped, which is the genre's own
+rule and the direct answer to "a character can just stay on the ledge". What is
+left is a regrab COUNT, which is available and deliberately unbuilt until play
+shows stalling surviving the four penalties the ledge now charges — queued as
+D201.
 
 ## 2026-08-21 — Mary-O: the pole victory TRANSLATES her, and side contact hits the snake
 

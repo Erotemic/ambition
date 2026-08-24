@@ -1809,3 +1809,105 @@ fn catching_the_ledge_restores_the_air_budget_and_dropping_off_keeps_it() {
         "a fighter that caught the lip and dropped off fell with no air dodge"
     );
 }
+
+/// ⭐ THE LEDGE LETS GO OF A CAMPER, AND THE GENRE SAYS SO.
+///
+/// Jon, 2026-08-24: *"A character can just stay on the ledge, and there is no
+/// way to knock them off."* A hit takes the hang now, but a fighter nobody is
+/// contesting could still hold the edge for the rest of the match.
+///
+/// ⛔⛔ THE ROW THAT TRACKED THIS ARGUED AGAINST BUILDING IT, on the research
+/// claim that Melee and Ultimate both allow an indefinite hang. They do not:
+/// Smash 4 and Ultimate force the fighter off after 6.5 s below 100% damage and
+/// 5 s at or above. The rationale was false, so the mechanic is here.
+///
+/// ⭐ THREE ASSERTIONS, because a limit is a fence and a fence needs both sides:
+/// the hang SURVIVES a moment before the deadline (or a bug that dropped every
+/// hang instantly would pass), it is GONE after it, and the drop arms the
+/// re-grab lockout (without which the body re-latches on the very next frame and
+/// the limit does nothing at all).
+#[test]
+fn the_ledge_lets_go_of_a_body_that_hangs_past_the_limit() {
+    let contact = rightward_ledge_contact();
+    let mut scratch = make_hanging_player_with_momentum(contact, Vec2::ZERO);
+    let tuning = TestTuning::default();
+    let mut events = crate::movement::FrameEvents::default();
+    assert!(
+        LEDGE_HANG_MAX_TIME > 0.0,
+        "the limit is disabled, so nothing below can fail"
+    );
+
+    // Hold the stick neutral: this measures the CLOCK, not an input.
+    let mut hang_for = |scratch: &mut BodyClusterScratch, seconds: f32| {
+        let steps = (seconds / 0.016).round() as i32;
+        for _ in 0..steps {
+            let mut events = crate::movement::FrameEvents::default();
+            let _ = tick_active_ledge_grab_scratch(
+                scratch,
+                InputState::default(),
+                0.016,
+                tuning,
+                &mut events,
+            );
+        }
+    };
+
+    hang_for(&mut scratch, LEDGE_HANG_MAX_TIME - 0.5);
+    assert!(
+        scratch.axis().ledge_grab.is_some(),
+        "the ledge let go half a second early — a limit that fires before its \
+         deadline is a body that cannot hold an edge at all"
+    );
+
+    let _ = tick_active_ledge_grab_scratch(
+        &mut scratch,
+        InputState::default(),
+        0.6,
+        tuning,
+        &mut events,
+    );
+    assert!(
+        scratch.axis().ledge_grab.is_none(),
+        "the body hung past {LEDGE_HANG_MAX_TIME}s and kept the ledge"
+    );
+    assert!(
+        scratch.ledge.release_cooldown > 0.0,
+        "the forced drop did not arm the re-grab lockout, so the body re-latches \
+         on the next frame and the limit does nothing"
+    );
+}
+
+/// ... AND IT DOES NOT CANCEL A GETUP ALREADY IN FLIGHT.
+///
+/// The limit ends a HANG. A climb, roll or getup attack is an animation the
+/// player already spent an input on, and taking it away mid-way would read as
+/// the ledge eating that input — so the check sits before the getup branch and
+/// asks `!climbing`. Without that a slow getup started at the deadline would
+/// drop the body into the pit it was climbing out of.
+#[test]
+fn the_hang_limit_does_not_interrupt_a_getup_already_underway() {
+    let contact = rightward_ledge_contact();
+    let mut scratch = make_hanging_player_with_momentum(contact, Vec2::ZERO);
+    let tuning = TestTuning::default();
+    {
+        let axis = scratch.axis_mut();
+        let state = axis.ledge_grab.as_mut().expect("the fixture is hanging");
+        // At the deadline, mid-climb — the exact tick the naive check breaks.
+        state.elapsed = LEDGE_HANG_MAX_TIME + 1.0;
+        state.climbing = true;
+        state.getup_kind = crate::ledge_grab::LedgeGetupKind::Climb;
+        state.climb_elapsed = 0.0;
+    }
+    let mut events = crate::movement::FrameEvents::default();
+    let _ = tick_active_ledge_grab_scratch(
+        &mut scratch,
+        InputState::default(),
+        0.016,
+        tuning,
+        &mut events,
+    );
+    assert!(
+        scratch.axis().ledge_grab.is_some(),
+        "the hang limit cancelled a getup the player had already committed to"
+    );
+}

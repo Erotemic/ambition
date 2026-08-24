@@ -324,6 +324,28 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
     state.elapsed += dt;
     clusters.kinematics.facing = into_platform_axis(state.contact);
 
+    // ⭐ THE HANG IS ON A CLOCK. Checked BEFORE the getup branch so a body that
+    // has already committed to a climb, roll or getup attack finishes it — the
+    // limit ends a HANG, and cancelling an animation mid-way would read as the
+    // ledge eating an input the player already spent.
+    //
+    // The body is dropped exactly as `want_drop` drops it, cooldown and all: the
+    // genre forces you OFF the ledge, it does not put you on the stage, and a
+    // drop that did not arm the re-grab lockout would re-latch on the next frame
+    // and the limit would do nothing at all.
+    if !state.climbing
+        && super::LEDGE_HANG_MAX_TIME > 0.0
+        && state.elapsed >= super::LEDGE_HANG_MAX_TIME
+    {
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
+        clusters.wall.on_wall = false;
+        axis_state.ledge_grab = None;
+        clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
+        events.op_clusters(clusters.combo_trace, MovementOp::LedgeDrop);
+        return true;
+    }
+
     if state.climbing {
         state.climb_elapsed += dt;
         let duration_scale = ledge_getup_duration_scale(state, &tuning);

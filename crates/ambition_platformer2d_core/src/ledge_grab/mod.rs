@@ -98,6 +98,30 @@ pub fn ledge_grab_invuln_earned(time_off_ledge: f32) -> f32 {
     LEDGE_INVULN_MIN_TIME + (LEDGE_GRAB_INVULN_TIME - LEDGE_INVULN_MIN_TIME) * t
 }
 
+/// How long a body may hang before the ledge lets go of it. `0.0` disables the
+/// limit entirely.
+///
+/// ⛔⛔ THE GENRE HAS ONE, and the belief that it does not is what kept this
+/// unbuilt. D201's first research said Melee and Ultimate both allow an
+/// indefinite hang; they do not — Smash 4 and Ultimate force the fighter off
+/// after 6.5 s below 100% damage and 5 s at or above it. "No limit is the
+/// genre's answer" was never a valid rationale.
+///
+/// ⭐ ONE DURATION, NOT TWO — and that is a decision rather than an oversight.
+/// The percent split needs the victim's damage inside the movement kernel, which
+/// is a crate boundary the kernel deliberately does not cross (the same boundary
+/// that keeps damage-scaled getup speed out of it). Shipping the MECHANIC with a
+/// single number is the SMASH-LIKE answer: where the games differ, ship the
+/// knob. The value is Ultimate's lower bound, so a camper at any percent is
+/// treated as the game treats its most punishable one.
+///
+/// ⚠ a module constant like every other ledge number here, deliberately, rather
+/// than a per-character tuning field: the whole ledge vocabulary is expressed
+/// this way and a lone authored field would be the odd one out. Promote it to
+/// [`crate::AxisSweptParams`] when a second ruleset wants a different hang —
+/// that is a declared wire-format change, and it should be bought by a customer.
+pub const LEDGE_HANG_MAX_TIME: f32 = 5.0;
+
 /// Cooldown blocking a fresh ledge grab right after the player
 /// voluntarily released a ledge (drop / ledge-jump / ledge-release).
 /// At typical gravity (~1500 px/s²) a player accelerating from rest

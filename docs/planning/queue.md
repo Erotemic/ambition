@@ -787,7 +787,26 @@ are false, and it was about to steer implementation with them. What is written
 here now is the reference behaviour; what Ambition SHIPS may still differ, but it
 differs as a stated policy choice and not because the genre was misread.
 
-  - a HANG TIME LIMIT. ⛔ THE ROW SAID *"Melee and Ultimate both let you hang
+  - ✔✔ **a HANG TIME LIMIT — SHIPPED 2026-08-24.** `LEDGE_HANG_MAX_TIME = 5.0`
+    ends a hang and drops the body exactly as a voluntary drop does, cooldown
+    and all — the genre forces you OFF the edge, it does not put you on the
+    stage. ⭐ ONE duration rather than Ultimate's two: the percent split needs
+    the victim's damage inside the movement kernel, a crate boundary the kernel
+    deliberately does not cross (the same one that keeps damage-scaled getup
+    out), so this ships the MECHANIC with a single knob at Ultimate's LOWER
+    bound — a camper at any percent is treated as the game treats its most
+    punishable one. ⚠ a module constant like every other ledge number, not an
+    authored field; promote it to `AxisSweptParams` when a second ruleset wants
+    a different hang, which is a declared wire-format change and should be
+    bought by a customer. Guarded by
+    `the_ledge_lets_go_of_a_body_that_hangs_past_the_limit` (three assertions —
+    the hang SURVIVES a moment early, is gone after, and the drop arms the
+    re-grab lockout) and
+    `the_hang_limit_does_not_interrupt_a_getup_already_underway` (the limit ends
+    a HANG; cancelling a committed climb would read as the ledge eating an input
+    the player already spent, and would drop the body into the pit it was
+    climbing out of).
+    ⛔ THE ROW SAID *"Melee and Ultimate both let you hang
     indefinitely"*. THEY DO NOT. Smash 4 / Ultimate age the hang: **6.5 seconds
     below 100%, 5 seconds at 100% or more**, after which the fighter is forced
     off. ⇒ "no hang limit is the genre's answer" was never a valid rationale for
@@ -805,6 +824,15 @@ differs as a stated policy choice and not because the genre was misread.
     penalty that runs beside it. ⇒ the airtime-scaled window is a fine baseline
     and Ambition may prefer a configurable superset — but the count was rejected
     on a premise that was not true, and that rejection is withdrawn.
+    ⇒ ⊙ **AVAILABLE, NOT BUILT, and that is a decision rather than a gap.** With
+    the hang limit now live the ledge already charges a stall four ways: a hit
+    takes it, a trump takes it, intangibility decays to its 0.10 s floor on a
+    fast regrab, and the clock ends it at 5 s. A COUNT adds one thing none of
+    those do — a HARD refusal, after which the ledge will not catch you at all —
+    and that is a rule which kills a player legitimately knocked off six times
+    before landing. It also needs a per-body counter in `AxisManeuverState`,
+    which is rollback state and therefore a schema bump. ⇒ worth PLAY before
+    code: build it when stalling is observed to survive the four penalties above.
   - DAMAGE-SCALED GETUP. ⛔ REMOVED FROM THE PARITY GAP. Slow getups at high
     percent are the OLDER games; from Smash 4 onward ledge options behave the
     same regardless of damage. `LEDGE_CLIMB_TIME` being a constant is CURRENT
@@ -2670,8 +2698,25 @@ burst button                     → keeps Dash, loses both dodges
 `shield_evade_direction` (`movement/abilities.rs`) fires on a held guard plus a
 tilt OR a down press, refuses when the evade is on cooldown so a spent dodge
 cannot fall through to the 760px/s traversal dash, and returns `None` without a
-direction — so rows two, three and four are shipped. The burst button still
-carries both dodges, which is row five and is deliberately last.
+direction — so rows two, three and four are shipped. ROW ONE SHIPPED TOO, see
+below.
+
+⊙ **ROW FIVE — the burst button keeping both dodges — RE-PRICED 2026-08-24 AND
+DELIBERATELY LEFT.** Rows one to four landing means both dodges now also answer
+to the SHIELD button, so Burst is a second binding for a maneuver that already
+has one. ⛔ but that is not a defect and taking it away is not free:
+
+  - the two buttons spend ONE resource (`air_dodge_spent`, the ground evade's
+    cooldown), so the double binding cannot double-evade anybody. The prediction
+    hazard it used to carry — the brain naming `Dash` while the body performed a
+    roll — was closed separately by asking the BODY what a press resolves to.
+  - Smash has no burst button at all; the dash is the stick. So this row is a
+    place where the GAMES DIFFER, and the answer there is a knob rather than a
+    law — which means another `AbilitySet`/tuning field and, since that is
+    encoded, another declared wire-format change.
+  - ⇒ one schema bump to remove a binding nothing has complained about. Build it
+    when a fighter is observed evading when it meant to dash, which is the only
+    symptom the double binding can actually produce.
 
 ⛔⛔ **ROW ONE IS THE ONE THAT IS NOT A SMALL EDIT, and the reason is not the
 input.** There is no shield PRESS edge in `InputState` — `shield_held` is a bare

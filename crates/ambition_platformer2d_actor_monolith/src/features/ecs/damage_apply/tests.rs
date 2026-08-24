@@ -1655,7 +1655,12 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
     );
 
     let (held, combat) = pulse(Some(ae::hit_response::AutolinkFollow {
-        anchor_local: ae::Vec2::new(16.0, 0.0),
+        anchor_world: ae::hit_response::autolink_anchor_world(
+            ae::Vec2::new(16.0, 0.0),
+            ATTACKER,
+            1.0,
+            DOWN,
+        ),
         carry: 1.0,
         pull: 20.0,
         max_speed: 900.0,

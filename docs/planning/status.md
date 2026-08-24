@@ -233,11 +233,28 @@ D175 input bridge   ▢            no customer; its own doc names the condition
 NOTHING COULD SEE THEM, not because anything was wrong.**
 
 `cargo check -p ambition_app --all-targets` is the gate and it does not build
-another package's tests. Under that blind spot the actor monolith's own test
-target had stopped COMPILING — a parameter added to `apply_body_hit_reaction`, a
-membership row written as a 3-tuple — so **1,157 tests were dark**, and the one
-that then failed had drifted three ways behind the production chain. ⇒ when you
-touch a crate, run ITS tests; the app gate is not a proxy for them.
+another package's tests — **because it builds every DEPENDENCY AS A LIB, without
+`cfg(test)`.** So the app's own lib, bins and tests are covered and every
+dependency crate's `#[cfg(test)] mod tests` is not.
+
+⛔⛔ **AND THIS PARAGRAPH DID NOT STOP IT HAPPENING AGAIN, later the same day.**
+A field added to `MoveGates` compiled clean through the whole app gate while a
+dozen `src/**/tests.rs` across the monolith were broken; it surfaced only when
+something else ran `cargo check --all-targets -p <that crate>`. ⇒ knowing the
+rule is not the same as running the command. After touching a type that CROSSES
+CRATES, name them:
+
+```bash
+cargo check --all-targets -p ambition_platformer2d_core -p ambition_combat \
+    -p ambition_characters -p ambition_platformer2d_actor_monolith -p ambition_app
+```
+
+⇒ **and it had already cost 1,157 tests once that day.** Under the same blind
+spot the actor monolith's own test target had stopped COMPILING — a parameter
+added to `apply_body_hit_reaction`, a membership row written as a 3-tuple, an
+`AutolinkFollow` field renamed — and the one test that then failed had drifted
+three ways behind the production chain. ⇒ when you touch a crate, run ITS tests;
+the app gate is not a proxy for them.
 
 And the fighter brain could not SEE a ledge hang. Jon: *"A character can just
 stay on the ledge, and there is no way to knock them off."* Two separate causes,

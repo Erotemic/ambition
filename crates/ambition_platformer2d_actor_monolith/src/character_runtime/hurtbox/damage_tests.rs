@@ -498,7 +498,7 @@ fn widening_swing() -> ambition_entity_catalog::MoveSpec {
         duration_s: 1.0,
         events: vec![],
         windows: vec![],
-        gates: ambition_entity_catalog::MoveGates { grounded: None },
+        gates: ambition_entity_catalog::MoveGates { grounded: None , spends_recovery: false },
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,

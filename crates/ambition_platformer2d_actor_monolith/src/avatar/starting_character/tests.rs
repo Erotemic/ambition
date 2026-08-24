@@ -1138,7 +1138,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         duration_s: 0.2,
         events: vec![],
         windows: vec![],
-        gates: MoveGates { grounded: None },
+        gates: MoveGates { grounded: None , spends_recovery: false },
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,

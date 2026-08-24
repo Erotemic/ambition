@@ -896,6 +896,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             (
+                // ⛔⛔ THE SECOND SAMPLE-THEN-BLANK PAIR, and it is here because
+                // AUTONOMOUS control is published in `ActorDecisionSet::Publish`
+                // — a phase after the possessed body's frame landed, and after
+                // the runtime's copy of this pair already ran. Each publication
+                // gets exactly one pair: the blank is what keeps the other pair
+                // from crediting the same press twice. See D202 for the seam
+                // that would leave one of each.
                 ambition_combat::capture::systems::sample_capture_escape,
                 // The captor's stick, read for the throw edge. Beside the
                 // captive's escape sampling because both are the RULESET's

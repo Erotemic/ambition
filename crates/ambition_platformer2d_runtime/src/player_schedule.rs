@@ -174,8 +174,20 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // Sample captive escape input before scripted control is blanked; after blanking
-                // the held player's mash no longer exists in the control frame.
+                // ⛔⛔ SAMPLE-THEN-BLANK IS ONE PAIR AND IT RUNS ONCE PER
+                // CONTROL PUBLICATION. Sampling reads the captive's mash out of
+                // the frame; blanking is what takes it away, and it is also what
+                // stops the NEXT publication's copy of this pair (in
+                // `WorldPrepSet::BeforeIntegrate`) from crediting the same press
+                // a second time. Splitting them — or deleting the blank here and
+                // leaving the sample — doubles a held human's escape rate
+                // silently.
+                //
+                // ⚠ THE PAIR EXISTS TWICE BECAUSE CONTROL IS PUBLISHED TWICE:
+                // a possessed body's frame lands in `PlayerInputSet::Brain`
+                // (above) and an autonomous body's in `ActorDecisionSet::Publish`
+                // (a whole phase later). One publication phase would leave one
+                // pair — see D202.
                 ambition_combat::capture::systems::sample_capture_escape,
                 ambition_platformer2d_actor_monolith::avatar::blank_scripted_control_frames,
                 // ActionSet gates the generic resolver, but the body shield,

@@ -523,6 +523,33 @@ BEATS A THEORY.** Every refutation came from running the same code at two inputs
 that prints before it steps is off by the input pipeline's latency; print after
 the step, or print enough frames that latency reads as a delay and not a stall.
 
+- ▢ **D202 — CONTROL IS PUBLISHED IN TWO PHASES, SO EVERY RESTRICTION OVER IT
+  RUNS TWICE.** (found 2026-08-24 working D200 §8b)
+
+A possessed body's `ActorControl` is written in `PlayerInputSet::Brain`
+(`tick_controlled_brains`). An autonomous body's is written a whole phase later
+in `ActorDecisionSet::Publish` (`publish_actor_decision_frames`). Anything that
+has to act on FINISHED control therefore appears once after each — today
+`sample_capture_escape` and `blank_scripted_control_frames`, registered as a
+pair in `PlayerInputSet::ControlGate` and again in
+`WorldPrepSet::BeforeIntegrate`.
+
+⚠ **and it is correct today, by an invariant nothing enforces.** Sampling
+credits a captive's mash out of the frame; blanking removes it, and that is also
+what stops the other pair from crediting the same press. A human captive is
+credited by the first pair and sees a zeroed frame at the second; an AI captive
+sees a zeroed frame at the first and is credited by the second. Exactly one
+credit each — but delete the blank from either site and a held human escapes at
+double rate, silently. Both registration sites now say so.
+
+⇒ **the fix is one publication phase, not a third copy of the pair.** Three
+consumers sit between the two today (`gate_worn_player_control`,
+`sustain_bubble_shield`, `update_body_mode`), all of which want gated control, so
+this is a schedule move with rollback-visible ordering consequences and not a
+consolidation-pass edit. ⛔ do not solve it with middleware or a registry: one
+named set after control publication is the whole shape. Cousin of D175 — both
+are "the seam exists, the phases do not".
+
 - ▢ **D201 — THE LEDGE HAS NO RULES BEYOND THE HANG.** (Jon, 2026-08-24)
 
 Jon: *"in smash we haven't built any of the ledge rules yet. A character can

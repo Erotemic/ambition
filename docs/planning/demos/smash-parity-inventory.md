@@ -314,7 +314,7 @@ than add controller-brand branches to combat.
 
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| Standable respawn platform/drop-off | ~ | M | E1 | Respawn placement and untouchable grant already exist. Add the platform as the period during which the fighter cannot act; drop/expire into normal play. Do not use “held input immediately spends invulnerability” as the substitute. |
+| Standable respawn platform/drop-off | ~ | M | E1 | Respawn placement and the untouchable grant already exist. ✔ **THE RELEASE RULE SHIPPED 2026-08-24**: a swing spends the protection (`RespawnGrace`, `ambition_combat::stocks`, rollback-registered, schema 78→79). Before it, protection was a flat 2s timer nothing could end, so a returning fighter attacked while untouchable — a free hit every stock. ⛔ it keys on a MARKER, not on the `UNTOUCHABLE` trait, which Sanic's super state and Mary-O's star also hold: ending a grant by value equality is not ownership. ▢ what remains is the standable object itself and the drop-off, which INHERIT the release condition rather than inventing a second one. |
 | Sudden death | ▢ | M | E1 | Treat timeout draw/tie as input to a short second match phase with authored starting damage/rules. Do not mutate the finished match back into Active ad hoc. |
 | True Time mode scoring | ▢ | M | E1 | Track KO/fall score as match scoring rather than deriving winner only from remaining stocks. |
 | Stamina mode | ▢ | M | E1 | Match elimination policy on health/damage threshold; reuse body combat and match outcome infrastructure. |

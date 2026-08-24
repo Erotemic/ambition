@@ -592,7 +592,44 @@ A later fighter may author two recovery charges; avoid encoding the state as a P
 
 ---
 
-## W5 — Respawn platform and drop-off
+## ◐ W5 — Respawn platform and drop-off — THE PROTECTION RULE SHIPPED 2026-08-24
+
+⭐⭐ **THE HALF THAT WAS A LIVE DEFECT LANDED FIRST, and it needed no platform.**
+Respawn protection was a flat two-second timer that NOTHING could end, so a
+returning fighter could attack while untouchable — a free hit every stock, taken
+from whoever had just earned the knockout. Smash's platform releases you on your
+first action for exactly this reason, and the release is the anti-camping rule;
+the platform is the presentation of it.
+
+⇒ **swinging spends the grant.** The trigger is a move's PLAYBACK appearing — a
+body committing to something, not a held button and not a movement axis — so a
+fighter still gets to fall in, drift and choose a landing under protection, and
+loses it the moment it uses the window to attack from.
+
+⛔⛔ **AND IT KEYS ON A MARKER, NOT ON THE TRAIT.** `UNTOUCHABLE` is a
+CAPABILITY, not a claim about who granted it: Sanic's super state and Mary-O's
+star hold the same one. Ending "the grant whose traits look like this" is release
+by VALUE EQUALITY, which is not ownership — it would strip a power-up somebody
+else gave the same body, and it would go wrong silently the first time a third
+granter used the trait. `RespawnGrace` (`ambition_combat::stocks`, rollback-
+registered, schema 78→79) is what the ruleset marks and the only thing it
+removes. The guard's poison is a second body with the identical `Empowered` and
+no marker: a value-equality implementation passes the first assertion and fails
+that one.
+
+⚠ **rollback: the grace is SIM state.** A rollback that lost it would resurrect a
+fighter's invulnerability; one that kept it after the fighter acted would hand
+back a grant already spent.
+
+▢ **still open: the PLATFORM itself** — the standable object, starting the
+fighter on it, and the drop-off. That is the presentation-and-feel half, and the
+requirements below are unchanged for it. ⭐ note what the protection rule already
+settles: the release condition is chosen and tested, so the platform inherits it
+rather than inventing a second one.
+
+### Original specification
+
+
 
 ### Goal
 

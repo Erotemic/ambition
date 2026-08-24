@@ -99,6 +99,11 @@ where
         OWNER,
         "entity:fighter_eliminated",
     );
+    // A returning fighter's protection is SIM state: a rollback that lost it
+    // would resurrect a fighter's invulnerability, and one that kept it after
+    // the fighter acted would hand back a grant it had already spent.
+    registrar
+        .rollback_component_canonical::<crate::stocks::RespawnGrace>(OWNER, "entity:respawn_grace");
     registrar.rollback_component_canonical::<crate::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",

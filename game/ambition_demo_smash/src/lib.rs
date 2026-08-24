@@ -570,6 +570,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             publish_smash_hud,
             announce_the_opening_countdown,
             place_respawning_fighters,
+            a_swing_spends_the_respawn_protection,
             announce_the_winner,
         )
             .chain()
@@ -1074,12 +1075,54 @@ fn place_respawning_fighters(
                 &mut playback,
             );
         }
-        commands.entity(event.body).try_insert(
+        commands.entity(event.body).try_insert((
             ambition_platformer2d::actors::features::empowerment::Empowered::for_seconds(
                 ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE,
                 RESPAWN_PROTECTION_SECONDS,
             ),
-        );
+            // ⭐ MARKED, so the rule that ENDS it knows which grant is ours.
+            // `UNTOUCHABLE` is a capability, not a claim about who gave it —
+            // Sanic's super state and Mary-O's star hold the same trait — and
+            // ending "the grant whose traits look like this" would strip a
+            // power-up somebody else granted the same body.
+            ambition_platformer2d::actor::RespawnGrace,
+        ));
+    }
+}
+
+/// ⭐ SWINGING GIVES THE PROTECTION UP, which is the genre's anti-camping rule
+/// and the half this demo was missing.
+///
+/// Respawn protection was a flat timer that nothing could end, so a returning
+/// fighter had two full seconds in which it could attack and could not be
+/// answered — a free hit every stock, taken from the opponent that had just
+/// earned the knockout. Smash's platform releases you on your first action for
+/// exactly this reason.
+///
+/// ⛔ ONLY THE GRANT THIS RULESET GAVE. `RespawnGrace` is the marker, not the
+/// `UNTOUCHABLE` trait: a fighter that picked something up on the way down keeps
+/// what the pickup gave it.
+///
+/// ⚠ AND ONLY A MOVE THE OWNER STARTED. The trigger is a move's PLAYBACK
+/// appearing, which is a body committing to something — not a held button and
+/// not a movement axis. A fighter still gets to fall in, drift, and choose a
+/// landing under protection, which is what the window is for; it loses it the
+/// moment it uses the window to attack from.
+fn a_swing_spends_the_respawn_protection(
+    mut commands: bevy::prelude::Commands,
+    swinging: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition_platformer2d::actor::RespawnGrace>,
+            bevy::prelude::Added<ambition_platformer2d::combat::moveset::MovePlayback>,
+        ),
+    >,
+) {
+    for body in &swinging {
+        commands
+            .entity(body)
+            .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>()
+            .remove::<ambition_platformer2d::actor::RespawnGrace>();
     }
 }
 
@@ -2394,6 +2437,88 @@ fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPla
 mod tests {
     use super::*;
     use ambition_platformer2d::engine_core::AabbExt;
+
+    /// ⭐ SWINGING SPENDS THE RESPAWN PROTECTION, AND ONLY OURS.
+    ///
+    /// Respawn protection was a flat timer nothing could end, so a returning
+    /// fighter had two seconds in which it could attack and could not be
+    /// answered — a free hit every stock, taken from whoever just earned the
+    /// knockout.
+    ///
+    /// ⛔⛔ THE POISON IS THE OTHER GRANT, and it is the reason this rule keys on
+    /// a MARKER rather than on the `UNTOUCHABLE` trait. Sanic's super state and
+    /// Mary-O's star hold the same trait; ending "the grant that looks like this"
+    /// would strip a power-up somebody else gave the same body. The second body
+    /// here has the identical `Empowered` and no `RespawnGrace`, and it must keep
+    /// it — a value-equality implementation passes the first assertion and fails
+    /// this one.
+    #[test]
+    fn a_swing_spends_the_respawn_grant_and_leaves_another_granters_alone() {
+        use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
+
+        let mut app = bevy::prelude::App::new();
+        app.add_systems(bevy::prelude::Update, a_swing_spends_the_respawn_protection);
+        let grant = || Empowered::for_seconds(Empowerment::UNTOUCHABLE, RESPAWN_PROTECTION_SECONDS);
+        let returning = app
+            .world_mut()
+            .spawn((grant(), ambition_platformer2d::actor::RespawnGrace))
+            .id();
+        // The same capability, granted by somebody else entirely.
+        let powered_up = app.world_mut().spawn(grant()).id();
+
+        // Nothing has swung yet: both keep what they were given.
+        app.update();
+        assert!(
+            app.world().get::<Empowered>(returning).is_some(),
+            "the protection ended before the fighter did anything with it"
+        );
+
+        // Both start a move on the same tick.
+        for body in [returning, powered_up] {
+            app.world_mut().entity_mut(body).insert(
+                ambition_platformer2d::combat::moveset::MovePlayback::new(test_move(), 1.0),
+            );
+        }
+        app.update();
+
+        assert!(
+            app.world().get::<Empowered>(returning).is_none(),
+            "a returning fighter swung and kept its invulnerability — a free hit \
+             every stock"
+        );
+        assert!(
+            app.world()
+                .get::<ambition_platformer2d::actor::RespawnGrace>(returning)
+                .is_none(),
+            "the grant was spent but its marker stayed, so the next swing spends \
+             it again"
+        );
+        assert!(
+            app.world().get::<Empowered>(powered_up).is_some(),
+            "swinging stripped a power-up THIS RULESET NEVER GRANTED — the rule \
+             is releasing by value equality instead of by ownership"
+        );
+    }
+
+    /// A minimal move for the test above: only its existence matters.
+    fn test_move() -> ambition_platformer2d::entity_catalog::MoveSpec {
+        ambition_platformer2d::characters::moveset_authoring::strike(
+            ambition_platformer2d::characters::moveset_authoring::Strike {
+                id: "test_swing",
+                clip: "attack",
+                startup_s: 0.05,
+                active_s: 0.05,
+                recover_s: 0.10,
+                offset: (10.0, 0.0),
+                half_extents: (10.0, 10.0),
+                damage: 1,
+                knockback: 10.0,
+                knockback_growth: 0.0,
+                launch_dir: None,
+                on_hit: None,
+            },
+        )
+    }
 
     /// THE STAGE OPENS A WINDOW FOR EVERY VERB IT GRANTS. ( slice 1b)
     ///

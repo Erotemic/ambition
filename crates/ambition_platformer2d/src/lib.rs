@@ -146,12 +146,12 @@ pub mod content {
 
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
+pub use ambition_boss_encounter as boss_encounter;
 /// Derivations from a character sheet — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.
 pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
-pub use ambition_boss_encounter as boss_encounter;
 // The conversation authority — and, under `ui`, the Yarn host glue that used to
 // sit in the monolith as `actors:dialog`.
 pub use ambition_conversation as conversation;
@@ -299,17 +299,12 @@ pub mod actor {
     /// scoreboard. These are the seam between the two halves.
     pub use ambition_combat::components::FighterStocks;
     pub use ambition_combat::stocks::{
-        BodyKnockedOut, FighterEliminated, FighterStockSpent, StocksMatchDecided,
+        BodyKnockedOut, FighterEliminated, FighterStockSpent, RespawnGrace, StocksMatchDecided,
     };
 
     /// How a body came to exist — ADR 0030's construction provenance.
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
 
-    /// Where the body is, and how it moves.
-    pub use ambition_platformer2d_core::movement::{transit_body, TransitVelocity};
-    pub use ambition_platformer2d_core::BodyClusterQueryData;
-    pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
-    pub use ambition_platformer2d_core::{BodyFlightState, BodyMotionFacts, BodyMode};
     pub use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
     /// The body-local safe-position state used by reset/hazard observers.
     ///
@@ -318,6 +313,11 @@ pub mod actor {
     pub use ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState as BodySafetyState;
     /// Canonical fallback body size for a body not yet materialized.
     pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
+    /// Where the body is, and how it moves.
+    pub use ambition_platformer2d_core::movement::{transit_body, TransitVelocity};
+    pub use ambition_platformer2d_core::BodyClusterQueryData;
+    pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
+    pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
 
     /// Boss spawn policy belongs to actor construction at the SDK boundary even
     /// though its implementation is split between the catalog and encounter crates.
@@ -405,12 +405,12 @@ pub mod sim {
         GameMode, Platformer2dSimulationPhaseMonolith, SimSchedule, SimScheduleExt,
     };
 
-    /// Simulation time. Not wall time — a game reads the clock the sim advances.
-    pub use ambition_time::WorldTime;
     /// How device/screen/body axes are interpreted by scripted or participant input.
     pub use ambition_platformer2d_core::InputFrameMode;
     /// The deterministic per-tick input artifact used by replay and harnesses.
     pub use ambition_platformer2d_core::InputStream;
+    /// Simulation time. Not wall time — a game reads the clock the sim advances.
+    pub use ambition_time::WorldTime;
 
     /// One frame of input, and the one seam that delivers it.
     pub use ambition_input::ControlFrame;
@@ -524,10 +524,10 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
-    /// Everything needed to author a room, in one import.
-    pub use ambition_platformer2d_world::prelude;
     /// The authored/base gravity and its resolved live field.
     pub use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityField};
+    /// Everything needed to author a room, in one import.
+    pub use ambition_platformer2d_world::prelude;
 
     pub use ambition_platformer2d_world::{
         collision, debug_label, placements, platforms, rooms, world_manifest,

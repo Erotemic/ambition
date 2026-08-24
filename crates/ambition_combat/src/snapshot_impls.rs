@@ -4,8 +4,8 @@
 //! variant does not renumber existing wire values.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_i32, put_str, put_u32, put_u8, put_vec2, Reader,
-    SnapshotCursor, SnapshotResolve, SnapshotState,
+    put_bool, put_f32, put_i32, put_str, put_u32, put_u8, put_vec2, Reader, SnapshotCursor,
+    SnapshotResolve, SnapshotState,
 };
 use ambition_platformer2d_core::snapshot_unit_enum;
 
@@ -78,6 +78,12 @@ impl SnapshotState for crate::stocks::FighterEliminated {
     }
 }
 
+impl SnapshotState for crate::stocks::RespawnGrace {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::RespawnGrace)
+    }
+}
 
 impl SnapshotState for crate::components::BodyEnvelope {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -87,7 +93,6 @@ impl SnapshotState for crate::components::BodyEnvelope {
         Some(crate::components::BodyEnvelope(r.vec2()?))
     }
 }
-
 
 /// `ActorTarget` is half derived, half state — see its definition-site snapshot story.
 /// `entity` is rebuilt every tick by `select_actor_targets`; `pos` survives the frame

@@ -402,6 +402,7 @@
     "ambition_combat::death_rules::OutOfPlay",
     "ambition_combat::stale::BodyStaleMoves",
     "ambition_combat::stocks::FighterEliminated",
+    "ambition_combat::stocks::RespawnGrace",
     "ambition_combat::targeting::MatchTeam",
     "ambition_cutscene::ActiveCutscene",
     "ambition_cutscene::CutsceneBeat",

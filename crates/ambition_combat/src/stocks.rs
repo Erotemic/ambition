@@ -33,6 +33,21 @@ pub struct BodyKnockedOut {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FighterEliminated;
 
+/// A returning fighter's protection, as a FACT ON THE BODY rather than a shape
+/// its grant happens to have.
+///
+/// ⛔⛔ AND THAT IS THE WHOLE REASON IT EXISTS. Respawn protection is an
+/// `Empowered` holding `UNTOUCHABLE`, and so is a Sanic super state and so is
+/// Mary-O's star — the traits are a CAPABILITY, not a claim about who granted
+/// it. A rule that ended "the grant whose traits equal `UNTOUCHABLE`" would be
+/// releasing by value equality, which is not ownership: it would strip a
+/// power-up somebody else gave the same body, and it would go wrong silently the
+/// first time a third granter used the same trait.
+///
+/// ⇒ the ruleset marks what IT gave, and only removes that.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RespawnGrace;
+
 /// A stock was spent — the ruleset's cue to place a body or end a match.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct FighterStockSpent {

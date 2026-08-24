@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v78
+ggrs-rollback-schema-v79
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -206,6 +206,7 @@ entity:live_projectile	required-rollback	LiveProjectile	component presence autom
 entity:mary_o_mode_owner	required-rollback	MaryOLevelState	component presence automatically installs bevy_ggrs::Rollback
 entity:placed_portal	required-rollback	PlacedPortal	component presence automatically installs bevy_ggrs::Rollback
 entity:portal_gun_pickup	required-rollback	PortalGunPickup	component presence automatically installs bevy_ggrs::Rollback
+entity:respawn_grace	component-canonical	RespawnGrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback

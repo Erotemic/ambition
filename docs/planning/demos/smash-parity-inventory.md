@@ -137,10 +137,10 @@ existing seams.
 | Filled shrinking bubble shield | ✔ | S | — | Current `bubble_shield.rs` is a thin procedural ring but already receives integrity/parry facts. Replace the texture/material presentation; preserve the existing shield simulation. |
 | Shield-hit ripple/deformation | ✔ | S | — | Drive a short cosmetic pulse from resolved shield contact/shieldstun. |
 | Low-shield danger treatment | ✔ | S | — | Current ring shrinks/reddens; strengthen presentation without changing resource values. |
-| Shield-drop lag | ▢ | S/M | E1 | Add a short release commitment in shield/movement action arbitration. Keep it tunable by rules/body tuning. |
-| Out-of-shield action policy | ▢ | M | E1 | One explicit shield-release action policy decides which actions may start during/after shield release; then author shield grab, jump, Up-B, up-smash rules through it. Do not scatter per-move exceptions. |
-| Shield grab | ▢ | S | E1 | Capture already exists; enable grab through the OOS action policy. |
-| Jump / Up-B / up-smash out of shield | ▢ | S/M | E1 | Same OOS policy with authored/ruleset availability. |
+| Shield-drop lag | ✔ | — | E1 | `ShieldTuning::drop_lag`, 11 frames on `PLATFORM_FIGHTER` (Ultimate's), charged by `apply_shield` when a guard is let go BY ITSELF — an out-of-shield action already took it down through `spend_on_action`. `0.0` for a game that declares no rule. |
+| Out-of-shield action policy | ✔ | — | E1 | `ShieldTuning::out_of_shield: Option<OutOfShield>` names five action CLASSES, and ONE gate reads it — `OutOfShieldGate` in the movement kernel, used by the kernel and the moveset trigger alike (unified `4a70be7e0`; combat keeps only the DIRECTION half, `rises_out_of_shield`). No per-move exceptions exist. |
+| Shield grab | ✔ | — | E1 | Attack on a raised guard IS the grab (Jon, 2026-08-23), asked through `gate.permits(OutOfShieldAction::Grab)` like the dedicated button — a road to the grab, never an exemption from the policy. |
+| Jump / Up-B / up-smash out of shield | ✔ | — | E1 | All three through the same gate: `Jump` in the kernel's `apply_intent`, `UpSpecial` and `UpAttack` through `rises_out_of_shield`, which is what makes only the UP directions rise. |
 | Shield shift/tilt | ▢ | M | E1 | Let resolved defensive aim bias the shield coverage center/shape. Keep coverage in shield semantics; rendering mirrors the resolved shield view. |
 | Shield drop through one-way platform | ▢ | S/M | E1 | Reuse the existing one-way drop-through mechanism, but admit the Smash shield/down gesture through the shield/OOS action policy. The movement kernel still receives the ordinary semantic drop-through request; do not create shield-specific collision rules. |
 | Dodge staling | ▢ | M | E1 | Small per-body evade history modifies startup/i-frames/endlag. It belongs with dodge state, not global move staling. |
@@ -326,7 +326,7 @@ than add controller-brand branches to combat.
 | Rules presets | ▢ | M | — | Named authored `MatchRules` bundles. |
 | Handicap / starting damage | ▢ | S/M | E1 | Staging applies authored initial percent/body tuning; keep it in match preparation. |
 | Rematch | ▢ | S/M | — | Re-stage the same prepared selections/rules through the normal match preparation path. |
-| Random character | ▢ | S | — | Character-select staging choice. |
+| Random character | ✔ | — | — | `SlotPick::Random`, resolved by `roster_seeded` from one seeded stream advanced once per random seat in slot order — so two random seats draw independently and CAN draw the same fighter, which is a legal outcome of two people both asking to be surprised. |
 | Random stage | ▢ | S | — | Stage-select staging choice. |
 | CPU difficulty selector | ▢ | S/M | — | UI/staging chooses existing/new brain tuning profile; avoid branching simulation by controller kind. |
 | Full results screen | ~ | M | — | Basic winner presentation exists; build a post-match screen from resolved outcome/stat facts. |
@@ -342,7 +342,7 @@ mechanic above. These are the remaining standalone presentation gaps.
 
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| Dizzy stars on shield break | ▢ | S | — | Cosmetic while guard-break timer/state is active. |
+| Dizzy stars on shield break | ✔ | — | — | `rendering/dizzy_stars.rs` off a pooled `GuardBreaksView`; the stars orbit the body's own up. |
 | Shield-break launch/fall/collapse/recover pose sequence | ~ | M | E1 | If art has distinct rows, publish one normalized break phase/state from the authoritative break occurrence. Do not make presentation reach back into `ShieldTuning` to reconstruct timing. |
 | Ledge-grab spark | ▢ | S | — | One-shot from ledge acquisition. |
 | Respawn-platform materialize/vanish FX | ▢ | S | — | Presentation on platform lifecycle. |

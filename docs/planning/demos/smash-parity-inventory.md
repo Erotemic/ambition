@@ -177,7 +177,7 @@ below from it.
 
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| Walk distinct from run | ▢ | M | E1 | Add/resolve gait state from analog input and speed instead of treating all grounded locomotion as one continuum. |
+| Walk distinct from run | ~ | S | E1 | ⚠ THIS ROW'S PREMISE WAS WRONG, measured 2026-08-24. It IS a continuum, and the gait line already cuts it: the stick magnitude scales the TARGET speed (not the acceleration toward one shared cap), so a half tilt settles at 135 px/s where a full one settles at 270, and `run_commit_frac` publishes `BodyMotionFacts::running` false at the first and true at the second — which the move selector already reads for the dash attack. Pinned by `a_light_tilt_walks_and_a_full_one_runs`, whose poison (scale accel, share the cap) reddens it. ⇒ **the real remaining gap is narrower and is INPUT, not locomotion**: a digital source can only ever say 1.0, so a keyboard fighter cannot walk. Fix that where the key becomes an axis; ⛔ do not rebuild the locomotion half, which works. |
 | Initial dash | ▢ | M | E1 | Add a deterministic initial-dash phase to grounded locomotion; do not reuse the separate traversal-dash ability. |
 | Foxtrot | ▢ | S/M | E1 | Repeated initial-dash transitions after initial-dash exists. |
 | Dash dance | ▢ | M | E1 | Opposite-direction initial-dash transition with authored/tuned timing. |

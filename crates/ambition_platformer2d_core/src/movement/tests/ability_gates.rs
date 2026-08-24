@@ -157,6 +157,68 @@ fn wall_climb_requires_wall_cling() {
 ///
 /// the second assertion is the poison, not decoration. A `running` that
 /// was merely an alias for `dashing` would satisfy "it runs" on a dash-capable
+/// ⭐⭐ A LIGHT TILT WALKS: it settles at a LOWER top speed and is not a run.
+///
+/// The genre's neutral is built on the difference, and both halves of it are
+/// here already — the stick magnitude scales the TARGET speed (not just the
+/// acceleration toward one shared cap), and `run_commit_frac` cuts the result
+/// into a walk and a run that the move selector reads.
+///
+/// ⛔⛔ WRITTEN BECAUSE THE PARITY INVENTORY SAID THIS WAS ABSENT — *"treating
+/// all grounded locomotion as one continuum"* — and measuring found otherwise.
+/// It IS a continuum, and the gait line already cuts it. What is genuinely
+/// missing is narrower: a DIGITAL input can only ever say 1.0, so a keyboard
+/// fighter cannot walk. That is an input-mapping gap, not a locomotion one, and
+/// this test is what keeps the locomotion half from being rebuilt for it.
+///
+/// ⭐ THE ORDERING IS THE ASSERTION, not the numbers: a test on `135.0` would
+/// pin this body's tuning, and every fighter authors its own.
+#[test]
+fn a_light_tilt_walks_and_a_full_one_runs() {
+    let world = test_world();
+    let settle = |tilt: f32| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        let hold = InputState {
+            axes: crate::reference_frame::LocalAxes::new(tilt, 0.0),
+            ..InputState::default()
+        };
+        // Long enough to reach the tilt's cap rather than measuring accel.
+        for _ in 0..80 {
+            step_scratch(&world, &mut scratch, hold);
+        }
+        (
+            scratch.kinematics.vel.x,
+            crate::movement::BodyMotionFacts::from_model(&scratch.model).running,
+        )
+    };
+
+    let (walk_speed, walking_is_a_run) = settle(0.5);
+    let (run_speed, running_is_a_run) = settle(1.0);
+
+    assert!(
+        walk_speed > 0.0,
+        "a half tilt moved the body nowhere, so what follows compares a walk to \
+         a standstill"
+    );
+    assert!(
+        run_speed > walk_speed * 1.2,
+        "a half tilt settled at {walk_speed:.1} px/s and a full one at \
+         {run_speed:.1} — the stick is scaling ACCELERATION toward one shared \
+         cap rather than the cap itself, which is a single gait wearing two names"
+    );
+    assert!(
+        !walking_is_a_run,
+        "a half tilt reported as RUNNING at {walk_speed:.1} px/s, so the move \
+         selector answers a walking Attack press with the dash attack"
+    );
+    assert!(
+        running_is_a_run,
+        "a full tilt never reached the run gait at {run_speed:.1} px/s, so this \
+         body has no run at all and the contrast above is vacuous"
+    );
+}
+
 /// body and fail here; a `running` wired to any ability bit would fail here too.
 /// The body below has NO dash ability and reaches the gait anyway.
 #[test]

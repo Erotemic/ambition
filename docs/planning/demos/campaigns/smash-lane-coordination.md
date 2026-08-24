@@ -437,10 +437,32 @@ The remaining candidates, in order of what they'd cost:
     releases its guard once the threat has PASSED. Reverted — the shipped stage
     keeps the press-timed window, and which generation's rule it should play is
     Jon's feel call, not something to change for no measured gain.
-  - ⇒ **a deliberate parry ATTEMPT as its own option**, committed to like an
-    attack, is what is left. Both timings are now eliminated by measurement, and
-    what they have in common is that the parry is a SIDE EFFECT of when the guard
-    happened to move. Nothing in the brain ever decides *to parry*.
+  - ⇒ **a deliberate parry ATTEMPT as its own option** is what is left, and
+    working out its shape is what resolves this row.
+
+⭐⭐ **AND THE MECHANIC ITSELF SAYS WHY A CPU DECLINES IT.** The window opens on
+a guard MOVEMENT and a body already holding shield cannot open a second one —
+which is the genre's rule too: in Smash you parry by NOT having shielded early.
+So parrying and blocking-early are MUTUALLY EXCLUSIVE, and the raise-timed
+experiment above is exactly that trade, priced:
+
+```text
+             blocks early (shipped)   waits for the window
+parries      0–0–1                    0–0–2
+shielding    35–123–200               30–73–85
+damage       231–270–393              252–301–393
+KOs          2–3–4                    1–2–4
+```
+
+⇒ **the trade is real and it is bad for this CPU.** A body that cannot read its
+opponent buys a near-certain block by guarding early, and pays a KO of median for
+a parry it still mostly misses. That is not a mechanism gap — the parry works,
+and a HUMAN who reads the wind-up gets it.
+
+⇒ so the honest shape of what is left is a RISK APPETITE, not a rule: a CPU
+personality that takes the gamble (`brain::fighter::profile`), where the cost
+above is the point rather than a regression. ⛔ do NOT ship it as the default
+duelist's behaviour — the numbers above are what that costs.
 ⛔ do not widen `PARRY_WINDOW_TIME` to manufacture the number. Nine frames is
 already twice the genre's, and a window that catches by being wide is not the
 mechanic.

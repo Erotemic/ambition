@@ -1570,7 +1570,8 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         HIT_DAMAGE,
         ae::Vec2::ZERO,
         Default::default(),
-        // No budget: this fixture measures the launch, not the refresh.
+        // No budget and no ledge: this fixture measures the launch.
+        None,
         None,
         feel,
     );
@@ -1611,6 +1612,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         HIT_DAMAGE,
         ae::Vec2::ZERO,
         Default::default(),
+        None,
         None,
         Platformer2dFeelTuningMonolith::default(),
     );
@@ -1851,6 +1853,7 @@ fn meteor_reaction(
             ..Default::default()
         },
         None,
+        None,
         feel,
     );
     combat.recoil_lock_timer
@@ -1894,6 +1897,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
                 grounded: true,
                 crouching,
             },
+            None,
             None,
             feel,
         );

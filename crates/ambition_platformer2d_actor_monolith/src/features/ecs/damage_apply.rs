@@ -583,9 +583,9 @@ pub(crate) fn handle_player_damage_events(
                     true
                 }
                 crate::combat::HitMode::Knockback => {
-                    ae::movement::knock_off_ledge(motion_model, clusters.ledge);
                     let reaction = apply_player_knockback(
                         sfx,
+                        motion_model,
                         vfx,
                         debris,
                         clusters,
@@ -671,12 +671,9 @@ pub(crate) fn handle_player_damage_events(
                 true
             }
             crate::combat::HitMode::Knockback => {
-                // Getting hit knocks you off a ledge grab — you fall with the
-                // knockback instead of hanging there immune. The hang state is
-                // policy-private, so the typed op goes through the model.
-                ae::movement::knock_off_ledge(motion_model, clusters.ledge);
                 let reaction = apply_player_knockback(
                     sfx,
+                    motion_model,
                     vfx,
                     debris,
                     clusters,
@@ -817,6 +814,10 @@ fn publish_reaction(
 
 pub(crate) fn apply_player_knockback(
     sfx: &mut SfxWriter,
+    // The body's movement policy, for the hang a hit takes. Threaded rather
+    // than resolved here: the two `HitMode::Knockback` arms above used to call
+    // `knock_off_ledge` themselves, which is the duplication D203 names.
+    motion_model: &mut crate::features::MotionModel,
     vfx: &mut MessageWriter<VfxMessage>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -869,6 +870,9 @@ pub(crate) fn apply_player_knockback(
             dodge: &mut clusters.dodge,
             air_jumps: tuning.air_jumps,
         }),
+        // The hang, taken by the same rule. It used to be two calls in the two
+        // `HitMode::Knockback` arms above this one.
+        Some((motion_model, &mut clusters.ledge)),
         feel,
     );
     crate::combat::util::emit_hit_feedback(

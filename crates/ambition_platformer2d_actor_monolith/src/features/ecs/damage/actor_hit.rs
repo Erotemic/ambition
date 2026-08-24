@@ -414,7 +414,6 @@ pub(crate) fn apply_actor_hit(
         // that authored no launch still ends the hang, exactly as it does for
         // the player. A blocked or armored hit returned above and never reaches
         // here.
-        ae::movement::knock_off_ledge(motion_model, em.ledge);
         // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
         // frame-agnostic knockback resolution the player does — side away from
         // the source, rise against ITS gravity — replacing the old inline
@@ -460,6 +459,7 @@ pub(crate) fn apply_actor_hit(
                     dodge: em.dodge,
                     air_jumps: motion_model.air_jumps(),
                 }),
+                Some((motion_model, em.ledge)),
                 feel,
             );
             #[cfg(feature = "causal")]

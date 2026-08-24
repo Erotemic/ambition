@@ -70,8 +70,22 @@ pub fn apply_body_hit_reaction(
     // `None` for a body with no air budget to speak of — a bare test fixture, or
     // a policy that authors none.
     budget: Option<ae::AirBudget<'_>>,
+    // ⭐ THE LEDGE HANG A HIT TAKES, for the same reason the budget is here: it
+    // is a fact about being HIT, not about which road resolved the hit. It was
+    // the player road's alone until `c3d7cdba7` and the actor road's separately
+    // after — two copies of one rule, which is what D203 is about.
+    //
+    // `None` where a hang is impossible by construction: a captive being thrown
+    // is not holding an edge.
+    ledge: Option<(&mut ae::MotionModel, &mut ae::BodyLedgeState)>,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
+    // ⛔ BEFORE the launch below, so the hang is gone by the time a velocity is
+    // written: dropping it afterwards would let the ledge constraint eat the
+    // launch the same hit just handed out.
+    if let Some((model, ledge)) = ledge {
+        ae::movement::knock_off_ledge(model, ledge);
+    }
     // ⛔ BEFORE THE ARMOR BRANCH BELOW, deliberately: an armoured body keeps its
     // trajectory and its control, but it was still HIT, and the budget is a
     // property of having been hit. This is what the player road always did — it
@@ -287,7 +301,9 @@ mod super_armor_tests {
             12,
             ae::Vec2::ZERO,
             VictimStance::default(),
-            // No budget: this fixture is about the launch and the stagger.
+            // No budget and no ledge: this fixture is about the launch and
+            // the stagger.
+            None,
             None,
             feel(),
         );

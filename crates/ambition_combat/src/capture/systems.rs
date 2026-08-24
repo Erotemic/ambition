@@ -2400,6 +2400,9 @@ pub fn apply_capture_throws(
                 dodge: &mut dodge,
                 air_jumps: motion_model.air_jumps(),
             }),
+            // A captive is not holding an edge: the hold suspended its gravity
+            // and pinned it to the captor.
+            None,
             feel,
         );
     }

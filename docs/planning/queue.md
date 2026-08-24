@@ -542,7 +542,7 @@ MEASURED at HEAD, 2026-08-24:
 
 | rule | player road | actor road |
 | --- | --- | --- |
-| `knock_off_ledge` — a hit takes the hang | ✔ | ✔ **as of `c3d7cdba7`; it was PLAYER-ONLY until then** |
+| `knock_off_ledge` — a hit takes the hang | ✔ | ✔ — and now NEITHER road's, it is the reaction's |
 | `refresh_movement_resources_clusters` — a hit gives the air options back | ✔ | ✔ **as of this row's first slice; it was PLAYER-ONLY before** |
 | `safe_respawn_player` / `ClockResetRequest` | ✔ | — (a ruleset owns actor death) |
 | wallet armor | ✔ | partial |
@@ -579,10 +579,20 @@ carries a variant from spawn"*) and caught two capture fixtures that spawned a
 body without them — repaired to model a real body rather than relaxed to
 `Option`.
 
+✔✔ **AND THE LEDGE HANG FOLLOWED IT IN.** It was the player road's, then the
+actor road's separately — two copies of one rule, which is the whole diagnosis.
+Both are deleted; `apply_body_hit_reaction` takes the hang beside the budget and
+drops it BEFORE the launch is written, so a ledge constraint can never eat the
+launch the same hit handed out. The throw passes `None` and says why: a captive
+is not holding an edge.
+
 ⇒ **what is still open is the shape for every OTHER rule.** Two roads still each
-carry their own copy of what a hit does, and the next divergence will be found
-the same way this one was: by somebody playing the demo. The table above is the
-list to keep honest.
+carry their own copy of what a hit does — wallet armor, safe respawn, the cling
+break, kill disposition — and the next divergence will be found the way both of
+these were: by somebody playing the demo. The table above is the list to keep
+honest. ⛔ and the two that moved were moved because they were WRONG somewhere,
+not to tidy the file; a rule that is right on every road it appears on can stay
+where it is.
 
 ⇒ **the shape of the fix is NOT "call the same six things twice".** Both roads
 already funnel into one reaction; what belongs there is everything that is a fact

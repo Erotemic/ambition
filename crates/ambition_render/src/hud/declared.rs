@@ -36,9 +36,15 @@ use super::{HUD_MARGIN, OVERLAY_ANCHOR};
 #[derive(Component)]
 pub struct DeclaredHudRoot;
 
-/// One declared readout's text node, tagged with the slot it mirrors.
+/// One declared readout's text node, tagged with the slot it mirrors and the
+/// font size it was DECLARED at.
+///
+/// ⛔ the size is carried rather than read back off the live `TextFont`, because
+/// the emphasis scale is applied to it every frame: scaling whatever the font
+/// happens to be NOW compounds, and a readout that is hit twice grows until it
+/// fills the panel.
 #[derive(Component)]
-pub struct DeclaredHudSlot(pub HudSlotId);
+pub struct DeclaredHudSlot(pub HudSlotId, pub f32);
 
 /// Slot ids are stable identities, not cache keys for appearance. Retaining the
 /// full spec lets a route update font, colour, centering, order, or region while
@@ -292,7 +298,7 @@ pub fn spawn_declared_hud(
             session_scope,
             (
                 DeclaredHudRoot,
-                DeclaredHudSlot(spec.id.clone()),
+                DeclaredHudSlot(spec.id.clone(), spec.font_size),
                 DeclaredHudSpec(spec.clone()),
                 Text::new(String::new()),
                 bevy::text::TextLayout::new_with_justify(if spec.centered {
@@ -495,18 +501,40 @@ pub fn update_declared_hud_gauges(
 /// text, so a game may publish conditionally without the declaration changing.
 pub fn update_declared_hud(
     readouts: Res<HudReadouts>,
-    mut slots: Query<(&DeclaredHudSlot, &mut Text)>,
+    mut slots: Query<(&DeclaredHudSlot, &mut Text, &mut TextFont)>,
 ) {
-    for (slot, mut text) in &mut slots {
-        let next = readouts
-            .get(&slot.0)
-            .map(|readout| readout.text())
-            .unwrap_or_default();
+    for (slot, mut text, mut font) in &mut slots {
+        let readout = readouts.get(&slot.0);
+        let next = readout.map(|readout| readout.text()).unwrap_or_default();
         if text.0 != next {
             text.0 = next;
         }
+        // ⭐ THE PUNCH. A readout that was just hit is drawn bigger for as long
+        // as the hit is being felt — the same beat the freeze lasts, because it
+        // is derived from the same number. A HUD that grew on its own schedule
+        // would read as a second, laggier hit.
+        //
+        // ⛔ the BASE font size is recovered from the declaration rather than
+        // remembered: a scale applied to whatever the font is now compounds every
+        // frame, which is a readout that grows until it fills the screen.
+        let emphasis = readout
+            .and_then(|readout| readout.standing_of())
+            .map(|standing| standing.emphasis.clamp(0.0, 1.0))
+            .unwrap_or(0.0);
+        let base = slot.1;
+        let wanted = base * (1.0 + emphasis * HUD_PUNCH_GAIN);
+        if (font.font_size - wanted).abs() > 0.01 {
+            font.font_size = wanted;
+        }
     }
 }
+
+/// How much bigger a freshly-hit readout draws, at full emphasis.
+///
+/// A quarter again: enough that the eye catches it in peripheral vision during a
+/// fight, small enough that a 132px panel still holds the text — the constraint
+/// that already decided this panel draws no name beside its number.
+const HUD_PUNCH_GAIN: f32 = 0.25;
 
 // ---------------------------------------------------------------------------
 // The fighter panel: a portrait, the percent under it, and the stocks as icons
@@ -824,6 +852,89 @@ impl Plugin for DeclaredHudPlugin {
 }
 
 #[cfg(test)]
+mod punch_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::{HudReadout, HudStanding};
+
+    fn standing(emphasis: f32) -> HudReadout {
+        HudReadout::standing(
+            String::new(),
+            "88%".to_string(),
+            HudStanding {
+                portrait: None,
+                portrait_frame: None,
+                stock_icon: None,
+                remaining: 2,
+                started: 3,
+                emphasis,
+            },
+        )
+    }
+
+    fn drawn_size(emphasis: f32, frames: usize) -> f32 {
+        let mut app = App::new();
+        let mut readouts = HudReadouts::default();
+        readouts.set(HudSlotId::new("p1"), standing(emphasis));
+        app.insert_resource(readouts);
+        app.add_systems(Update, update_declared_hud);
+        let node = app
+            .world_mut()
+            .spawn((
+                DeclaredHudSlot(HudSlotId::new("p1"), 16.0),
+                Text::new(String::new()),
+                TextFont {
+                    font_size: 16.0,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        for _ in 0..frames {
+            app.update();
+        }
+        app.world()
+            .get::<TextFont>(node)
+            .expect("still a node")
+            .font_size
+    }
+
+    /// ⛔⛔ THE PUNCH MUST NOT COMPOUND, and this is the whole reason the node
+    /// carries its DECLARED size.
+    ///
+    /// A scale applied to whatever the font happens to be NOW multiplies every
+    /// frame: at a quarter again, a readout held under emphasis for a second is
+    /// drawn about four thousand times its size. The failure is invisible in a
+    /// single-tick test, which is why this one runs sixty.
+    #[test]
+    fn a_held_punch_does_not_grow_the_readout_every_frame() {
+        let one = drawn_size(1.0, 1);
+        let sixty = drawn_size(1.0, 60);
+        assert!(
+            (one - sixty).abs() < 0.01,
+            "the readout grew from {one} to {sixty} while the emphasis was held \
+             — the scale is compounding on itself"
+        );
+        assert!(
+            (sixty - 16.0 * (1.0 + HUD_PUNCH_GAIN)).abs() < 0.01,
+            "a full punch is not the declared size plus the gain: {sixty}"
+        );
+    }
+
+    /// ⭐ AND IT COMES BACK. A punch that never returns to the declared size is
+    /// a HUD that is permanently bigger after the first hit of the match.
+    #[test]
+    fn no_emphasis_draws_exactly_the_declared_size() {
+        assert!((drawn_size(0.0, 4) - 16.0).abs() < 0.01);
+        // Half a punch is half the gain — the scale is proportional rather than
+        // a latch, so a light hit reads lighter than a heavy one.
+        let half = drawn_size(0.5, 2);
+        assert!(
+            (half - 16.0 * (1.0 + HUD_PUNCH_GAIN * 0.5)).abs() < 0.01,
+            "a half punch drew {half}"
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::gameplay_presentation::{
@@ -988,14 +1099,14 @@ mod tests {
         let top = app
             .world_mut()
             .spawn((
-                DeclaredHudSlot(HudSlotId::new("top_preference")),
+                DeclaredHudSlot(HudSlotId::new("top_preference"), 16.0),
                 Node::default(),
             ))
             .id();
         let bottom = app
             .world_mut()
             .spawn((
-                DeclaredHudSlot(HudSlotId::new("bottom_preference")),
+                DeclaredHudSlot(HudSlotId::new("bottom_preference"), 16.0),
                 Node::default(),
             ))
             .id();
@@ -1039,11 +1150,17 @@ mod tests {
         app.add_systems(Update, place_declared_hud);
         let tall = app
             .world_mut()
-            .spawn((DeclaredHudSlot(HudSlotId::new("tall")), Node::default()))
+            .spawn((
+                DeclaredHudSlot(HudSlotId::new("tall"), 16.0),
+                Node::default(),
+            ))
             .id();
         let after = app
             .world_mut()
-            .spawn((DeclaredHudSlot(HudSlotId::new("after")), Node::default()))
+            .spawn((
+                DeclaredHudSlot(HudSlotId::new("after"), 16.0),
+                Node::default(),
+            ))
             .id();
         app.update();
 

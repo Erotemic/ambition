@@ -166,7 +166,7 @@ existing seams.
 | Finish zoom on probable KO hit | ▢ | M | E1 | Combat publishes a resolved “finish-zoom eligible/probable KO” event/fact; camera/VFX consume it. Never let camera code predict physics independently. |
 | Ground-bounce / wall-splat feedback | ✔ | — | — | Both halves ship (`49ea1d7e5`, `3e39edd02`): a CRASH (`Landed { involuntary }`) kicks brighter dust plus a ring at any speed, and the WALL splat reads `Contact::impact_speed` under `ContactKind::Side`. ⭐ the wall has its OWN speed band (150–440) because gravity never accelerates a body into one — the hardest side arrival measured is 440 against a floor onset of 520, so sharing the floor's numbers would have shipped it inert. |
 | Launch animation distinct from tumble | ✔ | — | E1 | `LaunchedBodyFact::launch_beat_secs` publishes the sim's own `recoil_lock_timer` (`8f1b3c47f`), so a white-hot flare rides the front of a launch over the grey plume. Confirmed on CAPTURED PIXELS by diffing one match with it off, not by reading the fact back. |
-| HUD percent punch/shake | ▢ | S | — | Cosmetic reaction to resolved damage/strong-hit events. |
+| HUD percent punch/shake | ✔ | S | — | ✔ SHIPPED 2026-08-24. `HudStanding::emphasis` is a presentation primitive (`0..=1`, default 0 so no other HUD changes) and the renderer scales the value text by it; the game derives it from `BodyCombat::hitstop_timer`, which is non-zero exactly when a hit lands and already scales with the damage. ⛔ not a percent delta tracked in presentation — that disagrees with the sim the frame a hit is blocked or absorbed. |
 
 ## 4. Ground movement and neutral
 

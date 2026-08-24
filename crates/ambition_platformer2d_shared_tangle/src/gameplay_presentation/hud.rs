@@ -249,6 +249,17 @@ pub struct HudStanding {
     /// whole image, which is right for a single-frame portrait and for any art
     /// that is not a sheet.
     pub portrait_frame: Option<Rect>,
+    /// HOW HARD this readout was just hit, `0..=1`, decaying on its own.
+    ///
+    /// A presentation PRIMITIVE like the two above: the renderer scales the
+    /// value by it and learns nothing about combat. `0.0` — the default — draws
+    /// exactly what it drew before, which is what every non-fighting HUD wants.
+    ///
+    /// ⭐ THE GAME DERIVES IT FROM A FACT THE SIM ALREADY OWNS rather than
+    /// tracking a delta: a percent readout that watched its own number change
+    /// would be a second answer to a question hitlag already answers, and the two
+    /// would disagree on the frame a hit is blocked or absorbed.
+    pub emphasis: f32,
     /// The image ONE stock is drawn as. The game's asset, for the same reason.
     pub stock_icon: Option<String>,
     /// Lives left. `0` is a fighter who is out, not an error.

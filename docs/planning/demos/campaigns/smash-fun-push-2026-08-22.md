@@ -803,8 +803,20 @@ Checked against the inventory 2026-08-24 rather than worked in order:
 - [x] Strong-launch trail density/shape — `Strong/near-KO launch trail tier`, ✔,
       layered on the base trail's own launch fact.
 - [x] Strong-hit impact flash — ✔, and it already scales with strength.
-- [ ] **HUD damage-percent punch/shake** — the one genuinely open item
-      (inventory line 169, `▢`, cosmetic).
+- [x] **HUD damage-percent punch** — SHIPPED 2026-08-24. `HudStanding::emphasis`
+      is a presentation PRIMITIVE (`0..=1`, default `0.0`, so every non-fighting
+      HUD draws exactly what it drew); the renderer scales the value text by it.
+      ⭐ the game derives it from `BodyCombat::hitstop_timer`, which is non-zero
+      exactly when a hit lands and is already scaled by the damage — so the punch
+      reads the SAME fact the player felt. ⛔ NOT a percent delta tracked in
+      presentation: that is a second answer to a question the sim answers, and
+      the two part company the frame a hit is blocked, absorbed by armor, or
+      lands for zero.
+      ⛔⛔ **the node carries its DECLARED font size**, because the scale is
+      applied every frame: scaling whatever the font is NOW compounds, and a
+      readout held under emphasis for one second draws about four thousand times
+      its size. Invisible in a single-tick test, which is why the guard runs
+      sixty.
 - [ ] Pointed Polygon final-spin slash arc cleanup — new since W3 landed; the
       pulses currently draw the POKE tag and the finisher the arc, which is
       already the right split. Look at it in play before changing art.

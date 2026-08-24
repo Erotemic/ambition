@@ -831,6 +831,14 @@ pub fn publish_smash_hud(
         &ambition_platformer2d::actors::character_runtime::MatchSeat,
         &ambition_platformer2d::characters::actor::BodyHealth,
         Option<&ambition_platformer2d::actor::FighterStocks>,
+        // ⭐ THE PUNCH READS THE FREEZE. `hitstop_timer` is non-zero exactly
+        // when a hit has just landed and is already scaled by the damage
+        // (`hitlag_duration`), so a HUD driven off it reads the SAME fact the
+        // player felt and cannot disagree with it. ⛔ NOT a percent delta
+        // tracked in presentation: that is a second answer to a question the sim
+        // answers, and the two part company the frame a hit is blocked, absorbed
+        // by armor, or lands for zero.
+        Option<&ambition_platformer2d::characters::actor::BodyCombat>,
         &bevy::prelude::Name,
         // WHO this body is, which is what a PORTRAIT needs. The `Name` above
         // is a display string; a portrait is resolved from the character id.
@@ -854,9 +862,9 @@ pub fn publish_smash_hud(
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
-    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<HudFace>)> = fighters
+    let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<HudFace>, f32)> = fighters
         .iter()
-        .map(|(seat, health, stocks, name, worn)| {
+        .map(|(seat, health, stocks, combat, name, worn)| {
             let face = worn.zip(catalog.as_deref()).and_then(|(worn, catalog)| {
                 hud_face(
                     catalog,
@@ -871,6 +879,12 @@ pub fn publish_smash_hud(
                 health.damage_percent(),
                 stocks.map(|s| (s.remaining, s.started_with)),
                 face,
+                // Normalised against the longest freeze this feel tuning can
+                // produce, so the strongest hit in the game is a full punch and
+                // everything else is a share of it.
+                combat.map_or(0.0, |combat| {
+                    (combat.hitstop_timer / HUD_PUNCH_REFERENCE_HITLAG).clamp(0.0, 1.0)
+                }),
             )
         })
         .collect();
@@ -879,7 +893,7 @@ pub fn publish_smash_hud(
     rows.sort_by_key(|(seat, ..)| *seat);
 
     let mut written = [false; FIGHTER_HUD_SLOTS.len()];
-    for (seat, _name, percent, stocks, face) in &rows {
+    for (seat, _name, percent, stocks, face, emphasis) in &rows {
         let Some(slot) = FIGHTER_HUD_SLOTS.get(*seat) else {
             continue;
         };
@@ -905,6 +919,7 @@ pub fn publish_smash_hud(
                     stock_icon: Some(STOCK_ICON_ASSET.to_string()),
                     remaining,
                     started,
+                    emphasis: 0.0,
                 },
             ),
         );
@@ -1223,6 +1238,14 @@ const RESPAWN_PLATFORM_SIZE: Vec2 = Vec2::new(96.0, 12.0);
 /// How far below the fighter's centre the platform's own centre sits — half a
 /// standing body plus half the platform, so its TOP is under the feet.
 const RESPAWN_PLATFORM_DROP_PX: f32 = 24.0 + RESPAWN_PLATFORM_SIZE.y * 0.5;
+
+/// The freeze a FULL punch is measured against, in seconds.
+///
+/// ⭐ MEASURED, not chosen: `hitlag_duration` scales with damage, and this is
+/// the length a heavy connect produces under this stage's feel. A reference
+/// below it would saturate on ordinary jabs and the HUD would punch identically
+/// for everything.
+const HUD_PUNCH_REFERENCE_HITLAG: f32 = 0.12;
 
 /// How long a returning fighter cannot be hit, in seconds.
 ///

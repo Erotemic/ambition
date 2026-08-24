@@ -103,6 +103,18 @@ recovery at the LATCH, and the CPU can reach a ledge to guard it. The regrab
 COUNT and damage-scaled getup are recorded as decisions with their conditions,
 not as gaps — do not build either without the symptom named there.
 
+⭐⭐ **D33's carve price was measured on a bad count, and the correction is the
+transferable part.** The row said one carve is possible and it is ~17,000
+production lines, because `construction` and spawn are mutually dependent. Two
+errors made that number: 25 of the 26 "survivors" holding the edge were in
+`construction/tests.rs`, and a `features::ecs` grep could not see six more spawn
+functions construction calls through the `crate::features::` RE-EXPORT. ⇒ **split
+production from test AND resolve through re-exports before pricing any carve** —
+this row's own laundering rule, which the row then failed against itself. One
+real edge did die (two twenty-line inserts filed under "spawn" by topic, whose
+only caller in the tree was construction); the edge THINS to four shared
+functions and does not vanish.
+
 ⚠ **D201's reference facts were WRONG and are corrected in the row.** Ultimate
 does NOT allow an indefinite hang (6.5s under 100%, 5s at or above), its 6-grab
 regrab limit is NOT the same mechanism as diminishing intangibility, and

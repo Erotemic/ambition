@@ -10,6 +10,7 @@ use ambition_platformer2d_shared_tangle::construction::{
     ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
     RelationCheck, RelationDispatch, RelationKind, RelationOps, SpawnOrigin,
 };
+use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Entity, World};
 
@@ -520,12 +521,24 @@ fn construct_authored_ground_item(
     let ActorConstructionParams::GroundItem { spec, held } = parameters else {
         unreachable!("dispatch pairs this fn with GroundItem parameters")
     };
-    crate::features::ecs::spawn_static::spawn_ground_item_resolved_into(
-        ctx.commands,
+    // ⭐ INLINE, and that is the whole point of the move. This was one call into
+    // `features/ecs/spawn_static.rs` — a twenty-line component insert that lived
+    // under "spawning static things" by TOPIC while naming `items` and `shrine`,
+    // never `spawn` — and it was one of only TWO production references
+    // `construction` made into `features/ecs` at all. Both had this file as their
+    // only caller, so the domain edge existed to serve nobody.
+    ctx.commands.insert_room_in_session(
         ctx.session,
         root.entity(),
-        spec,
-        held.clone(),
+        (
+            bevy::prelude::Name::new(format!("Ground item: {}", spec.name)),
+            crate::items::pickup::GroundItem {
+                spec: held.clone(),
+                pos: spec.pos,
+                vel: ambition_platformer2d_core::Vec2::ZERO,
+                half_extent: spec.half_extent,
+            },
+        ),
     );
 }
 
@@ -672,11 +685,17 @@ fn construct_shrine(
     let ActorConstructionParams::Shrine { spec } = parameters else {
         unreachable!("dispatch pairs this fn with Shrine parameters")
     };
-    crate::features::ecs::spawn_static::spawn_shrine_into(
-        ctx.commands,
+    // The other half of the same move — see `construct_authored_ground_item`.
+    ctx.commands.insert_room_in_session(
         ctx.session,
         root.entity(),
-        spec,
+        (
+            bevy::prelude::Name::new(format!("Heal/save shrine: {}", spec.name)),
+            crate::shrine::HealShrine {
+                pos: spec.pos,
+                half_extent: spec.half_extent,
+            },
+        ),
     );
 }
 

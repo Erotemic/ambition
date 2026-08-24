@@ -4702,7 +4702,64 @@ converter — the converter's existence is the measurement.** Nothing else in th
 row's tables would have pointed at limbs: they price COUNTS, and this edge was
 visible instead as a type spelled the wrong way in the destination.
 
-⚠ **the cycle is NARROWED, NOT BROKEN, and say so precisely.** Applying this row's
+⭐⭐ **THE 26-COUNT WAS WRONG IN BOTH DIRECTIONS — re-measured 2026-08-24, and
+the correction is smaller than it first looked.** Two errors cancelled into a
+number that was roughly right for entirely wrong reasons:
+
+```text
+counted as coupling, is NOT:   25 of the 26 "survivors" were construction/tests.rs
+missed by the same grep:        6 spawn fns construction calls through the
+                                `crate::features::` RE-EXPORT, so a `features::ecs`
+                                grep sees none of them
+```
+
+⇒ ⛔ **this row's own rule turned on the row.** It says to resolve every name to
+its defining crate before believing a count, because three modules measured by
+`crate::` counts in one day were all mostly laundering. The same measurement then
+(a) counted a TEST file as domain coupling and (b) was defeated by a re-export
+shell inside the very crate it was measuring. **Split production from test AND
+resolve through re-exports, or the count means nothing** — a test reaching into a
+sibling to build a fixture is a different fact from a domain depending on one,
+and a `crate::features::` path can be a `features/ecs` symbol wearing a shorter
+name.
+
+✔ **ONE REAL EDGE DID DIE, and it is worth having.**
+`spawn_static::spawn_ground_item_resolved_into` and `spawn_shrine_into` were
+twenty-line component inserts filed under "spawning static things" by TOPIC while
+naming `items` and `shrine` and never `spawn`, whose ONLY caller in the tree was
+`construction/mod.rs`. That domain edge served nobody. ⇒ inlined at their one call
+site and deleted; `construct_authored_ground_item` now constructs one instead of
+delegating.
+
+▢ **WHAT ACTUALLY HOLDS THE CYCLE, named to the file:** SIX functions in
+`features/ecs/spawn_actors.rs` — `spawn_staged_actor_into`,
+`spawn_runtime_minion_into`, `spawn_enemy_with_faction_into`,
+`spawn_boss_with_overrides_into`, `populate_giant_host_into`,
+`populate_giant_hand_into` — plus `is_limbed_host`, `giant_hand_plans` and
+`GiantHandPlan` from the same file. That is ONE FILE (2,349 lines), not the spawn
+domain. Asked of each the question that killed the two above — *does construction
+call it because it is a spawn concern, or because that is where somebody filed
+it?* — and the family splits:
+
+```text
+construction is the ONLY production caller    populate_giant_host_into
+                                              populate_giant_hand_into
+has real spawn-side callers too               spawn_staged_actor_into
+                                              spawn_runtime_minion_into
+                                              spawn_boss_with_overrides_into
+                                              spawn_enemy_with_faction_into  (widest)
+```
+
+⇒ the first two are the same shape as the pair already deleted and can follow
+them; the other four are genuinely shared and moving them would be relocating a
+dependency rather than removing one. ⛔ so this edge THINS to four functions and
+does not vanish — which is worth saying plainly, because "the cycle is broken"
+was the claim this measurement started out believing.
+⛔ everything else construction names through `crate::features` resolves outward
+(`ActorFaction` → `ambition_characters`, `ActorAggression` → `ambition_combat`)
+or is the mount vocabulary, which is its own question.
+
+⚠ **the older narrowing note, kept because its method is still right.** Applying this row's
 own rule — resolve each name to its defining crate — construction's monolith-owned
 references into `features/ecs` go **91 → 26**, and all 26 survivors are ONE symbol:
 `RoomContentStagingRegistry` from `features/ecs/spawn/content_staging.rs`. The

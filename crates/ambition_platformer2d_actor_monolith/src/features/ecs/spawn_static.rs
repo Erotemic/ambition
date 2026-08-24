@@ -381,32 +381,6 @@ pub(crate) fn spawn_pickup_into(
     }
 }
 
-/// Spawn one authored ground item from an ALREADY-RESOLVED held-item spec.
-///
-/// It is now a planning failure, which is detected while the live room is still intact. Populate a
-/// ground item onto a root the construction executor allocated.
-pub(crate) fn spawn_ground_item_resolved_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    entity: bevy::ecs::entity::Entity,
-    spec: &crate::rooms::GroundItemSpec,
-    held: ambition_characters::brain::HeldItemSpec,
-) {
-    commands.insert_room_in_session(
-        session_scope,
-        entity,
-        (
-            Name::new(format!("Ground item: {}", spec.name)),
-            crate::items::pickup::GroundItem {
-                spec: held,
-                pos: spec.pos,
-                vel: ambition_platformer2d_core::Vec2::ZERO,
-                half_extent: spec.half_extent,
-            },
-        ),
-    );
-}
-
 #[cfg(feature = "portal")]
 pub(crate) fn lower_portal_placement(
     record: &crate::world::placements::PlacementRecord,
@@ -463,27 +437,6 @@ pub(crate) fn spawn_portal_into(
             link,
         )));
     }
-}
-
-/// Populate one heal/save shrine onto a root the construction executor
-/// allocated.
-pub(crate) fn spawn_shrine_into(
-    commands: &mut Commands,
-    session_scope: SessionSpawnScope,
-    root: bevy::ecs::entity::Entity,
-    spec: &crate::rooms::ShrineSpec,
-) {
-    commands.insert_room_in_session(
-        session_scope,
-        root,
-        (
-            Name::new(format!("Heal/save shrine: {}", spec.name)),
-            crate::shrine::HealShrine {
-                pos: spec.pos,
-                half_extent: spec.half_extent,
-            },
-        ),
-    );
 }
 
 pub(crate) fn lower_chest_placement(

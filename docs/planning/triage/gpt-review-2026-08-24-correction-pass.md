@@ -18,12 +18,26 @@ fixture that cannot reach the case.
 
 ## Status of the four P0s
 
+⭐⭐ **ALL FOUR ARE VERIFIED AT HEAD 2026-08-24 — the review is right on every
+one, and the evidence is a grep rather than an argument:**
+
 ```text
-P0-1 clank/rebound never reach authored moves   ▢ VERIFIED, rows reopened
-P0-2 helpless is cosmetic for combat            ▢ not yet verified
-P0-3 sudden death ends on the first non-KO hit  ▢ not yet verified
-P0-4 zero-velocity items float                  ▢ not yet verified
+P0-1 clank never reaches authored moves   ▢ arbitrate_attack_clanks: With<HitboxLifetime>
+                                            advance_move_playback: "NO HitboxLifetime on purpose"
+P0-2 helpless never reaches move starts   ▢ trigger_moveset_moves takes &ActorControl +
+                                            &ResolvedAttackGesture — no InputState anywhere,
+                                            and InputState is the only thing the gate clears
+P0-3 sudden death ends on first hit       ▢ timeout_continues_as_sudden_death returns Some
+                                            ONLY on SidesOutcome::Draw; one point of damage
+                                            makes the tiebreak a Winner, the guard answers
+                                            None, and the fall-through settles the match
+P0-4 zero-velocity items float            ▢ pickup/mod.rs:347 `if item.vel == Vec2::ZERO
+                                            { continue; }` — and both the match spawner and
+                                            the Z-drop create ZERO on purpose
 ```
+
+⛔ **NONE OF THE FOUR IS FIXED YET.** The rows are reopened and the ledger no
+longer lies; the code still does what is described above.
 
 ## The review, verbatim
 

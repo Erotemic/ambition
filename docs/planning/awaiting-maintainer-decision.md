@@ -38,7 +38,41 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
-### 32. How tall is an adult, against a 48-tall chibi protagonist?
+⭐ **NONE. 2026-08-24: Jon's W8 playtest message closed the last one** and said
+so explicitly — *"There are no unresolved maintainer design questions in this
+feedback. Continue implementation rather than stopping for another decision
+round."* The answered records follow, newest first.
+
+### 32. ✔ ANSWERED 2026-08-24 — THERE IS NO STANDARD ADULT HEIGHT
+
+> There is **no standard adult height**. Do not introduce `ADULT_HEIGHT` or
+> normalize humanoids to one number. `robot_v3` should remain approximately 48
+> units and should intentionally read as **shorter than most other characters**.
+> The recent normalization pass pulled too many characters toward Robot v3's
+> size, which made the cast generally too small.
+>
+> Correct principle: `CharacterDefinition → character-authored stature →
+> congruent render + hurt/body geometry`, not `adult/humanoid/category → shared
+> height constant`.
+>
+> Do not mechanically scale all 48-unit characters upward by the same ratio. Give
+> characters intentional relative stature; leave ambiguous characters unchanged
+> until visually reviewed.
+
+⛔⛔ **THE QUESTION'S PREMISE WAS THE MISTAKE.** This section asked for a number
+or a ratio and offered three shapes of answer, and Jon rejected the shape: a
+category that produces a height is exactly the shared default decision 30 already
+ruled against, one layer up. Stature is a per-character authored fact, and the
+only measurement below that still matters is the one saying **38 of 45 characters
+are 48.0 because nothing ever authored anything else** — that is a cast of
+UNAUTHORED characters, not a cast of agreeing ones.
+
+⇒ ⛔ **AND THE FIX IS NOT A SWEEP.** "Scale everything that is 48" would re-make
+the same error with a different constant. Author the characters whose stature you
+can actually reason about, one at a time, and leave the rest.
+
+The measurement that produced the question is kept below because it is still the
+inventory of what is unauthored.
 
 ⭐ **ONE NUMBER, OR A PRINCIPLE THAT PRODUCES THEM — the rest is content work
 that can proceed the moment it exists.** This is not "which characters look

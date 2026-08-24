@@ -27,11 +27,15 @@ P0-1 clank never reaches authored moves   ▢ arbitrate_attack_clanks: With<Hitb
 P0-2 helpless never reaches move starts   ▢ trigger_moveset_moves takes &ActorControl +
                                             &ResolvedAttackGesture — no InputState anywhere,
                                             and InputState is the only thing the gate clears
-P0-3 sudden death ends on first hit       ◐ FIRST HALF FIXED: a match already in sudden
+P0-3 sudden death ends on first hit       ✔ BOTH HALVES FIXED: a match already in sudden
                                             death returns before the tiebreak, so the spent
-                                            clock cannot decide it. ▢ the SECOND half stands —
-                                            open_the_sudden_death_round still runs in literal
-                                            Update and writes rollback-canonical BodyHealth
+                                            clock cannot decide it; and
+                                            open_the_sudden_death_round moved into the sim
+                                            schedule (CombatSet::Settle, after
+                                            MatchOutcomeDecided) beside the respawn placement,
+                                            which writes canonical body state for the same
+                                            reason. ⚠ multi-side sudden death still resets
+                                            every survivor rather than the tied leaders — a P1
 P0-4 zero-velocity items float            ▢ pickup/mod.rs:347 `if item.vel == Vec2::ZERO
                                             { continue; }` — and both the match spawner and
                                             the Z-drop create ZERO on purpose

@@ -638,6 +638,22 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::FighterStocksSpent);
+        // ⛔⛔ SUDDEN DEATH'S STAGE HALF IS A SIMULATION RULE, and it ran in
+        // literal `Update` until a review caught it. It writes rollback-canonical
+        // `BodyHealth` — putting every survivor on the authored damage — and a
+        // rewind can execute several simulation steps without ordinary `Update`
+        // replaying between them, so the resimulated match would reach sudden
+        // death and never place its fighters.
+        //
+        // ⭐ ORDERED AFTER THE DECISION rather than merely after the stock spend:
+        // the message it reads is written by `decide_stocks_match`, and the
+        // `rules` chain above only promises to follow `FighterStocksSpent`.
+        app.add_systems(
+            sim,
+            open_the_sudden_death_round
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
+                .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided),
+        );
         // THE ONE RULE THAT CANNOT RUN ALONGSIDE THE DECISION, pulled out
         // of the chain above and ordered behind it.
         //
@@ -1720,8 +1736,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     // picking it means.
                     offer_to_exit_the_match,
                     abandon_the_match_when_the_shell_asks,
-                    // The stage's half of a level timeout.
-                    open_the_sudden_death_round,
                 )),
                 SmashSelectSet,
             ),

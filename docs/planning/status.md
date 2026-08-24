@@ -231,12 +231,12 @@ box carrying the component production refuses. Rows reopened.
 ```text
 P0-1 clank never reaches authored moves   ▢ VERIFIED  rows reopened
 P0-2 helpless never reaches move starts   ▢ VERIFIED  trigger_moveset_moves takes no InputState
-P0-3 sudden death ends on first hit       ◐ clock half FIXED; the Update/BodyHealth half stands
+P0-3 sudden death ends on first hit       ✔ FIXED  spent clock ignored; stage half now in sim
 P0-4 zero-velocity items float            ▢ VERIFIED  pickup/mod.rs:347 skips vel == ZERO
 ```
 
-⛔ **ALL FOUR VERIFIED, NONE FIXED.** The ledger no longer lies about them; the
-code still does. Evidence for each is in the triage.
+⛔ **P0-3 IS FIXED; THE OTHER THREE ARE NOT.** The ledger no longer lies about any
+of them. Evidence for each, and P0-4's reverted attempt, is in the triage.
 
 ⛔ **THE DISCIPLINE THE NEXT PASS OWES: production-path poison before closing a
 parity row.** A synthetic fixture is not proof of a moveset mechanic.

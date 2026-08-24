@@ -609,7 +609,6 @@ mod vulnerability_gate_tests {
         );
     }
 
-    #[test]
     /// ⭐ THE M3 CONTRACT. A move's authored `Invuln` window is one more REASON
     /// in the same bitset, so the gate answers it with nothing new taught — and
     /// so does `unhittable`, which is this expression inverted. A move grant
@@ -624,7 +623,8 @@ mod vulnerability_gate_tests {
         invulnerable.set(Invulnerability::MOVE, true);
         assert!(
             !body_vulnerable(invulnerable, false, &shield, &combat),
-            "a body inside its move's authored Invuln window was struck — the              grant is being gated somewhere this rule cannot see"
+            "a body inside its move's authored Invuln window was struck — the \
+             grant is being gated somewhere this rule cannot see"
         );
 
         // And it is ONE reason among several: releasing it must not release a

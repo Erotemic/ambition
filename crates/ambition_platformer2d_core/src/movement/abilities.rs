@@ -107,22 +107,42 @@ pub enum OutOfShieldAction {
     UpSpecial,
 }
 
-/// May `action` start, given this body's guard and its policy? — THE
-/// out-of-shield question, asked identically by the movement kernel and by the
-/// moveset trigger.
+/// THE out-of-shield question, read once per press and asked identically by the
+/// movement kernel and by the moveset trigger.
 ///
-/// `true` whenever the guard is DOWN — this asks only what a RAISED one forbids
-/// — and `true` for every action in a game that declares no policy
-/// ([`crate::ShieldTuning::out_of_shield`] is `None`), which is what every body
-/// did before this existed.
-pub fn out_of_shield_permits(
-    shield: &crate::body_clusters::BodyShieldState,
+/// ⛔ ONE IMPLEMENTATION, HERE, and that is the point of the type: the rule
+/// "raised guard + policy + action class → permitted" was written twice — once
+/// in this kernel and once in `ambition_combat::moveset` — which is two
+/// authorities over one policy. Combat reads the gate; what it adds is the
+/// DIRECTION interpretation (only the up attack and up special RISE), which is
+/// its own vocabulary and stays there.
+#[derive(Clone, Copy, Debug)]
+pub struct OutOfShieldGate {
     policy: Option<crate::OutOfShield>,
-    action: OutOfShieldAction,
-) -> bool {
-    match policy.filter(|_| shield.active) {
-        Some(policy) => policy.permits(action),
-        None => true,
+    /// A guard that is DOWN, or a game that declares no rule, restricts nothing
+    /// — which is exactly what every body did before out-of-shield existed.
+    unrestricted: bool,
+}
+
+impl OutOfShieldGate {
+    /// `guard_up` is the guard's STATE, not the button: a guard comes down
+    /// through drop lag, so the two disagree for a whole tick.
+    pub fn read(guard_up: bool, policy: Option<crate::OutOfShield>) -> Self {
+        Self {
+            policy,
+            unrestricted: !guard_up || policy.is_none(),
+        }
+    }
+
+    /// May this action class begin from behind the guard at all?
+    pub fn permits(&self, action: OutOfShieldAction) -> bool {
+        self.unrestricted || self.policy.is_some_and(|policy| policy.permits(action))
+    }
+
+    /// Whether the guard is filtering anything — for a caller whose own rule is
+    /// narrower than this one and that must not narrow an unguarded body.
+    pub fn unrestricted(&self) -> bool {
+        self.unrestricted
     }
 }
 
@@ -149,26 +169,23 @@ pub(super) fn apply_intent(
     abilities: &BodyAbilities,
     input: InputState,
     tuning: AxisSweptParams,
-    // THE GUARD, because starting an action out of one is a spend. The rule for
-    // WHICH actions a raised guard lets out belongs to the move resolver, not
-    // here — `ambition_combat::moveset`'s `OutOfShieldGate` is where it lives.
-    // ⚠ this cited that type by name for a while before anything wrote it.
+    // THE GUARD, because starting an action out of one is a spend. WHICH
+    // actions a raised one lets out is [`OutOfShieldGate`], owned here and read
+    // by the move resolver too.
     shield: &mut crate::body_clusters::BodyShieldState,
     // The evade's own state, so a shield+direction press can ask whether a DODGE
     // is actually available rather than filling a buffer the dash will spend.
     dodge: &BodyDodgeState,
 ) {
     let oos = tuning.abilities.shield.out_of_shield;
+    let gate = OutOfShieldGate::read(shield.active, oos);
     let can_turn = ground.on_ground || flight.fly_enabled;
     let local_stick = input.local_axis();
     if can_turn && local_stick.x.abs() > 0.1 {
         kinematics.facing = local_stick.x.signum();
     }
     // JUMP OUT OF SHIELD, the universal option — and the guard leaves with it.
-    if input.jump_pressed()
-        && abilities.abilities.jump
-        && out_of_shield_permits(shield, oos, OutOfShieldAction::Jump)
-    {
+    if input.jump_pressed() && abilities.abilities.jump && gate.permits(OutOfShieldAction::Jump) {
         state.buffer_jump = tuning.locomotion.jump_buffer;
         spend_out_of_shield(shield, oos);
     }
@@ -184,7 +201,7 @@ pub(super) fn apply_intent(
     // outcome of it.
     if input.burst_pressed()
         && (abilities.abilities.dash || abilities.abilities.dodge)
-        && out_of_shield_permits(shield, oos, OutOfShieldAction::Burst)
+        && gate.permits(OutOfShieldAction::Burst)
     {
         state.buffer_burst = tuning.abilities.dash_buffer;
         spend_out_of_shield(shield, oos);
@@ -210,7 +227,7 @@ pub(super) fn apply_intent(
     // ⛔ Gated on the guard being ACTIVE, so walking down a slope is untouched:
     // this is an out-of-shield option, and it is spent like one.
     if shield_evade_direction(input, abilities, ground, dodge, state, tuning).is_some()
-        && out_of_shield_permits(shield, oos, OutOfShieldAction::Burst)
+        && gate.permits(OutOfShieldAction::Burst)
     {
         state.buffer_burst = tuning.abilities.dash_buffer;
         spend_out_of_shield(shield, oos);

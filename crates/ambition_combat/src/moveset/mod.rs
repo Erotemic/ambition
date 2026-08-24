@@ -1564,51 +1564,23 @@ fn held_weapon_attack_move(
         .cloned()
 }
 
-
-
-/// Whether a RAISED GUARD lets an action out, and which directions rise out of
-/// one.
+/// WHICH DIRECTIONS RISE out of a raised guard — the platform-fighter half of
+/// the out-of-shield rule, and the only half that belongs to combat.
 ///
-/// ⭐⭐ TWO COMMENTS ALREADY CITED THIS TYPE BY NAME and it did not exist — one
-/// in `movement/abilities.rs` and one on `trigger_moveset_moves`'s own `guards`
-/// parameter. A citation to a type nobody wrote is a doc that reads as an
-/// explanation and answers nothing, which is how it survived: the rule was two
-/// closures and three locals sharing the resolver's scope with smashes, item
-/// pickups and the buffer.
-///
-/// ⛔ IT IS A GATE, NOT A CONTEXT, and that distinction is why this is a small
-/// type rather than a `resolve_guard_action` beside `resolve_capture_action`. A
-/// capture REPLACES the action vocabulary — a captor pummels and throws and
-/// does nothing else. A raised guard does not: it filters the grab, special and
-/// attack roads a free body already has. Extracting a "guard context" would
-/// invent a boundary; naming the filter follows one.
-#[derive(Clone, Copy, Debug)]
-struct OutOfShieldGate {
-    policy: Option<ae::OutOfShield>,
-    /// A guard that is DOWN, or a game that declares no rule, restricts nothing
-    /// — which is exactly what every body did before out-of-shield existed.
-    unrestricted: bool,
-}
-
-impl OutOfShieldGate {
-    fn read(guard_up: bool, policy: Option<ae::OutOfShield>) -> Self {
-        Self {
-            policy,
-            unrestricted: !guard_up || policy.is_none(),
-        }
-    }
-
-    /// May this action begin from behind the guard at all?
-    fn permits(&self, action: ae::OutOfShieldAction) -> bool {
-        self.unrestricted || self.policy.is_some_and(|policy| policy.permits(action))
-    }
-
-    /// Only the UP directions RISE, which is the whole reason this genre lets
-    /// those two out of a crouched guard and makes everything else wait for it
-    /// to come down.
-    fn rises(&self, dir: AttackDir, action: ae::OutOfShieldAction) -> bool {
-        self.unrestricted || (dir == AttackDir::Up && self.permits(action))
-    }
+/// The permission itself is [`ae::OutOfShieldGate`], owned by the movement
+/// kernel and read identically here. ⛔ It was written a second time in this
+/// file: two implementations of one policy, which is how "up-smash may,
+/// forward-smash may not" grows back as an exception list. What is genuinely
+/// local is the DIRECTION reading below — up attack and up special RISE, which
+/// is why this genre lets those two out of a crouched guard and makes
+/// everything else wait for it to come down. `AttackDir` is combat's
+/// vocabulary and does not travel down to the kernel to make the gate bigger.
+fn rises_out_of_shield(
+    gate: &ae::OutOfShieldGate,
+    dir: AttackDir,
+    action: ae::OutOfShieldAction,
+) -> bool {
+    gate.permits(action) && (gate.unrestricted() || dir == AttackDir::Up)
 }
 
 /// What a CAPTOR's press means: pummel, a directional throw, or nothing.
@@ -1634,86 +1606,86 @@ fn resolve_capture_action<'a>(
     throw_armed: bool,
     grounded: bool,
 ) -> (Option<MoveSpec>, &'a [&'a str], ProposedVerb) {
-        // ⭐ A DIRECTION ALONE THROWS. Jon, 2026-08-23: *"Throw should not
-        // require you to press attack and a direction. just pressing the
-        // direction after you grab should trigger the throw."* That is the
-        // genre's rule — a held opponent is thrown by tilting the stick, and
-        // Attack is what PUMMELS — and this branch required an attack press
-        // carrying a direction for both.
-        //
-        // ⛔ THE ATTACK PRESS STILL WORKS, deliberately. Attack+direction
-        // was the only way to throw until now, so removing it would break
-        // the input every existing test and every CPU brain already uses —
-        // `capture_context_frame` presses Attack with an aimed stick and
-        // knows nothing about this. The press is consulted FIRST so a
-        // deliberate aimed press keeps its exact meaning; the stick is the
-        // fallback that makes the direction sufficient on its own.
-        //
-        // ⛔ NEUTRAL IS NOT A THROW in either road: with no direction there
-        // is nothing to throw toward, and a captor standing still holding a
-        // captive must stay held rather than resolve some default throw.
-        // ⛔⛔ THE STICK ROAD NEEDS AN EDGE, NOT A LEVEL. You walk into a
-        // grab, so the stick that reached it is usually already pointing
-        // somewhere — and reading the live axis on the first captive tick
-        // threw the victim instantly, before the captor could pummel or
-        // choose. `CapturedBy::throw_armed` says the captor's stick has
-        // been back to neutral since this capture began, which is what
-        // turns "still holding forward" into "pressed forward".
-        //
-        // ⛔ THE ATTACK PRESS DOES NOT WAIT FOR IT. A press is already an
-        // edge — it is the input event, not the stick's position — so
-        // Attack+direction throws exactly as it always did, and every
-        // existing fixture and CPU that presses it keeps working.
-        // ⛔ THE RULESET'S LATCH, read off the ruleset's own component. A
-        // hold with no `SmashHoldState` is one this ruleset has no throw
-        // vocabulary for, and it arms nothing — the same reading
-        // `tick_capture_holds` takes of an absent hold state.
-        let throw_dir = match pressed {
-            // An aimed attack press: its own direction, unchanged.
-            Some(dir) => Some(dir),
-            // No press. The stick decides, and only once it has been
-            // released since the grab.
-            None if throw_armed && aimed != AttackDir::Neutral => Some(aimed),
-            None => None,
-        };
-        match throw_dir {
-            Some(AttackDir::Neutral) => (
-                moveset
-                    .move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded)
-                    .cloned(),
-                &[CAPTURE_PUMMEL_VERB][..],
-                ProposedVerb::Attack,
-            ),
-            Some(AttackDir::Forward) => (
-                moveset
-                    .move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded)
-                    .cloned(),
-                &[CAPTURE_THROW_FORWARD_VERB][..],
-                ProposedVerb::Attack,
-            ),
-            Some(AttackDir::Back) => (
-                moveset
-                    .move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded)
-                    .cloned(),
-                &[CAPTURE_THROW_BACK_VERB][..],
-                ProposedVerb::Attack,
-            ),
-            Some(AttackDir::Up) => (
-                moveset
-                    .move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded)
-                    .cloned(),
-                &[CAPTURE_THROW_UP_VERB][..],
-                ProposedVerb::Attack,
-            ),
-            Some(AttackDir::Down) => (
-                moveset
-                    .move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded)
-                    .cloned(),
-                &[CAPTURE_THROW_DOWN_VERB][..],
-                ProposedVerb::Attack,
-            ),
-            None => (None, &[][..], ProposedVerb::Unbuffered),
-        }
+    // ⭐ A DIRECTION ALONE THROWS. Jon, 2026-08-23: *"Throw should not
+    // require you to press attack and a direction. just pressing the
+    // direction after you grab should trigger the throw."* That is the
+    // genre's rule — a held opponent is thrown by tilting the stick, and
+    // Attack is what PUMMELS — and this branch required an attack press
+    // carrying a direction for both.
+    //
+    // ⛔ THE ATTACK PRESS STILL WORKS, deliberately. Attack+direction
+    // was the only way to throw until now, so removing it would break
+    // the input every existing test and every CPU brain already uses —
+    // `capture_context_frame` presses Attack with an aimed stick and
+    // knows nothing about this. The press is consulted FIRST so a
+    // deliberate aimed press keeps its exact meaning; the stick is the
+    // fallback that makes the direction sufficient on its own.
+    //
+    // ⛔ NEUTRAL IS NOT A THROW in either road: with no direction there
+    // is nothing to throw toward, and a captor standing still holding a
+    // captive must stay held rather than resolve some default throw.
+    // ⛔⛔ THE STICK ROAD NEEDS AN EDGE, NOT A LEVEL. You walk into a
+    // grab, so the stick that reached it is usually already pointing
+    // somewhere — and reading the live axis on the first captive tick
+    // threw the victim instantly, before the captor could pummel or
+    // choose. `CapturedBy::throw_armed` says the captor's stick has
+    // been back to neutral since this capture began, which is what
+    // turns "still holding forward" into "pressed forward".
+    //
+    // ⛔ THE ATTACK PRESS DOES NOT WAIT FOR IT. A press is already an
+    // edge — it is the input event, not the stick's position — so
+    // Attack+direction throws exactly as it always did, and every
+    // existing fixture and CPU that presses it keeps working.
+    // ⛔ THE RULESET'S LATCH, read off the ruleset's own component. A
+    // hold with no `SmashHoldState` is one this ruleset has no throw
+    // vocabulary for, and it arms nothing — the same reading
+    // `tick_capture_holds` takes of an absent hold state.
+    let throw_dir = match pressed {
+        // An aimed attack press: its own direction, unchanged.
+        Some(dir) => Some(dir),
+        // No press. The stick decides, and only once it has been
+        // released since the grab.
+        None if throw_armed && aimed != AttackDir::Neutral => Some(aimed),
+        None => None,
+    };
+    match throw_dir {
+        Some(AttackDir::Neutral) => (
+            moveset
+                .move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded)
+                .cloned(),
+            &[CAPTURE_PUMMEL_VERB][..],
+            ProposedVerb::Attack,
+        ),
+        Some(AttackDir::Forward) => (
+            moveset
+                .move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded)
+                .cloned(),
+            &[CAPTURE_THROW_FORWARD_VERB][..],
+            ProposedVerb::Attack,
+        ),
+        Some(AttackDir::Back) => (
+            moveset
+                .move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded)
+                .cloned(),
+            &[CAPTURE_THROW_BACK_VERB][..],
+            ProposedVerb::Attack,
+        ),
+        Some(AttackDir::Up) => (
+            moveset
+                .move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded)
+                .cloned(),
+            &[CAPTURE_THROW_UP_VERB][..],
+            ProposedVerb::Attack,
+        ),
+        Some(AttackDir::Down) => (
+            moveset
+                .move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded)
+                .cloned(),
+            &[CAPTURE_THROW_DOWN_VERB][..],
+            ProposedVerb::Attack,
+        ),
+        None => (None, &[][..], ProposedVerb::Unbuffered),
+    }
 }
 
 /// Trigger a body's authored move from control-frame verb edges. Directional
@@ -1831,7 +1803,7 @@ pub fn trigger_moveset_moves(
             .get(entity)
             .ok()
             .and_then(|model| model.shield_tuning().out_of_shield);
-        let gate = OutOfShieldGate::read(
+        let gate = ae::OutOfShieldGate::read(
             guards.get(entity).is_ok_and(|shield| shield.active),
             oos_policy,
         );
@@ -1918,7 +1890,7 @@ pub fn trigger_moveset_moves(
                 ProposedVerb::Grab,
             )
         } else if special_intent.is_some_and(|intent| {
-            gate.rises(intent.direction, ae::OutOfShieldAction::UpSpecial)
+            rises_out_of_shield(&gate, intent.direction, ae::OutOfShieldAction::UpSpecial)
         }) {
             // ⛔⛔ THE PRESS'S OWN DIRECTION AND POSTURE, not the live stick's.
             // `special_intent` is `ResolvedAttackGesture::special`, which
@@ -1944,7 +1916,8 @@ pub fn trigger_moveset_moves(
                 ProposedVerb::Special,
             )
         } else if (gesture.pressed.is_some() || pogo_pressed)
-            && gate.rises(
+            && rises_out_of_shield(
+                &gate,
                 gesture
                     .pressed
                     .map_or(AttackDir::Down, |intent| intent.direction),

@@ -49,8 +49,8 @@ pub use surface_momentum::{
 };
 
 pub use abilities::{
-    out_of_shield_permits, resolve_burst_maneuver, resolve_shield, spend_out_of_shield,
-    BurstManeuver, OutOfShieldAction,
+    resolve_burst_maneuver, resolve_shield, spend_out_of_shield, BurstManeuver, OutOfShieldAction,
+    OutOfShieldGate,
 };
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 pub use body_contact::{constrain_motion, BodyContactBlocker, BodyContactField};

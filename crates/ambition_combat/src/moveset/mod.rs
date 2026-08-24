@@ -1564,6 +1564,112 @@ fn held_weapon_attack_move(
         .cloned()
 }
 
+
+/// What a CAPTOR's press means: pummel, a directional throw, or nothing.
+///
+/// ⭐⭐ EXTRACTED FROM `trigger_moveset_moves`, which had grown into one
+/// contextual resolver holding free attacks, smashes, specials, shield,
+/// out-of-shield, grab, pummel, throws, items, buffers, cancels and running
+/// variants in a single `if/else if` chain. A GPT review named the cost and the
+/// evidence for it: the held-direction throw bug was another contextual
+/// interpretation inside that chain getting hard to reason about.
+///
+/// ⛔ CAPTURE REPLACES THE ORDINARY ACTION CONTEXT rather than adding to it —
+/// that is why this is a whole resolver and not a special case inside one. A
+/// captor has exactly this vocabulary and nothing else.
+///
+/// `pressed` is the direction an attack press carried, `aimed` is what the
+/// stick says right now, and `throw_armed` is whether that stick has been back
+/// to neutral since the grab (see `SmashHoldState::throw_armed`).
+fn resolve_capture_action<'a>(
+    moveset: &ambition_entity_catalog::MovesetContract,
+    pressed: Option<AttackDir>,
+    aimed: AttackDir,
+    throw_armed: bool,
+    grounded: bool,
+) -> (Option<MoveSpec>, &'a [&'a str], ProposedVerb) {
+        // ⭐ A DIRECTION ALONE THROWS. Jon, 2026-08-23: *"Throw should not
+        // require you to press attack and a direction. just pressing the
+        // direction after you grab should trigger the throw."* That is the
+        // genre's rule — a held opponent is thrown by tilting the stick, and
+        // Attack is what PUMMELS — and this branch required an attack press
+        // carrying a direction for both.
+        //
+        // ⛔ THE ATTACK PRESS STILL WORKS, deliberately. Attack+direction
+        // was the only way to throw until now, so removing it would break
+        // the input every existing test and every CPU brain already uses —
+        // `capture_context_frame` presses Attack with an aimed stick and
+        // knows nothing about this. The press is consulted FIRST so a
+        // deliberate aimed press keeps its exact meaning; the stick is the
+        // fallback that makes the direction sufficient on its own.
+        //
+        // ⛔ NEUTRAL IS NOT A THROW in either road: with no direction there
+        // is nothing to throw toward, and a captor standing still holding a
+        // captive must stay held rather than resolve some default throw.
+        // ⛔⛔ THE STICK ROAD NEEDS AN EDGE, NOT A LEVEL. You walk into a
+        // grab, so the stick that reached it is usually already pointing
+        // somewhere — and reading the live axis on the first captive tick
+        // threw the victim instantly, before the captor could pummel or
+        // choose. `CapturedBy::throw_armed` says the captor's stick has
+        // been back to neutral since this capture began, which is what
+        // turns "still holding forward" into "pressed forward".
+        //
+        // ⛔ THE ATTACK PRESS DOES NOT WAIT FOR IT. A press is already an
+        // edge — it is the input event, not the stick's position — so
+        // Attack+direction throws exactly as it always did, and every
+        // existing fixture and CPU that presses it keeps working.
+        // ⛔ THE RULESET'S LATCH, read off the ruleset's own component. A
+        // hold with no `SmashHoldState` is one this ruleset has no throw
+        // vocabulary for, and it arms nothing — the same reading
+        // `tick_capture_holds` takes of an absent hold state.
+        let throw_dir = match pressed {
+            // An aimed attack press: its own direction, unchanged.
+            Some(dir) => Some(dir),
+            // No press. The stick decides, and only once it has been
+            // released since the grab.
+            None if throw_armed && aimed != AttackDir::Neutral => Some(aimed),
+            None => None,
+        };
+        match throw_dir {
+            Some(AttackDir::Neutral) => (
+                moveset
+                    .move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded)
+                    .cloned(),
+                &[CAPTURE_PUMMEL_VERB][..],
+                ProposedVerb::Attack,
+            ),
+            Some(AttackDir::Forward) => (
+                moveset
+                    .move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded)
+                    .cloned(),
+                &[CAPTURE_THROW_FORWARD_VERB][..],
+                ProposedVerb::Attack,
+            ),
+            Some(AttackDir::Back) => (
+                moveset
+                    .move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded)
+                    .cloned(),
+                &[CAPTURE_THROW_BACK_VERB][..],
+                ProposedVerb::Attack,
+            ),
+            Some(AttackDir::Up) => (
+                moveset
+                    .move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded)
+                    .cloned(),
+                &[CAPTURE_THROW_UP_VERB][..],
+                ProposedVerb::Attack,
+            ),
+            Some(AttackDir::Down) => (
+                moveset
+                    .move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded)
+                    .cloned(),
+                &[CAPTURE_THROW_DOWN_VERB][..],
+                ProposedVerb::Attack,
+            ),
+            None => (None, &[][..], ProposedVerb::Unbuffered),
+        }
+}
+
 /// Trigger a body's authored move from control-frame verb edges. Directional
 /// attack resolution follows the authored verb chain; ranged and special use
 /// their corresponding verbs. A live move rejects replacement unless its
@@ -1741,95 +1847,19 @@ pub fn trigger_moveset_moves(
         // lookup did not read the gate its own repertoire had authored.
         type Resolution<'a> = (Option<MoveSpec>, &'a [&'a str], ProposedVerb);
         let (spec, verb_names, proposer): Resolution = if holding_captive {
-            // ⭐ A DIRECTION ALONE THROWS. Jon, 2026-08-23: *"Throw should not
-            // require you to press attack and a direction. just pressing the
-            // direction after you grab should trigger the throw."* That is the
-            // genre's rule — a held opponent is thrown by tilting the stick, and
-            // Attack is what PUMMELS — and this branch required an attack press
-            // carrying a direction for both.
-            //
-            // ⛔ THE ATTACK PRESS STILL WORKS, deliberately. Attack+direction
-            // was the only way to throw until now, so removing it would break
-            // the input every existing test and every CPU brain already uses —
-            // `capture_context_frame` presses Attack with an aimed stick and
-            // knows nothing about this. The press is consulted FIRST so a
-            // deliberate aimed press keeps its exact meaning; the stick is the
-            // fallback that makes the direction sufficient on its own.
-            //
-            // ⛔ NEUTRAL IS NOT A THROW in either road: with no direction there
-            // is nothing to throw toward, and a captor standing still holding a
-            // captive must stay held rather than resolve some default throw.
-            let aimed = attack_dir_from_axis(frame.attack_axis, kin.facing);
-            // ⛔⛔ THE STICK ROAD NEEDS AN EDGE, NOT A LEVEL. You walk into a
-            // grab, so the stick that reached it is usually already pointing
-            // somewhere — and reading the live axis on the first captive tick
-            // threw the victim instantly, before the captor could pummel or
-            // choose. `CapturedBy::throw_armed` says the captor's stick has
-            // been back to neutral since this capture began, which is what
-            // turns "still holding forward" into "pressed forward".
-            //
-            // ⛔ THE ATTACK PRESS DOES NOT WAIT FOR IT. A press is already an
-            // edge — it is the input event, not the stick's position — so
-            // Attack+direction throws exactly as it always did, and every
-            // existing fixture and CPU that presses it keeps working.
             // ⛔ THE RULESET'S LATCH, read off the ruleset's own component. A
             // hold with no `SmashHoldState` is one this ruleset has no throw
-            // vocabulary for, and it arms nothing — the same reading
-            // `tick_capture_holds` takes of an absent hold state.
-            let armed = crate::capture::captive_of(entity, &captives)
+            // vocabulary for, and it arms nothing.
+            let throw_armed = crate::capture::captive_of(entity, &captives)
                 .and_then(|victim| hold_states.get(victim).ok())
                 .is_some_and(|state| state.throw_armed);
-            let throw_dir = match gesture.pressed.map(|intent| intent.direction) {
-                // An aimed attack press: its own direction, unchanged.
-                Some(dir) => Some(dir),
-                // No press. The stick decides, and only once it has been
-                // released since the grab.
-                None if armed && aimed != AttackDir::Neutral => Some(aimed),
-                None => None,
-            };
-            match throw_dir {
-                Some(AttackDir::Neutral) => (
-                    moveset
-                        .0
-                        .move_for_verb_in_stance(CAPTURE_PUMMEL_VERB, grounded)
-                        .cloned(),
-                    &[CAPTURE_PUMMEL_VERB][..],
-                    ProposedVerb::Attack,
-                ),
-                Some(AttackDir::Forward) => (
-                    moveset
-                        .0
-                        .move_for_verb_in_stance(CAPTURE_THROW_FORWARD_VERB, grounded)
-                        .cloned(),
-                    &[CAPTURE_THROW_FORWARD_VERB][..],
-                    ProposedVerb::Attack,
-                ),
-                Some(AttackDir::Back) => (
-                    moveset
-                        .0
-                        .move_for_verb_in_stance(CAPTURE_THROW_BACK_VERB, grounded)
-                        .cloned(),
-                    &[CAPTURE_THROW_BACK_VERB][..],
-                    ProposedVerb::Attack,
-                ),
-                Some(AttackDir::Up) => (
-                    moveset
-                        .0
-                        .move_for_verb_in_stance(CAPTURE_THROW_UP_VERB, grounded)
-                        .cloned(),
-                    &[CAPTURE_THROW_UP_VERB][..],
-                    ProposedVerb::Attack,
-                ),
-                Some(AttackDir::Down) => (
-                    moveset
-                        .0
-                        .move_for_verb_in_stance(CAPTURE_THROW_DOWN_VERB, grounded)
-                        .cloned(),
-                    &[CAPTURE_THROW_DOWN_VERB][..],
-                    ProposedVerb::Attack,
-                ),
-                None => (None, &[][..], ProposedVerb::Unbuffered),
-            }
+            resolve_capture_action(
+                &moveset.0,
+                gesture.pressed.map(|intent| intent.direction),
+                attack_dir_from_axis(frame.attack_axis, kin.facing),
+                throw_armed,
+                grounded,
+            )
         } else if (grab_pressed || shield_grab) && oos_permits(ae::OutOfShieldAction::Grab) {
             // A free body's grab. The move's own Active window carries the
             // capture attempt; this only starts the move.

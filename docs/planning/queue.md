@@ -526,9 +526,10 @@ the step, or print enough frames that latency reads as a delay and not a stall.
 - ▢ **D200 — THE SMASH CORRECTNESS CLOSEOUT.** (GPT review of `370abbbcf`,
   extended by a second review of the merged tree at `3cebefd62`)
 
-Ten named correctness defects in the platform-fighter kernel. **Six are closed
-and pushed**; what remains is listed here so the next session does not re-derive
-the list from a chat log.
+Ten named correctness defects in the platform-fighter kernel, plus two from a
+second review of the merged tree. **All twelve are closed and pushed**; the row
+stays open for the P2 CONSOLIDATION the review sequenced after correctness —
+see the bottom of this entry.
 
 ✔ **CLOSED.** The strike-pulse ledger (one continuous swing lands once, sibling
 sweet/sour volumes share the per-victim set); buffered Special keeps its
@@ -541,13 +542,13 @@ deterministic MATCHING (no body is ever both captor and captive, and the outcome
 does not depend on message order); empowered i-frames no longer stack the shared
 blink under a character's own presentation.
 
-▢ **BLOCKED ON A DECISION — the bounded match-level impact hitstop.** Built,
-working, and BACKED OUT: it needs a new rollback-registered match global, which
-trips `rollback-wire-format-is-frozen`. Three findings survive in
-`awaiting-maintainer-decision.md` — it cannot derive from `BodyCombat::hitstop_timer`
-(an actor's timer decays on the clock the freeze stops), it cannot be an
-unregistered wall-clock value (the forced-rollback oracle diverged at frames
-[18,19,20]), and it therefore has to be an integer of TICKS in rollback state.
+✔ **CLOSED — the bounded match-level impact hitstop.** An absolute `until_tick`
+against `SimTick`, rollback-registered with a checksum projection. Jon approved
+growing the wire format and changed the ratchet's policy with it:
+`rollback-wire-format-is-frozen` is now `rollback-wire-format-changes-are-declared`
+— drift in both directions is still caught, growth is legitimate when the
+baseline and the schema version move together. ⇒ ALL TEN of this row's defects
+are closed.
 
 ✔ **CLOSED — the charge pose is AUTHORED.** All six shipped smashes carry an
 explicit `hold_at_s` of four frames, and `fighter_moveset`'s contract test
@@ -580,6 +581,29 @@ measurement read as a mechanism failure. ⇒ a targeted invariant test AND a rea
 production-path test, per defect — `a_fighter_brain_charges_a_smash_through_the_real_chain`
 is the shape: brain → gesture → move → `MoveCharge` → frozen fraction, one
 motionless opponent, no sampling in it.
+
+◐ **THE P2 CONSOLIDATION, sequenced after correctness by the review.**
+
+`trigger_moveset_moves` had grown to 601 lines holding free attacks, smashes,
+specials, shield, out-of-shield, grab, pummel, throws, items, buffers, cancels
+and running variants in one `if/else if` chain. ✔ `resolve_capture_action` is
+extracted (601 → 525): capture REPLACES the ordinary action context rather than
+adding to it, which is why it is a whole resolver rather than a case, and it is
+the boundary the held-direction throw bug exposed.
+
+⚠ **THE REMAINING BOUNDARIES ARE NOT THE SAME SHAPE, and that is worth saying
+before somebody extracts three functions because the review listed three names.**
+`resolve_guard_action` sounds parallel and is not: out-of-shield is a cross-cutting
+POLICY (`oos_permits` / `rises_out_of_shield`) threaded through the grab, special
+and attack branches — it GATES them, it does not replace them. Extracting a
+"guard context" would invent a boundary rather than follow one. The honest next
+unit is to give that policy a named type so the branches stop sharing two
+closures and a scope. ⇒ the review's own rule applies: *"Extract along behavior
+boundaries as the known bugs are corrected."*
+
+Still open from the review's P2 list, untouched: duplicate capture phase roads
+(§8b), the Smash-local move-authoring fork (§8c), stage-provided fighter kits
+(§8d), the D175 dual-write bridge, and sheet product identity.
 
 ⚠ **and a guard can be green for the wrong reason.** The capture-chain test was
 poisoned by deleting the victim check and stayed GREEN — a chain's second edge is

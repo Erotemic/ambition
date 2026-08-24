@@ -155,6 +155,23 @@ impl BodyHealth {
         }
     }
 
+    /// STATE the meter outright — a ruleset placing a body at an authored
+    /// starting damage.
+    ///
+    /// ⛔⛔ NOT A HIT, AND THE DIFFERENCES ARE THE POINT. It does not consult
+    /// invulnerability (nobody attacked), it does not drain the pool (a starting
+    /// state is not an injury), and it does not report a death. Sudden death's
+    /// 150% is the customer: both survivors are placed on the edge of a launch
+    /// so the next clean connect ends the match, and routing that through
+    /// [`Self::damage`] would refuse it for a body still holding respawn
+    /// protection — which is exactly the body a level timeout can leave standing.
+    ///
+    /// ⛔ negative is clamped away: the meter is accumulated damage and there is
+    /// no such thing as less than none.
+    pub fn set_damage_taken(&mut self, damage: i32) {
+        self.accumulated = damage.max(0);
+    }
+
     /// Back to full: an empty meter and a full pool. The policy is a property of
     /// the body, not of its current state, so it survives.
     pub fn reset(&mut self) {

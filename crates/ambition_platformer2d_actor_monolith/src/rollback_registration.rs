@@ -89,6 +89,22 @@ where
         OWNER,
         "resource.stocks_match_settled",
     );
+    // …and whether it refused to be settled. Sudden death is entered by NOT
+    // deciding, so this latch is the only thing standing between a level timeout
+    // and re-entering the tie on every tick that follows.
+    registrar.rollback_resource_canonical::<crate::features::stocks_match::SuddenDeathEntered>(
+        OWNER,
+        "resource.sudden_death_entered",
+    );
+    // …and the announcement it makes once. Written inside the sim and read
+    // inside it (the stage puts its survivors on the authored damage), so a
+    // reader's `Local` cursor has to rewind with the latch above — otherwise a
+    // rewind across the entering frame leaves a match in sudden death whose
+    // fighters were never placed.
+    registrar.clear_message_on_rollback::<crate::features::stocks_match::SuddenDeathBegan>(
+        OWNER,
+        "message.sudden_death_began",
+    );
     registrar.rollback_resource_canonical::<crate::features::GameplayElapsed>(
         OWNER,
         "resource.gameplay_elapsed",

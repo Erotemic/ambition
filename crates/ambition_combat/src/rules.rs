@@ -192,6 +192,22 @@ pub struct DeclaredCombatRules {
     /// `0.0` = a clank cancels the attacks and moves nobody. Irrelevant while
     /// [`Self::clank_damage_window`] is zero, because then nothing clanks.
     pub clank_rebound_speed: f32,
+    /// SUDDEN DEATH: the damage every surviving fighter starts on when a timed
+    /// match runs out genuinely level. `None` = no sudden death, and a level
+    /// timeout is simply a draw.
+    ///
+    /// ⭐⭐ IT IS NOT AN OUTCOME, IT IS THE MATCH CONTINUING. A tie is entered
+    /// INSTEAD of being decided — the match was never settled, so nothing has to
+    /// mutate a finished match back into a running one, which is the trap this
+    /// mechanic is usually built into. The clock stops applying, both sides are
+    /// put on the edge of death, and the fight decides it the ordinary way:
+    /// last side standing.
+    ///
+    /// ⚠ THE NUMBER IS THE GENRE'S SHAPE, not one game's: every Smash puts the
+    /// survivors at very high damage so the next clean hit ends it. What is
+    /// authored is the damage, because that is the knob that says how short
+    /// "short" is.
+    pub sudden_death_damage: Option<i32>,
 }
 
 /// The rules combat actually reads this tick.
@@ -225,6 +241,8 @@ pub struct ResolvedCombatTuning {
     pub clank_damage_window: f32,
     /// See [`DeclaredCombatRules::clank_rebound_speed`].
     pub clank_rebound_speed: f32,
+    /// See [`DeclaredCombatRules::sudden_death_damage`].
+    pub sudden_death_damage: Option<i32>,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -323,6 +341,7 @@ impl ResolvedCombatTuning {
                 friendly_fire: rules.friendly_fire,
                 clank_damage_window: rules.clank_damage_window,
                 clank_rebound_speed: rules.clank_rebound_speed,
+                sudden_death_damage: rules.sudden_death_damage,
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -352,6 +371,7 @@ impl ResolvedCombatTuning {
                 // mistake `downward_hit` above already names.
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                sudden_death_damage: None,
             },
         }
     }
@@ -388,6 +408,7 @@ impl Default for ResolvedCombatTuning {
             friendly_fire: false,
             clank_damage_window: 0.0,
             clank_rebound_speed: 0.0,
+            sudden_death_damage: None,
         }
     }
 }
@@ -456,6 +477,7 @@ mod tests {
                 friendly_fire: false,
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                sudden_death_damage: None,
             }),
             baseline_di,
             true,
@@ -491,6 +513,7 @@ mod tests {
             friendly_fire: true,
             clank_damage_window: 0.0,
             clank_rebound_speed: 0.0,
+            sudden_death_damage: None,
         });
         assert_eq!(
             ResolvedCombatTuning::resolve(declared, 0.12, false).di_max_angle,
@@ -516,6 +539,7 @@ mod tests {
                 friendly_fire: false,
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                sudden_death_damage: None,
             }
         );
     }

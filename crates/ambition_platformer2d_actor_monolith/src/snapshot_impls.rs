@@ -94,6 +94,52 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
     }
 }
 
+/// WHICH MATCH is in sudden death — the same shape as the verdict below, and
+/// registered for the same reason: a rewind that restored one and not the other
+/// would restore a continuation belonging to a match that is not running.
+impl SnapshotState for crate::features::stocks_match::SuddenDeathEntered {
+    fn encode(&self, out: &mut Vec<u8>) {
+        match self.entered_match() {
+            None => put_bool(out, false),
+            Some(instance) => {
+                put_bool(out, true);
+                let (session, activated_on) = instance.parts();
+                match session {
+                    None => put_bool(out, false),
+                    Some(session) => {
+                        put_bool(out, true);
+                        put_u64(out, session.0);
+                    }
+                }
+                match activated_on {
+                    None => put_bool(out, false),
+                    Some(tick) => {
+                        put_bool(out, true);
+                        put_u64(out, tick);
+                    }
+                }
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        let entered = if r.bool()? {
+            let session = if r.bool()? {
+                Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+            } else {
+                None
+            };
+            let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
+            Some(crate::character_runtime::MatchInstance::from_snapshot(
+                session,
+                activated_on,
+            ))
+        } else {
+            None
+        };
+        Some(crate::features::stocks_match::SuddenDeathEntered::from_snapshot(entered))
+    }
+}
+
 /// The stocks ruleset's verdict, and WHICH MATCH it is about.
 impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -140,7 +186,6 @@ impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
 
 // The orphan rule forced it the moment the type moved down: `SnapshotState` is core's and the type
 // is core's, so this crate may implement neither. Same shape as `BossEncounter` immediately below.
-
 
 impl SnapshotCursor for crate::features::ActorMotionPath {
     fn encode_cursor(&self, out: &mut Vec<u8>) {

@@ -85,6 +85,56 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
     }
 }
 
+/// THE MATCH ENTERED SUDDEN DEATH, and WHICH match it is about.
+///
+/// ⭐ THE SAME STAMPED SHAPE AS [`StocksMatchSettled`], for the same reason and
+/// with the same payoff: a fact about match X goes stale BY CONSTRUCTION when
+/// match Y activates, so nobody has to retract it and nothing has to be ordered
+/// against activation.
+///
+/// ⛔⛔ AND IT IS WHAT KEEPS THE CLOCK FROM RE-FIRING. Sudden death is entered by
+/// NOT settling the match, so `time_expired` stays true for every tick that
+/// follows — without this latch the tie would be re-entered sixty times a second
+/// and every fighter would be reset to the starting damage forever.
+///
+/// Rollback state for the reason its sibling is: this gates a message the
+/// ruleset acts on, so a rewind across the entering frame must be able to
+/// un-enter it.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SuddenDeathEntered(Option<MatchInstance>);
+
+impl SuddenDeathEntered {
+    /// Is THIS match in sudden death?
+    pub fn entered(&self, active: &ActiveMatch) -> bool {
+        self.0 == Some(active.instance())
+    }
+
+    /// Record that this match has entered it.
+    pub fn enter(&mut self, active: &ActiveMatch) {
+        self.0 = Some(active.instance());
+    }
+
+    /// Which match, for the wire format. See `snapshot_impls`.
+    #[doc(hidden)]
+    pub fn entered_match(&self) -> Option<MatchInstance> {
+        self.0
+    }
+
+    /// Rebuild from a rollback snapshot. See `snapshot_impls`.
+    #[doc(hidden)]
+    pub fn from_snapshot(entered: Option<MatchInstance>) -> Self {
+        Self(entered)
+    }
+}
+
+/// A level timeout became sudden death. The RULESET does the rest — putting the
+/// survivors on the authored damage is a stage's business, not the count's.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SuddenDeathBegan {
+    /// The damage every surviving fighter starts on.
+    pub starting_damage: i32,
+}
+
 /// Decide a stocks match, once.
 ///
 /// no sort, and that is deliberate rather than an oversight.
@@ -95,6 +145,16 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
 pub fn decide_stocks_match(
     mut settled: ResMut<StocksMatchSettled>,
     mut decided: MessageWriter<StocksMatchDecided>,
+    // SUDDEN DEATH's latch and its announcement. Both live here rather than in a
+    // system of their own for the reason the abandon reader does: "the match is
+    // over" and "the match refuses to be over" are one decision, and splitting
+    // them would need an ordering between two systems reading one clock.
+    mut sudden_death: ResMut<SuddenDeathEntered>,
+    mut began: MessageWriter<SuddenDeathBegan>,
+    // The stage's rules, for the one question this system asks of them.
+    // `Option` for the reason every other reader of the projection is: a bare
+    // fixture never installs it, and there the honest answer is no sudden death.
+    combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
     // THE THIRD WAY A MATCH ENDS: somebody stopped it. Read here rather than in
     // a system of its own so that "the match is over" has exactly one author and
     // the once-only latch below covers all three roads.
@@ -174,13 +234,59 @@ pub fn decide_stocks_match(
             if !expired {
                 return;
             }
-            decide_on_the_clock(&fighters)
+            // ⭐⭐ SUDDEN DEATH IS ENTERED INSTEAD OF DECIDING, which is what
+            // keeps this out of the trap the mechanic is usually built into:
+            // nothing mutates a finished match back into a running one, because
+            // the match was never finished. It simply does not settle, the
+            // survivors go to the authored damage, and the fight ends it the
+            // ordinary way — last side standing.
+            //
+            // ⛔ ONLY ON A GENUINE TIE. A timeout with a leader is a WIN, and
+            // sending a fighter who was ahead into a coin flip would take away
+            // the thing the clock was measuring.
+            let outcome = decide_on_the_clock(&fighters);
+            if let Some(damage) = timeout_continues_as_sudden_death(
+                &outcome,
+                combat_rules
+                    .as_deref()
+                    .and_then(|rules| rules.sudden_death_damage),
+            ) {
+                if !sudden_death.entered(&active) {
+                    sudden_death.enter(&active);
+                    began.write(SuddenDeathBegan {
+                        starting_damage: damage,
+                    });
+                }
+                // ⛔ AND IT RETURNS UNSETTLED, every tick from here. `expired`
+                // stays true for the rest of the match, which is exactly why the
+                // latch above is a latch.
+                return;
+            }
+            outcome
         }
     };
     settled.settle(&active);
     decided.write(StocksMatchDecided {
         outcome: outcome.into(),
     });
+}
+
+/// Does this timeout CONTINUE as sudden death instead of deciding?
+///
+/// Split from the query for the reason [`clock_outcome`] is: the RULE can then
+/// be asked without a `World`, and the fold cannot hide inside the answer.
+///
+/// ⛔ ONLY ON A GENUINE TIE. A timeout with a leader is a WIN — sending a
+/// fighter who was ahead into a coin flip would take away the thing the clock
+/// was measuring. And a ruleset that declared no sudden-death damage does not
+/// have the mechanic, so a level timeout there is simply a draw.
+fn timeout_continues_as_sudden_death(
+    outcome: &SidesOutcome,
+    declared_damage: Option<i32>,
+) -> Option<i32> {
+    matches!(outcome, SidesOutcome::Draw)
+        .then_some(declared_damage)
+        .flatten()
 }
 
 /// Who is ahead when the clock runs out, by the genre's tiebreak order.
@@ -304,6 +410,71 @@ mod tests {
 
     fn side(label: &str, stocks: u32, damage: i32) -> (String, u32, i32) {
         (label.to_string(), stocks, damage)
+    }
+
+    /// ⭐⭐ A LEVEL TIMEOUT CONTINUES; A TIMEOUT WITH A LEADER DECIDES.
+    ///
+    /// The rule sudden death turns on, and both halves matter. Sending a fighter
+    /// who was AHEAD on the tiebreak into a coin flip would throw away the thing
+    /// the clock spent eight minutes measuring — so the mechanic is reachable
+    /// only from the one outcome that measured nothing.
+    #[test]
+    fn only_a_genuinely_level_timeout_becomes_sudden_death() {
+        let level = SidesOutcome::Draw;
+        let won = SidesOutcome::Winner("a".to_string());
+
+        assert_eq!(
+            super::timeout_continues_as_sudden_death(&level, Some(150)),
+            Some(150),
+            "a level timeout decided the match instead of continuing it"
+        );
+        assert_eq!(
+            super::timeout_continues_as_sudden_death(&won, Some(150)),
+            None,
+            "a side that WON on the tiebreak was sent to sudden death anyway"
+        );
+        // ⛔ and a ruleset that never declared it does not have the mechanic:
+        // a level timeout there is a draw, which is what every stage did before
+        // this field existed.
+        assert_eq!(
+            super::timeout_continues_as_sudden_death(&level, None),
+            None,
+            "a stage that declared no sudden death got one"
+        );
+    }
+
+    /// ⭐⭐ THE LATCH IS WHAT STANDS BETWEEN SUDDEN DEATH AND A LOOP.
+    ///
+    /// ⛔⛔ Sudden death is entered by NOT SETTLING the match, so `time_expired`
+    /// stays true for every tick that follows — the clock does not un-expire.
+    /// Without a latch the tie is re-entered sixty times a second and both
+    /// fighters are pinned at the starting damage forever, which is a match that
+    /// can never end.
+    ///
+    /// ⭐ AND IT IS STAMPED WITH THE MATCH, so the NEXT match starts un-entered
+    /// without anybody retracting anything — the same property that makes the
+    /// verdict beside it safe.
+    #[test]
+    fn the_sudden_death_latch_fires_once_and_does_not_carry_to_the_next_match() {
+        let first = match_activated_on(100);
+        let mut entered = SuddenDeathEntered::default();
+        assert!(
+            !entered.entered(&first),
+            "a fresh match started already in sudden death"
+        );
+        entered.enter(&first);
+        assert!(
+            entered.entered(&first),
+            "entering sudden death did not record it, so the tie re-enters every \
+             tick the clock stays expired"
+        );
+
+        let second = match_activated_on(900);
+        assert!(
+            !entered.entered(&second),
+            "the NEXT match inherited a sudden death that belonged to the last \
+             one — nobody retracts this, which is the whole reason it is stamped"
+        );
     }
 
     /// WHEN THE CLOCK RUNS OUT, THE SIDE WITH MOST STOCKS TAKES IT.

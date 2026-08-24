@@ -647,6 +647,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // this tick's damage outcome rather than producing it", which is exactly what this is —
         // the KO was decided in Resolve, and spending is bookkeeping over it.
         app.init_resource::<crate::features::stocks_match::StocksMatchSettled>();
+        app.init_resource::<crate::features::stocks_match::SuddenDeathEntered>();
+        app.add_message::<crate::features::stocks_match::SuddenDeathBegan>();
         // the same rule as `BodyHitResolved` below, applied to the clock.
         // `state_the_matchs_pace` writes a `ClockScaleRequest` and this plugin
         // is what schedules it, so this plugin registers it — a fixture that

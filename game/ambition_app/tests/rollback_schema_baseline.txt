@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v83
+ggrs-rollback-schema-v84
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -336,6 +336,7 @@ message.signal_arrival_2d	message-clear	SignalArrival2d	clear abandoned-future m
 message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_projectile	message-clear	ProjectileSpawnRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
+message.sudden_death_began	message-clear	SuddenDeathBegan	clear abandoned-future message buffer in LoadWorld::Mapping
 message.switch_activated	message-clear	SwitchActivated	clear abandoned-future message buffer in LoadWorld::Mapping
 message.toggle_portal_gun	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.trail_continuity_break	message-clear	TrailContinuityBreak	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -427,6 +428,7 @@ resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + id
 resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.stocks_match_settled	resource-canonical	StocksMatchSettled	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sudden_death_entered	resource-canonical	SuddenDeathEntered	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.switch_activation_queue	resource-clone	SwitchActivationQueue	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

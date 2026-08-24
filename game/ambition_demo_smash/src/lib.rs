@@ -787,6 +787,11 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // are no longer inside each other's next swing, which is what makes
         // trading a decision rather than a stutter.
         clank_rebound_speed: 190.0,
+        // SUDDEN DEATH at 150%. A timed match that ends genuinely level does not
+        // end: both sides go to the edge of a launch and the next clean hit
+        // decides it. The number is what makes "short" short — at 150 almost any
+        // connect is a kill, which is the genre's whole point.
+        sudden_death_damage: Some(150),
         // A GRAB HOLDS THE HURT FIGHTER LONGER, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is
@@ -1693,6 +1698,8 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     // picking it means.
                     offer_to_exit_the_match,
                     abandon_the_match_when_the_shell_asks,
+                    // The stage's half of a level timeout.
+                    open_the_sudden_death_round,
                 )),
                 SmashSelectSet,
             ),
@@ -1764,6 +1771,42 @@ fn abandon_the_match_when_the_shell_asks(
 ) {
     for _ in asked.read() {
         abandon.write(ambition_platformer2d::actor::MatchAbandoned);
+    }
+}
+
+/// SUDDEN DEATH'S STAGE HALF: put the survivors on the edge of death.
+///
+/// ⭐ THE ENGINE REFUSED TO DECIDE and said so; what that MEANS to a body is
+/// this stage's business. The count knows stocks and the clock; it does not know
+/// that this ruleset measures a fighter in percent, and a rule that reached into
+/// health from `decide_stocks_match` would be a stocks loop with an opinion
+/// about a damage mechanic.
+///
+/// ⛔ ELIMINATED FIGHTERS ARE NOT REVIVED. A level timeout means the sides are
+/// level on what the tiebreak measures, not that everybody is still alive —
+/// putting a body that already lost its last stock back on the stage would
+/// invent a fighter the match had finished with.
+fn open_the_sudden_death_round(
+    mut began: bevy::prelude::MessageReader<
+        ambition_platformer2d::actors::features::stocks_match::SuddenDeathBegan,
+    >,
+    mut fighters: bevy::prelude::Query<
+        &mut ambition_platformer2d::characters::actor::BodyHealth,
+        (
+            bevy::prelude::With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+            bevy::prelude::Without<ambition_platformer2d::combat::stocks::FighterEliminated>,
+        ),
+    >,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+) {
+    for round in began.read() {
+        for mut health in &mut fighters {
+            health.set_damage_taken(round.starting_damage);
+        }
+        readouts.set(
+            SMASH_ANNOUNCE_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare("SUDDEN DEATH".to_string()),
+        );
     }
 }
 

@@ -545,6 +545,7 @@ fn track_versus_roster(
                 // does.
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                sudden_death_damage: None,
                 // and the engine's own post-hit window stands. This stage's
                 // moves author no separated multi-hit window, so there is
                 // nothing here for a shorter window to make reachable, and

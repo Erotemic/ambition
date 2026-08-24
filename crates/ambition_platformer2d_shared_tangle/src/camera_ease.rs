@@ -393,6 +393,23 @@ impl PlayerBlinkCameraState {
         *self = Self::default();
     }
 
+    /// THIS BODY WAS PUT BACK AT A SPAWN — clear the blink, and keep the snap.
+    ///
+    /// ⭐⭐ ONE VERB BECAUSE THE TWO-STEP WAS THE BUG. Every placer wrote
+    /// `reset()` and then had to remember [`Self::snap_after_placement`], and
+    /// `reset()` CLEARS the snap — so forgetting the second line silently
+    /// produced the defect Jon reported, and both call sites had forgotten it.
+    /// A pair that must be called in one order, where one half undoes what the
+    /// other needs, is a pair that should be one call.
+    ///
+    /// ⛔ `snap_after_placement` stays public for the placer that moves a body
+    /// WITHOUT resetting it (a door transition already arms the timer its own
+    /// way). This is the reset-shaped answer, not the only one.
+    pub fn reset_to_spawn(&mut self, snap_seconds: f32) {
+        self.reset();
+        self.snap_after_placement(snap_seconds);
+    }
+
     /// THIS BODY WAS PUT SOMEWHERE — do not chase it there.
     ///
     /// ⛔⛔ THE PLACER ASKS, and `reset()` above is exactly why this exists as a

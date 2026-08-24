@@ -84,14 +84,10 @@ pub fn reset_sandbox(
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hit_flash = feel.reset_flash_time;
     interaction.reset();
-    blink_cam.reset();
-    // …AND ASK FOR THE SNAP THE RESET JUST CLEARED. This is the road a hazard
-    // death takes, so it is the one that fires most: the body is now at spawn,
-    // which is routinely most of a room from where it died, and without this the
-    // camera EASES the whole way. Same repair as the session reset's, and the
-    // second adopter is what says the verb is the seam rather than a patch.
-    blink_cam
-        .snap_after_placement(ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME);
+    // ONE CALL: clears the blink AND keeps the snap. Writing the two separately
+    // is what produced the defect — `reset()` clears the snap, so a placer that
+    // forgot the second line eased the camera across the whole room.
+    blink_cam.reset_to_spawn(ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME);
     let reset_to = clusters.kinematics.pos;
     sfx.write(SfxMessage::Reset { pos: reset_to });
     vfx.write(VfxMessage::ResetEffects {

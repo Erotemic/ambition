@@ -251,8 +251,14 @@ random source with no consumer is untestable for the only property that matters.
   "the timer is positive" without the reset in the path would pass against the
   bug, because the bug was the reset CLEARING a request that already existed.
   Poison: delete the call site, and it reddens with Jon's own number in the
-  message. ⚠ the SESSION reset's call site is still unpinned; it needs a world
-  the same way and nobody has built it.
+  message. ⭐⭐ AND THE SESSION RESET NEEDED NO FIXTURE AT ALL. Its system takes a
+  save file, three registries and a session-scoped world; standing that up for a
+  one-line camera claim would be a test that breaks on every future change to
+  new-game reset. Instead the two-step became ONE verb — `reset_to_spawn` clears
+  the blink and keeps the snap — so the ordering hazard is unspellable and the
+  session reset's correctness is visible at its call site. ⇒ **the duplication
+  WAS the defect**: both placers wrote `reset()` and both forgot the second
+  line, independently.
 
 ✔ **the DEFECT is fixed**: `blink_cam.reset()` clears the blink (right) and was
 clearing the snap with it (wrong), so the one teleport that most needed the

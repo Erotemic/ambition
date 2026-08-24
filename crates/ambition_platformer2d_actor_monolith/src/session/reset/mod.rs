@@ -335,12 +335,10 @@ pub fn process_new_game_reset_request(
         anim.reset();
         combat.reset();
         combat.hit_flash = 0.18;
-        blink_cam.reset();
-        // …AND THEN ASK FOR THE SNAP THE RESET JUST CLEARED. The body is now at
-        // spawn, which may be most of a room away from where it died; without
-        // this the camera EASES there, which is Jon's *"the camera moved as if
-        // there is a pan that should be happening"* seen from inside one room.
-        blink_cam.snap_after_placement(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
+        // ONE CALL, and it is the reason this system needs no camera test of its
+        // own: `reset_to_spawn` clears the blink and keeps the snap together, so
+        // the ordering hazard that produced Jon's 440px pan is unspellable here.
+        blink_cam.reset_to_spawn(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
         attack.clear();
         safety.last_safe_pos = world.0.spawn;
     }

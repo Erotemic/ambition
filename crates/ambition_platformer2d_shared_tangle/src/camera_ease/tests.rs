@@ -211,6 +211,33 @@ fn a_routes_own_hitlag_decides_what_counts_as_a_hard_hit() {
     );
 }
 
+/// ⭐⭐ `reset_to_spawn` DOES BOTH, which is why placers no longer call the pair.
+///
+/// ⛔⛔ THE TWO-STEP WAS THE BUG. `reset()` clears the snap, so a placer that
+/// wrote it and forgot the second line silently produced Jon's 440px pan — and
+/// both call sites had forgotten it. This asserts the two halves together, which
+/// is the only way they can now be spelled.
+#[test]
+fn resetting_to_spawn_clears_the_blink_and_keeps_the_snap() {
+    let mut cam = super::PlayerBlinkCameraState::default();
+    cam.blink_in_timer = 0.4;
+    cam.blink_camera_from = ae::Vec2::new(9.0, 9.0);
+
+    cam.reset_to_spawn(0.08);
+
+    assert_eq!(
+        cam.blink_in_timer, 0.0,
+        "the old blink survived a reset, so the camera eases from a position \
+         two rooms ago"
+    );
+    assert_eq!(
+        cam.camera_snap_timer, 0.08,
+        "the reset cleared the snap it was supposed to keep — this is the exact \
+         defect, and it is the one a two-step spelling let each placer make \
+         independently"
+    );
+}
+
 /// ⭐⭐ A RESET CLEARS THE BLINK AND STILL LETS THE PLACER ASK FOR A SNAP.
 ///
 /// ⛔⛔ THE ORDER IS THE BUG THIS PINS. `reset()` is right to clear the blink —

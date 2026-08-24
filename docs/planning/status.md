@@ -15,7 +15,39 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-24, LATEST — the hit-unification was PARTLY WRONG; repaired and CLOSED
+## 2026-08-24, LATEST — Smash gained four mechanics; the hit-unification is repaired and CLOSED
+
+⭐⭐ **THE SMASH CAMPAIGN WAS MOSTLY ALREADY DONE, and finding that out was the
+first job.** [`demos/campaigns/smash-fun-push-2026-08-22.md`](demos/campaigns/smash-fun-push-2026-08-22.md)
+is D72's stated execution authority and
+[`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md) is its
+canonical feature truth — **they disagreed**. Every `O` slice plus `W1` and `W6`
+read green in the inventory, so working the campaign's headings in order would
+have rebuilt six shipped features. `W6` argued from a claim about the inventory
+that the inventory never made. ⇒ the campaign is swept and marked; ⛔ re-grep an
+inventory row before working a slice.
+
+✔ **what this session then SHIPPED on it:**
+
+```text
+W2  autolink knockback   an intermediate multi-hit pulse HOLDS its victim
+                         instead of launching. Kernel + authoring, schema 77→78
+W3  the rising spin      Pointed Polygon's Up-B is four holding pulses then one
+                         launch, via a shared `multihit` combinator
+W5  respawn release      swinging SPENDS the respawn protection. It was a flat
+    (the rule half)      timer nothing could end — a free hit every stock.
+                         Schema 78→79
+```
+
+⛔⛔ **THE TWO TRAPS WORTH CARRYING OFF THAT WORK.** (1) In a multi-hit the GAPS
+between Active windows are load-bearing, not spacing: the runtime's re-hit rule
+refuses a contiguous track, so touching windows land ONCE and the mechanic
+silently does not exist. (2) `Empowerment::UNTOUCHABLE` is a CAPABILITY, not a
+claim about who granted it — Sanic's super state and Mary-O's star hold it too —
+so a ruleset ends only the grant it MARKED. Releasing by value equality is not
+ownership.
+
+## 2026-08-24 — the hit-unification was PARTLY WRONG; repaired and CLOSED
 
 D200 is CLOSED (twelve correctness defects, then all five P2 consolidation
 slices) and stays closed. What replaced it is **D203**, opened by Jon after the

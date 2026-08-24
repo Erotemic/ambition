@@ -2862,15 +2862,21 @@ target-keyed registry cannot answer "give me sheet X" for any of those 48 —
 which wins is load order. `record_index()` already keys by file root (196
 unique keys) via `from_baked_table_by_file_root`.
 
-▢ **what is left: (a) retire the stale manifest in each of the three pairs —
-a content call the registry cannot make — and (b) DECIDE THE KEYING**, since
-for the 148 sheets where root == target the two are identical and switching
-would make this whole class impossible rather than reportable. ⛔ not taken
-unilaterally — it changes what a shared engine resource returns for 48 files.
-Asked as **§19** in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md),
-with both options and their blast radius.
-⚠ the sandbag pair is loudest if it resolves wrong: a 128px sheet cropped on a
-256px grid.
+✔✔ **THE SHEET HALF IS CLOSED (2026-08-24), and the answer was (b), which
+dissolved (a).** Jon ruled §19 for FILE-ROOT keying on 2026-08-22; with it a rig
+target is not a key at all, so `robot` and `robot_archivist` never competed and
+there was never a stale manifest to retire — they are three distinct products
+that happened to share a rig adapter. MEASURED at HEAD across the shipped baked
+table: **848 keys, ZERO shadowed**, down from 39. Guarded by
+`no_shipped_sheet_key_is_claimed_twice`, which asserts it against the real table
+rather than a fixture.
+
+⛔ and it can still go red, which is why it is asserted: the two spellings share
+one namespace, so a packed atlas whose member is named for an existing file root
+collides. Exactly one packed product exists today (`creator_lab_props`, 8
+members, no collision), which is why the `product::member` spelling is NOT built
+— see D200 §8e, where the record's lookup `key` was separated from its authored
+rig `target` so that spelling has somewhere to live when a second one arrives.
 
 ✔ **a fifth boot warning found while measuring the above, fixed 2026-08-18.**
 `mary_o::quasar: overlay not attached` printed on the FIRST frame of an
@@ -2902,16 +2908,22 @@ room has 38 neighbours       ✔ LEAVE IT — warn_once!, names its constant, an
 npc_kernel_guide             ▢ NEW, and worth someone's attention
 ```
 
-▢ **`NpcSpawn-0017` names `npc_kernel_guide`, which the composition has not
-registered**, so it falls back to its catalog row's body with a borrowed kit —
-correct only for a BORROWED character in a partial composition, and
-`ambition_gameplay` is not one. The character is authored into
-`hall_of_characters.ldtk` and `sandbox.ldtk`, has its own spritesheet, and the
-intro road resolves it by id. ⇒ a member of the room that exists to show the
-cast off is running on somebody else's kit. ⚠ whether it should get an
-authored `CharacterDefinition` is a content call; check the D56 note first —
-the Kernel Guide "leaves it blank so kernel→goblin keeps its visual gag," in
-case the borrow is the joke.
+⊙ **`NpcSpawn-0017` names `npc_kernel_guide`, and NOT registering it is the
+design** — this row assumed the opposite. `register_declared_cast` iterates
+`buildable_cast()` (the playable roster plus the build-only list) and its own
+comment says why an exploration NPC is excluded: *"A bare registration for an
+exploration NPC would incorrectly replace its archetype-authored body."* The
+Kernel Guide is a hub NPC, so it is absent by intent, not by omission.
+
+⇒ and it is not running on somebody else's kit. Its catalog row states its
+spritesheet and manifest, `sprite_tuning`, `default_brain: patrol_peaceful`,
+`default_action_set: peaceful`, its barks and its hall dialogue id; the intro
+road resolves its sheet by id. That is the same road every hub NPC takes.
+
+⚠ what is genuinely left is only D56's question — whether the Kernel Guide
+should author a `CharacterDefinition` of its own, given it *"leaves it blank so
+kernel→goblin keeps its visual gag."* That is a content call and it is Jon's; it
+is not a defect and nothing is broken while it waits.
 
 - ✔ **D161 — CLOSED 2026-08-18. No loading zone prints an authoring id any
   more: 130 → 0, and a per-world ratchet in CI keeps it there.** (opened

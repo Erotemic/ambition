@@ -743,3 +743,41 @@ fn the_real_baked_table_still_resolves_the_players_variant() {
         );
     }
 }
+
+/// ⭐⭐ **EVERY SHIPPED SHEET IS REACHABLE, AND NONE OF THEM SHADOWS ANOTHER.**
+///
+/// The keying ruling (file root; a packed atlas keys each member by its own
+/// name) exists to make this true, and before it the shipped table had THIRTY
+/// NINE shadowed targets, three of them real: `robot`'s own 256×256 page lost to
+/// `robot_archivist`, `goblin`'s to `goblin_brute_hammer`, `sandbag`'s to
+/// `sandbag_armored_review` — a 128px sheet cropped on a 256px grid. All 848
+/// keys are now claimed once.
+///
+/// ⛔ THIS CAN STILL GO RED, which is why it is worth asserting rather than
+/// assuming: the two spellings share ONE namespace. A packed atlas whose member
+/// is named for an existing file root — a second props sheet with a `robot`
+/// member, say — collides, and the survivor crops the loser's image with the
+/// wrong grid. That is the day to give the key its `product::member` spelling;
+/// until then there is exactly one packed product in the tree and building the
+/// spelling for it would be machinery.
+#[test]
+fn no_shipped_sheet_key_is_claimed_twice() {
+    let registry = crate::baked_sheet_registry();
+    assert!(
+        registry.len() > 500,
+        "the baked table came up nearly empty ({}), so this measured nothing",
+        registry.len(),
+    );
+    let shadowed: Vec<String> = registry
+        .shadowed_targets()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    assert!(
+        shadowed.is_empty(),
+        "a shipped sheet key is claimed by two manifests with different frame \
+         geometry, so one of them is unreachable and the other crops with the \
+         wrong grid:\n{}",
+        shadowed.join("\n"),
+    );
+}

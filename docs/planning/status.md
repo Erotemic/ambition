@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `c0f7bf0e2` (2026-08-24 local project date).
+**Snapshot:** `11ffb209a` (2026-08-24 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -15,12 +15,12 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-24, LATEST — D200 is CLOSED, and a hit takes two roads
+## 2026-08-24, LATEST — the hit-unification was PARTLY WRONG, and is repaired
 
-D200 closed both halves: twelve correctness defects, then all five P2
-consolidation slices. What replaced it on the ledger is **D203**, opened by Jon
-after the ledge fix: *"the ledge damage issue sounds like a player actor
-unification we need to at least log as a todo."*
+D200 is CLOSED (twelve correctness defects, then all five P2 consolidation
+slices) and stays closed. What replaced it is **D203**, opened by Jon after the
+ledge fix: *"the ledge damage issue sounds like a player actor unification we
+need to at least log as a todo."*
 
 He was right and the ledge was the symptom. A damaging hit resolves down
 `apply_player_hit_events` or `apply_feature_hit_events` (and a THIRD road, the
@@ -28,24 +28,58 @@ capture throw), all three ending in one shared `apply_body_hit_reaction` — and
 what drifted is everything each road does AROUND that call. In an arena the whole
 roster is actors, so a player-only rule is invisible until somebody plays it.
 
+⛔⛔ **READ THIS BEFORE MOVING ANYTHING ELSE INTO THE SHARED REACTION.** The
+first slice moved `refresh_movement_resources_clusters` — air jumps, dash charges
+AND the air dodge — in as *"the air options a hit gives back"*, reasoning:
+
 ```text
-refresh_movement_resources player-only until ec75dc307   a hit gives the air options back
-knock_off_ledge            player-only until c3d7cdba7   a hit takes the hang
-⇒ both now live in `apply_body_hit_reaction` (ec6ddc3cc, c0f7bf0e2), which is
-  where moving the first one found that the capture THROW had never had it either
+   player road does X   ·   actor road lacks X   ⇒   X is a fact of being hit
 ```
 
-⛔ **and they were moved because they were WRONG somewhere, not to tidy a file.**
-Wallet armor, safe respawn, the cling break and kill disposition are genuinely
-road-specific — that is why there are two roads. The table on D203 is the list to
-keep honest.
+That inference is INVALID, and it shipped a false mechanic. In the genre a spent
+double jump stays spent through an ordinary edge-guard hit — taking somebody's
+second jump is a thing you do to them — and Ambition's traversal dash was swept
+up without ever being named. Repaired at `2daa4fa05`: `AirBudget` deleted, the
+reaction takes the ONE resource the rule names, and the jump went to its real
+CAUSES (catching the ledge, being caught, landing). The test that enshrined the
+wrong rule is gone with it.
 
-⭐ **THE SECOND ONE WAS A FAIRNESS DEFECT, not tidiness.** A CPU launched
-offstage with a spent double jump read `air_jumps_left: 0` — what `SelfView`
-calls the recovery budget — so its brain could not route a recovery a human would
-have had. `ae::AirBudget` now hands the three budgets to the reaction, and the
-player road's separate call is deleted: the rule stopped being anybody's to
-remember.
+⇒ **the classification table on D203 is the thing to use**, not "which road has
+it". Ask whether a behaviour is intrinsic to an accepted hit, a launch
+consequence, a ruleset policy, a cause-specific rule, or a road's own economy.
+
+✔ what IS the reaction's, and correctly:
+
+```text
+knock_off_ledge      a hit takes the hang            (was both roads', separately)
+air dodge returned   a hit gives the evade back      (one resource, not three)
+hitlag               the freeze that makes it read as a hit
+```
+
+✔ **AND A DAMAGE-ONLY HIT IS STILL A HIT.** `knockback_velocity(None)` returns a
+ZERO launch and the reaction wrote it over the body's own velocity, so a hazard
+or a chip stopped a running player dead; the actor road had dodged that by
+wrapping its whole reaction call in `if let Some(k) = knockback`, which cost it
+every hit fact instead. Two roads, wrong in opposite directions. The reaction now
+separates THE FACTS OF BEING HIT from THE FACTS OF A LAUNCH, and both roads call
+it for every accepted hit.
+
+✔ **The CPU can now reach a ledge to guard it** (`8d7dce964`). Both terms of the
+corner test asked for the NEAREST edge, so the ledge you stand beside to punish a
+hang read like the ledge you are backed against: a fighter walking out to
+edge-guard flipped `EdgeGuard → Disadvantage` 90px from the lip and retreated,
+every time. Retreat is away from the THREAT, so that is the direction it asks in.
+
+✔ **A ground guard no longer rides into the air** (`11ffb209a`). `resolve_shield`
+gated the raise and not the sustain, and a held Shield also fills the air-dodge
+buffer once airborne — so walking off a ledge guarding produced the exact state
+`air_guard: false` exists to forbid.
+
+⚠ **D201's reference facts were WRONG and are corrected in the row.** Ultimate
+does NOT allow an indefinite hang (6.5s under 100%, 5s at or above), its 6-grab
+regrab limit is NOT the same mechanism as diminishing intangibility, and
+damage-scaled getup is an OLDER-game rule that Smash 4 onward dropped. Do not
+implement from the pre-correction text.
 
 ⛔⛔ **AND THE HABIT TO KEEP IS THE REVERTS.** Four changes were built, measured
 and thrown away this pass, each buying a finding the ledger now carries:

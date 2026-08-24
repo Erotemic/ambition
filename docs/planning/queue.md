@@ -543,63 +543,78 @@ MEASURED at HEAD, 2026-08-24:
 | rule | player road | actor road |
 | --- | --- | --- |
 | `knock_off_ledge` — a hit takes the hang | ✔ | ✔ — and now NEITHER road's, it is the reaction's |
-| `refresh_movement_resources_clusters` — a hit gives the air options back | ✔ | ✔ **as of this row's first slice; it was PLAYER-ONLY before** |
+| air DODGE returned — a hit gives the evade back | ✔ | ✔ — the reaction's |
+| air JUMP returned | ⛔ **REMOVED — a hit does NOT return it** | ⛔ same |
+| traversal DASH charges returned | ⛔ **REMOVED — never a hit rule at all** | ⛔ same |
 | `safe_respawn_player` / `ClockResetRequest` | ✔ | — (a ruleset owns actor death) |
 | wallet armor | ✔ | partial |
 | `cling_breaks_on_hit` — a struck crawler is peeled off its surface | — | ✔ |
 | `kill_disposition` / respawn timer / KO banner | — | ✔ |
 
-✔ **FIRST SLICE LANDED — the recovery budget.**
-`refresh_movement_resources_clusters` restores air jumps, dash charges and the
-air dodge, and the genre's rule is that being HIT gives them back — that is how a
-launched fighter recovers. The kernel refreshes on ground contact and on a
-bounce; the extra "and on a hit" call exists only on the player road
-(`damage_apply.rs:868`). ⇒ a CPU fighter launched offstage having already spent
-its double jump reads `air_jumps_left: 0`, which is exactly what
-`SelfView::air_jumps_left` calls *"the recovery budget"* — so the brain could not
-route a recovery it would have had as a human. Same stage, same hit, two rules.
-⇒ fixed on the actor road, guarded by `a_hit_gives_a_struck_actor_its_air_jump_back`
-(poisoned and checked), which asserts the authored budget is non-zero first so a
-policy with no air jump cannot make it vacuous. `MotionModel::air_jumps()` is the
-new accessor, a sibling of `shield_tuning()` — a caller holding the model should
-not have to know which policy keeps the number.
+✔ **THE LEDGE HANG IS THE REACTION'S.** It was the player road's, then the actor
+road's separately — two copies of one rule, which is the whole diagnosis. Both
+are deleted; `apply_body_hit_reaction` takes the hang and drops it BEFORE the
+launch is written, so a ledge constraint can never eat the launch the same hit
+handed out. The throw passes `None` and says why: a captive is not holding an
+edge.
 
-✔✔ **AND THE SHAPE IS FIXED FOR THIS RULE — the refresh is no longer anybody's
-to remember.** There were THREE roads, not two: the throw
-(`apply_capture_throws`) had no refresh either, so a thrown fighter could not
-recover from where the captor put it. `ae::AirBudget` borrows the three budgets
-together and `apply_body_hit_reaction` — the one function all three roads already
-called — takes it and refreshes. The player road's separate call is DELETED, and
-the actor and throw roads gained the rule by handing over an argument rather than
-by remembering a line.
+✔ **A DAMAGE-ONLY HIT IS STILL A HIT, and both roads were wrong about it in
+OPPOSITE directions.** `knockback_velocity(None)` returns a ZERO launch, and the
+reaction wrote that zero straight over `*vel` — so a hazard, a chip or a poison
+tick stopped a running player dead. The actor road had dodged that by wrapping
+its whole reaction call in `if let Some(k) = knockback`, which cost it every hit
+fact instead: no hitlag, no ledge drop, no evade back. ⇒ the reaction now
+separates THE FACTS OF BEING HIT (ledge, air dodge, hitlag) from THE FACTS OF A
+LAUNCH (velocity, `pending_launch`, hitstun, recoil lock, carry), and an armoured
+body and a launchless hit take the same road out of it — neither is going to be
+thrown. Both damage roads call it for every accepted hit. Guarded by
+`a_hit_with_no_knockback_publishes_no_launch_and_keeps_the_ride` (which already
+set a velocity and then never asked what became of it — it asserted the empty
+CHANNEL and agreed with the bug about the VELOCITY) and by
+`a_hit_knocks_a_hanging_actor_off_the_ledge`, now driven with BOTH knockbacks.
 
-⚠ the throw's query now REQUIRES the movement columns, which is production-true
-(`MotionModel`'s own doc: *"absence is not a policy: every integrated body
-carries a variant from spawn"*) and caught two capture fixtures that spawned a
-body without them — repaired to model a real body rather than relaxed to
-`Option`.
+⛔⛔ **AND THE FIRST SLICE OF THIS ROW SHIPPED A FALSE RULE.** It moved
+`refresh_movement_resources_clusters` — air jumps, dash charges AND the air dodge
+— into the reaction as "the air options a hit gives back", generalised from what
+the player road happened to do. The genre's rule is that a spent DOUBLE JUMP
+STAYS SPENT through an ordinary edge-guard hit; taking somebody's second jump is
+a thing you do to them, and a hit that handed it straight back deleted the reason
+to. Ambition's traversal DASH is its own capability and was swept up without ever
+being named. ⇒ `AirBudget` is DELETED, the reaction takes the one resource the
+rule actually names (`&mut BodyDodgeState`), and
+`a_hit_gives_a_struck_actor_its_air_jump_back` — which enshrined the wrong
+mechanic — is replaced by
+`a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent`, asserting all
+three resources because the failure it replaces was a rule that swept up two it
+never named.
 
-✔✔ **AND THE LEDGE HANG FOLLOWED IT IN.** It was the player road's, then the
-actor road's separately — two copies of one rule, which is the whole diagnosis.
-Both are deleted; `apply_body_hit_reaction` takes the hang beside the budget and
-drops it BEFORE the launch is written, so a ledge constraint can never eat the
-launch the same hit handed out. The throw passes `None` and says why: a captive
-is not holding an edge.
+✔ **AND THE JUMP'S REAL CAUSES GOT IT INSTEAD**, each at its own cause:
+  - **catching the ledge** (`try_start_ledge_grab_clusters_in_frame`) — see D201.
+  - **being caught** (`acquire_captures`), not being thrown. It used to arrive as
+    a side effect of the THROW calling the shared reaction, so a captive that
+    MASHED OUT instead of being thrown got nothing.
+  - landing and the bounce, which always had it.
 
-⇒ **what is still open is the shape for every OTHER rule.** Two roads still each
-carry their own copy of what a hit does — wallet armor, safe respawn, the cling
-break, kill disposition — and the next divergence will be found the way both of
-these were: by somebody playing the demo. The table above is the list to keep
-honest. ⛔ and the two that moved were moved because they were WRONG somewhere,
-not to tidy the file; a rule that is right on every road it appears on can stay
-where it is.
+⇒ **the shape of the fix is NOT "call the same six things twice", and it is NOT
+"whatever the player road did".** ⛔⛔ THE METHOD IS THE THING TO GET RIGHT:
+*road A has behaviour X, road B lacks X, therefore X is a universal fact of being
+hit* is an INVALID inference, and it is how this row shipped a wrong rule while
+fixing a right one. Before moving anything else into the reaction, classify it:
 
-⇒ **the shape of the fix is NOT "call the same six things twice".** Both roads
-already funnel into one reaction; what belongs there is everything that is a fact
-about BEING HIT (the hang, the air budget, the cling), leaving each road only
-what is genuinely its own (a ruleset owns actor death; a save file owns the
-player's respawn). ⛔ do not merge the roads wholesale — the asymmetries that are
-real are the reason there are two.
+| kind | example | where it belongs |
+| --- | --- | --- |
+| intrinsic to an accepted hit | hitlag, the ledge hang | the shared reaction |
+| authored launch consequence | velocity, hitstun, carry | the reaction's launch half |
+| platform-fighter reaction policy | the air dodge coming back | the reaction, as a ruleset rule |
+| cause-specific, NOT generic | the double jump | its own cause (ledge, capture, landing) |
+| body/motion policy | `cling_breaks_on_hit` | investigate before centralising |
+| player/save policy | `safe_respawn_player` | the player road |
+| actor/game policy | `kill_disposition`, the KO banner | the actor road |
+| economy policy | wallet armor | damage resolution |
+
+⛔ do not merge the roads wholesale — the asymmetries that are real are the reason
+there are two. The goal is NARROW roads around one honest shared reaction, not a
+mega-function that knows every game's death, economy and movement policy.
 
 - ▢ **D202 — CONTROL IS PUBLISHED IN TWO PHASES, SO EVERY RESTRICTION OVER IT
   RUNS TWICE.** (found 2026-08-24 working D200 §8b)
@@ -664,32 +679,56 @@ delay), drop (down) — six options, all bound, none behind an ability gate;
 (`resolve_ledge_trumps`), ledge intangibility is a bounded decaying timer, and a
 hit now takes the hang.
 
-⇒ **what is genuinely absent**, measured at the source:
-  - a HANG TIME LIMIT. Nothing ages a hang. ⚠ and the genre may not want one:
-    Melee and Ultimate both let you hang indefinitely, and what makes camping
-    cost something is the intangibility expiring, the trump, and the hit — all
-    three of which now exist. ⇒ MEASURED at the source, 2026-08-24: ledge
-    intangibility is 0.10s at minimum and 0.50s at most, scaled linearly by how
-    long the fighter was airborne before catching (`LEDGE_INVULN_FULL_AIRTIME`
-    1.20s) and DECAYING — so a camper is exposed within half a second of
-    catching, every time. Those numbers are sane; a hang timer would be a third
-    punishment on top of two that already bite. ⇒ what is worth measuring next
-    is whether the CPU ever EDGE-GUARDS, because a rule nobody exercises reads
-    exactly like a rule that does not exist.
-  - a LEDGE-GRAB LIMIT. ⇒ RESEARCHED 2026-08-24 and the answer is that the
-    MECHANISM ALREADY EXISTS under a different key. The genre's punishment for
-    stalling from below is DIMINISHING ledge intangibility, and Ambition scales
-    it by PRE-CATCH AIRTIME rather than by a regrab count:
-    `ledge_invuln_for(time_off_ledge)` is linear from 0.10s to 0.50s over
-    `LEDGE_INVULN_FULL_AIRTIME` (1.20s). A fighter dropping and regrabbing in a
-    third of a second gets the floor; one returning from a real launch gets the
-    whole window. ⛔ so a COUNT would be a second authority over one punishment,
-    which is the shape this project keeps removing. The parity row's own note
-    already said so — *"existing airtime-scaled intangibility remains the
-    baseline"*. Reopen only if play shows the airtime key failing where a count
-    would not.
-  - DAMAGE-SCALED GETUP. `LEDGE_CLIMB_TIME` and friends are constants, so a
-    fighter at 150% gets up exactly as fast as one at 0%.
+✔✔ **AND THE CATCH ITSELF NOW PAYS THE RECOVERY.** (Jon, 2026-08-24: *"just
+grabbing the ledge should restore the jumps."*) It did not: the refresh lived on
+TWO of the five ways OUT of a hang — ledge jump and ledge release — and drop,
+climb and getup attack had nothing. So a fighter that reached the lip with an
+empty budget and dropped off to reposition fell with nothing, having just touched
+the thing the genre says restores it, while the same fighter pressing jump got
+everything back. ⇒ one site, at the latch (`try_start_ledge_grab_clusters_in_frame`),
+and the two exit refreshes are DELETED — nothing between the grab and the exit
+can spend any of it. Guarded by
+`catching_the_ledge_restores_the_air_budget_and_dropping_off_keeps_it`, which
+drives the DROP deliberately: it is the door that had nothing.
+
+⛔⛔ **AND THE THREE ITEMS BELOW WERE RESEARCHED WRONG.** Corrected 2026-08-24
+against a GPT review. The row asserted three reference facts about Ultimate that
+are false, and it was about to steer implementation with them. What is written
+here now is the reference behaviour; what Ambition SHIPS may still differ, but it
+differs as a stated policy choice and not because the genre was misread.
+
+  - a HANG TIME LIMIT. ⛔ THE ROW SAID *"Melee and Ultimate both let you hang
+    indefinitely"*. THEY DO NOT. Smash 4 / Ultimate age the hang: **6.5 seconds
+    below 100%, 5 seconds at 100% or more**, after which the fighter is forced
+    off. ⇒ "no hang limit is the genre's answer" was never a valid rationale for
+    Ambition having none. The measurement that ACCOMPANIED the false claim still
+    stands on its own — ledge intangibility here is 0.10s to 0.50s scaled by
+    pre-catch airtime (`LEDGE_INVULN_FULL_AIRTIME` 1.20s) and decaying, so a
+    camper is exposed within half a second — and a ruleset may reasonably decide
+    that exposure plus the trump plus the hit is punishment enough. ⇒ that is a
+    POLICY CHOICE to state, not a genre fact to cite.
+  - a LEDGE-GRAB LIMIT. ⛔ THE ROW SAID a count would be *"a second authority"*
+    over the same punishment as diminishing intangibility. IT IS NOT THE SAME
+    MECHANISM. Ultimate carries an independent **maximum of 6 ledge grabs before
+    landing**, after which later grabs simply FAIL; being put into hitstun resets
+    the count. Diminishing intangibility on repeated grabs is an ADDITIONAL
+    penalty that runs beside it. ⇒ the airtime-scaled window is a fine baseline
+    and Ambition may prefer a configurable superset — but the count was rejected
+    on a premise that was not true, and that rejection is withdrawn.
+  - DAMAGE-SCALED GETUP. ⛔ REMOVED FROM THE PARITY GAP. Slow getups at high
+    percent are the OLDER games; from Smash 4 onward ledge options behave the
+    same regardless of damage. `LEDGE_CLIMB_TIME` being a constant is CURRENT
+    parity, not a hole in it. If a retro ruleset wants percent-scaled getups
+    later it is a variant, and it is the one that owes the justification.
+
+⇒ what is worth measuring next is whether the CPU ever EDGE-GUARDS, because a
+rule nobody exercises reads exactly like a rule that does not exist. ✔ MEASURED
+2026-08-24 and the answer was NO, for a reason nothing in the ledge code: the
+corner test asked for the NEAREST edge in both its terms, so the ledge a fighter
+stands beside to punish a hang read the same as the ledge it is backed against.
+A fighter walking out to edge-guard flipped `EdgeGuard → Disadvantage` 90px from
+the lip and retreated, every time. Retreat is away from the THREAT, so the
+question is asked in that direction now (`StageView::room_toward`, `8d7dce964`).
 
 ⛔ ship the genre's answer rather than escalating it (a genre's mechanics are
 research, not a maintainer decision) — but MEASURE the existing tuning first.
@@ -2563,37 +2602,43 @@ DECLARED wire-format change under the policy Jon approved 2026-08-23. That is
 the honest price: one input rule, one ruleset knob, one schema bump — not the
 one-liner the table reads as.
 
-⛔⛔ **BUILT IT, IT WORKS, AND IT WAS REVERTED — read this before building it
-again.** All four pieces landed and passed their own tests: `ShieldTuning::air_guard`
-(`true` by default so Ambition's bubble is untouched, `false` in
-`PLATFORM_FIGHTER`), `resolve_shield` refusing an airborne RAISE while leaving an
-existing guard alone, the airborne press buying an air dodge only where the
-button means nothing else, schema v77 with the codec shape re-recorded, and two
-new kernel tests — including one that CAUGHT the double meaning (a press
-producing `[AirDodge, ShieldUp]` together) before the guard clause existed. The
-jump-out-of-shield test also gained the airborne refusal as a fact.
+✔✔ **SHIPPED. The revert note that stood here is WITHDRAWN — the rule is live.**
+`ShieldTuning::air_guard` (`true` by default so Ambition's deployable bubble is
+untouched, `false` in `PLATFORM_FIGHTER`), the airborne press buying an air dodge
+only where the button means nothing else, schema v77 with the codec shape
+re-recorded, and kernel tests including the one that CAUGHT the double meaning (a
+press producing `[AirDodge, ShieldUp]` together).
 
-⇒ **what stopped it is `app_it`'s `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`.**
-It asserts a shared cognitive stream keeps a REFLECTION decisively better than
-independent streams (`emmy_rate > ordinary_rate * 2.0`). With the rule on:
-**Emmy 1153/1376 = 84%, ordinary 712/1376 = 52%** — still a large difference,
-but not 2×. Probed by flipping ONLY `air_guard` back to `true`: the test passes,
-so the rule is the cause and not the plumbing.
+⇒ **what had stopped it was `app_it`'s
+`two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`** (shared
+cognitive stream keeps a REFLECTION decisively better than independent streams;
+`emmy_rate > ordinary_rate * 2.0` — with the rule on, Emmy 84%, ordinary 52%).
+✔ RESOLVED by explaining the mechanism rather than re-fitting the constant: an
+air dodge sets `vel = (frame.side()*aim.x + frame.down()*aim.y) * speed` in the
+GRAVITY frame, so a NEUTRAL air dodge zeroes velocity — a symmetry ATTRACTOR that
+lifts the ordinary pair — while a directional one is absolute and breaks a
+shared-stream mirror. Both movements are the same rule seen from two starting
+points. The margin is 1.5 with that written into the test.
 
-⚠ **and one hypothesis is already eliminated.** The instrument counts the
-mirrored PREFIX and breaks on the first divergent frame, so "one air-dodge
-excursion truncates the window" was the obvious explanation. Changing it to count
-mirrored frames as a FRACTION moved the numbers by four frames (84% / 52%
-unchanged). The ordinary pair genuinely spends more of the match reflected under
-this rule, and I do not know why.
+⛔⛔ **AND THE FIRST VERSION GATED THE RAISE ONLY, WHICH WAS A LIVE
+CONTRADICTION.** `resolve_shield` read `may_guard_here || *active` — refusing a
+new airborne guard but leaving an existing one alone, on the argument that a body
+which left the ground guarding "has not made a new decision". But under
+`air_guard: false` a held Shield ALSO fills the air-dodge buffer the moment the
+body is airborne, so walking off a ledge with the guard up produced exactly the
+state the policy exists to forbid: an active ground shield and an air dodge in
+the same tick. The existing airborne test could not see it — it began airborne
+with the guard already down. ⇒ the flag gates the SUSTAIN as well as the raise
+(leaving the ground drops the guard, which is what makes jumping out of shield a
+commitment), guarded by `a_ground_guard_does_not_survive_leaving_the_ground`,
+whose second half is the poison: `air_guard: true` must KEEP the airborne bubble,
+so a fix that simply drops every shield on takeoff fails it.
 
-⇒ **the next attempt owes that answer first.** An air dodge travels along
-`frame.side()` — the gravity frame's axes, not facing-relative, which is correct
-for the genre — so it is the first SHARED action two mirrored bodies can take
-that is not a reflection of each other. That explains Emmy falling from a
-recorded 100% to 84%. It does NOT explain the ordinary pair rising from a
-recorded 32% to 52%, and until it does, re-fitting the 2× margin would be
-fitting a constant to a behaviour nobody has explained.
+⚠ and repairing it exposed a fixture that had been passing for the wrong reason:
+`a_jump_out_of_shield_is_allowed_and_takes_the_guard_with_it` wrote `on_ground =
+true` by hand for its final stanza, which bought one grounded RAISE that then
+survived every airborne step after it. The falsifier and the bug agreed. It lands
+for real now.
 
 ⭐ **the seam is already the right shape and the cost is small.**
 `resolve_burst_maneuver` (`movement/abilities.rs`) already returns

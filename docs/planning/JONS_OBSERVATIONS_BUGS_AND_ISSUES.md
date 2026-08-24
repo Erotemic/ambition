@@ -299,8 +299,14 @@ you should fall off the ledge at least."*
 ◐ A hit now takes the hang: the rule existed and only the PLAYER road called it, so on
 the actor road every fighter in the arena hung through an edge-guard untouched. The
 getup vocabulary turned out to be complete already (roll, ledge jump, getup attack,
-climb, drop) and ledge trumping is live; what is genuinely missing is a hang time
-limit, a regrab count and damage-scaled getup speed — queued as D201.
+climb, drop) and ledge trumping is live. Two more landed 2026-08-24: catching the
+ledge now restores the jump and air dodge at the LATCH (Jon: *"just grabbing the
+ledge should restore the jumps"* — it was on two of the five ways OUT of a hang and
+absent from the other three, so dropping off the lip cost you everything), and a
+fighter can now reach the ledge at all to guard it — the corner test asked for the
+nearest edge in both terms, so the CPU flipped to "cornered" 90px from the lip and
+retreated. What remains is a hang time limit and a regrab count, both re-researched
+because D201's first pass had the reference facts wrong — queued there.
 
 ## 2026-08-21 — Mary-O: the pole victory TRANSLATES her, and side contact hits the snake
 

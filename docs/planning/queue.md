@@ -1821,8 +1821,14 @@ ROOT and the closure below it is shared, so a carry, a vehicle or scripted
 transport joins beside it instead of editing an ability. ⛔ still concrete and
 typed: no registry, no erased callback, no generic attachment graph.
 
-▢ **(the case, kept because it is the reusable half.)**
-`project_driven_body_custody` calls itself *"the one owner of `InCustodyOf` for
+⊙ **(the case, kept because it is the reusable half — ⛔ NOT OPEN WORK.)**
+⚠ **re-checked 2026-08-24: `project_driven_body_custody` DOES NOT EXIST.** The ✔
+directly above closed this, and the ▢ marker on the argument for it survived —
+which reads as an open item and is exactly what a `▢` on landed work costs. The
+system is `body_custody::project_body_custody` in its own neutral module; the
+paragraph below is the REASONING, kept for the next attachment relation that
+wants to join, and nothing here is left to do. The case as it was written:
+`project_driven_body_custody` called itself *"the one owner of `InCustodyOf` for
 BODIES"* while living in `abilities/traversal/possession.rs`, and it now closes
 custody transitively over mounts (`RidingOn`), limbs (`Limb`) and arbitrarily deep
 attachment chains. Possession is one ROOT REASON a body stops being resident, not

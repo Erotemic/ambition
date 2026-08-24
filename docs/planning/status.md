@@ -15,7 +15,7 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-24, LATEST — the hit-unification was PARTLY WRONG, and is repaired
+## 2026-08-24, LATEST — the hit-unification was PARTLY WRONG; repaired and CLOSED
 
 D200 is CLOSED (twelve correctness defects, then all five P2 consolidation
 slices) and stays closed. What replaced it is **D203**, opened by Jon after the
@@ -47,6 +47,14 @@ wrong rule is gone with it.
 ⇒ **the classification table on D203 is the thing to use**, not "which road has
 it". Ask whether a behaviour is intrinsic to an accepted hit, a launch
 consequence, a ruleset policy, a cause-specific rule, or a road's own economy.
+
+✔ **D203 is CLOSED**, and the last four rows closed by MEASUREMENT rather than by
+moving anything: wallet armor is not partial (one shared resolver; only the
+GRANTOR is narrow), the cling break is a motion-model policy no home avatar can
+have, `safe_respawn_player` is gated on an authored hazard MODE and not a body
+class, and `kill_disposition` is the ruleset's by the same argument the player's
+respawn is the save file's. ⛔ a rule that is right on every road it appears on
+stays where it is — do not open a third unification pass.
 
 ✔ what IS the reaction's, and correctly:
 

@@ -523,9 +523,10 @@ BEATS A THEORY.** Every refutation came from running the same code at two inputs
 that prints before it steps is off by the input pipeline's latency; print after
 the step, or print enough frames that latency reads as a delay and not a stall.
 
-- ▢ **D203 — A HIT TAKES TWO ROADS, AND THEY HAVE DRIFTED APART.** (Jon,
-  2026-08-24: *"the ledge damage issue sounds like a player actor unification we
-  need to at least log as a todo"*)
+- ✔ **D203 — A HIT TAKES TWO ROADS. CLOSED 2026-08-24: the drift is repaired and
+  the remaining asymmetries are MEASURED CORRECT.** (Jon, 2026-08-24: *"the ledge
+  damage issue sounds like a player actor unification we need to at least log as
+  a todo"*)
 
 He is right, and the ledge was the symptom rather than the thing. A damaging hit
 resolves down one of two roads — `apply_player_hit_events` → `apply_player_knockback`
@@ -547,8 +548,8 @@ MEASURED at HEAD, 2026-08-24:
 | air JUMP returned | ⛔ **REMOVED — a hit does NOT return it** | ⛔ same |
 | traversal DASH charges returned | ⛔ **REMOVED — never a hit rule at all** | ⛔ same |
 | `safe_respawn_player` / `ClockResetRequest` | ✔ | — (a ruleset owns actor death) |
-| wallet armor | ✔ | partial |
-| `cling_breaks_on_hit` — a struck crawler is peeled off its surface | — | ✔ |
+| wallet armor | ✔ | ✔ — **the "partial" here was WRONG, see below** |
+| `cling_breaks_on_hit` — a struck crawler is peeled off its surface | — | ✔ — **correctly**, see below |
 | `kill_disposition` / respawn timer / KO banner | — | ✔ |
 
 ✔ **THE LEDGE HANG IS THE REACTION'S.** It was the player road's, then the actor
@@ -594,6 +595,35 @@ never named.
     a side effect of the THROW calling the shared reaction, so a captive that
     MASHED OUT instead of being thrown got nothing.
   - landing and the bounce, which always had it.
+
+✔✔ **AND THE LAST FOUR ROWS WERE MEASURED RATHER THAN MOVED — none of them is a
+divergence, which is why this row CLOSES instead of inviting a third unification
+pass.** Every one was greped at the source 2026-08-24:
+
+  - **wallet armor is NOT partial.** Both roads pass `WalletArmor` into the SAME
+    `resolve_body_hit`, and both write `WalletShieldSpent` on the
+    `WalletShielded` arm. What is narrow is the GRANTOR, not the road: the
+    workspace has exactly one writer of `BodyWalletShield` (`sync_sanic_wallet_shield`)
+    and it is filtered `PrimaryPlayerOnly` by that ruleset's own choice. A
+    capability nobody grants to actors is not a rule actors disobey.
+  - **the cling break is actor-only and BELONGS there.** No home avatar is ever
+    an `AdhesiveCrawler` — the only bodies authored as crawlers are actor
+    archetypes (puppy-slug and friends) — and a POSSESSED crawler still travels
+    the actor road anyway, because `HitTarget::Body` selects by TARGET and the
+    player road claims only `PrimaryPlayerOnly`. It is a motion-model policy, not
+    a fact about being hit.
+  - **`safe_respawn_player` is gated on `HitMode::SafeRespawn`, an AUTHORED
+    hazard mode**, not on a body class — `HitEvent::mode`'s own doc calls it the
+    *"reaction mode for player victims"*. No match stage authors it; the
+    blastzone produces a KO. ⇒ no seat-0-is-different defect hiding in it, which
+    was the thing worth checking given that a match's roster is actors.
+  - **`kill_disposition` is the actor road's by the same argument the player's
+    respawn is the player road's** — a ruleset owns a fighter's death, a save
+    file owns the avatar's.
+
+⇒ **nothing else moves.** The two rules that DID move were moved because they
+were WRONG somewhere; a rule that is right on every road it appears on stays
+where it is, and all four above are.
 
 ⇒ **the shape of the fix is NOT "call the same six things twice", and it is NOT
 "whatever the player road did".** ⛔⛔ THE METHOD IS THE THING TO GET RIGHT:

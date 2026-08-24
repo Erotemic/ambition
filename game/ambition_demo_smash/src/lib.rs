@@ -571,6 +571,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             announce_the_opening_countdown,
             place_respawning_fighters,
             a_swing_spends_the_respawn_protection,
+            hold_the_respawn_platforms,
             announce_the_winner,
         )
             .chain()
@@ -1090,6 +1091,82 @@ fn place_respawning_fighters(
     }
 }
 
+/// ⭐ THE PLATFORM IS THE PROTECTION, MADE VISIBLE — it exists for exactly as
+/// long as `RespawnGrace` does.
+///
+/// A returning fighter used to appear in free air with nothing but an invisible
+/// timer saying it was safe. The genre materialises you on a platform because
+/// that is how the protection is READ: you can see whose beat it is and when it
+/// ends.
+///
+/// ⛔ ONE AUTHORITY, NOT TWO CLOCKS. The platform does not run its own timer —
+/// it is present iff the seat's fighter carries the grace, so the release rule
+/// (a swing spends it, or the grant expires) already decides the platform and
+/// the two cannot disagree. A platform with its own duration is how a fighter
+/// ends up standing on a beat it has already spent.
+///
+/// ⚠ it is ORDINARY collision, and that is the genre's answer too: anybody may
+/// stand on a respawn platform, and anybody standing on one when it goes falls.
+fn hold_the_respawn_platforms(
+    mut commands: bevy::prelude::Commands,
+    mut platforms: bevy::prelude::ResMut<
+        ambition_platformer2d::world::collision::MovingPlatformSet,
+    >,
+    // A fighter still under protection, and one whose grant has run out. The
+    // second query is what stops the MARKER outliving the grant it marks: the
+    // `Empowered` expires on its own clock, and a latch cleared only by the
+    // swing would leave the platform standing for the rest of the match.
+    protected: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            &ambition_platformer2d::actor::MatchSeat,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+            bevy::prelude::Has<ambition_platformer2d::actors::features::empowerment::Empowered>,
+        ),
+        bevy::prelude::With<ambition_platformer2d::actor::RespawnGrace>,
+    >,
+) {
+    let mut wanted: Vec<(String, Vec2)> = Vec::new();
+    for (body, seat, kin, still_granted) in &protected {
+        if !still_granted {
+            // The grant expired on its own clock; the marker goes with it, and
+            // the platform goes with the marker on the next pass.
+            commands
+                .entity(body)
+                .remove::<ambition_platformer2d::actor::RespawnGrace>();
+            continue;
+        }
+        wanted.push((
+            respawn_platform_id(seat.0),
+            Vec2::new(kin.pos.x, kin.pos.y + RESPAWN_PLATFORM_DROP_PX),
+        ));
+    }
+    // Sorted by id, so the set's order is a function of WHICH seats are
+    // protected and never of query order — the visuals reconcile by index and
+    // the resource is rollback-canonical, so both want a deterministic Vec.
+    wanted.sort_by(|a, b| a.0.cmp(&b.0));
+
+    platforms
+        .0
+        .retain(|platform| !platform.id.starts_with("respawn_platform_"));
+    for (id, centre) in wanted {
+        platforms.0.push(
+            ambition_platformer2d::world::platforms::MovingPlatformState::from_sweep(
+                id,
+                "Respawn platform",
+                centre,
+                RESPAWN_PLATFORM_SIZE,
+                // Stationary: a sweep of zero width at zero speed. The
+                // vocabulary has no "still" variant because nothing wanted one
+                // until now, and a zero sweep is exactly that rather than a
+                // special case.
+                0.0,
+                0.0,
+            ),
+        );
+    }
+}
+
 /// ⭐ SWINGING GIVES THE PROTECTION UP, which is the genre's anti-camping rule
 /// and the half this demo was missing.
 ///
@@ -1125,6 +1202,22 @@ fn a_swing_spends_the_respawn_protection(
             .remove::<ambition_platformer2d::actor::RespawnGrace>();
     }
 }
+
+/// The id one seat's respawn platform is keyed by.
+///
+/// Keyed by SEAT rather than by entity: a returning fighter is a body that may
+/// be rebuilt, and the platform is a property of where that seat comes back.
+fn respawn_platform_id(seat: usize) -> String {
+    format!("respawn_platform_{seat}")
+}
+
+/// The platform a returning fighter materialises on: three body-widths across
+/// and thin, so it reads as a ledge to step off rather than as stage.
+const RESPAWN_PLATFORM_SIZE: Vec2 = Vec2::new(96.0, 12.0);
+
+/// How far below the fighter's centre the platform's own centre sits — half a
+/// standing body plus half the platform, so its TOP is under the feet.
+const RESPAWN_PLATFORM_DROP_PX: f32 = 24.0 + RESPAWN_PLATFORM_SIZE.y * 0.5;
 
 /// How long a returning fighter cannot be hit, in seconds.
 ///
@@ -2518,6 +2611,92 @@ mod tests {
                 on_hit: None,
             },
         )
+    }
+
+    /// ⭐ THE PLATFORM LIVES EXACTLY AS LONG AS THE PROTECTION, AND NOT A TICK
+    /// LONGER.
+    ///
+    /// A returning fighter used to appear in free air with nothing but an
+    /// invisible timer. The platform is that timer made readable — so it must
+    /// have no clock of its own, or the two disagree and a fighter stands on a
+    /// beat it has already spent.
+    ///
+    /// ⛔⛔ THE THIRD ASSERTION IS THE ONE THAT MATTERS: an `Empowered` that
+    /// expires on its OWN clock must take the marker and the platform with it. A
+    /// latch cleared only by the swing would leave a platform standing for the
+    /// rest of the match, and the fighter that never swings is exactly the one
+    /// camping it.
+    #[test]
+    fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
+        use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
+        use ambition_platformer2d::world::collision::MovingPlatformSet;
+
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<MovingPlatformSet>();
+        app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
+        let fighter = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d::actor::MatchSeat(1),
+                ambition_platformer2d::engine_core::BodyKinematics {
+                    pos: Vec2::new(120.0, 40.0),
+                    ..Default::default()
+                },
+                Empowered::for_seconds(Empowerment::UNTOUCHABLE, RESPAWN_PROTECTION_SECONDS),
+                ambition_platformer2d::actor::RespawnGrace,
+            ))
+            .id();
+
+        app.update();
+        let set = app.world().resource::<MovingPlatformSet>();
+        assert_eq!(set.0.len(), 1, "a protected fighter got no platform");
+        assert_eq!(set.0[0].id, respawn_platform_id(1));
+        assert!(
+            set.0[0].pos.y > 40.0,
+            "the platform is above the fighter instead of under its feet: {:?}",
+            set.0[0].pos
+        );
+
+        // The grant runs out on its own clock — the marker and the platform must
+        // both go, without anybody having swung.
+        app.world_mut().entity_mut(fighter).remove::<Empowered>();
+        app.update();
+        assert!(
+            app.world()
+                .get::<ambition_platformer2d::actor::RespawnGrace>(fighter)
+                .is_none(),
+            "the marker outlived the grant it marks"
+        );
+        app.update();
+        assert!(
+            app.world().resource::<MovingPlatformSet>().0.is_empty(),
+            "the platform outlived the protection — the fighter that never \
+             swings is exactly the one camping it"
+        );
+    }
+
+    /// ⭐ AND IT LEAVES EVERY OTHER PLATFORM ALONE. The stage's own platforms
+    /// share the resource; a respawn platform that cleared the Vec, or that was
+    /// retained by position rather than by its id prefix, would delete the stage.
+    #[test]
+    fn holding_a_respawn_platform_does_not_touch_the_stages_own() {
+        use ambition_platformer2d::world::collision::MovingPlatformSet;
+        use ambition_platformer2d::world::platforms::MovingPlatformState;
+
+        let mut app = bevy::prelude::App::new();
+        app.insert_resource(MovingPlatformSet(vec![MovingPlatformState::from_sweep(
+            "stage_lift",
+            "Stage Lift",
+            Vec2::new(0.0, 0.0),
+            Vec2::new(64.0, 8.0),
+            120.0,
+            40.0,
+        )]));
+        app.add_systems(bevy::prelude::Update, hold_the_respawn_platforms);
+        app.update();
+        let set = app.world().resource::<MovingPlatformSet>();
+        assert_eq!(set.0.len(), 1, "the stage's own platform was deleted");
+        assert_eq!(set.0[0].id, "stage_lift");
     }
 
     /// THE STAGE OPENS A WINDOW FOR EVERY VERB IT GRANTS. ( slice 1b)

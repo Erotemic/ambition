@@ -633,7 +633,7 @@ A later fighter may author two recovery charges; avoid encoding the state as a P
 
 ---
 
-## ◐ W5 — Respawn platform and drop-off — THE PROTECTION RULE SHIPPED 2026-08-24
+## ✔ W5 — Respawn platform and drop-off — SHIPPED 2026-08-24
 
 ⭐⭐ **THE HALF THAT WAS A LIVE DEFECT LANDED FIRST, and it needed no platform.**
 Respawn protection was a flat two-second timer that NOTHING could end, so a
@@ -662,11 +662,41 @@ that one.
 fighter's invulnerability; one that kept it after the fighter acted would hand
 back a grant already spent.
 
-▢ **still open: the PLATFORM itself** — the standable object, starting the
-fighter on it, and the drop-off. That is the presentation-and-feel half, and the
-requirements below are unchanged for it. ⭐ note what the protection rule already
-settles: the release condition is chosen and tested, so the platform inherits it
-rather than inventing a second one.
+✔✔ **AND THE PLATFORM FOLLOWED, inheriting the release rule rather than
+inventing a second one.** `hold_the_respawn_platforms` keeps one stationary
+platform under each protected fighter, present **iff** that seat's body carries
+`RespawnGrace`.
+
+```text
+representation  MovingPlatformState::from_sweep(.., dx: 0.0, speed: 0.0)
+                pushed into MovingPlatformSet — the smallest existing standable
+                thing, already rollback-canonical, and its renderer draws it
+                for free
+lifetime        = RespawnGrace's. ⛔ NO CLOCK OF ITS OWN: a platform with its
+                own duration is how a fighter ends up standing on a beat it
+                already spent
+order           sorted by id, so the Vec is a function of WHICH seats are
+                protected and never of query order — the resource is
+                rollback-canonical and the visuals reconcile by index
+collision       ordinary. Anybody may stand on one, and anybody standing on one
+                when it goes falls — which is the genre's answer too
+```
+
+⭐ **the latch this closes:** the marker was removed by a SWING and nothing else,
+while its `Empowered` expires on its own clock — so a fighter that never swung
+would have kept the marker, and now the platform, for the rest of the match. The
+system retracts the marker when the grant is gone, and the third assertion of
+`the_respawn_platform_lives_exactly_as_long_as_the_grant` is exactly that case.
+
+⚠ **and a hazard I talked myself INTO and back out of, worth writing down:** the
+visuals reconcile by INDEX, so per-seat add/remove looked like it would alias one
+platform's art onto another. It does not — `sync_moving_platform_visuals`
+re-reads each visual's index every frame and updates transform AND size, so a
+shifted index simply draws the right thing. ⇒ read a reconcile before pricing an
+index hazard; "keyed by index" and "aliases on reorder" are different claims.
+
+⛔ what is NOT built and is not needed: a per-owner solidity filter. Respawn
+platforms are solid for everyone in this genre.
 
 ### Original specification
 

@@ -243,8 +243,16 @@ a customer: build it with item spawning as the first adopter and let that one
 customer shape it, the same way `AutolinkFollow` was built against one move. ⛔ a
 random source with no consumer is untestable for the only property that matters.
 
-- ▢ **D209 — THE CAMERA-SNAP REQUEST HAS TWO ADOPTERS AND NO WIRING TEST.**
-  (opened 2026-08-24, from Jon's camera observation)
+- ✔ **D209 — CLOSED 2026-08-24, same day: the wiring is pinned.**
+  `a_sandbox_reset_leaves_the_camera_asking_to_snap` drives the real
+  `reset_sandbox` through a one-shot system (which is where the `SfxWriter` and
+  `MessageWriter` come from) and asks what the CAMERA was left holding. ⛔ its
+  assertion is ORDERED AGAINST `blink_cam.reset()` — a test that only checked
+  "the timer is positive" without the reset in the path would pass against the
+  bug, because the bug was the reset CLEARING a request that already existed.
+  Poison: delete the call site, and it reddens with Jon's own number in the
+  message. ⚠ the SESSION reset's call site is still unpinned; it needs a world
+  the same way and nobody has built it.
 
 ✔ **the DEFECT is fixed**: `blink_cam.reset()` clears the blink (right) and was
 clearing the snap with it (wrong), so the one teleport that most needed the

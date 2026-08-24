@@ -251,3 +251,122 @@ impl Plugin for RoomReplaySchedulePlugin {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::*;
+
+    /// ⭐⭐ THE WIRING, not the primitive.
+    ///
+    /// `camera_ease`'s own test proves `snap_after_placement` sets the timer;
+    /// it stays GREEN with this call site deleted, which is a test that pins the
+    /// FUNCTION and not the WIRING. This one drives the real `reset_sandbox`
+    /// and asks what the CAMERA was left holding.
+    ///
+    /// ⛔ AND THE ASSERTION IS ORDERED AGAINST `blink_cam.reset()`. The defect
+    /// was never a missing feature — the snap mechanism has existed since door
+    /// transitions — it was that the reset cleared it on the one teleport that
+    /// most needed it. A test that only checked "the timer is positive" without
+    /// the reset in the path would pass against the bug.
+    #[test]
+    fn a_sandbox_reset_leaves_the_camera_asking_to_snap() {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_time::time_control::ClockResetRequest>();
+        app.init_resource::<ambition_sfx::SfxEmissionContext>();
+
+        // The camera state a body carries, with a blink running so the reset has
+        // something real to clear.
+        let mut blink_cam =
+            ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default();
+        blink_cam.blink_in_timer = 0.4;
+        app.insert_resource(Probe {
+            blink_cam,
+            snapped: 0.0,
+        });
+
+        app.add_systems(Update, drive_one_reset);
+        app.update();
+
+        let probe = app.world().resource::<Probe>();
+        assert_eq!(
+            probe.blink_cam.blink_in_timer, 0.0,
+            "the reset did not clear the blink, so it is not the reset this test \
+             thinks it is driving"
+        );
+        assert!(
+            probe.snapped > 0.0,
+            "a body put back at spawn left the camera with no snap request, so it \
+             EASES to a position that teleported — Jon measured 440px over about \
+             forty ticks"
+        );
+    }
+
+    #[derive(Resource)]
+    struct Probe {
+        blink_cam: ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+        snapped: f32,
+    }
+
+    /// One real `reset_sandbox` call, with the writers a world supplies.
+    fn drive_one_reset(
+        mut probe: ResMut<Probe>,
+        mut sfx: ambition_sfx::SfxWriter,
+        mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
+        mut clock_resets: MessageWriter<ambition_time::time_control::ClockResetRequest>,
+    ) {
+        // A room with one floor and a spawn away from where the body starts, so
+        // the reset is a real teleport rather than a no-op.
+        let world = ae::World {
+            name: "reset wiring".to_string(),
+            size: ae::Vec2::new(1600.0, 900.0),
+            spawn: ae::Vec2::new(120.0, 800.0),
+            blocks: vec![ae::world::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 848.0),
+                ae::Vec2::new(1600.0, 48.0),
+            )],
+            water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
+            chains: Vec::new(),
+            edges: Default::default(),
+        };
+        let mut scratch = ae::BodyClusterScratch::new_with_abilities(
+            ae::Vec2::new(400.0, 400.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        let mut model = ae::MotionModel::default();
+        let mut sim_state = ambition_platformer2d_actor_monolith::RoomTransitionCooldown::default();
+        let mut safety = ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState::default();
+        let mut attack: Option<ambition_platformer2d_actor_monolith::MeleeSwing> = None;
+        let mut anim = ambition_platformer2d_actor_monolith::actor::BodyAnimFacts::default();
+        let mut combat = ambition_characters::actor::BodyCombat::default();
+        let mut gestures = ambition_characters::control::SlotGestures::default();
+        let mut blink_cam = probe.blink_cam;
+        {
+            let mut clusters = scratch.as_mut();
+            super::reset_sandbox(
+                &world,
+                &mut sfx,
+                &mut vfx,
+                &mut model,
+                &mut clusters,
+                &mut sim_state,
+                &mut clock_resets,
+                &mut safety,
+                &mut attack,
+                &mut anim,
+                &mut combat,
+                None,
+                &mut gestures,
+                &mut blink_cam,
+                ae::DEFAULT_TUNING,
+                ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+            );
+        }
+        probe.snapped = blink_cam.camera_snap_timer;
+        probe.blink_cam = blink_cam;
+    }
+}

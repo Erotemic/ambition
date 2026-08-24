@@ -50,6 +50,7 @@ fn peer(id: &str, pos: ae::Vec2, faction: ActorFaction) -> PerceptionPeer {
         phase_remaining: 0.0,
         invulnerable: false,
         tumbling: false,
+        ledge_hanging: false,
         damage_taken: 0,
         health_max: 100,
     }

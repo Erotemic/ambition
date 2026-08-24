@@ -187,6 +187,16 @@ pub struct PerceivedActor {
     /// unless it techs. Visible from across the stage, which is why a watcher
     /// gets it and not only the body itself.
     pub tumbling: bool,
+    /// HANGING ON A LEDGE — not climbing out of one, hanging on it.
+    ///
+    /// ⭐ THE EDGE-GUARD WINDOW, and without this fact nothing could see it. A
+    /// body on the ledge is off the stage and has to come back through you: it
+    /// cannot walk, cannot shield, and every way out of the hang is a committed
+    /// animation on a clock. That is the most punishable state in the genre, and
+    /// it read as ORDINARY NEUTRAL here — `phase` is `Neutral`, the hang is
+    /// inside the room's box so `offstage` is false, and `is_punishable` only
+    /// knows about swings and hitstun.
+    pub ledge_hanging: bool,
     /// Accumulated damage — the smash-percent axis (CM1). Kill potential scales
     /// off it, so L2 cannot score a finisher without it.
     pub damage_taken: i32,

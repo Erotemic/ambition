@@ -126,7 +126,18 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     }
 
     // 3. The opponent is offstage and has to come back through you.
-    if view.actor_offstage(foe) {
+    //
+    // ⛔⛔ AND HANGING ON THE LEDGE IS THAT, which this missed entirely.
+    // `actor_offstage` asks the ROOM's box — the blastzone envelope — so it is
+    // true only once the opponent is nearly dead. A body on the ledge is inside
+    // that box, carries `BodyPhase::Neutral`, and is not landing, so the single
+    // most punishable state in the genre classified as ORDINARY NEUTRAL: the
+    // brain approached at neutral weight and the hang was never a window.
+    //
+    // A hang is a commitment on a clock. The body cannot walk, cannot shield,
+    // and every way out of it — climb, roll, getup attack, ledge jump, drop — is
+    // an animation with a start. That is what an edge-guard is FOR.
+    if view.actor_offstage(foe) || foe.ledge_hanging {
         return Situation::EdgeGuard;
     }
 

@@ -173,6 +173,9 @@ pub struct PerceptionPeer {
     /// plain sight — which is why it rides the peer row rather than being a
     /// private fact a body knows about itself.
     pub tumbling: bool,
+    /// Hanging on a ledge, in plain sight, for the same reason — see
+    /// [`ambition_characters::perception::PerceivedActor::ledge_hanging`].
+    pub ledge_hanging: bool,
     /// The smash-percent axis (CM1) and its denominator — kill potential.
     pub damage_taken: i32,
     pub health_max: i32,
@@ -280,7 +283,8 @@ pub fn collect_perception_peers(
         // rule follows. `None` for anything not seated in a match, which is most
         // of the world.
         Option<&crate::combat::targeting::MatchTeam>,
-        // The published motion facts, for the one a watcher can see: tumbling.
+        // The published motion facts, for the two a watcher can see: tumbling,
+        // and hanging on a ledge.
         Option<&ae::BodyMotionFacts>,
     )>,
 ) {
@@ -306,6 +310,10 @@ pub fn collect_perception_peers(
             phase,
             phase_remaining,
             tumbling: facts.is_some_and(|f| f.tumbling),
+            // HANGING, not climbing: a body already pulling itself up has left
+            // the edge, which is the same distinction `resolve_ledge_trumps`
+            // draws and for the same reason — it is no longer contesting one.
+            ledge_hanging: facts.is_some_and(|f| f.ledge.is_some_and(|ledge| !ledge.climbing)),
             invulnerable: body_invulnerable(combat),
             damage_taken: health.damage_taken(),
             health_max: health.max(),
@@ -535,6 +543,7 @@ pub fn build_world_view(
             phase_remaining: p.phase_remaining,
             invulnerable: p.invulnerable,
             tumbling: p.tumbling,
+            ledge_hanging: p.ledge_hanging,
             damage_taken: p.damage_taken,
             health_max: p.health_max,
         })

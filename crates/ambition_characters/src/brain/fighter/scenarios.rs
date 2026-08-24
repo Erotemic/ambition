@@ -97,6 +97,12 @@ impl Scenario {
         if !self.view.projectiles.is_empty() {
             missing.push("projectiles");
         }
+        // A HANG IS NOT A POSITION. Dropping a body at the ledge coordinates
+        // leaves it falling past them; catching the edge is a maneuver with its
+        // own window, so a placement-only harness has to arrange it and say so.
+        if self.view.actors.iter().any(|actor| actor.ledge_hanging) {
+            missing.push("ledge hang");
+        }
         if me.damage_taken > 0 || self.view.actors.iter().any(|actor| actor.damage_taken > 0) {
             missing.push("damage");
         }
@@ -202,6 +208,26 @@ pub fn suite() -> Vec<Scenario> {
         expect: Situation::EdgeGuard,
     });
 
+    out.push(Scenario {
+        name: "edgeguard_ledge_hang",
+        premise: "The opponent is HANGING ON THE LEDGE. Inside the room's box, \
+                  phase Neutral, not landing — so every other term says nothing \
+                  is happening — and it is the most punishable state in the \
+                  genre: no walk, no shield, and every way out is a committed \
+                  animation on a clock.",
+        view: WorldView {
+            self_view: body(mid),
+            stage: stage(),
+            actors: vec![PerceivedActor {
+                on_ground: false,
+                ledge_hanging: true,
+                ..foe(ae::Vec2::new(40.0, 330.0))
+            }],
+            ..Default::default()
+        },
+        expect: Situation::EdgeGuard,
+    });
+
     // Recovery, from each offstage quadrant. Four fixtures, not one: a body knocked
     // off the TOP has different options from one knocked off the SIDE, and a
     // classifier that conflates them is not caught by a single case.
@@ -297,6 +323,7 @@ mod tests {
             ("juggle_escape", vec!["velocity", "body phase"]),
             ("projectile_camper", vec!["projectiles"]),
             ("edgeguard_window", vec!["velocity"]),
+            ("edgeguard_ledge_hang", vec!["ledge hang"]),
         ] {
             let scenario = suite
                 .iter()

@@ -484,17 +484,25 @@ pub fn resolve_shield(
     // A broken guard cannot be raised until the dizzy runs out — the whole
     // point of breaking it.
     broken: bool,
-    // ⛔ AND WHETHER THIS BODY MAY GUARD WHERE IT IS. `false` refuses the RAISE
-    // and leaves an existing guard alone, because a body that left the ground
-    // guarding has not made a new decision — see `ShieldTuning::air_guard`.
-    may_raise_here: bool,
+    // ⛔ WHETHER THIS BODY MAY GUARD WHERE IT IS — see `ShieldTuning::air_guard`.
+    //
+    // ⛔⛔ IT GATES THE SUSTAIN AS WELL AS THE RAISE, and reading it as
+    // raise-only was a live contradiction. It said `may_guard_here || *active`,
+    // on the argument that a body which left the ground guarding "has not made a
+    // new decision" — but under `air_guard: false` a held Shield ALSO fills the
+    // air-dodge buffer the moment the body is airborne, so walking off a ledge
+    // with the guard up produced the one state the policy exists to forbid: an
+    // active ground shield and an air dodge in the same tick. The genre's answer
+    // is the plain one — leaving the ground drops the guard, which is what makes
+    // jumping out of shield a commitment.
+    may_guard_here: bool,
 ) -> bool {
     if !ability_enabled || broken {
         *active = false;
         *parry_window_timer = 0.0;
         return false;
     }
-    let want = shield_held && !dash_active && (may_raise_here || *active);
+    let want = shield_held && !dash_active && may_guard_here;
     let fresh = want && !*active;
     let released = *active && !want;
     match parry_timing {

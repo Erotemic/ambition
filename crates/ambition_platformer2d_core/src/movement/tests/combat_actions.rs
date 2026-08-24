@@ -1161,8 +1161,22 @@ fn a_jump_out_of_shield_is_allowed_and_takes_the_guard_with_it() {
     // Back on the ground the same release-and-press IS a new guard. The rule was
     // never about altitude — it is that a SPENT guard stays down under the press
     // that spent it — so this is the half that still has to hold.
-    shield_step(&world, &mut scratch, false);
-    scratch.ground.on_ground = true;
+    //
+    // ⛔ AND IT LANDS FOR REAL rather than having `on_ground` written true. It
+    // used to, and that made this stanza pass for the wrong reason: the forced
+    // flag bought one grounded RAISE, and the guard then survived every airborne
+    // step after it because the sustain was not gated. The falsifier and the bug
+    // agreed.
+    for _ in 0..240 {
+        shield_step(&world, &mut scratch, false);
+        if scratch.ground.on_ground {
+            break;
+        }
+    }
+    assert!(
+        scratch.ground.on_ground,
+        "the fixture never came back down, so the grounded half is unmeasured"
+    );
     for _ in 0..4 {
         shield_step(&world, &mut scratch, true);
     }
@@ -1394,5 +1408,72 @@ fn a_tumbling_body_can_tech_off_a_ceiling() {
     assert!(
         facts.evading(),
         "a ceiling tech is invulnerable through the one term the damage rule reads"
+    );
+}
+
+/// ⛔⛔ A GROUND GUARD DOES NOT RIDE INTO THE AIR — and under `air_guard: false`
+/// it MUST NOT, because the same held button is the air dodge up there.
+///
+/// The sustain used to be ungated (`may_guard_here || active`), on the argument
+/// that a body which left the ground guarding had not made a new decision. But
+/// leaving the ground with the button down is exactly how a body arrived at
+/// `AirDodge` and `shield.active` in the same tick — the one state this policy
+/// exists to forbid. The existing airborne test could not see it: it began
+/// airborne with the guard already down.
+///
+/// ⭐ THE POISON IS THE OTHER HALF. `air_guard: true` is Ambition's own
+/// deployable bubble, and it keeps the airborne guard — so a fix that simply
+/// dropped every shield on takeoff fails the second assertion.
+#[test]
+fn a_ground_guard_does_not_survive_leaving_the_ground() {
+    let world = test_world();
+    let airborne_with_guard_held = |air_guard: bool| {
+        let mut scratch = guarded_scratch(&world);
+        let mut tuning = TEST_TUNING;
+        tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+        tuning.base.shield.air_guard = air_guard;
+        let mut step = |scratch: &mut BodyClusterScratch| {
+            update_player_with_tuning_scratch(
+                &world,
+                scratch,
+                InputState {
+                    shield_held: true,
+                    ..Default::default()
+                },
+                1.0 / 60.0,
+                tuning,
+            )
+        };
+        for _ in 0..10 {
+            step(&mut scratch);
+        }
+        assert!(
+            scratch.shield.active,
+            "the fixture never raised a guard on the ground"
+        );
+        // OFF THE GROUND WITH THE BUTTON STILL DOWN — the transition itself, and
+        // not a jump: a jump out of shield spends the guard through its own
+        // road, which would measure something else entirely.
+        scratch.kinematics.pos -= crate::Vec2::new(0.0, 240.0);
+        scratch.ground.on_ground = false;
+        step(&mut scratch);
+        assert!(
+            !scratch.ground.on_ground,
+            "the fixture never actually left the ground"
+        );
+        scratch
+    };
+
+    let platform_fighter = airborne_with_guard_held(false);
+    assert!(
+        !platform_fighter.shield.active,
+        "a ground guard rode into the air, where the same press is the air dodge"
+    );
+
+    let bubble = airborne_with_guard_held(true);
+    assert!(
+        bubble.shield.active,
+        "poison: a deployable bubble must KEEP its airborne guard, or this test \
+         passes for a fix that simply drops every shield on takeoff"
     );
 }

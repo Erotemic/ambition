@@ -154,18 +154,37 @@ pub fn apply_body_hit_reaction(
             return;
         }
     };
-    // Crouching reduces launch magnitude; no separate damage threshold applies.
-    let launch = ae::hit_response::knockback_velocity(
-        body_pos,
-        body_facing,
-        gravity_dir,
-        Some(knockback),
-        di_input_local,
-        &response,
-    ) * if stance.crouching {
-        feel.crouch_cancel_scale
-    } else {
-        1.0
+    // ⭐ AN AUTOLINK PULSE HOLDS INSTEAD OF LAUNCHING, and it is the same road:
+    // one velocity, written once, under the victim's own body authority. The
+    // genre's multi-hit moves work because their intermediate pulses keep the
+    // victim inside the next hitbox and only the LAST one launches, so this is a
+    // property of the HIT rather than a mode the victim is put into — no
+    // relationship, no hold clock, no escape, and the victim keeps every verb it
+    // had. ⛔ crouch-cancel does not scale it: crouching shortens a LAUNCH, and
+    // there is nothing here to shorten.
+    let launch = match knockback.follow.as_ref() {
+        Some(follow) => ae::hit_response::autolink_velocity(
+            follow,
+            knockback.source_pos,
+            knockback.dir,
+            body_pos,
+            gravity_dir,
+        ),
+        // Crouching reduces launch magnitude; no separate damage threshold applies.
+        None => {
+            ae::hit_response::knockback_velocity(
+                body_pos,
+                body_facing,
+                gravity_dir,
+                Some(knockback),
+                di_input_local,
+                &response,
+            ) * if stance.crouching {
+                feel.crouch_cancel_scale
+            } else {
+                1.0
+            }
+        }
     };
     *vel = launch;
     //  and PUBLISH it, because the write above is not authoritative for every
@@ -191,7 +210,13 @@ pub fn apply_body_hit_reaction(
     // silence of a stated length rather than two stacked. And airborne only: a
     // body already standing on the floor is driven into a floor it is on, and
     // charging it a recovery window for that would be a free stun.
-    let meteor = !stance.grounded
+    // ⛔ AND AN AUTOLINK IS NEVER A METEOR. The lock keys on "the velocity points
+    // toward the feet", which is true of any follow anchor placed BELOW the
+    // attacker — a spinning move that gathers its victim under itself would
+    // charge the genre's meteor silence for holding somebody. A meteor is an
+    // authored LAUNCH downward; this pulse authored a hold.
+    let meteor = knockback.follow.is_none()
+        && !stance.grounded
         && feel.meteor_lock_time > 0.0
         && launch.dot(gravity_dir) > 0.0
         && launch.length_squared() > 0.0;
@@ -298,6 +323,7 @@ mod super_armor_tests {
             source_pos: ae::Vec2::new(0.0, 0.0),
             impact_pos: ae::Vec2::new(10.0, 0.0),
             launch_dir: None,
+            follow: None,
         }
     }
 

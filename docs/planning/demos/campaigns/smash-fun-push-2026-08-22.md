@@ -359,7 +359,60 @@ At full health the shield reads as a protective bubble; at low health it is visi
 
 ---
 
-## W2 — Autolink/follow-up knockback primitive
+## ✔ W2 — Autolink/follow-up knockback primitive — KERNEL SHIPPED 2026-08-24
+
+**What landed.** `HitKnockback::follow: Option<AutolinkFollow>` and
+`hit_response::autolink_velocity`, resolved inside the shared
+`apply_body_hit_reaction` beside the ordinary launch — one velocity, written
+once, under the victim's own body authority.
+
+```text
+anchor_local   attacker-local follow point (x forward along its facing,
+               y toward its feet) — resolved through the VICTIM'S
+               AccelerationFrame, so a move authored once works in a
+               rotated room
+carry          share of the ATTACKER'S own velocity handed over. This is
+               what makes a RISING multi-hit work: the correction only
+               closes a gap, and a fighter climbing at 600 px/s outruns
+               any gap-closing term
+pull           spring gain on the remaining gap (1/s) — how HARD this
+               move grabs is a feel decision per move
+max_speed      bounds the CORRECTION only. Clamping the carry would make
+               a fast attacker's victim fall out of its own move
+source_vel     the attacker's velocity at the pulse, sampled by the
+               PRODUCER because the reaction holds a victim and no
+               attacker entity
+```
+
+⛔ **NOT A CAPTURE, by construction:** no `CapturedBy`, no hold clock, no escape,
+and the victim keeps every verb it had. What holds it is that each pulse re-aims
+its velocity — a hit reaction like any other.
+
+⭐ **two judgment calls, stated at the source.** Crouch-cancel does not scale an
+autolink (crouching shortens a LAUNCH and there is nothing here to shorten), and
+an autolink is **never a meteor**: the lock keys on *"velocity points toward the
+feet"*, which is true of any anchor placed below the attacker, so a spinning move
+that gathers its victim underneath would otherwise be charged the genre's meteor
+silence for holding somebody.
+
+⚠ **wire-format change, declared:** the follow is IN the hit fingerprint, because
+two peers that disagree about whether a pulse holds or launches disagree about
+the whole match. Schema **77 → 78**; only the version line of the baseline moved,
+since no registration changed.
+
+**Guards** — six kernel tests (`autolink_tests`) plus one through the real shared
+reaction (`an_autolink_pulse_aims_the_victim_back_at_its_attacker`), and the
+assertions are DIRECTIONS and DIFFERENCES rather than magnitudes: the same
+knockback with the follow removed launches AWAY, and with it aims BACK; the carry
+is measured against the same geometry with a still attacker; the frame test fails
+a world-axis implementation that passes every other one.
+
+▢ **still open on this slice:** the authored customer. `W3` is what spends it,
+and the campaign deliberately separates the primitive from its first move.
+
+### Original specification
+
+
 
 ### Goal
 

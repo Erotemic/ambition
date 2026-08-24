@@ -200,6 +200,7 @@ pub fn fire_dive_system(
             source_pos: corridor_center,
             impact_pos: corridor_center,
             launch_dir: None,
+            follow: None,
         }),
         ignored_targets: Vec::new(),
     });

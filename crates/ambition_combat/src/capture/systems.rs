@@ -2453,6 +2453,7 @@ pub fn apply_capture_throws(
             source_pos: captor_kin.pos,
             impact_pos: kin.pos,
             launch_dir: Some(request.launch_dir),
+            follow: None,
         };
         let gravity_dir = gravity
             .get(victim)

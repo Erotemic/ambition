@@ -263,6 +263,7 @@ pub fn apply_contact_harm(
                     source_pos: kin.pos,
                     impact_pos: victim_body.center(),
                     launch_dir: None,
+                    follow: None,
                 }),
                 ignored_targets: Vec::new(),
             });

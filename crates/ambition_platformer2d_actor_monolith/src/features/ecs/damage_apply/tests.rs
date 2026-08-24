@@ -390,6 +390,7 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
         source_pos,
         impact_pos: victim_pos,
         launch_dir: None,
+        follow: None,
     };
 
     let vel = resolved_body_knockback_velocity(
@@ -426,6 +427,7 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
             source_pos: ae::Vec2::ZERO,
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
+            follow: None,
         }))
     };
     use crate::combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
@@ -469,6 +471,7 @@ fn knockback_impulse_is_frame_equivalent() {
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
+            follow: None,
         };
         let vel = resolved_body_knockback_velocity(
             victim_pos,
@@ -537,6 +540,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
+            follow: None,
         };
         let vel = resolved_body_knockback_velocity(
             victim_pos,
@@ -572,6 +576,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         source_pos,
         impact_pos: victim_pos,
         launch_dir: Some(ae::Vec2::new(0.0, -1.0)),
+        follow: None,
     };
     let vel = resolved_body_knockback_velocity(
         victim_pos,
@@ -599,6 +604,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         source_pos,
         impact_pos: victim_pos,
         launch_dir: Some(ae::Vec2::new(1.0, -1.0)),
+        follow: None,
     };
     let vel = resolved_body_knockback_velocity(
         victim_pos,
@@ -659,6 +665,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
             source_pos,
             impact_pos: victim_pos,
             launch_dir: Some(n),
+            follow: None,
         };
         let vel = resolved_body_knockback_velocity(
             victim_pos,
@@ -691,6 +698,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
         source_pos,
         impact_pos: victim_pos,
         launch_dir: None,
+        follow: None,
     };
     let degenerate = crate::combat::HitKnockback {
         launch_dir: Some(ae::Vec2::ZERO),
@@ -1555,6 +1563,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         source_pos: victim_pos - ae::Vec2::new(40.0, 0.0),
         impact_pos: victim_pos,
         launch_dir: None,
+        follow: None,
     };
 
     apply_body_hit_reaction(
@@ -1587,6 +1596,93 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         "and it must be the same launch the velocity got, or the two channels \
          disagree about what the hit did"
     );
+}
+
+/// ⭐ AN AUTOLINK PULSE HOLDS ITS VICTIM INSTEAD OF LAUNCHING IT, through the
+/// same shared reaction every other hit takes.
+///
+/// This is the primitive an authored multi-hit needs: the intermediate pulses
+/// keep the victim inside the next hitbox and only the LAST one launches. ⛔ it
+/// is NOT a capture — no relationship is formed, no clock runs, and the victim
+/// keeps every verb it had; what holds it is that each pulse re-aims its
+/// velocity, which is a hit reaction like any other.
+///
+/// ⭐ THE ASSERTION IS A DIRECTION, NOT A MAGNITUDE: the same knockback with the
+/// follow REMOVED launches the victim AWAY from its attacker, and with it the
+/// victim is aimed BACK toward the attacker. A test that only checked "some
+/// velocity was written" would pass against the ordinary launch road.
+#[test]
+fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
+    const ATTACKER: ae::Vec2 = ae::Vec2::new(0.0, 0.0);
+    // The victim has been knocked out in front and is drifting further out.
+    const VICTIM: ae::Vec2 = ae::Vec2::new(60.0, 0.0);
+
+    let pulse = |follow: Option<ae::hit_response::AutolinkFollow>| {
+        let mut vel = ae::Vec2::new(400.0, 0.0);
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat::default();
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            VICTIM,
+            1.0,
+            DOWN,
+            false,
+            Some(&crate::features::HitKnockback {
+                dir: 1.0,
+                magnitude: crate::features::HitKnockbackMagnitude::LaunchSpeed(200.0),
+                source_pos: ATTACKER,
+                impact_pos: VICTIM,
+                launch_dir: None,
+                follow,
+            }),
+            HIT_DAMAGE,
+            ae::Vec2::ZERO,
+            Default::default(),
+            None,
+            None,
+            Platformer2dFeelTuningMonolith::default(),
+        );
+        (vel, combat)
+    };
+
+    let (launched, _) = pulse(None);
+    assert!(
+        launched.x > 0.0,
+        "the ordinary road stopped launching away from the attacker, so the \
+         comparison below proves nothing: {launched:?}"
+    );
+
+    let (held, combat) = pulse(Some(ae::hit_response::AutolinkFollow {
+        anchor_local: ae::Vec2::new(16.0, 0.0),
+        carry: 1.0,
+        pull: 20.0,
+        max_speed: 900.0,
+        source_vel: ae::Vec2::ZERO,
+    }));
+    assert!(
+        held.x < 0.0,
+        "the autolink pulse launched the victim away instead of pulling it back \
+         toward the anchor: {held:?}"
+    );
+    assert!(
+        combat.hitstun_timer > 0.0,
+        "an autolink pulse is still a HIT — it owes its authored hitstun"
+    );
+    assert!(
+        combat.recoil_lock_timer <= feel_meteor_floor(),
+        "an autolink was charged the METEOR silence. The lock keys on \
+         `velocity points toward the feet`, which is true of any anchor below \
+         the attacker — a spinning move that gathers its victim underneath \
+         would be punished for holding somebody"
+    );
+}
+
+/// The ordinary (non-meteor) recoil lock, so the assertion above names a number
+/// the tuning owns rather than a literal.
+fn feel_meteor_floor() -> f32 {
+    Platformer2dFeelTuningMonolith::default().knockback_recoil_lock_time
 }
 
 /// A hit that carries NO knockback publishes nothing — AND LEAVES THE BODY
@@ -1856,6 +1952,7 @@ fn meteor_reaction(
         source_pos: body,
         impact_pos: body,
         launch_dir: Some(launch_dir),
+        follow: None,
     };
     let mut vel = ae::Vec2::ZERO;
     let mut flight = ae::BodyFlightState::default();
@@ -1899,6 +1996,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             source_pos: ae::Vec2::ZERO,
             impact_pos: ae::Vec2::ZERO,
             launch_dir: Some(ae::Vec2::new(1.0, 0.0)),
+            follow: None,
         };
         let mut feel = Platformer2dFeelTuningMonolith::default();
         feel.crouch_cancel_scale = scale;

@@ -400,6 +400,21 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                         put_vec2(&mut bytes, dir);
                     }
                 }
+                // AUTOLINK, and it must be IN the fingerprint: it decides the
+                // victim's velocity, so two peers that disagree about whether a
+                // pulse holds or launches disagree about the whole match. One
+                // byte on every ordinary hit, which is what `None` costs.
+                match &kb.follow {
+                    None => put_bool(&mut bytes, false),
+                    Some(follow) => {
+                        put_bool(&mut bytes, true);
+                        put_vec2(&mut bytes, follow.anchor_local);
+                        put_f32(&mut bytes, follow.carry);
+                        put_f32(&mut bytes, follow.pull);
+                        put_f32(&mut bytes, follow.max_speed);
+                        put_vec2(&mut bytes, follow.source_vel);
+                    }
+                }
             }
         }
         for key in &event.ignored_targets {

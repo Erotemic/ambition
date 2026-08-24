@@ -261,13 +261,8 @@ pub struct ShadowState {
 /// What one shadow step reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShadowEvent {
-    Hit {
-        on_me: bool,
-        damage: i32,
-    },
-    Ko {
-        of_me: bool,
-    },
+    Hit { on_me: bool, damage: i32 },
+    Ko { of_me: bool },
 }
 
 /// Per-tick intent for one shadow fighter. Applied only from `Idle` (a
@@ -483,6 +478,7 @@ pub fn shadow_step(
             source_pos: s.foe.pos,
             impact_pos: s.me.pos,
             launch_dir: None,
+            follow: None,
         };
         strike(
             &mut s.me,
@@ -833,6 +829,7 @@ fn my_knockback(me: &ShadowFighter, foe: &ShadowFighter) -> Option<HitKnockback>
         source_pos: me.pos,
         impact_pos: foe.pos,
         launch_dir: None,
+        follow: None,
     })
 }
 

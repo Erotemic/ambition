@@ -1201,6 +1201,7 @@ fn slash_knockback(center: ae::Vec2, dir: f32) -> crate::features::HitKnockback 
         source_pos: center,
         impact_pos: center,
         launch_dir: None,
+        follow: None,
     }
 }
 
@@ -1299,6 +1300,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
+            follow: None,
         }),
         ignored_targets: Vec::new(),
     });
@@ -1353,6 +1355,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
+            follow: None,
         }),
         None,
     ] {
@@ -1514,6 +1517,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
+            follow: None,
         }),
         ignored_targets: Vec::new(),
     });

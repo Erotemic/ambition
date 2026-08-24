@@ -478,6 +478,7 @@ pub fn apply_hitbox_damage(
                     source_pos: owner_pos,
                     impact_pos: impact,
                     launch_dir: hitbox.launch_dir,
+                    follow: None,
                 });
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,

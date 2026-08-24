@@ -101,53 +101,61 @@ broad presentation audit. ⛔⛔ *"merely could look nicer → defer."*
 
 ⇒ these OUTRANK every inferred row below them.
 
-- ▢ **D204 — A QUICK FORWARD SMASH TRAVELS BEFORE THE SMASH STARTS.** Jon:
-  *"I should not effectively dash first and then Smash."* A quick gesture should
-  have little to no traversal displacement before the authored startup; a
-  DELIBERATELY DELAYED input may legitimately move first, and that road must
-  keep working. ⛔⛔ **do not fix this by teleporting the fighter back or by
-  widening a root window after the move begins** — the defect is a semantic
-  ORDERING one: Smash recognition must beat ordinary traversal/dash consumption
-  early enough that the same input does not first become movement. ⭐ Jon's own
-  lead: *"this sounds related to the previous discovery that shield+direction
-  could still fall through to the dash one layer below the obvious resolver"* —
-  read the production chain from raw/canonical input through gesture resolution
-  into movement intent. Regression drives the REAL input path and asserts both
-  halves: the Smash starts, and the pre-startup displacement is negligible; plus
-  a control case where plain forward still moves. ⛔ do not tune it from
-  CPU-vs-CPU distributions.
-- ▢ **D205 — ROBOT V3 KEEPS POGO IN SMASH, AND ONLY ROBOT V3.** Character
-  identity survives match preparation: `character capabilities / prepared fighter
-  kit → Smash adaptation → effective MovesetContract`. ⛔ **Pogo must not become
-  a universal Smash action**, and no stage-global fallback may grant it. Guard is
-  a PAIR — Robot v3's Smash fighter has Pogo, an unrelated fighter does not.
-  ⭐ prefer preserving the existing Robot v3 semantics over a Smash-specific
-  duplicate. This is the first real test of the prepared fighter-kit authority.
-- ▢ **D206 — POINTED POLYGON'S UP-B READS WRONG.** The CARRY is good and stays;
-  the SHAPE is the defect. Wanted: swords extended roughly horizontal, a broad
-  spinning DISK around her rather than a narrow strike, rising as the recovery,
-  victims near the body carried through the multihits, last hit may launch.
-  Priority order is Jon's: hitbox geometry → carry/autolink → upward motion →
-  rough sword-horizontal pose → crude sprite flip → polish LATER. ⭐ faking the
-  spin by alternating the horizontal flip is explicitly acceptable for the
-  prototype. ⛔ do not spend time on beautiful spin animation. ⛔⛔ and keep the
-  structural correction: the authored anchor resolves through POINTED's
-  frame/facing at the producer, never reconstructed from victim gravity or
-  `HitKnockback.dir`.
-- ▢ **D207 — AN ACTIVE MATCH HAS NO WAY OUT.** The system/pause menu needs
-  `Exit Match`, ending the match as **No Contest** — not as an ordinary
-  winner/loser result. Reuse the existing match-outcome and route-transition
-  machinery; ⛔ no one-off scene teardown path. If `No Contest` is not an
-  outcome today, add it at the semantic match-outcome layer rather than encoding
-  it as a special winner value. It is a MATCH-LEVEL command, so it works in
-  CPU-vs-CPU and every roster configuration, not a player-body action.
+- ✔ **D204 — a quick Forward Smash travelled 64px before its startup, more than a
+  body width.** ⛔ NOT the ordering defect the report pointed at: the smash starts
+  on the press tick, and the travel is its own frames with nothing saying a
+  grounded attack roots its owner. Fixed by `e7927cee2`: `MoveGates` gains
+  `roots_steering`, set by `SmashRepertoire::GROUNDED` — the one place posture
+  gates are applied is the one place the posture's steering rule belongs. AND
+  `integrate_home_body` never received the move motion scale at all, so every
+  rule expressed as a motion lock was live for brain-driven bodies and off for a
+  human's. 64px → 0.57px. Guarded by
+  `a_quick_forward_smash_barely_travels_but_plain_forward_still_walks`, a PAIR —
+  plain forward must still walk, or a frozen fighter passes.
+- ✔ **D205 — `SMASH_FIGHTER_KIT` granted pogo as a FLOOR**, so all fourteen grid
+  bodies got a rebounding down-air by walking onto the stage. Fixed by
+  `7346b6e86`: `SMASH_FIGHTER_CEILING` is the widening `MatchAbilities`' own doc
+  predicted, and it is one verb wide. Guarded by
+  `robot_v3_brings_its_pogo_to_smash_and_a_fighter_without_one_does_not`. ⛔ the
+  grid census that asserted the OLD rule was repaired to two containments, not
+  weakened — an equality could only hold while every fighter played one kit,
+  which is the world Jon rejected.
+- ✔ **D206 — the Up-B's carry was right and its SHAPE was the defect**: 52 wide
+  by 60 tall and in front of her, which is a rising poke. Fixed by `6946d72ba` +
+  `2095ed98e`: a 96×48 disk centred on the body, the finisher widened with it,
+  the autolink anchor moved to x=0 (⛔ `autolink_anchor_world` MIRRORS with
+  facing, so any non-zero x made the gather side depend on which way she looked),
+  `sprite_spin_hz` for the crude spin, and the clip bound to the side swing that
+  was already drawn. ⛔ polished spin animation is deferred by Jon's own priority
+  list, not forgotten.
+- ✔ **D207 — an active match had no way out, and `None` meant DRAW** so an
+  abandoned one could only impersonate a thing the fighters achieved. Fixed by
+  `24cf7f08c`: `MatchVerdict` is three answers; the pause row is CONTRIBUTED by
+  the experience (`ShellAbandonOffer`), so the shell hosts a row it cannot
+  describe and never learns what a match is. Schema v81 → v82 — `MatchAbandoned`
+  is written outside the sim and read inside it, so it needs the rollback clear.
+- ✔ **D56 — the Kernel Guide had no `CharacterDefinition`.** Answered and built
+  `3d2f53018`: identity only, ⛔ no body and no abilities, because a registration
+  carrying either would REPLACE the archetype-authored body rather than add
+  anything. Measured against Alice (migrated) and the vault keeper (not).
 
-⚠ **and three review findings to verify are actually closed at HEAD before more
-parity lands**: a fresh or stock-respawned airborne body starts with its recovery
-charge (test the real stock-respawn road, before landing); `RespawnGrace` owns a
-dedicated grant rather than another system's whole `Empowered` component (the
-ownership test uses the SAME body); autolink anchors transform from the
-attacker's frame.
+⚠ **STATURE (§6) IS THE ONE PIECE OF W8 STILL OPEN, and it is waiting on Jon by
+his own rule.** `ADULT_HEIGHT` must not exist and the cast must not be swept;
+stature is per-character and *"leave ambiguous characters unchanged until
+visually reviewed."* ⇒ nothing has been authored, so **`robot_v3` still does not
+read as shorter than anything** — 38 of 45 remain exactly 48.0, which is the
+state Jon described as wrong. The next step is his: name the characters, or
+approve starting with the few whose fiction is unambiguous.
+
+✔ **and the review's three §10 findings are all closed at HEAD, verified
+2026-08-24.** The recovery budget got the road test it was owed (`69a62298a`:
+lose a stock, come back airborne, recover before landing) — ⛔⛔ and its FIRST
+poison passed, because emptying `refresh_movement_resources_clusters` is the
+LANDING path; the fill that matters is `BodyJumpState::fresh` inside
+`reset_body_clusters`. A falsifier aimed at the wrong function is a green run
+that proves nothing. `RespawnGrace` already had the same-body ownership test the
+review specified, and the autolink anchor already resolved through
+`hitbox.facing` / `hitbox.frame_down` at the producer.
 
 ### ✔ LANDED 2026-08-15 — six worker lanes, all merged, validated and pushed
 

@@ -3075,10 +3075,37 @@ WHAT SLICE 1 STILL OWES.** `catalog_join` resolves
 `standing_height ?? body_kind.default_standing_height()` into
 `scale = height / body_h`. `Standard` defaults to **48.0 — the player robot's own
 height** — so every humanoid in the cast is already exactly 48 tall and
-comparable. **Zero of 145 catalog rows author `standing_height`**, so the default
-is doing all the work, and *that* is Jon's report: an adult pirate is 48 because
-the chibi robot is 48 and nothing has said they differ. ⇒ **the remaining work on
-his three reports is AUTHORING heights, not building the unit.**
+comparable. ⇒ **the remaining work on his three reports is AUTHORING heights, not
+building the unit.**
+
+⭐⭐ **RE-MEASURED 2026-08-24 and the population is sharper than "zero rows
+author it".** Run the instrument the row already names
+(`print_the_two_render_size_publishers`, `--ignored`):
+
+```text
+38 of 45 rendered characters are EXACTLY 48.0 tall
+  among them  npc_viking_warrior · npc_viking_shieldmaiden · npc_raid_enforcer
+              npc_salvage_guard · npc_olivia · npc_trent · npc_victor
+  beside them player_robot_v3 (the chibi protagonist) · sandbag · solid_snake
+3 rows DO author a height, and they are the ones Jon named:
+  npc_pirate_heavy_broadside_bess 58.7 · iron_mary 56.2 · salt_annet 60.4
+4 more differ because their body_kind answers None (Wide/Crawler/Floating)
+```
+
+⇒ ⭐ **THE PRECEDENT IS ALREADY IN THE FILE.** An adult in this cast sits at
+**56–60** against the protagonist's 48; three rows say so and the rest have never
+been asked. So the remaining authoring is not an invented scale — it is applying
+a band the content already established to the adult humans still defaulting.
+
+⚠ **and "zero of 145" was already stale when written** — the three heavies were
+authored before this measurement. Re-run the instrument before quoting a count
+from this row.
+
+⇒ ✔ **AND IT IS NOT BLOCKED.** The row parks the tolerance on decision 30; that
+decision was ANSWERED 2026-08-22 — *"Height owns world size; the measured scale is
+just the conversion from source pixels to world size"* — which settles the
+authoring direction and leaves only the per-character number, which is content.
+⛔ do not re-file it as a decision.
 
 ⚠ **`Vitals::canonical_height` and `CharacterCatalogEntry::standing_height` are
 the same fact on two authoring surfaces** (definition-side Rust, catalog-side

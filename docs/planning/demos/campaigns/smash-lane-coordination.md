@@ -353,6 +353,40 @@ the movement options the frame-advantage read the attack options already have.
 evade by hand took the smash suite from two failures to four, and this brain has
 an evaluation rig (`brain::fighter::evaluation`, `scenarios`) for exactly this.
 
+### ⛔ THE FRAME-ADVANTAGE OPTION IS ELIMINATED — measured 2026-08-24, and reverted
+
+Built it: `kit_fastest_startup` threaded into `movement_options` the way
+`kit_lifts` already is, and `Shield` offered in the `Advantage`/`EdgeGuard` arm
+at 0.85 whenever a hostile is in `AttackStartup` with less startup LEFT than this
+body's fastest move needs. Compiles, 620 green, and **INERT**: over a 30s trace,
+`Shield` was offered in `Advantage` **zero times** out of 129 decisions, and zero
+in `EdgeGuard` out of 34. The whole offered vocabulary there is
+`[Approach, Dodge, Jump]` (96), `[Approach, Jump]` (28), `[Approach]` (5).
+
+⭐ **and the reason is that the read is RIGHT and the answer is "punish".** With
+a jab this fast, a fighter can nearly always start before a startup finishes —
+so "their swing is faster than mine" is almost never true, and it is not what
+makes approaching wrong.
+
+⇒ **what actually makes it wrong is ARRIVAL, not speed.** Approaching closes
+distance while their hitbox is winding up, so the body gets there exactly as it
+goes live. The question a movement option would have to ask is *"will I be inside
+their reach when their window opens"* — and nothing published tells a brain what
+an opponent's swing REACHES. `Features::reach_fit` reads the body's OWN coverage.
+⇒ so the remaining slice is a new perceived fact (the foe's committed swing and
+its reach), which is mechanics work, not a score change — and the fifth-situation
+option cannot be judged until that fact exists either.
+
+⛔ the branch was NOT shipped. This campaign has already paid five times for
+green-and-inert code, and an unfired branch with a good comment is the same
+thing. The measurement is the deliverable.
+
+⚠ the decision mix has moved a long way from the one recorded under C6 below —
+30s, same command: `431 Approach · 250 Dodge · 81 Recover · 29 Retreat · 7
+Shield · 6 Jump`, against C6's `341 · 142 · 136 · 69 · 75 · 17`. Dodge is now
+FIRST among defensive answers by a wide margin and Shield has nearly vanished, so
+C6's own numbers should be re-taken before anything is concluded from them.
+
 ## C6 — the movement scores are a coupled system, and hand-editing them fails
 
 Three attempts, three reverts, and the third is the one that explains the other

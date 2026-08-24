@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `ac7b56d21` (2026-08-24 local project date).
+**Snapshot:** `c0f7bf0e2` (2026-08-24 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -29,11 +29,16 @@ what drifted is everything each road does AROUND that call. In an arena the whol
 roster is actors, so a player-only rule is invisible until somebody plays it.
 
 ```text
-knock_off_ledge            player-only until c3d7cdba7   a hit takes the hang
 refresh_movement_resources player-only until ec75dc307   a hit gives the air options back
-                           ...then moved INTO the reaction (ec6ddc3cc), which
-                           found the throw road had never had it either
+knock_off_ledge            player-only until c3d7cdba7   a hit takes the hang
+⇒ both now live in `apply_body_hit_reaction` (ec6ddc3cc, c0f7bf0e2), which is
+  where moving the first one found that the capture THROW had never had it either
 ```
+
+⛔ **and they were moved because they were WRONG somewhere, not to tidy a file.**
+Wallet armor, safe respawn, the cling break and kill disposition are genuinely
+road-specific — that is why there are two roads. The table on D203 is the list to
+keep honest.
 
 ⭐ **THE SECOND ONE WAS A FAIRNESS DEFECT, not tidiness.** A CPU launched
 offstage with a spent double jump read `air_jumps_left: 0` — what `SelfView`

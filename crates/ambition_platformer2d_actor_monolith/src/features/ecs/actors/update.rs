@@ -689,6 +689,9 @@ pub(crate) fn integrate_actor_body(
     // so a committed heavy strike damps its owner for every controller alike
     // (autonomous brain, possession, replay).
     move_motion_scale: f32,
+    // The move PLAYING on this body — the last term of the helpless derivation,
+    // and the VALUE rather than a bool because only a RECOVERY postpones it.
+    playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
     // Is this body TUMBLING? The caller reads the PUBLISHED projection
     // (`BodyMotionFacts::tumbling`), which is what the post-hit gate needs so a
     // falling body's tech press survives the stagger. Threaded rather than
@@ -771,6 +774,7 @@ pub(crate) fn integrate_actor_body(
         brain_frame,
         motion_model,
         motion_frame,
+        playing_a_move,
         feel,
         authored_tuning,
         combat,
@@ -1117,6 +1121,7 @@ pub fn integrate_sim_bodies(
             &steering,
             resolved_frame.get(),
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
+            playback,
             // LAST TICK's published tumble, which is the read this is owed:
             // the projection below is written after the step, and a tech window
             // is many ticks long.
@@ -1196,10 +1201,10 @@ pub fn integrate_sim_bodies(
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
             frame_dt,
             scaled_dt,
-            // A move is playing iff the component is there — the last term of
-            // the helpless derivation, and the reason a fighter is not helpless
-            // DURING its recovery, only after it ends.
-            playback.is_some(),
+            // The move itself, not merely whether one is playing: only a
+            // RECOVERY postpones helplessness, which is why the derivation reads
+            // the spec's gate rather than the component's presence.
+            playback.map(|pb| &*pb),
             contact.field_for(player_entity, &mut contact_scratch),
         );
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);

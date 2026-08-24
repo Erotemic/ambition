@@ -1814,6 +1814,34 @@ fn afford_recovery(spec: &ambition_entity_catalog::MoveSpec, charges_left: Optio
     charges_left.is_none_or(|left| left > 0)
 }
 
+/// A fighter that spent its recovery, is still in the air, and whose RECOVERY
+/// move has ended.
+///
+/// ⭐⭐ THE ONE RULE, and it lives here because this is the lowest layer that can
+/// see all three terms: `BodyJumpState` and `BodyGroundState` are the kernel's,
+/// and `MovePlayback` is this crate's. The movement gates and the move-start
+/// authority both call it, so a body cannot be helpless to one and not the other
+/// — which is exactly what it was: the movement kernel knew, and
+/// `trigger_moveset_moves` (which reads `ActorControl`, never an `InputState`)
+/// did not, so a spent fighter could still start aerials and specials.
+///
+/// ⛔⛔ "STILL RECOVERING" MEANS THE RECOVERY, not any move. An earlier version
+/// took ANY `MovePlayback` to postpone helplessness, so a fighter that threw its
+/// recovery and then started anything at all stopped being helpless — which is
+/// the state the rule exists to produce.
+///
+/// ⭐ AND IT CANNOT REACH A GAME THAT DOES NOT WANT IT. Charges only fall to zero
+/// when a move authored `MoveGates::spends_recovery` spends one, so a cast that
+/// authors no recovery never satisfies this — by construction, with no flag.
+pub fn body_is_helpless(
+    jump: &ae::BodyJumpState,
+    grounded: bool,
+    playing: Option<&MovePlayback>,
+) -> bool {
+    let still_recovering = playing.is_some_and(|pb| pb.spec.gates.spends_recovery);
+    jump.recovery_charges == 0 && !grounded && !still_recovering
+}
+
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     mut bodies: Query<(
@@ -1904,6 +1932,21 @@ pub fn trigger_moveset_moves(
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
+        // ⛔⛔ A HELPLESS FIGHTER STARTS NOTHING, and this is the authority that
+        // decides it — not the movement kernel's `InputState`, which this system
+        // never reads. The gate lived only there, so a fighter that had spent its
+        // recovery could not jump or air-dodge and could still throw an aerial
+        // or another special, which is the whole of what helplessness forbids.
+        //
+        // ⭐ BEFORE any resolution: refusing at the START is what makes it one
+        // rule, rather than a list of verbs each remembering to check.
+        if jumps
+            .get(entity)
+            .ok()
+            .is_some_and(|jump| body_is_helpless(jump, grounded, playback.as_deref()))
+        {
+            continue;
+        }
         let running = motion_facts.is_some_and(|facts| facts.running);
         // Capture replaces the ordinary action context. Resolve only pummel or
         // directional throw verbs while holding a captive; throws ignore strike

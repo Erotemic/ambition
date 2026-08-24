@@ -969,6 +969,8 @@ impl ActorClusterSeed {
                 frame,
                 motion_model,
                 motion_frame,
+                // No move playing on a scratch rig, so it is never helpless.
+                None,
                 ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
                 None,
                 &ambition_characters::actor::BodyCombat::default(),

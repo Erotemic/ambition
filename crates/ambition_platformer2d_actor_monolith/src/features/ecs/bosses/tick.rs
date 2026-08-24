@@ -4,7 +4,7 @@
 use super::super::*;
 
 use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
 
@@ -766,6 +766,10 @@ pub fn integrate_boss_bodies(
             &steering,
             resolved_frame.get(),
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
+            // A boss authors no recovery, so this is `None` today and the
+            // derivation answers "not helpless" — by the rule, not by an
+            // exception written into the boss road.
+            playback,
             // The same published read the actor loop makes: last tick's tumble,
             // so a launched boss keeps its tech press too.
             motion_facts.tumbling,

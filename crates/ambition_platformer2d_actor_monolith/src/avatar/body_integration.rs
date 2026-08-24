@@ -98,10 +98,12 @@ pub fn integrate_home_body(
     move_motion_scale: f32,
     frame_dt: f32,
     scaled_dt: f32,
-    // Is a move PLAYING on this body? The last term of the helpless derivation,
-    // and threaded for the reason `move_motion_scale` above is: the playback
-    // lives on the entity and this function takes clusters.
-    playing_a_move: bool,
+    // The move PLAYING on this body, if any — the last term of the helpless
+    // derivation, and threaded for the reason `move_motion_scale` above is: the
+    // playback lives on the entity and this function takes clusters. ⛔ the VALUE,
+    // not a bool: only a RECOVERY postpones helplessness, and a bool cannot say
+    // which move it was.
+    playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
     // `BodyContactField::NONE` for a body whose composition never granted the capability, which
     // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
@@ -114,12 +116,12 @@ pub fn integrate_home_body(
         clusters.shield,
         frame_dt,
         tumbling,
-        // HELPLESS, derived from this body's own clusters. `playing_a_move` is
-        // the caller's, because the move lives on the entity and this function
-        // takes clusters — the same reason `authored_tuning` is threaded.
-        crate::features::ecs::attack::body_is_helpless(
+        // HELPLESS, from the ONE rule `trigger_moveset_moves` also asks — so
+        // this body cannot be helpless to the movement kernel and not to the
+        // move-start authority, which is exactly what it was.
+        ambition_combat::moveset::body_is_helpless(
             clusters.jump,
-            clusters.ground,
+            clusters.ground.on_ground,
             playing_a_move,
         ),
     );

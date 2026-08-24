@@ -210,28 +210,6 @@ pub fn apply_post_hit_input_gates(
     }
 }
 
-/// A fighter that spent its recovery, is still in the air, and whose recovery
-/// move has ended.
-///
-/// ⭐⭐ DERIVED, NOT STORED, and that is what makes it free: every term already
-/// rewinds. `recovery_charges` is body-cluster state, ground contact is
-/// published every tick, and the move is a component that exists or does not. A
-/// `Helpless` marker would be a fourth thing to keep true and a fifth thing to
-/// register.
-///
-/// ⛔⛔ AND IT CANNOT REACH A GAME THAT DOES NOT WANT IT — no rule flag needed.
-/// Charges only fall to zero when a move authored `MoveGates::spends_recovery`
-/// spends one, so a cast that authors no recovery never satisfies this, and
-/// every body in Ambition is untouched by CONSTRUCTION rather than by a
-/// declaration somebody has to remember.
-pub fn body_is_helpless(
-    jump: &ae::BodyJumpState,
-    ground: &ae::BodyGroundState,
-    playing: bool,
-) -> bool {
-    jump.recovery_charges == 0 && !ground.on_ground && !playing
-}
-
 /// Tick the remaining `BodyMelee` cooldown floors on simulation time.
 /// `ranged_cooldown` gates refire; `cooldown` still feeds the AI telegraph.
 /// TODO(compat-remove): move the remaining melee recovery floor off `BodyMelee`
@@ -458,52 +436,6 @@ mod tests {
             spent.fast_fall_pressed(),
             "fast fall was stripped, and it belongs to the same idea the drift \
              does: choosing to come down faster is about WHERE you land"
-        );
-    }
-
-    /// ⭐ AND THE DERIVATION, which is what keeps this out of every other game.
-    ///
-    /// ⛔⛔ THREE TERMS AND ALL THREE NECESSARY. Airborne alone is every jump;
-    /// zero charges alone is a fighter standing on the floor between stocks; and
-    /// dropping the move term would make a fighter helpless DURING the recovery
-    /// it is still throwing — cancelling the very move that spent the charge.
-    #[test]
-    fn helplessness_needs_the_air_the_spent_charge_and_the_move_being_over() {
-        let airborne = ae::BodyGroundState {
-            on_ground: false,
-            ..Default::default()
-        };
-        let grounded = ae::BodyGroundState {
-            on_ground: true,
-            ..Default::default()
-        };
-        let spent = ae::BodyJumpState {
-            recovery_charges: 0,
-            ..Default::default()
-        };
-        let held = ae::BodyJumpState {
-            recovery_charges: 1,
-            ..Default::default()
-        };
-
-        assert!(
-            body_is_helpless(&spent, &airborne, false),
-            "a fighter that spent its recovery, is in the air, and whose move is \
-             over is not helpless — which is the whole state"
-        );
-        assert!(
-            !body_is_helpless(&spent, &grounded, false),
-            "a fighter STANDING with a spent charge is helpless, so anybody \
-             between landing and the refresh cannot act"
-        );
-        assert!(
-            !body_is_helpless(&held, &airborne, false),
-            "an ordinary jump is helplessness, so nobody can act in the air at all"
-        );
-        assert!(
-            !body_is_helpless(&spent, &airborne, true),
-            "a fighter is helpless DURING the recovery it is still throwing, so \
-             the move that spent the charge cancels itself"
         );
     }
 

@@ -5612,6 +5612,83 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
     );
 }
 
+/// ⭐⭐ A HELPLESS FIGHTER CANNOT START A MOVE — at the MOVE-START AUTHORITY.
+///
+/// ⛔⛔ THE DEFECT THIS PINS, found by review 2026-08-24: `body_is_helpless` was
+/// consulted only by the movement kernel, which gates an `InputState`.
+/// `trigger_moveset_moves` reads `ActorControl` and `ResolvedAttackGesture` and
+/// never sees an `InputState` at all — so a fighter that had spent its recovery
+/// could not jump or air-dodge and could still throw aerials and specials. The
+/// rule was enforced on the road that did not need it.
+///
+/// ⭐ THE THREE TERMS ARE ASSERTED SEPARATELY, because each alone is a different
+/// legal state: airborne with a charge is every jump; grounded with none is a
+/// fighter between stocks; and airborne-with-none while the RECOVERY still plays
+/// is the recovery itself, which must not cancel the move that spent the charge.
+#[test]
+fn a_helpless_fighter_starts_no_move_through_the_real_trigger() {
+    let started = |charges: u8, grounded: bool, playing: Option<MoveSpec>| {
+        let (mut app, body) = smash_charge_app();
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ae::BodyJumpState {
+                recovery_charges: charges,
+                ..Default::default()
+            })
+            .insert(ae::BodyGroundState {
+                on_ground: grounded,
+                ..Default::default()
+            });
+        if let Some(spec) = playing {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(MovePlayback::new(spec, 1.0));
+            // The playing move must not be the thing we detect, so clear it from
+            // the answer below by asking only whether a NEW move replaced it.
+        }
+        press_smash(&mut app, body, false);
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|pb| pb.spec.id.clone())
+    };
+
+    // The control: an ordinary airborne fighter with its recovery still in hand
+    // starts its move.
+    assert_eq!(
+        started(1, false, None).as_deref(),
+        Some("fsmash"),
+        "an ordinary fighter could not start a move at all, so the refusals \
+         below are measuring a broken fixture"
+    );
+    // Grounded with a spent charge is not helpless — that is every fighter
+    // between the landing and the refresh.
+    assert_eq!(
+        started(0, true, None).as_deref(),
+        Some("fsmash"),
+        "a fighter STANDING with a spent charge was refused, so nobody can act \
+         between landing and the refresh"
+    );
+
+    // ⛔ THE ONE THAT WAS BROKEN.
+    assert_eq!(
+        started(0, false, None),
+        None,
+        "a fighter that spent its recovery and is still airborne started a move \
+         — helplessness gates the movement kernel and not the move authority, \
+         which is the whole of what it forbids"
+    );
+
+    // …and the recovery it is still throwing is not cancelled by its own rule.
+    let mut recovery = uncancelable("polygon_up_b");
+    recovery.gates.spends_recovery = true;
+    assert_eq!(
+        started(0, false, Some(recovery)).as_deref(),
+        Some("polygon_up_b"),
+        "the recovery that spent the charge was interrupted by the helplessness \
+         it produces, so a fighter cancels its own way home"
+    );
+}
+
 /// ⭐ THE CRUDE SPIN, and the two things it must NOT do.
 ///
 /// `sprite_spin_hz` is presentation authored on a move, and its whole value is

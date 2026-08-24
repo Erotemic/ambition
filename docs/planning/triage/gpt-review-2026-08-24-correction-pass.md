@@ -24,9 +24,13 @@ one, and the evidence is a grep rather than an argument:**
 ```text
 P0-1 clank never reaches authored moves   ▢ arbitrate_attack_clanks: With<HitboxLifetime>
                                             advance_move_playback: "NO HitboxLifetime on purpose"
-P0-2 helpless never reaches move starts   ▢ trigger_moveset_moves takes &ActorControl +
-                                            &ResolvedAttackGesture — no InputState anywhere,
-                                            and InputState is the only thing the gate clears
+P0-2 helpless never reaches move starts   ✔ FIXED: ONE rule in ambition_combat::moveset,
+                                            asked by trigger_moveset_moves (which REFUSES
+                                            the start), the HOME road and the ACTOR road.
+                                            The monolith's duplicate is DELETED and the
+                                            actor road's hardcoded `false` is gone. "Still
+                                            recovering" means the move whose spends_recovery
+                                            spent the charge, not any MovePlayback
 P0-3 sudden death ends on first hit       ✔ BOTH HALVES FIXED: a match already in sudden
                                             death returns before the tiebreak, so the spent
                                             clock cannot decide it; and

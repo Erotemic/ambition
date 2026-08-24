@@ -72,7 +72,7 @@ fn step_as(
         DT,
         DT,
         // No move playing, so this rig is never helpless — it is about momentum.
-        false,
+        None,
         // A momentum rig with one body in it: nobody to be solid to.
         ae::BodyContactField::NONE,
     )

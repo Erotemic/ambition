@@ -214,6 +214,76 @@ target had stopped compiling. Swept the whole tier the same day: `cargo test
 --workspace --lib`, 67 targets, all compiling and green. Run it after touching a
 shared type.
 
+## 2026-08-24, LATEST — W8's four findings closed, then six mechanics
+
+Jon played the demo. The full message is
+[`demos/w8-playtest-2026-08-24.md`](demos/w8-playtest-2026-08-24.md) and the most
+valuable half of it is the negative space: VFX refinement, HUD animation tuning,
+cast-wide animation cleanup, juice adjustments and another presentation audit are
+named and refused. ⛔⛔ *"merely could look nicer → defer."*
+
+```text
+D204 forward smash pre-movement   ✔ e7927cee2   NOT the ordering defect reported
+D205 pogo is Robot v3's           ✔ 7346b6e86   floor → ceiling; census REPAIRED
+D206 Up-B reads as a poke         ✔ 6946d72ba   disk; anchor x=0; sprite_spin_hz
+D207 no way out of a match        ✔ 24cf7f08c   Exit Match → MatchVerdict
+D56  Kernel Guide definition      ✔ 3d2f53018   identity only, no kit
+```
+
+⭐⭐ **D204 IS THE ONE TO REMEMBER, because the report pointed at the wrong
+thing.** *"I should not effectively dash first and then Smash"* reads as an input
+ordering bug; measured through the real key stack, the smash STARTS on the press
+tick and then the fighter accelerates to the full run cap during its own startup
+— 64 world px. Two causes: nothing said a grounded attack roots its owner
+(`MoveGates::roots_steering`, set by `SmashRepertoire::GROUNDED`), and
+**`integrate_home_body` never received the move motion scale at all**, so every
+rule expressed as a motion lock was live for brain-driven bodies and silently off
+for the road a human drives.
+
+### Then six mechanics, in order
+
+```text
+clank + rebound     900377782 e8a29855f  two attacks meeting now TRADE
+sudden death        55e610083            a level timeout CONTINUES
+helpless            ddb3e3fa9            a spent recovery is final
+sim_random          98b5d5414            randomness that survives a rewind
+item spawning       30c7dfcb1 82e1afca3  built, and Smash declares it OFF
+```
+
+⭐ **`sim_random` is the one with the widest reach.** A rollback sim's problem
+with randomness was never the generator — a STREAM is state. A draw is a pure
+function of `(domain, tick, salt)`, so nothing registers, nothing rewinds, and
+**schedule order cannot matter**. The fighter brain keeps its own stream and
+should; this is for *"what does the world do this tick"*.
+
+⛔ **ITEMS ARE OFF BY JON'S CALL, not by omission** — *"we don't need items in
+smash right now. We eventually will."* One `None` in `apply_smash_match_rules`;
+the machinery and its unit tests are live.
+
+### What is still open, and it is Jon's
+
+⚠ **STATURE.** He ruled there is no standard adult height, `ADULT_HEIGHT` must
+not exist, and ambiguous characters wait for his eye. Nothing has been authored,
+so **`robot_v3` still does not read as shorter than anything** — 38 of 45 remain
+exactly 48.0, which is the state he called wrong. The next step is his: name the
+characters, or approve starting with the few whose fiction is unambiguous.
+
+⚠ **A RATCHET MOVED THAT NOBODY'S COMMIT EXPLAINS.** `COMPUTED_ID_TARGETS` 11 →
+13: `officer.py` and `author.py` are new SVG-rigged targets in the renderer
+checkout, UNTRACKED, so nothing in this repo can see them while the test scans
+the directory on disk. Neither has a catalog row yet. Lower it again if either
+goes away before it lands.
+
+### Four inventory rows were STALE, and that is the pattern to watch
+
+Fixed knockback, the spin Up-B, the Z-drop and "walk distinct from run" were all
+marked absent and all shipped. ⭐ the last one is the instructive case: the row's
+PREMISE was wrong (*"one continuum"*), measuring found the gait line already cuts
+it, and the deliverable became the missing test plus a corrected row pointing at
+the real gap — a digital input can only say 1.0, so a keyboard fighter cannot
+walk. ⇒ **grep before building, including when the ledger is the thing making the
+claim.**
+
 ## 2026-08-24 — THE GAME WOULD NOT BOOT, AND FOUR TESTS ALREADY SAID SO
 
 Jon ran `./run_game.sh` and got a panic before the first frame: *"Error when

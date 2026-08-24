@@ -387,7 +387,7 @@ Shield · 6 Jump`, against C6's `341 · 142 · 136 · 69 · 75 · 17`. Dodge is 
 FIRST among defensive answers by a wide margin and Shield has nearly vanished, so
 C6's own numbers should be re-taken before anything is concluded from them.
 
-## C7 — THE PARRY IS UNREACHABLE FOR A CPU, and raise timing is not the fix
+## C7 — THE PARRY IS UNREACHABLE FOR A CPU, and neither timing is the fix
 
 Measured 2026-08-24. `match_report -- 30` prints the parry window's own share of
 unhittable ticks:
@@ -429,13 +429,18 @@ an unused published fact is the same green-and-inert failure as an unfired branc
 
 ⇒ **what this eliminates and what it leaves.** Raise timing is not the lever.
 The remaining candidates, in order of what they'd cost:
-  - `ParryTiming::OnRelease` is FULLY LIVE and untried by this ruleset (a
-    one-word edit in `SMASH_MATCH_BODY`, guarded by
-    `the_parry_window_opens_where_the_ruleset_says_it_does`). It is Ultimate's
-    rule. ⚠ but the CPU releases its guard when the threat has PASSED, so the
-    same mistiming may simply move to the other end — measure before believing.
-  - a deliberate parry ATTEMPT as its own option, committed to like an attack,
-    rather than a property of whenever the guard happened to go up.
+  - ⛔ `ParryTiming::OnRelease` — TRIED AND ELIMINATED, same day. One word in
+    `SMASH_MATCH_BODY`, five 30s runs: `parries 0–0–2`, against the baseline's
+    `0–0–1`. Everything else lands inside noise (damage 232–270–324 vs
+    231–270–393, KOs 2–3–4 either way, shielding median identical at 123). The
+    mistiming simply moved to the other end, exactly as suspected: the CPU
+    releases its guard once the threat has PASSED. Reverted — the shipped stage
+    keeps the press-timed window, and which generation's rule it should play is
+    Jon's feel call, not something to change for no measured gain.
+  - ⇒ **a deliberate parry ATTEMPT as its own option**, committed to like an
+    attack, is what is left. Both timings are now eliminated by measurement, and
+    what they have in common is that the parry is a SIDE EFFECT of when the guard
+    happened to move. Nothing in the brain ever decides *to parry*.
 ⛔ do not widen `PARRY_WINDOW_TIME` to manufacture the number. Nine frames is
 already twice the genre's, and a window that catches by being wide is not the
 mechanic.

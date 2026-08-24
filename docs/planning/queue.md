@@ -3092,10 +3092,21 @@ author it".** Run the instrument the row already names
 4 more differ because their body_kind answers None (Wide/Crawler/Floating)
 ```
 
-⇒ ⭐ **THE PRECEDENT IS ALREADY IN THE FILE.** An adult in this cast sits at
-**56–60** against the protagonist's 48; three rows say so and the rest have never
-been asked. So the remaining authoring is not an invented scale — it is applying
-a band the content already established to the adult humans still defaulting.
+⛔⛔ **AND THE OBVIOUS READING OF THOSE THREE ROWS IS WRONG — I made it and am
+withdrawing it in the same breath.** They look like a precedent for "an adult is
+56–60", and they are not: all three are `body_kind: Wide`, which has **no
+default**, so each authored its own MEASURED height purely to keep its output
+identical while making the number visible. Their own comment says so — *"Identical
+output today (the legacy scale WAS height/body_h); the point is that changing the
+size is now one number."*
+
+⇒ **there is no chosen adult height anywhere in the cast**, and inventing a band
+from three transcriptions would be the same shape as the tolerance premise this
+row already killed: a number read off the population and then treated as an
+authority. ⇒ what the 38 need is a per-character NUMBER, which is content and
+Jon's call at the margin; what this measurement buys is that the question is now
+concrete — *how tall is an adult against a 48-tall chibi protagonist* — instead of
+"some characters look wrong".
 
 ⚠ **and "zero of 145" was already stale when written** — the three heavies were
 authored before this measurement. Re-run the instrument before quoting a count

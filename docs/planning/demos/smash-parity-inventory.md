@@ -148,8 +148,8 @@ existing seams.
 | Invulnerability/intangibility blink | ✔ | S | E1 | Publish one resolved presentation fact from actual hit eligibility (dodge, tech/getup, ledge, respawn, move invuln) and reuse the overlay-material pattern. |
 | Tech flash/SFX | ✔ | S | — | Tech exists but currently shares light movement feedback. Route a distinct one-shot cue from successful Tech, separate from getup roll. |
 | Parry flash/chime | ✔ | S | — | Trigger on successful parry contact, not merely on the parry window. Ordinary shield block stays visually distinct. |
-| Ceiling tech | ▢ | M | E1 | Extend tech surface classification from floor/wall to head/ceiling contact using existing contact facts. |
-| Wall-tech jump | ▢ | S/M | E1 | Add the jump outcome to wall-tech resolution; reuse wall normal and tech timing. |
+| Ceiling tech | ✔ | — | E1 | `ground.head_contact` is the third tech arm in `knockdown.rs`, beside the wall's. It pushes DOWN off the surface it caught, the way the wall tech pushes along the wall normal, into a fall the body controls. Guarded by `a_tumbling_body_can_tech_off_a_ceiling`. |
+| Wall-tech jump | ~ | S/M | E1 | The wall tech itself ships (`wall.on_wall` + a live tech press → an impulse along `wall_normal_x` at `WALL_TECH_SPEED`, position untouched — not a pushout). What is missing is only the JUMP variant on top of that outcome. |
 | Untechable high-launch threshold | ▢ | S/M | E1 | Make tech eligibility depend on resolved impact/launch state through one rules knob. |
 | ASDI | ▢ | M | E1 | Extend hitlag displacement semantics; keep it distinct from already-shipped SDI. |
 | Hitfall | ▢ | M | E1 | Author/resolve a post-hit downward acceleration or fast-fall transition without bypassing the movement kernel. |

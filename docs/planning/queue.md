@@ -646,8 +646,8 @@ fixing a right one. Before moving anything else into the reaction, classify it:
 there are two. The goal is NARROW roads around one honest shared reaction, not a
 mega-function that knows every game's death, economy and movement policy.
 
-- ▢ **D202 — CONTROL IS PUBLISHED IN TWO PHASES. ✔ THE DOUBLE RESTRICTION IS
-  CLOSED; THE DOUBLE PUBLICATION REMAINS.** (found 2026-08-24 working D200 §8b)
+- ✔ **D202 — CONTROL IS PUBLISHED IN TWO PHASES. CLOSED 2026-08-24: the double
+  RESTRICTION is gone; the double PUBLICATION is measured, judged, and declined.** (found 2026-08-24 working D200 §8b)
 
 A possessed body's `ActorControl` is written in `PlayerInputSet::Brain`
 (`tick_controlled_brains`). An autonomous body's is written a whole phase later
@@ -701,17 +701,36 @@ Bevy moves them into the executable — so a registration count must be taken
 BEFORE building, and a swallowed `initialize` error makes every set read as
 empty rather than as unbuilt. Both are asserted in the fixture.
 
-▢ **WHAT IS STILL OPEN: control is still PUBLISHED twice.** The target remains
-one canonical publication boundary, which means moving `tick_controlled_brains`
-out of `PlayerInputSet::Brain` down beside `publish_actor_decision_frames`. ⭐
-MEASURED as viable: `tick_controlled_brains` reads only `SlotControls` +
-`DrivingParticipant` + the body's motion policy, all settled in
-`PlayerInputSet::Device`, and the whole actor decision chain
-(`Targeting → Decide`) never borrows `ActorControl` — `actors/update.rs` says so
-in as many words, and `assess_dormancy`, which DOES write it, can never reach a
-possessed body (a driven body is its own observer, at distance zero). ⛔ do not
-solve it with middleware, a registry, or a generic control framework: one named
-set after publication is the whole shape.
+⊙ **CONTROL IS STILL PUBLISHED TWICE, AND THAT IS DECLINED FOR NOW — with the
+condition that reopens it.** Merging the two producers into one set was measured
+as VIABLE and judged NOT WORTH ITS COST, which is a different answer from "not
+done yet" and should not be re-derived from scratch next session.
+
+  - ✔ viable: `tick_controlled_brains` reads only `SlotControls` +
+    `DrivingParticipant` + the body's motion policy, all settled in
+    `PlayerInputSet::Device`; the whole actor decision chain
+    (`Targeting → Decide`) never borrows `ActorControl` — `actors/update.rs` says
+    so in as many words — and `assess_dormancy`, which DOES write it, can never
+    reach a possessed body (a driven body is its own observer, at distance zero,
+    so no `DormancyPolicy` puts it to sleep).
+  - ⛔ the cost: `PlayerInputSet::Brain` would have to leave `PlayerInput`, and
+    FIVE demo systems hang input-adjacent gameplay off `ControlledBrainTick`
+    while sitting in that phase — mary-o's pipe latch and spark chain, sanic's
+    pre-gate trio. Each would have to be dragged into `WorldPrep` too, or become
+    a cycle. That makes every one of those registrations LESS honest (they are
+    input work, in the input phase) to satisfy a diagram.
+  - ⇒ the two producers are in two phases for a REASON: human input → control is
+    input-phase work, and an AI decision needs the world that `WorldPrep` builds.
+    What D202 actually named — *every restriction over control runs twice* — is
+    closed by putting ONE gate after both, which is done.
+
+⚠ **THE CONDITION THAT REOPENS IT:** a consumer that must read FINISHED control
+from BOTH producers and cannot wait until the gate. There is none today — the
+only things between the two publications are the actor decision chain (which
+never reads `ActorControl`) and those five demo systems (which read the HUMAN
+frame, from the producer that already ran). ⛔ if one appears, the fix is one
+named set after publication — not middleware, not a registry, not a generic
+control framework.
 
 ▢ **AND THE SAME SEAM OWES THE DUAL-WRITE BRIDGE, re-homed here 2026-08-24 when
 D200 closed.** `shape_seat_frame` writes BOTH `SeatRawFrames` and `SlotControls`,

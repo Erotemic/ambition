@@ -83,15 +83,18 @@ gated the raise and not the sustain, and a held Shield also fills the air-dodge
 buffer once airborne — so walking off a ledge guarding produced the exact state
 `air_guard: false` exists to forbid.
 
-✔ **D202's double restriction is CLOSED.** Control is published twice — a
+✔ **D202 is CLOSED.** Its double restriction is gone; its double PUBLICATION is
+measured, judged and DECLINED — merging the two producers would drag five demo
+systems out of the input phase to satisfy a diagram, and the condition that would
+reopen it (a consumer needing finished control from both, before the gate) does
+not exist. ⛔ do not re-derive that from scratch. Control is published twice — a
 possessed body's in `PlayerInputSet::Brain`, an autonomous body's a phase later —
 so every restriction over control was registered twice, and the pair was correct
 only by an invariant nothing enforced: the first blank stopped the second sampler
 crediting the same human press. `ControlGate` and `BodyMode` are re-parented into
 `WorldPrep` after both publications, and one copy of each restriction gates
 everybody. ⚠ the sets keep names that now lie about their phase, stated at the
-enum. ⇒ still open: control is still PUBLISHED twice; the row records the
-measurement that moving `tick_controlled_brains` is viable.
+enum.
 
 ⚠ **D201's reference facts were WRONG and are corrected in the row.** Ultimate
 does NOT allow an indefinite hang (6.5s under 100%, 5s at or above), its 6-grab

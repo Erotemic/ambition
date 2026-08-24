@@ -30,8 +30,16 @@ pub fn read_gameplay_control_frame_with_settings(
     burst_state: crate::settings::TriggerEdgeState,
 ) -> (ControlFrame, crate::settings::TriggerEdgeState) {
     let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
-    // Apply the left-stick deadzone before any walk-modifier logic so analog
-    // drift doesn't pollute the magnitude check.
+    // Deadzone first, so analog drift does not pollute the magnitude the
+    // simulation reads as a gait: the stick's MAGNITUDE is the walk/run
+    // distinction (`run * max_run_speed`, cut by `run_commit_frac`), so drift
+    // here is a body that walks on its own.
+    //
+    // ⚠ there is no walk MODIFIER, and the comment this replaces named one —
+    // a fossil describing logic that has never existed here. A digital source
+    // can only say 1.0, which is why a keyboard fighter cannot walk; see the
+    // parity inventory's row, which points at this file rather than at
+    // locomotion.
     let (deadzoned_x, deadzoned_y) = crate::settings::ControlSettings::apply_deadzone(
         raw_move.x,
         raw_move.y,

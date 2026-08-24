@@ -98,6 +98,10 @@ pub fn integrate_home_body(
     move_motion_scale: f32,
     frame_dt: f32,
     scaled_dt: f32,
+    // Is a move PLAYING on this body? The last term of the helpless derivation,
+    // and threaded for the reason `move_motion_scale` above is: the playback
+    // lives on the entity and this function takes clusters.
+    playing_a_move: bool,
     // `BodyContactField::NONE` for a body whose composition never granted the capability, which
     // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
@@ -110,6 +114,14 @@ pub fn integrate_home_body(
         clusters.shield,
         frame_dt,
         tumbling,
+        // HELPLESS, derived from this body's own clusters. `playing_a_move` is
+        // the caller's, because the move lives on the entity and this function
+        // takes clusters — the same reason `authored_tuning` is threaded.
+        crate::features::ecs::attack::body_is_helpless(
+            clusters.jump,
+            clusters.ground,
+            playing_a_move,
+        ),
     );
     // Ledge/platform carry is handled inside the shared simulation kernel.
     let result = ambition_characters::actor::step_body(

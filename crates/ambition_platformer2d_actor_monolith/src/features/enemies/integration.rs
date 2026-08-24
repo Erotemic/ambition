@@ -328,6 +328,14 @@ impl<'a> ActorMut<'a> {
             combat,
             self.shield,
             tumbling,
+            // ⛔ AN ENEMY IS NEVER HELPLESS, and this is a statement rather than
+            // a shortcut: helplessness is what SPENDING A RECOVERY costs, no
+            // enemy authors a `spends_recovery` move, and this integrator holds
+            // neither a jump cluster nor a move playback to derive it from. The
+            // day an enemy authors a recovery, `body_is_helpless` is the call
+            // that belongs here and the compiler will not remind anybody — which
+            // is why the reason is written down instead of the `false` alone.
+            false,
         );
         // What stays here is what legitimately differs: WHICH tuning this body moves under (its
         // character's authored feel, else its config's).

@@ -59,6 +59,9 @@ pub fn engine_input_from_actor_control(
     // Whether this body is tumbling, for the tech exemption. See
     // [`apply_post_hit_input_gates`].
     tumbling: bool,
+    // Whether this body is HELPLESS — see [`body_is_helpless`], which derives it
+    // from facts the caller already holds.
+    helpless: bool,
 ) -> ae::InputState {
     // what is genuinely this function's own is the two lines below it. The
     // frame carries no clock — `to_input_state` leaves `control_dt` at zero on
@@ -67,7 +70,7 @@ pub fn engine_input_from_actor_control(
     // frame's.
     let mut input = actor.to_input_state();
     input.control_dt = control_dt;
-    apply_post_hit_input_gates(&mut input, feel, combat, shield, tumbling);
+    apply_post_hit_input_gates(&mut input, feel, combat, shield, tumbling, helpless);
     input
 }
 
@@ -90,6 +93,10 @@ pub fn apply_post_hit_input_gates(
     // (`ae::BodyMotionFacts::tumbling`), never the model's private maneuver
     // state. See the tech exemption below for why this gate needs it.
     tumbling: bool,
+    // IS THIS BODY HELPLESS — a spent recovery, still in the air, and the move
+    // that spent it over? See [`body_is_helpless`], which is where the fact is
+    // DERIVED; this takes the answer so both roads read one rule.
+    helpless: bool,
 ) {
     // THE TECH PRESS SURVIVES THE STAGGER, and it is the one press that must.
     //
@@ -172,9 +179,57 @@ pub fn apply_post_hit_input_gates(
             .set(ae::MovementAction::Blink, ae::Edge::NONE);
         input.interact_pressed = false;
     }
+    // ⭐⭐ HELPLESS, and it is the ONLY gate here that is not a clock. A fighter
+    // that has spent its recovery and is still airborne has nothing left: no
+    // attack, no special, no jump, no air dodge. It keeps its DRIFT, which is
+    // the whole of what it can still do about where it lands — and that is the
+    // genre's edgeguard game, the reason spending a recovery early is a
+    // decision rather than a button.
+    //
+    // ⛔ AFTER the two gates above, deliberately: a helpless body that is ALSO
+    // in hitstun is both, and the strictest answer is the honest one. And after
+    // the tech exemption is computed but BEFORE it is restored, because a
+    // helpless body has no floor game to tech into — it has not been hit.
+    if helpless {
+        input.movement.set(ae::MovementAction::Jump, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::Burst, ae::Edge::NONE);
+        input
+            .movement
+            .set(ae::MovementAction::Blink, ae::Edge::NONE);
+        input.attack_pressed = false;
+        input.pogo_pressed = false;
+        // ⛔ FAST FALL SURVIVES, and it belongs to the same idea the drift does:
+        // choosing to come down faster is a decision about where you land, not
+        // an action. Every game in the genre keeps it.
+        return;
+    }
     if let Some(edge) = tech_press {
         input.movement.set(ae::MovementAction::Burst, edge);
     }
+}
+
+/// A fighter that spent its recovery, is still in the air, and whose recovery
+/// move has ended.
+///
+/// ⭐⭐ DERIVED, NOT STORED, and that is what makes it free: every term already
+/// rewinds. `recovery_charges` is body-cluster state, ground contact is
+/// published every tick, and the move is a component that exists or does not. A
+/// `Helpless` marker would be a fourth thing to keep true and a fifth thing to
+/// register.
+///
+/// ⛔⛔ AND IT CANNOT REACH A GAME THAT DOES NOT WANT IT — no rule flag needed.
+/// Charges only fall to zero when a move authored `MoveGates::spends_recovery`
+/// spends one, so a cast that authors no recovery never satisfies this, and
+/// every body in Ambition is untouched by CONSTRUCTION rather than by a
+/// declaration somebody has to remember.
+pub fn body_is_helpless(
+    jump: &ae::BodyJumpState,
+    ground: &ae::BodyGroundState,
+    playing: bool,
+) -> bool {
+    jump.recovery_charges == 0 && !ground.on_ground && !playing
 }
 
 /// Tick the remaining `BodyMelee` cooldown floors on simulation time.
@@ -305,7 +360,13 @@ pub fn player_attack_hitbox(
     // box cannot disagree about which way the swing points.
     Some(
         authored_volumes
-            .resolve(character_catalog, sprite_character_id, animation, view.size, None)?
+            .resolve(
+                character_catalog,
+                sprite_character_id,
+                animation,
+                view.size,
+                None,
+            )?
             .place_body_local(view.pos, view.facing, gravity_dir),
     )
 }
@@ -337,12 +398,121 @@ mod tests {
 
     /// Review-required AI-body coverage for the `InputState` re-key: an actor /
     /// AI brain drives movement by writing `ActorControlFrame` verbs, and the
+    /// ⭐⭐ A SPENT RECOVERY LEAVES A FIGHTER WITH DRIFT AND NOTHING ELSE.
+    ///
+    /// The genre's edgeguard game rests on it: once you have thrown your
+    /// recovery you cannot attack, jump, or dodge your way home, and the only
+    /// thing left is where you steer while you fall. Without it a fighter offstage
+    /// keeps every option it had, and going offstage after somebody costs nothing.
+    ///
+    /// ⛔ THE DRIFT AND THE FAST FALL SURVIVE, and asserting that is half the
+    /// test: a gate that stripped the axes would be a body that cannot influence
+    /// where it lands, which is a stun rather than helplessness. A test that only
+    /// checked "the attack is gone" would pass against that.
+    #[test]
+    fn a_helpless_fighter_keeps_its_drift_and_loses_everything_else() {
+        use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+
+        let mut frame = ActorControlFrame::neutral();
+        frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
+        frame.jump_pressed = true;
+        frame.burst_pressed = true;
+        frame.melee_pressed = true;
+        frame.fast_fall_pressed = true;
+
+        let gated = |helpless: bool| {
+            engine_input_from_actor_control(
+                frame,
+                Platformer2dFeelTuningMonolith::default(),
+                &ambition_characters::actor::BodyCombat::default(),
+                &ae::BodyShieldState::default(),
+                1.0 / 60.0,
+                false,
+                helpless,
+            )
+        };
+
+        // The control: an ordinary airborne fighter keeps all four.
+        let free = gated(false);
+        assert!(
+            free.jump_pressed() && free.burst_pressed() && free.attack_pressed,
+            "the fixture's presses do not survive an UNGATED frame, so the \
+             assertions below measure the fixture rather than the gate"
+        );
+
+        let spent = gated(true);
+        assert!(!spent.jump_pressed(), "a helpless fighter jumped home");
+        assert!(
+            !spent.burst_pressed(),
+            "a helpless fighter air-dodged, which is the recovery the spent one \
+             was supposed to have been"
+        );
+        assert!(!spent.attack_pressed, "a helpless fighter swung");
+        assert_eq!(
+            spent.axes.x, 1.0,
+            "the drift went with everything else — a helpless fighter that \
+             cannot steer is not helpless, it is frozen"
+        );
+        assert!(
+            spent.fast_fall_pressed(),
+            "fast fall was stripped, and it belongs to the same idea the drift \
+             does: choosing to come down faster is about WHERE you land"
+        );
+    }
+
+    /// ⭐ AND THE DERIVATION, which is what keeps this out of every other game.
+    ///
+    /// ⛔⛔ THREE TERMS AND ALL THREE NECESSARY. Airborne alone is every jump;
+    /// zero charges alone is a fighter standing on the floor between stocks; and
+    /// dropping the move term would make a fighter helpless DURING the recovery
+    /// it is still throwing — cancelling the very move that spent the charge.
+    #[test]
+    fn helplessness_needs_the_air_the_spent_charge_and_the_move_being_over() {
+        let airborne = ae::BodyGroundState {
+            on_ground: false,
+            ..Default::default()
+        };
+        let grounded = ae::BodyGroundState {
+            on_ground: true,
+            ..Default::default()
+        };
+        let spent = ae::BodyJumpState {
+            recovery_charges: 0,
+            ..Default::default()
+        };
+        let held = ae::BodyJumpState {
+            recovery_charges: 1,
+            ..Default::default()
+        };
+
+        assert!(
+            body_is_helpless(&spent, &airborne, false),
+            "a fighter that spent its recovery, is in the air, and whose move is \
+             over is not helpless — which is the whole state"
+        );
+        assert!(
+            !body_is_helpless(&spent, &grounded, false),
+            "a fighter STANDING with a spent charge is helpless, so anybody \
+             between landing and the refresh cannot act"
+        );
+        assert!(
+            !body_is_helpless(&held, &airborne, false),
+            "an ordinary jump is helplessness, so nobody can act in the air at all"
+        );
+        assert!(
+            !body_is_helpless(&spent, &airborne, true),
+            "a fighter is helpless DURING the recovery it is still throwing, so \
+             the move that spent the charge cancels itself"
+        );
+    }
+
     /// bridge must route them onto the re-keyed `movement` edges the kernel now
     /// consumes — including the edge-granular post-hit stagger gates.
     #[test]
     fn ai_body_movement_routes_through_action_edges_and_gates() {
-        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
         use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
         let dt = 1.0 / 60.0;
 
         // Normal: jump held + burst + blink-release route to the movement edges.
@@ -357,6 +527,8 @@ mod tests {
             &ambition_characters::actor::BodyCombat::default(),
             &ae::BodyShieldState::default(),
             dt,
+            false,
+            // Not helpless: these fixtures are about the stagger gates.
             false,
         );
         assert!(input.jump_pressed() && input.jump_held());
@@ -377,6 +549,8 @@ mod tests {
             &ae::BodyShieldState::default(),
             dt,
             false,
+            // Not helpless: these fixtures are about the stagger gates.
+            false,
         );
         assert!(!input.jump_pressed() && !input.burst_pressed());
 
@@ -393,6 +567,8 @@ mod tests {
             },
             &ae::BodyShieldState::default(),
             dt,
+            false,
+            // Not helpless: these fixtures are about the stagger gates.
             false,
         );
         assert!(!input.jump_pressed(), "hitstun eats the jump press");

@@ -223,6 +223,41 @@ impl NormalizedEffort {
     }
 }
 
+/// WHAT A MATCH DROPS, AND HOW OFTEN.
+///
+/// ⭐ ONE STRUCT rather than three roster fields, because the three are
+/// meaningless apart: an interval with no table drops nothing, a table with no
+/// interval is never read, and points with neither are scenery. Declaring them
+/// together is how "items are on" becomes one statement a rules screen can
+/// toggle.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MatchItemSpawns {
+    /// Ticks between drops. `0` disables — the same "off" the `None` above
+    /// means, reachable without deleting the table, which is what a rules
+    /// screen needs.
+    pub every_ticks: u32,
+    /// `(held-item id, weight)`. A zero weight is a row switched OFF and is
+    /// genuinely unreachable — see `sim_random_weighted`.
+    pub table: Vec<(String, u32)>,
+    /// Where they land, in world space. ⛔ THE STAGE'S, not the item domain's: a
+    /// spawn point is a fact about the geometry somebody authored, and an item
+    /// system that guessed one would be a system with an opinion about level
+    /// design.
+    pub points: Vec<ambition_platformer2d_core::Vec2>,
+}
+
+impl MatchItemSpawns {
+    /// Is this declaration capable of dropping anything at all?
+    ///
+    /// Three ways to be off and one to be on, asked in one place so a caller
+    /// cannot check two of them and miss the third.
+    pub fn active(&self) -> bool {
+        self.every_ticks > 0
+            && !self.points.is_empty()
+            && self.table.iter().any(|(_, weight)| *weight > 0)
+    }
+}
+
 /// What a MATCH stages: one character per seat. Several seats may name the SAME
 /// character (a mirror match), which the demand set collapses.
 /// A `Resource` because a match's roster is SESSION state: it is what the seating
@@ -264,6 +299,15 @@ pub struct MatchParticipantRoster {
     /// On the roster for the same reason as `fighter_stocks`: the engine does
     /// not get an opinion about what a match's economy is.
     pub time_limit_ticks: u32,
+    /// ITEMS: how often this match drops one, in simulation ticks, and what it
+    /// may drop. `None` = no items, which is what every match did before this
+    /// existed and what a stage that never declares one keeps doing.
+    ///
+    /// TICKS for the reason `opening_countdown_ticks` is: the schedule is
+    /// compared against the sim clock, so a rollback re-runs it and reaches the
+    /// same answer. A wall-clock interval would drop an item on one peer and not
+    /// the other.
+    pub item_spawns: Option<MatchItemSpawns>,
     /// Whether anybody has agreed to seat this roster yet. See
     /// [`RosterSeating`].
     pub seating: RosterSeating,
@@ -672,6 +716,7 @@ mod tests {
         // The same three characters, seated instead of placed — and one seat is a
         // CPU, which must not change what art is needed.
         let match_roster = MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("solid_snake").driven_by(ControllerBinding::Cpu {
                     brain_profile: Some("aggressive".into()),

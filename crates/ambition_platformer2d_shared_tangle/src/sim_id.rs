@@ -93,6 +93,24 @@ impl SimId {
         ))
     }
 
+    /// An object the MATCH itself put into the world — a spawned item.
+    ///
+    /// ⭐ DERIVED, not sequenced, for the same reason [`Self::strike_volume`]
+    /// is: `(match, tick)` determines it completely and at most one spawn per
+    /// tick exists, so a counter would be a second authority on a fact the tick
+    /// already settles. That matters more here than convenience — the pickup
+    /// road mints under the THROWER and takes a `SimIdCounter` from it, and a
+    /// match-level spawner has no thrower to take one from. Deriving is not a
+    /// workaround for that; it is the reason the problem does not arise.
+    ///
+    /// ⛔ THE TICK IS NOT DECORATION. Two items spawned on different ticks are
+    /// different objects and a save must be able to tell them apart; two spawned
+    /// on the SAME tick would be the same object, which is why the caller must
+    /// not draw twice in one tick without the schedule saying so.
+    pub fn match_spawn(activation: u64, tick: u64) -> Self {
+        Self(format!("match:{activation}/spawn/{tick}"))
+    }
+
     /// Rebuild an id from a snapshot blob's key.
     ///
     /// The ONLY way to make a `SimId` from a raw string, and it is named for its

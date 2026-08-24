@@ -131,6 +131,36 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     });
     // Apply the ruleset's body baseline alongside its ability policy.
     roster.fighter_body = Some(SMASH_FIGHTER_BODY);
+    // ITEMS, every eight seconds. The genre's other combatant: a fight where the
+    // stage never intervenes is two fighters solving one problem, and the drop
+    // is what makes position worth holding for a reason other than the opponent.
+    //
+    // ⛔ THE POINTS ARE THIS STAGE'S, and they have to be — a spawn point is a
+    // fact about geometry somebody authored, and an item system that guessed one
+    // would be a system with an opinion about level design. Above the platform,
+    // so a drop falls onto it rather than through the blast zone.
+    //
+    // The table is items whose `Attack` does something on its own — the bomb and
+    // the grenade throw, the gun-sword fires. ⛔ NOT the `UseSystem` items (the
+    // meteor gauntlet, mark/recall): those are abilities a body wields, and
+    // handing one to whoever walks past is a different mechanic from an item
+    // fight. The bomb is weighted highest because a throwable is the item a
+    // fighter can use immediately, wherever it picked it up.
+    roster.item_spawns = Some(
+        ambition_platformer2d::actors::character_runtime::MatchItemSpawns {
+            every_ticks: 8 * 60,
+            table: vec![
+                ("bomb".to_string(), 4),
+                ("gravity_grenade".to_string(), 2),
+                ("gun_sword".to_string(), 1),
+            ],
+            points: vec![
+                Vec2::new(STAGE_SIZE.x * 0.35, PLATFORM_TOP - 140.0),
+                Vec2::new(STAGE_SIZE.x * 0.5, PLATFORM_TOP - 160.0),
+                Vec2::new(STAGE_SIZE.x * 0.65, PLATFORM_TOP - 140.0),
+            ],
+        },
+    );
 }
 
 /// SMASH'S READING OF A CHARACTER — a function from what the character

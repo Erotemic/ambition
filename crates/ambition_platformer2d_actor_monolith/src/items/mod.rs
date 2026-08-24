@@ -7,6 +7,7 @@
 pub use ambition_items::*;
 
 pub mod conditions;
+pub mod match_spawn;
 pub mod narrative;
 pub mod persist;
 pub mod pickup;

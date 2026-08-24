@@ -14,6 +14,9 @@ pub mod presentation;
 pub mod seating;
 pub mod staging;
 
+pub use ambition_characters::actor::definition::{
+    BodySource, CharacterDefinition, Lineage, Vitals,
+};
 #[cfg(test)]
 // Test-only preparation seams supplied by `ambition_characters::test-support`.
 #[cfg(test)]
@@ -28,9 +31,6 @@ pub use definition::{
     CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
     CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError,
     MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
-};
-pub use ambition_characters::actor::definition::{
-    BodySource, CharacterDefinition, Lineage, Vitals,
 };
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
@@ -84,8 +84,9 @@ pub(crate) fn fixture_cast(ids: &[&str]) -> PreparedCharacterRegistry {
     registry
 }
 pub use staging::{
-    ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
-    NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating, StagesCharacters,
+    ControllerBinding, DirectStartupSpec, MatchItemSpawns, MatchParticipant,
+    MatchParticipantRoster, NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating,
+    StagesCharacters,
 };
 
 use std::collections::{BTreeMap, BTreeSet};

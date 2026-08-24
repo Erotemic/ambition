@@ -109,6 +109,7 @@ fn two_human_roster() -> MatchParticipantRoster {
             .on_team(team)
     };
     MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             human("player_robot_v3", 0, "blue"),
             human("player_robot_v2", 1, "red"),

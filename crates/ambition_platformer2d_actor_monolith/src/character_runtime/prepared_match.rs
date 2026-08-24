@@ -221,6 +221,10 @@ pub struct MatchRules {
     pub opening_countdown_ticks: u32,
     /// See [`MatchRoster::time_limit_ticks`](crate::character_runtime::MatchRoster::time_limit_ticks).
     pub time_limit_ticks: u32,
+    /// What this match drops and how often, carried from
+    /// [`MatchParticipantRoster::item_spawns`](super::staging::MatchParticipantRoster::item_spawns).
+    /// `None` = no items.
+    pub item_spawns: Option<super::staging::MatchItemSpawns>,
 }
 
 /// Where an opening ceremony has got to — derived from the clock, never
@@ -564,6 +568,7 @@ pub fn prepare_match(
         opens_suspended: roster.opens_suspended,
         opening_countdown_ticks: roster.opening_countdown_ticks,
         time_limit_ticks: roster.time_limit_ticks,
+        item_spawns: roster.item_spawns.clone(),
     };
     let death_policy = rules.death_policy();
 

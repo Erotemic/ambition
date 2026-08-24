@@ -711,6 +711,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
             .on_team(team)
     };
     sim.world_mut().insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             cpu("player_robot_v3", "blue"),
             cpu("player_robot_v2", "red"),

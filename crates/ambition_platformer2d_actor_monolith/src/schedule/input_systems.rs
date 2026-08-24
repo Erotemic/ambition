@@ -924,6 +924,7 @@ mod focus_gate_tests {
                 .chain(),
         );
         app.world_mut().insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -997,6 +998,7 @@ mod focus_gate_tests {
                 .chain(),
         );
         app.world_mut().insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1090,6 +1092,7 @@ mod focus_gate_tests {
         assert_eq!(seat_slots(&mut app), vec![0], "boot seats player one only");
 
         app.world_mut().insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1105,6 +1108,7 @@ mod focus_gate_tests {
 
         // A CPU opponent is not a seat: nobody is holding a controller for it.
         app.world_mut().insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1185,6 +1189,7 @@ mod focus_gate_tests {
         // room, and asking for `SECONDARY` from a one-person roster would be asking for a chair
         // nobody is sitting in.
         app.world_mut().insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1245,6 +1250,7 @@ mod focus_gate_tests {
         );
         // Two people, holding the second and fourth controllers in the room.
         app.world_mut().insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(1),

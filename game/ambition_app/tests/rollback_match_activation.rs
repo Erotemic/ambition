@@ -39,6 +39,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
             .on_team(team)
     };
     MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             cpu("player_robot_v3", "blue"),
             cpu("player_robot_v2", "red"),
@@ -568,6 +569,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
             .on_team(team)
     };
     sim.world_mut().insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             human("player_robot_v3", 0, "blue"),
             human("player_robot_v2", 1, "red"),
@@ -702,6 +704,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
     let ids = ["player_robot_v3", "player_robot_v2"];
     let teams = ["blue", "red"];
     MatchParticipantRoster {
+        item_spawns: None,
         participants: (0..count)
             .map(|slot| {
                 MatchParticipant::new(ids[slot])

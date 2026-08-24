@@ -18,10 +18,10 @@ use bevy::prelude::*;
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_characters::control::ActorControl;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -123,6 +123,11 @@ impl Plugin for ItemPickupSimulationPlugin {
                 crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 throw_held_item_system
+                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                // WHAT THE MATCH DROPS, before the physics that settles it —
+                // so an item spawned this tick falls this tick rather than
+                // hanging at its point for one frame.
+                crate::items::match_spawn::spawn_match_items
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 ground_item_physics
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),

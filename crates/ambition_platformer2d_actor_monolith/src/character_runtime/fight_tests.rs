@@ -161,6 +161,7 @@ fn two_providers_stage_into_one_session_and_both_reach_readiness() {
 
     // ── One session seats both, from two providers, and demands their art ──
     let roster = MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("mary_o").on_team("blue"),
             MatchParticipant::new("sanic")

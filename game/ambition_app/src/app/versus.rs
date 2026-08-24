@@ -158,6 +158,9 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         })
         .collect();
     MatchParticipantRoster {
+        // No items: these rounds are two duelists and a health bar, and an item
+        // needs somewhere authored to land.
+        item_spawns: None,
         participants,
         // The stage ceremony releases this suspension when the round goes live.
         opens_suspended: true,

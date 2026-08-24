@@ -157,9 +157,9 @@ that proves nothing. `RespawnGrace` already had the same-body ownership test the
 review specified, and the autolink anchor already resolved through
 `hitbox.facing` / `hitbox.frame_down` at the producer.
 
-- ▢ **D208 — THE SOURCE LANDED; ITS FIRST CUSTOMER HAS NOT.** (opened 2026-08-24,
-  found by sizing `Deterministic match item spawning`; source shipped the same
-  day)
+- ✔ **D208 — CLOSED 2026-08-24, source and first customer in the same day.** A
+  rollback sim had no shared source of randomness; three §8 rows and a §10 row
+  were waiting behind that one decision.
 
 ✔ **`ambition_platformer2d_core::sim_random` — AND THE ANSWER WAS TO HAVE NO
 STREAM.** The three questions this row posed (where the seed lives, who may draw
@@ -181,22 +181,23 @@ lets a rules screen switch an item off without deleting its row.
 within a tick and it carries per-body state that already rewinds. This is for
 *"what does the world do this tick"*, where the tick is the whole context.
 
-⚠ **WHAT IS STILL OPEN IS THE ADOPTER, and the row's own warning applies to
-me**: a source with no consumer is untestable for the only property that matters.
-Its determinism IS tested (it is a pure function), but its API SHAPE has not met
-a real customer. ⇒ the road is traced and the next session should not
-re-discover it:
+✔ **AND THE CUSTOMER SHAPED IT, which is why the row insisted on one.** Match
+item spawning (`items::match_spawn`) drew twice a tick and immediately found the
+one thing a pure-function source can get wrong: two draws that share a salt are
+the same number. The `salt` parameter earned its documentation there rather than
+in the abstract.
 
-```text
-crate::items::pickup::held_spec_by_id(id)        id -> HeldItemSpec
-crate::items::pickup::MINTED_ITEM_HALF_EXTENT    the mint's box
-ActorConstructionParams::GroundItem { spec, held }   the transactional road a
-                                                     runtime mint already takes
-```
+⛔⛔ **AND THE TEST THAT WAS SUPPOSED TO CATCH IT COULDN'T.** The first version
+compared the REDUCED indices — a weighted pick over 2 rows against an index over
+3 — which differ under any salt at all. Poisoning both salts to zero left it
+GREEN. The assertion moved onto the raw draws, where it reddens. ⇒ a correlation
+test on values that were reduced by different moduli is a check that cannot fail.
 
-what remains for the spawner: a ruleset knob (interval + weighted table),
-spawn points declared by the STAGE, and a `SimIdCounter` owner for a match-level
-minter — the pickup road mints under the THROWER, and a spawner has no thrower.
+⭐ **the SimId question the row named answered itself**: `SimId::match_spawn` is
+DERIVED, like `strike_volume` — `(match, tick)` settles the object completely, so
+the missing `SimIdCounter` owner was never a problem to solve. And the schedule is
+`elapsed % every_ticks == 0`, a pure function of the match clock, so there is no
+countdown resource inside the rollback window either.
 
 
 ⭐ **THE SIZING IS THE FINDING.** The parity inventory asks for a deterministic

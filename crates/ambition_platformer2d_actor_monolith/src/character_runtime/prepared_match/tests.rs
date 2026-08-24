@@ -135,6 +135,7 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("mary_o"), cpu("sanic")],
         ..Default::default()
     });
@@ -227,6 +228,7 @@ fn seating_runs_once_however_many_ticks_pass() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("mary_o")],
         ..Default::default()
     });
@@ -262,6 +264,7 @@ fn seating_runs_once_however_many_ticks_pass() {
 fn an_unbuildable_character_is_refused_by_name() {
     let mut app = seating_app();
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("nobody_registered_this")],
         ..Default::default()
     });
@@ -330,6 +333,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
         ))
         .id();
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(0),
@@ -396,6 +400,7 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(0),
@@ -447,6 +452,7 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(1),
@@ -494,6 +500,7 @@ fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             cpu("mary_o"),
             MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
@@ -549,6 +556,7 @@ fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
         app.register_character(CharacterDefinition::new(id, id, format!("{id}_demo")));
     }
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: ["mary_o", "sanic", "duelist"]
             .into_iter()
             .zip([0u8, 1, 3])
@@ -597,6 +605,7 @@ fn two_seats_on_one_controller_are_refused_by_name() {
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("mary_o"),
             MatchParticipant::new("sanic"),
@@ -646,6 +655,7 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
     // DIFFERENT factions who must not hit each other, and opponents with the SAME
     // faction who must.
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             cpu("alpha").on_team("blue"),
             cpu("beta").on_team("blue"),
@@ -766,6 +776,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
         CharacterDefinition::new("gunner", "Gunner", "demo").with_action_set(gunner.clone()),
     );
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("gunner")],
         ..Default::default()
     });
@@ -819,6 +830,7 @@ fn a_crawler_seated_as_a_fighter_keeps_its_own_locomotion() {
     );
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("crawler"), cpu("duelist")],
         ..Default::default()
     });
@@ -937,6 +949,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
     );
     app.register_character(CharacterDefinition::new("borrowed", "Borrowed", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             cpu("fighter").with_action_set(granted.clone()),
             cpu("borrowed").with_action_set(granted.clone()),
@@ -1000,6 +1013,7 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
         CharacterDefinition::new("roller", "Roller", "demo").with_motion_model(momentum),
     );
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("roller")],
         ..Default::default()
     });
@@ -1037,6 +1051,7 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     );
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("springy"), cpu("plain")],
         ..Default::default()
     });
@@ -1124,6 +1139,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
     );
     app.register_character(CharacterDefinition::new("plain", "Plain", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("springy"), cpu("plain")],
         fighter_body: Some(stage),
         ..Default::default()
@@ -1171,6 +1187,7 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("mary_o"), cpu("sanic")],
         opens_suspended: true,
         ..Default::default()
@@ -1214,6 +1231,7 @@ fn a_declared_countdown_holds_every_seat_until_it_ends() {
     app.insert_resource(ambition_time::SimTick(0));
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("duelist"), cpu("duelist")],
         opens_suspended: true,
         opening_countdown_ticks: TICKS,
@@ -1276,6 +1294,7 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
 
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("duelist").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(0),
@@ -1335,6 +1354,7 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
         ),
     );
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("brawler")],
         ..Default::default()
     });
@@ -1387,6 +1407,7 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
     // channel and one by a brain. If construction ever forks on who drives a
     // fighter again, these two stop agreeing.
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("heavy").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(0),
@@ -1430,6 +1451,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("mary_o")],
         ..Default::default()
     });
@@ -1489,6 +1511,7 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
     // the seated path could not honour.
     app.register_character(CharacterDefinition::new("inheritor", "Inheritor", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("inheritor")],
         ..Default::default()
     });
@@ -1554,6 +1577,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
         CharacterDefinition::new("veteran", "Veteran", "demo").with_action_set(swiping(3)),
     );
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("veteran")],
         ..Default::default()
     });
@@ -1639,6 +1663,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         ))
         .id();
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("tank").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(0),
@@ -1694,6 +1719,7 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
         app.register_character(glass);
         app.register_character(fighter);
         app.insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![cpu("glass"), cpu("fighter")],
             fighter_health_pool: pool,
             ..Default::default()
@@ -1755,6 +1781,7 @@ fn the_matchs_declared_abilities_reach_every_seat() {
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
 
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("duelist").driven_by(ControllerBinding::Human {
                 source: ambition_input::LocalInputSource::Pad(0),
@@ -1823,6 +1850,7 @@ fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
         CharacterDefinition::new("duelist", "Duelist", "demo").with_abilities(authored),
     );
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("duelist")],
         fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::at_most(
             AbilitySet {
@@ -1895,6 +1923,7 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("duelist")],
         ..Default::default()
     });
@@ -1950,6 +1979,7 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("duelist")],
         ..Default::default()
     });
@@ -2105,6 +2135,7 @@ fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
     );
 
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("crawler")],
         fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::at_most(
             ambition_platformer2d_core::AbilitySet {
@@ -2188,6 +2219,7 @@ fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
         ..ambition_platformer2d_core::AbilitySet::NONE
     };
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("crawler")],
         fighter_abilities: Some(ambition_platformer2d_core::MatchAbilities::levelled(kit)),
         ..Default::default()
@@ -2243,6 +2275,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
     });
     app.register_character(chunky);
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("chunky")],
         ..Default::default()
     });
@@ -2293,6 +2326,7 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("present", "Present", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         // One that can seat, one that cannot.
         participants: vec![cpu("present"), cpu("never_registered")],
         ..Default::default()
@@ -2344,6 +2378,7 @@ fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
     app.register_character(CharacterDefinition::new("alpha", "Alpha", "demo"));
     app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("alpha"), cpu("beta")],
         seating: crate::character_runtime::RosterSeating::Proposed,
         ..Default::default()
@@ -2405,6 +2440,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
     app.register_character(CharacterDefinition::new("alpha", "Alpha", "demo"));
     app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("alpha"), cpu("beta")],
         seating: crate::character_runtime::RosterSeating::activated_at(7),
         ..Default::default()
@@ -2479,6 +2515,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
     };
     app.register_character(heavy);
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("anvil")],
         ..Default::default()
     });
@@ -2522,6 +2559,7 @@ fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
     // conditions that make `finalize_character` choose `HostCode`.
     app.register_character(CharacterDefinition::new("drifter", "Drifter", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("drifter")],
         ..Default::default()
     });
@@ -2573,6 +2611,7 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("recruit", "Recruit", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("recruit")],
         ..Default::default()
     });
@@ -2619,6 +2658,7 @@ fn a_seat_naming_an_unknown_brain_profile_is_not_seated() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Cpu {
                 brain_profile: Some("no_such_archetype".into()),
@@ -2709,6 +2749,7 @@ mod activation_transaction {
         let before = body_state(&app, player);
 
         app.insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -2761,6 +2802,7 @@ mod activation_transaction {
         finalize_and_update(&mut app);
 
         app.insert_resource(MatchParticipantRoster {
+            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -2805,6 +2847,7 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("fighter", "Fighter", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         // Both CPU: `MatchParticipant::new` defaults to a HUMAN seat, whose arm
         // returns when there is no primary player to adopt — a different refusal
         // than the one under test, reached first.
@@ -2863,6 +2906,7 @@ fn one_character_definition_seats_two_independent_fighters() {
     };
     app.register_character(fretjaw);
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("fretjaw"), cpu("fretjaw")],
         ..Default::default()
     });
@@ -2951,6 +2995,7 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     app.register_character(sandbag);
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("sandbag"), cpu("duelist")],
         ..Default::default()
     });
@@ -3045,6 +3090,7 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
     // archetype crept back. There is no archetype to creep back, so the reference body below is
     // the whole claim.
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("heavy"), cpu("light")],
         ..Default::default()
     });
@@ -3094,6 +3140,7 @@ fn a_plan_can_tell_when_the_cast_moved_on_under_it() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("veteran", "Veteran", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu("veteran")],
         ..Default::default()
     });
@@ -3191,6 +3238,7 @@ fn two_cpu_seats_of_one_character_are_not_the_same_mind() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("twin", "Twin", "demo"));
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu_fighter("twin"), cpu_fighter("twin")],
         ..Default::default()
     });
@@ -3230,6 +3278,7 @@ fn a_mirror_preserving_characters_two_cpu_seats_share_one_mind() {
         CharacterDefinition::new("mirror_twin", "Mirror Twin", "demo").preserving_mirror_symmetry(),
     );
     app.insert_resource(MatchParticipantRoster {
+        item_spawns: None,
         participants: vec![cpu_fighter("mirror_twin"), cpu_fighter("mirror_twin")],
         ..Default::default()
     });

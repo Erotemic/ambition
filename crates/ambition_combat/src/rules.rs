@@ -165,6 +165,21 @@ pub struct DeclaredCombatRules {
     ///
     /// a match with declared TEAMS should leave this `false`.
     pub friendly_fire: bool,
+    /// CLANK: how close two opposed attacks' damage must be for both to be
+    /// refused. A difference STRICTLY GREATER than this and the stronger attack
+    /// wins outright, continuing untouched while the weaker one is cancelled.
+    ///
+    /// ⭐ THE GENRE'S NUMBER IS ABOUT NINE, and it is research rather than a
+    /// decision: Melee, Brawl, Smash 4 and Ultimate all resolve two grounded
+    /// attacks meeting by comparing their damage, and all four use a threshold
+    /// in this neighbourhood. Where they differ is detail nobody sees, so this
+    /// is a KNOB with the genre's value as its default rather than one game's
+    /// frame data transcribed.
+    ///
+    /// `0.0` disables clanking entirely — every attack passes through every
+    /// other, which is what every game in this engine did before this field
+    /// existed and what a non-fighter should keep doing.
+    pub clank_damage_window: f32,
 }
 
 /// The rules combat actually reads this tick.
@@ -193,6 +208,9 @@ pub struct ResolvedCombatTuning {
     pub crouch_cancel_scale: f32,
     /// See [`DeclaredCombatRules::hit_repeat_window_scale`].
     pub hit_repeat_window_scale: f32,
+    /// See [`DeclaredCombatRules::clank_damage_window`]. `0.0` = attacks pass
+    /// through each other, which is what an undeclared world does.
+    pub clank_damage_window: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -289,6 +307,7 @@ impl ResolvedCombatTuning {
                 grab_hold_max_seconds: rules.grab_hold_max_seconds,
                 grab_mash_seconds: rules.grab_mash_seconds,
                 friendly_fire: rules.friendly_fire,
+                clank_damage_window: rules.clank_damage_window,
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -312,6 +331,11 @@ impl ResolvedCombatTuning {
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: baseline_ff,
+                // ⛔ AN UNDECLARED WORLD DOES NOT CLANK. Ambition's rooms are
+                // not a fighting game: two swings meeting there have always both
+                // landed, and turning that on to buy a Smash feature is the
+                // mistake `downward_hit` above already names.
+                clank_damage_window: 0.0,
             },
         }
     }
@@ -346,6 +370,7 @@ impl Default for ResolvedCombatTuning {
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: false,
+            clank_damage_window: 0.0,
         }
     }
 }
@@ -412,6 +437,7 @@ mod tests {
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
+                clank_damage_window: 0.0,
             }),
             baseline_di,
             true,
@@ -445,6 +471,7 @@ mod tests {
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: true,
+            clank_damage_window: 0.0,
         });
         assert_eq!(
             ResolvedCombatTuning::resolve(declared, 0.12, false).di_max_angle,
@@ -468,6 +495,7 @@ mod tests {
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
+                clank_damage_window: 0.0,
             }
         );
     }

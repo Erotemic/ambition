@@ -132,6 +132,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         di_max_angle: DECLARED_DI,
         knockback_growth: 0.0,
         friendly_fire: false,
+        clank_damage_window: 0.0,
         downward_hit: Default::default(),
         // ...nor the meteor window: this fixture is about DI and knockback
         // growth, and a spike it never throws needs no sentence.

@@ -25,7 +25,9 @@ pub mod breakables;
 pub mod capture;
 #[cfg(feature = "causal")]
 pub mod causal;
+pub mod clank;
 pub mod components;
+pub mod crowd;
 /// What a death MEANS for the run — the interlude and the roster question that
 /// decides a level reset (ADR 0033).
 pub mod death_rules;
@@ -37,14 +39,13 @@ pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;
 pub mod hit_camera_shake;
-pub mod impact_hitstop;
 pub mod hit_reaction;
 pub mod hitbox;
+pub mod impact_hitstop;
 pub mod moveset;
 pub mod on_hit;
 pub mod path_motion;
 pub mod rules;
-pub mod crowd;
 mod snapshot_impls;
 pub mod stale;
 pub mod stocks;

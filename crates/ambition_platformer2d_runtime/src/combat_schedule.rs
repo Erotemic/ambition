@@ -253,6 +253,11 @@ impl Plugin for CombatSchedulePlugin {
                 // frame. (Inner tuple: the outer chain is at Bevy's tuple-size
                 // ceiling, and these two are one ordered unit anyway.)
                 (
+                    // ⭐ TWO ATTACKS MEETING IS RESOLVED FIRST, and it has to be:
+                    // the trade must be known for BOTH volumes before EITHER
+                    // asks about a victim, or whichever one the query yields
+                    // first lands before anybody knows it was cancelled.
+                    ambition_combat::clank::arbitrate_attack_clanks,
                     ambition_platformer2d_actor_monolith::features::apply_hitbox_damage,
                     ambition_platformer2d_actor_monolith::combat::moveset::mark_move_playback_landed_hits,
                 )
@@ -315,7 +320,6 @@ impl Plugin for CombatSchedulePlugin {
                 .run_if(gameplay_allowed)
                 .in_set(CombatSet::Settle),
         );
-
 
         // Hand the frame's victim-side hits from the message channel to the
         // rollback-registered FIFO the player resolver (which runs in NEXT

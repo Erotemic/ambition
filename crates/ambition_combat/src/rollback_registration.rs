@@ -267,6 +267,13 @@ where
         OWNER,
         "message.match_abandoned",
     );
+    // Two attacks traded. Written INSIDE the sim and read inside it — the
+    // rebound a clank owes is a gameplay consequence — so its reader's cursor
+    // must rewind with everything else, exactly as the landed-hit channel's does.
+    registrar.clear_message_on_rollback::<crate::clank::AttacksClanked>(
+        OWNER,
+        "message.attacks_clanked",
+    );
     registrar.clear_message_on_rollback::<crate::on_hit::OnHitEffectMessage>(
         OWNER,
         "message.on_hit_effect",

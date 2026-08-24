@@ -488,15 +488,13 @@ fn track_versus_roster(
             // the claim is OWNED, and that is what makes it releasable: this
             // route's scope hands it back on the way out, so the next
             // experience's session is not sized by a match that has ended.
-            commands.insert_resource(
-                ambition_platformer2d::input::SessionSeatingSource::decided(
-                    VERSUS_EXPERIENCE,
-                    // CHANNELS, not participants — the versus stage published
-                    // the same conflation Smash did. See
-                    // `ControllerBinding::local_source`.
-                    roster.local_channel_plan(),
-                ),
-            );
+            commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::decided(
+                VERSUS_EXPERIENCE,
+                // CHANNELS, not participants — the versus stage published
+                // the same conflation Smash did. See
+                // `ControllerBinding::local_source`.
+                roster.local_channel_plan(),
+            ));
             commands.insert_resource(roster);
             // A NEW roster is not yet a match. Activation is seating's to
             // publish, once every participant has a body.
@@ -540,6 +538,12 @@ fn track_versus_roster(
                 // reward, and a rule nothing can reach is a rule that lies about
                 // what the stage does.
                 crouch_cancel_scale: 1.0,
+                // and no clanking, for the reason the meteor rule is absent:
+                // these duelists author four moves between them and none of the
+                // reads a trade opens — bait a clank, win the recoil — exists on
+                // this stage. A rule nothing can reach lies about what the stage
+                // does.
+                clank_damage_window: 0.0,
                 // and the engine's own post-hit window stands. This stage's
                 // moves author no separated multi-hit window, so there is
                 // nothing here for a shorter window to make reachable, and

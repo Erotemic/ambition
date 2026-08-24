@@ -773,6 +773,15 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // both fighters George Booul a thirty-second match produced 135% of
         // damage and not one launch.
         hit_repeat_window_scale: 0.0,
+        // TWO ATTACKS MEETING TRADE. Before this, two fighters swinging into
+        // each other both connected — both took damage, both were launched —
+        // which is an interaction no game in this genre has. Nine damage is the
+        // genre's neighbourhood: Melee, Brawl, Smash 4 and Ultimate all compare
+        // the two attacks' damage and all four use a threshold about here.
+        // Closer than this and both are refused; further and the stronger one
+        // continues untouched, which is what makes a heavy swing beat a jab
+        // instead of trading with it.
+        clank_damage_window: 9.0,
         // A GRAB HOLDS THE HURT FIGHTER LONGER, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is

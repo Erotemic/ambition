@@ -21,7 +21,18 @@ fn target_dir() -> PathBuf {
 /// expressed as a literal this scanner can resolve. The count is a ratchet: new
 /// computed-id target shapes require explicit review instead of being silently
 /// excluded from registration coverage.
-const COMPUTED_ID_TARGETS: usize = 11;
+///
+/// ⚠ 11 → 13 on 2026-08-24, and the review is this note: `officer` and `author`
+/// are two new SVG-rigged targets, and the hand check the ratchet asks for says
+/// NEITHER has a catalog row yet. That is not a defect — they are being authored
+/// (`officer.py`'s own doc calls him *"an easter-egg fighter, not a reference
+/// rig"*) and a character exists in the renderer before it exists in the game.
+///
+/// ⛔⛔ THIS COUNT READS THE RENDERER CHECKOUT ON DISK, INCLUDING UNTRACKED
+/// FILES. So it moves with work in progress that this repository cannot see, and
+/// it will need LOWERING again if either target goes away before it lands. A
+/// failure here that nobody's commit explains is that.
+const COMPUTED_ID_TARGETS: usize = 13;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

@@ -223,6 +223,7 @@
     "message.actor_action",
     "message.actor_died",
     "message.actor_stimulus",
+    "message.attacks_clanked",
     "message.body_knocked_out",
     "message.body_teleported",
     "message.boss_phase_changed",

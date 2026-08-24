@@ -120,9 +120,9 @@ existing seams.
 | Vacuum / suction hitboxes | ▢ | M | E1 | Same flinchless-reaction primitive with an inward owner-local target/direction. |
 | Extra shield damage | ▢ | S/M | E1 | Author shield-resource damage separately from body percent; resolve it in shield contact, not by inflating normal damage. |
 | Unblockable strike flag | ▢ | S/M | E1 | Add explicit guard-interaction policy to the hit payload. Do not infer unblockable behavior from move IDs. |
-| Hitbox clanking | ▢ | C | E2 | Add deterministic hitbox-vs-hitbox arbitration before victim resolution, including tie/priority rules and one resolved clang result. |
-| Attack rebound after clang | ▢ | S/M | E1 | Consume the generic clank result; apply authored/standard recoil through move/body motion authority. |
-| Cannot-clank/transcendent hit | ▢ | S | E1 | A hitbox policy after clank arbitration exists. |
+| Hitbox clanking | ✔ | C | E2 | ✔ SHIPPED 2026-08-24. `clank::arbitrate_attack_clanks` runs BEFORE `apply_hitbox_damage` in the same chain — the trade must be known for BOTH volumes before EITHER asks about a victim, or whichever the query yields first lands. Damage difference against `ResolvedCombatTuning::clank_damage_window` (Smash declares 9, the genre's neighbourhood; ⛔ `0.0` = no clanking, which is what every Ambition room keeps). Cancelling is a DESPAWN, not a new `spent` flag: a volume's life already ends that way and the entity family is already snapshotted. ⛔ the sweep is entity-SORTED — a Bevy query yields archetype order, and two peers whose archetypes filled differently would cancel different volumes. Own volumes and allies never trade. `AttacksClanked` names the pair canonically, rollback-cleared, schema 82→83. |
+| Attack rebound after clang | ▢ | S/M | E1 | ⭐ UNBLOCKED: `clank::AttacksClanked` is the generic result this row waits on, and it names both owners for exactly this. Apply authored/standard recoil through move/body motion authority. |
+| Cannot-clank/transcendent hit | ▢ | S | E1 | ⭐ UNBLOCKED: clank arbitration exists now, so this is one authored policy field on the volume, consulted in `arbitrate_attack_clanks` before the damage comparison. |
 | Per-hit hitlag multiplier | ▢ | S/M | E1 | Optional scalar on `HitVolume`/resolved strike. Useful for multihits and heavy impacts without changing global hitlag tuning. |
 | Per-hit hitstun multiplier | ▢ | S/M | E1 | Same payload; add only when a move needs reaction distinct from knockback. |
 | Per-hit SDI multiplier | ▢ | S/M | E1 | Same payload; useful for multihit escape tuning. |

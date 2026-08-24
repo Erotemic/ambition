@@ -2048,6 +2048,52 @@ refusal of the service locator was protecting, lost to a default rather than to
 an id. ⇒ if this is taken, the fighterless case has to be a type the composition
 NAMES, not one it falls back to.
 
+⭐⭐⭐ **THE SUB-PROBLEM DISSOLVES RATHER THAN GETTING SOLVED — measured
+2026-08-24.** *"What does a composition with no platform fighter pass?"* has no
+good answer because the question assumes the tick STAYS in `ambition_characters`
+and reaches upward. It does not have to. Measured at the entry point:
+
+```text
+Brain::tick / Brain::tick_with_actions
+  callers inside ambition_characters (production)   ZERO
+  callers outside                                   3, all in the monolith
+                                                    (features/ecs/actors/update.rs)
+                                                    + 1 test
+```
+
+⇒ **the tick is a pure DOWNWARD dispatch with no in-crate consumer.** It is an
+inherent method on `Brain` only by habit; as a free function above
+(`tick_brain_with_actions(&Brain, …)`) it needs no trait, no type parameter, no
+fallback type and no registry — because a composition that has no fighter simply
+does not link the crate that holds the behaviour. There is nothing to forget and
+nothing to name, which is the property the service-locator refusal was
+protecting, obtained by DELETION instead of by a mechanism.
+
+⚠ **and this is a BIGGER move than the row asked for, honestly stated.**
+`tick_state_machine` matches every variant, so behaviour placement follows the
+whole enum, not just its fighter arms:
+
+```text
+brain/ total     28,551 lines     fighter        10,680
+                                  boss_pattern    6,265
+                                  smash           5,080
+                                  state_machine   2,250
+                                  mod.rs            518
+```
+
+⇒ ALL brain behaviour leaves, and `ambition_characters` keeps `Brain` plus the
+per-variant cfg/state data. ⭐ that is arguably what its own stated admission test
+already asks for — *"would a game that is not a platform fighter still want
+this?"* — applied to thinking rather than to fighting: **a floor crate owns what a
+character IS; the layer above owns how it THINKS.**
+
+⛔ **NOT STARTED, and it should not be started as a side effect.** What is
+established is only that the ENTRY POINT can leave without a mechanism. The
+destination crate, what `boss_pattern` does about `ambition_boss_encounter`
+already sitting above it, and the 44 test call sites are all unpriced. ⇒ the next
+session on this row prices the DESTINATION first, and this measurement is what
+says the trait seam above is no longer the only option.
+
 ⚠ **the paragraph below is the ORIGINAL design statement, kept because it is
 still the right shape — but read it as HISTORY: it describes work that landed.**
 Two typed components, neither erased: control authority (the participant slot a

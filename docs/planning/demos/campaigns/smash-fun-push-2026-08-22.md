@@ -732,16 +732,28 @@ Dropping shield should cost a short authored/control-locked release window so ho
 
 ---
 
-## W7 — Small presentation polish after the core slices
+## ◐ W7 — Small presentation polish — FIVE OF SIX ALREADY SHIPPED
 
-Only execute these after O1–O5 and W1–W3 are working.
+Checked against the inventory 2026-08-24 rather than worked in order:
 
-- [ ] Dizzy stars for shield break.
-- [ ] Strong shield-hit pulse / ripple.
-- [ ] HUD damage-percent punch/shake on a substantial hit.
-- [ ] Distinct max-charge idle/hold cue if the accelerating pulse alone is hard to read.
-- [ ] Strong-launch trail density/shape tuning.
-- [ ] Pointed Polygon final-spin slash arc cleanup.
+- [x] Dizzy stars for shield break — `rendering/dizzy_stars.rs`, inventory ✔.
+- [x] Strong shield-hit pulse / ripple — inventory ✔.
+- [x] Distinct max-charge cue — `Charge-start/full cues and charge pose`, ✔.
+- [x] Strong-launch trail density/shape — `Strong/near-KO launch trail tier`, ✔,
+      layered on the base trail's own launch fact.
+- [x] Strong-hit impact flash — ✔, and it already scales with strength.
+- [ ] **HUD damage-percent punch/shake** — the one genuinely open item
+      (inventory line 169, `▢`, cosmetic).
+- [ ] Pointed Polygon final-spin slash arc cleanup — new since W3 landed; the
+      pulses currently draw the POKE tag and the finisher the arc, which is
+      already the right split. Look at it in play before changing art.
+
+⭐ **the HUD punch has an honest source waiting for it:** `BodyCombat::hitstop_timer`
+is non-zero exactly when a hit just landed and is already scaled by the damage
+(`hitlag_duration`). A punch driven off that reads the SAME fact the freeze does,
+needs no new sim state, and cannot disagree with what the player felt. ⛔ do not
+track a percent DELTA in presentation to derive it — that is a second answer to a
+question the sim already answers.
 
 Do not start announcer, voice or results-screen systems from this row.
 

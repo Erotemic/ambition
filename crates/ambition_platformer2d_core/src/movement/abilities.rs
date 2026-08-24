@@ -149,8 +149,10 @@ pub(super) fn apply_intent(
     abilities: &BodyAbilities,
     input: InputState,
     tuning: AxisSweptParams,
-    // THE GUARD, because starting an action out of one is a spend. See
-    // [`OutOfShieldGate`].
+    // THE GUARD, because starting an action out of one is a spend. The rule for
+    // WHICH actions a raised guard lets out belongs to the move resolver, not
+    // here — `ambition_combat::moveset`'s `OutOfShieldGate` is where it lives.
+    // ⚠ this cited that type by name for a while before anything wrote it.
     shield: &mut crate::body_clusters::BodyShieldState,
     // The evade's own state, so a shield+direction press can ask whether a DODGE
     // is actually available rather than filling a buffer the dash will spend.

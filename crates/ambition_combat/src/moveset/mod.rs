@@ -1565,6 +1565,52 @@ fn held_weapon_attack_move(
 }
 
 
+
+/// Whether a RAISED GUARD lets an action out, and which directions rise out of
+/// one.
+///
+/// ⭐⭐ TWO COMMENTS ALREADY CITED THIS TYPE BY NAME and it did not exist — one
+/// in `movement/abilities.rs` and one on `trigger_moveset_moves`'s own `guards`
+/// parameter. A citation to a type nobody wrote is a doc that reads as an
+/// explanation and answers nothing, which is how it survived: the rule was two
+/// closures and three locals sharing the resolver's scope with smashes, item
+/// pickups and the buffer.
+///
+/// ⛔ IT IS A GATE, NOT A CONTEXT, and that distinction is why this is a small
+/// type rather than a `resolve_guard_action` beside `resolve_capture_action`. A
+/// capture REPLACES the action vocabulary — a captor pummels and throws and
+/// does nothing else. A raised guard does not: it filters the grab, special and
+/// attack roads a free body already has. Extracting a "guard context" would
+/// invent a boundary; naming the filter follows one.
+#[derive(Clone, Copy, Debug)]
+struct OutOfShieldGate {
+    policy: Option<ae::OutOfShield>,
+    /// A guard that is DOWN, or a game that declares no rule, restricts nothing
+    /// — which is exactly what every body did before out-of-shield existed.
+    unrestricted: bool,
+}
+
+impl OutOfShieldGate {
+    fn read(guard_up: bool, policy: Option<ae::OutOfShield>) -> Self {
+        Self {
+            policy,
+            unrestricted: !guard_up || policy.is_none(),
+        }
+    }
+
+    /// May this action begin from behind the guard at all?
+    fn permits(&self, action: ae::OutOfShieldAction) -> bool {
+        self.unrestricted || self.policy.is_some_and(|policy| policy.permits(action))
+    }
+
+    /// Only the UP directions RISE, which is the whole reason this genre lets
+    /// those two out of a crouched guard and makes everything else wait for it
+    /// to come down.
+    fn rises(&self, dir: AttackDir, action: ae::OutOfShieldAction) -> bool {
+        self.unrestricted || (dir == AttackDir::Up && self.permits(action))
+    }
+}
+
 /// What a CAPTOR's press means: pummel, a directional throw, or nothing.
 ///
 /// ⭐⭐ EXTRACTED FROM `trigger_moveset_moves`, which had grown into one
@@ -1785,18 +1831,10 @@ pub fn trigger_moveset_moves(
             .get(entity)
             .ok()
             .and_then(|model| model.shield_tuning().out_of_shield);
-        let guard_up = guards.get(entity).is_ok_and(|shield| shield.active);
-        // A guard that is DOWN, or a game that declares no rule, restricts
-        // nothing — which is exactly what every body did before this existed.
-        let unrestricted = !guard_up || oos_policy.is_none();
-        let oos_permits = |action| {
-            unrestricted || oos_policy.is_some_and(|policy: ae::OutOfShield| policy.permits(action))
-        };
-        // Only the UP directions RISE, which is the whole reason this genre
-        // lets those two out of a crouched guard and makes everything else wait
-        // for it to come down.
-        let rises_out_of_shield =
-            |dir: AttackDir, action| unrestricted || (dir == AttackDir::Up && oos_permits(action));
+        let gate = OutOfShieldGate::read(
+            guards.get(entity).is_ok_and(|shield| shield.active),
+            oos_policy,
+        );
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
         // ⭐ ATTACK ON A RAISED GUARD IS A GRAB, and it is the genre's rule:
         // shield + A grabs, and it is how most players grab at all. Jon,
@@ -1860,7 +1898,7 @@ pub fn trigger_moveset_moves(
                 throw_armed,
                 grounded,
             )
-        } else if (grab_pressed || shield_grab) && oos_permits(ae::OutOfShieldAction::Grab) {
+        } else if (grab_pressed || shield_grab) && gate.permits(ae::OutOfShieldAction::Grab) {
             // A free body's grab. The move's own Active window carries the
             // capture attempt; this only starts the move.
             //
@@ -1880,7 +1918,7 @@ pub fn trigger_moveset_moves(
                 ProposedVerb::Grab,
             )
         } else if special_intent.is_some_and(|intent| {
-            rises_out_of_shield(intent.direction, ae::OutOfShieldAction::UpSpecial)
+            gate.rises(intent.direction, ae::OutOfShieldAction::UpSpecial)
         }) {
             // ⛔⛔ THE PRESS'S OWN DIRECTION AND POSTURE, not the live stick's.
             // `special_intent` is `ResolvedAttackGesture::special`, which
@@ -1906,7 +1944,7 @@ pub fn trigger_moveset_moves(
                 ProposedVerb::Special,
             )
         } else if (gesture.pressed.is_some() || pogo_pressed)
-            && rises_out_of_shield(
+            && gate.rises(
                 gesture
                     .pressed
                     .map_or(AttackDir::Down, |intent| intent.direction),

@@ -231,7 +231,7 @@ fighter rather than building an unused framework.
 
 | Mechanic | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
-| Rising autolink spin Up-B | ▢ | M | E1 | Use the autolink reaction from §1 for intermediate separated Active windows and ordinary launch on the final hit. Do not use capture. |
+| Rising autolink spin Up-B | ✔ | M | E1 | ✔ SHIPPED — Pointed Polygon's `polygon_rising_edge`: four autolink pulses then one launch, via the shared `multihit` combinator, and NOT a capture. Reshaped 2026-08-24 after Jon's W8 note that it read as a rising poke: a 96×48 disk centred on the body rather than a 52×60 column in front of it, the gather anchor at x=0 (⛔ `autolink_anchor_world` MIRRORS with facing, so a non-zero x made the gather side depend on which way she looked), the finisher widened to cover what the pulses held, and `sprite_spin_hz` for a crude rotational read. ⛔ the pulse GAPS are load-bearing — a contiguous track lands once. |
 | Counter | ▢ | M | E1 | Authored defensive window records/consumes a qualifying contact and emits an authored retaliation. One generic contact primitive, no fighter-ID branch. |
 | Reflector move | ▢ | M | E1 | Reuse/generalize projectile ownership/trajectory transfer already demonstrated by projectile parry reflection. |
 | Projectile absorber | ▢ | M | E1 | Defensive volume consumes a projectile and emits an authored resource/effect. Keep projectile identity/custody in projectile authority. |
@@ -265,7 +265,7 @@ A Smash match needs the same item actions for every participating body.
 | Items on/off and spawn-rate rules | ▢ | S/M | E1 | Match rules choose whether/how often the existing spawner runs. |
 | Directional item throws | ▢ | M | E1 | Extend throw intent with body-local direction and author launch tuning. |
 | Smash throws | ▢ | S/M | E1 | Strong directional throw variant after directional throws exist. |
-| Z-drop / neutral drop | ▢ | S | E1 | Custody transition from Held → InWorld with minimal/zero launch. |
+| Z-drop / neutral drop | ✔ | S | E1 | ✔ SHIPPED 2026-08-24 — `Grab` while holding releases the item where the body stands, at rest. ⛔ ONE enum inside `throw_held_item_system`, not a second system: a throw and a drop differ only in the launch and are the SAME custody transition, so a copy would give the custody rules a second place to drift. Guarded by a CONTRAST (the same fixture thrown goes ahead and moving), because "the item is in the world somewhere" is true of a throw too. |
 | Airborne/ground item catch | ▢ | M | E1 | Deterministic item/body interception that transitions custody; do not treat it as inventory acquisition. |
 | Thrown-item damage/knockback | ~ | M | E1 | Route free-flight item contact through normal combat hit attribution. |
 | Stable thrower/KO attribution | ▢ | M | E1 | Preserve thrower/side causal identity on the thrown object until the interaction expires. |

@@ -164,8 +164,8 @@ existing seams.
 | Strong/near-KO launch trail tier | ✔ | S | — | Presentation threshold layered on the same launch fact after the base trail reads well. |
 | Strong-hit impact flash | ✔ | S | — | Hit sparks/camera shake already scale with strength; add a brief high-strength flash without changing hit resolution. |
 | Finish zoom on probable KO hit | ▢ | M | E1 | Combat publishes a resolved “finish-zoom eligible/probable KO” event/fact; camera/VFX consume it. Never let camera code predict physics independently. |
-| Ground-bounce / wall-splat feedback | ~ | S/M | — | landing dust ships; the wall half needs an impact speed on side contact | Route distinct presentation from actual collision/reaction state. Add a gameplay splat state only if a move/ruleset needs one. |
-| Launch animation distinct from tumble | ~ | S/M | E1 | Publish the initial launch beat if the animation layer cannot distinguish it from sustained tumble. |
+| Ground-bounce / wall-splat feedback | ✔ | — | — | Both halves ship (`49ea1d7e5`, `3e39edd02`): a CRASH (`Landed { involuntary }`) kicks brighter dust plus a ring at any speed, and the WALL splat reads `Contact::impact_speed` under `ContactKind::Side`. ⭐ the wall has its OWN speed band (150–440) because gravity never accelerates a body into one — the hardest side arrival measured is 440 against a floor onset of 520, so sharing the floor's numbers would have shipped it inert. |
+| Launch animation distinct from tumble | ✔ | — | E1 | `LaunchedBodyFact::launch_beat_secs` publishes the sim's own `recoil_lock_timer` (`8f1b3c47f`), so a white-hot flare rides the front of a launch over the grey plume. Confirmed on CAPTURED PIXELS by diffing one match with it off, not by reading the fact back. |
 | HUD percent punch/shake | ▢ | S | — | Cosmetic reaction to resolved damage/strong-hit events. |
 
 ## 4. Ground movement and neutral

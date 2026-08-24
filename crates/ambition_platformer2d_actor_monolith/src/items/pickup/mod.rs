@@ -1182,10 +1182,24 @@ pub fn pickup_held_item_system(
     }
 }
 
-/// Throw the held item: restore the stashed action set, detach `HeldItem`, and
-/// put the item back into the world ahead of the player. Fires on
-/// `Shield + Attack` for any item, or on a plain `Attack` for a pure throwable
-/// (throw-on-use).
+/// Which way a body let go of what it was holding.
+///
+/// One enum rather than a bool, because the two are different DECISIONS and a
+/// third (a soft toss, a hand-off) would be a variant rather than a second
+/// parameter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Release {
+    /// Forward and up — an attack.
+    Throw,
+    /// Straight down where the body stands — the genre's Z-drop.
+    Drop,
+}
+
+/// Let go of the held item: restore the stashed action set, detach `HeldItem`,
+/// and put the item back into the world. Fires on `Grab` (a [`Release::Drop`],
+/// where the body stands), on `Shield + Attack` for any item, or on a plain
+/// `Attack` for a pure throwable (throw-on-use) — the last two being a
+/// [`Release::Throw`], ahead of the body.
 ///
 /// "put back", not "spawn". The object the body took custody of is still
 /// alive and still carries its identity, so the throw resets its
@@ -1237,17 +1251,33 @@ pub fn throw_held_item_system(
     let Ok((mut control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
         return;
     };
-    if !control.0.melee_pressed {
+    // ⭐ TWO WAYS TO LET GO, AND THEY DIFFER ONLY IN THE LAUNCH.
+    //
+    // A THROW sends the item forward and up; a Z-DROP (Grab, while holding) lets
+    // it go where the body is standing, with nothing added. The genre keeps them
+    // apart because they are different decisions — one is an attack, the other is
+    // handing the item to the floor or to somebody below you — and both are the
+    // SAME custody transition, `Held → InWorld`.
+    //
+    // ⛔ NOT A SECOND SYSTEM. Everything after this point — emptying the hand,
+    // clearing the equipped slot, returning the live object rather than minting a
+    // replacement, and the mint arm for a body holding a quantity — is identical,
+    // and a copy of it would be a second place for the custody rules to drift.
+    let release = if control.0.grab_pressed {
+        control.0.grab_pressed = false;
+        Release::Drop
+    } else if control.0.melee_pressed
+        // Shield+Attack throws anything; plain Attack throws only items whose
+        // authored `use_behavior` opts in, leaving `UseSystem` abilities to
+        // their own systems.
+        && (control.0.shield_held || held.spec.throws_on_plain_attack())
+    {
+        // The throw IS this press's action — see the note on the signature.
+        control.0.melee_pressed = false;
+        Release::Throw
+    } else {
         return;
-    }
-    // Shield+Attack throws anything; plain Attack throws only items whose
-    // authored `use_behavior` opts in, leaving `UseSystem` abilities to their
-    // own systems.
-    if !(control.0.shield_held || held.spec.throws_on_plain_attack()) {
-        return;
-    }
-    // The throw IS this press's action — see the note on the signature.
-    control.0.melee_pressed = false;
+    };
     let spec = held.spec.clone();
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     // The launch is authored in the body's LOCAL frame (x = forward/side,
@@ -1256,9 +1286,19 @@ pub fn throw_held_item_system(
     // gravity. The subsequent free-fall (`ground_item_physics`) is already
     // gravity-relative, so the whole toss now flips with the field.
     let frame = ae::AccelerationFrame::new(gravity.dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5)));
-    let throw_pos = kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0));
-    // Forward + away-from-feet, in the local frame → world.
-    let throw_vel = frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP));
+    let (throw_pos, throw_vel) = match release {
+        // Forward + away-from-feet, in the local frame → world.
+        Release::Throw => (
+            kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0)),
+            frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP)),
+        ),
+        // ⭐ WHERE THE BODY IS, WITH NOTHING ADDED. Not "a weak throw": a drop
+        // that inherited a fraction of the forward offset would still place the
+        // item ahead of the body, and the whole point is that it lands where you
+        // are. `ground_item_physics` takes it from there under the live frame, so
+        // a drop in flipped gravity falls the way that room falls.
+        Release::Drop => (kin.pos, Vec2::ZERO),
+    };
     // CUSTODY, one operation: the hand empties and the catalog's equipped slot clears together.
     // A weapon PICKED UP has no stored row at all, so letting go of it is letting go of it: the
     // object on the floor is the only record, and the grid dims. A weapon equipped out of a

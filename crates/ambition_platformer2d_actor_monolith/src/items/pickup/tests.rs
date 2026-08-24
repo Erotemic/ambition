@@ -102,7 +102,7 @@ fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
             sustain_effect: None,
             motion_scale: 1.0,
         }],
-        gates: MoveGates { grounded },
+        gates: MoveGates { grounded , spends_recovery: false },
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
@@ -693,6 +693,99 @@ fn a_thrown_item_is_the_same_object_that_was_picked_up() {
         items_in_world(&mut app),
         1,
         "exactly one axe exists — the throw did not mint a second",
+    );
+}
+
+/// ⭐ THE Z-DROP: `Grab` while holding lets the item go WHERE THE BODY STANDS,
+/// with nothing added.
+///
+/// ⭐ THE ASSERTION IS A CONTRAST, because "the item is in the world with some
+/// position" is true of a throw as well. The same fixture released by
+/// `Shield + Attack` puts the axe AHEAD of the body and moving; released by
+/// `Grab` it is at the body's own position and at rest. A test that only
+/// checked custody would be green against a drop that secretly threw.
+///
+/// and the Grab press is SPENT here, for the reason the throw spends Attack: the
+/// hand empties in `PlayerSimulation` and a later reader would find an empty
+/// hand and hand the same press to a grab attempt.
+#[test]
+fn a_grab_press_while_holding_drops_the_item_where_the_body_stands() {
+    const STANDING: Vec2 = Vec2::new(100.0, 100.0);
+
+    let release = |grab: bool| {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, (pickup_held_item_system, throw_held_item_system));
+        let player = spawn_player(&mut app, STANDING);
+        let item = app
+            .world_mut()
+            .spawn(GroundItem {
+                spec: axe_spec(),
+                pos: STANDING,
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            })
+            .id();
+
+        set_control(&mut app, player, true, false);
+        app.update();
+        assert!(
+            app.world().get::<HeldItem>(player).is_some(),
+            "the axe is in hand before anything is released"
+        );
+
+        if grab {
+            set_control(&mut app, player, false, false);
+            app.world_mut()
+                .get_mut::<ambition_characters::control::ActorControl>(player)
+                .unwrap()
+                .0
+                .grab_pressed = true;
+        } else {
+            set_control(&mut app, player, true, true);
+        }
+        app.update();
+
+        assert!(
+            app.world().get::<HeldItem>(player).is_none(),
+            "both roads empty the hand — the comparison below is about WHERE the \
+             item went, not whether it was let go"
+        );
+        let ground = app
+            .world()
+            .get::<GroundItem>(item)
+            .expect("the released axe is the same entity")
+            .clone();
+        let spent = !app
+            .world()
+            .get::<ambition_characters::control::ActorControl>(player)
+            .unwrap()
+            .0
+            .grab_pressed;
+        (ground.pos, ground.vel, spent)
+    };
+
+    let (thrown_pos, thrown_vel, _) = release(false);
+    assert!(
+        thrown_pos.x > STANDING.x && thrown_vel.length() > 0.0,
+        "the throw road stopped putting the axe ahead of the body and moving, so \
+         the contrast below proves nothing: {thrown_pos:?} {thrown_vel:?}"
+    );
+
+    let (dropped_pos, dropped_vel, spent) = release(true);
+    assert_eq!(
+        dropped_pos, STANDING,
+        "a Z-drop leaves the axe where the body was standing, not ahead of it"
+    );
+    assert_eq!(
+        dropped_vel,
+        Vec2::ZERO,
+        "and at rest — a drop is not a weak throw"
+    );
+    assert!(
+        spent,
+        "the Grab press is spent where the drop commits, or the same press also \
+         starts a grab one phase later"
     );
 }
 

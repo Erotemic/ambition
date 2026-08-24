@@ -744,7 +744,10 @@ clients today, no fourth wanted. ⛔ do not add a fourth, and closing a ledger r
 is not a customer. (D175 itself is CLOSED; this paragraph is the only part of it
 that outlived the row.)
 
-- ▢ **D201 — THE LEDGE HAS NO RULES BEYOND THE HANG.** (Jon, 2026-08-24)
+- ✔ **D201 — THE LEDGE HAS NO RULES BEYOND THE HANG. CLOSED 2026-08-24: the hit
+  takes it, the clock ends it, and the CPU can reach it. The two rules left
+  unbuilt are DECISIONS with their conditions written down, not gaps.** (Jon,
+  2026-08-24)
 
 Jon: *"in smash we haven't built any of the ledge rules yet. A character can
 just stay on the ledge, and there is no way to knock them off. If you get hit
@@ -847,6 +850,21 @@ stands beside to punish a hang read the same as the ledge it is backed against.
 A fighter walking out to edge-guard flipped `EdgeGuard → Disadvantage` 90px from
 the lip and retreated, every time. Retreat is away from the THREAT, so the
 question is asked in that direction now (`StageView::room_toward`, `8d7dce964`).
+
+⇒ **and the follow-on question — can it PUNISH a hang once it gets there — is a
+PLAY question, not a content gap.** Checked at the source rather than by running
+fighters at each other: `coverage_fit` scores a move's authored reach in the
+foe's LOCAL 2-D direction, so a foe below-and-forward is priced against downward
+coverage, and the Smash kit authors it — `tilt_down` is `offset (26, 16)` with
+`half_extents (20, 10)`, covering 6–26 px below centre at 6–46 px forward, which
+is about where a body hanging off the lip sits. `down_smash` reaches further. ⇒
+the machinery, the situation and the move all exist; whether the CPU picks them
+often enough is a thing to WATCH in play, and ⛔ not to chase with a broad
+CPU-vs-CPU distribution, which cannot attribute a cause.
+
+⚠ **and the ledge game does not depend on the answer.** A camper is now forced
+off in 5 s whether or not anybody contests it, which is what makes the mechanic
+real independently of the CPU's taste.
 
 ⛔ ship the genre's answer rather than escalating it (a genre's mechanics are
 research, not a maintainer decision) — but MEASURE the existing tuning first.

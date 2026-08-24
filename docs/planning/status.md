@@ -96,6 +96,13 @@ crediting the same human press. `ControlGate` and `BodyMode` are re-parented int
 everybody. ⚠ the sets keep names that now lie about their phase, stated at the
 enum.
 
+✔ **D201 is CLOSED.** A hit takes the hang, the ledge lets go of a camper at 5 s
+(`LEDGE_HANG_MAX_TIME` — the genre HAS a limit; the row's claim that it does not
+was the false premise keeping this unbuilt), catching the ledge restores the air
+recovery at the LATCH, and the CPU can reach a ledge to guard it. The regrab
+COUNT and damage-scaled getup are recorded as decisions with their conditions,
+not as gaps — do not build either without the symptom named there.
+
 ⚠ **D201's reference facts were WRONG and are corrected in the row.** Ultimate
 does NOT allow an indefinite hang (6.5s under 100%, 5s at or above), its 6-grab
 regrab limit is NOT the same mechanism as diminishing intangibility, and

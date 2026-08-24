@@ -157,6 +157,53 @@ that proves nothing. `RespawnGrace` already had the same-body ownership test the
 review specified, and the autolink anchor already resolved through
 `hitbox.facing` / `hitbox.frame_down` at the producer.
 
+- ▢ **D208 — A ROLLBACK SIM HAS NO SHARED SOURCE OF RANDOMNESS, AND A DOZEN
+  GENRE ROWS ARE WAITING BEHIND THAT ONE DECISION.** (opened 2026-08-24, found by
+  sizing `Deterministic match item spawning`)
+
+⭐ **THE SIZING IS THE FINDING.** The parity inventory asks for a deterministic
+item spawner, a weighted spawn table and an items-on/off rule as three rows of
+`M`/`M`/`S-M`. Sizing the first one found that none of them is the hard part:
+**nothing in this engine can draw a random number that survives a rewind**, and
+every one of them needs to.
+
+**What exists**, measured at HEAD:
+
+```text
+brain/fighter/decision.rs   SplitMix64, seeded per FighterState, ONE step per
+                            CONSUMED sample — "a tick that reads no noise leaves
+                            the seed exactly where it was"
+everything else             nothing. No `rand`, no `Rng`, no seed, anywhere in
+                            crates/ or game/ outside the brain
+```
+
+⇒ the brain already solved this correctly and privately. Its seed rides
+`FighterState`, so it rewinds because that state rewinds; and its
+one-step-per-sample discipline is exactly the property a shared source needs.
+⛔ **the wrong move is to copy it a second time.** A second private PRNG is a
+second thing that can desync, and the first consumer that forgets the
+one-step-per-sample rule breaks every peer.
+
+**What the decision actually is**, and it is one decision rather than three:
+  - WHERE the seed lives, so it rewinds without anybody remembering to register
+    it (the brain's answer — inside state that already rewinds — generalises);
+  - WHO may draw, and in what ORDER, because a stream shared by two systems is a
+    stream whose values depend on schedule order — the trap
+    `arbitrate_attack_clanks` already had to sort a query to avoid;
+  - and whether a draw is per-MATCH, per-BODY or per-SYSTEM, which decides
+    whether one system reading an extra sample shifts everybody else's.
+
+⭐ **WHAT IT UNBLOCKS, and this is why it is worth doing before any of them:**
+deterministic item spawning + the weighted table + the on/off rule (§8), random
+stage selection (§10), CPU execution variance beyond the brain's own noise, and
+any future crit/hazard/variation mechanic. Every one of those is small ONCE the
+source exists and impossible-to-do-correctly before it.
+
+⚠ **NOT A GENERAL "add rand to the engine" TASK.** The deliverable is a seam with
+a customer: build it with item spawning as the first adopter and let that one
+customer shape it, the same way `AutolinkFollow` was built against one move. ⛔ a
+random source with no consumer is untestable for the only property that matters.
+
 ### ✔ LANDED 2026-08-15 — six worker lanes, all merged, validated and pushed
 
 ⚠ **this block is history, not work.** Kept because each row's *evidence* is

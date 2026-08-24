@@ -260,8 +260,8 @@ A Smash match needs the same item actions for every participating body.
 | Feature | Status | Effort | Engine | Elegant implementation |
 |---|---:|---:|---:|---|
 | All-participant pickup/use/throw | ~ | C | E2 | Make item action systems iterate eligible bodies and read each body's `ActorControl`/custody. Preserve `ItemCustody` as the one object-ownership authority. Do not add a second Smash-only item system. |
-| Deterministic match item spawning | ▢ | M | E1 | Match/stage owns spawn locations and deterministic spawn schedule; item domain materializes stable identified objects. |
-| Weighted item spawn table | ▢ | M | — | Authored rules/content data consumed by the deterministic spawner. |
+| Deterministic match item spawning | ▢ | M | E1 | ⛔ BLOCKED ON D208, and the block is the finding: nothing in this engine can draw a random number that survives a rewind. The brain has a private SplitMix64 riding `FighterState`; there is no shared source. Match/stage owns spawn locations and the schedule; item domain materializes stable identified objects — all small ONCE the source exists. |
+| Weighted item spawn table | ▢ | M | — | ⛔ BLOCKED ON D208 with the row above — a weighted draw IS the random draw. Authored rules/content data consumed by the deterministic spawner. |
 | Items on/off and spawn-rate rules | ▢ | S/M | E1 | Match rules choose whether/how often the existing spawner runs. |
 | Directional item throws | ▢ | M | E1 | Extend throw intent with body-local direction and author launch tuning. |
 | Smash throws | ▢ | S/M | E1 | Strong directional throw variant after directional throws exist. |
@@ -299,7 +299,7 @@ than add controller-brand branches to combat.
 |---|---:|---:|---:|---|
 | Stage-select screen | ▢ | C | — | Use the shell/experience preflight seam; stage selection is presentation/staging, not fighter simulation. |
 | Stage metadata and thumbnails | ▢ | M | — | Authored stage catalog consumed by stage-select UI. |
-| Random stage | ▢ | S | — | Deterministic choice from the allowed stage catalog/rules selection. |
+| Random stage | ▢ | S | — | ⛔ BLOCKED ON D208, same source as the item rows in §8: "deterministic choice" is exactly the thing this engine cannot do yet outside the fighter brain's private stream. Deterministic choice from the allowed stage catalog/rules selection. |
 | Multiple real Smash layouts | ~ | C | — | Mostly authored map/content work using existing platforms, one-ways, moving platforms and hazards. |
 | Moving-platform stage | ▢ | S/M | — | Existing moving-platform mechanics; author and tune a stage. |
 | Hazard stage | ▢ | S/M | — | Existing hazard/damage vocabulary; author stage hazards. |

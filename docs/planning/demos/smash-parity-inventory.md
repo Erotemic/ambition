@@ -76,8 +76,8 @@ existing seams.
 | Smash rules | SDI, crouch cancel, rage, stale-move queue, spike/meteor-lock policy | `DeclaredCombatRules`, `BodyStaleMoves` |
 | Shield | Health, drain, regen, shrink-to-poke, shieldstun, pushback, break and dizzy | `BodyShieldState`, `ShieldTuning`, combat shield resolution |
 | Parry | Press-timed or release-timed perfect shield is already a rules knob | `MovementTuning::parry_timing` |
-| Evade | Ground roll, spot dodge, directional air dodge, one air dodge per airtime | movement dodge state/facts |
-| Knockdown | Tumble, knockdown, floor tech, wall tech, getup stand/roll/attack | `movement/knockdown.rs` |
+| Evade | Ground roll, spot dodge, directional air dodge, one air dodge per airtime; shield+direction is the grounded evade and shield IN THE AIR is the air dodge | movement dodge state/facts |
+| Knockdown | Tumble, knockdown, floor/wall/CEILING tech, getup stand/roll/attack | `movement/knockdown.rs` |
 | Jumping | Full hop, jump squat/short hop, double jump, wall jump, fast fall | `ambition_platformer2d_core::movement` |
 | Hitstun drift | After the hard lock, directional control returns at the authored hitstun-control scale | post-hit input gates + movement tuning |
 | Body contact | Fighter jostle/body pushback | movement sweep/body contact |

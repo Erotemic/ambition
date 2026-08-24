@@ -243,6 +243,46 @@ a customer: build it with item spawning as the first adopter and let that one
 customer shape it, the same way `AutolinkFollow` was built against one move. ⛔ a
 random source with no consumer is untestable for the only property that matters.
 
+- ▢ **D209 — THE CAMERA-SNAP REQUEST HAS TWO ADOPTERS AND NO WIRING TEST.**
+  (opened 2026-08-24, from Jon's camera observation)
+
+✔ **the DEFECT is fixed**: `blink_cam.reset()` clears the blink (right) and was
+clearing the snap with it (wrong), so the one teleport that most needed the
+camera to jump was the one told to ease — Jon measured 440px over ~40 ticks
+inside one room. Both reset roads now call
+`PlayerBlinkCameraState::snap_after_placement`: the session reset and
+`reset_sandbox`, which is the road a hazard death takes.
+
+⛔⛔ **AND THE PLACER ASKS RATHER THAN THE CAMERA INFERRING — do not "simplify"
+this into a position-jump test.** A respawn and a portal transit are identical
+from the camera's side (a position that moved with no velocity to explain it) and
+want OPPOSITE answers: Ambition's default `PortalCameraTransitMode::Continuous`
+is a seam the camera walks through with you. A previous pass tried inference and
+`c135_to_c134_preserves_screen_position_and_keeps_falling` failed with a 177px
+visible step.
+
+⚠ **WHAT IS OPEN IS THE WIRING TEST, and it is open on BOTH roads**: the unit
+test covers the primitive (`camera_ease/tests.rs`) and stays GREEN with either
+call deleted. That is the shape this ledger already names — a test that pins the
+FUNCTION rather than the WIRING.
+
+⇒ **the fixture's blockers, measured so the next session does not re-find them.**
+`reset_sandbox` is a plain function, not a system, so it is directly callable;
+what it needs is a world for its writers. Driving the SYSTEM instead
+(`apply_room_replay_request_system`) needs:
+
+```text
+SessionWorldRef<RoomGeometry>   session-scoped, the awkward one
+ActiveMovementTuning · Platformer2dFeelTuningMonolith · RoomTransitionCooldown
+SlotInteractionState · SfxWriter · MessageWriter<VfxMessage>
+MessageWriter<ClockResetRequest> · MessageWriter<ResetRoomFeaturesEvent>
+a PrimaryPlayerOnly body carrying the full cluster query + PlayerBlinkCameraState
+```
+
+⭐ the ASSERTION is one line once the fixture stands: request a replay, step once,
+and `camera_snap_timer > 0.0`. Its poison is deleting the
+`snap_after_placement` call.
+
 ### ✔ LANDED 2026-08-15 — six worker lanes, all merged, validated and pushed
 
 ⚠ **this block is history, not work.** Kept because each row's *evidence* is

@@ -570,7 +570,6 @@ fn track_versus_roster(
                 // kit; a floor is what a stage needs when a body does not, and
                 // this stage does not have that body. `None` leaves the engine's
                 // exploration default standing, which nothing here reaches.
-                unarmed_melee: None,
             });
             *match_state = super::versus_rules::VersusMatch::opening();
         }

@@ -249,7 +249,7 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
             &Default::default(),
             // Both sides call one function now, so a stage that stops declaring a floor turns
             // this red instead of passing.
-            ambition_demo_smash::smash_declared_combat_rules().unarmed_melee,
+            Some(ambition_demo_smash::smash_seating_melee()),
         )
         .expect("two decided seats are a match");
     for participant in &roster.participants {

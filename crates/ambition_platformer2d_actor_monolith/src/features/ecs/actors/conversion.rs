@@ -185,8 +185,7 @@ pub(crate) fn provoke_actor_in_place(
         // `BrainProfile` and an HP pool — the last reason provocation knew the
         // archetype ontology existed. The policy is the ENGINE's default now
         // (`default_provoked_policy`), stated where a session ruleset will
-        // eventually override it, exactly as `unarmed_melee` was named here
-        // before moving to `DeclaredCombatRules`.
+        // eventually override it.
         //
         // nothing is recorded but the MODE: `binding.provoke()` sets the
         // payloadless `AutonomousSource::ProvokedDefault`, so a rewind resolves

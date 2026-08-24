@@ -165,12 +165,6 @@ pub struct DeclaredCombatRules {
     ///
     /// a match with declared TEAMS should leave this `false`.
     pub friendly_fire: bool,
-    /// Ruleset fallback for a body that authors no melee repertoire. `None` leaves the engine's
-    /// exploration default unchanged.
-    ///
-    /// TODO(compat-remove): remove this fallback once all fighter bodies author their own melee
-    /// kits.
-    pub unarmed_melee: Option<ambition_characters::brain::MeleeActionSpec>,
 }
 
 /// The rules combat actually reads this tick.
@@ -418,7 +412,6 @@ mod tests {
                 grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
                 grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
                 friendly_fire: false,
-                unarmed_melee: None,
             }),
             baseline_di,
             true,
@@ -452,7 +445,6 @@ mod tests {
             grab_hold_max_seconds: FLAT_GRAB_HOLD_SECONDS,
             grab_mash_seconds: FLAT_GRAB_MASH_SECONDS,
             friendly_fire: true,
-            unarmed_melee: None,
         });
         assert_eq!(
             ResolvedCombatTuning::resolve(declared, 0.12, false).di_max_angle,

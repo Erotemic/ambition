@@ -744,20 +744,38 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,
-        // these numbers are the helper's VERBATIM: 0.22 / 0.08 / 0.26, 4
-        // damage, 34 reach. A stage's floor is faster, harder and longer than an
-        // exploration provoke's, and moving it here is not the place to decide
-        // that differently.
-        unarmed_melee: Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
-            ambition_platformer2d::character::SwipeSpec {
-                windup_s: 0.22,
-                active_s: 0.08,
-                damage: 4,
-                reach_px: 34.0,
-                recover_s: 0.26,
-            },
-        )),
     }
+}
+
+/// THE KIT THIS EXPERIENCE HANDS A FIGHTER THAT AUTHORS NONE.
+///
+/// ⛔⛔ IT IS A ROSTER-PREPARATION POLICY, NOT A COMBAT RULE, and it lived on
+/// `DeclaredCombatRules` for a while — which gave the engine's rules type a
+/// second answer to *"what moves does this fighter have?"* beside the
+/// character's own `MovesetContract`. Rules own DI, knockback growth, friendly
+/// fire, grab timing, meteor lock and hitstop; they do not own a kit.
+///
+/// ⭐ THE ADAPTATION IS LEGITIMATE AND IT IS THIS LAYER'S. Most of Ambition's
+/// cast authors `default_action_set: "peaceful"` on purpose — standing in a room
+/// and talking is what they are for — and seating one in an arena means adapting
+/// it into a platform fighter. `roster_seeded` folds this into the seat's
+/// `ActionSet` at seating time, so by simulation time the body has ONE move
+/// authority and nothing downstream consults a fallback.
+///
+/// The numbers are the exploration provoke's VERBATIM: 0.22 / 0.08 / 0.26, 4
+/// damage, 34 reach. A stage's floor arguably wants to be faster, harder and
+/// longer than a provoke's — moving the declaration is not the place to decide
+/// that.
+pub fn smash_seating_melee() -> ambition_platformer2d::character::MeleeActionSpec {
+    ambition_platformer2d::character::MeleeActionSpec::Swipe(
+        ambition_platformer2d::character::SwipeSpec {
+            windup_s: 0.22,
+            active_s: 0.08,
+            damage: 4,
+            reach_px: 34.0,
+            recover_s: 0.26,
+        },
+    )
 }
 
 /// One fighter panel's face: the page, and which frame of it to draw.
@@ -822,7 +840,9 @@ pub fn publish_smash_hud(
     // composition that installs neither still draws a portrait, just an
     // uncropped one.
     portraits: Option<bevy::prelude::Res<ambition_platformer2d::character::PortraitSheetRegistry>>,
-    declared: Option<bevy::prelude::Res<ambition_platformer2d::character::PreparedCharacterRegistry>>,
+    declared: Option<
+        bevy::prelude::Res<ambition_platformer2d::character::PreparedCharacterRegistry>,
+    >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<HudFace>)> = fighters
@@ -1757,11 +1777,12 @@ fn start_the_battle_when_asked(
                     .map(|(id, _)| id.to_string())
                     .collect()
             }),
-        // `rules` was read here and the swipe never arrived: this same system inserts
-        // `DeclaredCombatRules` fifty lines below, and `Commands:insert_resource` is DEFERRED —
-        // so on the frame that decides the match the resource does not exist yet and `None` was
-        // published.
-        declared_rules.unarmed_melee.clone(),
+        // ⛔ THE VALUE, NOT A RESOURCE READ. This was once read off
+        // `DeclaredCombatRules` and the swipe never arrived: the same system
+        // inserts that resource fifty lines below and `Commands::insert_resource`
+        // is DEFERRED, so on the frame that decides the match it did not exist
+        // yet and `None` was published.
+        Some(smash_seating_melee()),
     ) else {
         return;
     };
@@ -2595,10 +2616,12 @@ mod tests {
         let world = &room.world;
         let platform = world.blocks[0].aabb;
         let side_margin = world
-            .edges.side
+            .edges
+            .side
             .expect("the smash stage authors side blast lines");
         let ceiling_margin = world
-            .edges.rise
+            .edges
+            .rise
             .expect("the smash stage authors a ceiling blast line");
 
         let left_ledge_to_blast = platform.left() + side_margin;

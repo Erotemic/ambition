@@ -31,12 +31,11 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
         select.set_occupant(slot, SlotOccupant::Cpu);
         select.set_pick(slot, SlotPick::Fighter(pick));
     }
-    // the fixture DECLARES a floor, because the shipped experience does
-    // . This passed `None` for one commit after `smash_fighter_kit`
-    // became `DeclaredCombatRules::unarmed_melee`, and the test went red exactly
-    // as it should have: a stage that declares no floor seats an unarmed
-    // character unarmed. The invariant did not change — the fixture had stopped
-    // modelling how a stage is built.
+    // the fixture GRANTS a floor, because the shipped experience does. It
+    // passed `None` for one commit while the floor was being moved, and the test
+    // went red exactly as it should have: an experience that grants no floor
+    // seats an unarmed character unarmed. The invariant did not change — the
+    // fixture had stopped modelling how a match is prepared.
     let roster = select
         .roster_seeded(
             &fighters,

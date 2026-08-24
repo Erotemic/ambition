@@ -150,7 +150,6 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         grab_hold_max_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_HOLD_SECONDS,
         grab_mash_seconds: ambition_platformer2d::combat::rules::FLAT_GRAB_MASH_SECONDS,
         // this fixture is about DI and knockback growth, not the floor
-        unarmed_melee: None,
     });
     app.update();
 

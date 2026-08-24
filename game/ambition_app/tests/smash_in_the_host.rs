@@ -3030,12 +3030,11 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
 /// they were authored for. Read at the character, every one of their sixteen
 /// presses is silent.
 ///
-/// that is not what a player gets, and the difference is the stage. The
-/// unarmed floor lives in `DeclaredCombatRules::unarmed_melee` now — *"a STAGE
-/// states what an unarmed fighter swings for"* — so the seat is armed on the way
-/// in. A report that stopped at the character would say four fighters cannot
-/// attack, which is false and is exactly the kind of true-measurement-wrong-
-/// conclusion this repo keeps paying for.
+/// that is not what a player gets, and the difference is the stage. The seat is
+/// armed on the way IN, by this experience's roster preparation
+/// (`smash_seating_melee`), so a report that stopped at the character would say
+/// four fighters cannot attack — which is false, and exactly the kind of
+/// true-measurement-wrong-conclusion this repo keeps paying for.
 ///
 /// So this seats two of them for real and asks the LIVE body.
 #[test]
@@ -3084,15 +3083,13 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
         app.update();
     }
 
-    // THE THIRD ROUTE: what did the STAGE declare? The seat's kit is
-    // built from `DeclaredCombatRules::unarmed_melee` for a character that
-    // states none of its own, so an empty seat is either a stage that declared
-    // nothing or a declaration that did not reach the publisher.
-    let declared = app
-        .world()
-        .get_resource::<ambition_platformer2d::combat::rules::DeclaredCombatRules>()
-        .map(|rules| rules.unarmed_melee.is_some());
-    eprintln!("[unarmed declaration] DeclaredCombatRules::unarmed_melee present = {declared:?}");
+    // THE THIRD ROUTE: what does this experience hand a character that states
+    // no kit of its own? An empty seat below is then either a preparation that
+    // handed nothing over or one that did not reach the publisher.
+    eprintln!(
+        "[unarmed declaration] smash_seating_melee = {:?}",
+        ambition_demo_smash::smash_seating_melee()
+    );
 
     let world = app.world_mut();
     let mut query = world.query::<(

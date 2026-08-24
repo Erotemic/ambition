@@ -527,7 +527,7 @@ impl SmashSelect {
         // convenience wrapper, so a kit-less character seated through it reaches
         // the stage unarmed. That is the honest answer for a caller that has not
         // said what its experience grants; production goes through
-        // `roster_seeded` with the stage's `DeclaredCombatRules::unarmed_melee`.
+        // `roster_seeded` with [`crate::smash_seating_melee`].
         self.roster_seeded(fighters, 0, policy, &Default::default(), None)
     }
 
@@ -562,11 +562,15 @@ impl SmashSelect {
         //
         // Empty = nobody authors anything, which is what every seat got before.
         repertoires: &std::collections::BTreeSet<String>,
-        // The floor this EXPERIENCE declares for a seat whose character
-        // states no kit — `DeclaredCombatRules::unarmed_melee`. `None` means the
-        // stage says nothing, and a kit-less seat gets whatever the engine's own
-        // default is wherever it is built.
-        unarmed_melee: Option<ambition_platformer2d::character::MeleeActionSpec>,
+        // ⭐ THE ADAPTATION THIS EXPERIENCE APPLIES to a seat whose character
+        // states no kit — [`crate::smash_seating_melee`]. `None` means the
+        // experience grants nothing, and a kit-less seat gets whatever the
+        // engine's own default is wherever it is built.
+        //
+        // ⛔ Passed as a VALUE rather than read off a rules resource: this is a
+        // roster-preparation policy, and the seat's kit is settled here so the
+        // body reaches simulation with ONE move authority.
+        seating_melee: Option<ambition_platformer2d::character::MeleeActionSpec>,
     ) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
@@ -608,20 +612,19 @@ impl SmashSelect {
                     })
                     // THE KIT THIS MATCH GIVES THE ONES WITH NONE.
                     .on_team(format!("seat {}", slot + 1));
-                Some(match (authors_its_own, unarmed_melee.clone()) {
+                Some(match (authors_its_own, seating_melee.clone()) {
                     // Its own repertoire outranks any floor.
                     (true, _) => seat,
-                    // The stage declared one: hand it over.
+                    // The experience grants one: hand it over.
                     (false, Some(melee)) => {
                         let mut kit = ambition_platformer2d::character::ActionSet::default();
                         kit.melee = Some(melee);
                         seat.with_action_set(kit)
                     }
-                    // the stage said nothing AND this character says nothing.
-                    // Leaving the seat bare is the honest outcome — it is what a
-                    // composition with no declared floor asked for — and it is
-                    // reachable only from a fixture, because the shipped smash
-                    // experience always declares one.
+                    // the experience grants nothing AND this character says
+                    // nothing. Leaving the seat bare is the honest outcome, and
+                    // it is reachable only from a fixture: the shipped smash
+                    // experience always grants one.
                     (false, None) => seat,
                 })
             })

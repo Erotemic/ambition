@@ -435,9 +435,8 @@ mod tests {
         );
     }
 
-
     /// Prepared characters must exercise authored move timelines, while peaceful characters
-    /// may still rely on the seating floor supplied by `DeclaredCombatRules::unarmed_melee`.
+    /// may still rely on the floor their experience's roster preparation grants them.
     #[test]
     fn the_cast_that_states_its_own_moves_only_grows() {
         let mut app = bevy::prelude::App::new();
@@ -457,7 +456,9 @@ mod tests {
             .collect();
         assert!(
             !authored.is_empty(),
-            "no character in the prepared cast states its own move timelines, so              every seated fighter is made of `DeclaredCombatRules::unarmed_melee`              and the authored road is exercised by no content at all"
+            "no character in the prepared cast states its own move timelines, so every \
+             seated fighter is made of whatever floor its experience grants, and the \
+             authored road is exercised by no content at all"
         );
         let total = prepared.ids().count();
         assert!(
@@ -466,7 +467,7 @@ mod tests {
              ⛔ that is not automatically the end of the floor: most of this cast \
              authors `default_action_set: \"peaceful\"` on purpose, so reaching \
              the whole cast means they were re-authored as fighters. \
-             `DeclaredCombatRules::unarmed_melee` is what lets a peaceful \
+             An experience's own seating floor is what lets a peaceful \
              character be seated at all. Authored: {authored:?}"
         );
     }

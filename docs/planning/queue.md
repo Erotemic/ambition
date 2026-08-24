@@ -653,8 +653,21 @@ identically on all shipped content — the fork was buying nothing. Gone, with
 move-building facts every table wants). `Feel` stayed: how this game hears and
 sees a swing is its policy, not a move-building fact. −204 lines from the demo.
 
-Still open from the review's P2 list: stage-provided fighter kits (§8d), the
-D175 dual-write bridge, and sheet product identity.
+✔ **§8d CLOSED — stage-provided fighter kits.** `DeclaredCombatRules` carried
+`unarmed_melee`, which gave the engine's combat-rules type a second answer to
+*"what moves does this fighter have?"* beside the character's own
+`MovesetContract`. Rules own DI, knockback growth, friendly fire, grab timing,
+meteor lock and hitstop; they do not own a kit. The floor is now
+`ambition_demo_smash::smash_seating_melee()` — a ROSTER-PREPARATION policy, in
+the layer that already applies it. ⭐ the adaptation itself is legitimate and
+stays: most of Ambition's cast authors `default_action_set: "peaceful"` on
+purpose, and seating one in an arena means adapting it into a platform fighter.
+`roster_seeded` folds it into the seat's `ActionSet`, so a body still reaches
+simulation with ONE move authority and nothing downstream consults a fallback.
+The field is deleted, not deprecated.
+
+Still open from the review's P2 list: the D175 dual-write bridge and sheet
+product identity.
 
 ⚠ **and a guard can be green for the wrong reason.** The capture-chain test was
 poisoned by deleting the victim check and stayed GREEN — a chain's second edge is

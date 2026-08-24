@@ -2459,6 +2459,32 @@ grounded + shield press alone    → raise the guard, no dodge
 burst button                     → keeps Dash, loses both dodges
 ```
 
+⭐ **RE-MEASURED 2026-08-24: THREE OF THE FIVE LINES ARE ALREADY LIVE.**
+`shield_evade_direction` (`movement/abilities.rs`) fires on a held guard plus a
+tilt OR a down press, refuses when the evade is on cooldown so a spent dodge
+cannot fall through to the 760px/s traversal dash, and returns `None` without a
+direction — so rows two, three and four are shipped. The burst button still
+carries both dodges, which is row five and is deliberately last.
+
+⛔⛔ **ROW ONE IS THE ONE THAT IS NOT A SMALL EDIT, and the reason is not the
+input.** There is no shield PRESS edge in `InputState` — `shield_held` is a bare
+bool and `MovementAction` has no Shield — but that is fine, because the held
+road plus `air_dodge_spent` (already once-per-airtime) gives the same
+non-repeating behaviour the grounded evade gets from its cooldown.
+
+⇒ **the real cost is that an airborne body may currently RAISE A GUARD, and it
+must stop, or the press both air-dodges and shields.** `resolve_shield` never
+asks `on_ground`. Making that a genre LAW would break Ambition:
+`sustain_bubble_shield` forces `shield_held = true` for the whole
+`bubble_shield` special, and that special is NOT grounded-gated — so the
+protagonist's signature defensive move would go inert in the air.
+
+⇒ so it needs a `ShieldTuning` knob (set by `PLATFORM_FIGHTER`, absent from the
+baseline), and `ShieldTuning` is encoded in `motion_codec`, which makes it a
+DECLARED wire-format change under the policy Jon approved 2026-08-23. That is
+the honest price: one input rule, one ruleset knob, one schema bump — not the
+one-liner the table reads as.
+
 ⭐ **the seam is already the right shape and the cost is small.**
 `resolve_burst_maneuver` (`movement/abilities.rs`) already returns
 `GroundDodge | AirDodge | Dash` from one press, and the kernel's input surface

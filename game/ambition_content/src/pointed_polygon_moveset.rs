@@ -265,7 +265,14 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     // it: a spin has no front.
     let mut rising_edge = strike(Strike {
         id: "polygon_rising_edge",
-        clip: "attack_up",
+        // ⭐ THE SIDE SWING, NOT THE OVERHEAD ONE — the fourth item on Jon's own
+        // priority list for this move, *"rough sword-horizontal visual pose"*,
+        // and it costs no art because the pose is already drawn. Her sheet's own
+        // hitbox polys say which is which: `attack_side` spans x 53→100 at torso
+        // height, `attack_up` spans x 76→196 reaching up and away. The disk this
+        // move now IS wants the first one, and a spin drawn from an overhead
+        // swing reads as a swing however fast it mirrors.
+        clip: "attack_side",
         startup_s: 0.09,
         // The FINISHER, and it inherits the disk: a victim carried in on her BACK
         // side has to still be inside the box that launches, or the whole gather

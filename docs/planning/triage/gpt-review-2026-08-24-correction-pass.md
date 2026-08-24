@@ -61,15 +61,24 @@ tick of gravity, predicts penetration and re-settles without moving, and a test
 covering both halves (midair drop falls; resting item stays) passed and
 poison-verified against the restored early-out.
 
-⛔⛔ **BUT IT BROKE MINT BANKING.**
+⛔⛔ **BUT IT BROKE MINT BANKING**, and a second probe found the real reason.
 `death_restores_the_checkpoint::a_mint_banked_where_it_fell_comes_back_where_it_fell`
-went red: *"exactly one occurrence must carry `slot:0/0`; found []"*. The banking
-pass does NOT read velocity, so the cause is one step further out — a minted item
-that now MOVES is no longer where the occurrence sweep expects it, or is gone by
-the time it looks. ⇒ the early-out is load-bearing for something beyond physics,
-and the review's *"just step every item"* is right in shape but incomplete: the
-sibling road that decides an object has COME TO REST has to be settled in the
-same slice. Reverted rather than shipped red.
+goes red: *"exactly one occurrence must carry `slot:0/0`; found []"*.
+
+⭐⭐ **THE CAUSE IS THAT A "SETTLED" ITEM CREEPS.** Measured both ways at the
+checkpoint: old code `fell_at = (1321.50, 954.83)`, new code
+`(1320.71, 954.83)` — same tick, same throw, **0.8px apart and still moving**. So
+the premise of *"a supported item predicts penetration and remains settled"* is
+FALSE for this item: it rests somewhere `strict_intersects` does not catch, takes
+gravity every tick, and slides. By the room rebuild it is no longer where the
+occurrence road can reinstate it.
+
+⇒ **`strict_intersects` is a penetration test, not a SUPPORT test**, and the
+review's *"let collision keep supported items settled"* needs the second one to
+exist. That is the slice: an explicit support fact (or a settle epsilon that
+survives a resting contact), not merely deleting the early-out. ⛔ do not retry
+this by deleting the early-out alone — it has now been measured to fail twice for
+this reason.
 
 ## The review, verbatim
 

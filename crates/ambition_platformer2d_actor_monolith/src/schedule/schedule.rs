@@ -140,13 +140,9 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // integration and the external constraints that follow it, the captive hold
     // among them. Stated at the SET.
     //
-    // ⛔⛔ **not `.after(constrain_captive_bodies)`.** That system is registered
-    // TWICE on purpose (the smash demo adds a second instance in
-    // `CombatSet::Materialize`), and Bevy refuses to order against a
-    // `SystemTypeSet` with more than one instance — it panics the schedule build
-    // for every composition that installs both. A set has no such restriction,
-    // and it is the honest subject anyway: the dependency is on POSES BEING
-    // SETTLED, not on one function having run.
+    // ⛔ NOT `.after(<one pose writer>)`. The dependency is on POSES BEING
+    // SETTLED — a property of the whole phase — and naming one contributor to it
+    // goes stale the moment another joins.
     app.configure_sets(
         sim,
         WorldPrepSet::ContactDamage

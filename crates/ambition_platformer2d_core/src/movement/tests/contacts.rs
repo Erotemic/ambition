@@ -283,7 +283,7 @@ fn a_body_whose_pose_is_written_each_tick_does_not_re_land_each_tick() {
 ///
 /// ⭐⭐ **the two carry tests above miss it by one variable, and that is the
 /// lesson.** Both re-place the body every tick and both pass, because neither
-/// touches `on_ground` — and the real carriers do. `constrain_captive_bodies`
+/// touches `on_ground` — and the real carriers do. The captive hold
 /// and the mount's saddle pin each wrote `on_ground = false` beside the pose,
 /// which does not say *"this body is being carried"*, it says **"this body was
 /// AIRBORNE last tick"**. The kernel then samples support at the forced pose,

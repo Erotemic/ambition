@@ -515,7 +515,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // the pose sync so a thrown body is not snapped back into a hold
                 // it has just left.
                 ambition_platformer2d::combat::capture::systems::apply_capture_throws,
-                ambition_platformer2d::combat::capture::systems::constrain_captive_bodies,
+                ambition_platformer2d::combat::capture::systems::finalize_new_capture_pose,
                 // the captive's POSE, published beside the constraint that
                 // holds it. `CharacterAnim` has no held row, so this draws the
                 // hurt one — a body in somebody's hands reading as idle was the

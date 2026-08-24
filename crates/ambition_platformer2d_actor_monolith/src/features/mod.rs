@@ -337,9 +337,12 @@ mod actor_decision_phase_tests {
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
     ];
 
-    const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 11] = [
+    const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 12] = [
         (
             "sample_capture_escape",
+            crate::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
             "arm_smash_throw_edge",
             crate::schedule::WorldPrepSet::BeforeIntegrate,
         ),
@@ -376,7 +379,7 @@ mod actor_decision_phase_tests {
             crate::schedule::WorldPrepSet::AfterIntegrate,
         ),
         (
-            "constrain_captive_bodies",
+            "maintain_existing_capture_pose",
             crate::schedule::WorldPrepSet::AfterIntegrate,
         ),
         (
@@ -531,25 +534,11 @@ mod actor_decision_phase_tests {
     /// CONTACT DAMAGE RUNS AFTER THE POSES IT READS, AND BEFORE THE BARKS THAT
     /// REACT TO IT.
     ///
-    /// ⛔⛔ **this asserted a DIRECT edge `constrain_captive_bodies ->
-    /// apply_actor_contact_damage`, and that shape was unshippable.**
-    /// `constrain_captive_bodies` is registered TWICE in the real composition —
-    /// the smash demo adds a second instance in `CombatSet::Materialize` — and
-    /// Bevy refuses to order against a `SystemTypeSet` with more than one
-    /// instance, so the schedule PANICKED on build for every host that installs
-    /// both.
-    ///
-    /// ⇒ the order is stated at `WorldPrepSet::ContactDamage` instead, whose
-    /// subject is the honest one: poses being SETTLED, not one function having
-    /// run. So it is asserted in the two halves that compose it — membership,
-    /// and the ordering between the sets — rather than as one system-to-system
-    /// edge that only one of the two spellings can produce.
-    ///
-    /// ⚠ **and this test could not have caught the panic.** `composed_app`
-    /// installs the monolith alone, so `system_key`'s more-than-one assert never
-    /// fires; the two-instance case is only reachable from a composition that
-    /// mounts a game, which is why `app_it`'s `rollback_coverage` suite is where
-    /// it actually surfaced.
+    /// ⛔ THE SUBJECT IS THE SET, NOT ONE SYSTEM, and deliberately: contact
+    /// damage depends on POSES BEING SETTLED, which is a property of the whole
+    /// phase — a system-to-system edge names one contributor to it and goes
+    /// stale the moment another joins. So it is asserted in the two halves that
+    /// compose it: membership, and the ordering between the sets.
     #[test]
     fn contact_damage_runs_after_settled_poses_and_before_the_barks() {
         let mut app = composed_app();
@@ -560,7 +549,7 @@ mod actor_decision_phase_tests {
         // Half one: the captive constraint is inside the phase that settles poses.
         assert_membership(
             graph,
-            "constrain_captive_bodies",
+            "maintain_existing_capture_pose",
             crate::schedule::WorldPrepSet::AfterIntegrate,
         );
         assert_membership(
@@ -931,21 +920,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             sync_actor_read_model.in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
         );
-        // The captive is put back after it moved. The coarse-box mirror runs
-        // first so this external constraint is the last word.
-        //
-        // ⛔⛔ **`.after(sync_actor_read_model)`, NOT `.chain()` with it, and the
-        // direction is the whole point.** `constrain_captive_bodies` is
-        // registered TWICE on purpose — the smash demo adds a second instance in
-        // `CombatSet::Materialize` so a body grabbed this tick is posed on the
-        // same tick — and Bevy refuses to order AGAINST a `SystemTypeSet` that
-        // has more than one instance. A `.chain()` makes the captive constraint
-        // the TARGET of the edge, which is exactly the illegal side; naming the
-        // singleton as the target instead expresses the same order and composes.
-        // Shipped as a chain, it panicked every composition that installs both.
+        // A body already in somebody's hands is put back after it moved. The
+        // coarse-box mirror runs first so this external constraint is the last
+        // word. (A body grabbed THIS tick is posed by the ruleset's own
+        // `finalize_new_capture_pose`, later in the tick — two named phases, one
+        // rule.)
         app.add_systems(
             sim,
-            ambition_combat::capture::systems::constrain_captive_bodies
+            ambition_combat::capture::systems::maintain_existing_capture_pose
                 .after(sync_actor_read_model)
                 .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
         );

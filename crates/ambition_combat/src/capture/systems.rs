@@ -1147,7 +1147,7 @@ mod tests {
     #[test]
     fn a_captive_is_posed_at_its_captors_hold_anchor() {
         let mut app = App::new();
-        app.add_systems(Update, constrain_captive_bodies);
+        app.add_systems(Update, maintain_existing_capture_pose);
         let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(400.0, 400.0));
         app.world_mut()
@@ -1210,7 +1210,7 @@ mod tests {
     #[test]
     fn a_held_bodys_contact_baseline_is_invalidated_every_tick() {
         let mut app = App::new();
-        app.add_systems(Update, constrain_captive_bodies);
+        app.add_systems(Update, maintain_existing_capture_pose);
         let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(400.0, 400.0));
         app.world_mut().entity_mut(victim).insert((
@@ -1275,7 +1275,7 @@ mod tests {
         let mut app = App::new();
         app.add_systems(
             Update,
-            (constrain_captive_bodies, release_interrupted_captures).chain(),
+            (maintain_existing_capture_pose, release_interrupted_captures).chain(),
         );
         let captor = grounded_body(&mut app, "captor", ae::Vec2::new(100.0, 50.0));
         let victim = grounded_body(&mut app, "victim", ae::Vec2::new(400.0, 400.0));
@@ -1932,7 +1932,10 @@ mod tests {
     }
 }
 
-/// Hold the captive where its captor holds it.
+/// A CAPTIVE IS POSED AT TWO POINTS IN A TICK, and they are two different
+/// operations: [`maintain_existing_capture_pose`] puts a held body back after
+/// integration moved it, and [`finalize_new_capture_pose`] gives a body caught
+/// THIS TICK its pose before the tick ends. This is the one rule both apply.
 ///
 /// The same physical mechanism the saddle pin uses —
 /// [`constrain_body_pose`](ae::movement::constrain_body_pose) — and deliberately
@@ -1943,12 +1946,7 @@ mod tests {
 /// interrupted mid-carry then inherits the motion of the thing that was carrying
 /// it, which is what a person expects to see. Zeroing it would make every
 /// release look like the captive hit an invisible wall.
-///
-/// Runs after the bodies integrate, for the reason the mount's own note gives:
-/// integration has just moved the captive under its own velocity, and this puts
-/// it back. It also runs once more immediately after acquisition, so a grab that
-/// lands this tick attaches this tick rather than a frame later.
-pub fn constrain_captive_bodies(
+fn pose_captives(
     //  `Without<CapturedBy>` is a SEMANTIC claim, not a borrow trick — though
     // Bevy asking for it is what made the claim explicit. A captive can never be
     // a captor: acquisition refuses a captor already under `ScriptedControl`, and
@@ -2011,6 +2009,67 @@ pub fn constrain_captive_bodies(
             aabb.center = pos;
         }
     }
+}
+
+/// A body ALREADY in somebody's hands, put back after it moved.
+///
+/// Runs after the bodies integrate, for the reason the mount's own note gives:
+/// integration has just moved the captive under its own velocity, and this is
+/// the external constraint that gets the last word.
+///
+/// ⛔ THIS IS NOT THE SAME OPERATION AS [`finalize_new_capture_pose`], and for
+/// a long time it was the same *system* registered twice — once here and once
+/// after acquisition — with the scheduler asked to hold two indistinguishable
+/// instances of one function and idempotence asked to make that mean something.
+/// It also made the name unusable as an ordering subject: Bevy refuses to order
+/// against a `SystemTypeSet` carrying more than one instance, so every host
+/// that installed both panicked on schedule build.
+pub fn maintain_existing_capture_pose(
+    captors: Query<
+        (
+            &ae::BodyKinematics,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        ),
+        Without<CapturedBy>,
+    >,
+    captives: Query<(
+        &CapturedBy,
+        &mut ae::BodyKinematics,
+        &mut ae::ActorSurfaceState,
+        &mut ambition_platformer2d_core::BodyGroundState,
+        Option<&mut crate::components::CenteredAabb>,
+    )>,
+) {
+    pose_captives(captors, captives);
+}
+
+/// A body caught THIS TICK, given its pose on the tick it was caught.
+///
+/// Runs at the end of the capture loop — after acquisition creates the
+/// relationship, after the pummel that lands with it, and after the throw, so a
+/// body that has just LEFT a hold is not snapped back into it.
+///
+/// ⭐ Without this the maintenance pass above is the first thing to pose a new
+/// captive, and it already ran earlier in this tick: a body grabbed now would
+/// hang where it stood until the next frame, one visible frame of a captive
+/// standing free inside somebody's grab animation.
+pub fn finalize_new_capture_pose(
+    captors: Query<
+        (
+            &ae::BodyKinematics,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        ),
+        Without<CapturedBy>,
+    >,
+    captives: Query<(
+        &CapturedBy,
+        &mut ae::BodyKinematics,
+        &mut ae::ActorSurfaceState,
+        &mut ambition_platformer2d_core::BodyGroundState,
+        Option<&mut crate::components::CenteredAabb>,
+    )>,
+) {
+    pose_captives(captors, captives);
 }
 
 /// A captor is restricted, not blanked.

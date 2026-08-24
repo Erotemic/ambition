@@ -99,7 +99,7 @@ pub fn translate_smash_capture_effects(
 mod tests {
     use super::*;
     use ambition_platformer2d::combat::capture::systems::{
-        acquire_captures, apply_capture_pummels, apply_capture_throws, constrain_captive_bodies,
+        acquire_captures, apply_capture_pummels, apply_capture_throws, finalize_new_capture_pose,
         release_interrupted_captures,
     };
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
@@ -148,7 +148,7 @@ mod tests {
                 acquire_captures,
                 apply_capture_pummels,
                 apply_capture_throws,
-                constrain_captive_bodies,
+                finalize_new_capture_pose,
                 release_interrupted_captures,
             )
                 .chain(),

@@ -2103,6 +2103,82 @@ fn robot_v3_brings_its_pogo_to_smash_and_a_fighter_without_one_does_not() {
     );
 }
 
+/// ⭐⭐ EXIT MATCH ENDS THE MATCH AS A NO CONTEST (D207).
+///
+/// Jon, W8 playtest: *"During an active Smash match, the system/pause menu needs
+/// an explicit `Exit Match`... It should not award an ordinary winner/loser
+/// result... add it at the semantic match-outcome layer rather than encoding it
+/// as some special winner value."*
+///
+/// ⭐ SO THE ASSERTION IS THE VERDICT'S IDENTITY, not its absence of a winner.
+/// `NoContest` and `Draw` both have no winner, and a test that asked
+/// `winner.is_none()` would have been green against the exact conflation Jon
+/// asked to remove — which is the shape the message used to have.
+///
+/// Real Escape, real arrows, real Enter, through the host's own pause menu.
+#[test]
+fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
+    use bevy::ecs::message::Messages;
+
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+    wait_for_the_round_to_go_live(&mut app);
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "the match never reached the stage, so there is nothing to exit"
+    );
+
+    // Open the system menu and pick the row the STAGE contributed. Found by
+    // label rather than by index: the row set grows, and a hand-counted number
+    // of Down presses is a test pinning a layout.
+    tap(&mut app, KeyCode::Escape);
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::game_shell::ShellAbandonOffer>()
+            .is_some(),
+        "a live match offered the pause menu nothing to exit, so the row is not \
+         there to pick"
+    );
+    tap(&mut app, KeyCode::ArrowDown);
+    confirm(&mut app);
+
+    let verdict = {
+        let messages = app
+            .world()
+            .resource::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>();
+        let mut cursor = messages.get_cursor();
+        cursor.read(messages).last().cloned()
+    }
+    .expect("Exit Match did not end the match at all");
+    assert_eq!(
+        verdict.outcome,
+        ambition_platformer2d::actor::MatchVerdict::NoContest,
+        "an abandoned match was decided as something the fighters achieved"
+    );
+
+    // And it goes home the ORDINARY way — the same countdown an ordinary
+    // knockout takes, not a teardown path of its own.
+    for _ in 0..600 {
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
+            break;
+        }
+        app.update();
+    }
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        "an exited match left the player on the stage"
+    );
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::game_shell::ShellAbandonOffer>()
+            .is_none(),
+        "the offer outlived its match, so the select screen's own pause menu now \
+         offers to exit a match that is not running"
+    );
+}
+
 /// Open the lobby from the title screen.
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();
@@ -2712,8 +2788,9 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
              measuring an ordinary live match"
         );
         assert_eq!(
-            decided[0].winner, None,
-            "a simultaneous final-stock ring-out was awarded to a side"
+            decided[0].outcome,
+            ambition_platformer2d::actor::MatchVerdict::Draw,
+            "a simultaneous final-stock ring-out was not a draw"
         );
     }
     // A stocks verdict names the match it is about, so the honest question is whether the one

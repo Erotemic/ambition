@@ -15,7 +15,8 @@ use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 use ambition_time::ClockDomain;
 
 use ambition_combat::stocks::{
-    last_side_standing, FighterEliminated, SidesOutcome, StocksMatchDecided,
+    last_side_standing, FighterEliminated, MatchAbandoned, MatchVerdict, SidesOutcome,
+    StocksMatchDecided,
 };
 
 /// THE STOCKS OUTCOME FOR ONE MATCH: which match has been settled.
@@ -94,6 +95,10 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
 pub fn decide_stocks_match(
     mut settled: ResMut<StocksMatchSettled>,
     mut decided: MessageWriter<StocksMatchDecided>,
+    // THE THIRD WAY A MATCH ENDS: somebody stopped it. Read here rather than in
+    // a system of its own so that "the match is over" has exactly one author and
+    // the once-only latch below covers all three roads.
+    mut abandoned: bevy::prelude::MessageReader<MatchAbandoned>,
     active: Option<Res<ActiveMatch>>,
     // The CLOCK's half, and both are optional for the same reason every
     // other pair here is: a bare fixture has no sim clock and no prepared plan,
@@ -117,6 +122,21 @@ pub fn decide_stocks_match(
         return;
     };
     if settled.settled(&active) {
+        // Drain anyway: a stop request arriving after the fight settled itself
+        // is answered by the match already being over, and leaving it in the
+        // channel would end the NEXT match the moment it activates.
+        abandoned.clear();
+        return;
+    }
+    // ⭐ ASKED FIRST, AND IT IS THE ONLY ONE OF THE THREE THAT NEEDS NO CAST.
+    // The two roads below both read the fighters, so both answer `return` on a
+    // stage that is still seating — and a player who opens the menu during the
+    // opening ceremony and picks Exit Match is entitled to an answer.
+    if abandoned.read().count() > 0 {
+        settled.settle(&active);
+        decided.write(StocksMatchDecided {
+            outcome: MatchVerdict::NoContest,
+        });
         return;
     }
     let mut any = false;
@@ -159,10 +179,7 @@ pub fn decide_stocks_match(
     };
     settled.settle(&active);
     decided.write(StocksMatchDecided {
-        winner: match outcome {
-            SidesOutcome::Winner(side) => Some(side),
-            SidesOutcome::Draw => None,
-        },
+        outcome: outcome.into(),
     });
 }
 

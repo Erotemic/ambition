@@ -1530,6 +1530,10 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "the shell audio owner changed. Its ONE reader is          `reset_audio_request_state_on_context_change`, registered in literal `Update`          (verified 2026-08-06) — the only channel in this K2b batch that needed          checking rather than a dependency-graph argument, because the sim does depend          on `ambition_audio`",
         ),
         (
+            "ambition_game_shell::abandon::ShellAbandonRequested",
+            "the pause menu's contributed row was picked. Same STRUCTURAL argument as the          `ambition_game_shell` family below, and it holds for the same reason: no simulation          crate depends on `ambition_game_shell`, so the sim cannot name this type and no          cursor of its can exist inside the GGRS schedule. Its one reader is Smash's          `abandon_the_match_when_the_shell_asks`, in literal `Update`, which translates it          into `ambition_combat::stocks::MatchAbandoned` — and THAT channel is registered          for rollback clearing, because it is the one the sim actually reads",
+        ),
+        (
             "ambition_game_shell::launcher::ShellLauncherCommand",
             "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
         ),
@@ -1640,9 +1644,7 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         .world()
         .resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .descriptors()
-        .filter(|d| {
-            d.kind == ambition_platformer2d::rollback::RollbackEntryKind::MessageClear
-        })
+        .filter(|d| d.kind == ambition_platformer2d::rollback::RollbackEntryKind::MessageClear)
         .map(|d| d.type_name.clone())
         .collect();
 

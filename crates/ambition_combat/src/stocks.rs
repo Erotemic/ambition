@@ -241,16 +241,72 @@ pub fn last_side_standing(rows: impl Iterator<Item = (String, bool)>) -> Option<
     }
 }
 
-/// The match is over, and this is who took it.
+/// HOW A MATCH ENDED — the three answers, as three answers.
+///
+/// ⭐⭐ `NoContest` IS NOT A WINNER VALUE, and that is the whole reason this
+/// type exists. Jon, W8 playtest, asking for an `Exit Match` command: *"It
+/// should not award an ordinary winner/loser result... add it at the semantic
+/// match-outcome layer rather than encoding it as some special winner value."*
+/// The message used to carry `winner: Option<String>` with `None` meaning DRAW,
+/// so an abandoned match had nowhere to go but to impersonate one — and a draw
+/// is a thing the fighters achieved together, which an abandonment is not.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MatchVerdict {
+    /// This side was the last one standing, or ahead when the clock ran out.
+    Winner(String),
+    /// Every side went out together — a two-fighter simultaneous ring-out
+    /// reaches this easily — or the tiebreak found them genuinely level.
+    Draw,
+    /// The match was stopped from outside the fight. Nobody won and nobody
+    /// drew: the question was withdrawn.
+    NoContest,
+}
+
+impl From<SidesOutcome> for MatchVerdict {
+    fn from(outcome: SidesOutcome) -> Self {
+        match outcome {
+            SidesOutcome::Winner(side) => Self::Winner(side),
+            SidesOutcome::Draw => Self::Draw,
+        }
+    }
+}
+
+impl MatchVerdict {
+    /// The winning side, if a side won. `None` for a draw AND for a no contest,
+    /// which is the collapse this type exists to make the caller opt into.
+    pub fn winner(&self) -> Option<&str> {
+        match self {
+            Self::Winner(side) => Some(side),
+            Self::Draw | Self::NoContest => None,
+        }
+    }
+}
+
+/// The match is over, and this is how it ended.
 ///
 /// Written once, by the ruleset-facing half of the loop, when
-/// [`last_side_standing`] first answers. `None` is a draw — every side going out
-/// together, which a two-fighter simultaneous ring-out reaches easily and which a
-/// `winner: String` shape would have had to invent a sentinel for.
+/// [`last_side_standing`] first answers, the clock expires, or somebody stops
+/// the match with [`MatchAbandoned`].
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct StocksMatchDecided {
-    pub winner: Option<String>,
+    pub outcome: MatchVerdict,
 }
+
+/// STOP THIS MATCH — it ends as a [`MatchVerdict::NoContest`].
+///
+/// ⭐ A MATCH-LEVEL COMMAND, not a body's action. Jon: *"This should also work
+/// in CPU-vs-CPU and other roster configurations; it is a match-level command,
+/// not a player-body action."* So it carries no seat, no entity and no reason:
+/// the request is that the match stop, and who asked is the asker's business.
+///
+/// ⛔⛔ AND IT IS CLEARED ON ROLLBACK, which is the opposite of what the shape
+/// suggests. It is WRITTEN outside the simulation — a system menu, a host, a
+/// test — and READ inside it, and a reader's cursor is `Local` state GGRS never
+/// rewinds. Without the clear, an abandon consumed in a future that then gets
+/// rolled back is simply GONE: the resimulation finds the cursor already past it
+/// and the match never ends. See `ambition_combat::rollback_registration`.
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MatchAbandoned;
 
 // It is the latch that stops `decide_stocks_match` announcing twice — and `decide_stocks_match` is
 // not in this crate, deliberately: this module owns the COUNT, and the QUESTION needs a seat and a

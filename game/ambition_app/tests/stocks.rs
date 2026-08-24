@@ -154,7 +154,10 @@ fn a_stocks_match_spends_respawns_eliminates_and_ends() {
         "the match did not end exactly once when the last side was left \
          standing: {outcome:?}"
     );
-    assert_eq!(outcome[0].winner.as_deref(), Some("red"));
+    assert_eq!(
+        outcome[0].outcome,
+        ambition_platformer2d::actor::MatchVerdict::Winner("red".to_string())
+    );
 
     // ONCE. The decision is announced on the frame it becomes true, not on every
     // frame after it — a ruleset acting on this would run its match-over
@@ -198,9 +201,11 @@ fn a_stocks_match_that_empties_both_sides_is_a_draw() {
     let outcome = decided(&app);
     assert_eq!(outcome.len(), 1, "a simultaneous KO did not end the match");
     assert_eq!(
-        outcome[0].winner, None,
-        "a draw was awarded to a side, which is the shape a `winner: String` \
-         would have had to invent a sentinel for"
+        outcome[0].outcome,
+        ambition_platformer2d::actor::MatchVerdict::Draw,
+        "a simultaneous final-stock ring-out did not read as a draw. ⛔ and the \
+         three verdicts are DISTINCT now: `NoContest` passing here would mean an \
+         abandoned match and a mutual ring-out were the same event"
     );
 }
 

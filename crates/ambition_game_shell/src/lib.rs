@@ -24,6 +24,9 @@ mod basic_presentation;
 #[cfg(feature = "basic_presentation")]
 mod pause_menu;
 
+mod abandon;
+pub use abandon::{ShellAbandonOffer, ShellAbandonRequested};
+
 pub use experience::{
     ExperienceAvailability, ExperienceRegistration, ShellExperienceAppExt, ShellExperienceRegistry,
 };

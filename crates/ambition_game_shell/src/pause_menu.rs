@@ -31,6 +31,7 @@ use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use crate::abandon::{ShellAbandonOffer, ShellAbandonRequested};
 use crate::{
     shell_action_edges, ActiveGameplaySession, ShellCommand, ShellHostConfiguration, ShellRouter,
 };
@@ -103,6 +104,9 @@ impl ShellAudioControl {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PauseEntry {
     Resume,
+    /// The row the ACTIVE EXPERIENCE contributes — Smash's *Exit Match*. See
+    /// [`ShellAbandonOffer`] for why the shell hosts a row it cannot describe.
+    Abandon,
     Audio(ShellAudioControl),
     QuitToTitle,
     QuitToDesktop,
@@ -117,10 +121,21 @@ impl PauseEntry {
     /// frontend subroute such as Smash's character select has no gameplay
     /// session, but it still has somewhere meaningful to quit *to*. Only the
     /// host's home route should omit that row.
-    fn rows(in_session: bool, can_quit_to_title: bool) -> Vec<PauseEntry> {
-        let mut rows = Vec::with_capacity(8);
+    fn rows(
+        in_session: bool,
+        can_quit_to_title: bool,
+        abandon: Option<&ShellAbandonOffer>,
+    ) -> Vec<PauseEntry> {
+        let mut rows = Vec::with_capacity(9);
         if in_session {
             rows.push(PauseEntry::Resume);
+        }
+        // Directly under Resume: it is the other answer to "I do not want to be
+        // in this any more", and burying it under four volume sliders would make
+        // Quit to Title the easier way out of a match — which loses the whole
+        // session rather than the match.
+        if abandon.is_some() {
+            rows.push(PauseEntry::Abandon);
         }
         rows.extend(ShellAudioControl::ALL.map(PauseEntry::Audio));
         if !in_session {
@@ -133,9 +148,14 @@ impl PauseEntry {
         rows
     }
 
-    fn label(self) -> String {
+    fn label(self, abandon: Option<&ShellAbandonOffer>) -> String {
         match self {
             PauseEntry::Resume => "Resume".to_owned(),
+            // The experience's words. A shell that spelled "Exit Match" itself
+            // would be a shell that knows what a match is.
+            PauseEntry::Abandon => abandon
+                .map(|offer| offer.label.clone())
+                .unwrap_or_else(|| "Exit".to_owned()),
             PauseEntry::Audio(control) => control.label().to_owned(),
             PauseEntry::QuitToTitle => "Quit to Title".to_owned(),
             PauseEntry::QuitToDesktop => "Quit to Desktop".to_owned(),
@@ -143,9 +163,16 @@ impl PauseEntry {
         }
     }
 
-    fn detail(self, settings: &ambition_persistence::settings::UserSettings) -> String {
+    fn detail(
+        self,
+        settings: &ambition_persistence::settings::UserSettings,
+        abandon: Option<&ShellAbandonOffer>,
+    ) -> String {
         match self {
             PauseEntry::Resume => "Return to the game.".to_owned(),
+            PauseEntry::Abandon => abandon
+                .map(|offer| offer.detail.clone())
+                .unwrap_or_else(|| "Leave what is running.".to_owned()),
             // The VALUE is the detail. A settings row whose current state is
             // invisible is a switch with no indicator: you can only discover
             // what it does by changing it.
@@ -198,6 +225,8 @@ struct PauseMenuContext<'w> {
     session: Res<'w, ActiveGameplaySession>,
     router: Res<'w, ShellRouter>,
     host: Res<'w, ShellHostConfiguration>,
+    /// What the active experience offers to leave, if it offers anything.
+    abandon: Option<Res<'w, ShellAbandonOffer>>,
 }
 
 impl PauseMenuContext<'_> {
@@ -216,8 +245,15 @@ impl PauseMenuContext<'_> {
         active.route_id != host.home_route
     }
 
+    /// The standing offer, and only while there is a SESSION to leave: an offer
+    /// left behind by a retired experience must not put a row on the title
+    /// screen's menu.
+    fn abandon(&self) -> Option<&ShellAbandonOffer> {
+        self.in_session().then(|| self.abandon.as_deref()).flatten()
+    }
+
     fn rows(&self) -> Vec<PauseEntry> {
-        PauseEntry::rows(self.in_session(), self.can_quit_to_title())
+        PauseEntry::rows(self.in_session(), self.can_quit_to_title(), self.abandon())
     }
 }
 
@@ -320,6 +356,7 @@ fn drive_shell_pause_menu(
     suppressed: Res<ShellPauseMenuSuppressed>,
     mut menu: ResMut<ShellPauseMenu>,
     mut shell: MessageWriter<ShellCommand>,
+    mut abandon: MessageWriter<ShellAbandonRequested>,
     game_mode: Option<Res<State<GameMode>>>,
     mut next_mode: Option<ResMut<NextState<GameMode>>>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
@@ -417,6 +454,7 @@ fn drive_shell_pause_menu(
             focused,
             &mut menu,
             &mut shell,
+            &mut abandon,
             &game_mode,
             &mut next_mode,
             settings.as_deref_mut(),
@@ -435,6 +473,7 @@ fn shell_pause_menu_pointer(
     mut activated: MessageReader<MenuActionActivated<PauseEntry>>,
     mut menu: ResMut<ShellPauseMenu>,
     mut shell: MessageWriter<ShellCommand>,
+    mut abandon: MessageWriter<ShellAbandonRequested>,
     game_mode: Option<Res<State<GameMode>>>,
     mut next_mode: Option<ResMut<NextState<GameMode>>>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
@@ -455,6 +494,7 @@ fn shell_pause_menu_pointer(
             activation.action,
             &mut menu,
             &mut shell,
+            &mut abandon,
             &game_mode,
             &mut next_mode,
             settings.as_deref_mut(),
@@ -467,6 +507,9 @@ fn activate_pause_entry(
     entry: PauseEntry,
     menu: &mut ShellPauseMenu,
     shell: &mut MessageWriter<ShellCommand>,
+    // The contributed row's channel. Written and NOT acted on here — see
+    // [`ShellAbandonOffer`].
+    abandon: &mut MessageWriter<ShellAbandonRequested>,
     game_mode: &Option<Res<State<GameMode>>>,
     next_mode: &mut Option<ResMut<NextState<GameMode>>>,
     settings: Option<&mut ambition_persistence::settings::UserSettings>,
@@ -489,6 +532,16 @@ fn activate_pause_entry(
             menu.close();
             resume_sim(game_mode, next_mode);
             play(sfx, ids::UI_MENU_BACK);
+        }
+        PauseEntry::Abandon => {
+            // ⛔ AND THE SIM IS RESUMED, which is the part that is easy to
+            // forget: the experience ends its own mode on a running clock, and a
+            // menu that folded away leaving `GameMode::Paused` behind would hand
+            // back a frozen stage nobody can un-freeze.
+            abandon.write(ShellAbandonRequested);
+            menu.close();
+            resume_sim(game_mode, next_mode);
+            play(sfx, ids::UI_MENU_ACCEPT);
         }
         PauseEntry::QuitToTitle => {
             // Retire the session and return to the host's title screen — the
@@ -580,6 +633,7 @@ fn render_shell_pause_menu(
         MenuColor::WHITE,
     );
     let rows = context.rows();
+    let abandon = context.abandon();
     // Seven rows do not fit the three-row spacing this menu was built for.
     let row_height = (52.0 / rows.len().max(1) as f32).min(10.0);
     for (index, entry) in rows.iter().enumerate() {
@@ -591,8 +645,8 @@ fn render_shell_pause_menu(
                 row_height,
             ),
             MenuControlKind::Action,
-            entry.label(),
-            Some(entry.detail(&settings)),
+            entry.label(abandon),
+            Some(entry.detail(&settings, abandon)),
             index == menu.cursor,
             false,
             Some(*entry),
@@ -799,13 +853,8 @@ mod tests {
     /// Derived from the row list rather than a hand-counted number of presses:
     /// the row set grew audio rows and every hardcoded count in these tests went
     /// stale at once, which is a test suite pinning a layout instead of a claim.
-    fn navigate_to(
-        app: &mut App,
-        in_session: bool,
-        can_quit_to_title: bool,
-        wanted: PauseEntry,
-    ) {
-        let index = PauseEntry::rows(in_session, can_quit_to_title)
+    fn navigate_to(app: &mut App, in_session: bool, can_quit_to_title: bool, wanted: PauseEntry) {
+        let index = PauseEntry::rows(in_session, can_quit_to_title, None)
             .iter()
             .position(|entry| *entry == wanted)
             .expect("the row is in this menu");
@@ -843,19 +892,19 @@ mod tests {
     /// frontend subroute has nothing to Resume but still needs Quit to Title.
     #[test]
     fn row_sets_distinguish_home_frontend_and_gameplay() {
-        let home = PauseEntry::rows(false, false);
+        let home = PauseEntry::rows(false, false, None);
         assert!(!home.contains(&PauseEntry::Resume));
         assert!(!home.contains(&PauseEntry::QuitToTitle));
         assert!(home.contains(&PauseEntry::Close));
         assert!(home.contains(&PauseEntry::QuitToDesktop));
 
-        let frontend = PauseEntry::rows(false, true);
+        let frontend = PauseEntry::rows(false, true, None);
         assert!(!frontend.contains(&PauseEntry::Resume));
         assert!(frontend.contains(&PauseEntry::Close));
         assert!(frontend.contains(&PauseEntry::QuitToTitle));
         assert!(frontend.contains(&PauseEntry::QuitToDesktop));
 
-        let in_game = PauseEntry::rows(true, true);
+        let in_game = PauseEntry::rows(true, true, None);
         assert!(in_game.contains(&PauseEntry::Resume));
         assert!(in_game.contains(&PauseEntry::QuitToTitle));
         assert!(!in_game.contains(&PauseEntry::Close));
@@ -949,8 +998,9 @@ mod tests {
     }
 
     fn put_on_frontend_route(app: &mut App, route: &str, home: &str) {
-        app.world_mut().resource_mut::<ShellHostConfiguration>().spec =
-            Some(crate::ShellHostSpec::new(home, home));
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(crate::ShellHostSpec::new(home, home));
         app.world_mut().resource_mut::<ShellRouter>().active = Some(crate::ActiveShellExperience {
             activation_id: crate::ShellActivationId(1),
             route_id: crate::ShellRouteId::new(route),

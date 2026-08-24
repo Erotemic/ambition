@@ -459,14 +459,22 @@ pub fn stage_centre() -> Vec2 {
 /// It read `seat 2 wins` before — which is what he was looking at when he asked — and the SIDE is
 /// not a name. `announce_the_winner` resolves the winning side into the fighter's own name before
 /// it gets here; this owns the wording alone, so the card and any test of it read one function.
-pub fn victory_banner(winner: Option<&str>) -> String {
-    match winner {
-        Some(side) => format!("WINNER: {side}"),
+pub fn victory_banner(
+    outcome: &ambition_platformer2d::actor::MatchVerdict,
+    winner_name: Option<&str>,
+) -> String {
+    use ambition_platformer2d::actor::MatchVerdict;
+    match outcome {
+        // The NAME, resolved by the caller — a side label is not a name, which
+        // is what Jon was looking at when he asked about `seat 2 wins`.
+        MatchVerdict::Winner(side) => format!("WINNER: {}", winner_name.unwrap_or(side)),
         // A draw is reachable and cheaply: two fighters on their last stock,
-        // knocked off together. A `winner: String` shape would have needed a
-        // sentinel for this, which is why the engine's message carries an
-        // `Option`.
-        None => "Draw — everybody fell".to_string(),
+        // knocked off together.
+        MatchVerdict::Draw => "Draw — everybody fell".to_string(),
+        // ⭐ AND IT SAYS SO. The card is the only place a player learns which of
+        // the three happened, and an abandoned match wearing "Draw" would tell
+        // them the fighters settled something.
+        MatchVerdict::NoContest => "NO CONTEST".to_string(),
     }
 }
 
@@ -503,6 +511,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // idempotent.
         app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
+        // The stop-this-match channel, owned here for the same reason the two
+        // above are: a rules-only harness may not have the engine plugins.
+        app.add_message::<ambition_platformer2d::actor::MatchAbandoned>();
         // The capture request channels. The ADAPTER below writes them and the
         // body runtime reads them, so this plugin owns them the same way it owns
         // the two above.
@@ -1437,7 +1448,7 @@ fn announce_the_winner(
         // Resolve participant identity from the match roster, not surviving bodies;
         // simultaneous ring-outs may leave no resident winner body, so the side name
         // remains the fallback.
-        let named = outcome.winner.as_deref().map(|side| {
+        let named = outcome.outcome.winner().map(|side| {
             // A composition with no prepared plan cannot say how big a side is,
             // and the honest answer for an unknown size is the side's own name.
             let solo = prepared
@@ -1460,7 +1471,10 @@ fn announce_the_winner(
         });
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(victory_banner(named.as_deref())),
+            ambition_platformer2d::presentation::HudReadout::bare(victory_banner(
+                &outcome.outcome,
+                named.as_deref(),
+            )),
         );
     }
 }
@@ -1661,10 +1675,81 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     // drawing a lobby somebody has already left.
                     leave_the_select_screen_when_asked,
                     return_to_the_select_screen_when_the_match_ends,
+                    // The pause menu's contributed row: what it says, and what
+                    // picking it means.
+                    offer_to_exit_the_match,
+                    abandon_the_match_when_the_shell_asks,
                 )),
                 SmashSelectSet,
             ),
         );
+    }
+}
+
+/// OFFER `Exit Match` WHILE A MATCH IS RUNNING, and withdraw it when one is not.
+///
+/// Jon, W8 playtest: *"During an active Smash match, the system/pause menu needs
+/// an explicit `Exit Match`, which ends the match as No Contest."*
+///
+/// ⭐ THE SHELL DRAWS THE ROW AND DOES NOT KNOW WHAT IT MEANS. The universal
+/// pause menu has no idea what a match is — it cannot, without every hosted
+/// experience adding an arm to it — so this states the WORDS and
+/// [`abandon_the_match_when_the_shell_asks`] states the MEANING.
+///
+/// ⛔ AND THE OFFER IS RETRACTED, not merely set. A stale offer left behind by a
+/// finished match puts an `Exit Match` row on the character select screen's own
+/// pause menu, pointing at nothing.
+fn offer_to_exit_the_match(
+    mut commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    active: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
+    >,
+    offered: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellAbandonOffer>>,
+) {
+    let on_stage = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
+    // A match that has been DECIDED is still active — the winner card is up and
+    // the return countdown is running — and offering to abandon it then would be
+    // offering to stop something already stopped.
+    let offer = on_stage && active.is_some();
+    match (offer, offered.is_some()) {
+        (true, false) => {
+            commands.insert_resource(ambition_platformer2d::game_shell::ShellAbandonOffer {
+                label: "Exit Match".to_owned(),
+                detail: "End this match as a No Contest.".to_owned(),
+            });
+        }
+        (false, true) => {
+            commands.remove_resource::<ambition_platformer2d::game_shell::ShellAbandonOffer>();
+        }
+        _ => {}
+    }
+}
+
+/// Translate the shell's abandon request into the engine's match-level verb.
+///
+/// ⭐ TWO LINES, AND THAT IS THE POINT. Jon: *"Reuse the existing match outcome
+/// / route transition machinery. Do not introduce a one-off scene teardown
+/// path."* Everything after this already exists: `decide_stocks_match` settles
+/// the match as a [`MatchVerdict::NoContest`],
+/// [`announce_the_winner`] puts NO CONTEST on the card, and
+/// [`return_to_the_select_screen_when_the_match_ends`] brings the player back to
+/// the lobby — the same three systems an ordinary knockout goes through.
+///
+/// ⛔ NOT GATED ON A SEAT. It is a match-level command, so it works the same in
+/// CPU-vs-CPU as in a human match; the person who opened the menu is not
+/// necessarily playing.
+fn abandon_the_match_when_the_shell_asks(
+    mut asked: bevy::prelude::MessageReader<
+        ambition_platformer2d::game_shell::ShellAbandonRequested,
+    >,
+    mut abandon: bevy::prelude::MessageWriter<ambition_platformer2d::actor::MatchAbandoned>,
+) {
+    for _ in asked.read() {
+        abandon.write(ambition_platformer2d::actor::MatchAbandoned);
     }
 }
 
@@ -3045,7 +3130,7 @@ mod tests {
 
     /// Run `announce_the_winner` over one decision and hand back the announce
     /// slot's text, or `None` if nothing was written to it.
-    fn announced_outcome(winner: Option<&str>) -> Option<String> {
+    fn announced_outcome(outcome: ambition_platformer2d::actor::MatchVerdict) -> Option<String> {
         use bevy::prelude::*;
 
         let mut app = App::new();
@@ -3056,9 +3141,7 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>()
-            .write(ambition_platformer2d::actor::StocksMatchDecided {
-                winner: winner.map(str::to_string),
-            });
+            .write(ambition_platformer2d::actor::StocksMatchDecided { outcome });
         app.update();
 
         app.world()
@@ -3085,21 +3168,39 @@ mod tests {
         // the WORDING comes from `victory_banner`, which is where it is
         // decided; this fixture seats no bodies, so the card falls back to the
         // side label and that fallback is part of what is being asserted.
+        use ambition_platformer2d::actor::MatchVerdict;
+        let seat_two = MatchVerdict::Winner("seat 2".to_string());
         assert_eq!(
-            announced_outcome(Some("seat 2")).as_deref(),
-            Some(victory_banner(Some("seat 2")).as_str()),
+            announced_outcome(seat_two.clone()).as_deref(),
+            Some(victory_banner(&seat_two, Some("seat 2")).as_str()),
             "the ending wrote no announce card, so the stage says nothing about \
              who won"
         );
     }
 
-    /// A DRAW reaches the card as a draw, not as a winner with an empty name.
+    /// THE THREE ENDINGS REACH THE CARD AS THREE ENDINGS.
+    ///
+    /// ⛔⛔ a draw and a no contest BOTH have no winner, so a card that
+    /// distinguished them by asking `winner.is_none()` would say the same thing
+    /// about a mutual ring-out and an abandoned match — which is the conflation
+    /// `MatchVerdict` exists to remove.
     #[test]
-    fn a_drawn_match_is_announced_as_one() {
-        let said = announced_outcome(None).expect("a draw is still an ending");
+    fn a_draw_and_a_no_contest_are_announced_as_different_endings() {
+        use ambition_platformer2d::actor::MatchVerdict;
+        let drawn = announced_outcome(MatchVerdict::Draw).expect("a draw is still an ending");
+        let stopped =
+            announced_outcome(MatchVerdict::NoContest).expect("a no contest is still an ending");
         assert!(
-            said.contains("Draw"),
-            "a draw was announced as a win: {said}"
+            drawn.contains("Draw"),
+            "a draw was announced as something else: {drawn}"
+        );
+        assert!(
+            stopped.contains("NO CONTEST"),
+            "an abandoned match was announced as something the fighters did: {stopped}"
+        );
+        assert_ne!(
+            drawn, stopped,
+            "the two winner-less endings say the same thing on the card"
         );
     }
 
@@ -3364,12 +3465,25 @@ mod tests {
         );
     }
 
-    /// A draw has a name. The engine's `winner: Option<String>` exists so this
-    /// case does not need a sentinel, and the banner has to honour that.
+    /// Every verdict has words, and the winner's are a NAME rather than a side
+    /// label when the caller could resolve one.
     #[test]
-    fn a_draw_is_announced_as_a_draw_rather_than_as_a_winner() {
-        assert_eq!(victory_banner(Some("Robot v3")), "WINNER: Robot v3");
-        assert!(victory_banner(None).contains("Draw"));
+    fn every_ending_has_its_own_words() {
+        use ambition_platformer2d::actor::MatchVerdict;
+        let seat = MatchVerdict::Winner("seat 2".to_string());
+        assert_eq!(
+            victory_banner(&seat, Some("Robot v3")),
+            "WINNER: Robot v3",
+            "the card printed the SIDE when a name was available, which is what \
+             Jon was looking at when he asked about `seat 2 wins`"
+        );
+        assert_eq!(
+            victory_banner(&seat, None),
+            "WINNER: seat 2",
+            "with no name resolved, the side is the honest answer"
+        );
+        assert!(victory_banner(&MatchVerdict::Draw, None).contains("Draw"));
+        assert!(victory_banner(&MatchVerdict::NoContest, None).contains("NO CONTEST"));
     }
 }
 

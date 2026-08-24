@@ -41,6 +41,11 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellFailureLog>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
+            // The contributed-row channel. Registered by the CORE plugin, not by
+            // the pause menu that writes it: an experience must be able to
+            // install its reader in a composition that draws no menu at all, and
+            // a reader whose channel does not exist fails parameter validation.
+            .add_message::<crate::abandon::ShellAbandonRequested>()
             .add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>(
             )
             .configure_sets(

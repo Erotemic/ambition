@@ -678,6 +678,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             app.add_message::<ambition_combat::stocks::StocksMatchDecided>();
             app.add_message::<crate::features::ecs::damage_apply::BodyReactionApplied>();
         }
+        // `decide_stocks_match` READS this, so a composition that installs the
+        // stocks loop must have the channel or the system fails parameter
+        // validation before it can run. Idempotent, so the host registering it
+        // beside `StocksMatchDecided` costs nothing.
+        app.add_message::<ambition_combat::stocks::MatchAbandoned>();
         app.add_systems(
             sim,
             (

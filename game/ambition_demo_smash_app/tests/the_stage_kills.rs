@@ -1217,7 +1217,7 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
         Update,
         |mut decided: MessageReader<StocksMatchDecided>, mut seen: ResMut<Decisions>| {
             for outcome in decided.read() {
-                seen.0.push(outcome.winner.clone());
+                seen.0.push(outcome.outcome.winner().map(str::to_string));
             }
         },
     );
@@ -1375,7 +1375,13 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
             .expect("a launch off a one-stock stage leaves one fighter standing");
         assert_eq!(
             played.said.last().map(String::as_str),
-            Some(ambition_demo_smash::victory_banner(Some("Robot v3")).as_str()),
+            Some(
+                ambition_demo_smash::victory_banner(
+                    &ambition_platformer2d::actor::MatchVerdict::Winner("Robot v3".to_string()),
+                    Some("Robot v3"),
+                )
+                .as_str()
+            ),
             "the {which} match's last word was not the winner card. It decided \
              {winner:?} and said {:?}",
             played.said
@@ -1422,7 +1428,7 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
         Update,
         |mut decided: MessageReader<StocksMatchDecided>, mut seen: ResMut<Decisions>| {
             for outcome in decided.read() {
-                seen.0.push(outcome.winner.clone());
+                seen.0.push(outcome.outcome.winner().map(str::to_string));
             }
         },
     );
@@ -1533,7 +1539,10 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
     };
     assert_eq!(
         card,
-        ambition_demo_smash::victory_banner(Some(&survivor)),
+        ambition_demo_smash::victory_banner(
+            &ambition_platformer2d::actor::MatchVerdict::Winner(survivor.to_string()),
+            Some(&survivor),
+        ),
         "the four-way's card reads {card:?} with {survivor:?} the only fighter \
          left standing"
     );
@@ -1572,7 +1581,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         Update,
         |mut decided: MessageReader<StocksMatchDecided>, mut seen: ResMut<Decisions>| {
             for outcome in decided.read() {
-                seen.0.push(outcome.winner.clone());
+                seen.0.push(outcome.outcome.winner().map(str::to_string));
             }
         },
     );
@@ -1732,7 +1741,10 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         .expect("the end of a match writes the announce card");
     assert_eq!(
         card,
-        ambition_demo_smash::victory_banner(Some("Red")),
+        ambition_demo_smash::victory_banner(
+            &ambition_platformer2d::actor::MatchVerdict::Winner("Red".to_string()),
+            Some("Red"),
+        ),
         "the card reads {card:?} — Red won as a TEAM and it named the one \
          teammate whose body happened to still be standing"
     );

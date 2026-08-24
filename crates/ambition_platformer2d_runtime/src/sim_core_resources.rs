@@ -50,6 +50,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_combat::stocks::BodyKnockedOut>()
             .add_message::<ambition_combat::stocks::FighterStockSpent>()
             .add_message::<ambition_combat::stocks::StocksMatchDecided>()
+            // …and the third way one ends: somebody stopped it. Registered
+            // beside the other two so `decide_stocks_match`'s reader can exist
+            // in every composition that installs the loop.
+            .add_message::<ambition_combat::stocks::MatchAbandoned>()
             .add_message::<ambition_platformer2d_actor_monolith::features::ActorStimulus>()
             .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<ambition_combat::GameplayBannerRequested>()

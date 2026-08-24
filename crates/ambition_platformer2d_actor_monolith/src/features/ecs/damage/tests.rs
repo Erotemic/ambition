@@ -1322,6 +1322,85 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     );
 }
 
+/// GETTING HIT TAKES THE HANG, on the road a platform fighter's roster
+/// actually travels.
+///
+/// Jon, 2026-08-24: *"A character can just stay on the ledge, and there is no
+/// way to knock them off. If you get hit you should fall off the ledge at
+/// least."*
+///
+/// ⛔ THE RULE WAS NEVER MISSING — only this caller was. `knock_off_ledge` has
+/// its own unit test in the kernel and both of the PLAYER's `HitMode::Knockback`
+/// arms call it; the generic actor road did not, and in the arena every fighter
+/// is an actor. So the pure rule was green while an edge-guard could not
+/// dislodge anybody.
+///
+/// The re-grab lockout is asserted beside the hang because they are one
+/// operation: dropping the hang without arming it re-latches the body on the
+/// next frame and the hit reads as nothing at all.
+#[test]
+fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    // Hang it. The kernel writes this from contact geometry; here it is placed
+    // directly, which is what makes the hit the only variable.
+    {
+        let mut model = app
+            .world_mut()
+            .get_mut::<crate::features::MotionModel>(victim)
+            .expect("the actor carries a motion model");
+        *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
+        let ae::MotionModel::AxisSwept(axis) = &mut *model else {
+            unreachable!("just written")
+        };
+        axis.state.ledge_grab = Some(ae::LedgeGrabState::hanging(ae::LedgeContact {
+            wall_normal_x: 1.0,
+            anchor: ae::Vec2::ZERO,
+            climb_target: ae::Vec2::new(8.0, -16.0),
+        }));
+    }
+
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback: Some(crate::features::HitKnockback {
+            dir: 1.0,
+            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+        }),
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+
+    let model = app
+        .world()
+        .get::<crate::features::MotionModel>(victim)
+        .expect("the actor carries a motion model");
+    let ae::MotionModel::AxisSwept(axis) = model else {
+        unreachable!("the fixture installed one")
+    };
+    assert!(
+        axis.state.ledge_grab.is_none(),
+        "a struck fighter kept its ledge hang — an edge-guard cannot dislodge anybody"
+    );
+    let ledge = app
+        .world()
+        .get::<ae::BodyLedgeState>(victim)
+        .expect("the actor carries the ledge cluster");
+    assert!(
+        ledge.release_cooldown > 0.0,
+        "the hang was dropped without arming the re-grab lockout, so the body \
+         re-latches on the next frame and the hit reads as nothing"
+    );
+}
+
 /// A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
 /// called. `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
 /// source-specific formula for a fact about the striker, and one that could only

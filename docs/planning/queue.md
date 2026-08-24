@@ -523,6 +523,39 @@ BEATS A THEORY.** Every refutation came from running the same code at two inputs
 that prints before it steps is off by the input pipeline's latency; print after
 the step, or print enough frames that latency reads as a delay and not a stall.
 
+- ▢ **D201 — THE LEDGE HAS NO RULES BEYOND THE HANG.** (Jon, 2026-08-24)
+
+Jon: *"in smash we haven't built any of the ledge rules yet. A character can
+just stay on the ledge, and there is no way to knock them off. If you get hit
+you should fall off the ledge at least."*
+
+✔ **The hit half is closed.** `knock_off_ledge` already existed and already had
+its kernel test; only the PLAYER damage road called it. In the arena every
+fighter is an ACTOR, and `apply_actor_hit` never asked — so an edge-guard could
+not dislodge anybody, whatever it connected with. Guarded by
+`a_hit_knocks_a_hanging_actor_off_the_ledge`, which drives the real
+`apply_feature_hit_events → apply_actor_hit` road and asserts the re-grab
+lockout beside the dropped hang (dropping one without the other re-latches on
+the next frame and the hit reads as nothing).
+
+⇒ **what is genuinely absent**, and what this row stays open for:
+  - a HANG TIME LIMIT. Nothing ages a hang. The genre's answer is not one
+    number — Melee lets you hang forever and Ultimate does too — so the
+    punishment for camping is the intangibility EXPIRING (already live, a
+    bounded `ledge_invuln_timer`), being TRUMPED (already live,
+    `resolve_ledge_trumps`), and now being HIT. ⚠ so check the tuning before
+    building a timer: the parts that make camping cost something may already be
+    there and simply be tuned to nothing.
+  - the GETUP VOCABULARY. `LedgeGetupKind` carries climb and roll; the genre
+    also has a ledge ATTACK and a ledge JUMP, and it scales getup speed by
+    damage. ⛔ a getup with no attack is why a ledge-camper cannot be
+    approached OR punished.
+  - LEDGE-GRAB LIMITS. Ultimate's diminishing airborne-regrab rule is what
+    stops infinite stalling from below; nothing here counts regrabs.
+
+⛔ ship the genre's answer rather than escalating it (a genre's mechanics are
+research, not a maintainer decision) — but MEASURE the existing tuning first.
+
 - ▢ **D200 — THE SMASH CORRECTNESS CLOSEOUT.** (GPT review of `370abbbcf`,
   extended by a second review of the merged tree at `3cebefd62`)
 

@@ -398,6 +398,23 @@ pub(crate) fn apply_actor_hit(
             // damage, no death, no knockback.
             return true;
         }
+        // ⭐ A HIT TAKES THE HANG. Jon, 2026-08-24: *"A character can just stay
+        // on the ledge, and there is no way to knock them off. If you get hit
+        // you should fall off the ledge at least."*
+        //
+        // ⛔⛔ THE RULE EXISTED AND ONLY THE PLAYER ROAD CALLED IT. Both of
+        // `damage_apply`'s `HitMode::Knockback` arms knock the hanging PLAYER
+        // off through `knock_off_ledge`; this generic actor road never did, so
+        // every CPU fighter — and in the arena, every fighter, because a
+        // platform fighter's roster is actors — hung through an edge-guard
+        // untouched. The typed op arms the re-grab lockout with it, so the body
+        // falls with the knockback instead of re-latching on the next frame.
+        //
+        // Before the knockback below and outside its `Option`: a damaging hit
+        // that authored no launch still ends the hang, exactly as it does for
+        // the player. A blocked or armored hit returned above and never reaches
+        // here.
+        ae::movement::knock_off_ledge(motion_model, em.ledge);
         // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
         // frame-agnostic knockback resolution the player does — side away from
         // the source, rise against ITS gravity — replacing the old inline

@@ -289,6 +289,17 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
+## 2026-08-24 — Smash: the ledge has no rules
+
+Jon: *"in smash we haven't built any of the ledge rules yet. A character can
+just stay on the ledge, and there is no way to knock them off. If you get hit
+you should fall off the ledge at least."*
+
+◐ A hit now takes the hang: the rule existed and only the PLAYER road called it, so on
+the actor road every fighter in the arena hung through an edge-guard untouched. Ledge
+trumping and the expiring ledge intangibility were already live; a hang TIME LIMIT and
+the fuller getup vocabulary are not, and are queued as D201.
+
 ## 2026-08-21 — Mary-O: the pole victory TRANSLATES her, and side contact hits the snake
 
 Jon: *"if she runs into solid snake from the side, the snake gets hit instead of

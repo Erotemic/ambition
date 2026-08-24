@@ -365,16 +365,30 @@ fn the_demos_robot_copies_step_aside_for_the_real_lineage() {
 /// rule had teeth. The one fighter on the grid whose sheet has ten ledge rows drawn for it was
 /// the one who could not use them.
 ///
-/// the stage GRANTS its kit now (`MatchAbilities::levelled`), so this
-/// asserts the whole kit rather than one verb of it, and it is a ratchet against
-/// the migration bridge shrinking: every character that gains an authored kit is
-/// one more chance to arrive missing something, and that count is meant to grow.
+/// ⭐⭐ THE STAGE NO LONGER LEVELS — it declares a FLOOR and a CEILING, and the
+/// gap between them is character identity. Jon, W8 playtest: *"Do not make Pogo
+/// a universal Smash action. Robot v3 has Pogo because Robot v3 owns that
+/// capability."* So the property this test asserts changed shape, from an
+/// equality to a pair of containments:
+///
+/// ```text
+///   floor ⊆ effective        nobody is short of what the stage promised
+///   effective ⊆ ceiling      nobody smuggles its home game onto the stage
+/// ```
+///
+/// ⛔ AND THE ASSERTION THIS REPLACED WAS AN EQUALITY, which is exactly the
+/// world Jon rejected: it could only pass while every fighter played the same
+/// kit, so it would have had to be weakened by any character keeping anything of
+/// its own. ⭐ the two non-vacuity clauses are what keep the containments
+/// honest — some fighter must reach the ceiling and differ from the floor (or
+/// the gap is decorative), and some fighter must sit exactly on the floor (or
+/// the floor is doing nothing).
 ///
 /// it asks the ENGINE's own function. That a seat actually WEARS this
 /// answer is pinned separately, on a live body, by `the_stage_kills.rs`'s
 /// `a_seated_fighter_carries_the_verbs_its_character_authored_and_not_the_engines`.
 #[test]
-fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
+fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // One frame, for the same reason the census above needs it: the seatable
@@ -398,12 +412,23 @@ fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
         "the stage GRANTS a verb it does not PERMIT, so `apply` drops it and          every fighter below is short of the kit this stage promised: {rules:?}"
     );
 
-    let mut wrong: Vec<String> = Vec::new();
+    let floor = ambition_demo_smash::SMASH_FIGHTER_KIT;
+    let ceiling = ambition_demo_smash::SMASH_FIGHTER_CEILING;
+    assert_ne!(
+        floor, ceiling,
+        "the stage's floor and ceiling are the same set, so this test is about \
+         to assert an equality wearing a containment's clothes"
+    );
+
+    let mut short_of_the_floor: Vec<String> = Vec::new();
+    let mut over_the_ceiling: Vec<String> = Vec::new();
     let mut report: Vec<String> = Vec::new();
-    // NON-VACUITY, and it is the whole test: at least one fighter must author
-    // a kit that DIFFERS from the stage's, or the union is a no-op and this
-    // would pass just as happily on the mask that could not promise anything.
-    let mut authored_a_different_kit = false;
+    // NON-VACUITY, both directions. Somebody must USE the gap between the two
+    // sets, and somebody must sit exactly on the floor — a grid where every
+    // fighter reached the ceiling would mean the floor promised nothing, and one
+    // where none did would mean the ceiling permitted nothing.
+    let mut somebody_reached_past_the_floor = false;
+    let mut somebody_sat_on_the_floor = false;
     for id in grid.ids() {
         let authored = registry.get(id).and_then(|prepared| prepared.abilities);
         let effective = ambition_platformer2d::actors::character_runtime::effective_abilities(
@@ -411,38 +436,67 @@ fn every_fighter_on_the_smash_grid_gets_the_basic_smash_kit() {
             Some(rules),
         )
         .expect("a declaring stage always answers");
-        if authored.is_some_and(|kit| kit != ambition_demo_smash::SMASH_FIGHTER_KIT) {
-            authored_a_different_kit = true;
+        if effective == floor {
+            somebody_sat_on_the_floor = true;
+        } else {
+            somebody_reached_past_the_floor = true;
         }
         report.push(format!(
             "  {:<34} authored={:<4} kit={}",
             id,
             authored.map_or("no", |_| "yes"),
-            if effective == ambition_demo_smash::SMASH_FIGHTER_KIT {
-                "the stage's".to_string()
+            if effective == floor {
+                "the stage's floor".to_string()
+            } else if effective == ceiling {
+                "the stage's ceiling".to_string()
             } else {
                 format!("{effective:?}")
             },
         ));
-        if effective != ambition_demo_smash::SMASH_FIGHTER_KIT {
-            wrong.push(id.to_string());
+        // `union` is the floor's containment and `intersect` is the ceiling's,
+        // asked as set equalities so the failure names the fighter rather than a
+        // bitfield diff.
+        if effective.union(floor) != effective {
+            short_of_the_floor.push(id.to_string());
+        }
+        if effective.intersect(ceiling) != effective {
+            over_the_ceiling.push(id.to_string());
         }
     }
 
     assert!(
         report.len() >= 8,
-        "only {} fighters resolved against this composition — the host is not          composing the cast and this test is about to prove nothing",
+        "only {} fighters resolved against this composition — the host is not \
+         composing the cast and this test is about to prove nothing",
         report.len()
     );
     assert!(
-        authored_a_different_kit,
-        "no fighter on the grid authors a kit that differs from the stage's, so          neither the grant nor the ceiling did anything and this census would          pass over a rule that promised nothing:\n{}",
+        somebody_reached_past_the_floor,
+        "every fighter on the grid resolved to exactly the floor, so the stage's \
+         ceiling permits nothing the floor does not already grant and character \
+         identity is not surviving preparation at all:\n{}",
         report.join("\n")
     );
     assert!(
-        wrong.is_empty(),
-        "{} of the smash grid do not have the basic smash kit: {wrong:?}\n{}\n\n         `MatchAbilities::levelled` GRANTS the stage's kit to every fighter and          PERMITS nothing outside it, so a seat that differs means the character's          authored set reached the body through some other door.",
-        wrong.len(),
+        somebody_sat_on_the_floor,
+        "every fighter reached past the floor, so the floor is not the thing \
+         being measured and a fighter arriving short of it would not be \
+         noticed:\n{}",
+        report.join("\n")
+    );
+    assert!(
+        short_of_the_floor.is_empty(),
+        "{} of the smash grid arrive SHORT of the verbs the stage guarantees: \
+         {short_of_the_floor:?}\n{}",
+        short_of_the_floor.len(),
+        report.join("\n")
+    );
+    assert!(
+        over_the_ceiling.is_empty(),
+        "{} of the smash grid arrive carrying verbs the stage does not permit: \
+         {over_the_ceiling:?}\n{}\n\nThat is a home-game kit reaching the body \
+         through some other door.",
+        over_the_ceiling.len(),
         report.join("\n")
     );
 }

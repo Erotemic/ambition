@@ -121,11 +121,14 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.fighter_health_pool = Some(SMASH_PERCENT_REFERENCE);
-    // Level every fighter through the same match ability policy. The levelled
-    // set both grants the ruleset's floor and prevents unrelated home-game
-    // abilities from leaking into the match.
-    roster.fighter_abilities =
-        Some(ambition_platformer2d::engine_core::MatchAbilities::levelled(SMASH_FIGHTER_KIT));
+    // Every fighter gets the ruleset's FLOOR, keeps whatever of its own kit the
+    // CEILING permits, and brings nothing else from its home game. The gap
+    // between the two constants is exactly one verb, and it is the one Jon named:
+    // Robot v3 keeps its pogo because Robot v3 authored it.
+    roster.fighter_abilities = Some(ambition_platformer2d::engine_core::MatchAbilities {
+        granted: SMASH_FIGHTER_KIT,
+        permitted: SMASH_FIGHTER_CEILING,
+    });
     // Apply the ruleset's body baseline alongside its ability policy.
     roster.fighter_body = Some(SMASH_FIGHTER_BODY);
 }
@@ -244,7 +247,6 @@ pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
         double_jump: true,
         fast_fall: true,
         attack: true,
-        pogo: true,
         directional_primary: true,
         shield: true,
         // The capture verb. Granting it here does NOT invent a grab: the
@@ -255,6 +257,31 @@ pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
         dodge: true,
         ledge_grab: true,
         ..ambition_platformer2d::engine_core::AbilitySet::NONE
+    };
+
+/// THE CEILING — the floor above, PLUS the verbs a fighter may bring from home.
+///
+/// ⭐⭐ THE DIFFERENCE BETWEEN THESE TWO CONSTANTS IS CHARACTER IDENTITY. Jon,
+/// W8 playtest: *"`robot_v3` should have Pogo available in Smash. **Do not make
+/// Pogo a universal Smash action.** Robot v3 has Pogo because Robot v3 owns that
+/// capability. Another fighter without Pogo should not acquire one merely by
+/// entering Smash."*
+///
+/// ⛔⛔ AND POGO USED TO SIT IN THE FLOOR, so every one of the fourteen bodies
+/// on this grid got a rebounding down-air by walking onto the stage. It read as
+/// working — the fighter Jon tested is the one that authors it — and the defect
+/// was in the thirteen it also reached.
+///
+/// ⭐ `MatchAbilities::levelled` is a floor and a ceiling at once, and its own
+/// doc named this day: *"the day a stage wants a fighter's own flavour to
+/// survive, it widens `permitted` past `granted` rather than reaching for a
+/// third operator."* This is that widening, and one verb wide is the honest size
+/// of it — `fly`, `blink` and `dash` stay out of BOTH, because those are the
+/// exploration kit and the reason a ceiling exists at all.
+pub const SMASH_FIGHTER_CEILING: ambition_platformer2d::engine_core::AbilitySet =
+    ambition_platformer2d::engine_core::AbilitySet {
+        pogo: true,
+        ..SMASH_FIGHTER_KIT
     };
 
 /// The same roster, at a named ladder level.
@@ -2761,7 +2788,12 @@ mod tests {
         // stage's numbers over the engine's, which is the body twelve of the
         // fourteen grid fighters actually get.
         let body = SMASH_FIGHTER_BODY.over(ambition_platformer2d::engine_core::DEFAULT_TUNING);
-        let kit = SMASH_FIGHTER_KIT;
+        // ⭐ THE CEILING, NOT THE FLOOR. A verb the stage merely PERMITS still
+        // needs a live window: a fighter that authored pogo and reaches a stage
+        // whose body has no `pogo_speed` has a verb that does nothing, which is
+        // the same defect one row down. Reading the floor here would have gone
+        // quietly vacuous for pogo the moment it moved out of the grant.
+        let kit = SMASH_FIGHTER_CEILING;
         let dead: Vec<&str> = [
             // (granted?, the number without which the verb does nothing, name)
             (kit.dodge, body.air_dodge_time, "dodge (in the air)"),
@@ -2783,7 +2815,7 @@ mod tests {
         .collect();
         assert!(
             dead.is_empty(),
-            "the stage GRANTS {dead:?} and supplies a body in which the verb \
+            "the stage ALLOWS {dead:?} and supplies a body in which the verb \
              does nothing — see `MatchParticipantRoster::fighter_body`"
         );
         // NON-VACUITY, and it is the whole test. Every window above is

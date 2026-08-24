@@ -2052,6 +2052,57 @@ fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
     );
 }
 
+/// ⭐⭐ POGO IS ROBOT V3'S, NOT THE STAGE'S (D205).
+///
+/// Jon, W8 playtest: *"`robot_v3` should have Pogo available in Smash. **Do not
+/// make Pogo a universal Smash action.** Robot v3 has Pogo because Robot v3 owns
+/// that capability. Another fighter without Pogo should not acquire one merely
+/// by entering Smash."*
+///
+/// ⛔⛔ AND IT USED TO BE THE STAGE'S. `SMASH_FIGHTER_KIT` granted `pogo` as a
+/// FLOOR, so all fourteen bodies on the grid got a rebounding down-air by
+/// walking onto it. It read as correct from the seat Jon tested — Robot v3 is
+/// the fighter that authors pogo — and the defect was entirely in the thirteen
+/// it also reached. ⇒ the grant moved to the CEILING, where a character's own
+/// kit is what decides.
+///
+/// ⭐ THE ASSERTION IS A PAIR, and it must be: "Robot v3 has pogo" is true of a
+/// stage that hands it to everybody, which is the world this test exists to
+/// exclude. A fighter that does NOT author pogo must arrive without one.
+#[test]
+fn robot_v3_brings_its_pogo_to_smash_and_a_fighter_without_one_does_not() {
+    /// A grid fighter that authors no pogo of its own.
+    const NO_POGO_FIGHTER: &str = "pointed_polygon";
+
+    let seated_pogo = |character: &str| -> bool {
+        let mut app = open_the_lobby();
+        pick_and_start(&mut app, character);
+        wait_for_the_round_to_go_live(&mut app);
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::character::WornCharacter,
+            &ambition_platformer2d::engine_core::BodyAbilities,
+        )>();
+        let row = q
+            .iter(world)
+            .find(|(worn, _)| worn.id() == character)
+            .unwrap_or_else(|| panic!("{character} was not seated in the match"));
+        row.1.abilities.pogo
+    };
+
+    assert!(
+        seated_pogo(PREPARED_FIGHTER),
+        "Robot v3 lost the pogo it authors when it entered Smash — the stage's \
+         ceiling is trimming a character's own capability"
+    );
+    assert!(
+        !seated_pogo(NO_POGO_FIGHTER),
+        "{NO_POGO_FIGHTER} arrived in Smash WITH a pogo it never authored, so \
+         the stage is handing the verb out rather than letting the character \
+         own it — which also makes the assertion above prove nothing"
+    );
+}
+
 /// Open the lobby from the title screen.
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();

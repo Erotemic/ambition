@@ -537,6 +537,24 @@ impl MovePlayback {
         self.spec.motion_scale_at(self.t)
     }
 
+    /// Is this move's sprite drawn MIRRORED right now?
+    ///
+    /// ⭐ A PURE FUNCTION OF THE MOVE CLOCK, which is what makes it rollback-safe
+    /// without being rollback state: `t` already rewinds, so a resimulated frame
+    /// draws the same way the abandoned one did. A latch that toggled every
+    /// `1/hz` seconds would be state nobody registered.
+    ///
+    /// ⛔ PRESENTATION ONLY. Nothing about the body's own facing changes — see
+    /// `MoveSpec::sprite_spin_hz`.
+    pub fn sprite_mirrored_now(&self) -> bool {
+        let Some(hz) = self.spec.sprite_spin_hz.filter(|hz| *hz > 0.0) else {
+            return false;
+        };
+        // Half-periods: one full mirror cycle per hertz means the sprite spends
+        // half of each period flipped.
+        ((self.t * hz * 2.0).floor() as i64).rem_euclid(2) == 1
+    }
+
     pub fn smash_charge_fraction(&self) -> Option<f32> {
         self.charge
             .filter(MoveCharge::charging)

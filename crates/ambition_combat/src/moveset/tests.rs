@@ -1199,6 +1199,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
                             smash_charge_mult: {mult},
                             landing_lag_s: None,
                             autocancel_after_s: None,
+                            sprite_spin_hz: None,
                             windows: [
                                 (start_s: 0.0, end_s: 0.2, tag: Startup, volumes: []),
                                 (start_s: 0.2, end_s: 0.4, tag: Active, volumes: [
@@ -1659,6 +1660,7 @@ fn a_forward_special_selects_the_directional_move() {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([
@@ -1708,6 +1710,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 
@@ -1823,6 +1826,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     };
     let mut verbs = std::collections::BTreeMap::new();
     verbs.insert(ATTACK_VERB.to_string(), ATTACK_VERB.to_string());
@@ -3549,6 +3553,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 
@@ -3846,6 +3851,7 @@ fn charging_smash() -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 
@@ -4282,6 +4288,7 @@ fn defended_move() -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 
@@ -4474,6 +4481,7 @@ fn chain_link(
         repeat,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 
@@ -5166,6 +5174,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([
@@ -5601,6 +5610,51 @@ fn an_attack_press_throws_and_pummels_on_a_capture_that_never_armed() {
         Some("pummel"),
         "a neutral attack press stopped pummelling"
     );
+}
+
+/// ⭐ THE CRUDE SPIN, and the two things it must NOT do.
+///
+/// `sprite_spin_hz` is presentation authored on a move, and its whole value is
+/// being free: a pure function of the move clock, so it rewinds with `t` and is
+/// not rollback state anybody has to register.
+///
+/// ⛔ THE SECOND ASSERTION IS THE LOAD-BEARING ONE. A move that authors no spin
+/// must be drawn exactly as it always was — this field arrived on every
+/// `MoveSpec` in the game, and a default that mirrored anything would flip the
+/// whole cast.
+#[test]
+fn an_authored_spin_mirrors_on_the_move_clock_and_an_unauthored_one_never_does() {
+    let mut spinning = uncancelable("spin");
+    spinning.duration_s = 1.0;
+    spinning.sprite_spin_hz = Some(10.0);
+    let still = uncancelable("still");
+
+    let mirrored_at = |spec: &MoveSpec, t: f32| {
+        let mut pb = MovePlayback::new(spec.clone(), 1.0);
+        pb.t = t;
+        pb.sprite_mirrored_now()
+    };
+
+    // At 10 Hz the sprite spends half of each 0.1s period flipped.
+    assert!(!mirrored_at(&spinning, 0.0), "the move starts unmirrored");
+    assert!(
+        mirrored_at(&spinning, 0.07),
+        "the first half-period did not flip"
+    );
+    assert!(!mirrored_at(&spinning, 0.12), "it never flipped back");
+    // …and it keeps going, rather than latching after one cycle.
+    assert!(
+        mirrored_at(&spinning, 0.57),
+        "the spin stopped part-way through"
+    );
+
+    for t in [0.0, 0.07, 0.12, 0.57, 0.9] {
+        assert!(
+            !mirrored_at(&still, t),
+            "a move that authored no spin was drawn mirrored at t={t} — this \
+             field is on every MoveSpec in the game"
+        );
+    }
 }
 
 /// ⭐⭐ THE WHOLE CHARGE CHAIN, DETERMINISTICALLY, WITH NO MATCH IN IT.

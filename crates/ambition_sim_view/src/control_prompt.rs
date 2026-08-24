@@ -466,6 +466,7 @@ mod tests {
                 display_name: None,
                 landing_lag_s: None,
                 autocancel_after_s: None,
+                sprite_spin_hz: None,
                 id: move_id.to_string(),
                 clip: ClipBinding {
                     clip: move_id.to_string(),
@@ -866,7 +867,7 @@ mod tests {
         use ambition_characters::actor::control::ActorControlFrame;
         use ambition_characters::actor::WornCharacter;
         use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
-use ambition_characters::control::{ActorControl};
+        use ambition_characters::control::ActorControl;
 
         let mut app = App::new();
         app.add_plugins(bevy::state::app::StatesPlugin);

@@ -529,6 +529,7 @@ mod tests {
                 repeat: None,
                 landing_lag_s: None,
                 autocancel_after_s: None,
+                sprite_spin_hz: None,
             })
             .collect();
         m.verbs = verbs

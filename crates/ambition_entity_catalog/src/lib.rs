@@ -907,6 +907,25 @@ pub struct MoveSpec {
     /// the move is still running. Ignored if no landing lag is authored.
     #[serde(default)]
     pub autocancel_after_s: Option<f32>,
+    /// How many times a second this move MIRRORS the body's drawn sprite while
+    /// it plays — a spin, cheaply.
+    ///
+    /// ⭐ PRESENTATION ONLY. It flips the published pose's facing and touches
+    /// nothing else: the body's own `facing` is unchanged, so its hitboxes, its
+    /// launch directions and every rule that reads which way it is looking are
+    /// exactly as they were. A spin that MOVED a hitbox would be a different
+    /// move, not a different drawing of one.
+    ///
+    /// ⭐ AND IT IS A CRUDE ANSWER ON PURPOSE. Jon, W8 playtest, on Pointed's
+    /// Up-B: *"it is acceptable to fake the spin by repeatedly flipping the
+    /// sprite horizontally if that gives the basic rotational read... Do not
+    /// spend a lot of time producing beautiful spin animation yet."* Real
+    /// rotation is a rig problem; this is one number an author can put on a move
+    /// today and take off when the art exists.
+    ///
+    /// `None` (and zero) = drawn the way every other move is.
+    #[serde(default)]
+    pub sprite_spin_hz: Option<f32>,
 }
 
 /// Serde default for [`MoveSpec::smash_charge_mult`]: the multiplicative

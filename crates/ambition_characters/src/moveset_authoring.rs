@@ -269,6 +269,7 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 
@@ -620,6 +621,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
     }
 }
 

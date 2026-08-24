@@ -490,6 +490,7 @@ fn widening_swing() -> ambition_entity_catalog::MoveSpec {
         display_name: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+        sprite_spin_hz: None,
         id: "swing".to_string(),
         clip: ambition_entity_catalog::ClipBinding {
             clip: "swing".to_string(),

@@ -324,12 +324,24 @@ pub fn rebuild_body_pose_views(
         let charge = playback
             .as_deref()
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
+        // A move may draw its owner MIRRORED — the crude spin read. Applied to
+        // the published pose and nowhere else: the body's own `facing` is
+        // untouched, so every rule that reads which way it is looking is
+        // unaffected. See `MoveSpec::sprite_spin_hz`.
+        let drawn_facing = if playback
+            .as_deref()
+            .is_some_and(ambition_combat::moveset::MovePlayback::sprite_mirrored_now)
+        {
+            -kinematics.facing
+        } else {
+            kinematics.facing
+        };
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
             size: kinematics.size,
             base_size: base,
-            facing: kinematics.facing,
+            facing: drawn_facing,
             roll_angle: roll.map_or(0.0, |r| r.angle),
             stance_ratio_y,
             gravity_dir,
@@ -745,6 +757,78 @@ mod pose_view_tests {
         assert_eq!(pose.hit_flash_secs, 0.0);
         assert!(pose.charge_tier.is_none());
         assert!(!pose.morph_ball);
+    }
+
+    /// ⭐⭐ A SPINNING MOVE FLIPS WHAT IS DRAWN AND NOT WHICH WAY THE BODY FACES.
+    ///
+    /// The crude spin read Jon asked for on Pointed's Up-B (*"fake the spin by
+    /// repeatedly flipping the sprite horizontally"*), and the reason it is safe
+    /// to fake: the mirror lives on the published POSE. The body's own `facing`
+    /// is the fact hitboxes, launch directions and the brain all read, and a
+    /// presentation trick that moved it would turn a drawing choice into a
+    /// gameplay one six times a second.
+    ///
+    /// ⛔ SO THE ASSERTION IS A PAIR OF READINGS OF THE SAME FRAME — the pose
+    /// disagrees with the body, and the body is unchanged.
+    #[test]
+    fn a_spinning_move_mirrors_the_drawn_pose_and_leaves_the_body_facing_alone() {
+        use ambition_combat::moveset::MovePlayback;
+
+        let mut app = bevy::prelude::App::new();
+        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+
+        let kin = ambition_platformer2d_actor_monolith::actor::BodyKinematics {
+            pos: ambition_platformer2d_core::Vec2::ZERO,
+            vel: ambition_platformer2d_core::Vec2::ZERO,
+            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        };
+
+        let spec = ambition_entity_catalog::MoveSpec {
+            display_name: None,
+            id: "spin".to_string(),
+            clip: ambition_entity_catalog::ClipBinding {
+                clip: "spin".to_string(),
+                fallbacks: vec![],
+            },
+            duration_s: 1.0,
+            windows: vec![],
+            events: vec![],
+            gates: Default::default(),
+            start_impulse: None,
+            smash_charge_mult: 1.0,
+            smash_charge: None,
+            repeat: None,
+            landing_lag_s: None,
+            autocancel_after_s: None,
+            sprite_spin_hz: Some(10.0),
+        };
+
+        // Parked inside a mirrored half-period.
+        let mut playback = MovePlayback::new(spec, 1.0);
+        playback.t = 0.07;
+        assert!(
+            playback.sprite_mirrored_now(),
+            "the fixture is not on a mirrored frame, so what follows measures \
+             nothing"
+        );
+
+        let body = app.world_mut().spawn((PlayerVisual, kin, playback)).id();
+        app.update();
+
+        assert_eq!(
+            app.world().get::<BodyPoseView>(body).map(|p| p.facing),
+            Some(-1.0),
+            "the drawn pose was not mirrored, so the spin is invisible"
+        );
+        assert_eq!(
+            app.world()
+                .get::<ambition_platformer2d_actor_monolith::actor::BodyKinematics>(body)
+                .map(|k| k.facing),
+            Some(1.0),
+            "the presentation mirror reached the BODY's facing — every hitbox \
+             and launch direction this fighter has now flips six times a second"
+        );
     }
 
     /// A sheet-authored quad is reported only by a body that HAS one.

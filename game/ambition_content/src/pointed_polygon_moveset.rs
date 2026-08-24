@@ -241,28 +241,39 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         ImpulseMode::Set,
     );
 
-    // ⭐ THE RISING SPIN: four holding pulses, then one launch.
+    // ⭐ THE RISING SPIN: swords out horizontally, four holding pulses, then one
+    // launch.
     //
     // It used to be a single hit on the way up, which meant the move either
     // connected once and sent the victim away or missed entirely — the climb had
     // no reason to be long. Four autolink pulses make the rise itself the
-    // mechanic: each one re-aims the victim at a point just in front of the
-    // spinning fighter, so it comes UP with the move and the finisher has
-    // something to launch.
+    // mechanic: each one re-aims the victim at the spin's own centre, so it comes
+    // UP with the move and the finisher has something to launch.
     //
     // ⛔ NOT a capture. Nothing is held: each pulse is an ordinary weak hit whose
     // reaction happens to aim inward, and the victim keeps every verb it has —
     // it can DI, it can tech the ending, and it falls out the moment the pulses
     // stop reaching it.
+    //
+    // ⭐⭐ THE SHAPE IS A DISK, and it was a COLUMN. Jon, W8 playtest: *"Pointed
+    // extends her swords approximately horizontally. The attack volume should
+    // form a broad disk / horizontal spinning envelope around her, rather than
+    // reading like a narrow ordinary strike."* The pulse measured 52 wide by 60
+    // tall and sat slightly in FRONT of her — taller than it was wide, and
+    // one-sided, which is a rising poke rather than a spin. It is now wider than
+    // it is tall and centred on the body, so a fighter on either side is inside
+    // it: a spin has no front.
     let mut rising_edge = strike(Strike {
         id: "polygon_rising_edge",
         clip: "attack_up",
         startup_s: 0.09,
-        // The FINISHER, unchanged in character: the launch that ends the spin.
+        // The FINISHER, and it inherits the disk: a victim carried in on her BACK
+        // side has to still be inside the box that launches, or the whole gather
+        // ends by dropping half of what it caught.
         active_s: 0.10,
         recover_s: 0.20,
-        offset: (5.0, -19.0),
-        half_extents: (22.0, 27.0),
+        offset: (0.0, -14.0),
+        half_extents: (44.0, 22.0),
         damage: 7,
         knockback: 88.0,
         knockback_growth: 1.65,
@@ -274,19 +285,25 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         rising_edge,
         4,
         Pulse {
-            // Slightly wider than the finisher and centred on the body: the
-            // pulses have to keep reaching a victim that is being carried.
-            offset: (2.0, -12.0),
-            half_extents: (26.0, 30.0),
+            // The DISK: a little wider than the finisher, and level with the
+            // torso rather than reaching above her head. Her forward smash
+            // reaches x≈75 with one sword; two swords held out sideways reach
+            // about that far each way, which is the read the shape has to carry.
+            offset: (0.0, -12.0),
+            half_extents: (48.0, 24.0),
             damage: 2,
             // Separated windows, because the runtime's re-hit rule refuses a
             // contiguous track — four touching windows would land once.
             active_s: 0.035,
             gap_s: 0.030,
             autolink: AutolinkVolume {
-                // Just in front of the spin and a little below its centre, so
-                // the victim rides at the height the finisher's box covers.
-                anchor: (14.0, 6.0),
+                // ⭐ THE SPIN'S OWN CENTRE, and the x is ZERO on purpose.
+                // `autolink_anchor_world` mirrors the anchor with the attacker's
+                // facing, so any non-zero x makes the gather point depend on
+                // which way she happens to be looking — which is a statement
+                // about a poke, not a spin. Zero is facing-invariant: whichever
+                // side a victim comes in on, it is pulled toward HER.
+                anchor: (0.0, -10.0),
                 // The whole of the climb. The correction only closes a gap, and
                 // this fighter is rising at 760 px/s — anything less and the
                 // victim is left underneath its own move.
@@ -304,6 +321,13 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
     // catching the ledge, being grabbed, a respawn.
     let mut up_special = rising_edge;
     up_special.gates.spends_recovery = true;
+    // ⭐ THE CRUDE SPIN READ, and it is deliberately crude. Jon, W8 playtest:
+    // *"it is acceptable to fake the spin by repeatedly flipping the sprite
+    // horizontally if that gives the basic rotational read... Do not spend a lot
+    // of time producing beautiful spin animation yet."* Twelve mirrors a second
+    // over a ~0.5s move is about six flips — fast enough to read as turning,
+    // slow enough to see which way she is pointing at any instant.
+    up_special.sprite_spin_hz = Some(12.0);
     let up_special = impulse(up_special, 0.09, (0.0, -760.0), ImpulseMode::Set);
 
     let grounded_down_special = committed_tail(
@@ -446,6 +470,197 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The Up-B's holding pulses, as authored: `(offset, half_extents, autolink)`.
+    fn rising_spin_pulses() -> Vec<((f32, f32), (f32, f32), AutolinkVolume)> {
+        let spin = pointed_polygon_moveset()
+            .moves
+            .into_iter()
+            .find(|m| m.id == "polygon_rising_edge")
+            .expect("the up-special is authored");
+        spin.windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .filter_map(|v| {
+                let link = v.autolink?;
+                match v.shape {
+                    ambition_entity_catalog::VolumeShape::Rect {
+                        offset,
+                        half_extents,
+                    } => Some((offset, half_extents, link)),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    /// Is a victim standing at `local` (in Pointed's own frame) inside the
+    /// holding pulse?
+    fn caught_at(local: (f32, f32)) -> bool {
+        rising_spin_pulses().iter().any(|(offset, half, _)| {
+            (local.0 - offset.0).abs() <= half.0 && (local.1 - offset.1).abs() <= half.1
+        })
+    }
+
+    /// ⭐⭐ THE UP-B IS A DISK, NOT A POKE (D206).
+    ///
+    /// Jon, W8 playtest: *"Pointed extends her swords approximately
+    /// horizontally. The attack volume should form a broad disk / horizontal
+    /// spinning envelope around her, rather than reading like a narrow ordinary
+    /// strike."*
+    ///
+    /// ⛔ IT MEASURED 52 WIDE BY 60 TALL and sat in front of her — taller than it
+    /// was wide, and one-sided. That is a rising poke with a spin animation
+    /// over it, which is exactly the read he was describing.
+    ///
+    /// ⭐ WIDER THAN TALL is the claim, not a pair of numbers: the shape has to
+    /// say "swords held out sideways" rather than "a swing above the head", and
+    /// an assertion on the literal extents would only restate the authoring.
+    #[test]
+    fn the_rising_spin_is_wider_than_it_is_tall() {
+        let pulses = rising_spin_pulses();
+        assert!(!pulses.is_empty(), "the up-special authored no held pulses");
+        for (offset, half, _) in &pulses {
+            assert!(
+                half.0 > half.1,
+                "a holding pulse is {}x{} — taller than it is wide, which reads \
+                 as a strike rather than a spin",
+                half.0 * 2.0,
+                half.1 * 2.0,
+            );
+            assert_eq!(
+                offset.0, 0.0,
+                "the disk is offset sideways by {}, so it is in FRONT of her \
+                 rather than around her — a spin has no front",
+                offset.0,
+            );
+        }
+    }
+
+    /// ⭐⭐ AND IT CATCHES BOTH SIDES, which is the point of the shape.
+    ///
+    /// Jon's own list: *"victim near Pointed's left side → multihit
+    /// catches/carries; victim near Pointed's right side → multihit
+    /// catches/carries; victim somewhat above/below center → broad disk still
+    /// reads sensibly."*
+    ///
+    /// ⭐ THE FAR POINTS ARE ASSERTED TOO, and they are what keeps this from
+    /// passing on a box of any size: a victim well past the swords is OUT. A
+    /// test that only checked "somebody nearby is caught" would be green on a
+    /// stage-wide hitbox.
+    #[test]
+    fn the_rising_spin_gathers_from_either_side_and_stops_somewhere() {
+        // Beside her, at torso height: the two cases Jon named.
+        assert!(
+            caught_at((-34.0, -12.0)),
+            "a victim on her BACK side is outside the spin"
+        );
+        assert!(
+            caught_at((34.0, -12.0)),
+            "a victim in FRONT of her is outside the spin"
+        );
+        // Somewhat above and below centre.
+        assert!(
+            caught_at((0.0, -30.0)),
+            "a victim above her centre is outside the spin"
+        );
+        assert!(
+            caught_at((0.0, 6.0)),
+            "a victim at her feet is outside the spin"
+        );
+        // …and it ends. Roughly two body-widths out each way is not a spin any
+        // more, it is a room.
+        assert!(
+            !caught_at((-120.0, -12.0)),
+            "the spin reaches most of the stage to her left"
+        );
+        assert!(
+            !caught_at((120.0, -12.0)),
+            "the spin reaches most of the stage to her right"
+        );
+    }
+
+    /// ⭐⭐ THE GATHER POINT DOES NOT DEPEND ON WHICH WAY SHE IS LOOKING.
+    ///
+    /// `autolink_anchor_world` mirrors an authored anchor with the attacker's
+    /// facing — correct for a poke, wrong for a spin. The old anchor sat at
+    /// x=+14, so a left-facing Pointed gathered her victims to her left and a
+    /// right-facing one gathered them to her right: the same move, two different
+    /// mechanics, decided by a fact the player was not thinking about.
+    ///
+    /// ⭐ ASKED THROUGH THE ENGINE'S OWN RESOLVER, not by reading the authored
+    /// number: the mirroring is the resolver's rule, and a test that asserted
+    /// `anchor.0 == 0.0` would pass just as happily if that rule changed.
+    #[test]
+    fn the_gather_point_is_the_same_whichever_way_she_faces() {
+        use ambition_platformer2d_core::hit_response::autolink_anchor_world;
+        use ambition_platformer2d_core::Vec2;
+
+        const HER: Vec2 = Vec2::new(300.0, 200.0);
+        const DOWN: Vec2 = Vec2::new(0.0, 1.0);
+
+        for (_, _, link) in rising_spin_pulses() {
+            let authored = Vec2::new(link.anchor.0, link.anchor.1);
+            let facing_right = autolink_anchor_world(authored, HER, 1.0, DOWN);
+            let facing_left = autolink_anchor_world(authored, HER, -1.0, DOWN);
+            assert_eq!(
+                facing_right, facing_left,
+                "the spin gathers to a different point depending on her facing"
+            );
+            assert!(
+                facing_right.distance(HER) < 24.0,
+                "the gather point is {:?}, which is not ON her — a spin pulls \
+                 victims into itself",
+                facing_right,
+            );
+        }
+    }
+
+    /// ⭐ AND THE FINISHER COVERS WHAT THE PULSES GATHERED.
+    ///
+    /// ⛔⛔ THIS IS THE ONE THE RESHAPE COULD SILENTLY BREAK. Widening the held
+    /// pulses without widening the launch means a victim carried in on her back
+    /// side rides the whole climb and then falls out unlaunched — the gather
+    /// works and the move still does nothing, which is worse than the poke it
+    /// replaced.
+    #[test]
+    fn the_launch_reaches_everything_the_pulses_held() {
+        let spin = pointed_polygon_moveset()
+            .moves
+            .into_iter()
+            .find(|m| m.id == "polygon_rising_edge")
+            .expect("the up-special is authored");
+        // The finisher is the one volume that authors a launch.
+        let (offset, half) = spin
+            .windows
+            .iter()
+            .flat_map(|w| w.volumes.iter())
+            .find(|v| v.autolink.is_none())
+            .and_then(|v| match v.shape {
+                ambition_entity_catalog::VolumeShape::Rect {
+                    offset,
+                    half_extents,
+                } => Some((offset, half_extents)),
+                _ => None,
+            })
+            .expect("the spin ends with a launching rect");
+
+        for (pulse_offset, pulse_half, _) in rising_spin_pulses() {
+            for side in [-1.0f32, 1.0] {
+                // The anchor pulls victims IN, so what the finisher must cover is
+                // the gathered cloud rather than the pulse's outer edge. Half of
+                // the pulse's reach is the honest reading of "held".
+                let held = pulse_offset.0 + side * pulse_half.0 * 0.5;
+                assert!(
+                    (held - offset.0).abs() <= half.0,
+                    "a victim gathered to x={held} is outside the launch box \
+                     [{}, {}] — the spin catches it and then lets it go",
+                    offset.0 - half.0,
+                    offset.0 + half.0,
+                );
+            }
+        }
+    }
 
     #[test]
     fn the_reference_sword_fighter_answers_the_complete_typed_repertoire() {

@@ -1,4 +1,3 @@
-
 // Stepping a fixture is `finalize_and_update`, not `update`. Bevy's RUNNERS
 // close the plugin-composition barrier; `App::update` does not, and character
 // preparation publishes its registry there — so a fixture that only updated
@@ -911,6 +910,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
             repeat: None,
             landing_lag_s: None,
             autocancel_after_s: None,
+            sprite_spin_hz: None,
         }],
     };
     // The stage's borrowed kit, deliberately DIFFERENT from anything the
@@ -1289,7 +1289,8 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
 
     let world = app.world_mut();
     let mut seated = world
-        .query_filtered::<Option<&ambition_characters::control::ScriptedControl>, With<MatchSeat>>();
+        .query_filtered::<Option<&ambition_characters::control::ScriptedControl>, With<MatchSeat>>(
+        );
     let suspended: Vec<bool> = seated.iter(world).map(|s| s.is_some()).collect();
     assert_eq!(
         suspended,

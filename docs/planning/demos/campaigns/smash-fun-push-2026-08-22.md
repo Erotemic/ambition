@@ -13,6 +13,19 @@ move durable combat rules to the owning engine/system documentation if needed,
 and archive this execution document. Do not leave completed campaign prose as a
 second Smash backlog.
 
+> ⚠⚠ **SWEPT AGAINST HEAD 2026-08-24, AND MOST OF THIS CAMPAIGN IS DONE.** Every
+> `O` slice plus `W1` and `W6` reads `✔` in
+> [`../smash-parity-inventory.md`](../smash-parity-inventory.md), which D72 names
+> as the CANONICAL feature truth — this file is only the execution order. A
+> session working the headings in sequence would have rebuilt six shipped
+> features, and `W6` argued from a claim about the inventory that the inventory
+> never made.
+>
+> ⇒ **still open here: `W2` (autolink knockback, `▢` inventory line 117), `W3`,
+> `W4` (`▢` line 201 — and gated on PLAY, not on effort), `W5`, `W7`, `W8`.**
+> ⛔ re-grep an inventory row before working a slice; this file goes stale faster
+> than the code it describes, and the inventory is the thing to trust.
+
 ## Goal
 
 Make the Smash demo feel substantially more readable, responsive and characterful in ordinary local play without waiting for the pending engine architecture migrations.
@@ -124,7 +137,7 @@ The agent can reproduce the current demo and knows which proposed rows are prese
 
 ---
 
-## O1 — True held/released smash charge
+## ✔ O1 — True held/released smash charge — SHIPPED
 
 ### Problem
 
@@ -192,7 +205,7 @@ With a human controller, holding a Smash input visibly delays the hit until rele
 
 ---
 
-## O2 — Smash-charge pose, accelerating blink and SFX
+## ✔ O2 — Smash-charge pose, accelerating blink and SFX — SHIPPED
 
 ### Goal
 
@@ -222,7 +235,7 @@ The player can read three beats without looking at debug state:
 
 ---
 
-## O3 — Hard-launch smoke / speed trail
+## ✔ O3 — Hard-launch smoke / speed trail — SHIPPED
 
 ### Goal
 
@@ -258,7 +271,7 @@ A spectator can identify a hard launch from the flight itself even after the ini
 
 ---
 
-## O4 — Invulnerability / intangibility blink
+## ✔ O4 — Invulnerability / intangibility blink — SHIPPED
 
 ### Goal
 
@@ -294,7 +307,7 @@ Parry gets its own flash in O5; it may share the same overlay machinery, but a s
 
 ---
 
-## O5 — Tech and parry feedback
+## ✔ O5 — Tech and parry feedback — SHIPPED
 
 These mechanics exist. This slice gives each a distinct visual/audio signature.
 
@@ -320,7 +333,7 @@ In a noisy CPU-vs-CPU match, a spectator can distinguish ordinary shield block, 
 
 ---
 
-## W1 — Real shrinking bubble shield
+## ✔ W1 — Real shrinking bubble shield — SHIPPED
 
 ### Problem
 
@@ -494,9 +507,24 @@ KO → respawn has an intentional visual/gameplay beat instead of a fighter appe
 
 ---
 
-## W6 — Shield-drop lag
+## ✔ W6 — Shield-drop lag — SHIPPED (this slice's own premise was false)
 
-The parity inventory lists shield-drop lag as absent. Add this only after W1 and several matches of playtesting.
+⛔⛔ **THE SLICE SAID *"the parity inventory lists shield-drop lag as absent"*.
+IT DOES NOT, and did not** — the inventory row has read `✔` with the number in it.
+Checked at HEAD 2026-08-24, the rule is wired end to end:
+
+```text
+ShieldTuning::drop_lag          0.0 baseline · 11/60 s on PLATFORM_FIGHTER
+apply_shield                    arms drop_lag_timer when a guard is let go BY
+                                ITSELF (an out-of-shield action already spent it)
+movement/mod.rs                 decays it
+features/ecs/attack.rs          consumes it into hard_lock_timer, beside the
+                                knockback lock, the break dizzy and shieldstun
+```
+
+plus codec encoding, snapshot registration, a dev-tools slider, and two kernel
+tests that assert BOTH sides (zero when no rule is declared, non-zero when one
+is). ⇒ nothing to build.
 
 ### Goal
 

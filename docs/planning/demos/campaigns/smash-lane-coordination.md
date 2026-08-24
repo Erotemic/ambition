@@ -226,6 +226,13 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
   test targets.** A field added to a rollback-registered type broke
   `ambition_platformer2d_rollback_ggrs`'s lib test and nothing in the per-slice
   gate saw it. `cargo test --workspace --lib` is the tier that does.
+  ⛔⛔ **AND IT HAPPENED AGAIN, BIGGER.** Found 2026-08-24: the actor monolith's
+  own test target had stopped compiling — an argument added to
+  `apply_body_hit_reaction`, and a leaf-membership row written as a 3-tuple — so
+  **1,157 tests were dark**, and the one that then failed had drifted three ways
+  behind the production chain. ⇒ **SWEPT the whole tier the same day and it is
+  now clean: 67 lib test targets, every one compiling, every one green.** Run
+  that tier after touching a shared type; the app gate is not a proxy for it.
 
 ## The instrument
 

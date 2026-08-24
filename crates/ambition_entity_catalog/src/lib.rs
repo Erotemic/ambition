@@ -777,6 +777,21 @@ pub struct MoveGates {
     /// `None` = either.
     #[serde(default)]
     pub grounded: Option<bool>,
+    /// This move SPENDS a recovery use, and cannot fire when the body has none
+    /// left.
+    ///
+    /// ⛔⛔ WITHOUT IT A PLATFORM FIGHTER HAS NO BOTTOM BLASTZONE. Nothing else
+    /// limits a repeated special — there is no cooldown, no cost and no
+    /// per-airtime rule on a move — and `grounded` cannot tell the second use in
+    /// one airtime from the first. A fighter that authored a rising special
+    /// could press it forever and only die to a launch that outran it.
+    ///
+    /// ⭐ AUTHORED BY THE MOVE, not inferred from its name or its impulse. What
+    /// makes a move a recovery is that its author says it is one — an up-special
+    /// that does not lift, or a side-special that does, are both ordinary
+    /// statements this way and neither is a special case in input code.
+    #[serde(default)]
+    pub spends_recovery: bool,
 }
 
 impl MoveGates {

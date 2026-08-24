@@ -296,7 +296,15 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
             },
         },
     );
-    let up_special = impulse(rising_edge, 0.09, (0.0, -760.0), ImpulseMode::Set);
+    // ⛔⛔ AND IT COSTS THE RECOVERY. Nothing limited a repeated special before
+    // this — no cooldown, no cost, and `MoveGates` knew only `grounded`, which
+    // cannot tell the second use in one airtime from the first — so a fighter
+    // could press this forever and could only be killed by a launch that outran
+    // its own rise. The budget comes back when the body is re-seated: landing,
+    // catching the ledge, being grabbed, a respawn.
+    let mut up_special = rising_edge;
+    up_special.gates.spends_recovery = true;
+    let up_special = impulse(up_special, 0.09, (0.0, -760.0), ImpulseMode::Set);
 
     let grounded_down_special = committed_tail(
         strike(Strike {

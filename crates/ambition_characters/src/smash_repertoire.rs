@@ -18,14 +18,16 @@ use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
 /// aerials rather than throwing a tilt in mid-air.
 const GROUNDED: MoveGates = MoveGates {
     grounded: Some(true),
+    spends_recovery: false,
 };
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
 /// reach a move whose whole design is that landing costs you.
 const AIRBORNE: MoveGates = MoveGates {
     grounded: Some(false),
+    spends_recovery: false,
 };
 /// The specials: a move that answers its button from the ground OR the air.
-const EITHER: MoveGates = MoveGates { grounded: None };
+const EITHER: MoveGates = MoveGates { grounded: None , spends_recovery: false };
 
 /// The neutral special, or a stated reason there is no authored one.
 ///
@@ -297,6 +299,7 @@ mod tests {
             // Deliberately the WRONG gate for every slot: the seam must set it.
             gates: MoveGates {
                 grounded: Some(true),
+                spends_recovery: false,
             },
             start_impulse: None,
             smash_charge_mult: 1.0,

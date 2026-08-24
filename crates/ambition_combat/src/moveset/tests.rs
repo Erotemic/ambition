@@ -5272,7 +5272,10 @@ fn a_move_used_without_the_smash_gesture_lands_at_unit_scale() {
         sampled += 1;
         pb.t += 1.0 / 60.0;
     }
-    assert!(sampled > 1, "the sweep never advanced, so it proved nothing");
+    assert!(
+        sampled > 1,
+        "the sweep never advanced, so it proved nothing"
+    );
 }
 
 /// The other direction, or the fix above would just have deleted the payoff:
@@ -5280,7 +5283,9 @@ fn a_move_used_without_the_smash_gesture_lands_at_unit_scale() {
 #[test]
 fn a_held_smash_gesture_still_pays_its_multiplier() {
     let mut pb = MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true);
-    let charge = pb.charge.expect("the fixture authors a policy, so a smash charges");
+    let charge = pb
+        .charge
+        .expect("the fixture authors a policy, so a smash charges");
     assert_eq!(pb.charge_scale(), 1.0, "an untouched charge is a tap");
     pb.charge = Some({
         let mut full = charge;
@@ -5315,9 +5320,7 @@ fn a_held_smash_gesture_still_pays_its_multiplier() {
 /// by a fixture that left a gap.
 #[test]
 fn a_held_charge_has_no_live_strike_and_releases_into_one() {
-    use ambition_characters::actor::attack_gesture::{
-        AttackGestureIntent, ResolvedAttackGesture,
-    };
+    use ambition_characters::actor::attack_gesture::{AttackGestureIntent, ResolvedAttackGesture};
 
     let spec = charging_smash();
     let startup_end = spec
@@ -5685,7 +5688,7 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     // data the brain reasons about and the timeline the charge freezes on are
     // one authoring.
     use ambition_characters::brain::fighter::options::{
-        AttackBinding, AttackCandidate, ActionLegality, AttackVerb,
+        ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
     };
     let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
     snapshot.attack_kit = vec![AttackCandidate {
@@ -5751,5 +5754,94 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
         "the charge froze but never accrued: the brain let go of Attack before \
          the clock reached the hold point, which is the exact defect \
          `hold_ticks` exists to prevent ({rooted_ticks} rooted tick(s))"
+    );
+}
+
+/// ⛔⛔ A RECOVERY IS ONCE PER AIRTIME, AND WITHOUT THAT A PLATFORM FIGHTER HAS
+/// NO BOTTOM BLASTZONE.
+///
+/// Measured at the source 2026-08-24: `MoveSpec` carries no cooldown, no cost
+/// and no per-airtime rule, and `MoveGates` knew only `grounded` — which cannot
+/// tell the second use in one airtime from the first. A fighter authoring a
+/// rising special could press it forever and could only be killed by a launch
+/// that outran its own recovery.
+///
+/// ⭐ ALL THREE STATES, because a budget is a fence and a fence needs both
+/// sides: an ordinary move never asks; a recovery with charges left is allowed;
+/// the same recovery with none is refused.
+#[test]
+fn a_recovery_is_refused_once_its_budget_is_spent() {
+    use ambition_entity_catalog::{MoveGates, MoveSpec};
+
+    let recovery = |gates: MoveGates| MoveSpec {
+        gates,
+        ..ambition_characters::moveset_authoring::strike(
+            ambition_characters::moveset_authoring::Strike {
+                id: "rise",
+                clip: "attack_up",
+                startup_s: 0.05,
+                active_s: 0.05,
+                recover_s: 0.10,
+                offset: (0.0, -10.0),
+                half_extents: (10.0, 10.0),
+                damage: 1,
+                knockback: 10.0,
+                knockback_growth: 0.0,
+                launch_dir: None,
+                on_hit: None,
+            },
+        )
+    };
+    let spends = recovery(MoveGates {
+        grounded: None,
+        spends_recovery: true,
+    });
+    let ordinary = recovery(MoveGates::default());
+
+    assert!(
+        super::afford_recovery(&spends, Some(1)),
+        "a fighter with a recovery left was refused one"
+    );
+    assert!(
+        !super::afford_recovery(&spends, Some(0)),
+        "a fighter with NO recovery left got another — it can never be killed \
+         off the side or the bottom"
+    );
+    assert!(
+        super::afford_recovery(&ordinary, Some(0)),
+        "an ordinary move asked the recovery budget, so an exhausted fighter \
+         cannot jab"
+    );
+    assert!(
+        super::afford_recovery(&spends, None),
+        "a body with no jump cluster is a bare fixture, not a fighter with an \
+         exhausted budget"
+    );
+}
+
+/// ... AND BEING RE-SEATED GIVES IT BACK. Landing, catching the ledge, being
+/// grabbed and a respawn all run the landing-class refresh, which is the one
+/// place the budget is restored — and deliberately NOT a hit, which would refund
+/// a recovery to the fighter being edge-guarded.
+#[test]
+fn the_landing_class_refresh_restores_the_recovery_budget() {
+    let abilities = ae::BodyAbilities::default();
+    let mut dash = ae::BodyDashState::default();
+    let mut dodge = ae::BodyDodgeState::default();
+    let mut jump = ae::BodyJumpState {
+        recovery_charges: 0,
+        ..Default::default()
+    };
+    ae::refresh_movement_resources_clusters(&abilities, &mut dash, &mut jump, &mut dodge, 1);
+    assert_eq!(
+        jump.recovery_charges,
+        ae::DEFAULT_RECOVERY_CHARGES,
+        "being re-seated did not give the recovery back, so one trip offstage \
+         retires the fighter"
+    );
+    assert!(
+        ae::DEFAULT_RECOVERY_CHARGES > 0,
+        "poison: the default is zero, so the assertion above would hold for a \
+         refresh that restores nothing"
     );
 }

@@ -136,6 +136,7 @@ snapshot_pod!(crate::body_clusters::ActorSurfaceState {
 
 snapshot_pod!(crate::body_clusters::BodyJumpState {
     air_jumps_available: u8,
+    recovery_charges: u8,
     footstool_claimed: bool,
     ladder_jump_boost: f32,
     ladder_drop_through_timer: f32,

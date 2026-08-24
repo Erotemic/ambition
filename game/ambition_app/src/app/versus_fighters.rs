@@ -83,6 +83,7 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
         // airborne fighter losing the ability to press the button.
         spec.gates = MoveGates {
             grounded: grounded_only.then_some(true),
+            spends_recovery: false,
         };
         verbs.insert(verb.to_string(), id.to_string());
         moves.push(spec);

@@ -1703,6 +1703,92 @@ fn resolve_capture_action<'a>(
 /// Attack press, [`held_weapon_attack_move`] resolves the weapon action instead
 /// of the wearer's normal attack without deleting the wearer's authored moves.
 
+/// Everything that happens when a press becomes a move.
+///
+/// ⭐ ONE FUNCTION, because the two start sites — the cancel path and the plain
+/// trigger — did the same three things in two copies, and a fourth thing had to
+/// join them. The recovery spend is that fourth thing; adding it beside the
+/// duplicate would have made it a carry list of four, which is how this
+/// repository loses a rule down one road.
+struct StartingMove<'a, 'cw, 'cs> {
+    commands: &'a mut Commands<'cw, 'cs>,
+    entity: Entity,
+    spec: ambition_entity_catalog::MoveSpec,
+    facing: f32,
+    /// Captured at START, because it is gone by the fire frame. See
+    /// [`MovePlayback::aim`].
+    aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
+    smash_gesture: bool,
+    proposer: ProposedVerb,
+    action_buffer: &'a mut ae::BodyActionBuffer,
+    // ⭐ THE COMPONENTS, NOT THE QUERIES. A helper that took the queries would
+    // tie the system's `Commands` and its two `Query` borrows to one
+    // world/state pair, which they do not share; resolving both at the call site
+    // says what this actually needs — the guard it spends and the budget it
+    // charges.
+    shield: Option<bevy::prelude::Mut<'a, ae::BodyShieldState>>,
+    oos_policy: Option<ae::OutOfShield>,
+    jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
+}
+
+fn start_move(m: StartingMove<'_, '_, '_>) {
+    // ⭐ THE RECOVERY IS SPENT AT THE START, not at the impulse and not on
+    // landing. A move that authors `spends_recovery` costs one use the moment it
+    // begins, so a fighter cannot buy a second rise by cancelling out of the
+    // first — and `afford_recovery` has already refused this move if there was
+    // none left.
+    let StartingMove {
+        commands,
+        entity,
+        spec,
+        facing,
+        aim,
+        smash_gesture,
+        proposer,
+        action_buffer,
+        mut shield,
+        oos_policy,
+        jump,
+    } = m;
+    if spec.gates.spends_recovery {
+        if let Some(mut jump) = jump {
+            jump.recovery_charges = jump.recovery_charges.saturating_sub(1);
+        }
+    }
+    commands.entity(entity).insert(
+        MovePlayback::new(spec, facing)
+            .with_aim(aim)
+            .charged_by_smash_gesture(smash_gesture),
+    );
+    // ACCEPTED — the proposal is over. A buffered press that starts a move must
+    // not start the next one behind it.
+    proposer.spend(action_buffer);
+    // ... and the guard leaves with the action it launched.
+    if let Some(shield) = shield.as_mut() {
+        ae::movement::spend_out_of_shield(shield, oos_policy);
+    }
+}
+
+/// May this body START this move, as far as its recovery budget is concerned?
+///
+/// ⛔⛔ WITHOUT THIS A PLATFORM FIGHTER HAS NO BOTTOM BLASTZONE. Measured at the
+/// source 2026-08-24: `MoveSpec` carries no cooldown, no cost and no per-airtime
+/// rule, and `MoveGates` knew only `grounded` — which cannot tell the second use
+/// in one airtime from the first. A fighter authoring a rising special could
+/// press it forever and could only be killed by a launch that outran its own
+/// recovery.
+///
+/// ⚠ read-only, and asked BEFORE a cancel tears the current move down: refusing
+/// after the teardown would leave the body with neither move.
+fn afford_recovery(spec: &ambition_entity_catalog::MoveSpec, charges_left: Option<u8>) -> bool {
+    if !spec.gates.spends_recovery {
+        return true;
+    }
+    // A body with no jump cluster is a bare fixture, not a fighter with an
+    // exhausted budget — it has no recovery to spend and none to run out of.
+    charges_left.is_none_or(|left| left > 0)
+}
+
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     mut bodies: Query<(
@@ -1757,6 +1843,9 @@ pub fn trigger_moveset_moves(
     // `BodyShieldState` is deliberately absent from the body query above so
     // this is the system's only access to it.
     mut guards: Query<&mut ae::BodyShieldState>,
+    // THE RECOVERY BUDGET. Taken mutably and looked up by entity like the guard
+    // above, and for the same reason: starting a recovery is a SPEND.
+    mut jumps: Query<&mut ae::BodyJumpState>,
     // Where the out-of-shield rule is authored: the body's own movement policy
     // carries its shield tuning. `None` for a bare test body, which then has no
     // rule and behaves exactly as it did.
@@ -2133,6 +2222,12 @@ pub fn trigger_moveset_moves(
             let Some(spec) = successor.or(spec) else {
                 continue;
             };
+            // ⛔ ASKED BEFORE THE TEARDOWN BELOW. Refusing a move the body cannot
+            // afford AFTER cancelling the one it was playing would leave it with
+            // neither, which is worse than the free recovery this prevents.
+            if !afford_recovery(&spec, jumps.get(entity).ok().map(|j| j.recovery_charges)) {
+                continue;
+            }
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
             if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {
@@ -2163,26 +2258,24 @@ pub fn trigger_moveset_moves(
                 );
                 let _ = before;
             }
-            commands
-                .entity(entity)
-                // capture the aim at START, because it will be gone by the
-                // fire frame. See `MovePlayback::aim`.
-                .insert(
-                    MovePlayback::new(spec, kin.facing)
-                        .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy)))
-                        .charged_by_smash_gesture(smash_gesture),
-                );
-            // ACCEPTED — the proposal is over. A buffered press that starts a
-            // move must not start the next one behind it.
-            proposer.spend(&mut action_buffer);
-            // ... and the guard leaves with the action it launched.
-            if let Ok(mut shield) = guards.get_mut(entity) {
-                ae::movement::spend_out_of_shield(&mut shield, oos_policy);
-            }
+            start_move(StartingMove {
+                commands: &mut commands,
+                entity,
+                spec,
+                facing: kin.facing,
+                aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
+                smash_gesture,
+                proposer,
+                action_buffer: &mut action_buffer,
+                shield: guards.get_mut(entity).ok(),
+                oos_policy,
+                jump: jumps.get_mut(entity).ok(),
+            });
             continue;
         }
 
-        if let Some(spec) = spec {
+        let charges_left = jumps.get(entity).ok().map(|jump| jump.recovery_charges);
+        if let Some(spec) = spec.filter(|spec| afford_recovery(spec, charges_left)) {
             // Self-motion: a body-local impulse mirrored by facing and rotated
             // into the owner's gravity frame (a jab's lunge stays "forward"
             // under any gravity). Identity when the move authors none.
@@ -2205,19 +2298,19 @@ pub fn trigger_moveset_moves(
                 );
                 let _ = before;
             }
-            commands.entity(entity).insert(
-                // the plain trigger path needs the aim just as much as the
-                // cancel path above. Capturing on one of the two start sites
-                // would have fixed aimed shots only for moves that interrupted
-                // another one, which is the rarer half.
-                MovePlayback::new(spec, kin.facing)
-                    .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy)))
-                    .charged_by_smash_gesture(smash_gesture),
-            );
-            proposer.spend(&mut action_buffer);
-            if let Ok(mut shield) = guards.get_mut(entity) {
-                ae::movement::spend_out_of_shield(&mut shield, oos_policy);
-            }
+            start_move(StartingMove {
+                commands: &mut commands,
+                entity,
+                spec,
+                facing: kin.facing,
+                aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
+                smash_gesture,
+                proposer,
+                action_buffer: &mut action_buffer,
+                shield: guards.get_mut(entity).ok(),
+                oos_policy,
+                jump: jumps.get_mut(entity).ok(),
+            });
         }
     }
 }

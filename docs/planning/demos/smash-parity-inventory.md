@@ -198,7 +198,7 @@ below from it.
 | Wavebounce | ▢ | M | E1 | Same special-start semantic with stronger momentum reversal; do not make it a fighter-specific velocity hack. |
 | Double-jump cancel | ▢ | M | E1 | Explicit jump-resource/move interaction when a fighter or ruleset opts in. |
 | Fast-fall after launch/bounce recovery | ▢ | S/M | E1 | Reuse fast-fall state once hitstun/control gates permit it. |
-| Once-per-airtime recovery budget | ▢ | S/M | E1 | Add only if play confirms repeatable Up-B/recovery is a problem. Prefer an integer recovery-use budget so fighters can author 0/1/N uses. |
+| Once-per-airtime recovery budget | ✔ | S/M | E1 | ✔ SHIPPED 2026-08-24, and its precondition was confirmed at the SOURCE rather than by play: `MoveSpec` carries no cooldown, no cost and no per-airtime rule, and `MoveGates` knew only `grounded` — so a rising special could be pressed forever and the fighter could only die to a launch that outran it. `BodyJumpState::recovery_charges` (an integer, not a flag) + `MoveGates::spends_recovery`, refunded by the landing-class refresh — landing, ledge, capture, respawn — and deliberately NOT by a hit. Schema 79→80. |
 | Generic post-recovery helpless state | ▢ | M | E1 | Add only when authored move recovery cannot express the commitment cleanly. Keep it body-generic. |
 | Ledge-trump outward pop/commitment | ~ | S/M | E1 | Ownership arbitration already drops the old holder. Add the resolved outward reaction/brief commitment to the trump result. |
 | Two-frame ledge vulnerability | ▢ | S/M | E1 | Local ledge-acquisition timing rule; do not hard-code it in hurtbox rendering. |

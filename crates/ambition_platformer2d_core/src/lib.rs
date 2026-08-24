@@ -43,7 +43,7 @@ pub use body_clusters::{
     BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
     BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime,
     BodyMana, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
-    SweepSample,
+    SweepSample, DEFAULT_RECOVERY_CHARGES,
 };
 // TODO(compat-remove): migrate geometry/frame callers to `ambition_geometry`, then remove
 // these extraction-era re-exports from `ambition_platformer2d_core`.

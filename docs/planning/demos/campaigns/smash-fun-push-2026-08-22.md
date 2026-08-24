@@ -572,7 +572,48 @@ Pointed Polygon has a signature recovery/attack that visibly catches, spins thro
 
 ---
 
-## W4 — Once-per-airtime recovery use
+## ✔ W4 — Once-per-airtime recovery use — SHIPPED 2026-08-24
+
+⭐⭐ **ITS PRECONDITION WAS CONFIRMED AT THE SOURCE, not by play**, which is
+stronger: `MoveSpec` carries no cooldown, no cost and no per-airtime rule, and
+`MoveGates` knew only `grounded` — which cannot tell the second use in one
+airtime from the first. ⇒ **a fighter authoring a rising special could press it
+forever and could only be killed by a launch that outran its own recovery. A
+platform fighter in that state has no bottom blastzone.**
+
+```text
+BodyJumpState::recovery_charges   the budget, an INTEGER not a flag
+MoveGates::spends_recovery        the move AUTHORS that it costs one
+afford_recovery                   refuses the start; asked BEFORE a cancel tears
+                                  the current move down, or the body is left
+                                  with neither
+refresh_movement_resources_…      gives it back when the body is RE-SEATED:
+                                  landing, catching the ledge, being grabbed,
+                                  a respawn — and deliberately NOT a hit
+```
+
+⭐ **AN INTEGER, as the slice asked.** The genre's default is one
+(`DEFAULT_RECOVERY_CHARGES`); a fighter wanting two is an ordinary tuning
+statement, and the budget is already an integer precisely so that costs nothing.
+⛔ the count is a CONSTANT until a fighter wants a different one — authoring the
+field before there is a customer is a knob nobody turns.
+
+⭐ **AND THE SPEND SITE DELETED A DUPLICATE.** The cancel path and the plain
+trigger each did the same three things — insert the playback, spend the buffered
+proposal, spend the guard — in two copies, and this rule had to join them. One
+`start_move` now does all four; adding a fourth line to a two-copy tail is how
+this repository loses a rule down one road.
+
+⛔ authored by the MOVE, never inferred from its name or its impulse: an
+up-special that does not lift, and a side-special that does, are both ordinary
+statements this way and neither is a special case in input code.
+
+Schema 79→80. Three guards: all three affordability states (ordinary move never
+asks · charges left allowed · none left refused), the bare-fixture case, and that
+the landing-class refresh restores it — with a poison on the default being
+non-zero, or that last assertion would hold for a refresh that restores nothing.
+
+### Original specification
 
 Do this after W3 only if direct play confirms the current Up-B can be repeated indefinitely in one airtime.
 

@@ -334,6 +334,18 @@ pub struct ActorSurfaceState {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyJumpState {
     pub air_jumps_available: u8,
+    /// Recovery uses left before this body has to land or catch something.
+    ///
+    /// ⛔⛔ A PLATFORM FIGHTER WITHOUT THIS HAS NO BOTTOM BLASTZONE. Nothing
+    /// limited a repeated recovery special: no cooldown, no cost, no per-airtime
+    /// budget — only `MoveGates::grounded`, which does not distinguish the second
+    /// use from the first. A fighter could press Up-B forever and could only be
+    /// killed by a launch that outran its own recovery.
+    ///
+    /// ⭐ AN INTEGER, NOT A FLAG. The genre's default is one, and a heavy or a
+    /// winged fighter authoring two is an ordinary tuning statement rather than a
+    /// second mechanic — see `AxisLocomotion::recovery_charges`.
+    pub recovery_charges: u8,
     /// A head is under this body's feet, and the next jump press belongs to
     /// it. Written by the pair pass BEFORE the kernel runs and consumed by
     /// [`crate::movement`]'s jump chain AHEAD of the air jump, so one press has
@@ -773,8 +785,20 @@ pub fn refresh_movement_resources_clusters(
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
     jump.air_jumps_available = abilities.abilities.air_jump_count(base_air_jumps);
+    jump.recovery_charges = DEFAULT_RECOVERY_CHARGES;
     dodge.air_dodge_spent = false;
 }
+
+/// Recovery uses a body gets back when it is re-seated — landing, catching the
+/// ledge, being grabbed, a respawn.
+///
+/// ⭐ ONE, which is the genre's answer, and a CONSTANT until a fighter wants a
+/// different number. `air_jumps` is authored per body because bodies genuinely
+/// differ about it; nothing in the tree authors a second recovery yet, and
+/// adding the field before there is a customer would be a knob nobody turns.
+/// Promote it to `AxisLocomotion` beside `air_jumps` when one appears — the
+/// budget is already an integer precisely so that costs nothing.
+pub const DEFAULT_RECOVERY_CHARGES: u8 = 1;
 
 /// Authoritative body-shape stance.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]

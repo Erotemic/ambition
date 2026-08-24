@@ -25,6 +25,7 @@ pub(crate) const FLURRY_TO_S: f32 = 0.20;
 pub(crate) fn grounded_only() -> MoveGates {
     MoveGates {
         grounded: Some(true),
+        spends_recovery: false,
     }
 }
 
@@ -35,6 +36,7 @@ pub(crate) fn grounded_only() -> MoveGates {
 pub(crate) fn airborne_only() -> MoveGates {
     MoveGates {
         grounded: Some(false),
+        spends_recovery: false,
     }
 }
 

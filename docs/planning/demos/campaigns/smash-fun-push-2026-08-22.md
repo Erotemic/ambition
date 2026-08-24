@@ -407,8 +407,20 @@ knockback with the follow removed launches AWAY, and with it aims BACK; the carr
 is measured against the same geometry with a still attacker; the frame test fails
 a world-axis implementation that passes every other one.
 
-▢ **still open on this slice:** the authored customer. `W3` is what spends it,
-and the campaign deliberately separates the primitive from its first move.
+✔✔ **AND THE AUTHORING PATH IS WIRED, so this is reachable from content rather
+than a green field nothing can feed.** `AutolinkVolume` on the catalog's
+`HitVolume` (serde-default, so not one shipped `.ron` changed) → `Hitbox` →
+the producer. ⭐ **the producer is where the ATTACKER'S VELOCITY is sampled**,
+and it has to be: the reaction holds a victim and no attacker entity, and the
+velocity is a fact about the PULSE rather than about the move. A wiring that
+carried the anchor and dropped the velocity would pass every kernel test and drop
+its victim in play, so `an_authored_autolink_reaches_the_hit_payload_with_the_attackers_velocity`
+drives the real producer and asserts the sampled value, with an unauthored swing
+as its poison.
+
+▢ **still open on this slice:** an authored MOVE that spends it. `W3` is that
+move, and the campaign deliberately separates the primitive from its first
+customer.
 
 ### Original specification
 

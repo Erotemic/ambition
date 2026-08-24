@@ -669,6 +669,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             on_hit: None,
             vfx: None,
             hit_sfx: None,
+            autolink: None,
         }
     };
     let window = |start_s: f32, end_s: f32, tag: WindowTag, volumes: Vec<HitVolume>| MoveWindow {

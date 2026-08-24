@@ -294,6 +294,16 @@ pub struct HitVolume {
     /// owner's gravity frame (frame-correct under any gravity), then applies DI (CM2).
     #[serde(default)]
     pub launch_dir: Option<(f32, f32)>,
+    /// AUTOLINK: this volume HOLDS its victim near the attacker instead of
+    /// launching it away. `None` is an ordinary hit.
+    ///
+    /// The genre's multi-hit moves work because their intermediate pulses keep
+    /// the victim inside the next hitbox and only the LAST one launches, so a
+    /// move authors this on its intermediate volumes and leaves its final volume
+    /// alone. ⛔ it is not a capture: no relationship, no hold clock, no escape,
+    /// and the victim keeps every verb it has.
+    #[serde(default)]
+    pub autolink: Option<AutolinkVolume>,
     /// Optional technique fired when this volume lands, with owner/victim/contact
     /// context. `None` is an ordinary damage-only volume.
     #[serde(default)]
@@ -319,6 +329,44 @@ pub struct HitVolume {
     /// throws are the VICTIM's, carried on its `HurtFeedback`.
     #[serde(default)]
     pub hit_sfx: Option<String>,
+}
+
+/// The authored half of an autolink pulse: where it holds, how hard, and how
+/// much of the attacker's own motion the victim inherits.
+///
+/// ⚠ THE ATTACKER'S VELOCITY IS NOT AUTHORED — the runtime samples it at the
+/// pulse, because it is a fact about the moment and not about the move.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct AutolinkVolume {
+    /// Follow point in the ATTACKER'S local frame: `x` forward along its facing,
+    /// `y` toward its feet — the same local convention `launch_dir` uses.
+    pub anchor: (f32, f32),
+    /// Share of the attacker's own velocity handed to the victim, `0..=1`.
+    /// A rising move needs this: the correction below only closes a gap, and a
+    /// fighter climbing fast outruns any gap-closing term.
+    #[serde(default = "one")]
+    pub carry: f32,
+    /// Spring gain on the remaining gap, in 1/s. How HARD this move grabs.
+    #[serde(default = "default_autolink_pull")]
+    pub pull: f32,
+    /// Ceiling on the corrective term, engine units/s. The carry is not clamped.
+    #[serde(default = "default_autolink_max_speed")]
+    pub max_speed: f32,
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+/// A 30 px gap asks for 600 px/s — firm enough to hold through a spin, gentle
+/// enough that a victim at arm's length is not snapped.
+fn default_autolink_pull() -> f32 {
+    20.0
+}
+
+/// Above a fast fighter's own run, below anything that would read as a yank.
+fn default_autolink_max_speed() -> f32 {
+    900.0
 }
 
 // ---------------------------------------------------------------------------
@@ -2146,8 +2194,7 @@ impl EntityCatalogDoc {
                 // `derived_charge_hold_at_s` and cannot land here; authoring
                 // OVERRIDES that clamp, so this is what refuses a bad override
                 // instead of letting it put a live hitbox inside a held charge.
-                if let Some(policy) = mv.charge_policy().filter(|_| mv.smash_charge.is_some())
-                {
+                if let Some(policy) = mv.charge_policy().filter(|_| mv.smash_charge.is_some()) {
                     let first_active = mv
                         .windows
                         .iter()

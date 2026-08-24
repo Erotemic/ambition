@@ -60,6 +60,11 @@ pub struct Hitbox {
     /// gravity-down). Thus `(0, -1)` launches up and `(0, 1)` spikes down.
     /// `None` uses the standard feel diagonal at the authored speed.
     pub launch_dir: Option<ae::Vec2>,
+    /// AUTOLINK: this volume holds its victim near its owner instead of
+    /// launching it. Carried from the authored volume; the runtime fills the
+    /// attacker's velocity at the pulse, because that is a fact about the
+    /// moment and not about the move. `None` is an ordinary hit.
+    pub autolink: Option<ambition_entity_catalog::AutolinkVolume>,
     pub frame_down: ae::Vec2,
     /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
     /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin
@@ -186,6 +191,7 @@ pub fn spawn_damage_box(
             // World-anchored volumes are authored in world space (arena
             // hazards); screen-down IS their frame.
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime {
             remaining_s: dbox.lifetime_s,
@@ -261,6 +267,7 @@ mod hitbox_shape_tests {
             damage: 1,
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
+            autolink: None,
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
             ae::CombatVolume::Circle { center, radius } => {
@@ -289,6 +296,7 @@ mod hitbox_shape_tests {
             damage: 1,
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
+            autolink: None,
         };
         assert!(matches!(
             hb.world_volume(ae::Vec2::ZERO),

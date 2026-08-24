@@ -478,7 +478,28 @@ pub fn apply_hitbox_damage(
                     source_pos: owner_pos,
                     impact_pos: impact,
                     launch_dir: hitbox.launch_dir,
-                    follow: None,
+                    // AUTOLINK, and the ATTACKER'S VELOCITY is sampled HERE.
+                    // The reaction holds a victim and no attacker entity, and
+                    // the velocity is a fact about this pulse rather than about
+                    // the move — so the producer, which has the owner, is the
+                    // only place that can honestly answer it. ⭐ this is what
+                    // makes a RISING multi-hit work: the correction only closes
+                    // a gap, and a fighter climbing fast outruns any gap-closing
+                    // term. A body with no kinematics contributes nothing, which
+                    // reads as a stationary attacker — the correct answer for a
+                    // volume nothing is carrying.
+                    follow: hitbox
+                        .autolink
+                        .map(|link| ae::hit_response::AutolinkFollow {
+                            anchor_local: ae::Vec2::new(link.anchor.0, link.anchor.1),
+                            carry: link.carry,
+                            pull: link.pull,
+                            max_speed: link.max_speed,
+                            source_vel: owner_kin
+                                .get(hitbox.owner)
+                                .map(|kin| kin.vel)
+                                .unwrap_or(ae::Vec2::ZERO),
+                        }),
                 });
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,

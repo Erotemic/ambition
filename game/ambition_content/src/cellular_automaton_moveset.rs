@@ -80,6 +80,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
                     on_hit: None,
                     vfx: None,
                     hit_sfx: None,
+                    autolink: None,
                 }],
             ),
             window(0.54, 0.85, WindowTag::Recovery, Vec::new()),

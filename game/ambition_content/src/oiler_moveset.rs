@@ -678,6 +678,7 @@ fn converging_term(
             on_hit: None,
             vfx: Some(tag.to_string()),
             hit_sfx: None,
+            autolink: None,
         }],
         motion_scale: 0.35,
         sustain_effect: None,

@@ -448,6 +448,7 @@ pub fn george_booul_moveset() -> MovesetContract {
                     on_hit: None,
                     vfx: Some("slash_arc".to_string()),
                     hit_sfx: None,
+                    autolink: None,
                 }],
                 motion_scale: 0.25,
                 sustain_effect: None,

@@ -47,6 +47,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
+        autolink: None,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
@@ -74,6 +75,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
+        autolink: None,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
@@ -119,6 +121,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
+                autolink: None,
             },
             HitboxLifetime { remaining_s: 0.01 },
             HitboxHits::default(),
@@ -155,6 +158,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
+                autolink: None,
             },
             HitboxLifetime { remaining_s: 5.0 },
             HitboxHits::default(),
@@ -294,6 +298,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -353,6 +358,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -481,6 +487,7 @@ fn enemy_hitbox_over_player_app_dealing(
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -583,6 +590,7 @@ fn player_faction_hitbox_only_fires_once() {
             knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
@@ -669,6 +677,7 @@ fn player_melee_never_targets_its_owner() {
             },
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -752,6 +761,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
             },
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -838,6 +848,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         },
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
+        autolink: None,
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -931,6 +942,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         },
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
+        autolink: None,
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -1031,6 +1043,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1097,6 +1110,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
             knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1340,6 +1354,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1442,4 +1457,78 @@ fn a_guard_past_its_window_does_not_catch() {
          parrying have become the same thing"
     );
     assert!(!caught(&app, victim));
+}
+
+/// ⭐ AN AUTHORED AUTOLINK REACHES THE VICTIM'S PAYLOAD, AND CARRIES THE
+/// ATTACKER'S OWN MOTION WITH IT.
+///
+/// The kernel's `autolink_velocity` is unit-tested, and a primitive nothing can
+/// feed is worth nothing — this drives the real producer, so it is the test that
+/// fails if the authored field stops reaching `HitKnockback`.
+///
+/// ⛔⛔ THE VELOCITY IS THE HALF THAT CAN ONLY BE SAMPLED HERE. The reaction
+/// holds a victim and no attacker entity, so the producer is the only honest
+/// place to answer "how fast was the attacker moving at this pulse" — and it is
+/// what makes a RISING multi-hit work at all, since the correction term only
+/// closes a gap. A wiring that carried the anchor and dropped the velocity would
+/// pass every kernel test and drop its victim in play.
+#[test]
+fn an_authored_autolink_reaches_the_hit_payload_with_the_attackers_velocity() {
+    const RISE: ae::Vec2 = ae::Vec2::new(0.0, -640.0);
+
+    let arena = |autolink: Option<ambition_entity_catalog::AutolinkVolume>| {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let (mut app, _victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+        // Give the swing owner a real body that is MOVING, and author the link.
+        let owner = app
+            .world_mut()
+            .query::<(bevy::prelude::Entity, &Hitbox)>()
+            .iter(app.world())
+            .map(|(_, h)| h.owner)
+            .next()
+            .expect("the arena spawns one hitbox");
+        app.world_mut()
+            .entity_mut(owner)
+            .insert(ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: RISE,
+                ..Default::default()
+            });
+        let mut boxes = app.world_mut().query::<&mut Hitbox>();
+        for mut hitbox in boxes.iter_mut(app.world_mut()) {
+            hitbox.autolink = autolink;
+        }
+        app.update();
+        let captured = app.world().resource::<CapturedHits>();
+        captured
+            .body_hits()
+            .first()
+            .and_then(|e| e.knockback.clone())
+            .expect("the swing lands and carries a knockback")
+    };
+
+    // Poison: the same swing with nothing authored carries no follow at all, so
+    // the assertion below cannot be satisfied by a field that is always set.
+    assert!(
+        arena(None).follow.is_none(),
+        "an ordinary volume grew a follow it never authored"
+    );
+
+    let kb = arena(Some(ambition_entity_catalog::AutolinkVolume {
+        anchor: (18.0, 4.0),
+        carry: 1.0,
+        pull: 20.0,
+        max_speed: 900.0,
+    }));
+    let follow = kb
+        .follow
+        .expect("the authored autolink reached the payload");
+    assert_eq!(follow.anchor_local, ae::Vec2::new(18.0, 4.0));
+    assert_eq!(follow.pull, 20.0);
+    assert_eq!(
+        follow.source_vel, RISE,
+        "the producer did not sample the attacker's velocity, so a rising \
+         multi-hit would leave its victim behind"
+    );
 }

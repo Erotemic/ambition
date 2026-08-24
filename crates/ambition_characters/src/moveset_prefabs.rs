@@ -176,6 +176,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         // for this move's clip — swings THAT authored blade instead of this
         // synthetic rect (the rect is the fallback for unmanifested bodies).
         vfx: Some(SLASH_ARC_VFX.to_string()),
+        autolink: None,
     };
     MoveSpec {
         display_name: None,
@@ -471,6 +472,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         on_hit: None,
         // A charge is a bladed strike too — same slash + authored-blade rules.
         vfx: Some(SLASH_ARC_VFX.to_string()),
+        autolink: None,
     };
     MoveSpec {
         display_name: None,

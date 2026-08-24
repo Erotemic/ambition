@@ -156,6 +156,7 @@ pub fn boss_attack_moveset(
                             // Boss geometry strikes are data-shaped volumes, not
                             // bladed swings: no slash VFX, no manifest override.
                             vfx: None,
+                            autolink: None,
                         }
                     })
                     .collect();

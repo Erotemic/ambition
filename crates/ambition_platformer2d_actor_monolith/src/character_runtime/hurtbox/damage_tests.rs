@@ -120,6 +120,7 @@ fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
             knockback: ambition_combat::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
+            autolink: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),

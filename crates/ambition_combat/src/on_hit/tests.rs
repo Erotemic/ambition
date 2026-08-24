@@ -254,6 +254,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
                 knockback: HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
+                autolink: None,
             },
             HitboxLifetime { remaining_s: 0.1 },
             HitboxHits::default(),

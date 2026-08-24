@@ -500,6 +500,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
                     // [`strike_tag`].
                     vfx: Some(SLASH_ARC_VFX.to_string()),
                     hit_sfx: None,
+                    autolink: None,
                 }],
                 motion_scale: 1.0,
                 sustain_effect: None,

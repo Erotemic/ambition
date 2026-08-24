@@ -116,6 +116,7 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
         on_hit: None,
         vfx: Some(SLASH_POKE_VFX.to_string()),
         hit_sfx: None,
+        autolink: None,
     });
     term
 }

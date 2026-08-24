@@ -210,3 +210,42 @@ fn a_routes_own_hitlag_decides_what_counts_as_a_hard_hit() {
          HEAVY route admits must be as silent as the weakest a snappy one does"
     );
 }
+
+/// ⭐⭐ A RESET CLEARS THE BLINK AND STILL LETS THE PLACER ASK FOR A SNAP.
+///
+/// ⛔⛔ THE ORDER IS THE BUG THIS PINS. `reset()` is right to clear the blink —
+/// the old blink is over — but it clears the SNAP with it, so the one moment the
+/// camera most needs to jump was the one moment it had been told to ease. Jon
+/// measured the result: a same-room teleport panned the camera 440px over about
+/// forty ticks.
+///
+/// ⭐ AND `snap_after_placement` TAKES THE LONGER WINDOW rather than assigning,
+/// so a body placed while a door snap is still running does not SHORTEN it.
+#[test]
+fn a_placement_can_ask_for_a_snap_that_a_reset_would_otherwise_have_cleared() {
+    let mut cam = super::PlayerBlinkCameraState::default();
+    cam.blink_in_timer = 0.4;
+    cam.camera_snap_timer = 0.05;
+
+    cam.reset();
+    assert_eq!(
+        cam.camera_snap_timer, 0.0,
+        "the reset left a snap standing, so this test is not describing the \
+         situation the placer has to repair"
+    );
+    assert_eq!(cam.blink_in_timer, 0.0, "the reset kept the old blink");
+
+    cam.snap_after_placement(0.08);
+    assert_eq!(
+        cam.camera_snap_timer, 0.08,
+        "the placer asked for a snap and did not get one — the camera will ease \
+         to a body that was teleported"
+    );
+
+    // A shorter request must not shorten a longer window already running.
+    cam.snap_after_placement(0.01);
+    assert_eq!(
+        cam.camera_snap_timer, 0.08,
+        "a second, shorter placement cut the snap window short"
+    );
+}

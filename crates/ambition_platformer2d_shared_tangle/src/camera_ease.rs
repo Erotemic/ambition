@@ -361,7 +361,18 @@ pub struct PlayerBlinkCameraState {
     /// for future use; not yet consumed by the camera easing path).
     pub blink_camera_to: ae::Vec2,
     /// Positive while the camera should snap (not ease) to the player position.
-    /// Set on door transitions; zero on edge exits to allow scroll effects.
+    ///
+    /// ⭐⭐ ARMED BY WHOEVER MOVED THE BODY, and it has to be. A camera cannot
+    /// tell a respawn from a portal transit — both are a position that jumped
+    /// with no velocity to explain it — and the two want OPPOSITE answers: a
+    /// respawn must snap, and a portal transit must NOT, because Ambition's
+    /// default `PortalCameraTransitMode::Continuous` is a seam the camera walks
+    /// through with you. So a snap is REQUESTED by the placer rather than
+    /// inferred from the jump.
+    ///
+    /// Door transitions arm it; edge exits deliberately leave it zero so the
+    /// scroll reads. A reset-to-spawn arms it too — see
+    /// [`Self::snap_after_placement`].
     pub camera_snap_timer: f32,
 }
 
@@ -380,6 +391,23 @@ impl Default for PlayerBlinkCameraState {
 impl PlayerBlinkCameraState {
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// THIS BODY WAS PUT SOMEWHERE — do not chase it there.
+    ///
+    /// ⛔⛔ THE PLACER ASKS, and `reset()` above is exactly why this exists as a
+    /// second call rather than a flag inside it. A reset-to-spawn clears the
+    /// blink easing (right — the old blink is over) and in doing so it ZEROED
+    /// the snap, so the one moment the camera most needed to jump was the one
+    /// moment it was told to ease. Measured by Jon: a same-room teleport panned
+    /// the camera 440px over about 40 ticks.
+    ///
+    /// `seconds` is a WINDOW rather than an instant because the camera resolves
+    /// on the frame clock: a single-frame flag can be missed between two sim
+    /// ticks, and a body placed on the tick a frame is not drawn would ease
+    /// after all.
+    pub fn snap_after_placement(&mut self, seconds: f32) {
+        self.camera_snap_timer = self.camera_snap_timer.max(seconds);
     }
 }
 

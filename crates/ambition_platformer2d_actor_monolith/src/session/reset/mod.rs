@@ -58,10 +58,10 @@ pub struct RoomReplayRequested;
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NewGameResetCommitted;
 
-use ambition_boss_encounter::BossEncounterRegistry;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::rooms::RoomSet;
 use crate::world::physics;
+use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
@@ -336,6 +336,11 @@ pub fn process_new_game_reset_request(
         combat.reset();
         combat.hit_flash = 0.18;
         blink_cam.reset();
+        // …AND THEN ASK FOR THE SNAP THE RESET JUST CLEARED. The body is now at
+        // spawn, which may be most of a room away from where it died; without
+        // this the camera EASES there, which is Jon's *"the camera moved as if
+        // there is a pan that should be happening"* seen from inside one room.
+        blink_cam.snap_after_placement(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
         attack.clear();
         safety.last_safe_pos = world.0.spawn;
     }

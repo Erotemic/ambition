@@ -1629,7 +1629,8 @@ participant contexts only"* is the per-seat-vs-global split
   Falsified both ways: repainting the sill puts her back to stalling at
   x=1840.97, the figure the original diagnosis measured.
 
-- ▢ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH.**
+- ✔ **D171 — THREE MORE DOCS CARRY OPEN ITEMS NO LEDGER ROW CAN REACH. CLOSED
+  2026-08-24: every remaining item is CUSTOMER-GATED, and the intake is clean.**
   (promoted 2026-08-20)
 
 The same sweep that produced D170 found seventeen planning docs reachable from
@@ -1688,6 +1689,25 @@ doc reads as orphaned. Grep the title too, or grep the directory name.
 ⚠ two of `character-actions.md`'s four are explicitly *"decide only when a real
 repertoire exceeds prompt capacity"* — they are waiting on a customer, not on
 effort, and should stay ▢ until one exists.
+
+⭐ **INTAKE RE-SWEPT AGAIN 2026-08-24 — STILL CLEAN, and the row closes on that.**
+Every item this row tracks is now either landed or waiting on a CUSTOMER (a room
+that authors a crawler beside a chain; a repertoire that exceeds prompt
+capacity), and a row whose whole content is "waiting for somebody to want this"
+is not execution work. ⇒ closed. The intake SWEEP is a standing job that belongs
+to the run's routing, not to a ledger row — re-run it when the ledger thins.
+
+⛔⛔ **AND THE DISCRIMINATOR THIS ROW RECOMMENDS HAS A TRAP.** It says to run
+`git log -1 --format='%an'` to tell an agent's doc trim from Jon dropping work.
+That is right, and the ADJACENT check is worthless: agent commits carry **Jon's
+email**, so `%ae` reads `jon.crall@kitware.com` on every planning doc in the tree
+and a sweep keyed on it finds Jon's fingerprints everywhere. The NAME is the
+signal — `joncrall` is his, `agent` / `agent (main)` is not. ⇒ measured
+2026-08-24: `docs/planning` has 3,542 `agent` commits, 316 `agent (main)`, 59
+`joncrall`, and **Jon's last direct planning commit was 2026-08-13**. Everything
+he has dropped since arrives through his MESSAGES and lands in
+`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, which is role (4) — so that file, not an
+mtime scan, is where recent maintainer work actually shows up.
 
 - ▢ **D170 — IMMUTABLE CONTENT / TRANSACTIONAL CONSTRUCTION HAS SIX OPEN ITEMS
   AND NO LEDGER ROW.** (promoted 2026-08-20)

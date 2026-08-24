@@ -355,6 +355,28 @@ impl ActorControlFrame {
         Self::default()
     }
 
+    /// Damp this frame's STEERING INTENT by a live move's authored motion lock
+    /// (`MoveSpec::motion_scale_at`, or zero while a charge roots the body).
+    ///
+    /// ⛔⛔ ONE PLACE, BECAUSE IT WAS ONLY EVER APPLIED ON ONE ROAD. The actor
+    /// integrator scaled its brain frame inline and its doc claimed the lock held
+    /// "for every controller alike"; the HOME/player integrator never received the
+    /// scale at all, so a human fighter kept full steering through a committed
+    /// swing and walked while charging a smash — the very rule Jon asked for, live
+    /// for autonomous bodies and absent for the one he was driving.
+    ///
+    /// ⭐ INTENT ONLY. Action edges (melee, jump, burst, shield) pass through
+    /// untouched: a move restricts where a body may GO, never whether it may act.
+    /// A rooted body still releases its charge.
+    pub fn damped_by_move_motion(mut self, scale: f32) -> Self {
+        let scale = scale.clamp(0.0, 1.0);
+        if scale < 1.0 {
+            self.locomotion *= scale;
+            self.velocity_target *= scale;
+        }
+        self
+    }
+
     /// Map this controller intent into the engine's [`InputState`] — the input
     /// representation the shared player movement pipeline consumes.
     ///

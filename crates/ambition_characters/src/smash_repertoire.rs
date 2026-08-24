@@ -19,15 +19,40 @@ use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
 const GROUNDED: MoveGates = MoveGates {
     grounded: Some(true),
     spends_recovery: false,
+    // ⭐ A GROUNDED ATTACK ROOTS ITS OWNER. Jon, W8 playtest: *"When I quickly
+    // perform a Forward Smash, the fighter currently travels noticeably before
+    // the Forward Smash takes over... I should not effectively dash first and
+    // then Smash."* Measured through the real key stack: the smash STARTED on
+    // the press tick — recognition was never late — and then the fighter
+    // accelerated from a standstill to the full run cap, 64 world px, while its
+    // own startup played.
+    //
+    // ⛔ so this is not an ordering fix and it is not a per-move number. It is
+    // the one place the posture gates are applied, which makes it the one place
+    // the posture's steering rule belongs: every fighter, every grounded slot,
+    // by the same statement. A dash attack keeps its slide, which is the move's
+    // own impulse and never was steering.
+    roots_steering: true,
 };
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
 /// reach a move whose whole design is that landing costs you.
 const AIRBORNE: MoveGates = MoveGates {
     grounded: Some(false),
     spends_recovery: false,
+    // ⭐ AND AN AERIAL KEEPS ITS DRIFT, which is the other half of the same
+    // rule: the genre trades ground control for air control, and a fighter that
+    // could not steer a forward air would lose every edgeguard it has.
+    roots_steering: false,
 };
 /// The specials: a move that answers its button from the ground OR the air.
-const EITHER: MoveGates = MoveGates { grounded: None , spends_recovery: false };
+const EITHER: MoveGates = MoveGates {
+    grounded: None,
+    spends_recovery: false,
+    // A special answers from either stance, so it cannot state a stance rule.
+    // What a special does to its owner's motion is the SPECIAL's own business
+    // and is authored on its windows.
+    roots_steering: false,
+};
 
 /// The neutral special, or a stated reason there is no authored one.
 ///
@@ -299,6 +324,7 @@ mod tests {
             // Deliberately the WRONG gate for every slot: the seam must set it.
             gates: MoveGates {
                 grounded: Some(true),
+                roots_steering: false,
                 spends_recovery: false,
             },
             start_impulse: None,

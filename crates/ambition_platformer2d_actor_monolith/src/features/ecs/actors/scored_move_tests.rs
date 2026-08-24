@@ -82,7 +82,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
             sustain_effect: None,
             motion_scale: 1.0,
         }],
-        gates: MoveGates { grounded: None , spends_recovery: false },
+        gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,

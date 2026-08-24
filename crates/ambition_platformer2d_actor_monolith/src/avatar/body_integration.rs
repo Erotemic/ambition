@@ -22,8 +22,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 
 use crate::features::ecs::attack::engine_input_from_actor_control;
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::actor::BodyCombat;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 
 /// Movement→(reset/presentation) hand-off for a home/player body, written by the
 /// unified body integration phase (`integrate_sim_bodies` → [`integrate_home_body`])
@@ -90,21 +90,27 @@ pub fn integrate_home_body(
     motion_frame: ae::MotionFrame,
     axis_tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
+    // The live move's authored motion lock (`MovePlayback::motion_scale_now`;
+    // `1.0` with no move playing), applied to this body's steering INTENT — the
+    // same rule, through the same helper, that the actor integrator applies.
+    // ⛔⛔ this parameter did not exist, and its absence is what let a human
+    // fighter walk while charging a smash long after the rule was written.
+    move_motion_scale: f32,
     frame_dt: f32,
     scaled_dt: f32,
     // `BodyContactField::NONE` for a body whose composition never granted the capability, which
     // is every body in Ambition today.
     contact_field: ae::BodyContactField<'_>,
 ) -> Option<ae::Vec2> {
-    let input =
-        engine_input_from_actor_control(
-            actor_control,
-            feel,
-            combat,
-            clusters.shield,
-            frame_dt,
-            tumbling,
-        );
+    let actor_control = actor_control.damped_by_move_motion(move_motion_scale);
+    let input = engine_input_from_actor_control(
+        actor_control,
+        feel,
+        combat,
+        clusters.shield,
+        frame_dt,
+        tumbling,
+    );
     // Ledge/platform carry is handled inside the shared simulation kernel.
     let result = ambition_characters::actor::step_body(
         motion_model,

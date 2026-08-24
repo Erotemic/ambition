@@ -25,6 +25,11 @@ pub(crate) const FLURRY_TO_S: f32 = 0.20;
 pub(crate) fn grounded_only() -> MoveGates {
     MoveGates {
         grounded: Some(true),
+        // A GROUNDED ATTACK ROOTS ITS OWNER — the same statement
+        // `SmashRepertoire`'s own `GROUNDED` makes, because these two constants
+        // describe one posture and a fighter authored through this file must
+        // not feel different from one authored through the repertoire.
+        roots_steering: true,
         spends_recovery: false,
     }
 }
@@ -36,6 +41,9 @@ pub(crate) fn grounded_only() -> MoveGates {
 pub(crate) fn airborne_only() -> MoveGates {
     MoveGates {
         grounded: Some(false),
+        // An aerial keeps its drift: air control is the trade for the ground
+        // control above.
+        roots_steering: false,
         spends_recovery: false,
     }
 }

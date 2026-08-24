@@ -518,13 +518,20 @@ impl MovePlayback {
         })
     }
 
-    /// The steering authority this body has RIGHT NOW: the live window's
-    /// authored motion lock, or zero while a charge holds it.
+    /// The steering authority this body has RIGHT NOW: zero if the move's stance
+    /// roots it or a charge holds it, otherwise the live window's authored
+    /// motion lock.
     ///
     /// One place, so the two integration call sites cannot disagree about
-    /// whether a charging body may move.
+    /// whether a moving body may steer.
     pub fn motion_scale_now(&self) -> f32 {
-        if self.rooted_by_charge() {
+        // ⭐ THE STANCE RULE OUTRANKS THE WINDOW. `roots_steering` is a fact
+        // about the posture the move answers from — in this genre you cannot
+        // walk out of a grounded attack — and a window's `motion_scale` is a
+        // per-move refinement WITHIN whatever the stance allows. A move that
+        // roots therefore roots for its whole duration, including the recovery
+        // windows an author left at the default 1.0.
+        if self.spec.gates.roots_steering || self.rooted_by_charge() {
             return 0.0;
         }
         self.spec.motion_scale_at(self.t)

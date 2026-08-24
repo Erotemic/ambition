@@ -720,18 +720,14 @@ pub(crate) fn integrate_actor_body(
     contact_field: ae::BodyContactField<'_>,
 ) {
     // The brain's intent for this body, produced upstream in `tick_actor_brains`.
-    let mut brain_frame = control
+    let brain_frame = control
         .as_deref()
         .map(|c| c.0)
         .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
-    // The move motion lock scales steering INTENT magnitude only (both the
-    // grounded throttle and the free-mover command) — frame-agnostic, and
-    // action edges (melee/fire/jump) pass through untouched.
-    let move_motion_scale = move_motion_scale.clamp(0.0, 1.0);
-    if move_motion_scale < 1.0 {
-        brain_frame.locomotion *= move_motion_scale;
-        brain_frame.velocity_target *= move_motion_scale;
-    }
+    // The move motion lock scales steering INTENT magnitude only — and it is
+    // `ActorControlFrame`'s own rule now, because the HOME road applies the
+    // identical one and two copies would drift.
+    let brain_frame = brain_frame.damped_by_move_motion(move_motion_scale);
     let previous_pos = em.kin.pos;
     let shark_charge_vec = brain_frame.velocity_target.vec();
     // Respawn blink: `em.update` revives a dead body in place; apply the revive
@@ -1052,6 +1048,13 @@ pub fn integrate_sim_bodies(
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,
+            // The body's live move, exactly as the actor query above carries it:
+            // its authored per-window motion lock scales this body's steering
+            // intent too. ⛔⛔ IT WAS ABSENT HERE, so every rule expressed as a
+            // motion lock — a committed swing, and the charge root Jon asked for
+            // by name — was live for brain-driven bodies and silently off for the
+            // one a human drives.
+            Option<&crate::combat::moveset::MovePlayback>,
             // A body that authors its own axis feel (a demo protagonist) carries
             // this; the shared sandbox protagonist does not and tracks the F3
             // dev tuning live (see the per-body resolve below).
@@ -1159,6 +1162,7 @@ pub fn integrate_sim_bodies(
         mut motion_model,
         resolved_frame,
         mut motion_facts,
+        playback,
         authored_tuning,
         mut surface_upright,
         out_of_play,
@@ -1189,6 +1193,7 @@ pub fn integrate_sim_bodies(
             player_motion_frame,
             player_tuning,
             player_feel,
+            playback.map_or(1.0, |pb| pb.motion_scale_now()),
             frame_dt,
             scaled_dt,
             contact.field_for(player_entity, &mut contact_scratch),

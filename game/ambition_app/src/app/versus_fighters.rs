@@ -83,6 +83,11 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
         // airborne fighter losing the ability to press the button.
         spec.gates = MoveGates {
             grounded: grounded_only.then_some(true),
+            // These duelists' moves resolve from EITHER stance (only two are
+            // grounded-gated at all), so this table cannot make the posture
+            // statement `SmashRepertoire::GROUNDED` makes. Left at the engine
+            // default, which is "the body keeps steering".
+            roots_steering: false,
             spends_recovery: false,
         };
         verbs.insert(verb.to_string(), id.to_string());

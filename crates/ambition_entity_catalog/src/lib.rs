@@ -792,6 +792,24 @@ pub struct MoveGates {
     /// statements this way and neither is a special case in input code.
     #[serde(default)]
     pub spends_recovery: bool,
+    /// While this move plays, its owner has NO STEERING AUTHORITY: the
+    /// controller's locomotion intent is zeroed and the body keeps only the
+    /// motion the move itself gives it.
+    ///
+    /// ⭐ THE GENRE'S RULE FOR A GROUNDED ATTACK, and it is a fact about the
+    /// STANCE rather than about any one move — which is why it is a gate beside
+    /// `grounded` and not a per-window number every author would have to
+    /// remember. In a platform fighter you cannot walk out of a jab, a tilt or a
+    /// smash; a dash attack slides on its own impulse and steers no more than
+    /// the rest. ⛔⛔ measured 2026-08-24: a human forward smash travelled 64
+    /// world px — more than a body width — accelerating to the full run cap
+    /// through its own startup, because nothing said this.
+    ///
+    /// Default FALSE, because the engine hosts more than fighters: an
+    /// action-adventure protagonist that keeps walking through a slash is a
+    /// legitimate feel, and a blanket engine rule would take it away.
+    #[serde(default)]
+    pub roots_steering: bool,
 }
 
 impl MoveGates {

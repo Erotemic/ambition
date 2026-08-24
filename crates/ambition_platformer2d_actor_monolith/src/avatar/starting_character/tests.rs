@@ -726,8 +726,8 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
 #[test]
 fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     use ambition_characters::actor::control::{ActorControlFrame, ActorFireRequest};
-    use ambition_characters::brain::{ActionSet};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
     let mut frame = ActorControlFrame::neutral();
@@ -798,8 +798,8 @@ use ambition_characters::control::{ActorControl};
 fn an_authored_charging_character_keeps_its_projectile_press() {
     use crate::character_runtime::{CharacterBindings, CharacterDefinition};
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
     let charge_frame = || {
@@ -895,8 +895,8 @@ use ambition_characters::control::{ActorControl};
 fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     use ambition_characters::action_scheme::{ActorTechniques, ResolvedTechniqueEdges};
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
     use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
     use bevy::prelude::*;
 
@@ -1138,7 +1138,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         duration_s: 0.2,
         events: vec![],
         windows: vec![],
-        gates: MoveGates { grounded: None , spends_recovery: false },
+        gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
@@ -2399,7 +2399,7 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
 fn the_shield_verb_follows_the_ability_not_the_special() {
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{ActionSet, SpecialActionSpec};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
     let guarding = || {
@@ -2467,8 +2467,8 @@ use ambition_characters::control::{ActorControl};
 #[test]
 fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ActionSet};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
 
     let mut frame = ActorControlFrame::neutral();

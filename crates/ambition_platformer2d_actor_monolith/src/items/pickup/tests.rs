@@ -102,7 +102,10 @@ fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
             sustain_effect: None,
             motion_scale: 1.0,
         }],
-        gates: MoveGates { grounded , spends_recovery: false },
+        gates: MoveGates {
+            grounded,
+            ..Default::default()
+        },
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,

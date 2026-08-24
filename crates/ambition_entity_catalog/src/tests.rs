@@ -117,7 +117,10 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         duration_s: 0.3,
         windows: vec![],
         events: vec![],
-        gates: MoveGates { grounded },
+        gates: MoveGates {
+            grounded,
+            ..Default::default()
+        },
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
@@ -170,6 +173,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
+                    autolink: None,
                 },
                 HitVolume {
                     hit_sfx: None,
@@ -183,6 +187,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
+                    autolink: None,
                 },
             ],
             sustain_effect: None,
@@ -1106,6 +1111,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
                     on_hit: None,
                     vfx: None,
                     hit_sfx: None,
+                    autolink: None,
                 }],
                 motion_scale: 1.0,
                 sustain_effect: None,
@@ -1503,10 +1509,9 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
     // `start_s <= t < end_s`.
     let at_the_edge = problems(make(0.2));
     assert!(
-        at_the_edge.iter().any(|e| matches!(
-            e,
-            CatalogError::ChargeHoldOutsideWindup { .. }
-        )),
+        at_the_edge
+            .iter()
+            .any(|e| matches!(e, CatalogError::ChargeHoldOutsideWindup { .. })),
         "a charge frozen exactly where the strike goes live was accepted: \
          {at_the_edge:?}"
     );

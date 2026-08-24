@@ -1937,6 +1937,121 @@ fn seat_positions(app: &mut App) -> Vec<f32> {
     rows.into_iter().map(|(_, x)| x).collect()
 }
 
+/// ⭐⭐ A QUICK FORWARD SMASH DOES NOT DASH FIRST (D204).
+///
+/// Jon, W8 playtest: *"When I quickly perform a Forward Smash, the fighter
+/// currently travels noticeably before the Forward Smash takes over... I should
+/// not effectively dash first and then Smash."*
+///
+/// ⛔⛔ AND THE CAUSE WAS NOT ORDERING, WHICH IS WHERE THE REPORT POINTED. The
+/// probe that produced these numbers showed the smash STARTING on the press tick
+/// — recognition was never late — and the fighter then accelerating from a
+/// standstill to the full run cap through its own startup, **64 world px, more
+/// than a body width**. The travel was not a dash that beat the smash to the
+/// press; it was the smash's own frames with the stick still held forward and
+/// nothing saying a grounded attack roots its owner.
+///
+/// ⭐ SO THE ASSERTION IS A PAIR, and the second half is the one that keeps this
+/// honest: plain forward with NO attack must still walk. A test that only
+/// pinned "the smasher barely moves" would be green against a fighter who
+/// cannot move at all.
+///
+/// Real keys through the real host input stack — the flick that makes the press
+/// a smash is the genuine two-tick gesture, not `attack_strong_hint` set by hand.
+#[test]
+fn a_quick_forward_smash_barely_travels_but_plain_forward_still_walks() {
+    /// Ticks to watch after the press. The authored startup is shorter than
+    /// this, so the window covers the whole windup and then some.
+    const WATCHED_TICKS: usize = 20;
+    /// A body width. The report's word was "noticeably", and this is the
+    /// threshold that makes it measurable: less than one body is imperceptible,
+    /// and the defect travelled more than one.
+    const A_BODY_WIDTH_PX: f32 = 30.0;
+
+    let seat_zero_x = |app: &mut App| -> f32 {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+        )>();
+        q.iter(world)
+            .find(|(seat, _)| seat.0 == 0)
+            .map(|(_, kin)| kin.pos.x)
+            .expect("seat zero has a body")
+    };
+    let seat_zero_move = |app: &mut App| -> Option<String> {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
+        )>();
+        q.iter(world)
+            .find(|(seat, _)| seat.0 == 0)
+            .and_then(|(_, pb)| pb.map(|p| p.spec.id.clone()))
+    };
+
+    // ── the SMASH: flick forward, then press Attack while it is still held ──
+    let travelled_smashing = {
+        let mut app = open_the_lobby();
+        pick_and_start(&mut app, PREPARED_FIGHTER);
+        wait_for_the_round_to_go_live(&mut app);
+
+        Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+        app.update();
+        Buttonlike::press(&KeyCode::KeyX, app.world_mut());
+        app.update();
+        Buttonlike::release(&KeyCode::KeyX, app.world_mut());
+
+        let from = seat_zero_x(&mut app);
+        assert_eq!(
+            seat_zero_move(&mut app).as_deref(),
+            Some("smash_forward"),
+            "the press did not become a forward smash at all, so the travel \
+             measured below is some other move's"
+        );
+        for _ in 0..WATCHED_TICKS {
+            app.update();
+        }
+        (seat_zero_x(&mut app) - from).abs()
+    };
+
+    // ── the CONTROL: the same forward hold, no attack ──
+    let travelled_walking = {
+        let mut app = open_the_lobby();
+        pick_and_start(&mut app, PREPARED_FIGHTER);
+        wait_for_the_round_to_go_live(&mut app);
+
+        Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+        app.update();
+        app.update();
+
+        let from = seat_zero_x(&mut app);
+        assert_eq!(
+            seat_zero_move(&mut app),
+            None,
+            "the control case started a move, so it is not measuring walking"
+        );
+        for _ in 0..WATCHED_TICKS {
+            app.update();
+        }
+        (seat_zero_x(&mut app) - from).abs()
+    };
+
+    assert!(
+        travelled_walking > A_BODY_WIDTH_PX,
+        "plain forward stopped moving this fighter ({travelled_walking:.1}px in \
+         {WATCHED_TICKS} ticks), so the smash assertion below proves nothing — \
+         a fighter frozen everywhere would pass it"
+    );
+    assert!(
+        travelled_smashing < A_BODY_WIDTH_PX,
+        "a quick forward smash travelled {travelled_smashing:.1}px before its \
+         startup finished — more than a body width, which reads as dashing and \
+         then smashing. Plain forward went {travelled_walking:.1}px over the \
+         same window"
+    );
+}
+
 /// Open the lobby from the title screen.
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();

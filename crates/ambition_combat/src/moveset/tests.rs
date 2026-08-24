@@ -5793,8 +5793,8 @@ fn a_recovery_is_refused_once_its_budget_is_spent() {
         )
     };
     let spends = recovery(MoveGates {
-        grounded: None,
         spends_recovery: true,
+        ..Default::default()
     });
     let ordinary = recovery(MoveGates::default());
 

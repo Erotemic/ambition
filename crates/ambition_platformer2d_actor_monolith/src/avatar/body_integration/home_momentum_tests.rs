@@ -67,6 +67,8 @@ fn step_as(
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         ae::DEFAULT_TUNING,
         Platformer2dFeelTuningMonolith::default(),
+        // No move playing on a momentum rig: full steering authority.
+        1.0,
         DT,
         DT,
         // A momentum rig with one body in it: nobody to be solid to.

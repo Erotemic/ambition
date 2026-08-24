@@ -1349,24 +1349,28 @@ impl MoveCoverage {
 /// is what a hold at the end of the window looks like. Jon, 2026-08-23: *"it
 /// needs to hold on the first frames of the smash animation."*
 ///
-/// ⚠ THE VALUE IS MEASURED, AND A QUARTER IS NOT SAFE YET. Swept against a real
-/// match (George Booul vs the duelist, 3600 ticks), reading how long each seat
-/// spent off the stage and how often it reached for its route home:
+/// ⛔⛔ TRANSITIONAL, AND NOT THE AUTHORING CONTRACT. A charge pose is an
+/// ANIMATION fact — where in this move's windup this fighter holds — so it
+/// belongs on the move, as an explicit `smash_charge.hold_at_s` inside its
+/// leading Startup. This global exists so the shipped roster charges at all
+/// while that authoring is done, and every smash currently leans on it.
 ///
-/// ```text
-///   0.50   George offstage 169 ticks, route pressed 5 times
-///   0.25   George offstage 394 ticks, route pressed 0 times
-/// ```
+/// ⛔ DO NOT TUNE IT FROM AN EMERGENT CPU MATCH. Jon's reviewer, 2026-08-23:
+/// *"Charge-pose location is an animation/move-authoring fact; George's
+/// offstage/recovery trajectory is an emergent balance result."* Swept against
+/// one matchup (George Booul vs the duelist, 3600 ticks), `0.25` left George
+/// off the stage 394 ticks pressing his route home 0 times where `0.50` left
+/// him out 169 ticks pressing it 5 times — which is a fact about that match,
+/// not about where a swing should freeze. ⚠ AND I OVERSTATED THE FOLLOW-UP:
+/// the decision-log guard (`the_decision_log`, `--features causal`) was run at
+/// `0.50` only, so "his recovery still works at both" was never measured.
 ///
-/// Twice as long out and never reaching for the way back is bug-shaped whatever
-/// causes it, and the cause is NOT that his recovery stopped working — the
-/// decision-log guard that asks what the brain SELECTED in `Situation::Recovery`
-/// is green at both values. An earlier pose changes when the opponent's smashes
-/// connect, which changes where George is launched from.
-///
-/// ⇒ whoever takes this: find why a quarter strands him before moving it there.
-/// Jon asked for the first FRAMES and 0.50 of a 0.3s windup is nine of them, so
-/// this is not yet the pose he described.
+/// ⇒ THE SHIPPED ROSTER NO LONGER USES THIS. Both smash tables author an
+/// explicit `hold_at_s` of four frames, and `fighter_moveset`'s own contract
+/// test refuses a smash that derives its pose instead. What is left here is the
+/// answer for a move that says nothing — a boss swing, a fixture, a table
+/// written before charge existed — and for those a fraction of the windup is a
+/// reasonable guess rather than a feel decision.
 pub const CHARGE_POSE_FRACTION: f32 = 0.50;
 
 /// The margin that keeps a derived charge pose STRICTLY before the first live

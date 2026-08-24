@@ -549,15 +549,24 @@ trips `rollback-wire-format-is-frozen`. Three findings survive in
 unregistered wall-clock value (the forced-rollback oracle diverged at frames
 [18,19,20]), and it therefore has to be an integer of TICKS in rollback state.
 
-▢ **OPEN — the charge pose is DERIVED, not authored.** Every smash in the roster
-takes a global `CHARGE_POSE_FRACTION`, and the validator guards only "strictly
-before the first Active window". The review asked for a per-move authored hold
-point inside the intended leading Startup. ⚠ AND THE FRACTION IS NOT SETTLED:
-swept against a real match, `0.50` leaves George offstage 169 ticks pressing his
-route home 5 times, while `0.25` leaves him offstage 394 ticks pressing it ZERO
-times. Not his recovery breaking — the decision-log guard is green at both — but
-an earlier pose moves when the opponent's smashes connect. Jon asked for the
-first FRAMES and 0.50 of a 0.3s windup is nine of them.
+✔ **CLOSED — the charge pose is AUTHORED.** All six shipped smashes carry an
+explicit `hold_at_s` of four frames, and `fighter_moveset`'s contract test
+refuses a smash that derives one instead, so `CHARGE_POSE_FRACTION` is now only
+the answer for a move that says nothing (a boss swing, a fixture, a table
+written before charge existed).
+
+⚠ **THE FRACTION WAS NEVER THE QUESTION**, and I spent a measurement learning
+that. Swept against one matchup, `0.50` left George off the stage 169 ticks
+pressing his route home 5 times where `0.25` left him out 394 pressing it zero —
+and I read that as "an earlier pose strands him". Four authored frames is
+EARLIER than 0.25 of George's 0.40s windup and the same probe stays green, so
+earliness was not the mechanism. Jon's reviewer had already named why the
+reading was wrong: *"Charge-pose location is an animation/move-authoring fact;
+George's offstage/recovery trajectory is an emergent balance result."*
+
+⛔ AND I OVERSTATED THE FOLLOW-UP: I wrote that the decision-log guard was green
+at both values, but `the_decision_log` is `#[cfg(feature = "causal")]` and had
+never run in any gate. Run since — it passes at 0.50; 0.25 was never measured.
 
 ⭐⭐ **THE LESSON THIS ROW EXISTS TO CARRY: FOUR EMERGENT TESTS MISATTRIBUTED A
 CHANGE IN ONE PASS.** `every_authored_route_gets_pressed` blamed the CPU's

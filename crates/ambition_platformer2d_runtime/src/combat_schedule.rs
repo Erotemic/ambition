@@ -304,6 +304,18 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
+        // The MATCH's impact freeze, from the same landed hits the shake above
+        // reads and for the same reason: a connect is a beat, and the beat
+        // belonged to slot zero. ⭐ ONE system — the hold is an absolute expiry
+        // tick, so there is nothing to decay and nothing to hand back.
+        app.init_resource::<ambition_combat::impact_hitstop::ImpactHitstop>();
+        app.add_systems(
+            sim,
+            ambition_combat::impact_hitstop::request_impact_hitstop_on_landed_hits
+                .run_if(gameplay_allowed)
+                .in_set(CombatSet::Settle),
+        );
+
 
         // Hand the frame's victim-side hits from the message channel to the
         // rollback-registered FIFO the player resolver (which runs in NEXT

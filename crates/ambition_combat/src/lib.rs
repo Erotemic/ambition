@@ -37,6 +37,7 @@ pub mod hazard_runtime;
 pub mod hazards;
 pub mod held_items;
 pub mod hit_camera_shake;
+pub mod impact_hitstop;
 pub mod hit_reaction;
 pub mod hitbox;
 pub mod moveset;

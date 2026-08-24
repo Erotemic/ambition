@@ -36,44 +36,51 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — TWO. Everything below this section is a receipt.
+## Open decisions — NONE OPEN. Everything below this section is a receipt.
 
-### ▢ The match-level impact hitstop needs a new rollback wire-format type
+## ✔ ANSWERED 2026-08-23 — yes, the rollback wire format may grow
 
-CPU-versus-CPU connects produce local hitlag on both bodies and NO screen
-freeze: every rung of the clock ladder reads slot zero, so the beat that sells a
-connect is a player-shaped affordance in a game whose fights are frequently
-between two CPUs. A GPT review asked for a bounded match-level freeze; it was
-built, it works, and the engine's own ratchet stopped it at the last step.
+The match-level impact hitstop needed a new rollback-canonical match global,
+which the shrink-only ratchet forbade. **Jon's reviewer approved the growth and
+changed the policy**, and the reasoning is worth keeping because it is about the
+guard's ancestry rather than about this one type:
 
-**What the implementation established, by measurement rather than argument:**
+> The ratchet has outlived the architectural condition it was designed to
+> protect. It began as `central-rollback-ownership-may-not-grow`, where "only
+> shrink" made sense during rollback-registration decentralization. Turning that
+> MIGRATION constraint into a permanent prohibition on new canonical gameplay
+> state is a different policy. Once impact hitstop changes the simulation clock
+> it is rollback-relevant gameplay truth — the forced-rollback divergence
+> confirms that. Hiding the value in an already-registered resource to avoid a
+> new entry would make the architecture worse merely to satisfy the ratchet.
 
-- ⛔ it CANNOT be derived from `BodyCombat::hitstop_timer`. A player's reaction
-  timers decay on `wall_dt`; an actor's and a boss's decay on `sim_dt`, and a
-  test guards that split. A freeze driven off a CPU's hitstop stops the clock
-  that decays the hitstop — the stuck-at-zero shape this engine has paid for.
-- ⛔ it CANNOT be an unregistered wall-clock value on the camera-shake
-  precedent. A shake writes PRESENTATION; this writes the sim clock, which is
-  the `dt` every body integrates with. The forced-rollback oracle refused it:
-  *"resimulation diverged: checksum mismatch at frames [18, 19, 20]"*.
-- ⇒ it has to be an integer of TICKS in rollback state. Ticks happen whether or
-  not the clock is scaled, so the hold cannot freeze its own expiry, and unlike
-  a wall-clock delta a tick is the same on a replayed frame.
+⇒ `rollback-wire-format-is-frozen` is now
+`rollback-wire-format-changes-are-declared`: it still catches drift in both
+directions and still demands stale entries be pruned, but growth is legitimate
+when the baseline and `GGRS_ROLLBACK_SCHEMA_VERSION` move in the same commit. No
+per-type waiver was created.
 
-**And that is the decision.** A new rollback-registered match global trips
-`rollback-wire-format-is-frozen`, whose whole purpose is that the wire-format
-set only ever shrinks. The contract says to DELETE or INVERT it rather than
-waive it — which is a deliberate architecture call about whether this engine's
-rollback surface may grow for a feel feature, and it is not mine to make
-quietly. ⚠ the alternative is finding a derivation from already-registered
-state, which the two bullets above are the evidence against.
+⭐ **AND THE IMPLEMENTATION IMPROVED ON THE REVIEW.** I had built a decrementing
+tick counter; the ruling was to store an ABSOLUTE `until_tick` against `SimTick`,
+which is already rollback state and already advances while `sim_dt == 0`. That
+deletes the decay system outright, makes overlapping connects a deterministic
+`max`, and keeps the property the whole design turns on: the hold cannot freeze
+its own expiry.
 
-The work is backed out rather than left half-wired; nothing in the tree depends
-on it. Say which way and it goes back in as one commit.
+⚠ the exit oracle then caught one more thing — a plain `rollback_resource_clone`
+gives a PRESENCE-only probe, so a diverging `until_tick` would have been
+invisible. It registers with a checksum projection.
 
+## ✔ ANSWERED 2026-08-23 — George keeps 11 / 21
 
+> Removing the hidden 1.6× while baking its existing result into the authored
+> numbers is the right cleanup. If George feels too strong, retune 11/21
+> deliberately afterward. I would not restore 7/13 merely because those were the
+> misleading source numbers.
 
-### ▢ George Booul's `bivalence` lost 1.6x, and that was a real number in the match
+The receipt below records what the hidden multiplier was and how it was found.
+
+### ✔ George Booul's `bivalence` lost 1.6x, and that was a real number in the match
 
 `smash_charge_mult` had two payers. The second read the multiplier off how far a
 move's clock had run through its leading Startup window — and a strike volume

@@ -39,6 +39,24 @@ pub(crate) const ASCENT_ENDS_S: f32 = 1.15;
 const POKE_MAX_STARTUP_S: f32 = 0.08;
 const COMMIT_MIN_STARTUP_S: f32 = 0.15;
 
+/// Where a smash freezes: FOUR FRAMES into its windup, and the same four frames
+/// whatever the move's own startup is.
+///
+/// ⭐⭐ AUTHORED, not derived. `CHARGE_POSE_FRACTION` is the engine's fallback
+/// for a move that says nothing, and it makes the pose a FRACTION of the
+/// windup — so a slow smash would hold later in real time than a fast one, for
+/// no reason a player could see. A charge pose is an ANIMATION fact: the swing
+/// starts, and a few frames in it stops. Jon, 2026-08-23: *"it needs to hold on
+/// the first frames of the smash animation, before letting the rest of the
+/// animation, which actually has the hitboxes, play."*
+///
+/// ⛔ INSIDE THE LEADING STARTUP AND STRICTLY BEFORE THE FIRST ACTIVE WINDOW —
+/// every windup in this roster is at least 0.22s, so four frames clears it with
+/// room. `CatalogError::ChargeHoldOutsideWindup` refuses an authored pose that
+/// does not, which is the check this authoring exists to satisfy rather than
+/// to lean on.
+const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
+
 /// See the module doc. Sixteen moves, the genre's standard verb map plus four
 /// specials.
 pub fn george_booul_moveset() -> MovesetContract {
@@ -191,6 +209,13 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     f_smash.smash_charge_mult = 1.7;
+    f_smash.smash_charge = Some(
+        ambition_platformer2d::entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s:
+                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        },
+    );
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // a body reached by both takes it. This is the base: the same commitment
     // landed at the wrong distance, which hurts and does not kill.
@@ -241,6 +266,13 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     up_smash.smash_charge_mult = 1.7;
+    up_smash.smash_charge = Some(
+        ambition_platformer2d::entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s:
+                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        },
+    );
     let up_smash = feel(up_smash, Feel::Heavy);
 
     let mut down_smash = strike(Strike {
@@ -258,6 +290,13 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     down_smash.smash_charge_mult = 1.7;
+    down_smash.smash_charge = Some(
+        ambition_platformer2d::entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s:
+                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        },
+    );
     let down_smash = feel(down_smash, Feel::Heavy);
 
     // ── the committed aerials ────────────────────────────────────────────────

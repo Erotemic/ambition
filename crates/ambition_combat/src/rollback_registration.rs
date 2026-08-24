@@ -22,6 +22,20 @@ where
     );
     registrar
         .rollback_resource_clone::<crate::targeting::FriendlyFire>(OWNER, "resource.friendly_fire");
+    // ⛔⛔ THE MATCH FREEZE DECIDES THE SIM CLOCK, so it is canonical simulation
+    // state, not feel. It shipped for one gate as an unregistered wall-clock
+    // float on the camera-shake precedent and the forced-rollback oracle
+    // refused it: a shake writes PRESENTATION, this writes the `dt` every body
+    // integrates with, so a resimulated frame ran at a different pace.
+    //
+    // ⭐ its expiry is an absolute `SimTick`, which rewinds with everything
+    // else — so the hold and the clock it is compared against move together.
+    registrar.rollback_resource_clone_checksum::<crate::impact_hitstop::ImpactHitstop>(
+        OWNER,
+        "resource.impact_hitstop",
+        "the freeze's expiry tick, which decides the sim clock",
+        impact_hitstop_checksum,
+    );
     registrar.rollback_resource_clone_checksum::<crate::events::PendingPlayerHitEvents>(
         OWNER,
         "resource.pending_player_hit_events",
@@ -308,6 +322,21 @@ where
 /// but everything that decides what the hit DOES participates, so a diverged
 /// queue surfaces as a sync-test mismatch at the staging frame instead of one
 /// frame later as mystery damage.
+/// ⛔⛔ THE VALUE, NOT THE PRESENCE. A plain `rollback_resource_clone` gives the
+/// exit oracle a PRESENCE-only probe — it can see the resource exists and
+/// nothing of what it holds — and `every_presence_only_probe_is_named_with_its_reason`
+/// refused that here, correctly: this expiry decides the sim clock, so a
+/// `until_tick` that diverged would silently run a resimulated frame at a
+/// different pace. That is precisely the failure the forced-rollback oracle
+/// caught when this state was unregistered.
+fn impact_hitstop_checksum(hold: &crate::impact_hitstop::ImpactHitstop) -> u64 {
+    let mut bytes = Vec::new();
+    // `None` and `Some(0)` are different states and must not share a digest.
+    put_u64(&mut bytes, u64::from(hold.until_tick.is_some()));
+    put_u64(&mut bytes, hold.until_tick.unwrap_or(0));
+    checksum_bytes(&bytes)
+}
+
 fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents) -> u64 {
     use crate::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
     let mut bytes = Vec::new();

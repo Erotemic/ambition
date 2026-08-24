@@ -459,6 +459,24 @@ pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
     vec![jab2, jab3]
 }
 
+/// Where a smash freezes: FOUR FRAMES into its windup, and the same four frames
+/// whatever the move's own startup is.
+///
+/// ⭐⭐ AUTHORED, not derived. `CHARGE_POSE_FRACTION` is the engine's fallback
+/// for a move that says nothing, and it makes the pose a FRACTION of the
+/// windup — so a slow smash would hold later in real time than a fast one, for
+/// no reason a player could see. A charge pose is an ANIMATION fact: the swing
+/// starts, and a few frames in it stops. Jon, 2026-08-23: *"it needs to hold on
+/// the first frames of the smash animation, before letting the rest of the
+/// animation, which actually has the hitboxes, play."*
+///
+/// ⛔ INSIDE THE LEADING STARTUP AND STRICTLY BEFORE THE FIRST ACTIVE WINDOW —
+/// every windup in this roster is at least 0.22s, so four frames clears it with
+/// room. `CatalogError::ChargeHoldOutsideWindup` refuses an authored pose that
+/// does not, which is the check this authoring exists to satisfy rather than
+/// to lean on.
+const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
+
 /// Shared by this demo's three fighters today. That is a content decision, not
 /// an architectural one: the moveset rides the CHARACTER, so giving George a
 /// heavier one is editing his definition and nothing else.
@@ -570,6 +588,13 @@ pub fn fighter_moveset() -> MovesetContract {
     // Startup window before release, so the commitment and the payoff are the
     // same authored number.
     f_smash.smash_charge_mult = 1.7;
+    f_smash.smash_charge = Some(
+        ambition_platformer2d::entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s:
+                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        },
+    );
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // it is the one a body reached by both takes. This is the base: the same
     // swing landed at the wrong distance, which hurts and does not kill.
@@ -618,6 +643,13 @@ pub fn fighter_moveset() -> MovesetContract {
     });
     up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
+    up_smash.smash_charge = Some(
+        ambition_platformer2d::entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s:
+                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        },
+    );
     moves.push(up_smash);
 
     let mut down_smash = strike(Strike {
@@ -637,6 +669,13 @@ pub fn fighter_moveset() -> MovesetContract {
     });
     down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.6;
+    down_smash.smash_charge = Some(
+        ambition_platformer2d::entity_catalog::SmashChargeSpec {
+            hold_at_s: CHARGE_POSE_AT_S,
+            max_hold_s:
+                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        },
+    );
     moves.push(down_smash);
 
     // ── aerials ──────────────────────────────────────────────────────────────
@@ -938,6 +977,17 @@ mod tests {
         // so every smash of every shipped fighter relies on the one derived
         // from its own leading Startup window; a smash that resolves no policy
         // fires the instant it is pressed and the multiplier above is unpayable.
+        // ⛔ AUTHORED, NOT DERIVED. `CHARGE_POSE_FRACTION` is the engine's
+        // fallback for a move that says nothing about its pose, and it makes
+        // the freeze a FRACTION of the windup — a slow smash would hold later
+        // in real time than a fast one. This roster says where each swing
+        // stops, and this is what keeps the fallback from quietly becoming the
+        // authoring contract.
+        assert!(
+            smash.smash_charge.is_some(),
+            "this smash derives its charge pose from the engine fallback \
+             instead of authoring one"
+        );
         let policy = smash
             .charge_policy()
             .expect("the smash resolves no charge policy, so it cannot be held");

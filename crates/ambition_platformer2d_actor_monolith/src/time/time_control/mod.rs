@@ -47,8 +47,40 @@ pub fn emit_player_time_intent_system(
     >,
     dev_state: Res<DeveloperRuntimeState>,
     feel: Res<Platformer2dFeelTuningMonolith>,
+    // The MATCH's freeze, which belongs to nobody's seat. See rung zero below.
+    impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
+    tick: Option<Res<ambition_time::SimTick>>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
+    // ⭐⭐ RUNG ZERO: THE MATCH'S OWN IMPACT FREEZE, ABOVE EVERY SEAT.
+    //
+    // Every rung below reads slot zero, so a CPU-versus-CPU match produced local
+    // hitlag on both bodies and NO screen freeze — the beat that sells a connect
+    // was a player-shaped affordance in a game whose fights are frequently
+    // between two CPUs. ⛔ and the fix is not a fake primary player: a match's
+    // freeze is a fact about the MATCH.
+    //
+    // ⛔⛔ IT IS AN ABSOLUTE EXPIRY AGAINST `SimTick`, which is what makes this
+    // safe to put above the ladder. The obvious version — freeze while any
+    // body's `hitstop_timer` is live — deadlocks, because an actor's timer
+    // decays on the very sim clock this stops. `SimTick` advances while
+    // `sim_dt == 0`, so the hold cannot freeze its own expiry. See
+    // `ambition_combat::impact_hitstop`.
+    //
+    // ⭐ AND THERE IS NO "REMEMBER TO SET IT BACK": this writes a request every
+    // frame like every other rung, so an expired hold falls through to whatever
+    // is true next — ultimately the `1.0` at the bottom.
+    if let (Some(impact), Some(tick)) = (impact, tick) {
+        if impact.is_freezing(*tick) {
+            writer.write(ClockScaleRequest {
+                domain: ClockDomain::SimClock,
+                scale: 0.0,
+                requester: ClockRequester::Engine,
+                reason: "impact_hitstop",
+            });
+            return;
+        }
+    }
     // NO LOCAL BODY IS NOT "NOTHING TO SAY".
     //
     // There is no `PrimaryPlayer` in it, so nothing ever asked for the neutral pace back, and the

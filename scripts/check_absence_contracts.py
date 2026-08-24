@@ -1522,25 +1522,38 @@ def main() -> int:
     if not new and not stale:
         baseline = json.loads((root / ROLLBACK_SCHEMA_BASELINE).read_text())
         print(
-            f"  ok   rollback-wire-format-is-frozen  "
+            f"  ok   rollback-wire-format-changes-are-declared  "
             f"({len(baseline['stable_schema_names'])} stable names, "
             f"{len(baseline['encoded_types'])} encoded types across "
             f"{len({t.split('::')[0] for t in baseline['encoded_types']})} crates)"
         )
     else:
         broken += 1
-        print("  RED  rollback-wire-format-is-frozen")
+        print("  RED  rollback-wire-format-changes-are-declared")
         print(
             "       Every type in the rollback wire format, wherever it is "
-            "encoded. This ratchet used to be called "
-            "`central-rollback-ownership-may-not-grow` and read ONE file, "
-            "because the orphan rule forced every impl into "
-            "`ambition_platformer2d_runtime/src/rollback/codecs.rs`. It said the set could "
-            "'only shrink as ownership federates outward'; slice F federated "
-            "it, so the guard now follows the types instead of the file."
+            "encoded. THE SET MAY GROW — what it may not do is drift "
+            "unacknowledged. A new entry is a wire-format change: peers whose "
+            "schemas differ cannot agree about a snapshot, so adding one means "
+            "updating this baseline AND bumping "
+            "GGRS_ROLLBACK_SCHEMA_VERSION in the SAME commit, and saying why."
+        )
+        print(
+            "       ⚠ this rule was 'the set may only shrink' until 2026-08-23, "
+            "inherited from `central-rollback-ownership-may-not-grow` — a "
+            "MIGRATION constraint from when the orphan rule forced every impl "
+            "into one file. Slice F federated that, and the shrink-only reading "
+            "outlived its condition: it forbade genuinely new canonical "
+            "gameplay state. `resource.impact_hitstop` is the case that "
+            "settled it — a freeze that decides the sim clock IS simulation "
+            "truth, and burying it in an already-registered type to appease a "
+            "ratchet would make the architecture worse to satisfy a guard."
         )
         for item in new:
-            print(f"       NEW    {item} entered the rollback wire format")
+            print(
+                f"       NEW    {item} entered the rollback wire format — "
+                "declare it (baseline + schema version) or drop it"
+            )
         for item in stale:
             print(
                 f"       STALE  {item} left the rollback registration but is "

@@ -26,6 +26,37 @@ second Smash backlog.
 > ⛔ re-grep an inventory row before working a slice; this file goes stale faster
 > than the code it describes, and the inventory is the thing to trust.
 
+> ⛔⛔ **A CORRECTION PASS LANDED 2026-08-24 (second GPT review), and its three
+> findings share ONE shape** — worth reading before adding another slice, because
+> every W-series feature here can make the same mistake:
+>
+> ```text
+> a piece of state initialized by a later INCIDENTAL event
+>     recovery_charges came from the landing refresh, so a body that never
+>     landed had zero. `Default` is the SPENT state and two fresh-construction
+>     paths spelled the fresh state with `..Default::default()`.
+>
+> a grant claiming ownership it does not STRUCTURALLY have
+>     respawn protection borrowed `Empowered`, which is ONE component: granting
+>     it overwrote whatever power-up the body carried, and ending the beat
+>     removed every semantic in it. A marker cannot make a single-slot component
+>     into two independent grants. ⇒ its own clock + `Invulnerability::RESPAWN`,
+>     a reason bit, which is the type whose whole purpose is releasing one
+>     reason and leaving the rest.
+>
+> a coordinate system reconstructed from the WRONG BODY'S facts
+>     autolink rebuilt its attacker-local anchor from `knockback.dir` (the
+>     VICTIM'S away-side) and the VICTIM'S gravity. Both coincide with the
+>     attacker's in the ordinary case, so every front-contact same-gravity test
+>     passed. ⇒ resolved at the PRODUCER, which holds the attacker.
+> ```
+>
+> ⭐ **and each was invisible to a test that looked reasonable.** The ownership
+> test used two DIFFERENT bodies, which is true of any implementation; the
+> autolink tests were all front-contact and same-gravity; the budget was correct
+> for every body that touched the floor first. ⇒ when a test's fixture cannot
+> reach the case the claim is about, it is not evidence for the claim.
+
 ## Goal
 
 Make the Smash demo feel substantially more readable, responsive and characterful in ordinary local play without waiting for the pending engine architecture migrations.

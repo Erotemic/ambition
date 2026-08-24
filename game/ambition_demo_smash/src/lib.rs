@@ -570,6 +570,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             publish_smash_hud,
             announce_the_opening_countdown,
             place_respawning_fighters,
+            ambition_platformer2d::actor::tick_respawn_grace,
             a_swing_spends_the_respawn_protection,
             hold_the_respawn_platforms,
             announce_the_winner,
@@ -603,6 +604,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided);
         if self.hosted {
             let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
+            // ⭐ THE RETRACTION IS AN OBSERVER, and it is UNGATED on purpose: it
+            // fires when `RespawnGrace` leaves for ANY reason — its own clock, a
+            // swing, a body being rebuilt, a mode teardown — and a reason bit
+            // left set by a component that is gone is a fighter invulnerable for
+            // the rest of the session.
+            app.add_observer(ambition_platformer2d::actor::retract_respawn_grace_on_removal);
             app.add_systems(sim, rules.run_if(gate.clone()));
             app.add_systems(sim, remove_the_eliminated.run_if(gate));
         } else {
@@ -1076,18 +1083,24 @@ fn place_respawning_fighters(
                 &mut playback,
             );
         }
-        commands.entity(event.body).try_insert((
-            ambition_platformer2d::actors::features::empowerment::Empowered::for_seconds(
-                ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE,
-                RESPAWN_PROTECTION_SECONDS,
-            ),
-            // ⭐ MARKED, so the rule that ENDS it knows which grant is ours.
-            // `UNTOUCHABLE` is a capability, not a claim about who gave it —
-            // Sanic's super state and Mary-O's star hold the same trait — and
-            // ending "the grant whose traits look like this" would strip a
-            // power-up somebody else granted the same body.
-            ambition_platformer2d::actor::RespawnGrace,
-        ));
+        // ⛔⛔ ITS OWN GRANT, NOT A BORROWED `Empowered`. The first version
+        // inserted an `Empowered(UNTOUCHABLE)` beside a marker and claimed the
+        // marker made the removal safe. It did not: `Empowered` is ONE
+        // component, so granting respawn protection OVERWROTE whatever power-up
+        // the body was already carrying, and ending the beat removed the whole
+        // component and every semantic in it. A marker cannot turn a single-slot
+        // component into two independently owned grants.
+        //
+        // ⇒ `RespawnGrace` carries its own clock and publishes
+        // `Invulnerability::RESPAWN`, a reason bit — the type whose entire
+        // purpose is "take or release ONE reason, leaving every other reason
+        // alone". A fighter that picked something up on the way down keeps it
+        // through the respawn and past the end of it.
+        commands
+            .entity(event.body)
+            .try_insert(ambition_platformer2d::actor::RespawnGrace {
+                remaining: RESPAWN_PROTECTION_SECONDS,
+            });
     }
 }
 
@@ -1108,34 +1121,24 @@ fn place_respawning_fighters(
 /// ⚠ it is ORDINARY collision, and that is the genre's answer too: anybody may
 /// stand on a respawn platform, and anybody standing on one when it goes falls.
 fn hold_the_respawn_platforms(
-    mut commands: bevy::prelude::Commands,
     mut platforms: bevy::prelude::ResMut<
         ambition_platformer2d::world::collision::MovingPlatformSet,
     >,
-    // A fighter still under protection, and one whose grant has run out. The
-    // second query is what stops the MARKER outliving the grant it marks: the
-    // `Empowered` expires on its own clock, and a latch cleared only by the
-    // swing would leave the platform standing for the rest of the match.
+    // ⭐ ONE QUESTION, because `RespawnGrace` owns its own clock: a grant that
+    // runs out REMOVES itself, so the platform's presence is simply the
+    // component's presence. The first version borrowed an `Empowered` and had to
+    // ask a second question — "is that still there?" — and retract the marker by
+    // hand, which is a latch waiting for a second removal site.
     protected: bevy::prelude::Query<
         (
-            bevy::prelude::Entity,
             &ambition_platformer2d::actor::MatchSeat,
             &ambition_platformer2d::engine_core::BodyKinematics,
-            bevy::prelude::Has<ambition_platformer2d::actors::features::empowerment::Empowered>,
         ),
         bevy::prelude::With<ambition_platformer2d::actor::RespawnGrace>,
     >,
 ) {
     let mut wanted: Vec<(String, Vec2)> = Vec::new();
-    for (body, seat, kin, still_granted) in &protected {
-        if !still_granted {
-            // The grant expired on its own clock; the marker goes with it, and
-            // the platform goes with the marker on the next pass.
-            commands
-                .entity(body)
-                .remove::<ambition_platformer2d::actor::RespawnGrace>();
-            continue;
-        }
+    for (seat, kin) in &protected {
         wanted.push((
             respawn_platform_id(seat.0),
             Vec2::new(kin.pos.x, kin.pos.y + RESPAWN_PLATFORM_DROP_PX),
@@ -1196,9 +1199,11 @@ fn a_swing_spends_the_respawn_protection(
     >,
 ) {
     for body in &swinging {
+        // ⭐ ONE REMOVAL, and the reason retracts with it: nothing else writes
+        // `Invulnerability::RESPAWN`, and the removal hook clears it. Whatever
+        // else is holding this body untouchable is untouched.
         commands
             .entity(body)
-            .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>()
             .remove::<ambition_platformer2d::actor::RespawnGrace>();
     }
 }
@@ -2531,65 +2536,80 @@ mod tests {
     use super::*;
     use ambition_platformer2d::engine_core::AabbExt;
 
-    /// ⭐ SWINGING SPENDS THE RESPAWN PROTECTION, AND ONLY OURS.
+    /// ⭐ SWINGING SPENDS THE RESPAWN PROTECTION — AND ONLY IT, ON THE SAME
+    /// BODY.
     ///
-    /// Respawn protection was a flat timer nothing could end, so a returning
-    /// fighter had two seconds in which it could attack and could not be
-    /// answered — a free hit every stock, taken from whoever just earned the
-    /// knockout.
+    /// ⛔⛔ THE FIRST VERSION OF THIS TEST PROVED THE WRONG THING. It gave two
+    /// DIFFERENT bodies an `Empowered` and checked that swinging on one left the
+    /// other alone — which is true of any implementation and says nothing about
+    /// ownership. The claim being made is about ONE body holding two grants, and
+    /// the implementation could not honour it: `Empowered` is a single component,
+    /// so respawn protection granted through it OVERWROTE whatever the body was
+    /// already carrying, and removing it took every semantic with it.
     ///
-    /// ⛔⛔ THE POISON IS THE OTHER GRANT, and it is the reason this rule keys on
-    /// a MARKER rather than on the `UNTOUCHABLE` trait. Sanic's super state and
-    /// Mary-O's star hold the same trait; ending "the grant that looks like this"
-    /// would strip a power-up somebody else gave the same body. The second body
-    /// here has the identical `Empowered` and no `RespawnGrace`, and it must keep
-    /// it — a value-equality implementation passes the first assertion and fails
-    /// this one.
+    /// ⇒ this fixture puts both on the SAME fighter. A power-up that survives
+    /// the respawn beat, and survives the swing that ends it, is the property.
     #[test]
-    fn a_swing_spends_the_respawn_grant_and_leaves_another_granters_alone() {
+    fn a_swing_spends_only_the_respawn_grant_on_a_body_that_holds_two() {
         use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
+        use ambition_platformer2d::characters::actor::{BodyHealth, Health, Invulnerability};
 
         let mut app = bevy::prelude::App::new();
         app.add_systems(bevy::prelude::Update, a_swing_spends_the_respawn_protection);
-        let grant = || Empowered::for_seconds(Empowerment::UNTOUCHABLE, RESPAWN_PROTECTION_SECONDS);
-        let returning = app
+        app.add_observer(ambition_platformer2d::actor::retract_respawn_grace_on_removal);
+        let mut health = BodyHealth::new(Health {
+            current: 100,
+            max: 100,
+            invulnerable: Default::default(),
+        });
+        // The body is ALREADY carrying a power-up when it comes back — the case
+        // the borrowed-`Empowered` version silently destroyed.
+        health
+            .health
+            .invulnerable
+            .set(Invulnerability::EMPOWERED, true);
+        health
+            .health
+            .invulnerable
+            .set(Invulnerability::RESPAWN, true);
+        let fighter = app
             .world_mut()
-            .spawn((grant(), ambition_platformer2d::actor::RespawnGrace))
+            .spawn((
+                health,
+                Empowered::held(Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT)),
+                ambition_platformer2d::actor::RespawnGrace { remaining: 2.0 },
+            ))
             .id();
-        // The same capability, granted by somebody else entirely.
-        let powered_up = app.world_mut().spawn(grant()).id();
 
-        // Nothing has swung yet: both keep what they were given.
-        app.update();
-        assert!(
-            app.world().get::<Empowered>(returning).is_some(),
-            "the protection ended before the fighter did anything with it"
+        app.world_mut().entity_mut(fighter).insert(
+            ambition_platformer2d::combat::moveset::MovePlayback::new(test_move(), 1.0),
         );
-
-        // Both start a move on the same tick.
-        for body in [returning, powered_up] {
-            app.world_mut().entity_mut(body).insert(
-                ambition_platformer2d::combat::moveset::MovePlayback::new(test_move(), 1.0),
-            );
-        }
         app.update();
 
+        let body = app.world().entity(fighter);
         assert!(
-            app.world().get::<Empowered>(returning).is_none(),
-            "a returning fighter swung and kept its invulnerability — a free hit \
-             every stock"
-        );
-        assert!(
-            app.world()
-                .get::<ambition_platformer2d::actor::RespawnGrace>(returning)
+            body.get::<ambition_platformer2d::actor::RespawnGrace>()
                 .is_none(),
-            "the grant was spent but its marker stayed, so the next swing spends \
-             it again"
+            "the respawn grant survived the swing that spends it"
+        );
+        let invuln = body
+            .get::<BodyHealth>()
+            .expect("still a body")
+            .health
+            .invulnerable;
+        assert!(
+            !invuln.holds(Invulnerability::RESPAWN),
+            "the respawn REASON outlived the grant that published it"
         );
         assert!(
-            app.world().get::<Empowered>(powered_up).is_some(),
-            "swinging stripped a power-up THIS RULESET NEVER GRANTED — the rule \
-             is releasing by value equality instead of by ownership"
+            invuln.holds(Invulnerability::EMPOWERED),
+            "swinging stripped a power-up this ruleset never granted — the \
+             respawn beat is borrowing ownership it does not have"
+        );
+        assert!(
+            body.get::<Empowered>().is_some(),
+            "the power-up's whole component was removed with the respawn grant, \
+             so every other trait it carried went with it"
         );
     }
 
@@ -2628,7 +2648,6 @@ mod tests {
     /// camping it.
     #[test]
     fn the_respawn_platform_lives_exactly_as_long_as_the_grant() {
-        use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
         use ambition_platformer2d::world::collision::MovingPlatformSet;
 
         let mut app = bevy::prelude::App::new();
@@ -2642,8 +2661,9 @@ mod tests {
                     pos: Vec2::new(120.0, 40.0),
                     ..Default::default()
                 },
-                Empowered::for_seconds(Empowerment::UNTOUCHABLE, RESPAWN_PROTECTION_SECONDS),
-                ambition_platformer2d::actor::RespawnGrace,
+                ambition_platformer2d::actor::RespawnGrace {
+                    remaining: RESPAWN_PROTECTION_SECONDS,
+                },
             ))
             .id();
 
@@ -2657,16 +2677,12 @@ mod tests {
             set.0[0].pos
         );
 
-        // The grant runs out on its own clock — the marker and the platform must
-        // both go, without anybody having swung.
-        app.world_mut().entity_mut(fighter).remove::<Empowered>();
-        app.update();
-        assert!(
-            app.world()
-                .get::<ambition_platformer2d::actor::RespawnGrace>(fighter)
-                .is_none(),
-            "the marker outlived the grant it marks"
-        );
+        // The grant runs out — the platform must go with it, without anybody
+        // having swung. ⭐ the grant owns its OWN clock now, so this is the
+        // component leaving rather than a second timer being consulted.
+        app.world_mut()
+            .entity_mut(fighter)
+            .remove::<ambition_platformer2d::actor::RespawnGrace>();
         app.update();
         assert!(
             app.world().resource::<MovingPlatformSet>().0.is_empty(),

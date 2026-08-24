@@ -491,7 +491,21 @@ pub fn apply_hitbox_damage(
                     follow: hitbox
                         .autolink
                         .map(|link| ae::hit_response::AutolinkFollow {
-                            anchor_local: ae::Vec2::new(link.anchor.0, link.anchor.1),
+                            // ⭐ RESOLVED HERE, against the ATTACKER'S facing and
+                            // frame — both of which the hitbox carries from the
+                            // body that spawned it. The victim side used to
+                            // rebuild this point from `dir` (the victim's
+                            // away-side, NOT the attacker's facing) and the
+                            // victim's gravity (not the attacker's), so a hit
+                            // catching somebody BEHIND the attacker mirrored the
+                            // anchor toward them, and two bodies in different
+                            // frames disagreed about where "toward the feet" was.
+                            anchor_world: ae::hit_response::autolink_anchor_world(
+                                ae::Vec2::new(link.anchor.0, link.anchor.1),
+                                owner_pos,
+                                hitbox.facing,
+                                hitbox.frame_down,
+                            ),
                             carry: link.carry,
                             pull: link.pull,
                             max_speed: link.max_speed,

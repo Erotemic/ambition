@@ -84,10 +84,21 @@ pub struct HitKnockback {
 /// — a world-axis version would send the victim sideways in a rotated room.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AutolinkFollow {
-    /// Where the victim is steered, attacker-local: `x` forward along the
-    /// attacker's facing, `y` toward the attacker's feet (the same local `y`
-    /// [`HitKnockback::launch_dir`] uses).
-    pub anchor_local: Vec2,
+    /// Where the victim is steered, in WORLD space, resolved at the pulse.
+    ///
+    /// ⛔⛔ NOT THE AUTHORED ATTACKER-LOCAL POINT. It was, and the victim side
+    /// reconstructed it from `knockback.dir` and the VICTIM'S gravity — two wrong
+    /// authorities. `dir` is *"which victim-local side points away from the
+    /// attacker"*, which coincides with attacker facing only when the attacker
+    /// faces its victim, so a hit that caught somebody BEHIND the attacker
+    /// mirrored the anchor toward the victim instead. And `anchor_local.y` means
+    /// *toward the ATTACKER'S feet*, which is the victim's `down` only while the
+    /// two share a frame — a thing this engine deliberately does not assume.
+    ///
+    /// ⇒ the producer holds the attacker and resolves it, exactly as it samples
+    /// [`Self::source_vel`]: both are facts about the attacker at this pulse, and
+    /// neither is the victim's to reinterpret.
+    pub anchor_world: Vec2,
     /// Share of the ATTACKER'S own velocity handed to the victim, `0..=1`. This
     /// is what makes a RISING multi-hit work: the correction below only closes a
     /// gap, and a fighter climbing at 600 px/s outruns any gap-closing term.
@@ -108,31 +119,38 @@ pub struct AutolinkFollow {
     pub source_vel: Vec2,
 }
 
-/// The velocity an autolink pulse writes: carry the attacker, then close the gap
-/// to the authored anchor, bounded.
+/// Resolve an authored attacker-local follow point into world space.
 ///
-/// ⛔ NO TELEPORT. The victim is given a velocity and moves under its own body
-/// authority, which is what keeps it collidable, gravity-correct and rollback-
-/// safe. Setting its position would bypass every one of those.
-pub fn autolink_velocity(
-    follow: &AutolinkFollow,
+/// ⭐ CALLED BY THE PRODUCER, which is the only place that holds the attacker's
+/// facing and its resolved frame. `x` runs forward along the attacker's facing
+/// and `y` toward the attacker's feet — the same local convention
+/// [`HitKnockback::launch_dir`] uses, interpreted against the body that AUTHORED
+/// it rather than the body it lands on.
+pub fn autolink_anchor_world(
+    anchor_local: Vec2,
     attacker_pos: Vec2,
     attacker_facing: f32,
-    victim_pos: Vec2,
-    gravity_dir: Vec2,
+    attacker_gravity_dir: Vec2,
 ) -> Vec2 {
-    let frame = AccelerationFrame::new(gravity_dir);
-    // The anchor is attacker-local, so it MIRRORS with the attacker's facing —
-    // a follow point in front of a left-facing fighter is to its left.
+    let frame = AccelerationFrame::new(attacker_gravity_dir);
+    // Mirrors with the attacker's facing: a follow point in front of a
+    // left-facing fighter is to its left.
     let facing = if attacker_facing.abs() <= 0.001 {
         1.0
     } else {
         attacker_facing.signum()
     };
-    let anchor = attacker_pos
-        + frame.side * (follow.anchor_local.x * facing)
-        + frame.down * follow.anchor_local.y;
-    let gap = anchor - victim_pos;
+    attacker_pos + frame.side * (anchor_local.x * facing) + frame.down * anchor_local.y
+}
+
+/// The velocity an autolink pulse writes: carry the attacker, then close the gap
+/// to the resolved anchor, bounded.
+///
+/// ⛔ NO TELEPORT. The victim is given a velocity and moves under its own body
+/// authority, which is what keeps it collidable, gravity-correct and rollback-
+/// safe. Setting its position would bypass every one of those.
+pub fn autolink_velocity(follow: &AutolinkFollow, victim_pos: Vec2) -> Vec2 {
+    let gap = follow.anchor_world - victim_pos;
     let correction = gap * follow.pull.max(0.0);
     let correction = if correction.length() > follow.max_speed.max(0.0) {
         correction.normalize_or_zero() * follow.max_speed.max(0.0)
@@ -828,11 +846,9 @@ mod autolink_tests {
         }
     }
 
-    fn follow() -> AutolinkFollow {
+    fn follow_at(anchor_world: Vec2) -> AutolinkFollow {
         AutolinkFollow {
-            // In front of the attacker and slightly toward its feet — where a
-            // spinning move keeps the body it is carrying.
-            anchor_local: Vec2::new(20.0, 6.0),
+            anchor_world,
             carry: 1.0,
             pull: 20.0,
             max_speed: 900.0,
@@ -840,142 +856,130 @@ mod autolink_tests {
         }
     }
 
-    /// A stationary attacker still pulls: the victim is aimed AT the anchor.
+    /// The victim side does ONE thing: close the gap to a point somebody else
+    /// resolved.
     #[test]
-    fn autolink_steers_a_victim_toward_the_authored_anchor() {
-        let attacker = Vec2::new(100.0, 200.0);
-        // Below and behind the anchor, so both components have to be corrected.
-        let victim = Vec2::new(80.0, 240.0);
-        let v = autolink_velocity(&follow(), attacker, 1.0, victim, DOWN);
+    fn autolink_steers_a_victim_toward_the_resolved_anchor() {
         let anchor = Vec2::new(120.0, 206.0);
+        let victim = Vec2::new(80.0, 240.0);
+        let v = autolink_velocity(&follow_at(anchor), victim);
         let gap = anchor - victim;
         assert!(
             v.dot(gap) > 0.0,
-            "the pulse did not aim at the anchor: {v:?} against a gap of {gap:?}"
+            "the pulse did not aim at the anchor: {v:?}"
         );
         assert!(
             v.length() > 100.0,
-            "a 44px gap at pull 20 should ask for real speed, got {}",
-            v.length()
+            "a 52px gap at pull 20 asks for real speed"
         );
     }
 
     /// ⭐ THE CARRY IS WHAT MAKES A RISING MULTI-HIT WORK. The correction only
-    /// closes a gap; a fighter climbing at 600 px/s outruns any gap-closing term,
-    /// and its victim falls out of the move. Asserted as a DIFFERENCE against the
-    /// same geometry with a still attacker, so it cannot pass on the pull alone.
+    /// closes a gap; a fighter climbing at 600 px/s outruns any gap-closing term
+    /// and its victim falls out of the move.
     #[test]
     fn the_attackers_own_motion_is_carried_into_the_victim() {
-        let attacker = Vec2::new(100.0, 200.0);
+        let anchor = Vec2::new(118.0, 206.0);
         let victim = Vec2::new(118.0, 208.0);
-        let still = autolink_velocity(&follow(), attacker, 1.0, victim, DOWN);
+        let still = autolink_velocity(&follow_at(anchor), victim);
         let rising = AutolinkFollow {
             source_vel: Vec2::new(0.0, -600.0),
-            ..follow()
+            ..follow_at(anchor)
         };
-        let carried = autolink_velocity(&rising, attacker, 1.0, victim, DOWN);
         assert!(
-            carried.y < still.y - 500.0,
-            "a rising attacker did not carry its victim up: {carried:?} vs {still:?}"
+            autolink_velocity(&rising, victim).y < still.y - 500.0,
+            "a rising attacker did not carry its victim up"
         );
-        // ... and the share is honoured, not just its presence.
         let half = AutolinkFollow {
             carry: 0.5,
             ..rising
         };
-        let halved = autolink_velocity(&half, attacker, 1.0, victim, DOWN);
         assert!(
-            (halved.y - (still.y - 300.0)).abs() < 1.0,
-            "carry 0.5 of -600 should contribute -300, got {halved:?} against {still:?}"
+            (autolink_velocity(&half, victim).y - (still.y - 300.0)).abs() < 1.0,
+            "carry 0.5 of -600 should contribute -300"
         );
     }
 
-    /// The anchor is ATTACKER-LOCAL, so it mirrors with the attacker's facing —
-    /// a follow point in front of a left-facing fighter is to its left. Without
-    /// this a move would hold correctly in one direction and fling in the other.
-    #[test]
-    fn the_anchor_mirrors_with_the_attackers_facing() {
-        let attacker = Vec2::new(100.0, 200.0);
-        let victim = Vec2::new(100.0, 200.0);
-        let right = autolink_velocity(&follow(), attacker, 1.0, victim, DOWN);
-        let left = autolink_velocity(&follow(), attacker, -1.0, victim, DOWN);
-        assert!(right.x > 0.0 && left.x < 0.0, "{right:?} / {left:?}");
-        assert!(
-            (right.x + left.x).abs() < 1e-3,
-            "the mirror is not symmetric: {right:?} / {left:?}"
-        );
-        assert!(
-            (right.y - left.y).abs() < 1e-3,
-            "facing must not touch the gravity axis: {right:?} / {left:?}"
-        );
-    }
-
-    /// ⛔ AND IT ROTATES WITH GRAVITY. The anchor is stated in the attacker's
-    /// frame, not the world's, so a move authored once works in a rotated room.
-    /// A world-axis version passes every test above and sends the victim sideways
-    /// here.
-    #[test]
-    fn the_authored_anchor_rotates_with_the_frame() {
-        let attacker = Vec2::new(100.0, 200.0);
-        let victim = Vec2::new(100.0, 200.0);
-        // Gravity pulling right: the attacker's "toward the feet" is +x, and its
-        // "forward" is the side axis of that frame.
-        let sideways = autolink_velocity(&follow(), attacker, 1.0, victim, Vec2::new(1.0, 0.0));
-        let normal = autolink_velocity(&follow(), attacker, 1.0, victim, DOWN);
-        assert!(
-            (sideways.length() - normal.length()).abs() < 1e-2,
-            "rotating the frame changed the MAGNITUDE, so the anchor is not being \
-             rotated — it is being reinterpreted: {sideways:?} vs {normal:?}"
-        );
-        assert!(
-            sideways.dot(normal).abs() < normal.length_squared() * 0.5,
-            "the rotated anchor points the same way as the unrotated one, which \
-             means the frame was ignored: {sideways:?} vs {normal:?}"
-        );
-    }
-
-    /// The correction is BOUNDED, and the carry is not.
-    ///
-    /// A victim knocked far away must not be yanked back at any speed the gap
-    /// implies — that reads as a teleport and is how a hold becomes a capture.
-    /// But clamping the CARRY would make a fast attacker's own victim fall out of
-    /// its own move, so the bound covers the corrective term alone.
+    /// The correction is BOUNDED, and the carry is not: clamping the attacker's
+    /// own motion would drop its victim out of its own move.
     #[test]
     fn the_correction_is_bounded_and_the_carry_is_not() {
-        let attacker = Vec2::new(100.0, 200.0);
-        let far = Vec2::new(100.0, 2000.0);
         let capped = AutolinkFollow {
             max_speed: 300.0,
-            ..follow()
+            ..follow_at(Vec2::new(100.0, 200.0))
         };
-        let v = autolink_velocity(&capped, attacker, 1.0, far, DOWN);
-        assert!(
-            v.length() <= 300.0 + 1e-3,
-            "an 1800px gap blew through the bound: {}",
-            v.length()
-        );
+        let far = Vec2::new(100.0, 2000.0);
+        assert!(autolink_velocity(&capped, far).length() <= 300.0 + 1e-3);
         let fast = AutolinkFollow {
             source_vel: Vec2::new(0.0, -1200.0),
             ..capped
         };
-        let carried = autolink_velocity(&fast, attacker, 1.0, far, DOWN);
         assert!(
-            carried.length() > 300.0,
-            "the bound clamped the ATTACKER'S OWN motion, so a fast move drops \
-             its victim: {}",
-            carried.length()
+            autolink_velocity(&fast, far).length() > 300.0,
+            "the bound clamped the ATTACKER'S OWN motion"
         );
     }
 
-    /// ⭐ THE POISON: an ordinary hit is unchanged. `follow: None` is what every
-    /// existing hit in the tree authors, and this pins that the new field cannot
-    /// have altered the launch road.
+    /// ⛔⛔ THE ANCHOR IS THE ATTACKER'S, AND THE ATTACKER'S ALONE.
+    ///
+    /// The victim side used to rebuild it from `knockback.dir` — *"which
+    /// victim-local side points away from the attacker"* — and from the VICTIM'S
+    /// gravity. Both coincide with the attacker's own facing and frame in the
+    /// ordinary case, which is why every front-contact same-gravity test passed
+    /// while a back-side hit mirrored the hold point toward the victim.
+    #[test]
+    fn the_anchor_follows_the_attackers_facing_and_not_the_victims_side() {
+        let attacker = Vec2::new(100.0, 100.0);
+        let anchor = Vec2::new(18.0, 0.0);
+        let facing_right = autolink_anchor_world(anchor, attacker, 1.0, DOWN);
+        let facing_left = autolink_anchor_world(anchor, attacker, -1.0, DOWN);
+        assert!(
+            facing_right.x > attacker.x && facing_left.x < attacker.x,
+            "the anchor did not mirror with the attacker's facing"
+        );
+        assert!(
+            ((facing_right.x - attacker.x) + (facing_left.x - attacker.x)).abs() < 1e-3,
+            "the mirror is not symmetric"
+        );
+        // ⭐ AND IT DOES NOT DEPEND ON WHERE THE VICTIM IS. A back-side catch is
+        // the same anchor as a front-side one; only the gap differs.
+        assert_eq!(
+            autolink_anchor_world(anchor, attacker, 1.0, DOWN),
+            facing_right,
+            "the anchor is a function of the ATTACKER only"
+        );
+    }
+
+    /// ⛔ AND IT ROTATES WITH THE ATTACKER'S FRAME, not the victim's. Two bodies
+    /// in different gravity is a thing this engine deliberately supports, and
+    /// "toward the feet" means the ATTACKER'S feet.
+    #[test]
+    fn the_anchor_rotates_with_the_attackers_frame() {
+        let attacker = Vec2::new(100.0, 100.0);
+        let anchor = Vec2::new(20.0, 6.0);
+        let upright = autolink_anchor_world(anchor, attacker, 1.0, DOWN);
+        let sideways = autolink_anchor_world(anchor, attacker, 1.0, Vec2::new(1.0, 0.0));
+        assert!(
+            ((upright - attacker).length() - (sideways - attacker).length()).abs() < 1e-2,
+            "rotating the attacker's frame changed the DISTANCE, so the anchor \
+             is being reinterpreted rather than rotated"
+        );
+        assert!(
+            (upright - attacker).dot(sideways - attacker).abs()
+                < (upright - attacker).length_squared() * 0.5,
+            "the rotated anchor points the same way as the upright one, so the \
+             attacker's frame was ignored"
+        );
+    }
+
+    /// ⭐ THE POISON: an ordinary hit is unchanged, and `follow: None` is what
+    /// every existing hit in the tree authors.
     #[test]
     fn an_ordinary_hit_still_resolves_through_the_launch_road() {
         let kb = HitKnockback {
             dir: 1.0,
             magnitude: HitKnockbackMagnitude::LaunchSpeed(200.0),
-            source_pos: Vec2::new(0.0, 0.0),
+            source_pos: Vec2::ZERO,
             impact_pos: Vec2::new(20.0, 0.0),
             launch_dir: Some(Vec2::new(0.0, -1.0)),
             follow: None,
@@ -989,9 +993,6 @@ mod autolink_tests {
             Vec2::ZERO,
             &tuning(),
         );
-        assert!(
-            v.y < -100.0,
-            "an authored up-launcher stopped launching upward: {v:?}"
-        );
+        assert!(v.y < -100.0, "an authored up-launcher stopped launching up");
     }
 }

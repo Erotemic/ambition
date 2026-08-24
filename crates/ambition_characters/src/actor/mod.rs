@@ -105,6 +105,17 @@ impl Invulnerability {
     /// `ambition_combat::moveset::project_move_defense_windows`, so it retracts
     /// when the window closes rather than waiting to be cleared.
     pub const MOVE: u32 = 1 << 3;
+    /// A ruleset is protecting a body that has just RETURNED — the beat after a
+    /// stock is spent.
+    ///
+    /// ⛔⛔ ITS OWN REASON, not [`Self::EMPOWERED`], and the difference is
+    /// ownership. `Empowered` is ONE component: a body cannot hold a power-up's
+    /// grant and a respawn's grant as two independent things, so a respawn that
+    /// borrowed it OVERWROTE whatever the body was already carrying, and ending
+    /// the respawn beat removed the whole component and every semantic in it. A
+    /// reason bit is the type that already solves this — "take or release ONE
+    /// reason, leaving every other reason alone" is what it says of itself.
+    pub const RESPAWN: u32 = 1 << 4;
 
     /// Nothing is holding it.
     pub const fn none() -> Self {

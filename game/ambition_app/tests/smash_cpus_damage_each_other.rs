@@ -90,6 +90,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     // reading that does not say how many happened cannot be compared with one
     // taken under a different economy.
     let mut knockouts = 0usize;
+    let mut respawned_this_tick: Vec<bevy::prelude::Entity> = Vec::new();
     let mut spent_cursor = None;
     for tick in 0..(countdown + TICKS) {
         app.update();
@@ -100,7 +101,36 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     ambition_platformer2d::actor::FighterStockSpent,
                 >>();
             let cursor = spent_cursor.get_or_insert_with(|| messages.get_cursor());
-            knockouts += cursor.read(messages).count();
+            for spent in cursor.read(messages) {
+                knockouts += 1;
+                if !spent.eliminated {
+                    respawned_this_tick.push(spent.body);
+                }
+            }
+        }
+        // ⛔⛔ A RETURNING FIGHTER COMES BACK WITH ITS RECOVERY, checked on the
+        // tick it returns — the only tick where the answer is unambiguous.
+        //
+        // `place_respawning_fighters` resets the body IN THE AIR and runs no
+        // landing-class refresh after it, so whatever the reset leaves is what
+        // the fighter fights the next stock with. Both fresh-construction paths
+        // spelled the jump cluster `..Default::default()`, and Default is the
+        // SPENT state, so a returning fighter could not use the special meant to
+        // save it. Every test that touched the floor first was immediately
+        // correct, which is why this needs the RESPAWN tick specifically.
+        //
+        // ⛔ NOT "any airborne fighter has a recovery": a fighter that has
+        // legitimately spent one is airborne with zero, and a check that could
+        // not tell the two apart would fire on correct play.
+        for body in respawned_this_tick.drain(..) {
+            let jump = world
+                .get::<ambition_platformer2d::engine_core::BodyJumpState>(body)
+                .expect("a respawned fighter is still a body");
+            assert!(
+                jump.recovery_charges > 0,
+                "a fighter came back from a lost stock, in the air, with no \
+                 recovery charge (tick {tick})"
+            );
         }
         let mut seated = 0usize;
         for (seat, health, combat) in world

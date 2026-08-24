@@ -1524,7 +1524,13 @@ fn an_authored_autolink_reaches_the_hit_payload_with_the_attackers_velocity() {
     let follow = kb
         .follow
         .expect("the authored autolink reached the payload");
-    assert_eq!(follow.anchor_local, ae::Vec2::new(18.0, 4.0));
+    // ⭐ RESOLVED, not carried through. The arena's owner sits at (100,100)
+    // facing +1 with gravity down, so an authored `(18, 4)` — 18 forward, 4
+    // toward the attacker's feet — lands at (118, 104). Asserting the WORLD
+    // point is what pins that the producer did the resolution, which is the
+    // whole correction: the victim has neither the attacker's facing nor its
+    // frame and must not be reconstructing this.
+    assert_eq!(follow.anchor_world, ae::Vec2::new(118.0, 104.0));
     assert_eq!(follow.pull, 20.0);
     assert_eq!(
         follow.source_vel, RISE,

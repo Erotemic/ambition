@@ -413,7 +413,7 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                     None => put_bool(&mut bytes, false),
                     Some(follow) => {
                         put_bool(&mut bytes, true);
-                        put_vec2(&mut bytes, follow.anchor_local);
+                        put_vec2(&mut bytes, follow.anchor_world);
                         put_f32(&mut bytes, follow.carry);
                         put_f32(&mut bytes, follow.pull);
                         put_f32(&mut bytes, follow.max_speed);

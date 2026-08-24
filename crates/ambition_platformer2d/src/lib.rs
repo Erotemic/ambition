@@ -299,7 +299,8 @@ pub mod actor {
     /// scoreboard. These are the seam between the two halves.
     pub use ambition_combat::components::FighterStocks;
     pub use ambition_combat::stocks::{
-        BodyKnockedOut, FighterEliminated, FighterStockSpent, RespawnGrace, StocksMatchDecided,
+        retract_respawn_grace_on_removal, tick_respawn_grace, BodyKnockedOut, FighterEliminated,
+        FighterStockSpent, RespawnGrace, StocksMatchDecided,
     };
 
     /// How a body came to exist — ADR 0030's construction provenance.

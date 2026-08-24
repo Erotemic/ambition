@@ -163,13 +163,12 @@ pub fn apply_body_hit_reaction(
     // had. ⛔ crouch-cancel does not scale it: crouching shortens a LAUNCH, and
     // there is nothing here to shorten.
     let launch = match knockback.follow.as_ref() {
-        Some(follow) => ae::hit_response::autolink_velocity(
-            follow,
-            knockback.source_pos,
-            knockback.dir,
-            body_pos,
-            gravity_dir,
-        ),
+        // ⭐ THE VICTIM SIDE ONLY CLOSES A GAP NOW. Where the anchor IS was
+        // resolved by the producer, against the attacker's own facing and frame —
+        // this body has neither, and reconstructing another body's coordinate
+        // system from its own facts is what made a back-side hit mirror the wrong
+        // way.
+        Some(follow) => ae::hit_response::autolink_velocity(follow, body_pos),
         // Crouching reduces launch magnitude; no separate damage threshold applies.
         None => {
             ae::hit_response::knockback_velocity(

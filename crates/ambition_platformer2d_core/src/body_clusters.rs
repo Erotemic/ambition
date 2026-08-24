@@ -726,13 +726,7 @@ pub fn reset_body_clusters(
     // `base_size` is deliberately NOT written: see the note above.
     *clusters.ground = BodyGroundState::uninitialized();
     *clusters.wall = BodyWallState::default();
-    *clusters.jump = BodyJumpState {
-        air_jumps_available: air_jumps,
-        ladder_jump_boost: 0.0,
-        ladder_drop_through_timer: 0.0,
-        ladder_drop_through_hold_lock: false,
-        ..Default::default()
-    };
+    *clusters.jump = BodyJumpState::fresh(air_jumps);
     *clusters.dash = BodyDashState {
         charges_available: dash_charges,
         ..Default::default()
@@ -799,6 +793,37 @@ pub fn refresh_movement_resources_clusters(
 /// Promote it to `AxisLocomotion` beside `air_jumps` when one appears — the
 /// budget is already an integer precisely so that costs nothing.
 pub const DEFAULT_RECOVERY_CHARGES: u8 = 1;
+
+impl BodyJumpState {
+    /// A body that is STARTING — a fresh spawn or a reset — with its air budget
+    /// full.
+    ///
+    /// ⛔⛔ `Default` IS NOT THIS, and must not become it. Default is the SPENT
+    /// state: zero air jumps, zero recoveries, which is what a test wants when it
+    /// says "this body has nothing left". Two construction paths spelled the
+    /// fresh state as `air_jumps_available: n, ..Default::default()` and so
+    /// silently gave every fresh body ZERO recoveries — a stock-respawned fighter
+    /// came back in the air unable to use the special that was supposed to save
+    /// it, because `reset_body_clusters` is followed by no landing-class refresh.
+    ///
+    /// ⇒ ONE initializer, and the cause model reads:
+    ///
+    /// ```text
+    /// fresh body / respawn  full initial budget   (here)
+    /// landing · ledge · capture  refresh           (refresh_movement_resources_clusters)
+    /// ordinary hit          the air dodge only
+    /// ```
+    pub fn fresh(air_jumps_available: u8) -> Self {
+        Self {
+            air_jumps_available,
+            recovery_charges: DEFAULT_RECOVERY_CHARGES,
+            footstool_claimed: false,
+            ladder_jump_boost: 0.0,
+            ladder_drop_through_timer: 0.0,
+            ladder_drop_through_hold_lock: false,
+        }
+    }
+}
 
 /// Authoritative body-shape stance.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1001,13 +1026,7 @@ impl BodyClusterScratch {
             base_size: BodyBaseSize { base_size: body },
             ground: BodyGroundState::default(),
             wall: BodyWallState::default(),
-            jump: BodyJumpState {
-                air_jumps_available: air_jumps,
-                ladder_jump_boost: 0.0,
-                ladder_drop_through_timer: 0.0,
-                ladder_drop_through_hold_lock: false,
-                ..Default::default()
-            },
+            jump: BodyJumpState::fresh(air_jumps),
             dash: BodyDashState {
                 charges_available: dash_charges,
                 cooldown: 0.0,
@@ -1464,5 +1483,53 @@ mod shieldstun_tests {
         };
         spend_shield_on_block(&mut shield, ShieldTuning::OFF, 30);
         assert_eq!(shield.stun_timer, 0.0);
+    }
+}
+
+#[cfg(test)]
+mod fresh_budget_tests {
+    use super::*;
+
+    /// ⛔⛔ `Default` IS THE SPENT STATE, AND A FRESH BODY IS NOT SPENT.
+    ///
+    /// Both fresh-construction paths spelled the jump cluster as
+    /// `air_jumps_available: n, ..Default::default()`, which quietly gave every
+    /// fresh body ZERO recovery charges. It did not show up anywhere that lands:
+    /// the landing-class refresh fills the budget, so any body that touched the
+    /// floor was immediately correct. It shows up on the one road that does NOT
+    /// land — a stock respawn puts the fighter in the AIR and runs no refresh
+    /// after the reset, so the returning fighter's recovery special was refused
+    /// before it had used one.
+    ///
+    /// ⭐ BOTH PATHS, because they were two copies of the same mistake and
+    /// fixing one leaves the other. And `Default` is asserted to still be spent:
+    /// that is what a test means when it says "this body has nothing left", and
+    /// making `Default` full would fix this by breaking that.
+    #[test]
+    fn a_fresh_body_starts_with_its_recovery_and_default_stays_spent() {
+        assert!(
+            DEFAULT_RECOVERY_CHARGES > 0,
+            "poison: with a zero default every assertion here holds trivially"
+        );
+        assert_eq!(
+            BodyJumpState::default().recovery_charges,
+            0,
+            "`Default` stopped meaning SPENT — a fixture that wanted an empty \
+             budget now silently gets a full one"
+        );
+        assert_eq!(
+            BodyJumpState::fresh(2).recovery_charges,
+            DEFAULT_RECOVERY_CHARGES
+        );
+        assert_eq!(BodyJumpState::fresh(2).air_jumps_available, 2);
+
+        // The scratch path: a body built for a test or a fixture is a body that
+        // has just been created, not one that has spent everything.
+        let scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::ZERO, crate::AbilitySet::sandbox_all());
+        assert_eq!(
+            scratch.jump.recovery_charges, DEFAULT_RECOVERY_CHARGES,
+            "a freshly constructed body has no recovery"
+        );
     }
 }

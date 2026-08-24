@@ -1761,17 +1761,22 @@ fn start_and_report(app: &mut App) -> MatchStart {
 
 /// A fighter that just lost a stock comes back UNTOUCHABLE for a moment.
 ///
-/// vulnerable during the first instant of materialization."* The grant is the
-/// engine's generic `Empowered` — the same timed untouchable a star pickup uses,
-/// already rollback-registered — and it is inserted by the RULESET, which is why
-/// the same character in Ambition receives nothing.
+/// vulnerable during the first instant of materialization."*
+///
+/// ⛔⛔ THE GRANT IS THE RULESET'S OWN, NOT A BORROWED `Empowered`. It was the
+/// generic timed empowerment a star pickup uses, and that is a SINGLE component:
+/// granting respawn protection through it OVERWROTE whatever power-up the body
+/// was already carrying, and ending the beat removed the component and every
+/// semantic in it. `RespawnGrace` now carries its own clock and publishes
+/// `Invulnerability::RESPAWN`, a reason bit — which is asserted here rather than
+/// the component, because the reason set is what the damage gate actually reads.
 ///
 /// the second half is the one that keeps this honest: an ELIMINATED fighter
 /// is not placed and must not be protected either. Protecting a body that is
 /// leaving play would be a grant nobody ever takes back.
 #[test]
 fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
-    use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
+    use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2);
@@ -1833,20 +1838,28 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
         }
     }
 
-    let protection = app.world().get::<Empowered>(victim).copied();
-    let protection = protection.expect(
+    let untouchable = |app: &App| {
+        app.world()
+            .get::<BodyHealth>(victim)
+            .expect("a respawned fighter is still a body")
+            .health
+            .invulnerable
+            .holds(Invulnerability::RESPAWN)
+    };
+    assert!(
+        untouchable(&app),
         "a fighter that just lost a stock came back with no protection at all, so \
-         the opponent that took the stock can take the next one at the spawn point",
+         the opponent that took the stock can take the next one at the spawn point"
     );
+    let grace = app
+        .world()
+        .get::<ambition_platformer2d::actor::RespawnGrace>(victim)
+        .copied()
+        .expect("the reason is published by the grant, so the grant must be there");
     assert!(
-        protection.traits.holds(Empowerment::UNTOUCHABLE),
-        "the returning fighter was granted an empowerment that does not make it \
-         untouchable, which is the only trait respawn protection is about"
-    );
-    assert!(
-        protection.remaining.is_some_and(|seconds| seconds > 0.0),
-        "the protection is HELD rather than timed, so nothing expires it and the \
-         fighter is invincible for the rest of the match"
+        grace.remaining > 0.0,
+        "the protection has no time left the moment it is granted, so nothing \
+         expires it in a way a player could read"
     );
 
     // and it wears off. A grant with no end is worse than none.
@@ -1855,12 +1868,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     // against the protection instead of against a frame count.
     let mut updates = 0;
     let expired = loop {
-        if app
-            .world()
-            .get::<Empowered>(victim)
-            .copied()
-            .is_none_or(|later| !later.traits.holds(Empowerment::UNTOUCHABLE))
-        {
+        if !untouchable(&app) {
             break true;
         }
         if updates >= 2_000 {
@@ -1872,7 +1880,18 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     assert!(
         expired,
         "the respawn protection never ended in {updates} updates: {:?}",
-        app.world().get::<Empowered>(victim).copied()
+        app.world()
+            .get::<ambition_platformer2d::actor::RespawnGrace>(victim)
+            .copied()
+    );
+    // ⭐ AND THE GRANT LEFT WITH ITS REASON. A reason bit cleared while the
+    // component that publishes it stays behind would re-arm on the next tick.
+    assert!(
+        app.world()
+            .get::<ambition_platformer2d::actor::RespawnGrace>(victim)
+            .is_none(),
+        "the reason was retracted but the grant that publishes it is still on the \
+         body, so it comes straight back"
     );
 }
 

@@ -79,9 +79,16 @@ impl SnapshotState for crate::stocks::FighterEliminated {
 }
 
 impl SnapshotState for crate::stocks::RespawnGrace {
-    fn encode(&self, _out: &mut Vec<u8>) {}
-    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::stocks::RespawnGrace)
+    // The remaining beat is snapshot state for the same reason every other timer
+    // is: a rewind that restored the protection but not its clock resimulates a
+    // fighter that is safe for the wrong length of time.
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.remaining);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::RespawnGrace {
+            remaining: r.f32()?,
+        })
     }
 }
 

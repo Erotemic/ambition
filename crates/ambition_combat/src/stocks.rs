@@ -7,7 +7,7 @@
 //! completion remain ruleset responsibilities.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Without,
+    Commands, Component, Entity, Message, MessageReader, MessageWriter, On, Query, Res, Without,
 };
 
 use crate::components::FighterStocks;
@@ -45,8 +45,68 @@ pub struct FighterEliminated;
 /// first time a third granter used the same trait.
 ///
 /// ⇒ the ruleset marks what IT gave, and only removes that.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RespawnGrace;
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct RespawnGrace {
+    /// Seconds of protection left. Owned HERE rather than borrowed from an
+    /// `Empowered`, which is the whole correction: `Empowered` is one component,
+    /// so a respawn that granted through it overwrote whatever power-up the body
+    /// was already carrying, and ending the beat removed that component and
+    /// every semantic in it. The invulnerability itself is
+    /// `Invulnerability::RESPAWN`, a reason bit, which retracts alone.
+    pub remaining: f32,
+}
+
+/// Advance every returning fighter's protection, and publish it as a reason.
+///
+/// ⭐ ONE AUTHORITY FOR ONE BEAT: the component's clock decides, the reason bit
+/// is derived from it every tick, and the component leaving is what retracts the
+/// bit. Nothing else writes `Invulnerability::RESPAWN`, so a body that also holds
+/// a power-up, a transformation or an authored invuln window keeps every one of
+/// them through a respawn and past the end of it.
+pub fn tick_respawn_grace(
+    mut commands: Commands,
+    time: Res<ambition_time::WorldTime>,
+    mut bodies: Query<(
+        Entity,
+        &mut RespawnGrace,
+        &mut ambition_characters::actor::BodyHealth,
+    )>,
+) {
+    let dt = time.sim_dt();
+    for (entity, mut grace, mut health) in &mut bodies {
+        grace.remaining -= dt;
+        if grace.remaining <= 0.0 {
+            health
+                .health
+                .invulnerable
+                .set(ambition_characters::actor::Invulnerability::RESPAWN, false);
+            commands.entity(entity).remove::<RespawnGrace>();
+            continue;
+        }
+        health
+            .health
+            .invulnerable
+            .set(ambition_characters::actor::Invulnerability::RESPAWN, true);
+    }
+}
+
+/// Retract the reason when the grace is taken away by something OTHER than its
+/// clock — a swing spending it, or a body being rebuilt.
+///
+/// ⛔ a reason cleared only where the component is removed by hand is a latch
+/// waiting for the second removal site nobody remembers. This is that clearing,
+/// once, keyed on the removal itself.
+pub fn retract_respawn_grace_on_removal(
+    removed: On<bevy::ecs::lifecycle::Remove, RespawnGrace>,
+    mut bodies: Query<&mut ambition_characters::actor::BodyHealth>,
+) {
+    if let Ok(mut health) = bodies.get_mut(removed.entity) {
+        health
+            .health
+            .invulnerable
+            .set(ambition_characters::actor::Invulnerability::RESPAWN, false);
+    }
+}
 
 /// A stock was spent — the ruleset's cue to place a body or end a match.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]

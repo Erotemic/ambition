@@ -65,20 +65,32 @@ poison-verified against the restored early-out.
 `death_restores_the_checkpoint::a_mint_banked_where_it_fell_comes_back_where_it_fell`
 goes red: *"exactly one occurrence must carry `slot:0/0`; found []"*.
 
-⭐⭐ **THE CAUSE IS THAT A "SETTLED" ITEM CREEPS.** Measured both ways at the
-checkpoint: old code `fell_at = (1321.50, 954.83)`, new code
-`(1320.71, 954.83)` — same tick, same throw, **0.8px apart and still moving**. So
-the premise of *"a supported item predicts penetration and remains settled"* is
-FALSE for this item: it rests somewhere `strict_intersects` does not catch, takes
-gravity every tick, and slides. By the room rebuild it is no longer where the
-occurrence road can reinstate it.
+⭐⭐ **THE CAUSE IS THAT THE EARLY-OUT IS HOW AUTHORED PLACEMENT IS HONOURED.**
+Measured after two wrong guesses, by listing every ground item once the room has
+rebuilt:
 
-⇒ **`strict_intersects` is a penetration test, not a SUPPORT test**, and the
-review's *"let collision keep supported items settled"* needs the second one to
-exist. That is the slice: an explicit support fact (or a settle epsilon that
-survives a resting contact), not merely deleting the early-out. ⛔ do not retry
-this by deleting the early-out alone — it has now been measured to fail twice for
-this reason.
+```text
+with the early-out     15 items — the mint at (1321.5, 954.8) plus fourteen
+                       authored placements, all resting at y = 1620
+without it             ZERO. The whole authored population is gone.
+```
+
+⇒ the failing assertion names the mint only because that is what the test asks
+about; the change deletes **every authored item in the room**. An authored item
+is placed AT REST and is not necessarily standing on collision geometry the
+penetration predicate can see, so making it subject to physics from its first
+tick drops it out of the world.
+
+⛔⛔ **AND TWO EARLIER READINGS HERE WERE WRONG — both are corrected above.**
+First: *"a minted item that now MOVES is not where the sweep expects it"* — it
+does not move; its velocity at the checkpoint is exactly `(0, 0)`. Second: *"a
+settled item creeps"* — the 0.8px difference is a ONE-OFF offset from a single
+extra integration tick, not drift. ⇒ a position that differs is not a position
+that is still changing, and the way to tell them apart is to print the VELOCITY.
+
+⇒ the real slice is bigger than the review scoped: giving every in-world item
+gravity requires authored placements to be SUPPORTED (or exempt) first. ⛔ do not
+retry by deleting the early-out alone.
 
 ## The review, verbatim
 

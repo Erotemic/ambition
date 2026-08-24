@@ -5,6 +5,7 @@
 //! [`body_clusters::BodyClusterScratch`] as the non-ECS form of that same state.
 
 pub mod abilities;
+pub mod sim_random;
 pub mod body_clusters;
 pub mod cast;
 pub mod collision_semantics;

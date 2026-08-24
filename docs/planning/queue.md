@@ -157,9 +157,47 @@ that proves nothing. `RespawnGrace` already had the same-body ownership test the
 review specified, and the autolink anchor already resolved through
 `hitbox.facing` / `hitbox.frame_down` at the producer.
 
-- ▢ **D208 — A ROLLBACK SIM HAS NO SHARED SOURCE OF RANDOMNESS, AND A DOZEN
-  GENRE ROWS ARE WAITING BEHIND THAT ONE DECISION.** (opened 2026-08-24, found by
-  sizing `Deterministic match item spawning`)
+- ▢ **D208 — THE SOURCE LANDED; ITS FIRST CUSTOMER HAS NOT.** (opened 2026-08-24,
+  found by sizing `Deterministic match item spawning`; source shipped the same
+  day)
+
+✔ **`ambition_platformer2d_core::sim_random` — AND THE ANSWER WAS TO HAVE NO
+STREAM.** The three questions this row posed (where the seed lives, who may draw
+and in what order, per-match or per-body) all dissolve if a draw is a pure
+function of facts the simulation already rewinds:
+
+```text
+sim_random(domain, tick, salt)  ->  the same u64, on every peer, forever
+```
+
+⇒ nothing to register, nothing to rewind, no consumption to keep in step, and
+**schedule order cannot matter** — the trap `arbitrate_attack_clanks` had to sort
+a query to avoid, dissolved rather than guarded. `domain` keeps two consumers
+drawing on one tick from being handed correlated answers. Weighted draws and
+index draws sit on top; a zero weight is genuinely unreachable, which is what
+lets a rules screen switch an item off without deleting its row.
+
+⛔ **THE FIGHTER BRAIN KEEPS ITS STREAM AND SHOULD** — its noise must not repeat
+within a tick and it carries per-body state that already rewinds. This is for
+*"what does the world do this tick"*, where the tick is the whole context.
+
+⚠ **WHAT IS STILL OPEN IS THE ADOPTER, and the row's own warning applies to
+me**: a source with no consumer is untestable for the only property that matters.
+Its determinism IS tested (it is a pure function), but its API SHAPE has not met
+a real customer. ⇒ the road is traced and the next session should not
+re-discover it:
+
+```text
+crate::items::pickup::held_spec_by_id(id)        id -> HeldItemSpec
+crate::items::pickup::MINTED_ITEM_HALF_EXTENT    the mint's box
+ActorConstructionParams::GroundItem { spec, held }   the transactional road a
+                                                     runtime mint already takes
+```
+
+what remains for the spawner: a ruleset knob (interval + weighted table),
+spawn points declared by the STAGE, and a `SimIdCounter` owner for a match-level
+minter — the pickup road mints under the THROWER, and a spawner has no thrower.
+
 
 ⭐ **THE SIZING IS THE FINDING.** The parity inventory asks for a deterministic
 item spawner, a weighted spawn table and an items-on/off rule as three rows of

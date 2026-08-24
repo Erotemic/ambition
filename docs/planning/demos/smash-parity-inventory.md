@@ -219,10 +219,10 @@ below from it.
 | Aerial command grab | ▢ | M | E1 | Generalize capture eligibility/posture policy; do not duplicate `CapturedBy`. |
 | Hit-grab | ▢ | M | E1 | A normal blockable hitbox whose successful victim hit transitions into generic capture. Shield interaction remains hitbox semantics. |
 | Tether grab | ▢ | M | E1 | Spatial tether feeds the same capture request/eligibility path. |
-| Grab-vs-grab cancellation | ▢ | S/M | E1 | Deterministic simultaneous capture arbitration in the capture domain. |
+| Grab-vs-grab cancellation | ~ | S | E1 | The ARBITRATION ships and is deterministic (`acquire_captures`, `829a7067b`): same-tick attempts are a sorted-greedy MATCHING keyed on captor then victim `SimId`, so no body is ever both captor and captive and the outcome does not depend on message order. What is unshipped is the genre's OUTCOME — a mutual attempt currently resolves ONE edge (lowest `SimId` wins) where Smash cancels both. That is a rules knob on top of a settled arbitration, not new arbitration. |
 | Cargo carry | ▢ | C | E2 | Captor locomotion while `CapturedBy` remains authoritative. Needs one explicit movement/capture contract; do not encode it as repeated captive teleports. |
 | Moving/cargo throws | ▢ | M | E1 | Extend cargo/capture state only after cargo carry exists. |
-| Grab escape / pummel reaction poses | ~ | S | E1 | Capture already knows the state; publish/select the captive-side pose fact rather than adding art first. |
+| Grab escape / pummel reaction poses | ~ | S | — | The FACTS ship: `mirror_capture_into_anim_facts` publishes `held` / `holding` onto `BodyAnimFacts` from the one relation, idempotently so a rollback re-run does not churn change ticks. What is left is ART — `CharacterAnim` has no held row, so a captive currently draws the hurt one. |
 
 ## 7. Character-mechanic primitives worth adding when a fighter needs them
 

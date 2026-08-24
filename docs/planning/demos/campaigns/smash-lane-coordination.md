@@ -10,6 +10,13 @@ restate a slice design.
 
 ## The three seats
 
+⛔⛔ **RETIRED 2026-08-23 BY MAINTAINER DIRECTION.** Jon: *"we are not going to
+use subagents anymore. We are working strictly on main now."* The worktrees and
+branches below no longer exist as a working arrangement — do NOT create them, and
+do not treat a row's SEAT column as a routing instruction. What survives is the
+OWNERSHIP BOUNDARY (which code answers to which concern) and the status table,
+both of which are still the best map of this campaign that exists.
+
 | Seat | Worktree | Branch | Owns |
 |---|---|---|---|
 | MECHANICS | `.worktrees/smash-parity` | `smash-mechanics` | combat/movement/moveset semantics and the facts they publish |
@@ -163,8 +170,8 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | M1 input buffer | MECHANICS | ✔ merged `7d99fae57` |
 | M2 smash charge | MECHANICS | ✔ merged `2ec892149` |
 | M3 invuln/armor windows | MECHANICS | ✔ `36c24ea69` |
-| M4 out-of-shield policy | MECHANICS | ▢ |
-| M5 jab chains | MECHANICS | ▢ |
+| M4 out-of-shield policy | MECHANICS | ✔ shipped — `ShieldTuning::out_of_shield` + `OutOfShield`/`OutOfShieldAction`; the smash `MatchBody` declares `ShieldTuning::PLATFORM_FIGHTER`, which carries `OutOfShield::PLATFORM_FIGHTER`. ⭐ ONE implementation as of `4a70be7e0`: `OutOfShieldGate` lives in the movement kernel and both the kernel and the moveset trigger read it; combat keeps only `rises_out_of_shield`, the direction half |
+| M5 jab chains | MECHANICS | ✔ shipped — `jab_string_continuations()` authored once and pushed into BOTH tables (the shared fighter kit and George's own), because the chain first shipped onto the shared table alone and the headline fighter had no `jab2` at all |
 | P1 launch trail | PRESENTATION | ✔ `882fe8fa5` — `LaunchedBodiesView` publishes involuntary flight; Dust plume behind the velocity vector, sim-tick cadence |
 | P2 i-frame blink | PRESENTATION | ✔ `0c29e9cf0` — `unhittable` on both body read-models is `body_vulnerable` inverted; the hit-flash overlay carries both cues, damage wins |
 | P3 tech/parry cues | PRESENTATION | ✔ tech `1f96165eb` + parry `bbf06b133` — parry flash/chime read `parry_flash_secs`, never `parrying()`; guarded at the publication seam too |
@@ -195,8 +202,8 @@ straight and never teched a knockdown. C1 closes DI and SDI; C2 is tech.
 | C2 CPU tech | COORDINATOR | ✔ — 15–56 techs per 30s match |
 | C4 CPU presses into endlag (`BufferableSoon`) | COORDINATOR | ▢ — needs the buffer window as a perceived fact |
 | P6 the camera cuts when a fighter leaves play | PRESENTATION | ✔ `694366fa6` — the easing WAS the cause; a speed cap now absorbs any size |
-| P7 nobody has SEEN any of this | PRESENTATION | ▢ — an offscreen capture binary for the Smash demo |
-| M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ▢ |
+| P7 nobody has SEEN any of this | PRESENTATION | ✔ `948f8a5fc` + `0401e41ed` — `bin/match_shots` on engine `Display::Offscreen`, and the shots carry the HUD once `HeadlessDisplaySurface` is declared. ⚠ still no TEXT in an offscreen shot; the open suspect is font loading |
+| M10 split `evading()` so a ledge grab is not a dodge | MECHANICS | ✔ shipped — `BodyMotionFacts::ledge_intangible` is a SIBLING of `dodge_rolling`, not a refinement; `evading()` takes both, so everything asking "is this body untouchable" is unchanged while anything that needs to tell an edge from an evade now can |
 | C5 a guard has no home in the situation vocabulary | COORDINATOR | ▢ — see below |
 | C6 the movement scores are a coupled system | COORDINATOR | ▢ — three hand edits, three reverts; see below |
 | C3 CPU charges smashes | COORDINATOR | ✔ `dd6c7e79f` |

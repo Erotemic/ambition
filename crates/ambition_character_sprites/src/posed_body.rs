@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
-use ambition_sprite_sheet::character::sheets::{record_for_target, SpritePosedBody};
+use ambition_sprite_sheet::character::sheets::{record_for_sheet_key, SpritePosedBody};
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 use ambition_combat::components::{ActorRenderSize, ActorSpriteOffset};
@@ -39,7 +39,7 @@ pub fn posed_body_geometry(
     anim: CharacterAnim,
     world_per_pixel: f32,
 ) -> Option<PosedBodyGeometry> {
-    let record = record_for_target(target)?;
+    let record = record_for_sheet_key(target)?;
     let metrics = record.body_metrics.as_ref()?;
     let bbox = metrics.pose_body_bbox(anim)?;
     let frame_w = record.frame_width.max(1) as f32;
@@ -65,7 +65,7 @@ pub fn posed_body_geometry(
 /// The `Idle` pose is the standing body — the same rectangle
 /// [`sync_sprite_posed_bodies`] restores `base_size` to.
 pub fn authored_body_pixel_size(target: &str) -> Option<ae::Vec2> {
-    let record = record_for_target(target)?;
+    let record = record_for_sheet_key(target)?;
     let metrics = record.body_metrics.as_ref()?;
     if !metrics.authored_body {
         return None;

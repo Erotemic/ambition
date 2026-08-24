@@ -123,7 +123,7 @@ pub fn sprite_body_collision_for_character_id_from_data(
     let entry = catalog.characters.get(character_id)?;
     let target = entry.manifest_target()?;
     let spec = sheet_for_character_id_from_data(authored, catalog, character_id)?;
-    let record = sheets::record_for_target(target)?;
+    let record = sheets::record_for_sheet_key(target)?;
     let metrics = record.body_metrics.as_ref()?;
     let (body_w, body_h) = body_pixel_extent(metrics)?;
     let frame_w = record.frame_width.max(1) as f32;

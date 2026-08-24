@@ -32,7 +32,7 @@ pub(crate) use ambition_characters::prepared::{
 pub fn with_engine_vocabularies(mut bindings: CharacterBindings) -> CharacterBindings {
     if !bindings.has_sheet_vocabulary() {
         bindings = bindings
-            .with_available_sheets(ambition_sprite_sheet::character::sheets::available_targets());
+            .with_available_sheets(ambition_sprite_sheet::character::sheets::available_sheet_keys());
     }
     if !bindings.has_portrait_vocabulary() {
         bindings =

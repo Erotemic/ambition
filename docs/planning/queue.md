@@ -666,8 +666,25 @@ purpose, and seating one in an arena means adapting it into a platform fighter.
 simulation with ONE move authority and nothing downstream consults a fallback.
 The field is deleted, not deprecated.
 
-Still open from the review's P2 list: the D175 dual-write bridge and sheet
-product identity.
+◐ **§8e — sheet product identity: the two identities are separated at the
+data.** `BakedIndex::insert` assigned the lookup key by OVERWRITING
+`SheetRecord.target`, which produced *"how do I ask for this sheet"* by
+destroying *"which rig adapter drew it"* — one field asked to hold both. The
+record now carries `key` (the SheetKey: product identity, plus a packed member's
+own name) beside the authored `target`, and the free functions say which they
+mean: `record_for_sheet_key` / `available_sheet_keys`. Both authored and baked
+indexes assign the key by one rule. ⚠ MEASURED before widening the fix: the
+whole tree holds exactly ONE packed product (`creator_lab_props`, 8 members) and
+no member name collides with any file root, so the mixed namespace is a latent
+hazard rather than a live defect. ⇒ what is left is the `product::member`
+spelling and a plural `RigTarget → [SheetKey]` index; neither has a consumer
+today, and building them for a population of one would be machinery.
+
+▢ **D175's dual-write bridge stays a bounded bridge.** `shape_seat_frame`'s own
+doc names the endpoint and the condition for building it — *"when the next input
+change needs the boundary, not as a rewrite for its own sake, and not one client
+later than that"*. Three clients, no fourth wanted, no input customer in this
+pass. Closing the ledger row is not a reason.
 
 ⚠ **and a guard can be green for the wrong reason.** The capture-chain test was
 poisoned by deleting the victim check and stayed GREEN — a chain's second edge is

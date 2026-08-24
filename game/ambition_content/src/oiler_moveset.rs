@@ -1159,7 +1159,7 @@ mod tests {
     #[test]
     fn every_move_names_a_row_the_published_sheet_carries() {
         let record =
-            ambition_platformer2d::sprite_sheet::character::sheets::record_for_target("oiler")
+            ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key("oiler")
                 .expect("Oiler's sheet is baked into the binary");
         let rows: std::collections::BTreeSet<&str> = record
             .rows

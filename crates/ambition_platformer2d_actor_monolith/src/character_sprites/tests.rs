@@ -23,7 +23,7 @@ fn robot_sheet() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec
     sheet_for_character_id("robot").expect("robot catalog row resolves a sheet")
 }
 use ambition_sprite_sheet::character::sheets::{
-    record_for_target, sprite_render_size, try_load_spec_for_target,
+    record_for_sheet_key, sprite_render_size, try_load_spec_for_target,
     try_load_spec_for_target_scaled, SheetTuning,
 };
 use ambition_sprite_sheet::SheetRecord;
@@ -42,14 +42,14 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
         "bob_spritesheet",
         "goblin_spritesheet",
     ] {
-        let Some(base) = record_for_target(target) else {
+        let Some(base) = record_for_sheet_key(target) else {
             continue;
         };
         for (suffix, scale) in [
             ("0_5x", TextureResolutionScale::Half),
             ("potato", TextureResolutionScale::Potato),
         ] {
-            let Some(variant) = record_for_target(&format!("{target}.{suffix}")) else {
+            let Some(variant) = record_for_sheet_key(&format!("{target}.{suffix}")) else {
                 continue;
             };
             checked += 1;

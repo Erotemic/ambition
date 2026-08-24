@@ -277,8 +277,14 @@ fn two_manifests_declaring_one_rig_target_each_keep_their_own_page() {
     );
     // Nothing shadowed anything: they never shared a key.
     assert!(registry.shadowed_targets().is_empty());
-    // And `record.target` now answers "how do I ask for this sheet".
-    assert_eq!(first.target, "pirate_heavy_bess");
+    // ⭐ AND THE TWO IDENTITIES BOTH SURVIVE, which is the point of keeping them
+    // in separate fields: the KEY is how you ask for this sheet, the TARGET is
+    // still the rig that drew it. Assigning the key used to overwrite the rig
+    // target, so the shared authoring fact was destroyed to produce the lookup.
+    assert_eq!(first.key, "pirate_heavy_bess");
+    assert_eq!(first.target, "pirate_heavy");
+    assert_eq!(second.key, "pirate_heavy_broadside");
+    assert_eq!(second.target, "pirate_heavy");
 }
 
 /// A quality-variant RON (`sprites_potato/…`, baked as `<root>.potato` by

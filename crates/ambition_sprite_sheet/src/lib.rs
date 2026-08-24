@@ -31,10 +31,10 @@ pub mod binding;
 pub use binding::{AnimRow, AnimRowRef, BoundAnimRow};
 
 mod frames;
-pub use frames::{AtlasPage, FrameTrim, trimmed_render};
+pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 
 pub mod frame_space;
-pub use frame_space::{FrameToBody, SampledBox, art_is_mirrored, frame_at};
+pub use frame_space::{art_is_mirrored, frame_at, FrameToBody, SampledBox};
 
 pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
@@ -50,9 +50,9 @@ pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePac
 pub mod portrait;
 mod snapshot_impls;
 pub use portrait::{
+    available_portrait_targets, baked_portrait_registry, parse_portrait_manifest,
     PortraitClipRecord, PortraitFrameRect, PortraitSheetManifest, PortraitSheetRegistry,
-    PortraitSheetRegistryPlugin, available_portrait_targets, baked_portrait_registry,
-    parse_portrait_manifest,
+    PortraitSheetRegistryPlugin,
 };
 
 /// One sprite-sheet's metadata as serialized by the generator. Field
@@ -66,9 +66,27 @@ pub use portrait::{
 /// generator emitters don't branch.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SheetRecord {
-    /// Unique target id (matches the generator's `TARGET_NAME`, the
-    /// YAML's `target` field, and the PNG filename root). Use this as
-    /// the key when looking up a sheet.
+    /// THE SHEET KEY — how this record is asked for. Product identity, plus a
+    /// packed member's own name when the product holds several.
+    ///
+    /// ⛔⛔ NOT DESERIALIZED. It is assigned by whoever indexes the record
+    /// ([`index_baked_table`] and `AuthoredSheets::insert_ron`, which agree on
+    /// one rule), because the key is a property of the PRODUCT the record was
+    /// published in and a record cannot know that about itself.
+    #[serde(skip)]
+    pub key: String,
+    /// WHAT THE MANIFEST AUTHORED, and it is not a lookup key.
+    ///
+    /// For an ordinary single-record sheet this is the RIG TARGET — which rig
+    /// adapter drew it — and 48 sheets share five of them (`robot` ×18, `toon`
+    /// ×16, `goblin` ×9, `sandbag` ×3, `ninja` ×2). For a packed atlas it is the
+    /// MEMBER's name, which is product identity. One RON field, two meanings,
+    /// decided by the file's shape — which is exactly why [`Self::key`] exists
+    /// beside it instead of this being overwritten to mean the lookup.
+    ///
+    /// ⛔ ask for a sheet by [`Self::key`]. Keyed by this, *"give me sheet X"*
+    /// is answered by whichever manifest happened to load last: `robot` lost its
+    /// own 256×256 page to `tech_bro_disruptor` that way.
     pub target: String,
     /// PNG filename, relative to the sprites asset dir. May be shared
     /// across multiple records when several targets pack onto the same
@@ -550,7 +568,7 @@ pub struct SheetRegistry {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AmbiguousFileRoot {
     pub file_root: String,
-    /// Every `record.target` in the file, in the order it was authored.
+    /// Every member the file declares, in the order it was authored.
     pub targets: Vec<String>,
 }
 
@@ -559,8 +577,8 @@ impl std::fmt::Display for AmbiguousFileRoot {
         write!(
             f,
             "file root `{}` holds {} records ({}) — it names all of them and \
-             therefore none, so it is NOT indexed by file root. Look this sheet \
-             up by `record.target` instead.",
+             therefore none, so it is NOT indexed by file root. Look each of \
+             these up by its own member key instead.",
             self.file_root,
             self.targets.len(),
             self.targets.join(", "),
@@ -713,15 +731,15 @@ pub(crate) struct BakedIndex {
 }
 
 impl BakedIndex {
-    /// A record enters under `key`, and its `target` is REWRITTEN to that key.
+    /// A record enters under `key`, which becomes its [`SheetRecord::key`].
     ///
-    /// so `record.target` answers *"how do I ask for this sheet"* and
-    /// nothing else. It used to answer *"which rig adapter drew it"*, which is
-    /// an authoring fact 48 sheets share and no lookup wants.
+    /// ⛔ the record's authored `target` is LEFT ALONE. It used to be rewritten
+    /// to the key, which answered *"how do I ask for this sheet"* by destroying
+    /// *"which rig adapter drew it"* — one field cannot hold both, and the
+    /// record now carries them separately.
     fn insert(&mut self, key: String, mut record: SheetRecord) {
         if let Some(prior) = self.sheets.get(&key) {
-            if prior.frame_width != record.frame_width
-                || prior.frame_height != record.frame_height
+            if prior.frame_width != record.frame_width || prior.frame_height != record.frame_height
             {
                 self.shadowed.push(ShadowedTarget {
                     target: key.clone(),
@@ -732,7 +750,7 @@ impl BakedIndex {
                 });
             }
         }
-        record.target = key.clone();
+        record.key = key.clone();
         self.sheets.insert(key, record);
     }
 }

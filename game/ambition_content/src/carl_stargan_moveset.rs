@@ -837,7 +837,7 @@ mod tests {
     #[test]
     fn every_clip_names_a_row_his_sheet_carries() {
         let set = carl_stargan_moveset();
-        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_target(
+        let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(
             "carl_stargan",
         )
         .expect("his sheet is baked into the registry");

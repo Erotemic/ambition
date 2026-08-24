@@ -400,7 +400,7 @@ pub fn animate_props(
 mod tests {
     use super::{generic_feature_anim_owns, FeatureVisualKind};
     use ambition_platformer2d_core::Vec2;
-    use ambition_sprite_sheet::character::sheets::{available_targets, record_for_target};
+    use ambition_sprite_sheet::character::sheets::{available_sheet_keys, record_for_sheet_key};
 
     #[test]
     fn actor_animators_are_not_owned_by_the_generic_feature_idle_loop() {
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one() {
         for left_drawn in ["patent_clerk", "carl_stargan"] {
-            let sheet = record_for_target(left_drawn)
+            let sheet = record_for_sheet_key(left_drawn)
                 .unwrap_or_else(|| panic!("{left_drawn}'s sheet is baked into the sheet table"));
             // The premise, pinned: this really is a LEFT-drawn sheet. Without
             // it the comparison passes for a sheet that never exercised the
@@ -456,7 +456,7 @@ mod tests {
                  (`features.facing: \"west\"`); regenerate the sheet if this is missing"
             );
             for right_drawn in ["goblin_cave_dagger", "noether"] {
-                let other = record_for_target(right_drawn)
+                let other = record_for_sheet_key(right_drawn)
                     .unwrap_or_else(|| panic!("{right_drawn} is baked into the sheet table"));
                 assert!(
                     !other.authored_faces_left,
@@ -481,19 +481,19 @@ mod tests {
     fn every_baked_sheet_is_drawn_pointing_where_its_body_faces() {
         let mut left_drawn: Vec<&str> = Vec::new();
         let mut checked = 0usize;
-        for target in available_targets() {
-            let Some(record) = record_for_target(target) else {
+        for key in available_sheet_keys() {
+            let Some(record) = record_for_sheet_key(key) else {
                 continue;
             };
             checked += 1;
             if record.authored_faces_left {
-                left_drawn.push(target);
+                left_drawn.push(key);
             }
             for facing in [-1.0_f32, 1.0] {
                 assert_eq!(
                     drawn_direction(record.authored_faces_left, facing),
                     facing,
-                    "{target} draws its body pointing away from facing {facing}"
+                    "{key} draws its body pointing away from facing {facing}"
                 );
             }
         }

@@ -26,6 +26,7 @@ fn row(animation: &str, row_index: u32, page: u32, rects: Vec<FrameRect>) -> She
 
 fn record(frame_w: u32, frame_h: u32, rows: Vec<SheetRow>) -> SheetRecord {
     SheetRecord {
+        key: "t".into(),
         target: "t".into(),
         image: "t.png".into(),
         images: vec![],

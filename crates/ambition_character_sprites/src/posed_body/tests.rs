@@ -66,7 +66,7 @@ fn the_quad_placement_puts_the_art_on_the_box() {
     // Recompute that from the manifest independently of the helper so a sign
     // flip in either direction fails here rather than looking plausible on
     // screen.
-    let record = record_for_target(SNAKE).expect("baked snake record");
+    let record = record_for_sheet_key(SNAKE).expect("baked snake record");
     let metrics = record.body_metrics.as_ref().expect("snake body metrics");
     for anim in [CharacterAnim::Idle, CharacterAnim::ShellIdle] {
         let bbox = metrics.pose_body_bbox(anim).expect("pose bbox");
@@ -96,7 +96,7 @@ fn an_unpublished_pose_falls_back_to_the_static_body_box() {
     // overall body bbox rather than vanishing — a body has geometry in every
     // pose, published or not.
     let jump = posed_body_geometry(SNAKE, CharacterAnim::Jump, SCALE).expect("fallback geometry");
-    let record = record_for_target(SNAKE).expect("baked snake record");
+    let record = record_for_sheet_key(SNAKE).expect("baked snake record");
     let bbox = record
         .body_metrics
         .as_ref()
@@ -290,7 +290,7 @@ fn drawn_body_rect(mode: ae::BodyMode, ground: f32) -> (ae::Vec2, ae::Vec2, f32)
         .0;
     // Rebuilt from the manifest rather than from the helper, so a sign flip in
     // either fails here instead of looking plausible on screen.
-    let record = record_for_target(SNAKE).expect("baked snake record");
+    let record = record_for_sheet_key(SNAKE).expect("baked snake record");
     let metrics = record.body_metrics.as_ref().expect("snake body metrics");
     let bbox = metrics
         .pose_body_bbox(CharacterAnim::Idle)

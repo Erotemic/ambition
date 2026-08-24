@@ -534,7 +534,7 @@ mod tests {
     fn v3s_authored_body_box_is_inset_from_his_drawn_silhouette() {
         use ambition_sprite_sheet::character::sheets;
 
-        let record = sheets::record_for_target("player_robot_v3")
+        let record = sheets::record_for_sheet_key("player_robot_v3")
             .expect("v3's spritesheet is baked into the sheet index");
         let metrics = record
             .body_metrics
@@ -630,7 +630,7 @@ mod tests {
                 .sheet
                 .expect("the lineage always names a sheet target");
             assert!(
-                sheets::record_for_target(&sheet).is_some(),
+                sheets::record_for_sheet_key(&sheet).is_some(),
                 "incarnation '{}' names sheet target '{sheet}', which resolves to \
                  nothing — it would draw the marked placeholder",
                 incarnation.id,

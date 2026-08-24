@@ -25,7 +25,7 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use crate::character::sheets::{record_for_target, CharacterSheetSpec, SheetTuning};
+use crate::character::sheets::{record_for_sheet_key, CharacterSheetSpec, SheetTuning};
 
 /// One published FX spritesheet: its manifest target, and the SFX cue family
 /// its rows' sounds were packed under.
@@ -137,7 +137,7 @@ pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
             // A sheet the build did not bake is simply absent — the same
             // degradation as any other missing manifest target, and the pin
             // test below is what says it should never happen for these twelve.
-            let Some(record) = record_for_target(sheet.target) else {
+            let Some(record) = record_for_sheet_key(sheet.target) else {
                 continue;
             };
             for row in &record.rows {
@@ -203,7 +203,7 @@ mod tests {
     fn every_authored_effect_row_is_reachable_by_name() {
         let mut from_sheets: Vec<(&str, &str)> = Vec::new();
         for sheet in FX_SHEETS {
-            let record = record_for_target(sheet.target)
+            let record = record_for_sheet_key(sheet.target)
                 .unwrap_or_else(|| panic!("`{}` is a shipped FX sheet", sheet.target));
             for row in &record.rows {
                 from_sheets.push((row.animation.as_str(), sheet.target));
@@ -222,7 +222,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("`{name}` ships on `{sheet}` and must be addressable"));
             assert_eq!(effect.sheet, *sheet);
             assert_eq!(
-                record_for_target(effect.sheet).unwrap().rows[effect.slot].animation,
+                record_for_sheet_key(effect.sheet).unwrap().rows[effect.slot].animation,
                 *name,
                 "the slot must index the row it names"
             );

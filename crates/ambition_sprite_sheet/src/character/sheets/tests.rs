@@ -358,7 +358,7 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 )]
 fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
     for target in ["patent_clerk", "carl_stargan"] {
-        let base = record_for_target(target)
+        let base = record_for_sheet_key(target)
             .unwrap_or_else(|| panic!("{target}'s sheet is baked into the sheet table"));
         // The premise. Without it the assertions below hold vacuously for a
         // sheet that never exercised the inheritance.

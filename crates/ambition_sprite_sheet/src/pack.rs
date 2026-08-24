@@ -297,6 +297,8 @@ impl SpritePackCatalog {
         }
 
         Some(crate::SheetRecord {
+            // A packed member is asked for by its own name.
+            key: target.to_owned(),
             target: target.to_owned(),
             image: self.pages.first().cloned().unwrap_or_default(),
             images: self.pages.clone(),

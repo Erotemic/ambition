@@ -2,7 +2,7 @@
 
 use super::*;
 
-use ambition_sprite_sheet::character::sheets::record_for_target;
+use ambition_sprite_sheet::character::sheets::record_for_sheet_key;
 
 /// Page-local flat atlas index via the shared frame algebra over the const's
 /// grid-only synthetic record — the same path the runtime takes when no
@@ -38,7 +38,7 @@ fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
     ];
     let mut any_divergent = false;
     for (target, spec) in known_divergent {
-        let Some(record) = record_for_target(target) else {
+        let Some(record) = record_for_sheet_key(target) else {
             continue;
         };
         if spec.frame_width as u64 * record.frame_height as u64
@@ -155,6 +155,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
         })
         .collect();
     ambition_sprite_sheet::SheetRecord {
+        key: "flying_spaghetti_monster_boss".to_string(),
         target: "flying_spaghetti_monster_boss".to_string(),
         image: "flying_spaghetti_monster_boss_spritesheet.png".to_string(),
         images: Vec::new(),
@@ -193,7 +194,7 @@ fn giant_gnu_baked_record_drives_the_packed_pixels() {
     // an alpha-trim/packed sheet. The published record must (a) line up with the
     // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
     // (a multi-page sibling would resolve the wrong page's filename).
-    let record = record_for_target("giant_gnu")
+    let record = record_for_sheet_key("giant_gnu")
         .expect("baked giant_gnu record present (run regen_sprites.sh)");
     assert!(
         record_aligns_with_const(record, &GIANT_GNU_SHEET),

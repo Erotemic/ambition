@@ -17,8 +17,8 @@ use bevy::sprite::Anchor;
 
 use super::anim::CharacterAnim;
 use super::CharacterSpriteAsset;
-use crate::{AtlasPage, NormPoint, SheetRecord};
 pub use crate::{trimmed_render, FrameTrim};
+use crate::{AtlasPage, NormPoint, SheetRecord};
 
 /// One animation row's runtime metadata. The pixel geometry (rects, pages,
 /// trim) lives in the underlying [`SheetRecord`] and is read through the shared
@@ -199,26 +199,34 @@ impl AuthoredSheets {
             return Err(format!("authored sheet '{file_root}' declares no records"));
         }
         let declaration: std::sync::Arc<str> = std::sync::Arc::from(ron);
+        // ⛔ THE SAME KEYING RULE THE BAKED INDEX USES, and it assigns
+        // `SheetRecord::key` rather than overwriting the record's authored
+        // `target`: a single-record file is named by its ROOT (one product, one
+        // page), a packed one by each member's own name.
         let single = records.len() == 1;
         let mut records: Vec<SheetRecord> = records;
-        if single {
-            records[0].target = file_root.to_owned();
+        for record in records.iter_mut() {
+            record.key = if single {
+                file_root.to_owned()
+            } else {
+                record.target.clone()
+            };
         }
 
         let mut fresh = Vec::with_capacity(records.len());
         for record in records {
-            match self.by_target.get(&record.target) {
+            match self.by_target.get(&record.key) {
                 Some(held) if held.origin == file_root && *held.declaration == *declaration => {
                     // Same file, same bytes: idempotent, not a decision.
                 }
                 Some(held) => {
                     return Err(format!(
-                        "authored sheet target '{}' is claimed twice: '{}' declared it \
+                        "authored sheet key '{}' is claimed twice: '{}' declared it \
                          and '{file_root}' redeclares it differently. Two authored \
-                         sheets for one target resolve by plugin-build order, so this \
-                         is refused rather than silently picked — rename one target or \
-                         register only one of the two sheets.",
-                        record.target, held.origin,
+                         sheets for one key resolve by plugin-build order, so this \
+                         is refused rather than silently picked — rename one sheet or \
+                         register only one of the two.",
+                        record.key, held.origin,
                     ));
                 }
                 None => fresh.push(record),
@@ -228,7 +236,7 @@ impl AuthoredSheets {
         let indexed = fresh.len();
         for record in fresh {
             self.by_target.insert(
-                record.target.clone(),
+                record.key.clone(),
                 AuthoredRecord {
                     record,
                     origin: file_root.to_owned(),
@@ -289,7 +297,7 @@ pub fn try_load_spec_for_target_authored(
 ///
 /// ⛔ it holds the SAME keying rule as [`crate::SheetRegistry`] because it calls
 /// it. The two used to hand-roll it separately and disagreed: the registry keyed
-/// by `record.target` and this one by file root, so one shared engine resource
+/// by the record's authored `target` and this one by file root, so one shared engine resource
 /// answered "give me sheet `robot`" with `tech_bro_disruptor`'s page while this
 /// index answered correctly.
 fn record_index() -> &'static HashMap<String, SheetRecord> {
@@ -297,24 +305,26 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
     INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS).sheets)
 }
 
-/// Look up the baked [`SheetRecord`] for a manifest target key — the same
-/// key [`try_load_spec_for_target`] resolves a spec from, so a caller that
-/// has a catalog `manifest_target()` can read the record's generator-emitted
-/// `body_metrics` / frame dims without going through the Bevy
-/// [`SheetRegistry`] resource (works headless / pre-asset-load).
-/// Every baked sheet manifest target, sorted.
+/// Every baked SHEET KEY, sorted — the vocabulary a character's `sheet`
+/// reference resolves against.
 ///
-/// The vocabulary a character's `sheet` reference resolves against. The engine
-/// always knows this — it is baked — so a provider should never have to hand it
-/// over just to have its typo caught.
-pub fn available_targets() -> Vec<&'static str> {
+/// ⛔ these are keys ([`SheetRecord::key`]), never rig targets: a rig target is
+/// which adapter DREW a sheet and 48 sheets share five of them. The engine
+/// always knows this list — it is baked — so a provider should never have to
+/// hand it over just to have its typo caught.
+pub fn available_sheet_keys() -> Vec<&'static str> {
     let mut out: Vec<&'static str> = record_index().keys().map(String::as_str).collect();
     out.sort_unstable();
     out
 }
 
-pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
-    record_index().get(target)
+/// Look up the baked [`SheetRecord`] under a sheet KEY — the same key
+/// [`try_load_spec_for_target`] resolves a spec from, so a caller holding a
+/// catalog's sheet reference can read the record's generator-emitted
+/// `body_metrics` / frame dims without going through the Bevy
+/// [`SheetRegistry`] resource (works headless / pre-asset-load).
+pub fn record_for_sheet_key(key: &str) -> Option<&'static SheetRecord> {
+    record_index().get(key)
 }
 
 /// This body's geometry is authored by its spritesheet, per pose.
@@ -327,7 +337,7 @@ pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
 /// on a hand-guessed rectangle but is not why the seam exists.
 ///
 ///  the DECLARATION lives here and the per-tick derivation does not. This
-/// is two facts about a sheet — which [`record_for_target`] key the boxes come
+/// is two facts about a sheet — which [`record_for_sheet_key`] key the boxes come
 /// from, and how many world units one of its pixels covers — so it belongs to
 /// the crate that owns sheet targets. The pass that resolves the pose and writes
 /// the collision box, sprite quad and quad offset (`sync_sprite_posed_bodies`)
@@ -440,7 +450,7 @@ pub fn try_load_pack_spec_for_target(
     //  without this the Patent Clerk faced the right way from his own sheet
     // and backwards again from the ultrapack — and he is packed at all four
     // tiers, so that is the path most devices actually take.
-    record.authored_faces_left = record_for_target(target)
+    record.authored_faces_left = record_for_sheet_key(target)
         .map(|base| base.authored_faces_left)
         .unwrap_or(false);
     let spec = spec_from_record(&record, tuning);

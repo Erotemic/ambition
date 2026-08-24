@@ -61,7 +61,7 @@ pub(crate) fn row_playback(
     // A regenerated sheet with two rows called `idle` resolves to the first and
     // draws fine, so nothing ever complained — while the second row, and every
     // frame in it, was unreachable.
-    ledger.note_duplicates(&rows, format!("sheet `{}`", record.target));
+    ledger.note_duplicates(&rows, format!("sheet `{}`", record.key));
     let bound = ledger.resolve(&rows, &AnimRowRef::new(animation), declared_by)?;
     let row = record.row(&bound);
     Some(RowPlayback {

@@ -86,6 +86,7 @@ mod tests {
             })
             .collect();
         SheetRecord {
+            key: "mary_o".to_owned(),
             target: "mary_o".to_owned(),
             image: "mary_o_spritesheet.png".to_owned(),
             images: Vec::new(),

@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::character::{build_atlas_layout, record_for_target, RenderBasis};
+use crate::character::{build_atlas_layout, record_for_sheet_key, RenderBasis};
 use crate::SheetRecord;
 use ambition_persistence::settings::VisualQualityBudget;
 
@@ -401,6 +401,8 @@ impl BossSheetSpec {
             })
             .collect();
         SheetRecord {
+            // A synthesized record is asked for by nothing and drew from no rig.
+            key: String::new(),
             target: String::new(),
             image: image.to_string(),
             images: Vec::new(),
@@ -826,7 +828,7 @@ pub fn load_boss_sprite_in(
 /// Derive the published sheet's RON record key (its file root) from the resolved
 /// PNG asset path, e.g. `sprites/flying_spaghetti_monster_boss_spritesheet.png`
 /// → `flying_spaghetti_monster_boss`, or `sprites/gnu_ton_boss/...png` →
-/// `gnu_ton_boss`. This is the key [`record_for_target`]
+/// `gnu_ton_boss`. This is the key [`record_for_sheet_key`]
 /// indexes baked sheets by.
 pub fn boss_ron_target(path: &str) -> Option<&str> {
     let stem = path.rsplit('/').next()?.strip_suffix("_spritesheet.png")?;
@@ -845,7 +847,7 @@ pub fn boss_ron_target(path: &str) -> Option<&str> {
 /// The baked record key for a resolved boss PNG path, carrying the quality
 /// variant suffix when the path lives in a `sprites_<suffix>/` folder. A base
 /// path yields `<stem>`; a variant path yields `<stem>.<suffix>` so
-/// [`record_for_target`] resolves the matching scaled
+/// [`record_for_sheet_key`] resolves the matching scaled
 /// record (whose rects address the resized PNG).
 fn boss_record_key(path: &str) -> Option<String> {
     let stem = boss_ron_target(path)?;
@@ -901,7 +903,7 @@ pub fn load_named_boss_sprite_via_catalog(
                 scale.asset_id_suffix(),
             )?;
             let path = catalog.try_path_for_load(&variant_id)?;
-            let record = record_for_target(boss_record_key(&path)?.as_str())?;
+            let record = record_for_sheet_key(boss_record_key(&path)?.as_str())?;
             record_aligns_with_const(record, &spec).then_some(path)
         });
     let Some(path) = variant_path.or_else(|| catalog.try_path_for_load(&id)) else {
@@ -921,7 +923,7 @@ pub fn load_named_boss_sprite_via_catalog(
     let mut spec = spec;
     let record = boss_record_key(&path)
         .as_deref()
-        .and_then(record_for_target)
+        .and_then(record_for_sheet_key)
         .filter(|record| record_aligns_with_const(record, &spec))
         .map(|record| {
             spec.frame_width = record.frame_width;

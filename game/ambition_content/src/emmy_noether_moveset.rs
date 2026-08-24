@@ -1032,7 +1032,7 @@ mod tests {
     fn every_clip_names_a_row_her_sheet_carries() {
         let set = emmy_noether_moveset();
         let record =
-            ambition_platformer2d::sprite_sheet::character::sheets::record_for_target("noether")
+            ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key("noether")
                 .expect("Emmy's sheet is baked into the registry");
         let rows: std::collections::BTreeSet<&str> =
             record.rows.iter().map(|r| r.animation.as_str()).collect();

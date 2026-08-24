@@ -895,7 +895,7 @@ mod sprite_body_collision_tests {
         let entry = catalog.get(cid).unwrap();
         let target = entry.manifest_target().unwrap();
         let spec = sheet_for_character_id_in(&Default::default(), &catalog, cid).unwrap();
-        let record = sheets::record_for_target(target).unwrap();
+        let record = sheets::record_for_sheet_key(target).unwrap();
         let metrics = record.body_metrics.as_ref().unwrap();
         let (body_w, body_h) = metrics
             .body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)

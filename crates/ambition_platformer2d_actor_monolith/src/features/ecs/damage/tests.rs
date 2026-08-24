@@ -6,9 +6,9 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
+use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -1401,6 +1401,87 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
     );
 }
 
+/// A HIT GIVES A STRUCK ACTOR ITS AIR OPTIONS BACK — the recovery budget.
+///
+/// ⛔ THE RULE EXISTED AND ONLY THE PLAYER ROAD CALLED IT, the same shape as the
+/// ledge hang. The kernel refreshes on ground contact and on a bounce; "and on a
+/// hit" lived on `apply_player_knockback` alone, so in an arena — where the
+/// whole roster is actors — nobody got it. A fighter launched offstage with a
+/// spent double jump had no way back, and its brain reads exactly this number
+/// (`SelfView::air_jumps_left`) to decide whether a recovery is even routable.
+#[test]
+fn a_hit_gives_a_struck_actor_its_air_jump_back() {
+    let mut app = shield_test_app();
+    let victim = spawn_hostile_actor(&mut app);
+    // Airborne with the budget SPENT, which is the state a launched fighter is
+    // in by the time an edge-guard reaches it.
+    {
+        let mut model = app
+            .world_mut()
+            .get_mut::<crate::features::MotionModel>(victim)
+            .expect("the actor carries a motion model");
+        *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
+    }
+    let authored = app
+        .world()
+        .get::<crate::features::MotionModel>(victim)
+        .expect("just written")
+        .air_jumps();
+    assert!(
+        authored > 0,
+        "the fixture's policy authors no air jump, so a refresh restores nothing \
+         and this measures the wrong thing"
+    );
+    {
+        let mut jump = app
+            .world_mut()
+            .get_mut::<ae::BodyJumpState>(victim)
+            .expect("the actor carries the jump cluster");
+        jump.air_jumps_available = 0;
+        let mut dodge = app
+            .world_mut()
+            .get_mut::<ae::BodyDodgeState>(victim)
+            .expect("the actor carries the dodge cluster");
+        dodge.air_dodge_spent = true;
+    }
+
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        target: HitTarget::Body(victim),
+        mode: HitMode::Knockback,
+        knockback: Some(crate::features::HitKnockback {
+            dir: 1.0,
+            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+        }),
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<ae::BodyJumpState>(victim)
+            .expect("the actor carries the jump cluster")
+            .air_jumps_available,
+        authored,
+        "a struck fighter kept its spent air jump, so it cannot recover from the \
+         launch the same hit just gave it"
+    );
+    assert!(
+        !app.world()
+            .get::<ae::BodyDodgeState>(victim)
+            .expect("the actor carries the dodge cluster")
+            .air_dodge_spent,
+        "the air dodge stayed spent through a hit"
+    );
+}
+
 /// A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
 /// called. `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
 /// source-specific formula for a fact about the striker, and one that could only
@@ -1934,9 +2015,9 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
         super::boss_damage_allowed(
             side(
                 &ActorFaction::Boss,
-                Some(&DrivingParticipant(ambition_characters::control::PlayerSlot(
-                    0
-                )))
+                Some(&DrivingParticipant(
+                    ambition_characters::control::PlayerSlot(0)
+                ))
             ),
             side(&ActorFaction::Boss, None),
             ff,

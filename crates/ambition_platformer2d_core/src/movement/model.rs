@@ -431,6 +431,19 @@ impl MotionModel {
         }
     }
 
+    /// This body's authored air-jump budget — the number a refresh restores.
+    ///
+    /// The sibling of [`Self::shield_tuning`], and it exists for the same
+    /// reason: a caller holding the model should not have to know which policy
+    /// keeps the number, and a policy with no air jumps answers `0` rather than
+    /// forcing a match at every site.
+    pub fn air_jumps(&self) -> u8 {
+        match self {
+            Self::AxisSwept(axis) => axis.params.locomotion.air_jumps,
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => 0,
+        }
+    }
+
     /// This body's footstool rules, or [`FootstoolTuning::OFF`] for a policy
     /// that has none. The sibling of [`Self::shield_tuning`].
     pub fn footstool_tuning(&self) -> crate::FootstoolTuning {

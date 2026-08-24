@@ -543,21 +543,30 @@ MEASURED at HEAD, 2026-08-24:
 | rule | player road | actor road |
 | --- | --- | --- |
 | `knock_off_ledge` — a hit takes the hang | ✔ | ✔ **as of `c3d7cdba7`; it was PLAYER-ONLY until then** |
-| `refresh_movement_resources_clusters` — a hit gives the air options back | ✔ | ⛔ **NO** |
+| `refresh_movement_resources_clusters` — a hit gives the air options back | ✔ | ✔ **as of this row's first slice; it was PLAYER-ONLY before** |
 | `safe_respawn_player` / `ClockResetRequest` | ✔ | — (a ruleset owns actor death) |
 | wallet armor | ✔ | partial |
 | `cling_breaks_on_hit` — a struck crawler is peeled off its surface | — | ✔ |
 | `kill_disposition` / respawn timer / KO banner | — | ✔ |
 
-⭐ **THE NEXT ONE IS ALREADY FOUND AND IT IS A FAIRNESS DEFECT.**
+✔ **FIRST SLICE LANDED — the recovery budget.**
 `refresh_movement_resources_clusters` restores air jumps, dash charges and the
 air dodge, and the genre's rule is that being HIT gives them back — that is how a
 launched fighter recovers. The kernel refreshes on ground contact and on a
 bounce; the extra "and on a hit" call exists only on the player road
 (`damage_apply.rs:868`). ⇒ a CPU fighter launched offstage having already spent
 its double jump reads `air_jumps_left: 0`, which is exactly what
-`SelfView::air_jumps_left` calls *"the recovery budget"* — so the brain cannot
+`SelfView::air_jumps_left` calls *"the recovery budget"* — so the brain could not
 route a recovery it would have had as a human. Same stage, same hit, two rules.
+⇒ fixed on the actor road, guarded by `a_hit_gives_a_struck_actor_its_air_jump_back`
+(poisoned and checked), which asserts the authored budget is non-zero first so a
+policy with no air jump cannot make it vacuous. `MotionModel::air_jumps()` is the
+new accessor, a sibling of `shield_tuning()` — a caller holding the model should
+not have to know which policy keeps the number.
+
+⇒ **what is still open is the SHAPE, not this rule.** Two roads still each carry
+their own copy of "what a hit does", and the next one to drift will be found the
+same way: by somebody playing the demo.
 
 ⇒ **the shape of the fix is NOT "call the same six things twice".** Both roads
 already funnel into one reaction; what belongs there is everything that is a fact

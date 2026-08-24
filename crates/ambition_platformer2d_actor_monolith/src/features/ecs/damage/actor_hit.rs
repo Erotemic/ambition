@@ -415,6 +415,25 @@ pub(crate) fn apply_actor_hit(
         // the player. A blocked or armored hit returned above and never reaches
         // here.
         ae::movement::knock_off_ledge(motion_model, em.ledge);
+        // ⭐⭐ A HIT GIVES THE AIR OPTIONS BACK — air jumps, dash charges and
+        // the air dodge. That is the genre's rule and it is how a launched
+        // fighter recovers at all.
+        //
+        // ⛔⛔ AND IT WAS PLAYER-ONLY, which in an arena means it was nobody:
+        // the kernel refreshes on ground contact and on a bounce, and the extra
+        // "and on a hit" call lived on the player damage road alone
+        // (`damage_apply.rs`). A CPU launched offstage having already spent its
+        // double jump read `air_jumps_left: 0` — exactly what
+        // `SelfView::air_jumps_left` calls the recovery budget — so its brain
+        // could not route a recovery a human in the same spot would have had.
+        // Same stage, same hit, two rules. See D203.
+        ae::refresh_movement_resources_clusters(
+            em.abilities,
+            em.dash,
+            em.jump,
+            em.dodge,
+            motion_model.air_jumps(),
+        );
         // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
         // frame-agnostic knockback resolution the player does — side away from
         // the source, rise against ITS gravity — replacing the old inline

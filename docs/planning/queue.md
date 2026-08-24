@@ -1112,9 +1112,31 @@ did not survive that.
 | `shape_seat_frame` dual-writes raw + published | ◐ decision §31; caller-count guard DECLINED as meta-test machinery. 2026-08-22: FROZEN in its own doc instead — migration infrastructure, three clients, no new ones; the staged proposal→confirmed→effective endpoint is written there |
 | control vocabulary accumulating under `brain` | ✔ and it took THREE moves, not one — the review named the seat tables, and following them found the rest. 321 lines (seat identity + its tables), then `ActorControl` (the per-body frame, 96 refs — its own doc argued the move: it is a separate component so a brain swap cannot disturb it), then control AUTHORITY (`ScriptedControl` / `ControlHold(s)` / claim-release-clear, 176 lines, found by following `release_capture`). `brain/mod.rs` is 525 lines and exports NO control-domain name; no migration re-export at any step |
 | `LimbSlot` is a closed enum documented to grow per content | ✔ validated open id (`Copy`, bytewise order, `[a-z0-9_]`); probe key is an FNV hash where an enum cast stood |
-| projectile collision is endpoint-only, first-victim-wins | ▢ recorded beside the bolt ruling; ⚠ one correction — projectiles ARE sorted by spawn sequence, so it is arbitrary arbitration, not a desync |
+| projectile collision is endpoint-only, first-victim-wins | ✔ **MEASURED UNREACHABLE 2026-08-24, see below**; ⚠ one correction — projectiles ARE sorted by spawn sequence, so it is arbitrary arbitration, not a desync |
 | gesture timers read `Res<Time>` under a policy waiver | ✔ `WorldTime::wall_dt()`, plus the `.after(refresh_world_time)` edge the review did not mention: a snapshot has an ordering dependency Bevy's `Time` does not |
 | stale contracts in touched files | ✔ `PlayerMovementIntent` (4 files), possession-as-brain-transfer (3), primary-owns-the-global-frame (2), and four `[[memory links]]` that must never be in the repo |
+
+✔ **THE ENDPOINT-ONLY PROJECTILE COLLISION IS REAL AND NOT REACHABLE — measured
+2026-08-24, so nobody should build a sweep for it.** `step_projectiles` moves the
+shot (`game.tick`) and then tests overlap at the NEW position, so a projectile
+that travels further in one tick than its own width plus the victim's passes
+through. The numbers say it cannot:
+
+```text
+authored projectile speed   360 px/s default, 500 px/s the fastest in the tree
+per tick at 60 Hz           6 px / 8.3 px
+projectile half_extent      12 x 9  (the shipped default)
+victim half-width           8–16
+⇒ combined span             40–56 px against an 8 px step
+```
+
+⛔ and the fastest thing in the tree is not a projectile: `top_speed: 2000.0` is
+SANIC'S BODY. A body that fast (33 px/tick) could in principle pass through a
+stationary 24-px shot — but badniks are contact enemies and nothing on his
+speedway fires, so that pairing is unauthored too. ⇒ same shape as D179(a) and
+the crawler/chain transfer: a correct concern with no reachable case. Reopen when
+content authors a shot above roughly 1,400 px/s, or puts a shooter on a stage a
+2,000 px/s body runs.
 
 ⇒ ⚠ **two of its claims did NOT hold at HEAD**: the projectile loop's comment
 already described the shared victim geometry correctly, and `brain`'s module doc

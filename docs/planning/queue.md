@@ -541,13 +541,13 @@ deterministic MATCHING (no body is ever both captor and captive, and the outcome
 does not depend on message order); empowered i-frames no longer stack the shared
 blink under a character's own presentation.
 
-▢ **OPEN — the bounded match-level impact hitstop.** CPU-vs-CPU connects produce
-local hitlag but no global freeze, because the screen-freeze path runs through a
-`PrimaryPlayer` time intent. A successful connect should emit a BOUNDED
-`ImpactHitstop` request into `ambition_time` arbitration that expires on
-unscaled tick time, so the normal clock wins back automatically. ⛔ no imperative
-`set scale = 0 … remember to set it back` — that lifecycle is where the old
-stuck-at-zero bug came from. Bullet time and blink hold stay participant-scoped.
+▢ **BLOCKED ON A DECISION — the bounded match-level impact hitstop.** Built,
+working, and BACKED OUT: it needs a new rollback-registered match global, which
+trips `rollback-wire-format-is-frozen`. Three findings survive in
+`awaiting-maintainer-decision.md` — it cannot derive from `BodyCombat::hitstop_timer`
+(an actor's timer decays on the clock the freeze stops), it cannot be an
+unregistered wall-clock value (the forced-rollback oracle diverged at frames
+[18,19,20]), and it therefore has to be an integer of TICKS in rollback state.
 
 ▢ **OPEN — the charge pose is DERIVED, not authored.** Every smash in the roster
 takes a global `CHARGE_POSE_FRACTION`, and the validator guards only "strictly

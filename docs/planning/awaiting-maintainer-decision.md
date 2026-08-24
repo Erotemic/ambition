@@ -36,7 +36,42 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — ONE. Everything below this section is a receipt.
+## Open decisions — TWO. Everything below this section is a receipt.
+
+### ▢ The match-level impact hitstop needs a new rollback wire-format type
+
+CPU-versus-CPU connects produce local hitlag on both bodies and NO screen
+freeze: every rung of the clock ladder reads slot zero, so the beat that sells a
+connect is a player-shaped affordance in a game whose fights are frequently
+between two CPUs. A GPT review asked for a bounded match-level freeze; it was
+built, it works, and the engine's own ratchet stopped it at the last step.
+
+**What the implementation established, by measurement rather than argument:**
+
+- ⛔ it CANNOT be derived from `BodyCombat::hitstop_timer`. A player's reaction
+  timers decay on `wall_dt`; an actor's and a boss's decay on `sim_dt`, and a
+  test guards that split. A freeze driven off a CPU's hitstop stops the clock
+  that decays the hitstop — the stuck-at-zero shape this engine has paid for.
+- ⛔ it CANNOT be an unregistered wall-clock value on the camera-shake
+  precedent. A shake writes PRESENTATION; this writes the sim clock, which is
+  the `dt` every body integrates with. The forced-rollback oracle refused it:
+  *"resimulation diverged: checksum mismatch at frames [18, 19, 20]"*.
+- ⇒ it has to be an integer of TICKS in rollback state. Ticks happen whether or
+  not the clock is scaled, so the hold cannot freeze its own expiry, and unlike
+  a wall-clock delta a tick is the same on a replayed frame.
+
+**And that is the decision.** A new rollback-registered match global trips
+`rollback-wire-format-is-frozen`, whose whole purpose is that the wire-format
+set only ever shrinks. The contract says to DELETE or INVERT it rather than
+waive it — which is a deliberate architecture call about whether this engine's
+rollback surface may grow for a feel feature, and it is not mine to make
+quietly. ⚠ the alternative is finding a derivation from already-registered
+state, which the two bullets above are the evidence against.
+
+The work is backed out rather than left half-wired; nothing in the tree depends
+on it. Say which way and it goes back in as one commit.
+
+
 
 ### ▢ George Booul's `bivalence` lost 1.6x, and that was a real number in the match
 

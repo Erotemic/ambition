@@ -861,15 +861,31 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
     // `versus_stage` is where the pad-to-seat hop is guarded.
     let mut played: Vec<String> = Vec::new();
     let mut laps = 0.0f32;
-    for tick in 0..240 {
+    // ⛔ THE PRESS WAITS FOR THE GROUND, and it used to fire on tick 0 flat. The
+    // human is still falling from spawn when this loop starts, so a fixed tick
+    // is a bet on exactly when it lands — and the bet lost the moment anything
+    // changed how long the warm-up takes in sim time (a match-level impact
+    // freeze, here). The press resolved `air_neutral` and the jab string it
+    // came to measure never began, which the failure message read as the CHAIN
+    // being broken.
+    //
+    // ⭐ pressing when standing is also what a player does, and it is what this
+    // test's claim needs: `jab` is the grounded verb.
+    let mut pressed_yet = false;
+    for _ in 0..240 {
+        let standing = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyGroundState>(human)
+            .is_some_and(|g| g.on_ground);
         {
             use ambition_platformer2d::characters::control::{PlayerSlot, SeatRawFrames};
             let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
             let mut frame = raw.get(PlayerSlot(0));
-            frame.attack_pressed = tick == 0;
-            frame.attack_held = true;
+            frame.attack_pressed = standing && !pressed_yet;
+            frame.attack_held = standing || pressed_yet;
             raw.set(PlayerSlot(0), frame);
         }
+        pressed_yet |= standing;
         app.update();
         if let Some(pb) = app.world().get::<MovePlayback>(human) {
             let id = pb.spec.id.clone();
@@ -879,6 +895,7 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
             laps = laps.max(pb.looped_s);
         }
     }
+
 
     for step in ["jab", "jab2", "jab3"] {
         assert!(

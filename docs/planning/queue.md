@@ -3380,9 +3380,22 @@ missing_level_wall GENRE-DEPENDENT — fires on mary_o_1_1 and sanic_speedway
 ✔ **AND THE 30 ERRORS ARE 0, 2026-08-18 — RESOLVED, NOT SUPPRESSED.** Both causes were the validator being handed less than the runtime has: 4 cross-world targets (secondary worlds now default to sibling worlds beside the file, `--no-sibling-worlds` opts out) and 26 unknown entities (`mary_o.entities.json` sits beside the symlink, not the real file — the sidecar search now checks both).
 ⛔⛔ **the default belongs in the LIBRARY, not a CLI parser** — it was in the parser first and `repair` walked past it, so `entity set-field` still failed on errors it was meant to clear. Every entry point (`validate`, `repair`, `repair_and_validate`) now reaches one line.
 
-- ▢ **D162 — REOPENED 2026-08-18: the SheetRegistry dismissal rested on a
-  reporter that never ran, and running it finds THREE real ones.** (was CLOSED
-  2026-08-17, four standing boot warnings triaged)
+- ✔ **D162 — REOPENED 2026-08-18 BECAUSE A REPORTER HAD NEVER RUN; CLOSED AGAIN
+  2026-08-24 with every line of its boot inventory carrying a verdict.** (was
+  first closed 2026-08-17, four standing boot warnings triaged)
+
+⇒ **what closed it:** the sheet half landed under §19's file-root keying (848
+keys, zero shadowed, guarded against the real table); the quasar warning and the
+loading-zone warning are fixed and poison-verified; the redundant schedule edge
+is a stated won't-fix; the 38-neighbour warning was argued and left; and
+`npc_kernel_guide` turned out to be absent BY DESIGN.
+
+⛔ **the two residues are not this row's, and neither is a defect.** The
+`sanic_sandbox` off-grid origin points at D163, which is CLOSED and whose own note
+records the origin as AUTHORED (`world_y: 3000`, spec and world agree) — a
+pointer at a closed row reads as open work, which is what this ledger keeps
+paying for. And the Kernel Guide's `CharacterDefinition` is D56's content call,
+waiting on Jon, with nothing broken while it waits.
 
 ⛔⛔ **"no character id collides" was measured from a silence that meant "I did
 not run."** `report_shadowed_character_sheets` is a `Startup` system;
@@ -3454,14 +3467,14 @@ still reads false. ⇒ a value a diagnostic REPORTS is a bad value to gate it on
 ambition_gameplay` — every line now has a verdict:**
 
 ```text
-sanic_sandbox off-grid Y     ▢ D163 — blocked on §16 (who owns a level's position)
+sanic_sandbox off-grid Y     ✔ AUTHORED, not a defect — D163 closed and says so
 GgrsSchedule redundant edge  ✔ WON'T-FIX — both memberships individually correct
 SheetRegistry robot/goblin/  ✔ CORRECT and newly VISIBLE — the three above; keying is §19
   sandbag
 room has 38 neighbours       ✔ LEAVE IT — warn_once!, names its constant, and its author
                                 argued the case: "a cap that quietly drops work reads as
                                 everything is prefetched"
-npc_kernel_guide             ▢ NEW, and worth someone's attention
+npc_kernel_guide             ⊙ absent BY DESIGN — see below; the residue is D56's
 ```
 
 ⊙ **`NpcSpawn-0017` names `npc_kernel_guide`, and NOT registering it is the

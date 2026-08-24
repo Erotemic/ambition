@@ -13,6 +13,7 @@ pub mod camera_snapshot;
 mod combat_geometry_view;
 mod control_prompt;
 mod dialog_view;
+mod defense_view;
 mod facts;
 pub mod local_view;
 mod pose_view;
@@ -38,6 +39,7 @@ pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
+pub use defense_view::{defense_cue_causes, DefenseCueCauses};
 pub use facts::*;
 pub use local_view::{
     compose_local_views, resolve_view_subjects, spawn_local_view, the_only_view, BoundLocalView,

@@ -120,6 +120,9 @@ impl Plugin for AmbitionExperiencePlugin {
         // occlusion-aware soft framing so the controlled body does not live
         // under a thumb.
         .with_presentation_profiles(profiles::adaptive_platformer())
+        .with_defense_presentation(
+            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        )
         .install(app, ambition_session_world);
     }
 }

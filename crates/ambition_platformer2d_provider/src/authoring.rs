@@ -13,7 +13,8 @@ use ambition_game_shell::{
     PREPARE_CATALOGS_WORK_ID,
 };
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-    ActiveGameplayPresentationProfiles, ActiveHudDeclaration, GameplayPresentationProfileCatalog,
+    ActiveDefensePresentationPolicy, ActiveGameplayPresentationProfiles, ActiveHudDeclaration,
+    DefensePresentationCatalog, DefensePresentationPolicy, GameplayPresentationProfileCatalog,
     GameplayPresentationProfiles, HudDeclaration, HudDeclarationCatalog,
 };
 use ambition_platformer2d_runtime::PreparedPlatformerSource;
@@ -230,6 +231,29 @@ pub fn publish_active_camera_feel(
     }
 }
 
+/// Copy the active route's defense presentation declaration into the resource
+/// the renderer consumes.
+///
+/// The provider owns the route lookup; the renderer sees only the selected
+/// policy and therefore cannot grow game-name branches. A route that declares
+/// nothing gets no shared defense effect — games opt into those cues explicitly.
+pub fn select_active_defense_presentation(
+    router: Res<ambition_game_shell::ShellRouter>,
+    catalog: Option<Res<DefensePresentationCatalog>>,
+    mut active: ResMut<ActiveDefensePresentationPolicy>,
+) {
+    let declared = router
+        .active
+        .as_ref()
+        .zip(catalog.as_deref())
+        .and_then(|(active, catalog)| catalog.get(active.route_id.as_str()))
+        .copied()
+        .unwrap_or_else(DefensePresentationPolicy::none);
+    if active.0 != declared {
+        active.0 = declared;
+    }
+}
+
 /// Copy the active route's declared HUD into the resource the renderer
 /// consumes.
 ///
@@ -272,6 +296,63 @@ fn update_active_hud_declaration(
 mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec;
+
+    #[test]
+    fn defense_presentation_follows_the_active_route_in_a_multi_game_host() {
+        use ambition_game_shell::{
+            ActiveShellExperience, ShellActivationId, ShellExperienceId, ShellRouteId, ShellRouter,
+        };
+
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::DefenseCueCauses;
+
+        let shared = DefensePresentationPolicy::shared_iframe_blink();
+        let empowerment_blinks = shared.with_blink(DefenseCueCauses::EMPOWERED);
+
+        let mut catalog = DefensePresentationCatalog::default();
+        catalog.insert("shared", shared);
+        catalog.insert("empowerment-blinks", empowerment_blinks);
+
+        let active = |route: &str| ActiveShellExperience {
+            activation_id: ShellActivationId(1),
+            route_id: ShellRouteId::new(route),
+            experience_id: ShellExperienceId::new(route),
+            parameters: Default::default(),
+            load_authorization: None,
+            prepared_session: None,
+        };
+
+        let mut app = bevy::app::App::new();
+        app.insert_resource(ShellRouter {
+            active: Some(active("shared")),
+            ..Default::default()
+        })
+        .insert_resource(catalog)
+        .init_resource::<ActiveDefensePresentationPolicy>()
+        .add_systems(bevy::app::Update, select_active_defense_presentation);
+
+        app.update();
+        assert_eq!(
+            app.world().resource::<ActiveDefensePresentationPolicy>().0,
+            shared
+        );
+
+        app.world_mut().resource_mut::<ShellRouter>().active =
+            Some(active("empowerment-blinks"));
+        app.update();
+        assert_eq!(
+            app.world().resource::<ActiveDefensePresentationPolicy>().0,
+            empowerment_blinks,
+            "the previous game's shared-effect policy leaked across the route switch"
+        );
+
+        app.world_mut().resource_mut::<ShellRouter>().active = Some(active("undeclared"));
+        app.update();
+        assert_eq!(
+            app.world().resource::<ActiveDefensePresentationPolicy>().0,
+            DefensePresentationPolicy::none(),
+            "an undeclared route inherited the last gameplay route's defense effects"
+        );
+    }
 
     #[test]
     fn equal_sized_route_huds_still_replace_each_other() {
@@ -401,6 +482,8 @@ pub struct PlatformerExperienceAuthoring {
     /// How this experience wants gameplay framed on the physical display.
     /// `None` keeps the engine default (full-bleed, normal framing).
     pub presentation: Option<GameplayPresentationProfiles>,
+    /// Which shared defense presentation effects this experience opts into.
+    pub defense_presentation: Option<DefensePresentationPolicy>,
     /// What this experience's HUD reads out.
     pub hud: Option<ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration>,
     /// Whether the launcher offers this experience to a player.
@@ -430,6 +513,7 @@ impl PlatformerExperienceAuthoring {
             catalogs,
             loading: None,
             presentation: None,
+            defense_presentation: None,
             hud: None,
             listed: true,
         }
@@ -472,6 +556,14 @@ impl PlatformerExperienceAuthoring {
     /// normal framing, which is what every game got before this existed.
     pub fn with_presentation_profiles(mut self, profiles: GameplayPresentationProfiles) -> Self {
         self.presentation = Some(profiles);
+        self
+    }
+
+    /// Declare which semantic iframe/defense causes opt into the engine's
+    /// shared presentation effects for this experience. Character-owned effects
+    /// remain independent and therefore compose with these cues.
+    pub fn with_defense_presentation(mut self, policy: DefensePresentationPolicy) -> Self {
+        self.defense_presentation = Some(policy);
         self
     }
 
@@ -583,6 +675,12 @@ impl PlatformerExperienceAuthoring {
             app.world_mut()
                 .resource_mut::<GameplayPresentationProfileCatalog>()
                 .insert(self.route_id.clone(), presentation);
+        }
+        if let Some(policy) = self.defense_presentation {
+            app.init_resource::<DefensePresentationCatalog>();
+            app.world_mut()
+                .resource_mut::<DefensePresentationCatalog>()
+                .insert(self.route_id.clone(), policy);
         }
         if let Some(hud) = self.hud.clone() {
             app.init_resource::<HudDeclarationCatalog>();

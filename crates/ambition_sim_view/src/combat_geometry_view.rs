@@ -243,6 +243,7 @@ mod tests {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             strike_sfx: None,
+            autolink: None,
         });
 
         app.update();
@@ -282,6 +283,7 @@ mod tests {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             strike_sfx: None,
+            autolink: None,
         });
 
         app.update();

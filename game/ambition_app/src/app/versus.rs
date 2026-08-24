@@ -672,6 +672,9 @@ pub fn compose_versus_experience(app: &mut App) {
     // shell and activates `VERSUS_GAMEPLAY_ROUTE` by id; nothing it asserts is
     // about the launcher listing it.
     .unlisted()
+    .with_defense_presentation(
+        ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+    )
     .install(app, versus_prepared_session_world);
 
     app.init_resource::<super::versus_rules::VersusMatch>();

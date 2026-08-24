@@ -919,7 +919,7 @@ pub fn publish_smash_hud(
                     stock_icon: Some(STOCK_ICON_ASSET.to_string()),
                     remaining,
                     started,
-                    emphasis: 0.0,
+                    emphasis: *emphasis,
                 },
             ),
         );
@@ -2122,6 +2122,9 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         .entered_at(SMASH_SELECT_ROUTE)
         .with_loading_activity(
             ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
+        )
+        .with_defense_presentation(
+            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());

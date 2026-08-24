@@ -185,6 +185,9 @@ impl Plugin for PocketExperiencePlugin {
         // and every test that drives it activates its route directly — so it
         // loses nothing by not being offered.
         .unlisted()
+        .with_defense_presentation(
+            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        )
         .install(app, pocket_prepared_session_world);
     }
 }

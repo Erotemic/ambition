@@ -18,11 +18,10 @@
 //!   `parrying()` — the window standing open is true of every raised guard for
 //!   a few ticks, and a cue driven off that fires on every shield raise;
 //! - **damage flash**, pure white, held then faded over its `hit_flash` timer;
-//! - **intangibility blink**, a pale pulse for exactly as long as the body
-//!   cannot be struck. It reads the sim's resolved `unhittable` fact, never a
-//!   pose, a move name or an animation row, so it covers every grant the
-//!   damage rule honours — dodge, tech/getup, ledge, respawn protection, the
-//!   i-frames a hit leaves — and gains a new one the day the damage rule does.
+//! - **intangibility blink**, a pale pulse selected by the ACTIVE ROUTE from
+//!   the sim-published semantic causes of untouchability. Games opt causes into
+//!   this shared cue; character-owned effects remain independent, so Mary-O's
+//!   empowerment can draw a quasar while a simultaneous dodge still blinks.
 //! - **smash-charge pulse**, a hot amber that pulses FASTER and brighter as the
 //!   held charge fills, so latched / building / loaded are three readings of
 //!   one number.
@@ -156,6 +155,12 @@ const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
 
 /// Install the material plugin behind the hit-flash overlay.
 pub fn add_hit_flash_material_plugin(app: &mut App) {
+    // Standalone renderer harnesses may not install the provider lifecycle. The
+    // default is deliberately no shared defense effect; a gameplay route opts
+    // into one through its authored presentation policy.
+    app.init_resource::<
+        ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
+    >();
     app.add_plugins(Material2dPlugin::<HitFlashMaterial>::default());
 }
 
@@ -331,6 +336,9 @@ pub fn sync_hit_flash_overlays(
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     // The blink's phase. Sim-derived: see `BLINK_PERIOD_TICKS`.
     tick: Res<ambition_time::SimTick>,
+    defense_policy: Res<
+        ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
+    >,
     // Sim-built read-models (E4 slices 2+5): a feature's flash timer rides
     // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
     // on the SAME entity that carries the sprite.
@@ -394,6 +402,7 @@ pub fn sync_hit_flash_overlays(
             &feature_views,
             &anim_frames,
             &poses,
+            defense_policy.0,
         );
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility.copied());
 
@@ -458,20 +467,11 @@ pub fn cleanup_hit_flash_overlays(
 pub struct OverlayFacts {
     /// Seconds left on the damage flash, if this source has that timer at all.
     pub hit_flash_secs: Option<f32>,
-    /// The body cannot be struck right now. Resolved sim-side from the damage
-    /// rule; presentation never re-derives it.
-    pub unhittable: bool,
-    /// Untouchable for a reason the SHARED overlay owns — i.e. it would still
-    /// be untouchable with empowerment removed.
-    ///
-    /// ⛔⛔ THE BLINK READS THIS, NOT `unhittable`. A character whose own
-    /// presentation already says "untouchable" — Mary-O's quasar — was getting
-    /// the quasar AND this blink stacked on it, because the reason had been
-    /// collapsed to one boolean before it crossed the boundary. Resolved
-    /// sim-side by asking the ONE damage rule again with `EMPOWERED` cleared;
-    /// presentation never re-derives eligibility, and nothing here names a
-    /// character.
-    pub unhittable_beyond_empowerment: bool,
+    /// The active route opted at least one of this body's semantic defense
+    /// causes into the shared i-frame blink. Resolved from the sim-published
+    /// cause mask plus route policy; the renderer does not special-case games,
+    /// characters, or individual invulnerability reasons.
+    pub iframe_blink: bool,
     /// Seconds left on a parry that actually CAUGHT a strike; `0.0` almost
     /// always. Resolved sim-side from `BodyShieldState::parry_caught_timer`.
     ///
@@ -510,6 +510,7 @@ fn overlay_facts_for_source(
     // feature row, so the two indexes are joined on the same feature id here.
     anim_frames: &ambition_sim_view::ActorAnimIndex,
     poses: &Query<&ambition_sim_view::BodyPoseView>,
+    defense_policy: ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy,
 ) -> OverlayFacts {
     // Player path: the entity that carries `PlayerVisual` is the same one
     // that carries the sim-built `BodyPoseView`, so read ITS row —
@@ -517,14 +518,7 @@ fn overlay_facts_for_source(
     if player.is_some() {
         return poses
             .get(source_entity)
-            .map(|p| OverlayFacts {
-                hit_flash_secs: Some(p.hit_flash_secs),
-                parry_flash_secs: p.parry_flash_secs,
-                hit_strength: p.hit_strength,
-                unhittable: p.unhittable,
-                unhittable_beyond_empowerment: p.unhittable,
-                smash_charge: p.smash_charge,
-            })
+            .map(|p| overlay_facts_from_pose(p, defense_policy))
             .unwrap_or_default();
     }
     // Feature path: the facts ride the `FeatureView` row (actors, seated
@@ -535,19 +529,46 @@ fn overlay_facts_for_source(
     };
     let mut facts = feature_views
         .get(feature.id.as_str())
-        .map(|view| OverlayFacts {
-            hit_flash_secs: Some(view.hit_flash_secs),
-            parry_flash_secs: view.parry_flash_secs,
-            hit_strength: view.hit_strength,
-            unhittable: view.unhittable,
-            unhittable_beyond_empowerment: view.unhittable,
-            smash_charge: None,
-        })
+        .map(|view| overlay_facts_from_feature(view, defense_policy))
         .unwrap_or_default();
     facts.smash_charge = anim_frames
         .get(feature.id.as_str())
         .and_then(|frame| frame.smash_charge);
     facts
+}
+
+fn shared_iframe_blink(
+    unhittable: bool,
+    causes: ambition_platformer2d_shared_tangle::gameplay_presentation::DefenseCueCauses,
+    policy: ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy,
+) -> bool {
+    unhittable && policy.resolve(causes).blink
+}
+
+fn overlay_facts_from_pose(
+    pose: &ambition_sim_view::BodyPoseView,
+    policy: ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy,
+) -> OverlayFacts {
+    OverlayFacts {
+        hit_flash_secs: Some(pose.hit_flash_secs),
+        parry_flash_secs: pose.parry_flash_secs,
+        hit_strength: pose.hit_strength,
+        iframe_blink: shared_iframe_blink(pose.unhittable, pose.defense_cues, policy),
+        smash_charge: pose.smash_charge,
+    }
+}
+
+fn overlay_facts_from_feature(
+    view: &ambition_sim_view::FeatureView,
+    policy: ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy,
+) -> OverlayFacts {
+    OverlayFacts {
+        hit_flash_secs: Some(view.hit_flash_secs),
+        parry_flash_secs: view.parry_flash_secs,
+        hit_strength: view.hit_strength,
+        iframe_blink: shared_iframe_blink(view.unhittable, view.defense_cues, policy),
+        smash_charge: None,
+    }
 }
 
 /// The overlay's shader intensity AND colour for one source this frame.
@@ -592,7 +613,7 @@ fn overlay_look(
     if flash > 0.0 {
         return (flash, FLASH_TINT);
     }
-    if facts.unhittable_beyond_empowerment {
+    if facts.iframe_blink {
         return (blink_intensity(tick), BLINK_TINT);
     }
     if let Some(charge) = facts.smash_charge {
@@ -813,52 +834,52 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ AN EMPOWERED BODY DOES NOT GET THE SHARED BLINK ON TOP OF ITS OWN
-    /// PRESENTATION.
-    ///
-    /// A character whose power state already reads as untouchable — Mary-O
-    /// wearing a quasar — was drawing the quasar AND this blink, because
-    /// `unhittable` had collapsed every reason into one boolean before it
-    /// crossed the boundary. Nothing here names Mary-O: the fact is that the
-    /// grant is EMPOWERMENT, and content presentation owns that one.
-    ///
-    /// ⭐ AND THE DEFENSIVE GRANTS ARE UNTOUCHED, which is the half that makes
-    /// this a routing change rather than a deletion. A dodge, a respawn, a tech,
-    /// a move's `Invuln` window — all still blink, and a body that is empowered
-    /// AND dodging blinks too, because the dodge is a reason the shared overlay
-    /// owns and empowerment does not swallow it.
+    /// The renderer receives semantic causes plus the ACTIVE ROUTE policy, not
+    /// a Mary-O-shaped exception boolean. Ordinary iframe policy leaves
+    /// content-owned empowerment alone, while another route may opt that cause
+    /// into the shared blink explicitly.
     #[test]
-    fn empowerment_is_presented_by_its_character_and_defensive_iframes_are_not() {
-        let empowered_only = OverlayFacts {
-            unhittable: true,
-            unhittable_beyond_empowerment: false,
-            ..OverlayFacts::default()
+    fn route_policy_composes_character_owned_empowerment_with_shared_iframes() {
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{
+            DefenseCueCauses, DefensePresentationPolicy,
         };
-        let dodging = OverlayFacts {
+
+        let ordinary_iframes = DefensePresentationPolicy::shared_iframe_blink();
+        let empowerment_blinks = ordinary_iframes.with_blink(DefenseCueCauses::EMPOWERED);
+
+        let mut pose = ambition_sim_view::BodyPoseView {
             unhittable: true,
-            unhittable_beyond_empowerment: true,
-            ..OverlayFacts::default()
+            defense_cues: DefenseCueCauses::EMPOWERED,
+            ..Default::default()
         };
-        let mut blinked_while_empowered = 0;
-        let mut blinked_while_dodging = 0;
-        for tick in 0..BLINK_PERIOD_TICKS * 2 {
-            if overlay_look(empowered_only, tick, None).0 > 0.0 {
-                blinked_while_empowered += 1;
-            }
-            if overlay_look(dodging, tick, None).0 > 0.0 {
-                blinked_while_dodging += 1;
-            }
-        }
-        assert_eq!(
-            blinked_while_empowered, 0,
-            "an empowered body drew the shared i-frame blink over its own \
-             character presentation"
+
+        assert!(
+            !overlay_facts_from_pose(&pose, ordinary_iframes).iframe_blink,
+            "content-owned empowerment was implicitly treated as a shared iframe"
         );
         assert!(
-            blinked_while_dodging > 0,
-            "the defensive i-frame blink stopped happening at all, so this \
-             suppressed the cue instead of routing it"
+            overlay_facts_from_pose(&pose, empowerment_blinks).iframe_blink,
+            "a route cannot explicitly opt empowerment into the shared effect"
         );
+
+        // Add an independent defensive grant on the SAME body. The character-owned
+        // empowerment remains independent while the move iframe opts the shared
+        // blink in.
+        pose.defense_cues = DefenseCueCauses::EMPOWERED.union(DefenseCueCauses::MOVE_IFRAME);
+        let facts = overlay_facts_from_pose(&pose, ordinary_iframes);
+        assert!(facts.iframe_blink);
+        assert!(
+            overlay_look(facts, BLINK_PERIOD_TICKS / 2, None).0 > 0.0,
+            "a content-owned effect swallowed a simultaneous shared iframe cue"
+        );
+
+        // Respawn protection is independently optable as an ordinary iframe.
+        pose.defense_cues = DefenseCueCauses::RESPAWN;
+        assert!(overlay_facts_from_pose(&pose, ordinary_iframes).iframe_blink);
+
+        // Causes do not override the canonical hit-eligibility fact.
+        pose.unhittable = false;
+        assert!(!overlay_facts_from_pose(&pose, ordinary_iframes).iframe_blink);
     }
 
     /// THE PRIORITY, stated once: a body struck out of its own dodge reads as
@@ -870,8 +891,7 @@ mod tests {
             hit_flash_secs: Some(0.2),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: None,
         };
         // Every tick of the blink cycle, including its peak.
@@ -885,8 +905,7 @@ mod tests {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: None,
         };
         let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
@@ -967,8 +986,7 @@ mod tests {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: false,
-            unhittable_beyond_empowerment: false,
+            iframe_blink: false,
             smash_charge: Some(1.0),
         };
         let mid = (CHARGE_PHASE_WRAP / 7) as u64;
@@ -976,8 +994,7 @@ mod tests {
 
         // Intangible while charging — an armoured smash — reads as intangible.
         let intangible_and_charging = OverlayFacts {
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             ..charging
         };
         assert_eq!(
@@ -990,8 +1007,7 @@ mod tests {
             hit_flash_secs: Some(0.2),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: Some(1.0),
         };
         assert_eq!(overlay_look(struck_while_charging, mid, None).1, FLASH_TINT);
@@ -1039,8 +1055,7 @@ mod tests {
             hit_flash_secs: Some(0.2),
             parry_flash_secs: 0.0,
             hit_strength: 0.8,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: Some(0.5),
         };
         let tick = 17;
@@ -1063,8 +1078,7 @@ mod tests {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: Some(0.5),
         };
         assert_eq!(
@@ -1074,8 +1088,7 @@ mod tests {
         );
 
         let pulsing = OverlayFacts {
-            unhittable: false,
-            unhittable_beyond_empowerment: false,
+            iframe_blink: false,
             ..blinking
         };
         assert_eq!(
@@ -1095,8 +1108,7 @@ mod tests {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.0,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: None,
         };
         let (intensity, tint) = overlay_look(parried, 0, None);
@@ -1127,8 +1139,7 @@ mod tests {
             hit_flash_secs: Some(0.2),
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.6,
-            unhittable: false,
-            unhittable_beyond_empowerment: false,
+            iframe_blink: false,
             smash_charge: None,
         };
         assert_eq!(overlay_look(struck_mid_parry, 0, None).1, IMPACT_TINT);
@@ -1143,8 +1154,7 @@ mod tests {
             hit_strength: 0.0,
             // A raised guard inside its parry WINDOW is unhittable, which is
             // exactly the state a cue driven off `parrying()` would fire on.
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: None,
         };
         for tick in 0..BLINK_PERIOD_TICKS * 3 {
@@ -1161,8 +1171,7 @@ mod tests {
             hit_flash_secs: Some(secs),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: false,
-            unhittable_beyond_empowerment: false,
+            iframe_blink: false,
             smash_charge: None,
         }
     }
@@ -1172,8 +1181,7 @@ mod tests {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            unhittable: true,
-            unhittable_beyond_empowerment: true,
+            iframe_blink: true,
             smash_charge: None,
         }
     }

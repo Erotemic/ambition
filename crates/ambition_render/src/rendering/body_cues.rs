@@ -306,7 +306,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             unhittable: false,
-            unhittable_beyond_empowerment: false,
+            defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
             hp_current: 40,
             hp_max: 40,
             training_dummy: false,

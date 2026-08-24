@@ -479,7 +479,49 @@ A small synthetic multihit reliably holds a victim through several separated pul
 
 ---
 
-## W3 — Pointed Polygon rising spin Up-B
+## ✔ W3 — Pointed Polygon rising spin Up-B — SHIPPED 2026-08-24
+
+`polygon_rising_edge` is now **four holding pulses then one launch**, authored
+through a new shared combinator rather than a Polygon-shaped branch:
+
+```text
+multihit(strike(<the finisher, unchanged in character>), 4, Pulse { … })
+
+pulse    2 damage · 0.035 s live · 0.030 s gap · autolink anchor (14, 6)
+         carry 1.0 · pull 22 · max 900
+finisher 7 damage · knockback 88 · growth 1.65 · launch (0.10, -1.0)
+```
+
+⭐ **why the rise needed this at all.** The move was ONE hit on the way up, so it
+either connected once and sent the victim away or missed — the climb had no
+reason to be long. The pulses make the rise the mechanic: each re-aims the victim
+at a point just in front of the spinning fighter, so it comes UP with the move
+and the finisher has something to launch. `carry: 1.0` is not a flourish — this
+fighter rises at 760 px/s and the correction only closes a gap, so anything less
+leaves the victim underneath its own move.
+
+⛔⛔ **THE GAPS ARE LOAD-BEARING, NOT SPACING.** The move runtime's re-hit rule
+lets SEPARATED Active windows strike the same victim again and refuses it across
+a contiguous track — so a multi-hit authored as one long window, or as windows
+that touch, lands exactly ONCE and the mechanic silently does not exist.
+`every_pulse_is_a_separated_window_so_each_one_can_re_hit` is the guard, and it
+is the one that would have caught that.
+
+⭐ **`multihit` is a COMBINATOR over `strike`, not a second builder** — the
+finisher stays an ordinary strike with an ordinary launch and the lead-in is
+inserted in front of it, so a multi-hit cannot drift away from what a plain move
+means. Four guards: the separation above, that the pulses HOLD while only the
+last hit LAUNCHES, that the finisher is pushed BACK by the lead-in rather than
+overwritten (and recovery still reaches the end), and the poison — zero pulses is
+the plain strike, untouched.
+
+⛔ still NOT a capture: each pulse is an ordinary weak hit whose reaction aims
+inward. The victim keeps every verb, can DI, can tech the ending, and falls out
+the moment the pulses stop reaching it.
+
+### Original specification
+
+
 
 ### Intent
 

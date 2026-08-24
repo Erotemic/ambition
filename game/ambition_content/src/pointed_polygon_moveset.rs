@@ -7,13 +7,14 @@
 //! into a heavyweight or projectile character.
 
 use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
+use ambition_characters::moveset_authoring::{committed_tail, impulse, multihit, strike, Pulse};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
+use ambition_platformer2d::entity_catalog::AutolinkVolume;
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 /// Complete sword-fundamentals repertoire: every typed Smash slot plus all four throws.
@@ -240,11 +241,25 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         ImpulseMode::Set,
     );
 
+    // ⭐ THE RISING SPIN: four holding pulses, then one launch.
+    //
+    // It used to be a single hit on the way up, which meant the move either
+    // connected once and sent the victim away or missed entirely — the climb had
+    // no reason to be long. Four autolink pulses make the rise itself the
+    // mechanic: each one re-aims the victim at a point just in front of the
+    // spinning fighter, so it comes UP with the move and the finisher has
+    // something to launch.
+    //
+    // ⛔ NOT a capture. Nothing is held: each pulse is an ordinary weak hit whose
+    // reaction happens to aim inward, and the victim keeps every verb it has —
+    // it can DI, it can tech the ending, and it falls out the moment the pulses
+    // stop reaching it.
     let mut rising_edge = strike(Strike {
         id: "polygon_rising_edge",
         clip: "attack_up",
         startup_s: 0.09,
-        active_s: 0.12,
+        // The FINISHER, unchanged in character: the launch that ends the spin.
+        active_s: 0.10,
         recover_s: 0.20,
         offset: (5.0, -19.0),
         half_extents: (22.0, 27.0),
@@ -255,6 +270,32 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         on_hit: None,
     });
     rising_edge.landing_lag_s = Some(0.25);
+    let rising_edge = multihit(
+        rising_edge,
+        4,
+        Pulse {
+            // Slightly wider than the finisher and centred on the body: the
+            // pulses have to keep reaching a victim that is being carried.
+            offset: (2.0, -12.0),
+            half_extents: (26.0, 30.0),
+            damage: 2,
+            // Separated windows, because the runtime's re-hit rule refuses a
+            // contiguous track — four touching windows would land once.
+            active_s: 0.035,
+            gap_s: 0.030,
+            autolink: AutolinkVolume {
+                // Just in front of the spin and a little below its centre, so
+                // the victim rides at the height the finisher's box covers.
+                anchor: (14.0, 6.0),
+                // The whole of the climb. The correction only closes a gap, and
+                // this fighter is rising at 760 px/s — anything less and the
+                // victim is left underneath its own move.
+                carry: 1.0,
+                pull: 22.0,
+                max_speed: 900.0,
+            },
+        },
+    );
     let up_special = impulse(rising_edge, 0.09, (0.0, -760.0), ImpulseMode::Set);
 
     let grounded_down_special = committed_tail(

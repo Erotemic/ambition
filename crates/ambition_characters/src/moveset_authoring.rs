@@ -22,7 +22,7 @@
 //! RULESET's. That is what lets one table read as Hollow-Knight combat in one
 //! game and a platform fighter in another.
 
-use crate::moveset_prefabs::SLASH_ARC_VFX;
+use crate::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX};
 use ambition_entity_catalog::{
     CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
     MoveGates, MoveSpec, MoveWindow, VolumeShape, WindowTag,
@@ -422,6 +422,104 @@ impl<'a> Strike<'a> {
     }
 }
 
+/// One holding pulse of a multi-hit, authored once and repeated.
+///
+/// Deliberately small: everything a pulse needs that the finisher does not
+/// already state. A pulse is a WEAK hit that holds — the launch is the
+/// finisher's job.
+#[derive(Clone, Copy, Debug)]
+pub struct Pulse {
+    /// Where the pulse's box sits, body-local, and how big it is.
+    pub offset: (f32, f32),
+    pub half_extents: (f32, f32),
+    /// Chip damage. Intermediate pulses are cheap by design — the move is paid
+    /// for by its finisher, and a multi-hit whose pulses hurt is a better move
+    /// than its own ending.
+    pub damage: i32,
+    /// How long one pulse is live, and the GAP before the next one.
+    ///
+    /// ⛔⛔ THE GAP IS LOAD-BEARING, not spacing. The move runtime's re-hit rule
+    /// lets SEPARATED Active windows hit the same victim again and refuses it
+    /// across a contiguous track — so a multi-hit that authored one long window,
+    /// or windows that touch, lands exactly once.
+    pub active_s: f32,
+    pub gap_s: f32,
+    /// The hold itself.
+    pub autolink: ambition_entity_catalog::AutolinkVolume,
+}
+
+/// A MULTI-HIT: `pulses` holding hits, then the strike you pass in as the
+/// finisher.
+///
+/// ⭐ A COMBINATOR over [`strike`], not a second builder — the finisher is an
+/// ordinary strike with an ordinary launch, and this inserts the lead-in in
+/// front of it. That is the genre's shape stated directly: the intermediate hits
+/// keep the victim inside the next box and only the LAST one sends it anywhere.
+///
+/// ⛔ NOT a capture and not a per-character mechanism: what holds the victim is
+/// `HitVolume::autolink` on the pulse volumes, which any move may author.
+pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
+    if pulses == 0 {
+        return m;
+    }
+    let mut m = m;
+    // The lead-in occupies the gap the finisher's Startup already reserves, so a
+    // multi-hit does not silently become slower than the strike it was built
+    // from — the AUTHOR chose that startup and the finisher still owns it.
+    let lead_in = pulses as f32 * (pulse.active_s + pulse.gap_s);
+    let shift = |t: f32| t + lead_in;
+    let finish_start = active_start(&m);
+    for window in &mut m.windows {
+        // Everything from the finisher's Active onward moves back; its Startup
+        // stretches to cover the lead-in instead of being duplicated.
+        if window.start_s >= finish_start {
+            window.start_s = shift(window.start_s);
+            window.end_s = shift(window.end_s);
+        } else {
+            window.end_s = shift(window.end_s);
+        }
+    }
+    m.duration_s = shift(m.duration_s);
+    let mut pulse_windows: Vec<MoveWindow> = Vec::with_capacity(pulses);
+    for index in 0..pulses {
+        let start = finish_start + index as f32 * (pulse.active_s + pulse.gap_s);
+        pulse_windows.push(MoveWindow {
+            start_s: start,
+            end_s: start + pulse.active_s,
+            tag: WindowTag::Active,
+            volumes: vec![HitVolume {
+                shape: VolumeShape::Rect {
+                    offset: pulse.offset,
+                    half_extents: pulse.half_extents,
+                },
+                damage: pulse.damage,
+                // A pulse authors NO launch of its own: the autolink decides the
+                // victim's velocity outright, and a knockback beside it would be
+                // a second answer to one question. The number still feeds the
+                // hitstun the pulse owes.
+                knockback: 1.0,
+                knockback_growth: Some(0.0),
+                launch_dir: None,
+                autolink: Some(pulse.autolink),
+                on_hit: None,
+                vfx: Some(SLASH_POKE_VFX.to_string()),
+                hit_sfx: None,
+            }],
+            motion_scale: 1.0,
+            sustain_effect: None,
+        });
+    }
+    m.windows.append(&mut pulse_windows);
+    // The runtime reads windows in authored order for the sweetspot rule, so the
+    // lead-in must sort before the finisher rather than merely start earlier.
+    m.windows.sort_by(|a, b| {
+        a.start_s
+            .total_cmp(&b.start_s)
+            .then(a.end_s.total_cmp(&b.end_s))
+    });
+    m
+}
+
 pub fn strike(spec: Strike<'_>) -> MoveSpec {
     let Strike {
         id,
@@ -522,5 +620,143 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
+    }
+}
+
+#[cfg(test)]
+mod multihit_tests {
+    use super::*;
+
+    fn finisher() -> MoveSpec {
+        strike(Strike {
+            id: "test_multihit",
+            clip: "attack_up",
+            startup_s: 0.09,
+            active_s: 0.10,
+            recover_s: 0.20,
+            offset: (5.0, -19.0),
+            half_extents: (22.0, 27.0),
+            damage: 7,
+            knockback: 88.0,
+            knockback_growth: 1.65,
+            launch_dir: Some((0.1, -1.0)),
+            on_hit: None,
+        })
+    }
+
+    fn pulse() -> Pulse {
+        Pulse {
+            offset: (2.0, -12.0),
+            half_extents: (26.0, 30.0),
+            damage: 2,
+            active_s: 0.035,
+            gap_s: 0.030,
+            autolink: ambition_entity_catalog::AutolinkVolume {
+                anchor: (14.0, 6.0),
+                carry: 1.0,
+                pull: 22.0,
+                max_speed: 900.0,
+            },
+        }
+    }
+
+    fn actives(m: &MoveSpec) -> Vec<&MoveWindow> {
+        m.windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .collect()
+    }
+
+    /// ⛔⛔ THE GAPS ARE LOAD-BEARING, NOT SPACING. The move runtime's re-hit
+    /// rule lets SEPARATED Active windows strike the same victim again and
+    /// refuses it across a contiguous track — so a multi-hit authored as one long
+    /// window, or as windows that touch, lands exactly ONCE and the whole
+    /// mechanic silently does not exist.
+    #[test]
+    fn every_pulse_is_a_separated_window_so_each_one_can_re_hit() {
+        let m = multihit(finisher(), 4, pulse());
+        let live = actives(&m);
+        assert_eq!(live.len(), 5, "four pulses and one finisher: {live:?}");
+        for pair in live.windows(2) {
+            assert!(
+                pair[1].start_s > pair[0].end_s + 1e-6,
+                "two Active windows touch, so the second cannot re-hit: {:?} then {:?}",
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+
+    /// The pulses HOLD and the finisher LAUNCHES — which is the whole shape, and
+    /// the thing a careless edit inverts.
+    #[test]
+    fn the_pulses_hold_and_only_the_last_hit_launches() {
+        let m = multihit(finisher(), 4, pulse());
+        let live = actives(&m);
+        let (last, leading) = live.split_last().expect("five windows");
+        for window in leading {
+            let volume = &window.volumes[0];
+            assert!(
+                volume.autolink.is_some(),
+                "an intermediate pulse authored no hold, so the victim leaves"
+            );
+            assert!(
+                volume.launch_dir.is_none(),
+                "a pulse authored a launch beside its hold — two answers to one \
+                 question"
+            );
+        }
+        let finish = &last.volumes[0];
+        assert!(
+            finish.autolink.is_none(),
+            "the FINISHER holds instead of launching, so the move never ends"
+        );
+        assert_eq!(finish.launch_dir, Some((0.1, -1.0)));
+        assert_eq!(finish.damage, 7, "the finisher kept its authored payload");
+    }
+
+    /// The finisher moves BACK by the lead-in rather than being overwritten, and
+    /// the move gets longer by exactly that much — a multihit must not silently
+    /// eat its own ending or its recovery.
+    #[test]
+    fn the_finisher_is_pushed_back_and_the_move_grows_by_the_lead_in() {
+        let base = finisher();
+        let m = multihit(base.clone(), 4, pulse());
+        let lead_in = 4.0 * (0.035 + 0.030);
+        assert!(
+            (m.duration_s - (base.duration_s + lead_in)).abs() < 1e-5,
+            "duration {} against {} + {lead_in}",
+            m.duration_s,
+            base.duration_s
+        );
+        let live = actives(&m);
+        let finish = live.last().expect("a finisher");
+        assert!(
+            (finish.start_s - (active_start(&base) + lead_in)).abs() < 1e-5,
+            "the finisher did not move back by the lead-in: {finish:?}"
+        );
+        let recovery: Vec<_> = m
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Recovery))
+            .collect();
+        assert_eq!(recovery.len(), 1, "recovery was duplicated or lost");
+        assert!(
+            (recovery[0].end_s - m.duration_s).abs() < 1e-5,
+            "recovery no longer reaches the end of the move: {:?}",
+            recovery[0]
+        );
+    }
+
+    /// ⭐ THE POISON: zero pulses is the strike it was built from, untouched.
+    /// Without this, a combinator that always inserted something would pass every
+    /// assertion above.
+    #[test]
+    fn a_multihit_of_zero_pulses_is_the_plain_strike() {
+        let base = finisher();
+        let m = multihit(base.clone(), 0, pulse());
+        assert_eq!(m.duration_s, base.duration_s);
+        assert_eq!(m.windows.len(), base.windows.len());
+        assert_eq!(actives(&m).len(), 1);
     }
 }

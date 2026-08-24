@@ -23,14 +23,14 @@ use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
     remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 
 // `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
 // (E2): they are the shared victim-gate predicates every damage EMITTER
@@ -43,7 +43,6 @@ pub use crate::combat::util::scaled_knockback;
 
 // Re-exported here because this is where its consumers learned to name it.
 pub use ae::hit_response::di_adjust;
-
 
 /// Per-body feel values for [`resolve_body_hit`] — how hard the hit reads on
 /// THIS body (blink length, i-frame window), not whether it lands. The player
@@ -92,8 +91,13 @@ pub enum BodyHitResolution {
     Armored,
     /// A wallet-backed shield absorbed the hit before HP/death resolution.
     /// `spent` is the entire positive balance consumed by the resolver.
-    WalletShielded { spent: i32 },
-    Damaged { damage: i32, died: bool },
+    WalletShielded {
+        spent: i32,
+    },
+    Damaged {
+        damage: i32,
+        died: bool,
+    },
 }
 
 /// What the shared resolver DECIDED about one hit, announced so an observer
@@ -237,10 +241,7 @@ pub fn resolve_body_hit(
         .as_deref()
         .map(|health| health.health.invulnerable)
         .unwrap_or_default();
-    let guard = shield
-        .as_ref()
-        .map(|g| *g.state)
-        .unwrap_or_default();
+    let guard = shield.as_ref().map(|g| *g.state).unwrap_or_default();
     if !unstoppable && !crate::combat::util::body_vulnerable(invulnerable, evading, &guard, combat)
     {
         return BodyHitResolution::Ignored;
@@ -482,8 +483,7 @@ pub(crate) fn handle_player_damage_events(
             // mercy invincibility, which is right for the game that authored it
             // and wrong for a fighter — a platform fighter declares `0.0` and
             // leaves repeat protection to the strike's own per-target dedup.
-            damage_invuln_time: feel.knockback_invulnerability_time
-                * feel.hit_repeat_window_scale,
+            damage_invuln_time: feel.knockback_invulnerability_time * feel.hit_repeat_window_scale,
             block_hit_flash: 0.0,
             block_invuln_floor: 0.12,
             armor_hitstop_time: 0.070,
@@ -780,14 +780,10 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
 // here is the PLAYER half: `apply_player_hit_events`, `publish_kernel_reset_death` and
 // `void_pending_player_hits_at_lifecycle_ boundaries` all take
 // `PlayerSafetyState`/`PlayerBodyFrameOutput`, which are the avatar's, not combat's.
-pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
-pub(crate) use ambition_combat::hit_reaction::{hit_response_tuning, VictimStance};
 #[cfg(feature = "causal")]
 pub(crate) use ambition_combat::hit_reaction::BodyReaction;
-
-
-
-
+pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
+pub(crate) use ambition_combat::hit_reaction::{hit_response_tuning, VictimStance};
 
 /// Announce a player-side launch, if anybody is listening.
 ///
@@ -863,14 +859,17 @@ pub(crate) fn apply_player_knockback(
             grounded: clusters.ground.on_ground,
             crouching: clusters.body_mode.body_mode == ae::BodyMode::Crouching,
         },
+        // The refresh used to be a separate call right here, and being the
+        // CALLER's is exactly how the actor and throw roads came to be without
+        // it — see `AirBudget` and D203.
+        Some(ae::AirBudget {
+            abilities: clusters.abilities,
+            dash: &mut clusters.dash,
+            jump: &mut clusters.jump,
+            dodge: &mut clusters.dodge,
+            air_jumps: tuning.air_jumps,
+        }),
         feel,
-    );
-    ae::refresh_movement_resources_clusters(
-        clusters.abilities,
-        &mut *clusters.dash,
-        &mut *clusters.jump,
-        &mut *clusters.dodge,
-        tuning.air_jumps,
     );
     crate::combat::util::emit_hit_feedback(
         sfx,

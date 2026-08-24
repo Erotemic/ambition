@@ -564,9 +564,25 @@ policy with no air jump cannot make it vacuous. `MotionModel::air_jumps()` is th
 new accessor, a sibling of `shield_tuning()` — a caller holding the model should
 not have to know which policy keeps the number.
 
-⇒ **what is still open is the SHAPE, not this rule.** Two roads still each carry
-their own copy of "what a hit does", and the next one to drift will be found the
-same way: by somebody playing the demo.
+✔✔ **AND THE SHAPE IS FIXED FOR THIS RULE — the refresh is no longer anybody's
+to remember.** There were THREE roads, not two: the throw
+(`apply_capture_throws`) had no refresh either, so a thrown fighter could not
+recover from where the captor put it. `ae::AirBudget` borrows the three budgets
+together and `apply_body_hit_reaction` — the one function all three roads already
+called — takes it and refreshes. The player road's separate call is DELETED, and
+the actor and throw roads gained the rule by handing over an argument rather than
+by remembering a line.
+
+⚠ the throw's query now REQUIRES the movement columns, which is production-true
+(`MotionModel`'s own doc: *"absence is not a policy: every integrated body
+carries a variant from spawn"*) and caught two capture fixtures that spawned a
+body without them — repaired to model a real body rather than relaxed to
+`Option`.
+
+⇒ **what is still open is the shape for every OTHER rule.** Two roads still each
+carry their own copy of what a hit does, and the next divergence will be found
+the same way this one was: by somebody playing the demo. The table above is the
+list to keep honest.
 
 ⇒ **the shape of the fix is NOT "call the same six things twice".** Both roads
 already funnel into one reaction; what belongs there is everything that is a fact

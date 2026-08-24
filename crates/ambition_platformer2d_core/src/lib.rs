@@ -38,12 +38,12 @@ pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,
-    ActorSurfaceState, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer, BodyBaseSize,
-    BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem, BodyClusterScratch,
-    BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
-    BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime,
-    BodyMana, BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
-    SweepSample,
+    ActorSurfaceState, AirBudget, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer,
+    BodyBaseSize, BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem,
+    BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState,
+    BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
+    BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyRestarted,
+    BodyShieldState, BodyWallState, SweepSample,
 };
 // TODO(compat-remove): migrate geometry/frame callers to `ambition_geometry`, then remove
 // these extraction-era re-exports from `ambition_platformer2d_core`.

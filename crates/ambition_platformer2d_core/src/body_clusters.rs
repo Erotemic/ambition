@@ -759,6 +759,36 @@ pub fn reset_body_clusters(
 /// the air dodge joined this function rather than getting a reset of its own, and that
 /// placement is the point: "restores on landing" is a rule about a class of resource, not about one
 /// maneuver, and eighteen call sites already know this function is where that class comes back.
+/// The three budgets a body spends in the air, borrowed together so a caller
+/// that owes the refresh can hand them over as ONE argument.
+///
+/// ⭐ IT EXISTS FOR A CARRY LIST THAT DRIFTED. "A hit gives the air options
+/// back" was written at each damage road separately, so the player road had it
+/// and the actor and throw roads did not — and in an arena, where the whole
+/// roster is actors, that meant a launched fighter could not recover. Passing
+/// the budget instead of remembering the call is what makes the rule the
+/// reaction's rather than each caller's (D203).
+pub struct AirBudget<'a> {
+    pub abilities: &'a BodyAbilities,
+    pub dash: &'a mut BodyDashState,
+    pub jump: &'a mut BodyJumpState,
+    pub dodge: &'a mut BodyDodgeState,
+    /// The body's authored air-jump count — `MotionModel::air_jumps()`.
+    pub air_jumps: u8,
+}
+
+impl AirBudget<'_> {
+    pub fn refresh(self) {
+        refresh_movement_resources_clusters(
+            self.abilities,
+            self.dash,
+            self.jump,
+            self.dodge,
+            self.air_jumps,
+        );
+    }
+}
+
 pub fn refresh_movement_resources_clusters(
     abilities: &BodyAbilities,
     dash: &mut BodyDashState,

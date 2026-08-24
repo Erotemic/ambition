@@ -595,6 +595,15 @@ mod tests {
                 ambition_characters::actor::BodyCombat::default(),
                 ae::BodyFlightState::default(),
                 surface_state(1.0),
+                // The movement columns every integrated body carries from
+                // spawn. `MotionModel`'s own doc says absence is not a policy,
+                // and the throw reads the air budget off it — a fixture without
+                // them is not a body the throw system can see.
+                ae::BodyAbilities::default(),
+                ae::BodyDashState::default(),
+                ae::BodyJumpState::default(),
+                ae::BodyDodgeState::default(),
+                ae::MotionModel::axis_swept(ae::AxisSweptParams::default()),
                 SimId::placement(id),
             ))
             .id()
@@ -1009,7 +1018,9 @@ mod tests {
                 .map(|(i, body)| {
                     (
                         i,
-                        app.world().get::<CapturedBy>(*body).map(|h| index(h.captor)),
+                        app.world()
+                            .get::<CapturedBy>(*body)
+                            .map(|h| index(h.captor)),
                     )
                 })
                 .collect()
@@ -2280,6 +2291,14 @@ pub fn apply_capture_throws(
         &mut ambition_platformer2d_core::BodyGroundState,
         Option<&crate::components::CombatTuning>,
         Option<&mut ambition_characters::control::ControlHolds>,
+        // ⭐ THE AIR BUDGET A THROW GIVES BACK. A thrown fighter is airborne by
+        // construction and has to recover from where the captor put it, so it
+        // owes the same refresh any other hit does — see `AirBudget` and D203.
+        &ae::BodyAbilities,
+        &mut ae::BodyDashState,
+        &mut ae::BodyJumpState,
+        &mut ae::BodyDodgeState,
+        &ae::MotionModel,
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
@@ -2297,6 +2316,11 @@ pub fn apply_capture_throws(
             mut ground,
             tuning,
             mut holds,
+            abilities,
+            mut dash,
+            mut jump,
+            mut dodge,
+            motion_model,
         )) = captives
             .iter_mut()
             .find(|(_, held, ..)| held.captor == request.captor)
@@ -2369,6 +2393,13 @@ pub fn apply_capture_throws(
             // thrown body crouch-cancel its own throw would refund the captor
             // the only beat a grab is paid for.
             Default::default(),
+            Some(ae::AirBudget {
+                abilities,
+                dash: &mut dash,
+                jump: &mut jump,
+                dodge: &mut dodge,
+                air_jumps: motion_model.air_jumps(),
+            }),
             feel,
         );
     }

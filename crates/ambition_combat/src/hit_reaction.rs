@@ -55,8 +55,30 @@ pub fn apply_body_hit_reaction(
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     stance: VictimStance,
+    // ⭐⭐ THE AIR OPTIONS A HIT GIVES BACK — jumps, dash charges, the air
+    // dodge. It is the genre's rule and it is how a launched fighter recovers
+    // at all, so it belongs to BEING HIT rather than to whichever road resolved
+    // the hit.
+    //
+    // ⛔⛔ IT USED TO BE THE CALLER'S, AND THE CALLERS DRIFTED. The player
+    // damage road refreshed; the actor road and the throw road did not, so in an
+    // arena — where the whole roster is actors — a fighter launched offstage
+    // with a spent double jump read `air_jumps_left: 0` and its brain could not
+    // route a recovery a human would have had. Handed in as one borrowed budget
+    // so a caller cannot forget it silently (D203).
+    //
+    // `None` for a body with no air budget to speak of — a bare test fixture, or
+    // a policy that authors none.
+    budget: Option<ae::AirBudget<'_>>,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
+    // ⛔ BEFORE THE ARMOR BRANCH BELOW, deliberately: an armoured body keeps its
+    // trajectory and its control, but it was still HIT, and the budget is a
+    // property of having been hit. This is what the player road always did — it
+    // refreshed after the reaction whatever the reaction decided.
+    if let Some(budget) = budget {
+        budget.refresh();
+    }
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
@@ -85,7 +107,14 @@ pub fn apply_body_hit_reaction(
         };
         #[cfg(not(feature = "causal"))]
         {
-            let _ = (di_input_local, body_pos, body_facing, gravity_dir, stance, flight);
+            let _ = (
+                di_input_local,
+                body_pos,
+                body_facing,
+                gravity_dir,
+                stance,
+                flight,
+            );
             return;
         }
     }
@@ -258,6 +287,8 @@ mod super_armor_tests {
             12,
             ae::Vec2::ZERO,
             VictimStance::default(),
+            // No budget: this fixture is about the launch and the stagger.
+            None,
             feel(),
         );
         (vel, flight, combat)

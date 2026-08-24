@@ -206,6 +206,81 @@ pub fn next_playable(current: &str) -> &'static str {
 mod tests {
     use super::*;
 
+    /// ⭐⭐ THE KERNEL GUIDE HAS ITS OWN `CharacterDefinition`, AND NO KIT (D56).
+    ///
+    /// Jon, W8 playtest, closing the decision: *"Kernel Guide gets its own
+    /// `CharacterDefinition`. Character identity is not sprite identity... Do
+    /// not invent a combat kit or capabilities merely to fill the definition."*
+    ///
+    /// ⛔⛔ AND THE SECOND HALF IS THE ONE THIS FILE'S OWN HISTORY DEMANDS.
+    /// `register_declared_cast` excludes exploration NPCs for a stated reason —
+    /// *"a bare registration for an exploration NPC would incorrectly replace
+    /// its archetype-authored body"* — so a registration that arrived carrying a
+    /// body or an ability set would take facts away from the guide rather than
+    /// give it any. It authors identity (its walk, its four health) and states
+    /// NOTHING about what it is made of or what it can do, which is what leaves
+    /// the archetype road in charge of both.
+    ///
+    /// ⭐ MEASURED AGAINST A PEER AND A CONTROL. Alice is a hub NPC that made
+    /// this same migration, so the guide matching her is the claim; the vault
+    /// keeper is a hub NPC that has NOT, so its absence is what proves the
+    /// registration is one character's rather than a rule that swept the hall.
+    #[test]
+    fn the_kernel_guide_authors_an_identity_and_no_combat_kit() {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register(&mut app);
+        crate::player_robot_lineage::register_declared_cast(&mut app);
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        let prepared = app
+            .world()
+            .resource::<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>();
+
+        let guide = prepared
+            .get("npc_kernel_guide")
+            .expect("the Kernel Guide has a CharacterDefinition of its own");
+        assert!(
+            guide.sheet.is_some(),
+            "the guide prepared without a sheet, so its identity cannot draw"
+        );
+        assert_eq!(
+            guide.vitals.max_health,
+            Some(4),
+            "the guide has no health of its own, which is the fallback the \
+             authored road exists to remove"
+        );
+        assert!(
+            guide.locomotion.is_some(),
+            "the guide states no walk, so its body still takes one from an \
+             archetype it no longer needs to ask"
+        );
+
+        // ⛔ THE ABSENCES ARE THE CONTENT.
+        assert!(
+            guide.abilities.is_none(),
+            "a capability set was invented for a tutorial NPC to fill out its \
+             definition, which is the one thing Jon's ruling forbade"
+        );
+        assert!(
+            guide.body.is_none(),
+            "the registration brought a body and therefore REPLACED the \
+             archetype-authored one — the exact failure `register_declared_cast` \
+             excludes exploration NPCs to avoid"
+        );
+
+        // The peer that already made this migration, and the one that has not.
+        let alice = prepared.get("npc_alice").expect("Alice is prepared");
+        assert_eq!(
+            (guide.abilities.is_some(), guide.body.is_some()),
+            (alice.abilities.is_some(), alice.body.is_some()),
+            "the guide prepared differently from the hub NPC it was modelled on"
+        );
+        assert!(
+            prepared.get("npc_vault_keeper").is_none(),
+            "another hub NPC gained a definition too, so this was a rule that \
+             swept the hall rather than one character taking its own identity"
+        );
+    }
+
     /// Practice-target characters may own attack actions, but their autonomous
     /// policy must neither notice nor reach opponents. The count assertion keeps
     /// the invariant non-vacuous if the cast changes.

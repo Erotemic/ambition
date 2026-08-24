@@ -26,6 +26,7 @@ mod npc_exploding_mite;
 mod npc_giant_gnu;
 mod npc_giant_gnu_hands;
 mod npc_goblin_brute;
+mod npc_kernel_guide;
 mod npc_lab_raider;
 mod npc_ninja_shadow_oni_leader;
 mod npc_oiler;
@@ -87,6 +88,9 @@ pub(crate) const AUTHORED_CAST: &[(
     ),
     (&["npc_pirate_admiral"], npc_pirate_admiral::author),
     (&["npc_lab_raider"], npc_lab_raider::author),
+    // The hub NPC that arrived for a different reason than everyone else here —
+    // an IDENTITY rather than a moveset. See its module doc.
+    (&["npc_kernel_guide"], npc_kernel_guide::author),
     (&["npc_salvage_guard"], npc_salvage_guard::author),
     (
         &[

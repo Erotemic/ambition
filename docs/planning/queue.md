@@ -3548,10 +3548,14 @@ spritesheet and manifest, `sprite_tuning`, `default_brain: patrol_peaceful`,
 `default_action_set: peaceful`, its barks and its hall dialogue id; the intro
 road resolves its sheet by id. That is the same road every hub NPC takes.
 
-⚠ what is genuinely left is only D56's question — whether the Kernel Guide
-should author a `CharacterDefinition` of its own, given it *"leaves it blank so
-kernel→goblin keeps its visual gag."* That is a content call and it is Jon's; it
-is not a defect and nothing is broken while it waits.
+✔ **D56 ANSWERED AND BUILT 2026-08-24.** Jon: *"Kernel Guide gets its own
+`CharacterDefinition`. Character identity is not sprite identity... Do not invent
+a combat kit or capabilities merely to fill the definition."* The sheet-borrow
+worry does not arise — a borrowed presentation is the normal mechanism and says
+nothing about who the character IS. `authored/npc_kernel_guide.rs` states its
+walk and its four health and NOTHING about its body or its verbs, which is what
+leaves the archetype road in charge of both; guarded against Alice as the peer
+that already migrated and the vault keeper as the one that has not.
 
 - ✔ **D161 — CLOSED 2026-08-18. No loading zone prints an authoring id any
   more: 130 → 0, and a per-world ratchet in CI keeps it there.** (opened

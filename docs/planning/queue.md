@@ -139,13 +139,14 @@ broad presentation audit. ⛔⛔ *"merely could look nicer → defer."*
   carrying either would REPLACE the archetype-authored body rather than add
   anything. Measured against Alice (migrated) and the vault keeper (not).
 
-⚠ **STATURE (§6) IS THE ONE PIECE OF W8 STILL OPEN, and it is waiting on Jon by
-his own rule.** `ADULT_HEIGHT` must not exist and the cast must not be swept;
-stature is per-character and *"leave ambiguous characters unchanged until
-visually reviewed."* ⇒ nothing has been authored, so **`robot_v3` still does not
-read as shorter than anything** — 38 of 45 remain exactly 48.0, which is the
-state Jon described as wrong. The next step is his: name the characters, or
-approve starting with the few whose fiction is unambiguous.
+✔ **STATURE IS ANSWERED, NOT WAITING — corrected 2026-08-24.** This row said it
+was blocked on Jon; it is not, and `awaiting-maintainer-decision.md` has said so
+since he ruled. ⇒ no adult standard height, `ADULT_HEIGHT` must not exist,
+`robot_v3` ≈ 48 and intentionally short, stature is PER-CHARACTER, and ambiguous
+characters are left alone. ⛔ **a character whose stature nobody can reason about
+is DEFERRED AUTHORING, not an open maintainer decision** — treating it as a
+blocker is how a settled ruling reads as an unfixed bug. What is true is only
+that nothing has been authored yet: 38 of 45 remain exactly 48.0.
 
 ✔ **and the review's three §10 findings are all closed at HEAD, verified
 2026-08-24.** The recovery budget got the road test it was owed (`69a62298a`:

@@ -214,7 +214,35 @@ target had stopped compiling. Swept the whole tier the same day: `cargo test
 --workspace --lib`, 67 targets, all compiling and green. Run it after touching a
 shared type.
 
-## 2026-08-24, LATEST — W8's four findings closed, then six mechanics
+## 2026-08-24, LATEST — ⛔⛔ A REVIEW REOPENED TWO ROWS. READ THE TRIAGE FIRST.
+
+[`triage/gpt-review-2026-08-24-correction-pass.md`](triage/gpt-review-2026-08-24-correction-pass.md)
+is the whole of it, verbatim, with four P0s. **Do not add a parity row until they
+are closed with production-path tests.**
+
+⭐⭐ **THE PATTERN, and it is the thing to carry forward:** several tests proved a
+nearby SURROGATE road rather than the actual production authority. Verified at
+HEAD for the worst one — `arbitrate_attack_clanks` queries
+`With<HitboxLifetime>`, and `advance_move_playback` spawns authored volumes with
+a comment reading *"NO `HitboxLifetime` on purpose"*. ⇒ **no authored Smash
+attack ever entered the clank system**, and every clank test spawned a synthetic
+box carrying the component production refuses. Rows reopened.
+
+```text
+P0-1 clank/rebound never reach authored moves   ▢ VERIFIED; rows reopened
+P0-2 helpless gates movement, not move STARTS   ▢ unverified
+P0-3 sudden death ends on the first non-KO hit  ▢ unverified
+P0-4 zero-velocity items float forever          ▢ unverified
+```
+
+⛔ **THE DISCIPLINE THE NEXT PASS OWES: production-path poison before closing a
+parity row.** A synthetic fixture is not proof of a moveset mechanic.
+
+⚠ and the review preserved the rest: D204's rooting, D205's pogo, D206's Up-B,
+D56, the recovery fix, `RespawnGrace`'s ownership, the defense presentation, and
+`sim_random`'s stateless design are all called good and must not be reopened.
+
+## 2026-08-24 — W8's four findings closed, then six mechanics
 
 Jon played the demo. The full message is
 [`demos/w8-playtest-2026-08-24.md`](demos/w8-playtest-2026-08-24.md) and the most

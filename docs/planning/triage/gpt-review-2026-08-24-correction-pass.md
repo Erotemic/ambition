@@ -39,6 +39,22 @@ P0-4 zero-velocity items float            ▢ pickup/mod.rs:347 `if item.vel == 
 ⛔ **NONE OF THE FOUR IS FIXED YET.** The rows are reopened and the ledger no
 longer lies; the code still does what is described above.
 
+⚠⚠ **P0-4 WAS ATTEMPTED AND REVERTED — read this before trying again.** Removing
+the `vel == ZERO` early-out works for the item itself: a supported item takes one
+tick of gravity, predicts penetration and re-settles without moving, and a test
+covering both halves (midair drop falls; resting item stays) passed and
+poison-verified against the restored early-out.
+
+⛔⛔ **BUT IT BROKE MINT BANKING.**
+`death_restores_the_checkpoint::a_mint_banked_where_it_fell_comes_back_where_it_fell`
+went red: *"exactly one occurrence must carry `slot:0/0`; found []"*. The banking
+pass does NOT read velocity, so the cause is one step further out — a minted item
+that now MOVES is no longer where the occurrence sweep expects it, or is gone by
+the time it looks. ⇒ the early-out is load-bearing for something beyond physics,
+and the review's *"just step every item"* is right in shape but incomplete: the
+sibling road that decides an object has COME TO REST has to be settled in the
+same slice. Reverted rather than shipped red.
+
 ## The review, verbatim
 
 There is a lot of good work here, but I would stop the agent from advancing the

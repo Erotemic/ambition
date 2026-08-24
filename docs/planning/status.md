@@ -39,6 +39,32 @@ W5  respawn release      swinging SPENDS the respawn protection. It was a flat
                          Schema 78→79
 ```
 
+⛔⛔ **AND A CORRECTION PASS FOLLOWED (second GPT review), whose three findings
+share ONE shape — read this before adding a feature, not after.**
+
+```text
+state initialized by a later INCIDENTAL event
+    recovery_charges came from the landing refresh; `Default` is the SPENT
+    state and both fresh-construction paths spelled fresh as
+    `..Default::default()`. Invisible because anything that LANDED was right.
+
+a grant claiming ownership it does not STRUCTURALLY have
+    respawn protection borrowed `Empowered` — ONE component — so granting it
+    overwrote the body's power-up and ending the beat removed every semantic
+    in it. A marker cannot make a single slot into two grants.
+
+a coordinate system rebuilt from the WRONG BODY'S facts
+    autolink resolved its ATTACKER-local anchor from the VICTIM'S away-side
+    and the VICTIM'S gravity. They coincide in the ordinary case.
+```
+
+⇒ ⭐⭐ **each was green under a test that looked reasonable**, and for the same
+reason: the fixture could not reach the case the claim was about — two DIFFERENT
+bodies for an ownership claim about ONE, front-contact same-gravity for a frame
+claim, anything-that-lands for a budget filled by landing. **Ask what the fixture
+would have to look like for the claim to be FALSE, and check the fixture is
+that.**
+
 ⛔⛔ **THE TWO TRAPS WORTH CARRYING OFF THAT WORK.** (1) In a multi-hit the GAPS
 between Active windows are load-bearing, not spacing: the runtime's re-hit rule
 refuses a contiguous track, so touching windows land ONCE and the mechanic

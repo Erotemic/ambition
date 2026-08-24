@@ -742,6 +742,14 @@ pub struct MatchBody {
     /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
     /// unlimited guard an exploration body keeps.
     pub shield: crate::ShieldTuning,
+    /// See [`MovementTuning::crouch_speed_frac`] — what a crouching fighter may
+    /// do with the stick, as a fraction of its top speed.
+    ///
+    /// ⭐ A MATCH FACT rather than a character one. What a crouch costs is a
+    /// rule of the STAGE, the same way `crouch_cancel_scale` is: one fighter
+    /// crawling while another is planted would be a per-character mechanic
+    /// nobody authored.
+    pub crouch_speed_frac: f32,
     /// Whether a body may be stood on, and what it costs both parties.
     /// [`crate::FootstoolTuning::OFF`] — the engine default — is a world where
     /// heads are not platforms.
@@ -771,6 +779,7 @@ impl MatchBody {
             sdi_step: self.sdi_step,
             shield: self.shield,
             footstool: self.footstool,
+            crouch_speed_frac: self.crouch_speed_frac,
             ..base
         }
     }
@@ -801,6 +810,7 @@ mod tests {
             sdi_step: 3.0,
             shield: crate::ShieldTuning::PLATFORM_FIGHTER,
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
+            crouch_speed_frac: 1.0,
         };
         let played = stage.over(brought);
 

@@ -33,6 +33,12 @@ fn default_air_stop_assist() -> f32 {
 /// first thing that had to know the difference.
 pub const RUN_COMMIT_FRAC: f32 = 0.55;
 
+/// Serde default for [`LocomotionTuning::crouch_speed_frac`]: FREE, which is
+/// exactly what every body did before the field existed.
+fn default_crouch_speed_frac() -> f32 {
+    1.0
+}
+
 fn default_run_commit_frac() -> f32 {
     RUN_COMMIT_FRAC
 }
@@ -334,6 +340,22 @@ pub struct MovementTuning {
     /// only at full tilt; `0.0` would call a standstill a run.
     #[serde(default = "default_run_commit_frac")]
     pub run_commit_frac: f32,
+    /// What a CROUCHING body may do with the stick, as a fraction of its top
+    /// speed. `0.0` = a crouch plants you; `1.0` = crouching costs nothing.
+    ///
+    /// ⭐⭐ THE GENRE'S ANSWER IS "NOT MUCH", and it is research rather than a
+    /// feel call: in every Smash, crouching STOPS you outright unless the
+    /// character has a crawl, and a crawl is a slow shuffle. The trade is the
+    /// point — a crouch shrinks your hurtbox and shortens a launch
+    /// (`crouch_cancel_scale`), and what pays for that is your mobility.
+    ///
+    /// ⛔⛔ IT DEFAULTED TO FREE, and nothing said so. Measured 2026-08-24: the
+    /// movement kernel read `BodyMode` only for `Climbing`, so `Crouching` never
+    /// reached the locomotion law and a crouching fighter ran at full speed
+    /// while keeping both defensive benefits. `1.0` is kept as the ENGINE
+    /// default so no Ambition room changes; a platform fighter declares its own.
+    #[serde(default = "default_crouch_speed_frac")]
+    pub crouch_speed_frac: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -629,6 +651,10 @@ pub struct AxisLocomotion {
     pub max_air_speed: f32,
     /// See [`MovementTuning::run_commit_frac`].
     pub run_commit_frac: f32,
+    /// See [`MovementTuning::crouch_speed_frac`]. `1.0` = crouching is free,
+    /// which is what every body did before this field existed.
+    #[serde(default = "default_crouch_speed_frac")]
+    pub crouch_speed_frac: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -1014,6 +1040,7 @@ impl MovementTuning {
                 max_run_speed: self.max_run_speed,
                 max_air_speed: self.max_air_speed,
                 run_commit_frac: self.run_commit_frac,
+                crouch_speed_frac: self.crouch_speed_frac,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -1094,6 +1121,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // Zero inherits the ground run-speed cap.
     max_air_speed: 0.0,
     run_commit_frac: RUN_COMMIT_FRAC,
+    crouch_speed_frac: 1.0,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,

@@ -227,6 +227,14 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         sdi_step: 3.0,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
         footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
+        // A CROUCH PLANTS YOU. The genre's answer, and research rather than a
+        // feel call: in every Smash, crouching stops you outright unless the
+        // character has a crawl. What pays for the smaller hurtbox and the
+        // shortened launch (`crouch_cancel_scale: 0.85` above) is your mobility,
+        // and before this a crouching fighter kept both for free at full run
+        // speed. ⛔ `0.0` rather than a shuffle because no fighter here authors a
+        // crawl; the day one does, it declares its own.
+        crouch_speed_frac: 0.0,
     };
 
 /// THE BASIC SMASH ABILITIES — the verbs every fighter on this stage has.

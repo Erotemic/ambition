@@ -1126,6 +1126,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         sdi_step: 3.0,
         shield: ambition_platformer2d_core::ShieldTuning::OFF,
         footstool: ambition_platformer2d_core::FootstoolTuning::OFF,
+        crouch_speed_frac: 1.0,
     };
     assert_eq!(
         ambition_platformer2d_core::DEFAULT_TUNING.air_dodge_time,

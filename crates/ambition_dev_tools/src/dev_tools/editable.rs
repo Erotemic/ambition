@@ -259,6 +259,11 @@ impl EditableMovementTuning {
             max_run_speed: self.max_run_speed,
             max_air_speed: self.max_air_speed,
             run_commit_frac: self.run_commit_frac,
+            // ⛔ NOT AN F3 SLIDER. What a crouch costs is a MATCH rule the stage
+            // declares (`MatchBody::crouch_speed_frac`), not a per-session dev
+            // tuning knob, so this projection keeps the engine default and the
+            // ruleset composes its own over it.
+            crouch_speed_frac: ae::DEFAULT_TUNING.crouch_speed_frac,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,

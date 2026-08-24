@@ -157,6 +157,56 @@ fn wall_climb_requires_wall_cling() {
 ///
 /// the second assertion is the poison, not decoration. A `running` that
 /// was merely an alias for `dashing` would satisfy "it runs" on a dash-capable
+/// ⭐⭐ A CROUCH COSTS YOU YOUR MOBILITY — and by default it costs nothing.
+///
+/// Measured 2026-08-24 and it was the second half that was wrong: the movement
+/// kernel read `BodyMode` only for `Climbing`, so a crouching body ran at full
+/// speed while KEEPING the smaller hurtbox and the shortened launch. A free
+/// defensive win is the inverse of the genre's trade.
+///
+/// ⛔⛔ AND THE DEFAULT MUST STAY FREE, which is the other half of this test.
+/// The field arrived on every `MovementTuning` in the engine; a default that
+/// slowed anybody would change every Ambition room to buy a Smash rule.
+#[test]
+fn a_crouch_costs_speed_only_where_a_ruleset_asks_for_it() {
+    let world = test_world();
+    let settle = |crouch_frac: f32| {
+        let mut tuning = super::TEST_TUNING;
+        tuning.crouch_speed_frac = crouch_frac;
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.body_mode.body_mode = crate::player_state::BodyMode::Crouching;
+        let hold = InputState {
+            axes: crate::reference_frame::LocalAxes::new(1.0, 0.0),
+            ..InputState::default()
+        };
+        for _ in 0..80 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                hold,
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        scratch.kinematics.vel.x
+    };
+
+    let free = settle(1.0);
+    assert!(
+        free > 100.0,
+        "the ENGINE default slowed a crouching body ({free:.1} px/s) — every \
+         Ambition room just changed to buy a platform fighter's rule"
+    );
+    let planted = settle(0.0);
+    assert!(
+        planted.abs() < 1.0,
+        "a ruleset that plants a crouching fighter still let it travel at \
+         {planted:.1} px/s, so crouch keeps its smaller hurtbox and its \
+         shortened launch for free"
+    );
+}
+
 /// ⭐⭐ A LIGHT TILT WALKS: it settles at a LOWER top speed and is not a run.
 ///
 /// The genre's neutral is built on the difference, and both halves of it are

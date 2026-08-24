@@ -114,6 +114,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.ground,
             clusters.env_contact,
             clusters.abilities,
+            clusters.body_mode,
             input,
             dt,
             frame,
@@ -368,6 +369,10 @@ pub(super) fn integrate_normal_clusters(
     ground: &crate::body_clusters::BodyGroundState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
     abilities: &crate::body_clusters::BodyAbilities,
+    // This body's STANCE, for the one thing the spine asks of it: a crouch caps
+    // how fast the stick may carry you. Threaded rather than read from clusters
+    // because the spine is actor-generic and takes neither.
+    body_mode: &crate::body_clusters::BodyModeState,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -389,6 +394,7 @@ pub(super) fn integrate_normal_clusters(
             water: env_contact.water,
             can_fast_fall: abilities.abilities.fast_fall,
             can_glide: abilities.abilities.glide,
+            crouching: body_mode.body_mode == crate::player_state::BodyMode::Crouching,
             // ⛔ A GROUNDED BODY HOLDING SHIELD DOES NOT WALK. Jon, 2026-08-23:
             // *"If the player is holding shield... they should not be let the
             // control move them left or right."* That is the genre's rule and it
@@ -427,6 +433,10 @@ pub struct NormalSpineCtx {
     pub can_fast_fall: bool,
     pub can_glide: bool,
     pub can_move_horizontal: bool,
+    /// Is this body CROUCHING? Carried on the context rather than read from the
+    /// clusters here, because this function takes neither — the same reason
+    /// `on_ground` is a field. See `crouch_speed_frac`.
+    pub crouching: bool,
     /// `AbilitySet::variable_jump` — whether an early button release may shorten
     /// this body's jump arc. The `VelocityCut` law reads the same capability in
     /// `apply_jump_release`; `PhasedGravity` resolves its arc HERE, so without
@@ -447,6 +457,8 @@ impl NormalSpineCtx {
             can_glide: false,
             can_move_horizontal: true,
             can_variable_jump: false,
+            // A bare actor has no crouch: nothing puts one in `BodyMode::Crouching`.
+            crouching: false,
         }
     }
 }
@@ -583,7 +595,26 @@ pub fn integrate_normal_spine(
                     tuning.locomotion.air_accel
                 };
                 if ctx.on_ground {
-                    let mut v = approach(along, run * tuning.locomotion.max_run_speed, accel * dt);
+                    // ⭐⭐ A CROUCH COSTS YOU YOUR MOBILITY, which is what pays
+                    // for the smaller hurtbox and the shortened launch
+                    // (`crouch_cancel_scale`). Measured 2026-08-24: this law read
+                    // `BodyMode` only for `Climbing`, so a crouching fighter ran
+                    // at full speed and kept BOTH defensive benefits for nothing.
+                    //
+                    // ⛔ THE CAP, NOT THE ACCELERATION — the same distinction the
+                    // walk/run gait rests on. Scaling `accel` would make a crouch
+                    // slow to start and then just as fast, which is a delay
+                    // rather than a stance.
+                    let stance = if ctx.crouching {
+                        tuning.locomotion.crouch_speed_frac.clamp(0.0, 1.0)
+                    } else {
+                        1.0
+                    };
+                    let mut v = approach(
+                        along,
+                        run * stance * tuning.locomotion.max_run_speed,
+                        accel * dt,
+                    );
                     if run.abs() <= 0.1 {
                         v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);
                     }

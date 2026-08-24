@@ -1563,7 +1563,28 @@ until that room unloads, after which its authored record recreates it at home.
 *"Leave this actor permanently where I released it"* would need body `Placed`
 whereabouts plus reconstruction relocation support.
 
-- ▢ **D169 — EVERY GAME BUILT ON THIS ENGINE CARRIES A PLATFORM-FIGHTER NOUN.**
+- ✔ **D169 — CLOSED 2026-08-24. The blast zone is renamed out of every world,
+  both halves, and the row was stale by two days.**
+
+⭐ GREPPED BEFORE WORKING IT, which is what this ledger asks and what the
+paragraphs below did not do: `blast_margin` survives at **two sites in the whole
+tree**, both of them prose in `world.rs` explaining the removal. The struct is
+`World { edges: WorldEdgeMargins { fall, side, rise } }`, the kernel destructures
+it EXHAUSTIVELY at `kernel.rs:444` so a fourth axis is a compile error, the LDtk
+converter reads `fall_out_margin` / `side_out_margin` / `rise_out_margin`, and
+all six shipped worlds carry the new keys in `defs.levelFields`. Guarded by
+`a_level_authors_its_own_fall_out_margin` and the LDtk contract prover, which
+names all three keys.
+
+⚠ `BlockKind` remains the plan's OTHER half and is still not in scope — one enum
+mixing contact law, traversal permission, world consequence and contact
+affordance. Its diagnosis was re-measured as correct and its trigger has not
+fired.
+
+⇒ **the measurement below is kept as a receipt** for what the change cost and
+why the authoring schema, not the struct, was the load-bearing half.
+
+- ✔ (historical) **EVERY GAME BUILT ON THIS ENGINE CARRIED A PLATFORM-FIGHTER NOUN.**
 
 Design in
 [`engine/world-geometry-and-spatial-semantics.md`](engine/world-geometry-and-spatial-semantics.md).

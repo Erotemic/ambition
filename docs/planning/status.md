@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `7692ce4cd` (2026-08-23 local project date).
+**Snapshot:** `5cd004276` (2026-08-24 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -14,6 +14,45 @@ replenish it. Focused plans own technical design.
 
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
+
+## 2026-08-24, LATEST — D200's P2 consolidation, and two things nothing could see
+
+D200's correctness half closed the day before; this pass worked the P2 list the
+review sequenced after it. Every slice is one commit.
+
+```text
+§8a out-of-shield   ✔ 4a70be7e0  the rule was implemented TWICE — gate now in core
+§8b capture pose    ✔ e1382cde2  one system registered twice → two named phases
+§8c authoring fork  ✔ 3227a79f1  the fork hid nothing: one clip fallback, unreached
+§8d fighter kits    ✔ f18cd26cb  a ruleset does not own a kit — moved to roster prep
+§8e sheet identity  ✔ 6e0c37c15  assigning the key destroyed the rig target
+D175 input bridge   ▢            no customer; its own doc names the condition
+§4a control gate    ▢ 9df938a14  D202: control is published TWICE, so the pair is
+```
+
+⭐⭐ **THE THING TO CARRY FORWARD: TWO DEFECTS THIS PASS WERE INVISIBLE BECAUSE
+NOTHING COULD SEE THEM, not because anything was wrong.**
+
+`cargo check -p ambition_app --all-targets` is the gate and it does not build
+another package's tests. Under that blind spot the actor monolith's own test
+target had stopped COMPILING — a parameter added to `apply_body_hit_reaction`, a
+membership row written as a 3-tuple — so **1,157 tests were dark**, and the one
+that then failed had drifted three ways behind the production chain. ⇒ when you
+touch a crate, run ITS tests; the app gate is not a proxy for them.
+
+And the fighter brain could not SEE a ledge hang. Jon: *"A character can just
+stay on the ledge, and there is no way to knock them off."* Two separate causes,
+both live: the generic ACTOR damage road never called `knock_off_ledge` (only the
+PLAYER road did, and in an arena the roster is all actors — `c3d7cdba7`), and
+`PerceivedActor` carried no hang fact at all, so the single most punishable state
+in the genre classified as ordinary `Neutral` (`5cd004276`). ⚠ the second one
+makes `Situation::EdgeGuard` live for the first time — it could previously only
+fire against an opponent already past the blastzone — so CPU match distributions
+will move, and that is the change, not a regression.
+
+⛔ **D201's first draft named the wrong gap.** It said the getup vocabulary was
+missing an attack; `ledge_grab/runtime.rs` has six options bound, none gated.
+Written from the report's framing instead of from the source — grep first.
 
 ## 2026-08-23, LATEST — the smash correctness closeout landed, and six emergent tests lied
 

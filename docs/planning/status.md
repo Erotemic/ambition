@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `5cd004276` (2026-08-24 local project date).
+**Snapshot:** `ac7b56d21` (2026-08-24 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -14,6 +14,60 @@ replenish it. Focused plans own technical design.
 
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
+
+## 2026-08-24, LATEST — D200 is CLOSED, and a hit takes two roads
+
+D200 closed both halves: twelve correctness defects, then all five P2
+consolidation slices. What replaced it on the ledger is **D203**, opened by Jon
+after the ledge fix: *"the ledge damage issue sounds like a player actor
+unification we need to at least log as a todo."*
+
+He was right and the ledge was the symptom. A damaging hit resolves down
+`apply_player_hit_events` or `apply_feature_hit_events` (and a THIRD road, the
+capture throw), all three ending in one shared `apply_body_hit_reaction` — and
+what drifted is everything each road does AROUND that call. In an arena the whole
+roster is actors, so a player-only rule is invisible until somebody plays it.
+
+```text
+knock_off_ledge            player-only until c3d7cdba7   a hit takes the hang
+refresh_movement_resources player-only until ec75dc307   a hit gives the air options back
+                           ...then moved INTO the reaction (ec6ddc3cc), which
+                           found the throw road had never had it either
+```
+
+⭐ **THE SECOND ONE WAS A FAIRNESS DEFECT, not tidiness.** A CPU launched
+offstage with a spent double jump read `air_jumps_left: 0` — what `SelfView`
+calls the recovery budget — so its brain could not route a recovery a human would
+have had. `ae::AirBudget` now hands the three budgets to the reaction, and the
+player road's separate call is deleted: the rule stopped being anybody's to
+remember.
+
+⛔⛔ **AND THE HABIT TO KEEP IS THE REVERTS.** Four changes were built, measured
+and thrown away this pass, each buying a finding the ledger now carries:
+
+```text
+C5 frame-advantage guard   INERT — offered 0 times in 129 Advantage decisions
+parry raise timing         buys 0–0–2 parries, sells 40% of shielding + a KO
+ParryTiming::OnRelease     same mistiming at the other end
+camera snap on teleport    a portal transit must NOT snap; the suite caught it
+```
+
+⇒ the parry pair explains itself: you cannot open a second window while already
+holding shield, so parrying and blocking-early are mutually exclusive and a CPU
+that cannot read its opponent should block. What is left of it is a risk
+appetite, not a rule.
+
+⚠ **one fitted constant moved and was RE-DERIVED, not re-fitted.** Shield in the
+air is now the air dodge (`ShieldTuning::air_guard`, schema v77), and that made
+`two_emmys_hold_a_mirror`'s 2× margin false: the air dodge aims in gravity-frame
+axes, so a neutral stick zeroes velocity (independent pair 32% → 52%) and a
+directional one breaks a shared-stream mirror (Emmy 100% → 84%). The mechanism is
+written into the test beside the number.
+
+⇒ **and the app gate's blind spot cost 1,157 tests.** The monolith's own test
+target had stopped compiling. Swept the whole tier the same day: `cargo test
+--workspace --lib`, 67 targets, all compiling and green. Run it after touching a
+shared type.
 
 ## 2026-08-24, LATEST — D200's P2 consolidation, and two things nothing could see
 

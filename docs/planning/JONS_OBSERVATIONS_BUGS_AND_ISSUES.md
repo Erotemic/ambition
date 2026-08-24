@@ -296,9 +296,10 @@ just stay on the ledge, and there is no way to knock them off. If you get hit
 you should fall off the ledge at least."*
 
 ◐ A hit now takes the hang: the rule existed and only the PLAYER road called it, so on
-the actor road every fighter in the arena hung through an edge-guard untouched. Ledge
-trumping and the expiring ledge intangibility were already live; a hang TIME LIMIT and
-the fuller getup vocabulary are not, and are queued as D201.
+the actor road every fighter in the arena hung through an edge-guard untouched. The
+getup vocabulary turned out to be complete already (roll, ledge jump, getup attack,
+climb, drop) and ledge trumping is live; what is genuinely missing is a hang time
+limit, a regrab count and damage-scaled getup speed — queued as D201.
 
 ## 2026-08-21 — Mary-O: the pole victory TRANSLATES her, and side contact hits the snake
 

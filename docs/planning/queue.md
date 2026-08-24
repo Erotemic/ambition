@@ -565,20 +565,33 @@ not dislodge anybody, whatever it connected with. Guarded by
 lockout beside the dropped hang (dropping one without the other re-latches on
 the next frame and the hit reads as nothing).
 
-⇒ **what is genuinely absent**, and what this row stays open for:
-  - a HANG TIME LIMIT. Nothing ages a hang. The genre's answer is not one
-    number — Melee lets you hang forever and Ultimate does too — so the
-    punishment for camping is the intangibility EXPIRING (already live, a
-    bounded `ledge_invuln_timer`), being TRUMPED (already live,
-    `resolve_ledge_trumps`), and now being HIT. ⚠ so check the tuning before
-    building a timer: the parts that make camping cost something may already be
-    there and simply be tuned to nothing.
-  - the GETUP VOCABULARY. `LedgeGetupKind` carries climb and roll; the genre
-    also has a ledge ATTACK and a ledge JUMP, and it scales getup speed by
-    damage. ⛔ a getup with no attack is why a ledge-camper cannot be
-    approached OR punished.
-  - LEDGE-GRAB LIMITS. Ultimate's diminishing airborne-regrab rule is what
-    stops infinite stalling from below; nothing here counts regrabs.
+⛔⛔ **AND THE FIRST VERSION OF THIS ROW WAS WRONG ABOUT WHAT IS MISSING** — it
+was written from the report's framing instead of from `ledge_grab/runtime.rs`,
+which is the mistake this ledger keeps paying for. GREPPED: the getup vocabulary
+is COMPLETE. Roll (shield), ledge jump (jump), ledge release (jump + away),
+getup attack (attack, intangible for its duration), climb (up / toward / a
+delay), drop (down) — six options, all bound, none behind an ability gate;
+`climb_unlocked` is a short delay, not a capability. Ledge trumping is live
+(`resolve_ledge_trumps`), ledge intangibility is a bounded decaying timer, and a
+hit now takes the hang.
+
+⇒ **what is genuinely absent**, measured at the source:
+  - a HANG TIME LIMIT. Nothing ages a hang. ⚠ and the genre may not want one:
+    Melee and Ultimate both let you hang indefinitely, and what makes camping
+    cost something is the intangibility expiring, the trump, and the hit — all
+    three of which now exist. ⇒ MEASURED at the source, 2026-08-24: ledge
+    intangibility is 0.10s at minimum and 0.50s at most, scaled linearly by how
+    long the fighter was airborne before catching (`LEDGE_INVULN_FULL_AIRTIME`
+    1.20s) and DECAYING — so a camper is exposed within half a second of
+    catching, every time. Those numbers are sane; a hang timer would be a third
+    punishment on top of two that already bite. ⇒ what is worth measuring next
+    is whether the CPU ever EDGE-GUARDS, because a rule nobody exercises reads
+    exactly like a rule that does not exist.
+  - a LEDGE-GRAB LIMIT. `LEDGE_REGRAB_COOLDOWN` is a cooldown, not a count:
+    nothing tracks regrabs per airtime, which is Ultimate's answer to stalling
+    from below.
+  - DAMAGE-SCALED GETUP. `LEDGE_CLIMB_TIME` and friends are constants, so a
+    fighter at 150% gets up exactly as fast as one at 0%.
 
 ⛔ ship the genre's answer rather than escalating it (a genre's mechanics are
 research, not a maintainer decision) — but MEASURE the existing tuning first.

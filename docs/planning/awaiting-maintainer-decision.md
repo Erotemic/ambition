@@ -36,7 +36,52 @@ investigation that led to the question. Same rule as
 [`README.md`](README.md#queue-contract); on 2026-08-17 this file was **739 lines
 for 9 open questions**, and the four answered ones held a third of it.
 
-## Open decisions — NONE OPEN. Everything below this section is a receipt.
+## Open decisions
+
+### 32. How tall is an adult, against a 48-tall chibi protagonist?
+
+⭐ **ONE NUMBER, OR A PRINCIPLE THAT PRODUCES THEM — the rest is content work
+that can proceed the moment it exists.** This is not "which characters look
+wrong": that is measured and listed below. It is the per-character number, which
+you already ruled belongs to height rather than to the art (decision 30 —
+*"height owns world size"*).
+
+**What is measured** (`print_the_two_render_size_publishers --ignored`, 2026-08-24):
+
+```text
+38 of 45 rendered characters are EXACTLY 48.0 world px tall
+  player_robot_v3 (the chibi protagonist) sets that number and IS 48
+  standing at the same height: npc_viking_warrior · npc_viking_shieldmaiden
+  npc_raid_enforcer · npc_salvage_guard · npc_olivia · npc_trent · npc_victor
+  npc_ramen_nujan · npc_sybil · npc_vera_ruin · … and a sandbag, and solid_snake
+```
+
+`CharacterBodyKind::Standard` answers 48 and **nothing in the cast has ever
+overridden it**. The three rows that DO author a height are all `Wide` — which has
+no default — so each transcribed its own measured size to keep its output
+identical. ⇒ **there is no chosen adult height anywhere in the tree**, and an
+agent inventing a band from those three transcriptions would be reading a number
+off the population and calling it an authority, which is the mistake decision 30
+already corrected once.
+
+**Why it needs you.** The direction is objective (an adult reads taller than a
+chibi robot) and the magnitude is taste — and it is not free: `collision = body ×
+scale`, so declaring a height changes that character's HURTBOX as well as its
+render. That is the height contract working as designed, and it is a feel change
+on shipped content.
+
+**The shape of an answer that unblocks everything**, any one of these:
+  - a number for "an adult human in this cast" and one for "a heavy/brute", with
+    48 staying the protagonist's; or
+  - a ratio to the protagonist (e.g. *adults are 1.25×*) and permission to apply
+    it by fiction; or
+  - *"leave the cast at 48 and only author the ones I name."*
+
+⚠ **acceptance is your three reports** — the snake and AI slop, Sanic in his own
+game, the cove pirates against the robot — not a number in a table. Tracked by
+D165, whose measurement section carries the same data.
+
+
 
 ## ✔ ANSWERED 2026-08-23 — yes, the rollback wire format may grow
 

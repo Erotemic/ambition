@@ -3108,6 +3108,15 @@ Jon's call at the margin; what this measurement buys is that the question is now
 concrete — *how tall is an adult against a 48-tall chibi protagonist* — instead of
 "some characters look wrong".
 
+⇒ **FILED AS DECISION 32** in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md), with the
+measured list and three shapes of answer that each unblock it. ⛔ it is filed
+because the MAGNITUDE is taste and declaring a height moves the character's
+HURTBOX (`collision = body × scale`) — a feel change on shipped content — not
+because the direction is unclear. ⭐ the moment it is answered the rest is
+ordinary content work: one field per row, and the instrument above measures the
+result.
+
 ⚠ **and "zero of 145" was already stale when written** — the three heavies were
 authored before this measurement. Re-run the instrument before quoting a count
 from this row.

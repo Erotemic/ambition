@@ -547,8 +547,19 @@ consumers sit between the two today (`gate_worn_player_control`,
 `sustain_bubble_shield`, `update_body_mode`), all of which want gated control, so
 this is a schedule move with rollback-visible ordering consequences and not a
 consolidation-pass edit. ⛔ do not solve it with middleware or a registry: one
-named set after control publication is the whole shape. Cousin of D175 — both
-are "the seam exists, the phases do not".
+named set after control publication is the whole shape.
+
+▢ **AND THE SAME SEAM OWES THE DUAL-WRITE BRIDGE, re-homed here 2026-08-24 when
+D200 closed.** `shape_seat_frame` writes BOTH `SeatRawFrames` and `SlotControls`,
+which contradicts `SeatRawFrames`'s own contract (it is the RAW proposal) and
+makes a gameplay shaper understand host publication. Its doc names the endpoint —
+`physical sample → SeatInputProposal → (latch / rollback agreement) →
+ConfirmedSeatInput → deterministic derivation → EffectiveSlotControls` — and the
+condition for building it: *"when the next input change needs the boundary, not
+as a rewrite for its own sake, and not one client later than that."* Three
+clients today, no fourth wanted. ⛔ do not add a fourth, and closing a ledger row
+is not a customer. (D175 itself is CLOSED; this paragraph is the only part of it
+that outlived the row.)
 
 - ▢ **D201 — THE LEDGE HAS NO RULES BEYOND THE HANG.** (Jon, 2026-08-24)
 
@@ -605,13 +616,27 @@ hit now takes the hang.
 ⛔ ship the genre's answer rather than escalating it (a genre's mechanics are
 research, not a maintainer decision) — but MEASURE the existing tuning first.
 
-- ▢ **D200 — THE SMASH CORRECTNESS CLOSEOUT.** (GPT review of `370abbbcf`,
-  extended by a second review of the merged tree at `3cebefd62`)
+- ✔ **D200 — THE SMASH CORRECTNESS CLOSEOUT. CLOSED 2026-08-24, both halves.**
+  (GPT review of `370abbbcf`, extended by a second review of the merged tree at
+  `3cebefd62`)
 
-Ten named correctness defects in the platform-fighter kernel, plus two from a
-second review of the merged tree. **All twelve are closed and pushed**; the row
-stays open for the P2 CONSOLIDATION the review sequenced after correctness —
-see the bottom of this entry.
+Ten named correctness defects in the platform-fighter kernel plus two from the
+second review — **all twelve closed** — and then the five-item P2 CONSOLIDATION
+the review sequenced after them, **all five closed**, one commit each:
+
+```text
+§8a out-of-shield authority   4a70be7e0   the rule was implemented TWICE
+§8b capture phase roads       e1382cde2   one system registered twice → two phases
+§8c move-authoring fork       3227a79f1   the fork hid nothing; −204 lines
+§8d stage-provided kits       f18cd26cb   a ruleset does not own a fighter's kit
+§8e sheet product identity    6e0c37c15   the key destroyed the rig target
+```
+
+⇒ **what this row does NOT carry away with it**, because both are conditions
+rather than debt: the input dual-write bridge is re-homed on **D202**, whose seam
+it shares, and §8e's `product::member` spelling is recorded on **D162** with the
+population that would justify it (one packed product, no collision). Neither has
+a customer; neither is closed by pretending otherwise.
 
 ✔ **CLOSED.** The strike-pulse ledger (one continuous swing lands once, sibling
 sweet/sour volumes share the per-victim set); buffered Special keeps its
@@ -728,12 +753,6 @@ no member name collides with any file root, so the mixed namespace is a latent
 hazard rather than a live defect. ⇒ what is left is the `product::member`
 spelling and a plural `RigTarget → [SheetKey]` index; neither has a consumer
 today, and building them for a population of one would be machinery.
-
-▢ **D175's dual-write bridge stays a bounded bridge.** `shape_seat_frame`'s own
-doc names the endpoint and the condition for building it — *"when the next input
-change needs the boundary, not as a rewrite for its own sake, and not one client
-later than that"*. Three clients, no fourth wanted, no input customer in this
-pass. Closing the ledger row is not a reason.
 
 ⚠ **and a guard can be green for the wrong reason.** The capture-chain test was
 poisoned by deleting the victim check and stayed GREEN — a chain's second edge is

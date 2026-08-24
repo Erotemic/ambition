@@ -1567,6 +1567,8 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         DOWN,
         false,
         Some(&knockback),
+        // The damage the hit dealt — what the contact freeze is computed from.
+        HIT_DAMAGE,
         ae::Vec2::ZERO,
         Default::default(),
         feel,
@@ -1605,6 +1607,7 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         DOWN,
         false,
         None,
+        HIT_DAMAGE,
         ae::Vec2::ZERO,
         Default::default(),
         Platformer2dFeelTuningMonolith::default(),
@@ -1808,6 +1811,11 @@ fn an_unlimited_guard_is_not_pushed() {
     assert_eq!(vel, ae::Vec2::ZERO);
 }
 
+/// An ordinary hit's damage, so these fixtures reach the reaction the way a
+/// match does: the contact freeze is computed FROM the damage, and a `0` here
+/// would model a hit that dealt none.
+const HIT_DAMAGE: i32 = 10;
+
 /// Run one hit through the reaction and report the recoil lock it charged.
 fn meteor_reaction(
     launch_dir: ae::Vec2,
@@ -1834,6 +1842,7 @@ fn meteor_reaction(
         ae::Vec2::new(0.0, 1.0),
         false,
         Some(&knockback),
+        HIT_DAMAGE,
         ae::Vec2::ZERO,
         VictimStance {
             grounded,
@@ -1876,6 +1885,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&knockback),
+            HIT_DAMAGE,
             ae::Vec2::ZERO,
             VictimStance {
                 grounded: true,

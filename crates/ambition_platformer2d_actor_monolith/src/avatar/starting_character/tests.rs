@@ -991,10 +991,22 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
     .expect("player moveset");
 
     let mut app = App::new();
+    // The buffer decays on the body's own clock, so the chain needs one.
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        raw_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
     app.add_systems(
         Update,
         (
             ambition_combat::moveset::resolve_attack_gestures,
+            // ⛔ THE PRODUCTION CHAIN IS THREE SYSTEMS, and the middle one is
+            // what publishes `ResolvedAttackGesture::special` — the value the
+            // trigger's special arm matches on. Without it the press was
+            // interpreted and then thrown away, and the fixture read "no move"
+            // as the phantom it was written to disprove.
+            ambition_combat::moveset::buffer_combat_action_presses,
             ambition_combat::moveset::trigger_moveset_moves,
         )
             .chain(),
@@ -1007,6 +1019,17 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
             ambition_combat::moveset::ActorMoveset(moveset),
             ActorControl(frame),
             ambition_platformer2d_core::BodyKinematics::default(),
+            // ⛔ THE RESOLVER'S REQUIRED COLUMNS, and without them this
+            // fixture measured the QUERY rather than the special: a body the
+            // system does not match starts no move, which reads exactly like
+            // the phantom this test exists to disprove.
+            //
+            // The press ledger (the spend site for a buffered edge), and the
+            // gesture triple `resolve_attack_gestures` reads and publishes.
+            ambition_platformer2d_core::BodyActionBuffer::default(),
+            ambition_characters::actor::attack_gesture::AttackGestureState::default(),
+            ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
+            ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
         ))
         .id();
     app.update();

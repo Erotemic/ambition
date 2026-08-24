@@ -295,3 +295,53 @@ fn cornering_scales_with_the_floor_a_body_stands_on() {
          so the corner is still a pixel count wearing a fraction's name"
     );
 }
+
+/// CORNERED IS A DIRECTION, AND THE EDGE-GUARD IS THE PROOF.
+///
+/// Both terms of the corner test asked for the NEAREST edge, so standing beside
+/// a ledge read the same as being backed against it — and the ledge you stand
+/// beside to punish a hanging opponent is by construction the nearest edge
+/// there is. The fighter walked out to edge-guard, flipped to `Disadvantage`
+/// one body-width from the lip, and retreated: the situation was unreachable
+/// from the only position it is played from.
+///
+/// Both ends are asserted. The right ledge with the foe off it is the guard;
+/// the LEFT ledge with the same foe to the right is still a corner, and a fix
+/// that simply stopped calling anything cornered would fail that half.
+#[test]
+fn standing_at_your_own_ledge_to_punish_a_hang_is_not_being_cornered() {
+    // A floor spanning x 100..700, top face at y=340.
+    let floor = PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(400.0, 370.0), ae::Vec2::new(300.0, 30.0)),
+        kind: SolidKind::Solid,
+    };
+    let hanging_right = PerceivedActor {
+        on_ground: false,
+        ledge_hanging: true,
+        ..foe_at(706.0, 350.0)
+    };
+    let at = |x: f32| {
+        let mut me = me_at(x, 320.0);
+        me.half_extent = ae::Vec2::new(16.0, 20.0);
+        WorldView {
+            self_view: me,
+            stage: stage(),
+            actors: vec![hanging_right.clone()],
+            terrain: vec![floor],
+            ..Default::default()
+        }
+    };
+    // Out at the lip the foe is hanging from: the whole floor is behind me.
+    assert_eq!(
+        classify(seen(&at(640.0))),
+        Situation::EdgeGuard,
+        "the edge-guard position must classify as the edge-guard"
+    );
+    assert_eq!(classify(seen(&at(690.0))), Situation::EdgeGuard);
+    // The FAR ledge, with the same foe: retreat runs out, and that is a corner.
+    assert_eq!(
+        classify(seen(&at(130.0))),
+        Situation::Disadvantage,
+        "backed against the far ledge is still cornered"
+    );
+}

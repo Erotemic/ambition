@@ -114,13 +114,27 @@ pub fn classify(view: Perceived<'_>) -> Situation {
     // retreat option"* — and losing your retreat is relative to the ground you
     // are standing on. A body with no floor under it keeps the absolute margin;
     // it has no width to take a share of.
-    let floor_edge = view.floor_edge_distance().unwrap_or(f32::INFINITY);
+    //
+    // ⛔⛔ AND CORNERED IS A DIRECTION, NOT A DISTANCE. Both terms asked for the
+    // NEAREST edge, so standing beside a ledge read the same as being backed
+    // against it — and the ledge you stand beside to edge-guard is the nearest
+    // edge there is. Measured 2026-08-24 on a 600px floor: a fighter walking
+    // out to punish a hanging opponent flipped from `EdgeGuard` to
+    // `Disadvantage` at 90px from the lip and RETREATED, every time. The
+    // situation was unreachable from the only position it is played from.
+    //
+    // Retreat is away from the threat, so that is the direction the question is
+    // asked in. Backed against the left ledge with the foe to the right is
+    // still cornered; standing at the right ledge with the foe off it is a
+    // whole stage of retreat and the strongest position in the genre.
+    let retreat = -(foe.pos.x - me.pos.x).signum();
+    let floor_edge = view.floor_ahead(retreat).unwrap_or(f32::INFINITY);
     let corner_margin = view
         .supporting_floor()
         .map(|floor| (floor.max.x - floor.min.x) * CORNER_SHARE_OF_FLOOR)
         .unwrap_or(CORNER_MARGIN_PX);
     let cornered =
-        view.stage.distance_to_edge(me.pos) < CORNER_MARGIN_PX || floor_edge < corner_margin;
+        view.stage.room_toward(me.pos, retreat) < CORNER_MARGIN_PX || floor_edge < corner_margin;
     if me.phase == BodyPhase::Hitstun || cornered {
         return Situation::Disadvantage;
     }

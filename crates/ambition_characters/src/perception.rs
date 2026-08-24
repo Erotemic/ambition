@@ -138,6 +138,25 @@ impl StageView {
         self.bounds.min.x <= self.bounds.max.x && self.bounds.min.y <= self.bounds.max.y
     }
 
+    /// Horizontal room from `p` to the stage edge in direction `dir` (0 when
+    /// already outside).
+    ///
+    /// [`Self::distance_to_edge`] answers *"how exposed am I"* — the nearest
+    /// edge in any direction, which is what a risk score wants. This answers
+    /// *"how far can I go THAT way"*, which is what a RETREAT asks, and the two
+    /// disagree exactly at a ledge the body is standing beside rather than
+    /// backed against.
+    pub fn room_toward(&self, p: ae::Vec2, dir: f32) -> f32 {
+        if self.offstage(p) {
+            return 0.0;
+        }
+        if dir >= 0.0 {
+            self.bounds.max.x - p.x
+        } else {
+            p.x - self.bounds.min.x
+        }
+    }
+
     /// Distance from `p` to the nearest stage edge (0 when already outside).
     /// The corner-pressure feature L2 scores stage position risk with.
     pub fn distance_to_edge(&self, p: ae::Vec2) -> f32 {

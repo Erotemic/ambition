@@ -2485,6 +2485,38 @@ DECLARED wire-format change under the policy Jon approved 2026-08-23. That is
 the honest price: one input rule, one ruleset knob, one schema bump — not the
 one-liner the table reads as.
 
+⛔⛔ **BUILT IT, IT WORKS, AND IT WAS REVERTED — read this before building it
+again.** All four pieces landed and passed their own tests: `ShieldTuning::air_guard`
+(`true` by default so Ambition's bubble is untouched, `false` in
+`PLATFORM_FIGHTER`), `resolve_shield` refusing an airborne RAISE while leaving an
+existing guard alone, the airborne press buying an air dodge only where the
+button means nothing else, schema v77 with the codec shape re-recorded, and two
+new kernel tests — including one that CAUGHT the double meaning (a press
+producing `[AirDodge, ShieldUp]` together) before the guard clause existed. The
+jump-out-of-shield test also gained the airborne refusal as a fact.
+
+⇒ **what stopped it is `app_it`'s `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`.**
+It asserts a shared cognitive stream keeps a REFLECTION decisively better than
+independent streams (`emmy_rate > ordinary_rate * 2.0`). With the rule on:
+**Emmy 1153/1376 = 84%, ordinary 712/1376 = 52%** — still a large difference,
+but not 2×. Probed by flipping ONLY `air_guard` back to `true`: the test passes,
+so the rule is the cause and not the plumbing.
+
+⚠ **and one hypothesis is already eliminated.** The instrument counts the
+mirrored PREFIX and breaks on the first divergent frame, so "one air-dodge
+excursion truncates the window" was the obvious explanation. Changing it to count
+mirrored frames as a FRACTION moved the numbers by four frames (84% / 52%
+unchanged). The ordinary pair genuinely spends more of the match reflected under
+this rule, and I do not know why.
+
+⇒ **the next attempt owes that answer first.** An air dodge travels along
+`frame.side()` — the gravity frame's axes, not facing-relative, which is correct
+for the genre — so it is the first SHARED action two mirrored bodies can take
+that is not a reflection of each other. That explains Emmy falling from a
+recorded 100% to 84%. It does NOT explain the ordinary pair rising from a
+recorded 32% to 52%, and until it does, re-fitting the 2× margin would be
+fitting a constant to a behaviour nobody has explained.
+
 ⭐ **the seam is already the right shape and the cost is small.**
 `resolve_burst_maneuver` (`movement/abilities.rs`) already returns
 `GroundDodge | AirDodge | Dash` from one press, and the kernel's input surface

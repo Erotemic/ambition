@@ -231,7 +231,7 @@ box carrying the component production refuses. Rows reopened.
 ```text
 P0-1 clank never reaches authored moves   ▢ VERIFIED  rows reopened
 P0-2 helpless never reaches move starts   ▢ VERIFIED  trigger_moveset_moves takes no InputState
-P0-3 sudden death ends on first hit       ▢ VERIFIED  one damage point makes the tiebreak decide
+P0-3 sudden death ends on first hit       ◐ clock half FIXED; the Update/BodyHealth half stands
 P0-4 zero-velocity items float            ▢ VERIFIED  pickup/mod.rs:347 skips vel == ZERO
 ```
 

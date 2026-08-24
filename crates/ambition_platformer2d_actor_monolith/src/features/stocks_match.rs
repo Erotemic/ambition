@@ -234,6 +234,22 @@ pub fn decide_stocks_match(
             if !expired {
                 return;
             }
+            // ⛔⛔ A MATCH ALREADY IN SUDDEN DEATH HAS NO CLOCK LEFT TO CONSULT,
+            // and forgetting that made the mechanic "first damage wins".
+            //
+            // `expired` stays true for every tick after the timeout — clocks do
+            // not un-expire — so this arm re-ran the tiebreak every frame. Both
+            // fighters start level, which is a Draw and re-enters (the latch
+            // absorbs it); then one takes a single point of damage without
+            // dying, the tiebreak's damage rung answers WINNER, and the match
+            // settled on a hit that killed nobody.
+            //
+            // ⇒ once the match is in sudden death the clock is spent. It ends
+            // the ordinary way, by last side standing, which the arm above this
+            // one already answers — so returning here is the whole fix.
+            if sudden_death.entered(&active) {
+                return;
+            }
             // ⭐⭐ SUDDEN DEATH IS ENTERED INSTEAD OF DECIDING, which is what
             // keeps this out of the trap the mechanic is usually built into:
             // nothing mutates a finished match back into a running one, because
@@ -257,9 +273,9 @@ pub fn decide_stocks_match(
                         starting_damage: damage,
                     });
                 }
-                // ⛔ AND IT RETURNS UNSETTLED, every tick from here. `expired`
-                // stays true for the rest of the match, which is exactly why the
-                // latch above is a latch.
+                // ⛔ AND IT RETURNS UNSETTLED. Every later tick is caught by the
+                // guard above, which is what stops the spent clock from deciding
+                // a match it no longer measures.
                 return;
             }
             outcome
@@ -440,6 +456,50 @@ mod tests {
             super::timeout_continues_as_sudden_death(&level, None),
             None,
             "a stage that declared no sudden death got one"
+        );
+    }
+
+    /// ⭐⭐ A MATCH IN SUDDEN DEATH IGNORES THE SPENT CLOCK.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS, found by review 2026-08-24: `expired` stays
+    /// true for every tick after the timeout, so the tiebreak re-ran every
+    /// frame. Both fighters start level (a Draw, absorbed by the latch); then one
+    /// takes a single point of damage without dying, the tiebreak's DAMAGE rung
+    /// answers Winner, and the match settled on a hit that killed nobody. Sudden
+    /// death was "first damage wins".
+    ///
+    /// ⭐ THE TEST IS THE GUARD ITSELF, not the whole system: the fix is one
+    /// early return keyed on the latch, and the tiebreak it skips is already
+    /// covered by `the_clock_decides_by_stocks_then_damage_then_calls_it_level`.
+    /// A full-system fixture here would need a PreparedMatch, a SimTick and a
+    /// seated cast to assert a branch that is one comparison.
+    #[test]
+    fn a_match_in_sudden_death_no_longer_consults_the_clock() {
+        let live = match_activated_on(100);
+        let mut entered = SuddenDeathEntered::default();
+
+        // Before entering: the clock still decides, which is what makes the
+        // timeout a timeout.
+        assert!(
+            !entered.entered(&live),
+            "a match that never tied is in sudden death"
+        );
+
+        entered.enter(&live);
+        assert!(
+            entered.entered(&live),
+            "the guard cannot see the match it was just entered for, so the \
+             spent clock keeps deciding and one point of damage ends the match"
+        );
+
+        // ⛔ AND IT IS PER MATCH. A later match must reach the clock again — a
+        // guard that latched globally would make every subsequent timeout
+        // undecidable.
+        let next = match_activated_on(900);
+        assert!(
+            !entered.entered(&next),
+            "the NEXT match inherited sudden death, so its clock can never \
+             decide anything"
         );
     }
 

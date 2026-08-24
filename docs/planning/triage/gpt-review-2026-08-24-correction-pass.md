@@ -27,10 +27,11 @@ P0-1 clank never reaches authored moves   ▢ arbitrate_attack_clanks: With<Hitb
 P0-2 helpless never reaches move starts   ▢ trigger_moveset_moves takes &ActorControl +
                                             &ResolvedAttackGesture — no InputState anywhere,
                                             and InputState is the only thing the gate clears
-P0-3 sudden death ends on first hit       ▢ timeout_continues_as_sudden_death returns Some
-                                            ONLY on SidesOutcome::Draw; one point of damage
-                                            makes the tiebreak a Winner, the guard answers
-                                            None, and the fall-through settles the match
+P0-3 sudden death ends on first hit       ◐ FIRST HALF FIXED: a match already in sudden
+                                            death returns before the tiebreak, so the spent
+                                            clock cannot decide it. ▢ the SECOND half stands —
+                                            open_the_sudden_death_round still runs in literal
+                                            Update and writes rollback-canonical BodyHealth
 P0-4 zero-velocity items float            ▢ pickup/mod.rs:347 `if item.vel == Vec2::ZERO
                                             { continue; }` — and both the match spawner and
                                             the Z-drop create ZERO on purpose

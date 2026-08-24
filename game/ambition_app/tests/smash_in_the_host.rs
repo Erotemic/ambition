@@ -2179,6 +2179,83 @@ fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
     );
 }
 
+/// ⭐⭐ A FIGHTER COMES BACK WITH ITS RECOVERY, BEFORE IT LANDS (review §10).
+///
+/// The GPT review, on the recovery budget: *"A fresh or stock-respawned airborne
+/// body must start with its intended recovery charge. Do not rely on a later
+/// landing event to initialize it. Test the real stock-respawn road: lose stock
+/// → respawn airborne → before landing → recovery Up-B is available once."*
+///
+/// ⛔⛔ AND "BEFORE IT LANDS" IS THE WHOLE TEST. `BodyJumpState::default()` is
+/// spent — deliberately, so a body constructed in an unknown state cannot
+/// recover forever — so a budget that were only filled on the landing refresh
+/// would look correct in every match that got as far as touching the ground, and
+/// wrong exactly where it matters: falling toward the blast zone with a stock
+/// just spent. This asserts the charge WHILE the body is still in the air.
+#[test]
+fn a_respawned_fighter_can_recover_before_it_has_landed() {
+    use bevy::ecs::message::Messages;
+
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+    wait_for_the_round_to_go_live(&mut app);
+
+    let victim = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            Entity,
+            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+        >();
+        q.iter(world).next().expect("a live match has fighters")
+    };
+
+    // Spend the charge FIRST, so the assertion below cannot be satisfied by a
+    // body that simply never used one.
+    {
+        let world = app.world_mut();
+        let mut jump = world
+            .get_mut::<ambition_platformer2d::engine_core::BodyJumpState>(victim)
+            .expect("a seated fighter carries the jump cluster");
+        jump.recovery_charges = 0;
+    }
+
+    // One knockout: the roster opens with three stocks, so this is a respawn.
+    app.world_mut()
+        .resource_mut::<Messages<ambition_platformer2d::actor::BodyKnockedOut>>()
+        .write(ambition_platformer2d::actor::BodyKnockedOut {
+            body: victim,
+            cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
+        });
+    // ⭐ ONE UPDATE. The respawn platform catches this fighter on the very next
+    // tick, so a test that settled first would be measuring the LANDING refresh
+    // — measured: airborne at t+0, on the platform from t+1.
+    app.update();
+
+    let (charges, grounded) = {
+        let world = app.world();
+        (
+            world
+                .get::<ambition_platformer2d::engine_core::BodyJumpState>(victim)
+                .expect("the respawned body still has its jump cluster")
+                .recovery_charges,
+            world
+                .get::<ambition_platformer2d::engine_core::BodyGroundState>(victim)
+                .is_some_and(|g| g.on_ground),
+        )
+    };
+    assert!(
+        !grounded,
+        "the fighter respawned already standing on something, so this measures \
+         the LANDING refresh rather than the respawn — which is the exact \
+         confusion the review asked to rule out"
+    );
+    assert!(
+        charges >= 1,
+        "a fighter that just lost a stock came back airborne with {charges} \
+         recoveries, so its only way home is a move it cannot throw"
+    );
+}
+
 /// Open the lobby from the title screen.
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();

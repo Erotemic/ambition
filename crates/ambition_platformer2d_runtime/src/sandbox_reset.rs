@@ -18,15 +18,15 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_time::time_control::{ClockRequester, ClockResetRequest};
+use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 use ambition_vfx::VfxMessage;
 
 /// Return a body to the room's spawn and clear its per-attempt state.
@@ -85,6 +85,13 @@ pub fn reset_sandbox(
     combat.hit_flash = feel.reset_flash_time;
     interaction.reset();
     blink_cam.reset();
+    // …AND ASK FOR THE SNAP THE RESET JUST CLEARED. This is the road a hazard
+    // death takes, so it is the one that fires most: the body is now at spawn,
+    // which is routinely most of a room from where it died, and without this the
+    // camera EASES the whole way. Same repair as the session reset's, and the
+    // second adopter is what says the verb is the seam rather than a patch.
+    blink_cam
+        .snap_after_placement(ambition_platformer2d_actor_monolith::ROOM_DOOR_CAMERA_SNAP_TIME);
     let reset_to = clusters.kinematics.pos;
     sfx.write(SfxMessage::Reset { pos: reset_to });
     vfx.write(VfxMessage::ResetEffects {

@@ -1013,7 +1013,9 @@ refused by the captor check — and its fixture had made B and C allies, so with
 friendly fire off the "chain" it claimed to test resolved one edge. Both are
 fixed; the general form is that a poison has to target the clause, not the file.
 
-- ▢ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.**
+- ✔ **D180 — THE PRESENTATION/AUTHORITY BOUNDARY AND THE IDENTITY VOCABULARY.
+  CLOSED 2026-08-24: three GPT reviews worked, the last open finding measured
+  unreachable, and the one remaining rename re-priced with its trigger.**
   (found 2026-08-21, by GPT review of `f3b4b83a1`)
 
 **(a) ✔ THE CAMERA RESOLVE WAS SEARCHING CONTROL AUTHORITY.**
@@ -1072,10 +1074,21 @@ reaching a dense channel is the bug `LocalChannelPlan` exists for — a fighter
 deaf for a whole match — so `ambition_input::menu` and the select cursor now say
 "dense local source ordinal" and warn against reading it back as hardware.
 
-**(e) ▢ `SlotOccupant::Controller { device: usize }` SHOULD CARRY A NAMED SOURCE
+**(e) ⊙ `SlotOccupant::Controller { device: usize }` SHOULD CARRY A NAMED SOURCE
 KEY**, not a bare `usize` whose meaning comes from the current assignment
-policy. 127 sites mention `device` across the smash demo; deferred deliberately.
-⛔ do not start it as a side effect of something else, and do not rename half.
+policy. 127 sites mention `device` across the smash demo. ⛔ do not start it as a
+side effect of something else, and do not rename half.
+
+⇒ **RE-PRICED 2026-08-24, and (d) is why.** The HAZARD in this field was the
+belief that `device` indexes hardware — somebody on pad three with pads one and
+two unplugged is source ZERO, and a sparse physical id reaching a dense channel
+is a fighter deaf for a whole match. (d) closed that by NAMING the value
+correctly at both readers, so what (e) still buys is type safety over a value
+that now says what it means. That is worth a 127-site rename when a SECOND kind
+of source can occupy the same field — a network seat, a replay stream, a
+scripted driver — because that is when a bare `usize` starts having two meanings
+again and a name is the only thing that can tell them apart. ⇒ until then it is
+polish on scaffold. Reopen on the second source kind.
 
 **(f) ✔ RETIRED INTO POLICY 2026-08-22.** Jon: comments had become *"excessive
 and unprofessional"*. The rule now lives in `AGENTS.md` § Comments — concise,

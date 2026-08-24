@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `16f2c229d` (2026-08-22 local project date).
+**Snapshot:** `7692ce4cd` (2026-08-23 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -14,6 +14,55 @@ replenish it. Focused plans own technical design.
 
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
+
+## 2026-08-23, LATEST — the smash correctness closeout landed, and six emergent tests lied
+
+Two GPT reviews, twelve named defects, all closed. The ledger row is **D200**;
+this is only the orientation a cold start needs.
+
+```text
+grab lock         ✔ abdc086a1  mutual capture deadlocked 28% of a mirror match
+strike pulse      ✔ abdc086a1  one swing lands once across sibling volumes
+buffered Special  ✔ abdc086a1  Up+Special kept its direction through endlag
+charge payoff     ✔ d2004b335  the timeline road paid the FULL multiplier, always
+CPU charge timing ✔ bbcf7b5a7  held Attack to the first HIT, not to the freeze
+charge pose       ✔ ff4d06847  a held charge stood inside its own live hitbox
+                  ✔ 56c480611  ...and all six smashes AUTHOR their pose now
+throw edge        ✔ 3cebefd62  a direction held through the grab threw instantly
+neutral dodge     ✔ 814c2d535  it never cost the charge; the revert was wrong
+Mary-O i-frames   ✔ 7ef70de18  quasar AND the shared blink, stacked
+capture matching  ✔ 829a7067b  no body is both captor and captive, order-free
+impact hitstop    ✔ 56c480611  CPU-vs-CPU connects stop the world now
+```
+
+⭐⭐ **THE ONE THING TO CARRY FORWARD, and it is not on that list. SIX EMERGENT
+MATCH TESTS MISATTRIBUTED A CHANGE IN ONE PASS.** `every_authored_route_gets_pressed`
+blamed George's recovery for a charge-payoff change and again for a charge-pose
+change; `the_cpu_charges_a_smash…` blamed the neutral dodge for a failure a CPU
+cannot reach (its Dodge verb aims its stick, and the clause only fires on a
+neutral one); `two_emmys_hold_a_mirror…` failed a PERFECT 856/856 mirror against
+a sloppy 440/1376 one by comparing absolute frames across matches of different
+lengths; and the jab-string probe accused the cancel chain when the human simply
+had not landed yet. Every one is a match-DISTRIBUTION measurement read as a
+MECHANISM failure.
+
+⇒ **distrust any "the CPU stopped doing X" failure until a targeted fixture
+agrees.** `a_fighter_brain_charges_a_smash_through_the_real_chain` is the shape:
+brain → gesture → move → `MoveCharge` → frozen fraction, one motionless
+opponent, no sampling in it.
+
+⚠ **and a guard can be GREEN for the wrong reason.** The capture-chain test
+survived deleting the clause it existed to protect (a chain's second edge is
+refused by a different check), and its fixture had made two of its three bodies
+allies — so with friendly fire off, the "chain" it named had been refused at
+resolution and never existed. Poison the CLAUSE, not the file.
+
+⭐ **the rollback wire format may grow now.** `rollback-wire-format-is-frozen` →
+`rollback-wire-format-changes-are-declared`: drift is still caught in both
+directions, but growth is legitimate when the baseline and
+`GGRS_ROLLBACK_SCHEMA_VERSION` move together. The shrink-only rule was inherited
+from `central-rollback-ownership-may-not-grow`, a MIGRATION constraint that
+outlived its condition. Schema is at **76**.
 
 ## 2026-08-21, LATEST — D175 is CLOSED, and player two can fast-fall
 

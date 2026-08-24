@@ -141,13 +141,19 @@ impl Plugin for PlatformerProviderRuntimePlugin {
                     // Defense presentation is route-owned too: a multi-game host may
                     // keep Mary-O and Smash installed simultaneously, so build-order
                     // insertion cannot be the authority.
+                    //
+                    // ⛔⛔ AND IT MAY NOT ALSO ASK TO PRECEDE `PresentationVisualSync`.
+                    // That set runs EARLIER IN THE FRAME than session activation —
+                    // `PresentationVisualSync → RoomTransitionCoverSet → Observe →
+                    // Activity → … → Bridge → Providers` is the host's own chain — so
+                    // the extra edge closed a fifteen-hop cycle and the whole `Update`
+                    // schedule failed to build. The cue systems read the policy
+                    // published on the previous tick, which is the same one-frame
+                    // relationship both siblings above have.
                     crate::authoring::select_active_defense_presentation
                         .after(activate_prepared_platformer_sessions)
                         .before(
                             ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
-                        )
-                        .before(
-                            ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
                         ),
                     // After the profile SELECTION rather than before the layout resolve: it
                     // reads what that system just published, and the camera resolve it feeds

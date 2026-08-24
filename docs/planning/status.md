@@ -214,6 +214,47 @@ target had stopped compiling. Swept the whole tier the same day: `cargo test
 --workspace --lib`, 67 targets, all compiling and green. Run it after touching a
 shared type.
 
+## 2026-08-24 — THE GAME WOULD NOT BOOT, AND FOUR TESTS ALREADY SAID SO
+
+Jon ran `./run_game.sh` and got a panic before the first frame: *"Error when
+initializing schedule Update: schedule has 0 before/after cycle(s)"* — Bevy
+detecting a strongly-connected component and then failing to name a single node
+in it, which is the least useful diagnostic in the engine.
+
+The cycle was fifteen hops and one new edge closed it. The merged defense
+presentation selector asked to run `.after(activate_prepared_platformer_sessions)`
+AND `.before(PresentationVisualSync)`, and the host's own frame chain already runs
+
+```text
+PresentationVisualSync → RoomTransitionCoverSet → Observe → Activity →
+ActivitySignals → Drive → Input → Actions → process_shell_presentation_events →
+Pending → Bridge → Providers
+```
+
+⇒ **`PresentationVisualSync` runs EARLIER IN THE FRAME than session activation**,
+so "after activation, before the visual sync" is not late — it is impossible. Its
+two siblings (`select_active_presentation_profiles`,
+`select_active_hud_declaration`) only claim `.before(GameplayPresentationSet)`,
+and dropping the extra edge is what the third one wanted too: the cue systems
+read the policy published on the previous tick, exactly as they do.
+
+⭐⭐ **THE GUARD WAS ALREADY THERE AND HAD NOT RUN.** Poisoned the edge back in:
+four `boot_budget` tests go red immediately, because they boot the shipped
+visible composition. They had not run because `cargo test -p ambition_app` was
+failing to LINK on a stale artifact (`undefined symbol:
+ambition_app::app::cli::run_shared_host_acceptance_cycle`) — cleared by touching
+the crate source.
+
+⇒ ⛔⛔ **`cargo check --all-targets` TYPE-CHECKS AND DOES NOT LINK.** That is a
+second, different blind spot from the dependency-`cfg(test)` one below: this time
+the test target existed, was in the gate's own package, compiled — and could not
+be built into a runnable binary. A schedule that cannot be constructed is
+invisible to every `check`, because nothing constructs it.
+
+⭐ when Bevy names no node, dump the graph: `schedule.graph()` exposes
+`dependency()` and `hierarchy()` publicly, and flattening set edges onto their
+member systems before running Tarjan finds the cycle in about a minute.
+
 ## 2026-08-24, LATEST — D200's P2 consolidation, and two things nothing could see
 
 D200's correctness half closed the day before; this pass worked the P2 list the

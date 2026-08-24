@@ -1338,8 +1338,32 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
 /// The re-grab lockout is asserted beside the hang because they are one
 /// operation: dropping the hang without arming it re-latches the body on the
 /// next frame and the hit reads as nothing at all.
+///
+/// ⛔⛔ AND BOTH KNOCKBACKS ARE MEASURED. A damage-only hit used to skip the
+/// shared reaction outright on this road — the whole call sat inside `if let
+/// Some(k) = knockback` — so a hazard, a chip or a poison tick left the hang
+/// standing. Only the launching half was ever exercised, and the launching half
+/// is the easy one.
 #[test]
 fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
+    for knockback in [
+        Some(crate::features::HitKnockback {
+            dir: 1.0,
+            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+            source_pos: ae::Vec2::new(-40.0, 0.0),
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+        }),
+        None,
+    ] {
+        a_hit_knocks_a_hanging_actor_off_the_ledge_with(knockback);
+    }
+}
+
+fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
+    knockback: Option<crate::features::HitKnockback>,
+) {
+    let launched = knockback.is_some();
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
     // Hang it. The kernel writes this from contact geometry; here it is placed
@@ -1368,13 +1392,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
         attacker: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
-        knockback: Some(crate::features::HitKnockback {
-            dir: 1.0,
-            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
-            source_pos: ae::Vec2::new(-40.0, 0.0),
-            impact_pos: ae::Vec2::ZERO,
-            launch_dir: None,
-        }),
+        knockback,
         ignored_targets: Vec::new(),
     });
     app.update();
@@ -1397,24 +1415,32 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
     assert!(
         ledge.release_cooldown > 0.0,
         "the hang was dropped without arming the re-grab lockout, so the body \
-         re-latches on the next frame and the hit reads as nothing"
+         re-latches on the next frame and the hit reads as nothing \
+         (launched: {launched})"
     );
 }
 
-/// A HIT GIVES A STRUCK ACTOR ITS AIR OPTIONS BACK — the recovery budget.
+/// ⛔⛔ A HIT GIVES BACK THE AIR DODGE AND **NOT** THE DOUBLE JUMP.
 ///
-/// ⛔ THE RULE EXISTED AND ONLY THE PLAYER ROAD CALLED IT, the same shape as the
-/// ledge hang. The kernel refreshes on ground contact and on a bounce; "and on a
-/// hit" lived on `apply_player_knockback` alone, so in an arena — where the
-/// whole roster is actors — nobody got it. A fighter launched offstage with a
-/// spent double jump had no way back, and its brain reads exactly this number
-/// (`SelfView::air_jumps_left`) to decide whether a recovery is even routable.
+/// This test used to assert the opposite, and the opposite is what the code did.
+/// The reasoning that put it there was: the player road refreshed all three air
+/// resources after a hit, the actor road did not, therefore "a hit refreshes the
+/// air budget" is a fact of being hit. It is not — it was one road's overreach,
+/// generalised into engine law by a unification pass.
+///
+/// The genre's rule is that a spent double jump STAYS spent through an ordinary
+/// edge-guard hit; taking somebody's second jump is a thing you do to them, and
+/// a hit that handed it straight back would delete the reason to. The jump
+/// returns from a cause that re-seats the body — landing, catching the ledge,
+/// being grabbed, a respawn — and Ambition's traversal dash is its own
+/// capability that no Smash-shaped hit reaction recharges at all.
+///
+/// ⭐ ALL THREE ARE ASSERTED, because the failure this replaces was a rule that
+/// swept up two resources it never named.
 #[test]
-fn a_hit_gives_a_struck_actor_its_air_jump_back() {
+fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
-    // Airborne with the budget SPENT, which is the state a launched fighter is
-    // in by the time an edge-guard reaches it.
     {
         let mut model = app
             .world_mut()
@@ -1422,15 +1448,39 @@ fn a_hit_gives_a_struck_actor_its_air_jump_back() {
             .expect("the actor carries a motion model");
         *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
     }
-    let authored = app
+    // ⭐ GRANTED, not assumed. `air_jump_count` returns 0 without the ability
+    // whatever the tuning authors, so "the jump stays spent" would hold for a
+    // body that never had one — a test that cannot fail.
+    {
+        let mut abilities = app
+            .world_mut()
+            .get_mut::<ae::BodyAbilities>(victim)
+            .expect("the actor carries the ability cluster");
+        abilities.abilities.double_jump = true;
+        abilities.abilities.dash = true;
+    }
+    let authored = {
+        let world = app.world();
+        world
+            .get::<ae::BodyAbilities>(victim)
+            .unwrap()
+            .abilities
+            .air_jump_count(
+                world
+                    .get::<crate::features::MotionModel>(victim)
+                    .expect("just written")
+                    .air_jumps(),
+            )
+    };
+    let dash_charges = app
         .world()
-        .get::<crate::features::MotionModel>(victim)
-        .expect("just written")
-        .air_jumps();
+        .get::<ae::BodyAbilities>(victim)
+        .unwrap()
+        .abilities
+        .dash_charge_count();
     assert!(
-        authored > 0,
-        "the fixture's policy authors no air jump, so a refresh restores nothing \
-         and this measures the wrong thing"
+        authored > 0 && dash_charges > 0,
+        "the fixture grants neither resource, so nothing below can fail"
     );
     {
         let mut jump = app
@@ -1443,6 +1493,11 @@ fn a_hit_gives_a_struck_actor_its_air_jump_back() {
             .get_mut::<ae::BodyDodgeState>(victim)
             .expect("the actor carries the dodge cluster");
         dodge.air_dodge_spent = true;
+        let mut dash = app
+            .world_mut()
+            .get_mut::<ae::BodyDashState>(victim)
+            .expect("the actor carries the dash cluster");
+        dash.charges_available = 0;
     }
 
     app.world_mut().write_message(HitEvent {
@@ -1464,21 +1519,30 @@ fn a_hit_gives_a_struck_actor_its_air_jump_back() {
     });
     app.update();
 
-    assert_eq!(
-        app.world()
-            .get::<ae::BodyJumpState>(victim)
-            .expect("the actor carries the jump cluster")
-            .air_jumps_available,
-        authored,
-        "a struck fighter kept its spent air jump, so it cannot recover from the \
-         launch the same hit just gave it"
-    );
     assert!(
         !app.world()
             .get::<ae::BodyDodgeState>(victim)
             .expect("the actor carries the dodge cluster")
             .air_dodge_spent,
-        "the air dodge stayed spent through a hit"
+        "the air dodge stayed spent through a hit — a launched fighter with no \
+         evade has no answer to the follow-up"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ae::BodyJumpState>(victim)
+            .expect("the actor carries the jump cluster")
+            .air_jumps_available,
+        0,
+        "a hit handed the double jump back, which deletes the point of taking it"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ae::BodyDashState>(victim)
+            .expect("the actor carries the dash cluster")
+            .charges_available,
+        0,
+        "a hit recharged the traversal dash, which is not a platform-fighter \
+         resource and has nothing to do with being struck"
     );
 }
 

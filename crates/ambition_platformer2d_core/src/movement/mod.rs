@@ -477,6 +477,7 @@ fn update_body_simulation_inner(
         state,
         input,
         frame,
+        &tuning,
         &mut events,
     );
 

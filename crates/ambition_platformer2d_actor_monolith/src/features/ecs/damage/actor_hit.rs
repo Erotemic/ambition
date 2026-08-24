@@ -424,8 +424,19 @@ pub(crate) fn apply_actor_hit(
         // One producer used the channel (the dive corridor, at 1.4) and its magnitude never reached
         // a victim. Both the field and this arm are deleted: a producer that wants a shove attaches
         // a `HitKnockback`, and there is nowhere left to put a magnitude that silently evaporates.
+        //
+        // ⛔⛔ AND IT IS NOT CONDITIONAL ON A LAUNCH. This whole block sat inside
+        // `if let Some(k) = knockback`, so a damage-only hit — a hazard, a chip,
+        // a poison tick — skipped the shared reaction outright and with it every
+        // fact of having been hit: no hitlag, no ledge drop, no dodge back. The
+        // player road ran it and erased the body's velocity instead. Two roads,
+        // wrong in opposite directions, which is D203's whole subject.
+        //
+        // ⇒ every ACCEPTED damaging hit runs the reaction, and the reaction
+        // decides what a missing launch means.
         let knockback = event.knockback.clone();
-        if let Some(k) = knockback {
+        {
+            let k = knockback;
             let boss_hit = heavy_attacker;
             // §A2 step 7 (FEEL-BLIND): the launch also arms the shared stagger
             // (hitstun / recoil-lock / hitstop on `BodyCombat`), consumed by
@@ -441,24 +452,18 @@ pub(crate) fn apply_actor_hit(
                 facing,
                 gravity_dir,
                 boss_hit,
-                Some(&k),
+                k.as_ref(),
                 event.damage,
                 di_input_local,
                 crate::features::ecs::damage_apply::VictimStance {
                     grounded: em.ground.on_ground,
                     crouching: em.body_mode.body_mode == ae::BodyMode::Crouching,
                 },
-                // ⭐ THE AIR OPTIONS A HIT GIVES BACK, which this road did not
-                // have at all until D203: a fighter launched offstage with a
-                // spent double jump could not recover, and in an arena the whole
-                // roster travels this road.
-                Some(ae::AirBudget {
-                    abilities: em.abilities,
-                    dash: em.dash,
-                    jump: em.jump,
-                    dodge: em.dodge,
-                    air_jumps: motion_model.air_jumps(),
-                }),
+                // ⭐ THE AIR DODGE A HIT GIVES BACK — one resource, and the
+                // reaction's rather than each road's (D203). ⛔ NOT the double
+                // jump: a spent second jump stays spent through an ordinary
+                // edge-guard hit, which is what makes taking one worth doing.
+                Some(&mut *em.dodge),
                 Some((motion_model, em.ledge)),
                 feel,
             );

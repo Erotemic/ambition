@@ -1727,3 +1727,85 @@ fn a_ledge_getup_attack_stops_being_intangible_before_it_ends() {
          ledge option that cannot be punished"
     );
 }
+
+/// ⭐ CATCHING THE LEDGE IS WHERE THE AIR RECOVERY IS EARNED — at the LATCH,
+/// not at whichever way out of the hang the body eventually picks.
+///
+/// Jon, 2026-08-24: *"just grabbing the ledge should restore the jumps."*
+///
+/// ⛔⛔ THE REFRESH USED TO LIVE ON TWO OF THE FIVE EXITS. Ledge jump and ledge
+/// release called it; drop, climb and getup attack did not. So a fighter that
+/// reached the lip with an empty budget and DROPPED off it to reposition fell
+/// with nothing — having just touched the thing the genre says restores it —
+/// while the same fighter pressing jump instead got everything back. One rule,
+/// five doors, two of them open.
+///
+/// The DROP is what this drives, deliberately: it is the door that had nothing.
+#[test]
+fn catching_the_ledge_restores_the_air_budget_and_dropping_off_keeps_it() {
+    let world = world_with(vec![Block::solid(
+        "ledge",
+        Vec2::new(100.0, 100.0),
+        Vec2::new(200.0, 200.0),
+    )]);
+    let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+    scratch.abilities.abilities.ledge_grab = true;
+    scratch.axis_mut().wall_clinging = true;
+    scratch.wall.wall_normal_x = -1.0;
+    // ⭐ THE GRANTED count, not the authored one: `air_jump_count` returns 0
+    // without the ability whatever the tuning says, so reading the tuning number
+    // would let this pass against a body that has no jump to restore.
+    let authored = scratch
+        .abilities
+        .abilities
+        .air_jump_count(TEST_TUNING.params().locomotion.air_jumps);
+    assert!(
+        authored > 0,
+        "the fixture grants no air jump, so a restore restores nothing and this \
+         test cannot fail"
+    );
+    // Everything spent, which is the state a fighter reaching for the lip at the
+    // end of a recovery is actually in.
+    scratch.jump.air_jumps_available = 0;
+    scratch.dodge.air_dodge_spent = true;
+
+    let mut events = crate::movement::FrameEvents::default();
+    assert!(
+        try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events),
+        "expected the ledge grab to latch"
+    );
+    assert_eq!(
+        scratch.jump.air_jumps_available, authored,
+        "the catch itself did not give the jump back"
+    );
+    assert!(
+        !scratch.dodge.air_dodge_spent,
+        "the catch itself did not give the air dodge back"
+    );
+
+    // ... AND DROPPING OFF KEEPS IT. The exit that never refreshed.
+    let mut events = crate::movement::FrameEvents::default();
+    let input = InputState {
+        axes: crate::LocalAxes::new(0.0, 1.0), // down
+        ..InputState::default()
+    };
+    let _ = tick_active_ledge_grab_scratch(
+        &mut scratch,
+        input,
+        0.016,
+        TestTuning::default(),
+        &mut events,
+    );
+    assert!(
+        scratch.axis().ledge_grab.is_none(),
+        "the fixture never dropped off the ledge"
+    );
+    assert_eq!(
+        scratch.jump.air_jumps_available, authored,
+        "a fighter that caught the lip and dropped off fell with no jump"
+    );
+    assert!(
+        !scratch.dodge.air_dodge_spent,
+        "a fighter that caught the lip and dropped off fell with no air dodge"
+    );
+}

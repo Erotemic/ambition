@@ -590,7 +590,6 @@ pub(crate) fn handle_player_damage_events(
                         debris,
                         clusters,
                         combat,
-                        tuning,
                         gravity_dir,
                         feel,
                         &damage,
@@ -678,7 +677,6 @@ pub(crate) fn handle_player_damage_events(
                     debris,
                     clusters,
                     combat,
-                    tuning,
                     gravity_dir,
                     feel,
                     &damage,
@@ -822,7 +820,6 @@ pub(crate) fn apply_player_knockback(
     debris: &mut MessageWriter<DebrisBurstMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
-    tuning: ae::MovementTuning,
     // The body's frame down direction, resolved by the environment.
     gravity_dir: ae::Vec2,
     feel: Platformer2dFeelTuningMonolith,
@@ -862,14 +859,10 @@ pub(crate) fn apply_player_knockback(
         },
         // The refresh used to be a separate call right here, and being the
         // CALLER's is exactly how the actor and throw roads came to be without
-        // it — see `AirBudget` and D203.
-        Some(ae::AirBudget {
-            abilities: clusters.abilities,
-            dash: &mut clusters.dash,
-            jump: &mut clusters.jump,
-            dodge: &mut clusters.dodge,
-            air_jumps: tuning.air_jumps,
-        }),
+        // it (D203). ⛔ it was also a refresh of ALL THREE air resources, which
+        // was this road's own overreach: the double jump and the traversal dash
+        // do NOT come back from an ordinary hit.
+        Some(&mut clusters.dodge),
         // The hang, taken by the same rule. It used to be two calls in the two
         // `HitMode::Knockback` arms above this one.
         Some((motion_model, &mut clusters.ledge)),

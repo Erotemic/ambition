@@ -77,6 +77,20 @@ pub fn acquire_captures(
     // The captive's in-flight move, so capture can END it. See the note at
     // the insertion below for why this is not optional.
     mut playbacks: Query<&mut crate::moveset::MovePlayback>,
+    // ⭐ THE CAPTIVE'S AIR RECOVERY, restored BY THE CATCH.
+    //
+    // Being grabbed re-seats a body: the hold suspends its gravity and pins it
+    // to the captor, and what it is released into is a fresh airtime. The genre
+    // gives the double jump and the air dodge back for that, and the CAUSE is
+    // the capture — not the throw, and not "a throw is a hit so the hit rule
+    // covers it". A captive that escapes a hold instead of being thrown was
+    // grabbed just the same and gets the same recovery.
+    mut budgets: Query<(
+        &ae::BodyAbilities,
+        &mut ae::BodyJumpState,
+        &mut ae::BodyDodgeState,
+        &ae::MotionModel,
+    )>,
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
 ) {
     //  the WHOLE resolved row, not just the friendly-fire flag: a hold's
@@ -295,6 +309,10 @@ pub fn acquire_captures(
             victim,
             ambition_characters::control::ControlHold::Relationship,
         );
+        if let Ok((abilities, mut jump, mut dodge, model)) = budgets.get_mut(victim) {
+            jump.air_jumps_available = abilities.abilities.air_jump_count(model.air_jumps());
+            dodge.air_dodge_spent = false;
+        }
         commands.entity(victim).insert(CapturedBy {
             captor: attempt.captor,
             hold_offset_local: attempt.hold_offset,
@@ -642,6 +660,86 @@ mod tests {
             half_extents: ae::Vec2::new(12.0, 14.0),
             hold_offset: ae::Vec2::new(18.0, 0.0),
         }
+    }
+
+    /// ⭐ THE CATCH GIVES THE CAPTIVE ITS AIR RECOVERY BACK, AND THE CATCH IS
+    /// WHERE THE RULE LIVES.
+    ///
+    /// Being grabbed re-seats a body: the hold suspends its gravity, pins it to
+    /// the captor, and what it is released into is a fresh airtime. The genre
+    /// hands back the double jump and the air dodge for that.
+    ///
+    /// ⛔⛔ IT USED TO ARRIVE VIA THE THROW, as a side effect of the throw
+    /// calling the shared hit reaction with a whole-air-budget refresh. Two
+    /// things were wrong with that. A captive that MASHES OUT instead of being
+    /// thrown was grabbed just the same and got nothing; and it made "a hit
+    /// refreshes the air budget" look like a rule, which is how an ordinary
+    /// edge-guard hit came to hand back a double jump it has no business
+    /// touching.
+    #[test]
+    fn being_caught_restores_the_captives_double_jump_and_air_dodge() {
+        let mut app = capture_app();
+        let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
+        let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
+        // Opposed sides, or friendly fire refuses the grab.
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(crate::components::ActorFaction::Player);
+        {
+            let mut victim_mut = app.world_mut().entity_mut(victim);
+            // ⭐ GRANTED, not assumed. `BodyAbilities::default()` authors no
+            // double jump at all, so every assertion below would hold for a body
+            // that never had one — the shape of a test that cannot fail.
+            victim_mut
+                .get_mut::<ae::BodyAbilities>()
+                .unwrap()
+                .abilities
+                .double_jump = true;
+            victim_mut
+                .get_mut::<ae::BodyJumpState>()
+                .unwrap()
+                .air_jumps_available = 0;
+            victim_mut
+                .get_mut::<ae::BodyDodgeState>()
+                .unwrap()
+                .air_dodge_spent = true;
+        }
+        let authored = {
+            let world = app.world();
+            world
+                .get::<ae::BodyAbilities>(victim)
+                .unwrap()
+                .abilities
+                .air_jump_count(world.get::<ae::MotionModel>(victim).unwrap().air_jumps())
+        };
+        assert!(
+            authored > 0,
+            "the fixture grants no air jump, so the restore restores nothing and \
+             this test cannot fail"
+        );
+
+        app.world_mut().write_message(attempt(captor));
+        app.update();
+
+        assert!(
+            app.world().get::<CapturedBy>(victim).is_some(),
+            "the fixture never caught anybody, so nothing was measured"
+        );
+        assert_eq!(
+            app.world()
+                .get::<ae::BodyJumpState>(victim)
+                .unwrap()
+                .air_jumps_available,
+            authored,
+            "the catch did not give the captive its double jump back"
+        );
+        assert!(
+            !app.world()
+                .get::<ae::BodyDodgeState>(victim)
+                .unwrap()
+                .air_dodge_spent,
+            "the catch did not give the captive its air dodge back"
+        );
     }
 
     /// BOTH ENDS OF A HOLD ARE DRAWN, AND BOTH ARE RELEASED.
@@ -2294,11 +2392,7 @@ pub fn apply_capture_throws(
         // ⭐ THE AIR BUDGET A THROW GIVES BACK. A thrown fighter is airborne by
         // construction and has to recover from where the captor put it, so it
         // owes the same refresh any other hit does — see `AirBudget` and D203.
-        &ae::BodyAbilities,
-        &mut ae::BodyDashState,
-        &mut ae::BodyJumpState,
         &mut ae::BodyDodgeState,
-        &ae::MotionModel,
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
@@ -2316,11 +2410,7 @@ pub fn apply_capture_throws(
             mut ground,
             tuning,
             mut holds,
-            abilities,
-            mut dash,
-            mut jump,
             mut dodge,
-            motion_model,
         )) = captives
             .iter_mut()
             .find(|(_, held, ..)| held.captor == request.captor)
@@ -2393,13 +2483,10 @@ pub fn apply_capture_throws(
             // thrown body crouch-cancel its own throw would refund the captor
             // the only beat a grab is paid for.
             Default::default(),
-            Some(ae::AirBudget {
-                abilities,
-                dash: &mut dash,
-                jump: &mut jump,
-                dodge: &mut dodge,
-                air_jumps: motion_model.air_jumps(),
-            }),
+            // ⛔ THE JUMP IS NOT THE THROW'S TO GIVE — the CATCH already gave
+            // it, at `acquire_captures`. A throw hands over what an ordinary hit
+            // hands over, and nothing more.
+            Some(&mut dodge),
             // A captive is not holding an edge: the hold suspended its gravity
             // and pinned it to the captor.
             None,

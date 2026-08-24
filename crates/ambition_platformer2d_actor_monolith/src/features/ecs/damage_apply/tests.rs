@@ -1589,14 +1589,23 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
     );
 }
 
-/// A hit that carries NO knockback publishes nothing.
+/// A hit that carries NO knockback publishes nothing — AND LEAVES THE BODY
+/// GOING WHERE IT WAS GOING.
 ///
-/// `Vec2::ZERO` is the channel's empty state, so this is what keeps a damage-only
-/// hit from being drained as a launch of zero — and, more importantly, from
-/// clearing a body's ride for no reason.
+/// ⛔⛔ THE SECOND HALF IS THE ONE THAT WAS MISSING, and its absence hid a live
+/// defect. `knockback_velocity(None)` returns a zero launch, and the reaction
+/// wrote that zero straight into `*vel` — so a damage-only tick (a hazard, a
+/// chip, a poison) stopped a running player dead. This fixture already set the
+/// velocity to `(50, 0)` and then never asked what became of it: it asserted the
+/// empty CHANNEL and agreed with the bug about the VELOCITY.
+///
+/// ⭐ and hitlag is asserted too, because the repair is a shape, not a skipped
+/// write: a damage-only hit is still a HIT, and everything a hit does other than
+/// throw the body still has to happen.
 #[test]
-fn a_hit_with_no_knockback_publishes_no_launch() {
-    let mut vel = ae::Vec2::new(50.0, 0.0);
+fn a_hit_with_no_knockback_publishes_no_launch_and_keeps_the_ride() {
+    const RIDE: ae::Vec2 = ae::Vec2::new(50.0, 0.0);
+    let mut vel = RIDE;
     let mut flight = ae::BodyFlightState::default();
     let mut combat = BodyCombat::default();
 
@@ -1622,6 +1631,20 @@ fn a_hit_with_no_knockback_publishes_no_launch() {
         ae::Vec2::ZERO,
         "no knockback, no launch: {:?}",
         flight.pending_launch
+    );
+    assert_eq!(
+        vel, RIDE,
+        "a damage-only hit erased the body's own velocity by writing a zero \
+         launch over it"
+    );
+    assert!(
+        combat.hitstop_timer > 0.0,
+        "a damage-only hit skipped its hitlag — the freeze on contact is what \
+         makes a hit read as a hit, and it is not the launch's to arm"
+    );
+    assert_eq!(
+        combat.hitstun_timer, 0.0,
+        "poison: nothing launched this body, so nothing may stun it either"
     );
 }
 

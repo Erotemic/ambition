@@ -55,21 +55,21 @@ pub fn apply_body_hit_reaction(
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     stance: VictimStance,
-    // ⭐⭐ THE AIR OPTIONS A HIT GIVES BACK — jumps, dash charges, the air
-    // dodge. It is the genre's rule and it is how a launched fighter recovers
-    // at all, so it belongs to BEING HIT rather than to whichever road resolved
-    // the hit.
+    // ⭐ THE ONE AIR RESOURCE A HIT GIVES BACK: the air dodge.
     //
-    // ⛔⛔ IT USED TO BE THE CALLER'S, AND THE CALLERS DRIFTED. The player
-    // damage road refreshed; the actor road and the throw road did not, so in an
-    // arena — where the whole roster is actors — a fighter launched offstage
-    // with a spent double jump read `air_jumps_left: 0` and its brain could not
-    // route a recovery a human would have had. Handed in as one borrowed budget
-    // so a caller cannot forget it silently (D203).
+    // ⛔⛔ AND IT IS ONE, NOT THREE. This took a whole `AirBudget` — jumps,
+    // dash charges and the dodge together — because the LANDING helper refreshes
+    // them together, and "the player road did X" was read as "X is a fact of
+    // being hit". It is not. In the genre a spent double jump STAYS spent
+    // through an ordinary edge-guard hit; that is what makes taking somebody's
+    // second jump worth doing. The jump comes back from a cause that has
+    // re-seated the body — landing, catching the ledge, being grabbed, a
+    // respawn — and Ambition's traversal dash is its own capability that no
+    // Smash-shaped hit reaction has any business recharging.
     //
-    // `None` for a body with no air budget to speak of — a bare test fixture, or
-    // a policy that authors none.
-    budget: Option<ae::AirBudget<'_>>,
+    // ⇒ the parameter is the resource the rule actually names. `None` for a body
+    // with no dodge state to hand over.
+    dodge: Option<&mut ae::BodyDodgeState>,
     // ⭐ THE LEDGE HANG A HIT TAKES, for the same reason the budget is here: it
     // is a fact about being HIT, not about which road resolved the hit. It was
     // the player road's alone until `c3d7cdba7` and the actor road's separately
@@ -80,43 +80,65 @@ pub fn apply_body_hit_reaction(
     ledge: Option<(&mut ae::MotionModel, &mut ae::BodyLedgeState)>,
     feel: Platformer2dFeelTuningMonolith,
 ) -> BodyReactionOutcome {
-    // ⛔ BEFORE the launch below, so the hang is gone by the time a velocity is
+    // ═══ THE FACTS OF BEING HIT ═══════════════════════════════════════════
+    //
+    // Everything in this block is true of an ACCEPTED hit whatever it launches,
+    // which is the line this function exists to draw: a damaging hit that
+    // authored no knockback is still a hit, and an armoured body that keeps its
+    // trajectory was still hit too. Below the divider is what a LAUNCH does,
+    // and only a launch reaches it.
+
+    // ⛔ BEFORE any launch, so the hang is gone by the time a velocity is
     // written: dropping it afterwards would let the ledge constraint eat the
     // launch the same hit just handed out.
     if let Some((model, ledge)) = ledge {
         ae::movement::knock_off_ledge(model, ledge);
     }
-    // ⛔ BEFORE THE ARMOR BRANCH BELOW, deliberately: an armoured body keeps its
-    // trajectory and its control, but it was still HIT, and the budget is a
-    // property of having been hit. This is what the player road always did — it
-    // refreshed after the reaction whatever the reaction decided.
-    if let Some(budget) = budget {
-        budget.refresh();
+    // The air dodge is spent per airtime, and a hit is a new airtime's worth of
+    // trouble — a launched fighter that could not dodge would have no answer to
+    // the follow-up. A body without the ability never spent it, so this is a
+    // no-op for one.
+    if let Some(dodge) = dodge {
+        dodge.air_dodge_spent = false;
     }
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
-    // SUPER ARMOR: the hit landed and the body does not answer for it.
-    //
-    // Armor is about AUTHORITY, not about damage — the caller has already
-    // decided the percent and this function never touched it — so what an
-    // armoured body keeps is its trajectory and its control: no launch, no
-    // carry, no hitstun, no recoil lock. It does NOT keep hitlag: the freeze on
-    // contact is what makes a hit read as a hit, and an armoured trade that
+    // HITLAG IS THE HIT, not the launch. The freeze on contact is what makes a
+    // hit read as a hit at all: an armoured trade or a damage-only tick that
     // passed through in silence would look like a whiff to both players.
+    combat.hitstop_timer = combat
+        .hitstop_timer
+        .max(ae::hit_response::hitlag_duration(damage, &response));
+
+    // ═══ THE FACTS OF A LAUNCH ═════════════════════════════════════════════
     //
-    // ⛔ the velocity is not written at all rather than written as zero. An
-    // armoured body is still going wherever it was going, which is the whole
-    // reason a move authors the window.
-    if combat.armored {
-        combat.hitstop_timer = combat
-            .hitstop_timer
-            .max(ae::hit_response::hitlag_duration(damage, &response));
+    // Two hits stop here, and they stop for the same reason: nothing is going to
+    // throw this body.
+    //
+    // SUPER ARMOR — the hit landed and the body does not answer for it. Armor is
+    // about AUTHORITY, not damage (the caller has already decided the percent and
+    // this function never touched it), so what an armoured body keeps is its
+    // trajectory and its control: no launch, no carry, no hitstun, no recoil lock.
+    //
+    // ⛔⛔ NO KNOCKBACK IS NOT ZERO KNOCKBACK. `knockback_velocity(None)` returns
+    // a zero launch, and writing a zero launch ERASES the velocity the body
+    // already had — so a damage-only tick (a hazard, a poison, a chip) stopped a
+    // running player dead. The actor road had dodged this by skipping the whole
+    // reaction for a `None` knockback, which cost it the hit facts above instead.
+    // Both roads were wrong in opposite directions, and that is D203's whole
+    // subject.
+    //
+    // ⇒ the velocity is not written at all rather than written as zero. A body
+    // nothing launched is still going wherever it was going.
+    let Some(knockback) = knockback.filter(|_| !combat.armored) else {
         #[cfg(feature = "causal")]
         return BodyReaction {
             velocity: *vel,
             di_input_local,
-            hitstun: 0.0,
+            // TRUE when a launch was authored and armor ate it, FALSE when the
+            // hit authored none: a reader looking for a launch needs to tell
+            // "absorbed" from "never existed".
             had_knockback: knockback.is_some(),
         };
         #[cfg(not(feature = "causal"))]
@@ -131,13 +153,13 @@ pub fn apply_body_hit_reaction(
             );
             return;
         }
-    }
+    };
     // Crouching reduces launch magnitude; no separate damage threshold applies.
     let launch = ae::hit_response::knockback_velocity(
         body_pos,
         body_facing,
         gravity_dir,
-        knockback,
+        Some(knockback),
         di_input_local,
         &response,
     ) * if stance.crouching {
@@ -159,7 +181,7 @@ pub fn apply_body_hit_reaction(
     // the run*. Written here rather than applied here for the same reason: this
     // function has a `&mut Vec2` and no world and no `MotionModel`.
     flight.pending_launch = launch;
-    combat.hitstun_timer = ae::hit_response::hitstun_duration(knockback, &response);
+    combat.hitstun_timer = ae::hit_response::hitstun_duration(Some(knockback), &response);
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +
     // i-frames). The window ending IS the genre's "meteor cancel"; there is no second verb to
@@ -178,9 +200,6 @@ pub fn apply_body_hit_reaction(
     } else {
         feel.knockback_recoil_lock_time
     };
-    combat.hitstop_timer = combat
-        .hitstop_timer
-        .max(ae::hit_response::hitlag_duration(damage, &response));
     // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
     //
     // The floor is the run-axis component of the velocity just written, in the
@@ -200,7 +219,7 @@ pub fn apply_body_hit_reaction(
         velocity: *vel,
         di_input_local,
         hitstun: combat.hitstun_timer,
-        had_knockback: knockback.is_some(),
+        had_knockback: true,
     };
     #[cfg(not(feature = "causal"))]
     {

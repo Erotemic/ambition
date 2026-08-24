@@ -248,6 +248,7 @@ pub(crate) fn try_start_ledge_grab_scratch(
         &mut axis.state,
         input,
         TEST_TUNING.frame(),
+        &axis.params,
         events,
     )
 }

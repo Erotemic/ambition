@@ -98,11 +98,11 @@ pub fn translate_smash_capture_effects(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::combat::capture::systems::{
         acquire_captures, apply_capture_pummels, apply_capture_throws, finalize_new_capture_pose,
         release_interrupted_captures,
     };
-    use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::combat::capture::CapturedBy;
     use ambition_platformer2d::combat::moveset::{
         advance_move_playback, dispatch_move_events, resolve_attack_gestures,
@@ -198,6 +198,18 @@ mod tests {
                         },
                     ),
                     ambition_platformer2d::engine_core::BodyFlightState::default(),
+                    // The movement columns every integrated body carries from
+                    // spawn (`MotionModel`'s own doc: *"absence is not a policy"*).
+                    // The throw hands the captive's air dodge to the shared hit
+                    // reaction, and a fixture without one is not a body the throw
+                    // system can see at all.
+                    ambition_platformer2d::engine_core::BodyAbilities::default(),
+                    ambition_platformer2d::engine_core::BodyDashState::default(),
+                    ambition_platformer2d::engine_core::BodyJumpState::default(),
+                    ambition_platformer2d::engine_core::BodyDodgeState::default(),
+                    ambition_platformer2d::engine_core::MotionModel::axis_swept(
+                        ambition_platformer2d::engine_core::AxisSweptParams::default(),
+                    ),
                     ambition_platformer2d::actors::features::ActorSurfaceState {
                         surface_normal: ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0),
                         gravity_scale: 1.0,
@@ -360,5 +372,4 @@ mod tests {
             "the throw's own damage did not land"
         );
     }
-
 }

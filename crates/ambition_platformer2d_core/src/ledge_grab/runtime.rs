@@ -413,13 +413,6 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
         clusters.kinematics.vel =
             launch_away_from_feet(frame, tuning, away_x, tuning.locomotion.wall_jump_x);
-        crate::body_clusters::refresh_movement_resources_clusters(
-            clusters.abilities,
-            &mut *clusters.dash,
-            &mut *clusters.jump,
-            &mut *clusters.dodge,
-            tuning.locomotion.air_jumps,
-        );
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
         return true;
     }
@@ -435,13 +428,6 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
             launch_away_from_feet(frame, tuning, into_x, tuning.locomotion.jump_speed * 0.35);
         launch += ledge_boost_for_state_in_frame(state, frame, &tuning);
         clusters.kinematics.vel = launch;
-        crate::body_clusters::refresh_movement_resources_clusters(
-            clusters.abilities,
-            &mut *clusters.dash,
-            &mut *clusters.jump,
-            &mut *clusters.dodge,
-            tuning.locomotion.air_jumps,
-        );
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
         return true;
     }
@@ -700,6 +686,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     axis_state: &mut crate::movement::AxisManeuverState,
     input: InputState,
     frame: crate::MotionFrame,
+    tuning: &AxisSweptParams,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     if !clusters.abilities.abilities.ledge_grab
@@ -787,6 +774,24 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         axis_state.ledge_invuln_timer = earned;
     }
     axis_state.time_off_ledge = 0.0;
+    // CATCHING THE LEDGE IS THE RESET, and it happens HERE rather than at each
+    // way out of the hang. The genre's rule is that the edge gives you your
+    // options back the moment you take it — jumps, dash charges, the air dodge
+    // — which is what makes a recovery that reaches the ledge a recovery at
+    // all. Two of the five exits refreshed (ledge jump, ledge release) and
+    // three did not, so a fighter that caught the lip with an empty budget and
+    // DROPPED off it to reposition fell with nothing, having just touched the
+    // thing that was supposed to have restored it.
+    //
+    // ⇒ one site, at the latch. The exits that used to refresh no longer need
+    // to: nothing between the grab and the exit can spend any of it.
+    crate::body_clusters::refresh_movement_resources_clusters(
+        clusters.abilities,
+        clusters.dash,
+        clusters.jump,
+        clusters.dodge,
+        tuning.locomotion.air_jumps,
+    );
     events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
     true
 }

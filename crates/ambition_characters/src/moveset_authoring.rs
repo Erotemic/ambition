@@ -7,9 +7,11 @@
 //! `ambition_characters` is where the character model lives and where `moveset_prefabs` already
 //! derives a table from an action set; authoring one by hand belongs beside it.
 //!
-//!  `ambition_demo_smash` still carries its OWN fork of these (`crate::moveset`
-//! in that crate, with a `Feel` tag this one has no concept of). Unifying it is
-//! its own change and would expose what the fork hides; it is not this one.
+//! There is ONE `strike` now. `ambition_demo_smash` carried a fork of it for a
+//! while, differing only in the clip fallback chain; the platform-fighter half
+//! that is genuinely its own — the `Feel` vocabulary, the repertoire, the cancel
+//! conventions — stayed there, which is the line: a move-BUILDING fact is
+//! shared, a game's POLICY about moves is not.
 //!
 //! They were never robot-specific — `strike` is *startup, one active window carrying one volume,
 //! recovery*, which is the shape of nearly every move in the genre.
@@ -22,8 +24,8 @@
 
 use crate::moveset_prefabs::SLASH_ARC_VFX;
 use ambition_entity_catalog::{
-    ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveGates, MoveSpec,
-    MoveWindow, VolumeShape, WindowTag,
+    CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
+    MoveGates, MoveSpec, MoveWindow, VolumeShape, WindowTag,
 };
 
 // The posture now follows from the slot in [`crate::smash_repertoire::SmashRepertoire`], which is
@@ -163,6 +165,52 @@ pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
 pub fn strike_tag(mut m: MoveSpec, tag: &str) -> MoveSpec {
     for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
         volume.vfx = Some(tag.to_string());
+    }
+    m
+}
+
+/// The proper-time instant a move's first hit becomes live. Where its feedback
+/// belongs, and where a self-displacement usually does.
+pub fn active_start(m: &MoveSpec) -> f32 {
+    m.windows
+        .iter()
+        .find(|w| matches!(w.tag, WindowTag::Active))
+        .map_or(0.0, |w| w.start_s)
+}
+
+/// A CANCEL WINDOW. The timeline IS the cancel table, so a combo route is
+/// authored here and nowhere else.
+pub fn cancelable(
+    mut m: MoveSpec,
+    start_s: f32,
+    end_s: f32,
+    into: &[&str],
+    condition: CancelCondition,
+) -> MoveSpec {
+    m.windows.push(MoveWindow {
+        start_s,
+        end_s,
+        tag: WindowTag::Cancelable {
+            into: into.iter().map(|s| (*s).to_string()).collect(),
+            condition,
+        },
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    });
+    m
+}
+
+/// A CONDITIONAL TECHNIQUE ON CONTACT — the engine's `on_hit` seam, applied to
+/// every volume the move lands.
+///
+/// What the landing is CAPABLE of, never what a game does with it: the down-air
+/// says it can rebound its attacker and the RULESET decides whether to take it
+/// up on that or read the swing as a spike. Compare [`on_contact`], which is a
+/// SOUND, and [`strike_tag`], which is how the swing draws.
+pub fn on_hit(mut m: MoveSpec, key: &str) -> MoveSpec {
+    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+        volume.on_hit = Some(EffectRef::new(key));
     }
     m
 }

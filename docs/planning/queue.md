@@ -634,9 +634,27 @@ unit is to give that policy a named type so the branches stop sharing two
 closures and a scope. ⇒ the review's own rule applies: *"Extract along behavior
 boundaries as the known bugs are corrected."*
 
-Still open from the review's P2 list, untouched: duplicate capture phase roads
-(§8b), the Smash-local move-authoring fork (§8c), stage-provided fighter kits
-(§8d), the D175 dual-write bridge, and sheet product identity.
+✔ **§8b CLOSED — the duplicate capture phase roads.** `constrain_captive_bodies`
+ran at two points in a tick as one system registered twice. Both timings are
+real (a held body is put back after integration; a body caught THIS tick is
+posed before the tick ends) and they are now named for what they are —
+`maintain_existing_capture_pose` / `finalize_new_capture_pose` over one private
+`pose_captives`. The duplicate instance also made the name unusable as an
+ordering subject, which had already cost a schedule-build panic and two
+workaround comments.
+
+✔ **§8c CLOSED — the Smash-local move-authoring fork.** The local `strike` and
+the shared one differed in exactly one thing: the clip fallback chain. Every
+move in both shipped tables names `attack` or `special` outright, and George's
+sheet carries neither `attack` nor `attack_side`, so the two chains resolve
+identically on all shipped content — the fork was buying nothing. Gone, with
+`impulse`, `committed_tail` and the private `event` beside it; `cancelable`,
+`on_hit` and `active_start` moved UP into `moveset_authoring` (generic
+move-building facts every table wants). `Feel` stayed: how this game hears and
+sees a swing is its policy, not a move-building fact. −204 lines from the demo.
+
+Still open from the review's P2 list: stage-provided fighter kits (§8d), the
+D175 dual-write bridge, and sheet product identity.
 
 ⚠ **and a guard can be green for the wrong reason.** The capture-chain test was
 poisoned by deleting the victim check and stayed GREEN — a chain's second edge is
@@ -2385,10 +2403,9 @@ cannot get one without editing settings by hand (P5).
 * ⊙ **Sanic's kit is `[RunJump]`** — what a runner's kit should actually be (a
   double jump? a fast fall?) is open. Only the ban is settled: never fly, blink
   or wall climb, in any iteration.
-* ▢ **`ambition_demo_smash` carries its own FORK of the moveset authoring
-  helpers** (`crate::moveset`, with a `Feel` tag the shared one has no concept
-  of). D144 moved the shared copy down to `ambition_characters`; unifying the
-  fork is its own change and would expose what the fork hides.
+* ✔ **the `ambition_demo_smash` FORK of the moveset authoring helpers is gone**
+  (2026-08-24, D200 §8c). What it hid was nothing: the only divergence was a clip
+  fallback chain that no shipped move reaches. `Feel` stayed behind.
 
 - ▢ **D165 — THE CHARACTER AUTHORING PACKAGE IS PROMOTED, AND ITS FIRST SLICE IS
   A CANONICAL HEIGHT IN SHARED WORLD UNITS. (opened 2026-08-17 by maintainer

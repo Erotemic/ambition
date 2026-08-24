@@ -12,7 +12,10 @@ use ambition_platformer2d::characters::smash_repertoire::{
 };
 use ambition_platformer2d::entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
 
-use crate::moveset::{cancelable, committed_tail, feel, impulse, on_hit, strike, Feel};
+use crate::moveset::{feel, Feel};
+use ambition_platformer2d::characters::moveset_authoring::{
+    cancelable, committed_tail, impulse, on_hit, strike,
+};
 
 /// The rise George's Up-B commands, engine units per second against gravity.
 ///
@@ -209,13 +212,10 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     f_smash.smash_charge_mult = 1.7;
-    f_smash.smash_charge = Some(
-        ambition_platformer2d::entity_catalog::SmashChargeSpec {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s:
-                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        },
-    );
+    f_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_POSE_AT_S,
+        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+    });
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // a body reached by both takes it. This is the base: the same commitment
     // landed at the wrong distance, which hurts and does not kill.
@@ -266,13 +266,10 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     up_smash.smash_charge_mult = 1.7;
-    up_smash.smash_charge = Some(
-        ambition_platformer2d::entity_catalog::SmashChargeSpec {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s:
-                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        },
-    );
+    up_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_POSE_AT_S,
+        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+    });
     let up_smash = feel(up_smash, Feel::Heavy);
 
     let mut down_smash = strike(Strike {
@@ -290,13 +287,10 @@ pub fn george_booul_moveset() -> MovesetContract {
         on_hit: None,
     });
     down_smash.smash_charge_mult = 1.7;
-    down_smash.smash_charge = Some(
-        ambition_platformer2d::entity_catalog::SmashChargeSpec {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s:
-                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        },
-    );
+    down_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_POSE_AT_S,
+        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+    });
     let down_smash = feel(down_smash, Feel::Heavy);
 
     // ── the committed aerials ────────────────────────────────────────────────

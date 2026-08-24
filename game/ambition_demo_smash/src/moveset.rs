@@ -6,10 +6,12 @@
 //! data. Authored `knockback_growth` uses absolute px/s per damage point; values
 //! here are chosen to match the stage's base-relative growth policy.
 
-use ambition_platformer2d::characters::moveset_authoring::Strike;
+use ambition_platformer2d::characters::moveset_authoring::{
+    active_start, cancelable, on_contact, sfx, strike, vfx, Strike,
+};
 use ambition_platformer2d::entity_catalog::{
-    CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
-    MoveGates, MoveLoop, MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
+    CancelCondition, HitVolume, MoveGates, MoveLoop, MoveSpec, MoveWindow, MovesetContract,
+    VolumeShape, WindowTag,
 };
 
 /// Where the rapid jab's loop jumps back TO, and the instant it jumps back
@@ -36,196 +38,13 @@ pub(crate) fn airborne_only() -> MoveGates {
     }
 }
 
-/// One strike on one timeline: startup, one active window carrying one volume,
-/// recovery.
-///
-/// Every move here is that shape, so the authored differences are the ones that
-/// MATTER — how long you are committed, how far it reaches, how hard it throws,
-/// and how much of the throw scales with the victim's damage.
-/// ⚠ **THIS IS A FORK, and it takes the shared [`Strike`] record so the fork is
-/// visible at the type level rather than only in a queue row.** It differs from
-/// `ambition_characters::moveset_authoring::strike` in exactly two ways: the clip
-/// fallback chain below, and that it has no use for `on_hit`.
-///
-/// ⛔ `on_hit` is destructured and REFUSED rather than ignored. A dropped field
-/// is the silent kind of divergence; this one says so, and the assert is what a
-/// future author gets instead of a move whose landing effect vanished.
-///
-/// ⇒ the unification is a live queue item, and the only behavioural difference
-/// to settle is the fallback chain: this one is `["attack", "idle"]` and the
-/// shared one is `["attack_side", "attack", "slash", "idle"]`. For a sheet that
-/// has no `attack_side` — which is every robot-lineage sheet these fighters draw
-/// from — the two resolve identically.
-pub(crate) fn strike(spec: Strike<'_>) -> MoveSpec {
-    let Strike {
-        id,
-        clip,
-        startup_s,
-        active_s,
-        recover_s,
-        offset,
-        half_extents,
-        damage,
-        knockback,
-        knockback_growth,
-        launch_dir,
-        on_hit,
-    } = spec;
-    debug_assert!(
-        on_hit.is_none(),
-        "{id}: the demo's forked `strike` has no landing-effect road — author \
-         this move through `moveset_authoring::strike`, or unify the fork"
-    );
-    let active_start = startup_s;
-    let active_end = startup_s + active_s;
-    MoveSpec {
-        display_name: None,
-        id: id.to_string(),
-        clip: ClipBinding {
-            clip: clip.to_string(),
-            // Every fighter here draws from the robot lineage's sheets, which
-            // carry `attack` and little else — so the fallback is what actually
-            // plays for most of these. A missing clip must not cost the move its
-            // gameplay.
-            fallbacks: vec!["attack".to_string(), "idle".to_string()],
-        },
-        duration_s: active_end + recover_s,
-        windows: vec![
-            MoveWindow {
-                start_s: 0.0,
-                end_s: active_start,
-                tag: WindowTag::Startup,
-                volumes: Vec::new(),
-                motion_scale: 1.0,
-                sustain_effect: None,
-            },
-            MoveWindow {
-                start_s: active_start,
-                end_s: active_end,
-                tag: WindowTag::Active,
-                volumes: vec![HitVolume {
-                    shape: VolumeShape::Rect {
-                        offset,
-                        half_extents,
-                    },
-                    damage,
-                    knockback,
-                    // The builder's zero still means "this stage decides" — see
-                    // `HitVolume::knockback_growth`. A move wanting FIXED knockback
-                    // authors the volume directly.
-                    knockback_growth: (knockback_growth > 0.0).then_some(knockback_growth),
-                    launch_dir,
-                    on_hit: None,
-                    // The blade tag: the move runtime draws the slash from the
-                    // SAME spawned volume, so the hitbox and the arc can never
-                    // point different ways.
-                    vfx: Some("slash_arc".to_string()),
-                    hit_sfx: None,
-                }],
-                motion_scale: 1.0,
-                sustain_effect: None,
-            },
-            MoveWindow {
-                start_s: active_end,
-                end_s: active_end + recover_s,
-                tag: WindowTag::Recovery,
-                volumes: Vec::new(),
-                motion_scale: 1.0,
-                sustain_effect: None,
-            },
-        ],
-        events: Vec::new(),
-        gates: MoveGates::default(),
-        start_impulse: None,
-        smash_charge_mult: 1.0,
-        smash_charge: None,
-        repeat: None,
-        landing_lag_s: None,
-        autocancel_after_s: None,
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Authoring combinators. Every one of these takes a `MoveSpec` and returns it
-// with one more thing said about it, so a table reads as a list of DECISIONS
-// rather than a wall of struct literals — and so the two fighters in this crate
-// (and any third) say the same things the same way.
+// What is left here is the PLATFORM-FIGHTER half. The move-building
+// combinators — `strike`, `impulse`, `cancelable`, `committed_tail`, `on_hit`,
+// `active_start` — live in `moveset_authoring`, where every other character's
+// table already reaches for them. `Feel` is the half that does not travel: it
+// is this game's opinion about how a swing is heard and seen.
 // ---------------------------------------------------------------------------
-
-/// The proper-time instant a move's first hit becomes live. Where its feedback
-/// belongs, and where a self-displacement usually does.
-pub(crate) fn active_start(m: &MoveSpec) -> f32 {
-    m.windows
-        .iter()
-        .find(|w| matches!(w.tag, WindowTag::Active))
-        .map_or(0.0, |w| w.start_s)
-}
-
-fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
-    m.events.push(MoveEvent { at_s, kind });
-    m
-}
-
-/// A TIMED SELF-DISPLACEMENT. `Set` commands the velocity outright; `Add`
-/// contributes to it. See `MoveEventKind::Impulse` — the difference is the
-/// difference between a recovery and a hop.
-pub(crate) fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> MoveSpec {
-    event(m, at_s, MoveEventKind::Impulse { local, mode })
-}
-
-/// A CANCEL WINDOW. The timeline IS the cancel table, so a combo route is
-/// authored here and nowhere else.
-pub(crate) fn cancelable(
-    mut m: MoveSpec,
-    start_s: f32,
-    end_s: f32,
-    into: &[&str],
-    condition: CancelCondition,
-) -> MoveSpec {
-    m.windows.push(MoveWindow {
-        start_s,
-        end_s,
-        tag: WindowTag::Cancelable {
-            into: into.iter().map(|s| (*s).to_string()).collect(),
-            condition,
-        },
-        volumes: Vec::new(),
-        motion_scale: 1.0,
-        sustain_effect: None,
-    });
-    m
-}
-
-/// A CONDITIONAL TECHNIQUE ON CONTACT — the engine's `on_hit` seam, applied
-/// to every volume the move lands. `pogo_bounce` is the one this crate uses: hit
-/// a body on the way down and be thrown back up by it.
-pub(crate) fn on_hit(mut m: MoveSpec, key: &str) -> MoveSpec {
-    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
-        volume.on_hit = Some(EffectRef::new(key));
-    }
-    m
-}
-
-/// A TAIL THE BODY CANNOT STEER OUT OF. Extends the move to `to_s` with a
-/// Recovery window whose `motion_scale` damps the owner's steering — the genre's
-/// "you are committed now", authored rather than hardcoded, and enforced
-/// body-side so it binds a CPU and a human identically.
-pub(crate) fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec {
-    let from = m.duration_s;
-    if to_s <= from {
-        return m;
-    }
-    m.windows.push(MoveWindow {
-        start_s: from,
-        end_s: to_s,
-        tag: WindowTag::Recovery,
-        volumes: Vec::new(),
-        motion_scale,
-        sustain_effect: None,
-    });
-    m.duration_s = to_s;
-    m
-}
 
 /// WHAT A MOVE FEELS LIKE, as six named classes rather than per-move art.
 ///
@@ -296,37 +115,14 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
     };
     let mut m = m;
     if let Some(cue) = windup_cue {
-        m = event(
-            m,
-            0.0,
-            MoveEventKind::Sfx {
-                cue: cue.to_string(),
-            },
-        );
+        m = sfx(m, 0.0, cue);
     }
-    m = event(
-        m,
-        at,
-        MoveEventKind::Sfx {
-            cue: swing_cue.to_string(),
-        },
-    );
+    m = sfx(m, at, swing_cue);
     if let Some(effect) = burst {
-        m = event(
-            m,
-            at,
-            MoveEventKind::Vfx {
-                effect: effect.to_string(),
-                at: (0.0, 0.0),
-                scale: 1.0,
-                sfx: None,
-            },
-        );
+        m = vfx(m, at, effect);
     }
     if let Some(cue) = hit_cue {
-        for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
-            volume.hit_sfx = Some(cue.to_string());
-        }
+        m = on_contact(m, cue);
     }
     m
 }
@@ -588,13 +384,10 @@ pub fn fighter_moveset() -> MovesetContract {
     // Startup window before release, so the commitment and the payoff are the
     // same authored number.
     f_smash.smash_charge_mult = 1.7;
-    f_smash.smash_charge = Some(
-        ambition_platformer2d::entity_catalog::SmashChargeSpec {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s:
-                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        },
-    );
+    f_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_POSE_AT_S,
+        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+    });
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // it is the one a body reached by both takes. This is the base: the same
     // swing landed at the wrong distance, which hurts and does not kill.
@@ -643,13 +436,10 @@ pub fn fighter_moveset() -> MovesetContract {
     });
     up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
-    up_smash.smash_charge = Some(
-        ambition_platformer2d::entity_catalog::SmashChargeSpec {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s:
-                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        },
-    );
+    up_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_POSE_AT_S,
+        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+    });
     moves.push(up_smash);
 
     let mut down_smash = strike(Strike {
@@ -669,13 +459,10 @@ pub fn fighter_moveset() -> MovesetContract {
     });
     down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.6;
-    down_smash.smash_charge = Some(
-        ambition_platformer2d::entity_catalog::SmashChargeSpec {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s:
-                ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        },
-    );
+    down_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_POSE_AT_S,
+        max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+    });
     moves.push(down_smash);
 
     // ── aerials ──────────────────────────────────────────────────────────────

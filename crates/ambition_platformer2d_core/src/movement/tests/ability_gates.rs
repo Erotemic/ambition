@@ -486,3 +486,68 @@ fn an_initial_dash_is_at_speed_at_once_and_may_still_reverse() {
         "an undeclared world armed the phase"
     );
 }
+
+/// A DASH MAY ONLY SPEED YOU UP — it must never eat a launch.
+///
+/// ⛔⛔ THIS IS THE BUG THE PHASE SHIPPED WITH, and an emergent match test is
+/// what caught it: with the dash overwriting the along-surface velocity, a
+/// grounded fighter launched at 1313px/s while holding a direction came out at
+/// 270 (holding toward) or 0 (holding away), so nobody was ever knocked off the
+/// stage and a one-stock match never ended
+/// (`the_stage_kills::a_second_match_on_the_same_stage_counts_in_and_ends`).
+///
+/// ⭐ SAME CLASS AS THE GROUND ROLL'S SHED: a maneuver reaching into a shared
+/// velocity it does not own, and the same asymmetry answers it — a body already
+/// travelling faster than the dash is carrying somebody else's speed, so the
+/// dash leaves it alone.
+#[test]
+fn an_initial_dash_never_slows_a_body_that_was_launched() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    let launched_peak = |hold_dir: f32| -> f32 {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(
+            scratch.ground.on_ground,
+            "the fixture never landed, so this measures an airborne body"
+        );
+        scratch.flight.pending_launch = crate::Vec2::new(1400.0, -60.0);
+        let hold = InputState {
+            axes: crate::reference_frame::LocalAxes::new(hold_dir, 0.0),
+            ..InputState::default()
+        };
+        let mut peak: f32 = 0.0;
+        for _ in 0..10 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                hold,
+                1.0 / 60.0,
+                tuning,
+            );
+            peak = peak.max(scratch.kinematics.vel.x);
+        }
+        peak
+    };
+    let run = tuning.params().locomotion.max_run_speed;
+    // Holding INTO the launch and AWAY from it both keep it: the dash is not
+    // allowed to decide either way. Away is the arm that actually failed.
+    for dir in [1.0f32, -1.0] {
+        let peak = launched_peak(dir);
+        assert!(
+            peak > run * 2.0,
+            "a dash ate a launch while the body held {dir}: peaked at {peak:.0}, \
+             which is not much more than the {run:.0} run speed the dash wanted"
+        );
+    }
+}

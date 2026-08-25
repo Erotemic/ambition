@@ -286,24 +286,13 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // speed. ⛔ `0.0` rather than a shuffle because no fighter here authors a
         // crawl; the day one does, it declares its own.
         crouch_speed_frac: 0.0,
-        // ⛔⛔ THE INITIAL DASH IS BUILT AND SMASH HAS NOT ADOPTED IT YET, and
-        // this zero is a MEASUREMENT rather than an oversight. `0.0` here is the
-        // continuum every other world walks on.
-        //
-        // Turning it on — at 14 frames AND at 4, and with the dash respecting
-        // analog magnitude as well as at full tilt — makes
-        // `the_stage_kills::a_second_match_on_the_same_stage_counts_in_and_ends`
-        // fail on its PREMISE: a one-stock match that always produced a KO now
-        // announces zero winners, so nobody is knocked off the stage at all.
-        // The window length does not matter, which says the change is to the
-        // SHAPE of CPU ground movement rather than to its amount.
-        //
-        // ⇒ what is missing is not tuning, it is an explanation. An emergent
-        // match test measures a trajectory and cannot attribute it (the up-tilt
-        // percent guard taught this tree the same lesson), so the next step is
-        // an instrument on the fighters' own movement — not another value here.
-        // See the ledger row for the adoption.
-        initial_dash_time: 0.0,
+        // ⭐⭐ THE INITIAL DASH — the first 14 frames of a ground move, in
+        // which a direction change is still free. It is what makes the ground
+        // game a conversation: dash in, read the opponent, dash back out. The
+        // same window is the foxtrot's re-tap and the dash-dance's reversal.
+        // ⚠ a starting point taken from the genre, not a measurement of this
+        // game: play it and move it.
+        initial_dash_time: 14.0 / 60.0,
         // Inherit the run speed. The phase is about WHEN you may turn around,
         // not about being faster than a run.
         initial_dash_speed: 0.0,

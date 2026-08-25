@@ -753,7 +753,25 @@ pub fn integrate_normal_spine(
                         } else {
                             tuning.locomotion.max_run_speed
                         };
-                        ctx.initial_dash_dir * speed * stance
+                        let want = ctx.initial_dash_dir * speed * stance;
+                        // ⛔⛔ A DASH MAY ONLY SPEED YOU UP. A body already
+                        // travelling faster than the dash along this axis is
+                        // carrying somebody else's velocity — a LAUNCH — and
+                        // this must not touch it.
+                        //
+                        // ⭐ MEASURED, and it deleted knockback: a grounded
+                        // fighter launched at 1313px/s while holding a
+                        // direction came out at 270 (toward) or 0 (away), so
+                        // nobody was ever knocked off the stage and a one-stock
+                        // match never ended. Same class as the ground roll's
+                        // shed — a maneuver reaching into a shared velocity it
+                        // does not own — and the same asymmetry answers it: the
+                        // doubtful case does nothing.
+                        if along.abs() > want.abs() {
+                            along
+                        } else {
+                            want
+                        }
                     } else {
                         approach(
                             along,

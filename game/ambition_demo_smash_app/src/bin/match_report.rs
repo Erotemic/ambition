@@ -66,6 +66,20 @@ struct Tally {
     unhit_ledge: usize,
     unhit_parry_window: usize,
     unhit_iframes: usize,
+    /// HOW OFTEN THIS FIGHTER CHANGES ITS MIND about which way to walk —
+    /// counted as sign changes in its own locomotion intent, ignoring ticks it
+    /// asked for nothing.
+    ///
+    /// ⭐ IT IS HERE BECAUSE THE INITIAL DASH IS PAID FOR PER CHANGE, not per
+    /// tick: the phase re-arms on a new direction, and a body that re-arms
+    /// constantly restarts its dash instead of travelling. Measured in the
+    /// kernel: a body flipping every 4 ticks covers 675px where a steady one
+    /// covers 1339. This column is the other half of that — whether a real
+    /// fighter flips anywhere near that often.
+    steer_flips: usize,
+    /// Ticks this fighter asked for a direction at all, so `steer_flips` has a
+    /// denominator and "rarely flips" cannot mean "rarely moves".
+    steer_held: usize,
     shielding: usize,
     parries_caught: usize,
     tech_armed: usize,
@@ -331,6 +345,7 @@ fn run_one(
     let mut parry_was: Vec<f32> = vec![0.0; 4];
     let mut hitstun_was: Vec<f32> = vec![0.0; 4];
     let mut last_damage: Vec<i32> = vec![0; 4];
+    let mut steer_was: Vec<f32> = vec![0.0; 4];
     for _ in 0..ticks {
         app.update();
         sample(
@@ -340,6 +355,7 @@ fn run_one(
             &mut parry_was,
             &mut hitstun_was,
             &mut last_damage,
+            &mut steer_was,
         );
         #[cfg(feature = "causal")]
         collect_decisions(&app, decisions);
@@ -404,6 +420,29 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally]) {
             println!("  {id:<28} {count:>5}");
         }
     }
+    // ⭐ HOW OFTEN A FIGHTER CHANGES ITS MIND about which way to walk. The
+    // initial dash (D217) is paid per direction CHANGE, not per tick — the
+    // phase re-arms on a new direction — so a body that flips often restarts
+    // its dash instead of travelling. Measured in the kernel: flipping every 4
+    // ticks covers 675px where a steady body covers 1339. This says whether a
+    // real fighter is anywhere near that.
+    println!("\nhow often each body changes its walking direction:");
+    println!(
+        "{:<6} {:>12} {:>12} {:>18}",
+        "seat", "steered", "flips", "ticks per flip"
+    );
+    for (seat, tally) in totals.iter().enumerate() {
+        if tally.steer_held == 0 {
+            continue;
+        }
+        println!(
+            "{:<6} {:>12} {:>12} {:>18.1}",
+            seat,
+            tally.steer_held,
+            tally.steer_flips,
+            tally.steer_held as f32 / tally.steer_flips.max(1) as f32
+        );
+    }
     println!("\nwhy each body could not be struck, by the term that refused:");
     println!(
         "{:<6} {:>10} {:>10} {:>10} {:>14} {:>10}",
@@ -450,7 +489,35 @@ fn sample(
     parry_was: &mut [f32],
     hitstun_was: &mut [f32],
     last_damage: &mut [i32],
+    steer_was: &mut [f32],
 ) {
+    // THE STEER, sampled on its own pass because it lives on the control frame
+    // rather than on the body — and counted as SIGN CHANGES, which is the unit
+    // the initial dash is actually paid in.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::characters::control::ActorControl,
+        )>();
+        let steers: Vec<(usize, f32)> = q
+            .iter(world)
+            .map(|(seat, control)| (seat.0, control.0.locomotion.vec().x))
+            .collect();
+        for (seat, x) in steers {
+            let Some(slot) = totals.get_mut(seat) else {
+                continue;
+            };
+            let dir = if x.abs() > 0.5 { x.signum() } else { 0.0 };
+            if dir != 0.0 {
+                slot.steer_held += 1;
+                if steer_was[seat] != 0.0 && dir != steer_was[seat] {
+                    slot.steer_flips += 1;
+                }
+                steer_was[seat] = dir;
+            }
+        }
+    }
     let world = app.world_mut();
     let mut q = world.query::<(
         &MatchSeat,
@@ -690,6 +757,14 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>]) {
     println!("  evading     {}", spread(|t| t.evading as f32));
     println!("  unhittable  {}", spread(|t| t.unhittable as f32));
     println!("  shielding   {}", spread(|t| t.shielding as f32));
+    // THE INITIAL DASH IS PAID PER DIRECTION CHANGE, so this is the number that
+    // says whether the phase would help a fighter or pin one. See D217.
+    println!("  steer held  {}", spread(|t| t.steer_held as f32));
+    println!("  steer flips {}", spread(|t| t.steer_flips as f32));
+    println!(
+        "  ⇒ steered ticks per flip {}",
+        spread(|t| t.steer_held as f32 / t.steer_flips.max(1) as f32)
+    );
     println!("  parries     {}", spread(|t| t.parries_caught as f32));
     println!("  techs       {}", spread(|t| t.tech_armed as f32));
     println!("  in range    {}", spread(|t| t.in_range as f32));

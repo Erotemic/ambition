@@ -107,6 +107,8 @@ fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
         .id();
     app.world_mut().spawn((
         Hitbox {
+            // An ordinary hit, not a gust.
+            windbox: None,
             strike_sfx: None,
             owner,
             source: HitSide::Enemy,

@@ -18,18 +18,18 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
-    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
-    HitEvent, HitSource, SetFlagRequested,
+    ActorDisposition, ActorIdentity, BodyCombat, BreakableFeature, CenteredAabb, FeatureId,
+    FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
+    sync_actor_components_from_cluster,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 #[cfg(test)]
+use super::PickupFeature;
+#[cfg(test)]
 use super::damage_drops::EXPLODER_BLAST_DAMAGE;
 use super::damage_predicates::target_is_ignored;
-#[cfg(test)]
-use super::PickupFeature;
 use crate::features::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -177,6 +177,99 @@ impl FeatureHitWriters<'_, '_> {
 /// Empirically this never fires in the shipped game: every drop parent is
 /// built by the construction executor, which stamps `SimId` before the recipe
 /// runs (probed across `proving_grounds`' whole cast).
+/// WHEN a hit landed, and WHICH RUN OF THE WORLD it landed in — the two facts a
+/// rollback-safe bark draw needs.
+///
+/// ⛔ A `SystemParam` RATHER THAN TWO `Res`, and not for tidiness:
+/// `apply_feature_hit_events` sits at Bevy's parameter ceiling, and adding two
+/// bare resources put it over — the error names `chain` and a tuple's trait
+/// bounds, several files away from the cause.
+///
+/// Both halves are optional because a bare fixture has neither. A world with no
+/// clock cannot draw, and answers `true`: every hit speaks, which is what every
+/// body did before the rate existed.
+#[derive(SystemParam)]
+pub struct BarkDraw<'w> {
+    tick: Option<Res<'w, ambition_time::SimTick>>,
+    active: Option<Res<'w, crate::character_runtime::ActiveMatch>>,
+    feel_tuning: Option<Res<'w, ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    combat_rules: Option<Res<'w, crate::combat::rules::ResolvedCombatTuning>>,
+}
+
+impl BarkDraw<'_> {
+    /// The world's feel tuning, or the default for a composition without it.
+    pub fn feel(&self) -> ambition_combat::feel::Platformer2dFeelTuningMonolith {
+        self.feel_tuning.as_deref().copied().unwrap_or_default()
+    }
+
+    /// The match's resolved rules, or the baseline.
+    pub fn rules(&self) -> crate::combat::rules::ResolvedCombatTuning {
+        self.combat_rules.as_deref().cloned().unwrap_or_default()
+    }
+
+    /// May the hit on `victim` speak, under `rules`?
+    pub fn allows(
+        &self,
+        rules: &crate::combat::rules::ResolvedCombatTuning,
+        victim: Entity,
+    ) -> bool {
+        bark_is_allowed(
+            Some(rules),
+            self.tick.as_deref(),
+            self.active.as_deref(),
+            victim,
+        )
+    }
+}
+
+/// May this hit make the victim SAY something?
+///
+/// ⭐⭐ A RATE, NOT A COOLDOWN. Jon, 2026-08-24: *"not have barks happen every
+/// time a character is hit. Make it a more rare event. Not never, but I'd like
+/// it to happen less often."* A cooldown makes the FIRST hit of every exchange
+/// bark and the rest silent, which is a rhythm a player learns; a rate keeps
+/// them unpredictable, which is what "rare" sounds like.
+///
+/// ⛔ `sim_random`, NEVER A STREAM. This is read inside the rollback window, so
+/// a resimulated hit has to reach the same answer or the bubble flickers on
+/// every rewind — and a stream would need rewinding itself.
+///
+/// ⛔ AND EVERY AXIS IS LOAD-BEARING: the victim is the SALT so two fighters
+/// struck on one tick decide independently rather than chorusing; the match is
+/// the CONTEXT so match two does not replay match one's barks; the tick is when.
+///
+/// A world that declares no rate, or has no clock to draw against, barks on
+/// every hit — which is what every body did before this existed.
+pub(crate) fn bark_is_allowed(
+    rules: Option<&crate::combat::rules::ResolvedCombatTuning>,
+    tick: Option<&ambition_time::SimTick>,
+    active: Option<&crate::character_runtime::ActiveMatch>,
+    victim: Entity,
+) -> bool {
+    let chance = rules.map_or(1.0, |rules| rules.bark_chance);
+    if chance >= 1.0 {
+        return true;
+    }
+    if chance <= 0.0 {
+        return false;
+    }
+    let Some(tick) = tick else {
+        return true;
+    };
+    let draw = ambition_platformer2d_core::sim_random::sim_random(
+        ambition_platformer2d_core::sim_random::DOMAIN_BARK,
+        active.map_or(
+            ambition_platformer2d_core::sim_random::CONTEXT_UNSEEDED,
+            |active| active.instance().random_context(),
+        ),
+        tick.get(),
+        victim.to_bits(),
+    );
+    // The draw is uniform over the whole `u64`, so a fraction of it is the
+    // fraction of hits that speak.
+    (draw >> 11) as f64 * (1.0 / (1u64 << 53) as f64) < f64::from(chance)
+}
+
 fn drop_parent(
     writers: &FeatureHitWriters<'_, '_>,
     entity: Entity,
@@ -257,11 +350,15 @@ pub fn apply_feature_hit_events(
     // Knockback feel for struck actors (§A2 step 6). `Option` so minimal
     // headless test worlds that don't stand up the tuning resource still run
     // (they get the default feel).
-    feel_tuning: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+
     // AE6: the resolved match rules. `di_max_angle` is a rule of the match
     // being played, not world tuning, so it is folded into the local `feel`
     // below rather than written into the world's resource by a route.
-    combat_rules: Option<Res<crate::combat::rules::ResolvedCombatTuning>>,
+
+    // ⭐ WHEN, AND WHICH RUN OF THE WORLD — bundled, because this system is at
+    // Bevy's parameter ceiling and two more bare `Res` put it over. See
+    // [`BarkDraw`].
+    bark_draw: BarkDraw<'_>,
     // Authored character voice for struck NPCs. This resource is required:
     // a production App that omitted provider catalog composition is malformed,
     // and must not silently degrade to anonymous barks.
@@ -415,8 +512,8 @@ pub fn apply_feature_hit_events(
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
-    let mut feel = feel_tuning.map(|r| *r).unwrap_or_default();
-    let resolved_rules = combat_rules.map(|r| *r).unwrap_or_default();
+    let mut feel = bark_draw.feel();
+    let resolved_rules = bark_draw.rules();
     feel.di_max_angle = resolved_rules.di_max_angle;
     // The MATCH's post-hit window, folded the way `di_max_angle` above is. An
     // undeclared world scales by `1.0` and keeps the repeat guard it always had.
@@ -614,6 +711,18 @@ pub fn apply_feature_hit_events(
                 victim_motion
                     .get(actor_entity)
                     .is_ok_and(ambition_platformer2d_core::BodyMotionFacts::evading),
+                // ⭐⭐ MAY THIS HIT SPEAK? Jon, 2026-08-24: *"not have barks
+                // happen every time a character is hit. Make it a more rare
+                // event. Not never."*
+                //
+                // ⛔ THE VICTIM IS THE SALT, so two fighters struck on the SAME
+                // tick decide independently — one salt would make them chorus,
+                // which is louder than the thing being fixed.
+                //
+                // ⛔ AND IT IS `sim_random`, never a stream: this is read inside
+                // the rollback window, so a resimulated hit has to reach the
+                // same answer or the bubble flickers on a rewind.
+                bark_draw.allows(&resolved_rules, actor_entity),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

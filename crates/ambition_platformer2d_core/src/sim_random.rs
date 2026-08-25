@@ -45,6 +45,11 @@ pub type RandomDomain = u64;
 /// Match item spawning.
 pub const DOMAIN_ITEM_SPAWN: RandomDomain = 0x1734_0000_5A11_0001;
 
+/// Whether a struck body says something. ⛔ its OWN domain, not the spawner's:
+/// two consumers sharing one would agree every time they drew on the same tick,
+/// so an item drop and a bark would arrive together forever.
+pub const DOMAIN_BARK: RandomDomain = 0x1734_0000_BA12_0002;
+
 /// WHICH RUN OF THE WORLD is drawing — a match, a session, a seeded run.
 ///
 /// ⭐⭐ WITHOUT THIS, EVERY MATCH IS THE SAME MATCH. A draw is a pure function of

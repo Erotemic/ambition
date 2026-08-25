@@ -208,6 +208,20 @@ pub struct DeclaredCombatRules {
     /// authored is the damage, because that is the knob that says how short
     /// "short" is.
     pub sudden_death_damage: Option<i32>,
+    /// How often a struck body SAYS something, `0.0..=1.0`. `None` — and the
+    /// resolved default — is `1.0`: every hit barks, which is what every body
+    /// did before this existed.
+    ///
+    /// ⭐⭐ IT IS A RATE, NOT A COOLDOWN. Jon, 2026-08-24: *"not have barks
+    /// happen every time a character is hit. Make it a more rare event. Not
+    /// never, but I'd like it to happen less often."* A cooldown would make the
+    /// FIRST hit of every exchange bark and the rest silent, which is a rhythm;
+    /// a rate keeps them unpredictable, which is what "rare" sounds like.
+    ///
+    /// ⛔ THE DRAW IS `sim_random`, never a stream: a bark that differed between
+    /// peers would desync nothing and look like a bug forever. See
+    /// [`ambition_platformer2d_core::sim_random`].
+    pub bark_chance: Option<f32>,
 }
 
 /// The rules combat actually reads this tick.
@@ -243,6 +257,10 @@ pub struct ResolvedCombatTuning {
     pub clank_rebound_speed: f32,
     /// See [`DeclaredCombatRules::sudden_death_damage`].
     pub sudden_death_damage: Option<i32>,
+    /// See [`DeclaredCombatRules::bark_chance`]. RESOLVED, so `1.0` — every hit
+    /// barks — is what a world that declared nothing gets, which is what every
+    /// body did before the knob existed.
+    pub bark_chance: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -342,6 +360,9 @@ impl ResolvedCombatTuning {
                 clank_damage_window: rules.clank_damage_window,
                 clank_rebound_speed: rules.clank_rebound_speed,
                 sudden_death_damage: rules.sudden_death_damage,
+                // A world that declared no rate barks on every hit, which is
+                // what every body did before the knob existed.
+                bark_chance: rules.bark_chance.unwrap_or(1.0).clamp(0.0, 1.0),
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -372,6 +393,7 @@ impl ResolvedCombatTuning {
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
                 sudden_death_damage: None,
+                bark_chance: 1.0,
             },
         }
     }
@@ -392,6 +414,8 @@ impl Default for ResolvedCombatTuning {
     fn default() -> Self {
         Self {
             di_max_angle: crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
+            // Every hit barks, which is what every body did before the knob.
+            bark_chance: 1.0,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
             meteor_lock_time: 0.0,
@@ -459,6 +483,7 @@ mod tests {
         let baseline_di = 0.12;
         let resolved = ResolvedCombatTuning::resolve(
             Some(DeclaredCombatRules {
+                bark_chance: None,
                 declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
@@ -495,6 +520,7 @@ mod tests {
     #[test]
     fn dropping_the_declaration_returns_to_the_baseline_with_no_restore_step() {
         let declared = Some(DeclaredCombatRules {
+            bark_chance: None,
             declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             knockback_growth: 0.0,
@@ -523,6 +549,8 @@ mod tests {
             ResolvedCombatTuning::resolve(None, 0.12, false),
             ResolvedCombatTuning {
                 di_max_angle: 0.12,
+                // An undeclared world barks on every hit.
+                bark_chance: 1.0,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,

@@ -866,6 +866,16 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // decides it. The number is what makes "short" short — at 150 almost any
         // connect is a kill, which is the genre's whole point.
         sudden_death_damage: Some(150),
+        // ⭐⭐ ONE HIT IN SIX SPEAKS. Jon, 2026-08-24: *"not have barks happen
+        // every time a character is hit. Make it a more rare event. Not never,
+        // but I'd like it to happen less often."*
+        //
+        // ⛔ A RATE, NOT A COOLDOWN, and the difference is audible: a cooldown
+        // makes the first hit of every exchange bark and the rest silent, which
+        // a player learns as a rhythm. A rate stays unpredictable, which is what
+        // "rare" sounds like. ⚠ a starting point, not a measured one — it is one
+        // number, and the thing to do with it is play the match and move it.
+        bark_chance: Some(1.0 / 6.0),
         // A GRAB HOLDS THE HURT FIGHTER LONGER, which is Ultimate's
         // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
         // percent mechanic like the launch is, so the body that is losing is

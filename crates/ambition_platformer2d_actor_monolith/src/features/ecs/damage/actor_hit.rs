@@ -5,12 +5,12 @@
 
 use bevy::prelude::Entity;
 
-use super::super::super::{util::midpoint, NPC_HOSTILE_STRIKE_THRESHOLD};
+use super::super::super::{NPC_HOSTILE_STRIKE_THRESHOLD, util::midpoint};
 use super::super::damage_drops::{
     drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,
 };
-use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use super::super::{ActorDisposition, GameplayBanner, HitEvent, HitSource, SetFlagRequested, ae};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -128,6 +128,13 @@ pub(crate) fn apply_actor_hit(
     // same reason: the actor cluster is at Bevy's column ceiling and this is a
     // read of one component by entity.
     evading: bool,
+    // ⭐ MAY THIS HIT SPEAK? — drawn by the caller, for the same reason
+    // `heavy_attacker` and `evading` above are resolved there: the draw needs
+    // the tick and the match, and this resolver holds neither.
+    //
+    // Jon, 2026-08-24: *"not have barks happen every time a character is hit.
+    // Make it a more rare event."* `true` is every world that declared no rate.
+    bark_allowed: bool,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
@@ -232,7 +239,10 @@ pub(crate) fn apply_actor_hit(
         // dedups on a near-zero hit_flash (first non-overlapping hit) and its
         // line index reads pre-damage HP. A blocked hit barks too (the body
         // was struck), matching the resolver's "registered hit" notion.
-        let should_bark = combat.hit_flash < 0.05;
+        // ⭐ TWO CONDITIONS, AND THEY ANSWER DIFFERENT QUESTIONS. The flash is
+        // DEDUP — is this the first non-overlapping hit — and the draw is RATE.
+        // Folding them together would make a rare bark also a broken dedup.
+        let should_bark = combat.hit_flash < 0.05 && bark_allowed;
         // G1: resolved once for the whole branch, because every reaction below is
         // one of the two bodies' own — this actor's block clang, its hurt spray, its
         // death — and each was previously attributed to whoever owned the session.

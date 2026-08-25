@@ -126,6 +126,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         .enabled = true;
 
     app.world_mut().insert_resource(DeclaredCombatRules {
+        bark_chance: None,
         // A declaration names its declarer, so a stage's giveback can ask
         // whether the live rules are its own before removing them.
         declared_by: "a_declaring_stage".to_string(),

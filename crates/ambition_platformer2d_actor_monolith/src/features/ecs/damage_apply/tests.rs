@@ -385,6 +385,8 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let knockback = crate::combat::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir: 1.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
@@ -422,6 +424,8 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
 fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
     let at = |magnitude| {
         knockback_reaction_scale(Some(&crate::combat::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 1.0,
             magnitude,
             source_pos: ae::Vec2::ZERO,
@@ -466,6 +470,8 @@ fn knockback_impulse_is_frame_equivalent() {
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = crate::combat::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 0.0,
             magnitude: crate::combat::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos,
@@ -535,6 +541,8 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = crate::combat::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 0.0,
             magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(launch_speed),
             source_pos,
@@ -571,6 +579,8 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     // is negative — the same convention every authored volume in the tree writes (`+y =
     // gravity-down`, ).
     let up = crate::combat::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir: 0.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
@@ -599,6 +609,8 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     // The lateral component mirrors to point AWAY from the source: hit
     // from the left  positive local x  world +x.
     let diag = crate::combat::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir: 0.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
@@ -660,6 +672,8 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = crate::combat::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 0.0,
             magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(speed),
             source_pos,
@@ -693,6 +707,8 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let base = crate::combat::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir: 0.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
@@ -1558,6 +1574,8 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
     let mut combat = BodyCombat::default();
     let victim_pos = ae::Vec2::new(100.0, 100.0);
     let knockback = crate::combat::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir: 1.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos: victim_pos - ae::Vec2::new(40.0, 0.0),
@@ -1630,6 +1648,8 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
             DOWN,
             false,
             Some(&crate::features::HitKnockback {
+                // An ordinary hit: it stuns.
+                flinchless: false,
                 dir: 1.0,
                 magnitude: crate::features::HitKnockbackMagnitude::LaunchSpeed(200.0),
                 source_pos: ATTACKER,
@@ -1952,6 +1972,8 @@ fn meteor_reaction(
 ) -> f32 {
     let body = ae::Vec2::new(100.0, 150.0);
     let knockback = crate::combat::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir: 1.0,
         magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
         source_pos: body,
@@ -1996,6 +2018,8 @@ fn meteor_reaction(
 fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
     let launched = |crouching: bool, scale: f32| {
         let knockback = crate::combat::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 1.0,
             magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
             source_pos: ae::Vec2::ZERO,

@@ -321,7 +321,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
 
 #[test]
 fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player() {
-    use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
+    use crate::combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
 
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -857,11 +857,12 @@ fn player_slash_shatters_a_breakable() {
             BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
         ))
         .id();
-    assert!(!app
-        .world()
-        .get::<BreakableFeature>(breakable)
-        .unwrap()
-        .broken());
+    assert!(
+        !app.world()
+            .get::<BreakableFeature>(breakable)
+            .unwrap()
+            .broken()
+    );
 
     app.world_mut().write_message(HitEvent {
         strike_sfx: None,
@@ -1196,6 +1197,8 @@ fn shield_test_app() -> App {
 /// The shove a player slash carries, spelled the one way knockback is spelled.
 fn slash_knockback(center: ae::Vec2, dir: f32) -> crate::features::HitKnockback {
     crate::features::HitKnockback {
+        // An ordinary hit: it stuns.
+        flinchless: false,
         dir,
         magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
         source_pos: center,
@@ -1295,6 +1298,8 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 1.0,
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
@@ -1350,6 +1355,8 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
 fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
     for knockback in [
         Some(crate::features::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 1.0,
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
@@ -1512,6 +1519,8 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: 1.0,
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
@@ -1687,7 +1696,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
 /// onto `MovePlayback.hit_targets` so the next tick's emit ignores it.
 #[test]
 fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
-    use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
+    use crate::combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
@@ -1744,8 +1753,8 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
 #[test]
 fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     use crate::combat::moveset::{
-        project_moveset_melee_to_body_melee, simple_melee, MovePlayback, MovesetMelee,
-        SimpleMeleeParams,
+        MovePlayback, MovesetMelee, SimpleMeleeParams, project_moveset_melee_to_body_melee,
+        simple_melee,
     };
     use bevy::prelude::IntoScheduleConfigs;
     fn clear_iframes(mut q: bevy::prelude::Query<&mut ambition_characters::actor::BodyCombat>) {
@@ -1801,6 +1810,8 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         .pos = enemy_center;
 
     let hitbox = ambition_combat::strike::Hitbox {
+        // An ordinary hit, not a gust.
+        windbox: None,
         strike_sfx: None,
         owner: player,
         source: ambition_vfx::HitSide::Player,
@@ -1951,7 +1962,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
 /// actually disagree.
 #[test]
 fn leaving_the_world_outranks_an_authored_in_place_respawn() {
-    use super::actor_hit::{kill_disposition, KillDisposition};
+    use super::actor_hit::{KillDisposition, kill_disposition};
     use ambition_entity_catalog::placements::RespawnPolicy;
 
     // the policy is STATED here rather than resolved from a fixture archetype row (deleted,
@@ -2100,4 +2111,110 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
         super::boss_damage_allowed(None, side(&ActorFaction::Boss, None), ff, boss_entity),
         "a hit with no attacker cannot be adjudicated, so it is not refused"
     );
+}
+
+/// ⭐⭐ BARKS ARE RARE, NOT GONE — and the rate is what makes them unpredictable.
+///
+/// Jon, 2026-08-24: *"not have barks happen every time a character is hit. Make
+/// it a more rare event. Not never, but I'd like it to happen less often."*
+///
+/// ⛔ ALL FOUR CLAUSES ARE ASSERTED, because three of them are the ways this
+/// goes quietly wrong: a rate that silences everything, one that silences
+/// nothing, one that is not actually random, and one that makes every fighter
+/// struck on the same tick speak together.
+mod bark_rate {
+    use super::super::bark_is_allowed;
+    use crate::combat::rules::ResolvedCombatTuning;
+    use bevy::prelude::Entity;
+
+    fn rules(chance: f32) -> ResolvedCombatTuning {
+        ResolvedCombatTuning {
+            bark_chance: chance,
+            ..Default::default()
+        }
+    }
+
+    fn spoke(chance: f32, ticks: u64, victim: Entity) -> usize {
+        (0..ticks)
+            .filter(|t| {
+                bark_is_allowed(
+                    Some(&rules(chance)),
+                    Some(&ambition_time::SimTick(*t)),
+                    None,
+                    victim,
+                )
+            })
+            .count()
+    }
+
+    /// A world that declares no rate barks on every hit — what every body did
+    /// before the knob existed.
+    #[test]
+    fn an_undeclared_world_still_barks_on_every_hit() {
+        let victim = Entity::from_raw_u32(7).expect("a valid entity id");
+        assert_eq!(spoke(1.0, 200, victim), 200);
+        assert!(
+            bark_is_allowed(None, None, None, victim),
+            "a composition with no combat rules at all went silent"
+        );
+    }
+
+    /// ⛔ AND "RARE" IS NOT "NEVER". Jon said so in the same sentence.
+    #[test]
+    fn a_low_rate_speaks_sometimes_and_is_mostly_quiet() {
+        let victim = Entity::from_raw_u32(7).expect("a valid entity id");
+        let spoke_at_a_fifth = spoke(0.2, 400, victim);
+        assert!(
+            spoke_at_a_fifth > 0,
+            "a 0.2 rate never spoke in 400 hits, which is the 'never' Jon ruled out"
+        );
+        assert!(
+            spoke_at_a_fifth < 200,
+            "a 0.2 rate spoke {spoke_at_a_fifth} times in 400 hits — that is not rarer"
+        );
+        // Zero is still authorable, and it is the only value that means silence.
+        assert_eq!(spoke(0.0, 100, victim), 0);
+    }
+
+    /// ⭐⭐ TWO FIGHTERS STRUCK ON THE SAME TICK DECIDE INDEPENDENTLY.
+    ///
+    /// ⛔ THE DEFECT THIS PINS: one salt for the whole draw would make every
+    /// body hit on a tick answer identically — so a multi-hit that caught two
+    /// fighters would have them CHORUS, which is louder than the thing being
+    /// fixed. The victim is the salt.
+    #[test]
+    fn two_victims_on_one_tick_do_not_chorus() {
+        let a = Entity::from_raw_u32(7).expect("a valid entity id");
+        let b = Entity::from_raw_u32(9).expect("a valid entity id");
+        let disagreements = (0..400u64)
+            .filter(|t| {
+                let tick = ambition_time::SimTick(*t);
+                bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, a)
+                    != bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, b)
+            })
+            .count();
+        assert!(
+            disagreements > 40,
+            "two victims disagreed on only {disagreements} of 400 ticks — they \
+             are sharing one draw and will speak in unison"
+        );
+    }
+
+    /// ⛔ AND IT IS REPRODUCIBLE, because it is read inside the rollback window:
+    /// a resimulated hit that answered differently would flicker the bubble on
+    /// every rewind.
+    #[test]
+    fn the_same_hit_answers_the_same_way_twice() {
+        let victim = Entity::from_raw_u32(7).expect("a valid entity id");
+        let tick = ambition_time::SimTick(123);
+        let first = bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, victim);
+        for _ in 0..8 {
+            assert_eq!(
+                bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, victim),
+                first,
+                "the same hit answered differently on a re-ask, so a rewind \
+                 changes what the fighter said"
+            );
+        }
+    }
 }

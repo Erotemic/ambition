@@ -24,10 +24,10 @@ use ambition_platformer2d::actors::character_runtime::{
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
-use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
@@ -520,6 +520,9 @@ fn track_versus_roster(
             // the difference between a knock-off that is a read and one that is a
             // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
             commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
+                // The versus route says nothing about barks: every hit speaks,
+                // which is what it did before the rate existed.
+                bark_chance: None,
                 // Third time this repo has learned it: the participant roster, the prepared
                 // match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),

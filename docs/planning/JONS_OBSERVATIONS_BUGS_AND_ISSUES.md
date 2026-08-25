@@ -298,9 +298,11 @@ send the character flying across the stage. They should not be giving that much
 velocity, and they probably should stop at the end of the roll and leave the
 character punishable for a frame or two."*
 
-◐ The roll now owes a recovery beat on the far side; the DISTANCE half is not
-reproduced — measured, a roll travels ~14px and stops in ~4 frames — so
-`cargo run -p ambition_demo_smash_app --bin roll_probe` is there to watch it.
+◐ The roll now owes a recovery beat on the far side. ⛔ The DISTANCE half does
+not reproduce: `cargo run -p ambition_demo_smash_app --bin roll_probe` fires a
+real roll on the real stage and it travels **11.2px — 2.3% of the platform**,
+launching at its authored 530px/s and motionless three frames later. Whatever
+sends a fighter across the stage, it is not `dodge_roll_speed`.
 
 ## 2026-08-24 — Smash: a name floats over everyone EXCEPT player one, and barks fire on every hit
 

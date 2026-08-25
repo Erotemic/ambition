@@ -10528,7 +10528,30 @@ land / ledge / respawn   cleared with the ordinary refresh
 recent, deliberate corrections. ⚠ `BodyJumpState` is snapshotted, so this is a
 schema bump plus four seams — a fresh session's work, not a tail-end one.
 
-▢ **(29) THE WINDBOX PRIMITIVE VIOLATES MOST OF ITS OWN CONTRACT** — latent, no
+◐ **(29) THE WINDBOX PRIMITIVE — 29a CLOSED 2026-08-25.** The flinchless arm
+declines `hitstun_timer` and `recoil_lock_timer` was assigned four lines later
+UNCONDITIONALLY, so a volume whose contract is *"moves you and leaves you in
+control"* removed all authority for several frames, and a REPEATING gust
+refreshed that every pulse. Now it declines the lock by the same asymmetry the
+stun arm states — and does NOT discharge one, which is poisoned in both
+directions (clearing it would make a gust the best combo breaker in the game).
+
+▢ **29b AND 29c REMAIN, and they are the two GATEWAY losses** — the reason not to
+fix them as four `if windbox` exceptions: **29b** `pending_launch` is a bare
+`Vec2`, so `accept_external_launch` asks `jab_lock()` and `launch_into_tumble()`
+from SPEED ALONE — a weak gust can pin a prone body, a strong one can tumble it.
+⇒ the launch needs a KIND (`Knockback` vs `FlinchlessPush`). **29c** the parry
+producer and `resolve_body_hit` receive no fact saying the contact is a windbox,
+so a gust can be PARRIED, or blocked for shield integrity and shieldstun and
+pushback — against an authored `no shield`. ⇒ the volume needs a declared
+guard interaction (`NormalStrike` / `IgnoreGuard` / `Unstoppable`), read by both.
+
+⚠ AUTHORING CLEANUP WHILE IT IS STILL LATENT: the type permits `autolink +
+windbox` together while documenting the combination as contradictory. Reject it
+in preparation, or make reaction mode a SUM type. No content authors a windbox
+yet, which is exactly why now is the time.
+
+▢ ~~(29) THE WINDBOX PRIMITIVE VIOLATES MOST OF ITS OWN CONTRACT~~ — latent, no
 content authors one yet, which is the good time to fix it. Beyond the zero-damage
 half I closed today: it still takes `recoil_lock_timer` (a hard control lock), it
 can JAB-LOCK or TUMBLE its victim because `pending_launch` is a bare `Vec2` with

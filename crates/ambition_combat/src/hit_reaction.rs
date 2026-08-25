@@ -231,11 +231,23 @@ pub fn apply_body_hit_reaction(
         && feel.meteor_lock_time > 0.0
         && launch.dot(gravity_dir) > 0.0
         && launch.length_squared() > 0.0;
-    combat.recoil_lock_timer = if meteor {
-        feel.knockback_recoil_lock_time.max(feel.meteor_lock_time)
-    } else {
-        feel.knockback_recoil_lock_time
-    };
+    // ⛔⛔ AND A FLINCHLESS PULSE DECLINES THIS TOO, for the reason stated four
+    // lines above about hitstun: a WINDBOX pushes you and leaves you in control.
+    // This was assigned unconditionally, so a gust that authored no stun still
+    // took the hard control lock — several frames of no authority from a volume
+    // whose whole contract is "moves you and leaves you playing", and a
+    // REPEATING gust refreshed it every pulse.
+    //
+    // ⭐ SAME ASYMMETRY AS THE STUN: it declines to CHARGE the lock, it does not
+    // DISCHARGE one. A body already reeling from a real hit that drifts through
+    // a gust keeps the beat it was already owed.
+    if !knockback.flinchless {
+        combat.recoil_lock_timer = if meteor {
+            feel.knockback_recoil_lock_time.max(feel.meteor_lock_time)
+        } else {
+            feel.knockback_recoil_lock_time
+        };
+    }
     // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
     //
     // The floor is the run-axis component of the velocity just written, in the
@@ -486,6 +498,75 @@ mod super_armor_tests {
         assert_eq!(
             combat.hitstun_timer, 0.4,
             "a gust wiped the stun a real hit had already charged"
+        );
+    }
+
+    /// A WINDBOX PUSHES YOU AND LEAVES YOU PLAYING.
+    ///
+    /// ⛔⛔ IT TOOK THE HARD CONTROL LOCK ANYWAY. The flinchless arm correctly
+    /// declines to charge `hitstun_timer` — and `recoil_lock_timer` was assigned
+    /// four lines later UNCONDITIONALLY, so a volume whose whole authored
+    /// contract is "moves you and leaves you in control" removed all authority
+    /// for several frames, and a REPEATING gust refreshed that every pulse.
+    ///
+    /// ⭐ AND IT MUST NOT DISCHARGE ONE EITHER, which is the same asymmetry the
+    /// stun arm states: a body already reeling from a real hit that drifts
+    /// through a gust keeps the beat it was already owed. Arm two pins that, so
+    /// the fix cannot become "a windbox clears your stagger" — which would make
+    /// it the best combo breaker in the game.
+    #[test]
+    fn a_windbox_neither_charges_nor_clears_the_control_lock() {
+        let gust = || crate::HitKnockback {
+            flinchless: true,
+            ..hard_knockback()
+        };
+        let push = |already_locked: f32| -> BodyCombat {
+            let mut vel = ae::Vec2::new(120.0, 0.0);
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat {
+                recoil_lock_timer: already_locked,
+                ..Default::default()
+            };
+            apply_body_hit_reaction(
+                &mut vel,
+                &mut flight,
+                &mut combat,
+                ae::Vec2::new(20.0, 0.0),
+                1.0,
+                ae::Vec2::new(0.0, 1.0),
+                false,
+                Some(&gust()),
+                0,
+                ae::Vec2::ZERO,
+                VictimStance::default(),
+                None,
+                None,
+                feel(),
+            );
+            combat
+        };
+
+        // ⛔ THE CONTROL FIRST: an ordinary hit must still charge the lock, or
+        // the arms below would pass on a rule that stopped locking anything.
+        let (_, _, struck) = react(false);
+        assert!(
+            struck.recoil_lock_timer > 0.0,
+            "an ordinary knockback charged no control lock, so this fixture \
+             cannot tell a windbox from a hit"
+        );
+
+        assert_eq!(
+            push(0.0).recoil_lock_timer,
+            0.0,
+            "a WINDBOX took the hard control lock — its authored contract is that \
+             it moves you and leaves you playing, and a repeating one would \
+             refresh that every pulse"
+        );
+        assert!(
+            (push(0.25).recoil_lock_timer - 0.25).abs() < 1e-6,
+            "a windbox CLEARED a lock the body was already owed — declining to \
+             charge is not the same as discharging, and this direction would make \
+             a gust the best combo breaker in the game"
         );
     }
 }

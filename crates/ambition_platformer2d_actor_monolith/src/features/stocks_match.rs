@@ -168,11 +168,15 @@ pub fn decide_stocks_match(
     // the once-only latch below covers all three roads.
     mut abandoned: bevy::prelude::MessageReader<MatchAbandoned>,
     active: Option<Res<ActiveMatch>>,
-    // The CLOCK's half, and both are optional for the same reason every
-    // other pair here is: a bare fixture has no sim clock and no prepared plan,
-    // and the honest answer there is a match with no time limit.
+    // The CLOCK's half — the RULE (how long is this match). Optional for the
+    // reason every other reader of the projection is: a bare fixture has no
+    // prepared plan, and the honest answer there is a match with no time limit.
+    // The COUNT is below it, and the pair is what a timeout is.
     prepared: Option<Res<crate::character_runtime::PreparedMatch>>,
-    tick: Option<Res<ambition_time::SimTick>>,
+    // HOW LONG THIS MATCH HAS BEEN FOUGHT. Not `Option`: the clock is installed
+    // by the same plugin this system is, so a composition that can decide a
+    // match can count one.
+    live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
     fighters: Query<(
         &crate::character_runtime::MatchSeat,
         Option<&ambition_combat::targeting::MatchTeam>,
@@ -230,15 +234,12 @@ pub fn decide_stocks_match(
     let outcome = match outcome {
         Some(outcome) => outcome,
         None => {
+            // ⭐ THE LIVE CLOCK, not ticks since the cast was built. The
+            // ceremony and every pause are excluded there, once, by the one
+            // system that owns the question — see `live_match_clock`.
             let expired = prepared
-                .as_ref()
-                .zip(tick.as_ref())
-                .and_then(|(prepared, tick)| {
-                    active
-                        .ticks_since_activation(tick.get())
-                        .map(|elapsed| prepared.rules().time_expired(elapsed))
-                })
-                .unwrap_or(false);
+                .as_deref()
+                .is_some_and(|prepared| prepared.rules().time_expired(live.of(&active)));
             if !expired {
                 return;
             }

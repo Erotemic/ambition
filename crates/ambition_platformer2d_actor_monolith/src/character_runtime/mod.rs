@@ -8,6 +8,7 @@
 pub mod audit;
 pub mod definition;
 pub mod hurtbox;
+pub mod live_match_clock;
 pub mod physical_baseline;
 pub mod prepared_match;
 pub mod presentation;
@@ -24,8 +25,8 @@ pub(crate) use ambition_characters::prepared::{
     prepare_and_finalize_against_for_test, prepare_and_finalize_for_test,
 };
 pub use audit::{
-    audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
-    CharacterCapabilityGap,
+    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
+    unsettled_staged_characters,
 };
 pub use definition::{
     CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
@@ -33,23 +34,25 @@ pub use definition::{
     MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
 };
 pub use hurtbox::{
-    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
-    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
+    AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
+    ResolvedHurtboxes, resolve_hurtboxes,
 };
 pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use prepared_match::{
-    activate_the_prepared_match, declare_the_match_cast_as_the_view, effective_abilities,
-    prepare_match, prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
-    MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
+    ControlAuthority, MatchPreparationProblems, MatchRules, OPENING_BEATS, OpeningPhase,
+    PreparedMatch, PreparedSeat, activate_the_prepared_match, declare_the_match_cast_as_the_view,
+    effective_abilities, prepare_match, prepare_the_match, release_the_opening_hold,
+    seat_placement,
 };
 pub use presentation::{
-    authorize_staged_character_presentation_sources, grant_prepared_character_body,
-    inherit_projectile_presentation_sources, project_prepared_character_definitions,
-    provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
+    KitOwnership, ProjectedCharacterKit, authorize_staged_character_presentation_sources,
+    grant_prepared_character_body, inherit_projectile_presentation_sources,
+    project_prepared_character_definitions, provider_of_character,
+    publish_body_presentation_sources,
 };
-pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
+pub use seating::{ActiveMatch, MatchInstance, MatchSeat, match_participants};
 
 /// Body-complete fixture cast for tests that need registered characters but do
 /// not care which creatures they are.
@@ -752,6 +755,11 @@ impl Plugin for CharacterRuntimePlugin {
             // correct state for an app whose providers author no sheets.
             .init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
             .init_resource::<CharacterMaterializationService>()
+            // THE MATCH CLOCK. Beside the plugin that owns `ActiveMatch`, so a
+            // composition that can activate a match can time one — the readers
+            // take it as a plain `Res` and would fail parameter validation
+            // otherwise.
+            .init_resource::<live_match_clock::LiveMatchTicks>()
             .add_systems(
                 // The SIM schedule, not `Update`. (§4.11)
                 //
@@ -862,6 +870,22 @@ impl Plugin for CharacterRuntimePlugin {
                 // A phase name cannot make that mistake: the set says where it runs.
                 presentation::project_prepared_character_definitions
                     .in_set(crate::schedule::PlayerInputSet::CharacterProjection),
+            )
+            .add_systems(
+                sim,
+                // HOW LONG THIS MATCH HAS BEEN FOUGHT, counted once for every
+                // consumer. `WorldPrep` because both readers are downstream —
+                // the timeout in `Combat` and the item cadence in the item
+                // chain — so they see THIS tick's count rather than last
+                // tick's, and neither has to state an ordering against the
+                // other to agree about the number.
+                //
+                // ⛔ DELIBERATELY UNGATED on `gameplay_allowed`: the clock's own
+                // answer to a stopped world is `sim_dt == 0`, which is the
+                // condition itself rather than a schedule-level proxy for it,
+                // and a gate here would be a second opinion that could disagree.
+                live_match_clock::count_the_live_match_ticks
+                    .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )
             .add_systems(
                 Update,

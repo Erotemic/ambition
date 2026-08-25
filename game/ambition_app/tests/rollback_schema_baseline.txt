@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v86
+ggrs-rollback-schema-v87
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -410,6 +410,7 @@ resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy
 resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
 resource.input_stream_recorder	resource-clone	InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.live_match_ticks	resource-canonical	LiveMatchTicks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection
 resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection

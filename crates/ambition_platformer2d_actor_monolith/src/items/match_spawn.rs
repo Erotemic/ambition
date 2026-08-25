@@ -6,19 +6,27 @@
 //! the SAME two on a resimulated tick, and it must not correlate with anything
 //! else drawing that tick.
 //!
-//! ⛔⛔ NO SCHEDULE STATE, and that is the whole design. There is no countdown
-//! resource and no "last spawned" tick: a drop happens on the ticks where
-//! `elapsed % every_ticks == 0`, which is a pure function of the match clock the
-//! same way the opening ceremony's phase is. A ticking timer here would be
-//! authoritative mutable state inside the rollback window — the trap
-//! `prepared_match` documents having paid for once already.
+//! ⛔⛔ NO SCHEDULE STATE OF ITS OWN, and that is still the whole design. There
+//! is no countdown resource here and no "last spawned" tick: a drop happens on
+//! the ticks where `elapsed % every_ticks == 0`, a pure function of the match
+//! clock the same way the opening ceremony's phase is.
+//!
+//! ⚠ WHAT CHANGED, 2026-08-24: `elapsed` is now the LIVE match clock
+//! ([`LiveMatchTicks`](crate::character_runtime::live_match_clock::LiveMatchTicks))
+//! rather than `ActiveMatch::ticks_since_activation`. That clock IS counted, and
+//! it IS registered rollback state — the cost this paragraph used to say the
+//! spawner would not pay. It is paid once, by the clock, for the two consumers
+//! that need it, instead of here: the alternative was each consumer patching
+//! around the ceremony its own way, which is what the hand-written `elapsed == 0`
+//! below used to be doing.
 //!
 //! ⛔ AND THE IDENTITY IS DERIVED, not sequenced. `SimId::match_spawn(activation,
 //! tick)` — the pickup road mints under the THROWER and takes a `SimIdCounter`
 //! from it, and a match-level spawner has no thrower. Deriving is not a
 //! workaround for that: `(match, tick)` determines the object completely and at
 //! most one spawn per tick exists, so a counter would be a second authority on a
-//! fact the tick already settles.
+//! fact the tick already settles. ⚠ the tick in that pair is the LIVE one now,
+//! which is still strictly increasing within a match and so still unique.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnScopedExt;
@@ -35,9 +43,11 @@ pub fn spawn_match_items(
     mut commands: Commands,
     prepared: Option<Res<crate::character_runtime::PreparedMatch>>,
     active: Option<Res<crate::character_runtime::ActiveMatch>>,
-    tick: Option<Res<ambition_time::SimTick>>,
+    // HOW LONG THIS MATCH HAS BEEN FOUGHT — the same reading the timeout uses,
+    // which is the whole point of the row this closes.
+    live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
 ) {
-    let (Some(prepared), Some(active), Some(tick)) = (prepared, active, tick) else {
+    let (Some(prepared), Some(active)) = (prepared, active) else {
         return;
     };
     let Some(rules) = prepared.rules().item_spawns.as_ref() else {
@@ -46,12 +56,15 @@ pub fn spawn_match_items(
     if !rules.active() {
         return;
     }
-    let Some(elapsed) = active.ticks_since_activation(tick.get()) else {
-        return;
-    };
-    // ⛔ NOT `elapsed == 0`: a match must not drop an item on the tick it opens,
-    // when the fighters are still held by the countdown and nobody could
-    // contest it. The first drop is one full interval in.
+    // ⭐ THE LIVE CLOCK — ticks this match has actually been FOUGHT, with the
+    // opening ceremony and every pause already excluded by the one system that
+    // owns the question. This used to be `ticks_since_activation` plus a
+    // hand-written `elapsed == 0`, which stood in for "not during the countdown"
+    // and stopped being true the moment an interval was shorter than one.
+    let elapsed = live.of(&active);
+    // ⛔ AND ZERO IS STILL SKIPPED, for what is now its real reason: live tick
+    // zero is the RELEASE tick, and an item landing on it is an item nobody had
+    // a frame to contest. The first drop is one full interval in.
     if elapsed == 0 || elapsed % u64::from(rules.every_ticks) != 0 {
         return;
     }

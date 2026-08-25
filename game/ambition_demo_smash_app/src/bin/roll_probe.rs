@@ -60,6 +60,27 @@
 //! stage, it is not `dodge_roll_speed`. Read the `state` column before believing
 //! any run — while it says `-`, the reading is a fighter standing still.
 //!
+//! # WHAT THIS INSTRUMENT HAS ALREADY REFUTED, 2026-08-25
+//!
+//! ```text
+//! the roll's own distance   11.2px, 2.3% of the platform
+//! CHAINED rolls             cooldown 0.42s against a 0.22s roll, so a held
+//!                           button repeats at ~26px/s — not "flying"
+//! rolling OFF the lip       parked at the platform edge, the roll still stops
+//!                           at 12.7px; ground friction is not what was holding
+//!                           it back
+//! ```
+//!
+//! ⇒ **THE LEADING UNTESTED CANDIDATE IS THE AIR DODGE.** Shield + a direction
+//! IN THE AIR is not a roll, it is `air_dodge_speed` (440px/s) with air friction
+//! rather than ground friction under it — and it looks like a roll. ⚠ a first
+//! attempt to test it here failed to get the body airborne (it lands before the
+//! press), so the fixture needs a real jump rather than a teleport.
+//!
+//! ⛔ The other untested candidates are things a headless probe cannot reach:
+//! another fighter's authored tuning, or the LEDGE getup roll, which is a
+//! different mechanism from this one.
+//!
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};

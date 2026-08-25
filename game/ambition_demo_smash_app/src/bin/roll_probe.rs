@@ -71,7 +71,20 @@
 //!                           it back
 //! ```
 //!
-//! ⇒ **THE LEADING UNTESTED CANDIDATE IS THE AIR DODGE.** Shield + a direction
+//! ⛔⛔ **AND THE AIR DODGE IS REFUTED TOO, measured 2026-08-25 in the KERNEL**
+//! (where a tick is a tick, which is what this probe cannot promise): it
+//! launches at its authored 440px/s and travels **29.5px**, stopped by frame 15.
+//! `AIR_FRICTION` is 650 against ground's 7600 and the arithmetic suggested
+//! ~149px of coast — the measurement says otherwise, so something ends the
+//! dodge's velocity rather than letting it decay.
+//!
+//! ⇒ **NOTHING IN THE EVADE FAMILY MOVES A FIGHTER MORE THAN ~30px.** Ground
+//! roll 11.2, roll off the lip 12.7, air dodge 29.5, chained rolls ~26px/s.
+//! Whatever crosses the stage is not an evade at all — the remaining candidates
+//! are KNOCKBACK (a hit during or after the roll), the LEDGE getup roll, which
+//! is a different mechanism entirely, or another fighter's authored tuning.
+//!
+//! ⇒ **THE AIR DODGE WAS THE LEADING CANDIDATE AND IS NOT THE ANSWER.** Shield + a direction
 //! IN THE AIR is not a roll, it is `air_dodge_speed` (440px/s) with air friction
 //! rather than ground friction under it — and it looks like a roll. `--air`
 //! jumps first so the same press resolves as one.

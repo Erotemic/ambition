@@ -172,6 +172,14 @@ pub struct AxisManeuverState {
     /// `0.0` whenever no turnaround is running, which is always for a body
     /// that declares none and always for a body reversing inside its dash.
     pub turnaround_timer: f32,
+    /// THIS BODY IS ON THE BRINK — supported where it stands, but not if it
+    /// leaned any further the way it faces
+    /// ([`crate::LocomotionTuning::teeter_margin`]).
+    ///
+    /// Derived every tick from the world, and SERIALIZED for the same reason
+    /// [`Self::running`] is: a restore that lands on an edge must not present a
+    /// planted body for the tick before the next integration rewrites it.
+    pub teetering: bool,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -302,6 +310,7 @@ impl Default for AxisManeuverState {
             initial_dash_dir: 0.0,
             prev_steer_dir: 0.0,
             turnaround_timer: 0.0,
+            teetering: false,
             ledge_invuln_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,

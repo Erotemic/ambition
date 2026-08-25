@@ -1,12 +1,12 @@
+use crate::Vec2;
 use crate::collision_semantics::{
-    axis_role, block_face_contact, body_on_support_side, is_contact_range_snap,
-    is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
-    one_way_landing_from_previous_feet, snap_feet_to_surface, surface_supports_body_at_rest, Axis,
-    AxisConstraintConflict, AxisRole, Contact, ContactKind, ContactSource,
+    Axis, AxisConstraintConflict, AxisRole, Contact, ContactKind, ContactSource, axis_role,
+    block_face_contact, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
+    is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet,
+    snap_feet_to_surface, surface_supports_body_at_rest,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{Block, BlockKind, World};
-use crate::Vec2;
 
 /// Apply a penetration snap/push to the body position only when it is a genuine
 /// bounded contact correction, never a pushout-teleport. Returns whether it was
@@ -331,8 +331,7 @@ pub(super) fn sweep_player_axis_clusters(
         } else if role == AxisRole::Gravity {
             let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
             if apply_bounded_resolution(kinematics, gravity_dir, push) {
-                let impact =
-                    crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
+                let impact = crate::collision_semantics::closing_speed(kinematics.vel, push_normal);
                 zero_axis_vel(kinematics, axis);
                 // The other end of the axis `on_ground` reports. Published so
                 // the floor game can decide a ceiling tech at the TOP of the
@@ -625,6 +624,60 @@ pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) ->
     })
 }
 
+/// IS THIS BODY STANDING ON THE BRINK — supported where it is, but not if it
+/// leaned `margin` of its own half-width further along `facing`?
+///
+/// ⭐ A FACT, NOT A RULE. Collision is untouched: this asks the SAME
+/// `surface_supports_body_at_rest` question the landing sweep asks, at a probe
+/// shifted toward the edge the body is facing. Control and animation read the
+/// answer; nothing here moves a body or refuses it a step.
+///
+/// `margin <= 0.0` can never teeter, which is what every body did before this
+/// existed.
+pub fn teetering_at_edge(
+    world: &World,
+    body: Aabb,
+    frame: crate::MotionFrame,
+    facing: f32,
+    margin: f32,
+) -> bool {
+    if margin <= 0.0 || facing == 0.0 {
+        return false;
+    }
+    let gravity_dir = frame.down();
+    let supported = |at: Aabb| {
+        world.blocks.iter().any(|block| {
+            surface_supports_body_at_rest(block.kind, at, block.aabb, gravity_dir, false)
+        })
+    };
+    if !supported(body) {
+        return false;
+    }
+    // ⛔⛔ WHAT MATTERS IS WHERE THE PROBE'S TRAILING EDGE SITS, because
+    // support is decided by `perpendicular_overlap` — ANY lateral overlap
+    // counts. Measured: a body hanging 14px past a platform with 15px of
+    // half-width is still fully supported, so a probe that still touches the
+    // platform anywhere reports "supported" however far its far side reaches.
+    //
+    // ⭐ So the question is asked as "is the outermost `margin` of my own
+    // footprint over air" — the leading foot. A first attempt leaned the whole
+    // body by `half_width * margin` and found no edge anywhere, because that
+    // shift was too small to lift the probe's trailing edge clear.
+    //
+    // ⚠ AND A WHOLE-BODY SHIFT BY THE SAME `cut` IS EQUIVALENT, which a poison
+    // proved: both put the trailing edge at `min + cut`, and the far side never
+    // matters. The foot is written this way because it says what it means.
+    let outward = frame.side() * facing.signum();
+    let width = (body.max - body.min).dot(outward).abs();
+    let cut = width * (1.0 - margin.clamp(0.0, 1.0));
+    let toward = outward * cut;
+    let foot = Aabb {
+        min: body.min + toward.max(Vec2::ZERO),
+        max: body.max + toward.min(Vec2::ZERO),
+    };
+    !supported(foot)
+}
+
 /// Tile-set-only hazard touch test. Cluster-aware callers
 /// pass `BodyKinematics::aabb()` directly without building an
 /// `ae::Player`.
@@ -642,7 +695,6 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
         _ => None,
     })
 }
-
 
 #[cfg(test)]
 mod tests {

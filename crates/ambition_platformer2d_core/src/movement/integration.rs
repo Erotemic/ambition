@@ -409,6 +409,18 @@ pub(super) fn integrate_velocity_clusters(
     // `a_quick_forward_smash_barely_travels_but_plain_forward_still_walks`
     // caught it. Committing to a run is what `run_commit_frac` names, and a
     // body still inside its dash window has committed to nothing.
+    // ⭐ ON THE BRINK — derived here, beside `running`, because both are
+    // POST-SWEEP facts about where the body actually ended up. Asking before
+    // the sweep would describe the pose the body was leaving rather than the
+    // one it is standing in.
+    state.teetering = clusters.ground.on_ground
+        && super::collision::teetering_at_edge(
+            world,
+            clusters.kinematics.aabb_oriented(frame.down()),
+            frame,
+            clusters.kinematics.facing,
+            tuning.locomotion.teeter_margin,
+        );
     state.running = clusters.ground.on_ground
         && state.initial_dash_timer <= 0.0
         && steer * travel > 0.0

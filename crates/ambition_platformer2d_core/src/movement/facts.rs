@@ -51,6 +51,13 @@ pub struct BodyMotionFacts {
     /// rush) read ONE answer rather than each comparing a stick against a
     /// facing and calling the disagreement a turnaround.
     pub turning_around: bool,
+    /// Is this body standing on the BRINK — supported, but not if it leaned any
+    /// further the way it faces
+    /// ([`crate::LocomotionTuning::teeter_margin`])?
+    ///
+    /// Published for control and animation. ⛔ It changes no collision: a
+    /// teetering body may still walk off, and nothing here refuses it.
+    pub teetering: bool,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -169,6 +176,7 @@ impl BodyMotionFacts {
             running: state.running,
             initial_dashing: state.initial_dash_timer > 0.0,
             turning_around: state.turnaround_timer > 0.0,
+            teetering: state.teetering,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             ledge_intangible: state.ledge_invuln_timer > 0.0,

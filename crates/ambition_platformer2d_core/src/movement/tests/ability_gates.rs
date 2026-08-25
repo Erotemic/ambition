@@ -971,3 +971,93 @@ fn a_guard_raised_out_of_a_run_plants_the_body_but_a_roll_still_travels() {
         "planting the body ate a launch it did not create: it covered {flew:.0}px in 10 ticks"
     );
 }
+
+/// STANDING ON THE BRINK IS A FACT ABOUT WHERE YOU ARE, AND WHICH WAY YOU FACE.
+///
+/// Four arms. The third is the one a careless probe would get wrong: the same
+/// body on the same spot, facing INWARD, is not teetering — the lean goes the
+/// other way and there is floor under it. Without that arm a rule that answered
+/// "near an edge" rather than "about to leave one" would pass.
+#[test]
+fn a_body_teeters_only_on_the_brink_it_is_facing() {
+    use crate::world::{Block, World};
+    // A single platform spanning x 300..500, its top at y 300.
+    let world = World {
+        name: "teeter".to_string(),
+        size: crate::Vec2::new(800.0, 600.0),
+        spawn: crate::Vec2::new(400.0, 100.0),
+        blocks: vec![Block::solid(
+            "ledge",
+            crate::Vec2::new(300.0, 300.0),
+            crate::Vec2::new(200.0, 40.0),
+        )],
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        edges: Default::default(),
+        water_regions: Vec::new(),
+    };
+    let mut tuning = super::TEST_TUNING;
+    tuning.teeter_margin = 0.25;
+
+    let settled = |x: f32, facing: f32, tuning: crate::test_support::TestTuning| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(x, 250.0));
+        scratch.ground.on_ground = false;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        scratch.kinematics.facing = facing;
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        scratch
+    };
+
+    // ARM 1 — MID-PLATFORM IS NOT THE BRINK, whichever way you face.
+    let middle = settled(400.0, 1.0, tuning);
+    assert!(
+        middle.ground.on_ground,
+        "the fixture never landed on the platform"
+    );
+    assert!(
+        !middle.axis().teetering,
+        "a body in the middle of a platform was called a teeter"
+    );
+
+    // ARM 2 — THE LIP, FACING OUT. Right at the right-hand edge, facing right.
+    // Measured 2026-08-25 with a 15px half-width on a platform ending at 500:
+    // the brink begins at x=492, which is where the leading quarter of the
+    // footprint clears the edge. 488 is not teetering and 492 is.
+    let brink = settled(496.0, 1.0, tuning);
+    assert!(brink.ground.on_ground, "the fixture fell off the lip");
+    assert!(
+        brink.axis().teetering,
+        "a body on the lip facing off it was not teetering"
+    );
+
+    // ARM 3 — THE SAME SPOT, FACING IN. There is floor the way it leans, so it
+    // is not on any brink it can reach. ⛔ this is what separates "about to
+    // leave an edge" from "near an edge".
+    let inward = settled(496.0, -1.0, tuning);
+    assert!(
+        !inward.axis().teetering,
+        "a body facing INTO the platform was called a teeter"
+    );
+
+    // ARM 4 — A WORLD THAT DECLARES NO MARGIN NEVER TEETERS, which is every
+    // world in this repo. Same lip, same facing, engine tuning.
+    let plain = settled(496.0, 1.0, super::TEST_TUNING);
+    assert!(
+        !plain.axis().teetering,
+        "a world declaring no teeter margin produced one anyway"
+    );
+}

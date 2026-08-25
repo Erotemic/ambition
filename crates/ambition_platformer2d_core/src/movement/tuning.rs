@@ -409,6 +409,23 @@ pub struct MovementTuning {
     /// does with its velocity meanwhile is the ordinary run law's business.
     #[serde(default)]
     pub turnaround_time: f32,
+    /// THE TEETER — how much of a body's own width counts as its LEADING FOOT,
+    /// as a fraction. A body is on the brink when it is supported but that foot
+    /// is over air. `0.0` (the default) means no body ever teeters, which is
+    /// what every world in this repo did.
+    ///
+    /// ⛔ A FRACTION OF THE FOOTPRINT, not a lean distance, and the difference
+    /// is measurable: support is decided by ANY lateral overlap, so a body
+    /// hanging 14px past a platform with 15px of half-width is still fully
+    /// supported. Shifting the whole body sideways therefore finds no edge —
+    /// only asking about the outermost slice does.
+    ///
+    /// ⭐ A FACT, NOT A RULE: it publishes `BodyMotionFacts::teetering` and
+    /// changes no collision, no speed and no refusal. Control and animation
+    /// read it; the genre draws a wobble and gives the edge a moment of
+    /// meaning, which is what makes standing there a decision.
+    #[serde(default)]
+    pub teeter_margin: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -810,6 +827,9 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::turnaround_time`]. `0.0` = facing flips instantly.
     #[serde(default)]
     pub turnaround_time: f32,
+    /// See [`MovementTuning::teeter_margin`]. `0.0` = no body teeters.
+    #[serde(default)]
+    pub teeter_margin: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -1328,6 +1348,7 @@ impl MovementTuning {
                 initial_dash_time: self.initial_dash_time,
                 initial_dash_speed: self.initial_dash_speed,
                 turnaround_time: self.turnaround_time,
+                teeter_margin: self.teeter_margin,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -1423,6 +1444,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     initial_dash_time: 0.0,
     initial_dash_speed: 0.0,
     turnaround_time: 0.0,
+    teeter_margin: 0.0,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,

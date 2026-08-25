@@ -142,6 +142,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.initial_dash_dir);
     put_f32(out, state.prev_steer_dir);
     put_f32(out, state.turnaround_timer);
+    put_bool(out, state.teetering);
     put_f32(out, state.ledge_invuln_timer);
     put_bool(out, state.spot_dodging);
     put_f32(out, state.air_dodge_timer);
@@ -192,6 +193,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         initial_dash_dir: r.f32()?,
         prev_steer_dir: r.f32()?,
         turnaround_timer: r.f32()?,
+        teetering: r.bool()?,
         ledge_invuln_timer: r.f32()?,
         spot_dodging: r.bool()?,
         air_dodge_timer: r.f32()?,
@@ -344,6 +346,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.initial_dash_time);
     put_f32(out, l.initial_dash_speed);
     put_f32(out, l.turnaround_time);
+    put_f32(out, l.teeter_margin);
     put_f32(out, l.max_fall_speed);
     put_f32(out, l.jump_speed);
     put_f32(out, l.double_jump_speed);
@@ -468,6 +471,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             initial_dash_time: r.f32()?,
             initial_dash_speed: r.f32()?,
             turnaround_time: r.f32()?,
+            teeter_margin: r.f32()?,
             max_fall_speed: r.f32()?,
             jump_speed: r.f32()?,
             double_jump_speed: r.f32()?,

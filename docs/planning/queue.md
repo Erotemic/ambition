@@ -10012,6 +10012,43 @@ friction barely dents 530px/s, so the bad version passed. The launch arm read
 ⇒ **WHEN THE EFFECT IS GRADUAL, AN INSTANTANEOUS SAMPLE CANNOT SEE IT**: measure
 the distance covered, not the speed at a moment.
 
+- ✔ **D229 — CLOSED 2026-08-25. THE TEETER, AND A POISON THAT CORRECTED MY OWN
+  EXPLANATION. (opened and closed 2026-08-25)**
+
+`teeter_margin` publishes `BodyMotionFacts::teetering`: supported where you
+stand, but your LEADING FOOT is over air. A quarter of the footprint for Smash,
+`0.0` everywhere else. ⛔ A FACT, NOT A RULE — collision, speed and refusals are
+untouched, which is what the row asked for.
+
+⛔⛔ **SUPPORT IS ANY LATERAL OVERLAP** (`perpendicular_overlap`), so a body
+hanging 14px past a platform with 15px of half-width is still FULLY supported. A
+first attempt leaned the whole body by `half_width * margin` and found no edge
+at any position, because that shift never lifted the probe's trailing edge clear
+of the platform.
+
+⭐⭐ **AND THEN THE POISON CORRECTED THE FIX'S OWN STORY.** I had written that the
+answer was a STRIP under the foot rather than a SHIFTED body. Poisoning it back
+to a shifted body PASSED — because both put the probe's trailing edge at
+`min + cut`, and since any overlap counts the far side never matters. The two
+are equivalent; the real variable was the AMOUNT, not the shape. The comment now
+says that, and the poison is a genuine alternative instead — CENTRE-over-air,
+which a reasonable person might have written and which reddens the lip arm.
+
+⇒ ⭐ **A POISON THAT PASSES IS NOT ALWAYS A WEAK TEST — SOMETIMES IT MEANS YOUR
+TWO "DIFFERENT" IMPLEMENTATIONS ARE THE SAME PROGRAM.** Check that before
+strengthening the assertion, or you will write an arm defending a distinction
+that does not exist.
+
+⭐ Four arms, and the third is the one a careless probe fails: the SAME body on
+the SAME spot facing INWARD is not teetering, because the lean goes the other
+way and there is floor under it. That separates "about to leave an edge" from
+"near an edge". Measured: brink begins at x=492 for a 15px half-width on a
+platform ending at 500.
+
+⇒ **§4 GROUND MOVEMENT AND NEUTRAL IS NOW COMPLETE**: initial dash, foxtrot,
+dash dance, turnaround, reverse aerial rush, pivot grab, run cancel into crouch,
+run cancel into shield, teeter. Wire format v99.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

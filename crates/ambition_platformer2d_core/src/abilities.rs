@@ -798,6 +798,9 @@ pub struct MatchBody {
     /// See [`MovementTuning::turnaround_time`] — what reversing out of a
     /// committed run costs. `0.0` = facing flips instantly.
     pub turnaround_time: f32,
+    /// See [`MovementTuning::teeter_margin`] — how much of the footprint is the
+    /// leading foot. `0.0` = no body teeters.
+    pub teeter_margin: f32,
     /// Whether a body may be stood on, and what it costs both parties.
     /// [`crate::FootstoolTuning::OFF`] — the engine default — is a world where
     /// heads are not platforms.
@@ -840,6 +843,7 @@ impl MatchBody {
             initial_dash_time: self.initial_dash_time,
             initial_dash_speed: self.initial_dash_speed,
             turnaround_time: self.turnaround_time,
+            teeter_margin: self.teeter_margin,
             ..base
         }
     }
@@ -900,6 +904,7 @@ mod tests {
             initial_dash_time: 0.0,
             initial_dash_speed: 0.0,
             turnaround_time: 0.0,
+            teeter_margin: 0.0,
         };
         let played = stage.over(brought);
 

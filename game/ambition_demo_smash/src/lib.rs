@@ -310,6 +310,11 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // ⇒ the number is a feel call and it is Jon's; 7 is where it visibly
         // tips this matchup.
         turnaround_time: 3.0 / 60.0,
+        // ⭐ A QUARTER OF THE FOOTPRINT is the leading foot: step that far past
+        // a ledge and the fighter is on the brink. Published only —
+        // `BodyMotionFacts::teetering` is what animation and control read, and
+        // nothing about collision changes.
+        teeter_margin: 0.25,
     };
 
 /// THE BASIC SMASH ABILITIES — the verbs every fighter on this stage has.

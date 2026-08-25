@@ -229,3 +229,88 @@ fn the_same_body_still_in_play_travels() {
          above proves nothing"
     );
 }
+
+/// ⭐⭐ HITFALL: THE ATTACKER FAST-FALLS THE FRAME THE FREEZE ENDS.
+///
+/// The parity inventory listed *"Hitfall"* as absent. It is not: nothing gates
+/// fast-fall on being mid-move or mid-hit — `can_fast_fall` is the ability flag
+/// and nothing else — so a player who holds down through the freeze of their own
+/// connecting aerial falls fast on the first live tick. This measures that
+/// rather than asserting it, and guards it, because "the mechanic is already
+/// reachable" is exactly the claim that rots.
+///
+/// ⛔ THE CONTROL IS THE SAME BODY WITH THE STICK NEUTRAL. A body that fell fast
+/// for some other reason — gravity, a stale flag — would satisfy the headline
+/// while the press did nothing.
+#[test]
+fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
+    let frozen = BodyCombat {
+        hitstop_timer: 0.08,
+        ..BodyCombat::default()
+    };
+    let live = BodyCombat::default();
+
+    // A body that can fast-fall at all, airborne, with no horizontal travel to
+    // confuse the reading.
+    let airborne = || {
+        let mut abilities = ae::AbilitySet::basic();
+        abilities.fast_fall = true;
+        ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities)
+    };
+    let holding_down = ae::InputState {
+        movement: ae::ActionEdges::EMPTY.with(
+            ae::MovementAction::FastFall,
+            ae::Edge {
+                pressed: true,
+                held: true,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+
+    // Through the freeze, then one live tick — the press held the whole way, as
+    // a player mashing down through their own hitlag would.
+    let mut body = airborne();
+    let frozen_travel = stepped(
+        &mut body,
+        &frozen,
+        ae::MovementTuning::default(),
+        holding_down.clone(),
+    );
+    assert_eq!(
+        frozen_travel,
+        ae::Vec2::ZERO,
+        "the body moved DURING hitlag, so the freeze is not a freeze and the \
+         reading below is not about the press"
+    );
+    let after_freeze = stepped(
+        &mut body,
+        &live,
+        ae::MovementTuning::default(),
+        holding_down,
+    );
+
+    // The control: same body, same two steps, stick neutral.
+    let mut neutral_body = airborne();
+    stepped(
+        &mut neutral_body,
+        &frozen,
+        ae::MovementTuning::default(),
+        ae::InputState::default(),
+    );
+    let neutral = stepped(
+        &mut neutral_body,
+        &live,
+        ae::MovementTuning::default(),
+        ae::InputState::default(),
+    );
+
+    assert!(
+        after_freeze.y > neutral.y,
+        "holding down through the freeze fell {} against a neutral {} — the \
+         press did not reach the first live tick, so there is no hitfall",
+        after_freeze.y,
+        neutral.y
+    );
+}

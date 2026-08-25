@@ -522,7 +522,11 @@ mod tests {
             "polygon_projectile_air_back",
             "polygon_projectile_air_up",
             "polygon_projectile_air_down",
-            "polygon_projectile_shot",
+            // ⭐ THE CHARGE SHOT REPLACED THE PLAIN ONE. This row still named
+            // `polygon_projectile_shot` after `charge_shot()` became the neutral
+            // special, and the id exists nowhere else in the tree — the list was
+            // the last reference to a move that had been renamed out.
+            "polygon_projectile_charge_shot",
             "polygon_projectile_vector_rush",
             "polygon_projectile_recoil_lift",
             "polygon_projectile_low_burst",

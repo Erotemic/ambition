@@ -10494,9 +10494,14 @@ return countdown react to SPECULATIVE settlement** — `Local<Option<f32>>` on r
 time, no retraction; use the existing `ConfirmedFrameBoundary` rather than a new
 delay.
 
-▢ LIVE SMASH PARITY: **(23) an untechable tech press SPENDS NOTHING** — the
-source says "IT STILL SPENDS THE LOCKOUT BELOW" and the lockout is only charged
-when `tech_press_timer` expires, which an untechable press never arms; **(24)
+▢ LIVE SMASH PARITY: ⭐⭐ **(23) CLOSED 2026-08-25** — the gate
+carried the sentence *"AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes
+into an untechable launch should not be free to keep mashing"*, and the lockout
+was only charged where `tech_press_timer` EXPIRES, which an untechable press never
+arms. Mashing into a launch too hard to tech cost NOTHING. One gate, three
+outcomes now, in the order a press is judged. ⇒ THIRD TIME TODAY that a COMMENT
+STATED THE CORRECT RULE while the code beneath asked a different question —
+shield drop lag, roll endlag's precondition, and this; **(24)
 recovery helplessness is derived from `recovery_charges == 0`**, so an accepted
 hit that deliberately refunds the air dodge cannot lift it — and the tech edge it
 preserved is dropped by the helpless return.

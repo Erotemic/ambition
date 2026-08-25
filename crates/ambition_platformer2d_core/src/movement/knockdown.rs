@@ -8,8 +8,8 @@ use super::input::InputState;
 use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
-use crate::MotionFrame;
 use crate::body_clusters::{BodyComboTrace, BodyGroundState, BodyKinematics};
+use crate::MotionFrame;
 
 /// How long a body stays in tumble after a launch, per unit of launch speed
 /// over its threshold — clamped to [`MAX_TUMBLE_TIME`]. A harder hit keeps you
@@ -229,12 +229,22 @@ pub(super) fn tick_knockdown(
     // ⛔ AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes into an
     // untechable launch should not be free to keep mashing, which is the same
     // reason a missed tech has a lockout at all.
-    if input.burst_pressed()
-        && !state.tumble_untechable
-        && state.tech_lockout_timer <= 0.0
-        && state.tech_press_timer <= 0.0
-    {
-        state.tech_press_timer = TECH_WINDOW;
+    // ⛔⛔ AND THE REFUSAL IS CHARGED HERE, WHICH IS WHAT THE SENTENCE ABOVE
+    // CLAIMED AND THE CODE DID NOT DO. The lockout is only spent when
+    // `tech_press_timer` EXPIRES — and an untechable press never armed that
+    // timer, so mashing into a launch too hard to tech cost exactly nothing and
+    // every press stayed live. "It still spends the lockout below" was true of
+    // the missed-tech road and false of this one.
+    //
+    // ⭐ ONE GATE, THREE OUTCOMES, in the order a press is actually judged.
+    if input.burst_pressed() && state.tech_lockout_timer <= 0.0 && state.tech_press_timer <= 0.0 {
+        if state.tumble_untechable {
+            // A guess into a launch nobody can tech is still a GUESS, and it
+            // costs the option for the same reason a missed tech does.
+            state.tech_lockout_timer = TECH_LOCKOUT;
+        } else {
+            state.tech_press_timer = TECH_WINDOW;
+        }
     }
     if state.tech_press_timer > 0.0 {
         state.tech_press_timer = dec(state.tech_press_timer);

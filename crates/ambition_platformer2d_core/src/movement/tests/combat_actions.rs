@@ -3,10 +3,10 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
+use crate::body_clusters::BodyClusterScratch;
+use crate::test_support::{update_player_with_tuning_scratch, TEST_TUNING};
 use crate::AbilitySet;
 use crate::Vec2;
-use crate::body_clusters::BodyClusterScratch;
-use crate::test_support::{TEST_TUNING, update_player_with_tuning_scratch};
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
     BodyClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
@@ -2331,5 +2331,70 @@ fn a_weak_hit_pins_a_downed_body_but_the_lock_is_bounded() {
         launched.axis().jab_locks,
         0,
         "a launch far above the threshold was pinned instead of thrown"
+    );
+}
+
+/// A TECH PRESS INTO AN UNTECHABLE LAUNCH SPENDS THE LOCKOUT.
+///
+/// ⛔⛔ THE COMMENT SAID IT DID AND THE CODE DID NOT. The refusal gate reads
+/// *"AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes into an
+/// untechable launch should not be free to keep mashing"* — but the lockout is
+/// only charged where `tech_press_timer` EXPIRES, and an untechable press never
+/// armed that timer. So mashing into a launch too hard to tech cost nothing at
+/// all, and every press stayed live.
+///
+/// ⭐ THE ARM THAT MATTERS IS THE SECOND PRESS: charging the lockout is only
+/// meaningful if it then refuses something.
+#[test]
+fn a_tech_press_into_an_untechable_launch_still_spends_the_lockout() {
+    let world = test_world();
+    let mut tuning = floor_game_tuning();
+    // A threshold this launch clears, so the tumble is genuinely untechable.
+    tuning.untechable_launch_speed = 500.0;
+
+    let mut scratch = scratch_at(world.spawn);
+    scratch.kinematics.pos = Vec2::new(world.size.x - 120.0, world.size.y - 500.0);
+    scratch.ground.on_ground = false;
+    scratch.flight.pending_launch = Vec2::new(1400.0, -260.0);
+    crate::test_support::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState::default(),
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!(
+        scratch.axis().tumble_untechable,
+        "the fixture's launch is techable, so nothing below is about a refusal"
+    );
+
+    let burst = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Burst,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    crate::test_support::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        burst,
+        1.0 / 60.0,
+        tuning,
+    );
+
+    assert_eq!(
+        scratch.axis().tech_press_timer,
+        0.0,
+        "an untechable launch armed a tech window, so the refusal is not refusing"
+    );
+    assert!(
+        scratch.axis().tech_lockout_timer > 0.0,
+        "mashing into an untechable launch cost NOTHING — the press was refused \
+         for free, so a player can keep pressing every frame"
     );
 }

@@ -746,6 +746,14 @@ pub struct MatchBody {
     /// well-timed press" is a fighting-game sentence. An exploration body that
     /// tumbles at all should keep its escape.
     pub untechable_launch_speed: f32,
+    /// EVADE CANCEL TAIL — the last N seconds of an evade in which a move may
+    /// start. `0.0` (the engine default) disables the rule, so an attack cancels
+    /// an evade on its first frame.
+    ///
+    /// ⭐ A MATCH RULE: an evade that is invulnerable AND instantly actionable is
+    /// strictly better than the genre's, which is a fighting-game problem. An
+    /// exploration body's roll is traversal and owes no commitment.
+    pub evade_cancel_tail: f32,
     /// Launch speed above which a hit sends a body TUMBLING (px/s), and the
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
@@ -804,6 +812,7 @@ impl MatchBody {
             dodge_stale_floor: self.dodge_stale_floor,
             dodge_stale_recovery: self.dodge_stale_recovery,
             untechable_launch_speed: self.untechable_launch_speed,
+            evade_cancel_tail: self.evade_cancel_tail,
             tumble_speed: self.tumble_speed,
             spot_dodge_time: self.spot_dodge_time,
             parry_timing: self.parry_timing,
@@ -850,6 +859,9 @@ mod tests {
             dodge_stale_recovery: 1.2,
             // Roughly a kill-power launch on this stage: hard hits commit.
             untechable_launch_speed: 1400.0,
+            // The last four frames of an evade are actionable; the rest is a
+            // commitment. Against a 0.16s spot dodge that is a real read.
+            evade_cancel_tail: 4.0 / 60.0,
             tumble_speed: 500.0,
             spot_dodge_time: 0.16,
             parry_timing: crate::ParryTiming::OnRaise,

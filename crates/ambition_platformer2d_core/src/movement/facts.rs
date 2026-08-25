@@ -68,6 +68,17 @@ pub struct BodyMotionFacts {
     /// meant to read. Not part of [`Self::evading`]: the body is committed and
     /// no longer invulnerable, which is the whole point of the state.
     pub dodge_roll_endlag: bool,
+    /// This body is COMMITTED to the evade it is in and may not start a move.
+    ///
+    /// ⭐⭐ RESOLVED IN THE KERNEL, because only the kernel holds both the
+    /// evade's remaining time and the body's tuning. A consumer that had to
+    /// subtract a timer from a constant would be re-deriving the rule at every
+    /// call site — which is how the two halves come to disagree.
+    ///
+    /// `false` for every body in a game that declares no lockout, which is what
+    /// every body did before it existed: an attack cancels an evade on its first
+    /// frame.
+    pub evade_committed: bool,
     /// Launched and helpless — see [`crate::movement::knockdown`].
     pub tumbling: bool,
     /// Prone on the floor with getup options open.
@@ -148,6 +159,15 @@ impl BodyMotionFacts {
             air_dodging: state.air_dodge_timer > 0.0,
             air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,
             dodge_roll_endlag: state.dodge_roll_endlag_timer > 0.0,
+            // ⭐ COMMITTED WHILE THE EVADE HAS MORE THAN THE TAIL LEFT. One
+            // expression for all three evades: whichever timer is running is
+            // the one being measured, and `0.0` disables the rule so a game
+            // that declares nothing behaves exactly as it did.
+            evade_committed: {
+                let tail = axis.params.abilities.evade_cancel_tail;
+                let remaining = state.dodge_roll_timer.max(state.air_dodge_timer);
+                tail > 0.0 && remaining > tail
+            },
             tumbling: state.tumble_until_landing,
             knocked_down: state.knockdown_timer > 0.0,
             getup_invulnerable: state.getup_invuln_timer > 0.0,

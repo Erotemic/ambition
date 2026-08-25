@@ -1771,3 +1771,86 @@ fn a_launch_above_the_untechable_threshold_refuses_the_wall_tech() {
         "a launch well under the threshold was refused a tech it had earned"
     );
 }
+
+/// ⭐⭐ AN EVADE IS A COMMITMENT UNTIL ITS TAIL.
+///
+/// The parity inventory's *"Spot-dodge attack cancel near tail"*. Today an
+/// attack cancels a spot dodge on frame one, which makes the dodge strictly
+/// better than the genre's: invulnerable AND instantly actionable. The last N
+/// seconds stay cancellable and the rest is committed.
+///
+/// ⛔ THE DEFAULT DISABLES THE RULE. `0.0` is not "nothing is cancellable" — it
+/// is "the rule is off", so a game that declares no tail refuses nothing it
+/// previously allowed. Both are asserted, because a version that committed
+/// every body would satisfy the headline and silently re-tune every other game
+/// in the repo.
+#[test]
+fn an_evade_is_committed_until_its_tail_and_only_when_declared() {
+    let world = test_world();
+
+    let committed_during = |tail: f32| -> Vec<bool> {
+        let mut tuning = floor_game_tuning();
+        tuning.evade_cancel_tail = tail;
+        let mut scratch = scratch_at(world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.dodge.cooldown = 0.0;
+        let burst = InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Burst,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
+            ..Default::default()
+        };
+        crate::test_support::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            burst,
+            1.0 / 60.0,
+            tuning,
+        );
+        // Sample the published fact across the whole evade.
+        let mut seen = Vec::new();
+        for _ in 0..20 {
+            let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+            if facts.dodge_rolling {
+                seen.push(facts.evade_committed);
+            }
+            crate::test_support::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        seen
+    };
+
+    // ⛔ THE BASELINE FIRST: with the rule off, nothing is ever committed.
+    let undeclared = committed_during(0.0);
+    assert!(
+        !undeclared.is_empty(),
+        "the fixture never rolled, so neither reading means anything"
+    );
+    assert!(
+        undeclared.iter().all(|c| !c),
+        "a game that declared no cancel tail committed its bodies anyway, which \
+         refuses attacks every other game in this repo currently allows"
+    );
+
+    // ⭐ AND WITH A TAIL: committed early, actionable at the end.
+    let declared = committed_during(0.06);
+    assert!(
+        declared.first() == Some(&true),
+        "the evade was actionable on its first frame, so it is not a commitment"
+    );
+    assert!(
+        declared.last() == Some(&false),
+        "the evade never became actionable, so the tail is not a cancel window \
+         — it is a longer lockout"
+    );
+}

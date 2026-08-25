@@ -234,6 +234,14 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // keep their escape and only the hard ones lose it — a threshold near
         // the tumble line would delete the tech instead of reserving it.
         untechable_launch_speed: 1400.0,
+        // ⭐⭐ AN EVADE IS A COMMITMENT UNTIL ITS LAST FOUR FRAMES. Without this
+        // a spot dodge is invulnerable AND cancellable into an attack on frame
+        // one, which is strictly better than the genre's — the dodge answers
+        // everything and costs nothing.
+        //
+        // ⛔ THE TAIL IS THE OPTION, not a nerf: spot-dodge-into-attack is a
+        // real genre technique, and what it should cost is the frames before it.
+        evade_cancel_tail: 4.0 / 60.0,
         // SPOT DODGE, 0.16s. The grounded evade had one shape, so the
         // option a cornered fighter takes — nowhere to roll TO, waiting out a
         // committed swing — did not exist. Shorter than the roll's window

@@ -1127,6 +1127,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         dodge_stale_floor: 1.0,
         dodge_stale_recovery: 0.0,
         untechable_launch_speed: 0.0,
+        evade_cancel_tail: 0.0,
         tumble_speed: 500.0,
         spot_dodge_time: 0.16,
         parry_timing: ambition_platformer2d_core::ParryTiming::OnRaise,

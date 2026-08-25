@@ -2005,6 +2005,24 @@ pub fn trigger_moveset_moves(
         //
         // ⇒ before this becomes an action gate, the roll needs a timer that is
         // ITS OWN. The fact stands for animation and AI in the meantime.
+        // ⭐⭐ AN EVADE IS A COMMITMENT UNTIL ITS TAIL. Today an attack cancels a
+        // spot dodge on frame one, which makes the dodge strictly better than
+        // the genre's: invulnerable AND instantly actionable. The tail is what
+        // stays cancellable — the genre's spot-dodge-into-attack.
+        //
+        // ⭐ THE FACT, not a timer. `evade_committed` is resolved in the kernel,
+        // which is the only place holding both the evade's remaining time and
+        // this body's tuning; a gate here that subtracted a timer from a
+        // constant would re-derive the rule and drift from it.
+        //
+        // ⛔ AND IT IS FALSE FOR EVERY BODY IN A GAME THAT DECLARES NO TAIL, so
+        // this refuses nothing that was previously allowed unless a match asked.
+        // That distinction is what an earlier attempt to gate on
+        // `dodge_roll_endlag` got wrong: that timer is SHARED with the spot
+        // dodge, so it silenced fighters that had only spot-dodged.
+        if motion_facts.is_some_and(|facts| facts.evade_committed) {
+            continue;
+        }
         let running = motion_facts.is_some_and(|facts| facts.running);
         // Capture replaces the ordinary action context. Resolve only pummel or
         // directional throw verbs while holding a captive; throws ignore strike

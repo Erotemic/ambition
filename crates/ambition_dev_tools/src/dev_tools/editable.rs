@@ -315,6 +315,7 @@ impl EditableMovementTuning {
             dodge_stale_recovery: 0.0,
             // A match rule, not a per-body dev knob.
             untechable_launch_speed: 0.0,
+            evade_cancel_tail: 0.0,
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,

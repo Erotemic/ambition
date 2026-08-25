@@ -479,6 +479,20 @@ pub struct MovementTuning {
     /// of which move threw it.
     #[serde(default)]
     pub untechable_launch_speed: f32,
+    /// EVADE CANCEL TAIL — the last N seconds of an evade during which a MOVE
+    /// may start. `0.0` (the baseline) DISABLES the rule entirely: an attack
+    /// cancels an evade on its first frame, which is what every body does today.
+    ///
+    /// ⭐⭐ THE TAIL, NOT A LOCKOUT FROM THE START, and the difference is dodge
+    /// staling. A lockout measured from the start needs the evade's TOTAL length
+    /// to know where it ends — and staling now SHORTENS that window per body, so
+    /// the authored constant is the wrong total. Measuring from the END needs
+    /// only the timer that is already there.
+    ///
+    /// ⇒ committed while `remaining > tail`; actionable once the evade has that
+    /// little left. This is the genre's spot-dodge-into-attack.
+    #[serde(default)]
+    pub evade_cancel_tail: f32,
     /// The aerial evade: how long the i-frames last, how fast the body
     /// travels along the stick, and the endlag it owes on the far side.
     ///
@@ -787,6 +801,20 @@ pub struct TraversalAbilityTuning {
     /// of which move threw it.
     #[serde(default)]
     pub untechable_launch_speed: f32,
+    /// EVADE CANCEL TAIL — the last N seconds of an evade during which a MOVE
+    /// may start. `0.0` (the baseline) DISABLES the rule entirely: an attack
+    /// cancels an evade on its first frame, which is what every body does today.
+    ///
+    /// ⭐⭐ THE TAIL, NOT A LOCKOUT FROM THE START, and the difference is dodge
+    /// staling. A lockout measured from the start needs the evade's TOTAL length
+    /// to know where it ends — and staling now SHORTENS that window per body, so
+    /// the authored constant is the wrong total. Measuring from the END needs
+    /// only the timer that is already there.
+    ///
+    /// ⇒ committed while `remaining > tail`; actionable once the evade has that
+    /// little left. This is the genre's spot-dodge-into-attack.
+    #[serde(default)]
+    pub evade_cancel_tail: f32,
     /// See [`AbilityTuning::air_dodge_time`].
     #[serde(default)]
     pub air_dodge_time: f32,
@@ -1172,6 +1200,7 @@ impl MovementTuning {
                 dodge_stale_floor: self.dodge_stale_floor,
                 dodge_stale_recovery: self.dodge_stale_recovery,
                 untechable_launch_speed: self.untechable_launch_speed,
+                evade_cancel_tail: self.evade_cancel_tail,
                 air_dodge_time: self.air_dodge_time,
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
@@ -1272,6 +1301,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_stale_recovery: 0.0,
     // Every launch is techable in a game that declares nothing.
     untechable_launch_speed: 0.0,
+    // No lockout: an attack may cancel an evade at any point, which is what
+    // every body did before the knob existed.
+    evade_cancel_tail: 0.0,
     // ZERO in the default tuning, and that is the decision, not an
     // oversight. An airborne dash press already MEANS something for a body
     // with the dash ability — it is the protagonist's air dash, a traversal

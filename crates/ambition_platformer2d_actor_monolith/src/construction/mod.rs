@@ -538,6 +538,13 @@ fn construct_authored_ground_item(
                 vel: ambition_platformer2d_core::Vec2::ZERO,
                 half_extent: spec.half_extent,
             },
+            // ⭐⭐ AN AUTHORED PLACEMENT IS ALREADY AT REST, and saying so is what
+            // lets everything else fall. An author put this object where it is;
+            // it is not necessarily standing on collision geometry the physics
+            // predicate can see, and stepping it drops the whole authored
+            // population out of the world (measured: a room rebuild came back
+            // with zero ground items where it had fifteen).
+            crate::items::pickup::SettledItem,
         ),
     );
 }
@@ -1004,12 +1011,12 @@ fn verify_mount(
         Some(_) => {
             return RelationCheck::PayloadMismatch {
                 field: "mount_class",
-            }
+            };
         }
         None => {
             return RelationCheck::MissingCapability {
                 component: "CanPilot",
-            }
+            };
         }
     }
     match world

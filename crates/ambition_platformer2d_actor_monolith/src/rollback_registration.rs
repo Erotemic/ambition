@@ -38,6 +38,7 @@ where
     );
     registrar.require_rollback::<crate::rooms::RoomSet>(OWNER, "root:room_set");
     registrar.require_rollback::<crate::items::pickup::GroundItem>(OWNER, "entity:ground_item");
+    registrar.require_rollback::<crate::items::pickup::SettledItem>(OWNER, "entity:settled_item");
     // `RoomScopedEntity` governs lifetime, not rewindability; moving world
     // items therefore require their own rollback registration.
     registrar.require_rollback::<crate::items::world_item::WorldItem>(OWNER, "entity:world_item");
@@ -268,6 +269,13 @@ where
     registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
     registrar
         .rollback_component_clone::<crate::items::pickup::GroundItem>(OWNER, "item.ground_item");
+    // ⭐ SLEEP IS SIMULATION STATE, and this one is presence/absence rather than
+    // a value. `ground_item_physics` skips a settled object entirely, so a
+    // rewind past the frame an object landed must also un-settle it — otherwise
+    // the replay steps a resting item on one peer and not the other, and the
+    // divergence is silent until the positions have drifted apart.
+    registrar
+        .rollback_component_clone::<crate::items::pickup::SettledItem>(OWNER, "item.settled_item");
     // CUSTODY IS SIMULATION STATE, not a cache. It decides on every later
     // frame whether the item is drawn, stepped by `ground_item_physics`, and
     // grabbable — so a rewind that restored the wrong value leaves the same axe

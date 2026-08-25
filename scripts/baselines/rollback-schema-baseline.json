@@ -188,6 +188,7 @@
     "item.item_custody",
     "item.motion",
     "item.pickup_magnet",
+    "item.settled_item",
     "item.world_item",
     "lifecycle.player_visual",
     "lifecycle.room_visual",

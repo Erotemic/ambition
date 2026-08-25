@@ -47,15 +47,64 @@ P0-3 sudden death ends on first hit       ✔ BOTH HALVES FIXED: a match already
                                             which writes canonical body state for the same
                                             reason. ⚠ multi-side sudden death still resets
                                             every survivor rather than the tied leaders — a P1
-P0-4 zero-velocity items float            ▢ pickup/mod.rs:347 `if item.vel == Vec2::ZERO
-                                            { continue; }` — and both the match spawner and
-                                            the Z-drop create ZERO on purpose
+P0-4 zero-velocity items float            ✔ sleep is now EXPLICIT: a `SettledItem`
+                                            marker, inserted where an object comes to
+                                            rest and by authored construction, removed
+                                            by both release roads. The `vel == ZERO`
+                                            early-out is gone. Registered for rollback
+                                            (schema v86) because whether an object is
+                                            asleep decides whether it is stepped
 ```
 
-⛔ **NONE OF THE FOUR IS FIXED YET.** The rows are reopened and the ledger no
-longer lies; the code still does what is described above.
+⛔ **THE FOUR ROWS ARE CLOSED.** Each carries a production-path poison — the
+review's own discipline — recorded under its row.
 
-⚠⚠ **P0-4 WAS ATTEMPTED AND REVERTED — read this before trying again.** Removing
+### P0-4, closed: sleep is stated, not inferred
+
+The fix the review asked for verbatim — *"If performance later justifies
+sleeping, make support/sleep explicit. Don't derive it from velocity"* — as a
+marker component rather than a `GroundItem` field, because there are 43
+`GroundItem {` literals against four marker sites.
+
+The four sites, and each one is load-bearing:
+
+| site | what it does |
+| --- | --- |
+| `ground_item_physics`, settle arm | inserts the mark when a step is blocked or leaves the world |
+| `ground_item_physics`, query filter | `Without<SettledItem>` — the mark is what skips the object |
+| authored construction (`construct_ground_item`) | an authored placement is at rest BY DECLARATION |
+| both release roads (`return_released_items`, the throw/drop) | an object leaving a hand is under gravity again |
+
+`game/ambition_app/tests/a_dropped_item_falls.rs` pins all of it on the
+production path — the real pickup, the real `grab_pressed` release, the real
+authored room — and each clause was poison-verified:
+
+```text
+poison A  restore `if item.vel == Vec2::ZERO { continue; }`
+          ⇒ both drop tests red, authored test green
+poison B  drop the marker from authored construction
+          ⇒ three EXISTING production tests red (an_object_left_in_another_room_is_
+            lying_there_after_a_load, a_placement_dropped_in_another_room_stays_there,
+            a_relocated_placement_comes_back_where_it_was_left)
+poison C  never clear the mark on release
+          ⇒ both drop tests red
+```
+
+⭐ **THE ASSERTIONS ARE ABOUT VELOCITY AND THE MARK, NOT DISTANCE.** Two earlier
+readings of this defect were wrong because they measured how far something moved;
+the room's own ceiling decides that, and `blink_run` clamps a teleport onto the
+standing surface so a "drop from height" fixture silently measures no height at
+all. What separates the defect from the fix is whether the object is
+*accelerating* on the frame it leaves the hand.
+
+⭐ **AND THE ROOM SHOWED WHY THE AUTHORED HALF IS NEEDED**: `blink_run` authors
+its object at y=124, and the step rests a free object at y≈109.8. The authored
+placement is fourteen pixels inside the floor. It is only where its author put it
+because nothing steps it.
+
+---
+
+⚠⚠ **THE HISTORY BELOW IS WHY THE OBVIOUS REPAIR IS NOT THE REPAIR.** Removing
 the `vel == ZERO` early-out works for the item itself: a supported item takes one
 tick of gravity, predicts penetration and re-settles without moving, and a test
 covering both halves (midair drop falls; resting item stays) passed and

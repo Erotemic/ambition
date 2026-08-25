@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v85
+ggrs-rollback-schema-v86
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -208,6 +208,7 @@ entity:placed_portal	required-rollback	PlacedPortal	component presence automatic
 entity:portal_gun_pickup	required-rollback	PortalGunPickup	component presence automatically installs bevy_ggrs::Rollback
 entity:respawn_grace	component-canonical	RespawnGrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
+entity:settled_item	required-rollback	SettledItem	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
 entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
 feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -234,6 +235,7 @@ item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state chec
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.settled_item	component-clone	SettledItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 item.world_item	component-clone	WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 lifecycle.room_visual	component-clone	RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

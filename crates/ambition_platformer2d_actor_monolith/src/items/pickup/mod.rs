@@ -315,14 +315,32 @@ const GROUND_ITEM_GRAVITY: f32 = 1400.0;
 const THROW_SPEED_X: f32 = 320.0;
 const THROW_SPEED_UP: f32 = 260.0;
 
-/// Integrate thrown ground items under gravity (y-down world) and settle them
-/// when they'd enter a solid / one-way surface. Resting items (`vel == ZERO`)
-/// are skipped, so pickup-able items stay put.
+/// THIS ITEM IS AT REST ON SOMETHING and does not need stepping.
+///
+/// ⭐⭐ AN EXPLICIT FACT, because the alternative was asking `vel == ZERO` to
+/// mean two states at once — *supported and sleeping* AND *a free body with no
+/// initial impulse* — and the second one arrives the moment anything places an
+/// item without throwing it. The match spawner and the Z-drop both do exactly
+/// that, each with a comment saying gravity would take over; it did not, and they
+/// hung in the air.
+///
+/// ⛔⛔ AND SIMPLY DELETING THE EARLY-OUT DOES NOT WORK — measured twice.
+/// Stepping every item drops the whole AUTHORED population out of the world: an
+/// authored placement is put down at rest and is not necessarily standing on
+/// collision geometry the penetration predicate can see, so a room rebuild came
+/// back with ZERO ground items where it had fifteen. Authored placements carry
+/// this marker; things somebody threw, dropped or spawned do not.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
+pub struct SettledItem;
+
+/// Integrate in-world ground items under gravity and settle them when they'd
+/// enter a solid / one-way surface. [`SettledItem`] items are skipped.
 pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d_world::collision::CollisionWorld,
     gravity: crate::physics::GravityCtx,
-    mut grounds: Query<(&mut GroundItem, &ItemCustody)>,
+    mut commands: Commands,
+    mut grounds: Query<(Entity, &mut GroundItem, &ItemCustody), Without<SettledItem>>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
@@ -336,15 +354,12 @@ pub fn ground_item_physics(
     // Thrown / dropped items are free bodies that integrate through the shared
     // world-forces seam. Gravity is resolved per item by position, so an item
     // thrown into a gravity column falls the column's way (localized).
-    for (mut item, custody) in &mut grounds {
+    for (entity, mut item, custody) in &mut grounds {
         // A carried item has no independent motion — it is not in the world to
         // fall through. Checked on custody rather than inferred from `vel ==
         // ZERO`, because "resting" and "in a hand" are different states that
         // happen to share a velocity, and only one of them may be stepped.
         if !custody.in_world() {
-            continue;
-        }
-        if item.vel == Vec2::ZERO {
             continue;
         }
         // Free bodies resolve gravity by the body-overlap rule, not the center
@@ -367,11 +382,12 @@ pub fn ground_item_physics(
             || next.y < -200.0
             || next.x > world.size.x + 200.0
             || next.x < -200.0;
-        if blocked {
-            // Settle in place (simple — no slide).
+        if blocked || outside_world {
+            // Settle in place (simple — no slide), and SAY SO: the marker is
+            // what stops this item being stepped again, replacing the
+            // `vel == ZERO` reading that could not tell rest from release.
             item.vel = Vec2::ZERO;
-        } else if outside_world {
-            item.vel = Vec2::ZERO;
+            commands.entity(entity).try_insert(SettledItem);
         } else {
             item.pos = next;
         }
@@ -385,14 +401,15 @@ pub fn ground_item_physics(
 /// the item at the holder and clears velocity. Despawned holders are left to the actor
 /// death/drop policy to avoid creating a duplicate drop.
 pub fn return_released_items(
+    mut commands: Commands,
     // The hand, and where the body is standing. `Option<&HeldItem>` rather than
     // `Has<..>`: an equip-SWAP leaves the body holding a DIFFERENT item, so
     // "there is a hand" is not the question — "is this object the thing in it"
     // is, and only the spec id can answer that.
     holders: Query<(&BodyKinematics, Option<&HeldItem>)>,
-    mut carried: Query<(&mut GroundItem, &mut ItemCustody)>,
+    mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
 ) {
-    for (mut item, mut custody) in &mut carried {
+    for (entity, mut item, mut custody) in &mut carried {
         let ItemCustody::Held { holder } = *custody else {
             continue;
         };
@@ -414,6 +431,9 @@ pub fn return_released_items(
         // "moving" as "thrown", and a bomb stowed from the menu must not arm.
         item.vel = Vec2::ZERO;
         *custody = ItemCustody::InWorld;
+        // Released from a hand at whatever height that body is at: this object
+        // is back under gravity until it lands on something.
+        commands.entity(entity).remove::<SettledItem>();
     }
 }
 
@@ -1240,7 +1260,7 @@ pub fn throw_held_item_system(
     )>,
     // The object this body is CARRYING, found by the custody it records rather
     // than by the hand remembering an entity handle.
-    mut carried: Query<(&mut GroundItem, &mut ItemCustody)>,
+    mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
     // The thrower's identity stream, for the one case that genuinely mints a new
     // object (see below). N3.1: a dynamically-spawned sim entity takes
     // `(spawner SimId, per-spawner counter)`, never a global counter.
@@ -1323,13 +1343,17 @@ pub fn throw_held_item_system(
     // RETURN THE OBJECT, do not manufacture a replacement. The item this body took custody of
     // is still a live entity carrying its own identity, so the throw resets its custody and writes
     // the launch onto it.
-    if let Some((mut ground, mut custody)) = carried
+    if let Some((entity, mut ground, mut custody)) = carried
         .iter_mut()
-        .find(|(_, custody)| custody.held_by(player))
+        .find(|(_, _, custody)| custody.held_by(player))
     {
         ground.pos = throw_pos;
         ground.vel = throw_vel;
         *custody = ItemCustody::InWorld;
+        // ⭐ A DROP IS THE CASE THAT NEEDS THIS, not the throw. `Release::Drop`
+        // launches at ZERO velocity, so an object that kept the settled marker
+        // it wore when it was picked up would hang at head height forever.
+        commands.entity(entity).remove::<SettledItem>();
         return;
     }
     // NO OBJECT BEHIND THE HAND — materialize one. A body can come to hold

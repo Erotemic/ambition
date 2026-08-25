@@ -236,12 +236,29 @@ pub struct DeclaredCombatRules {
     /// and it is deliberately separate: the genre has both, and a game that
     /// wants the turn without the launch-cancel should not have to take both.
     pub special_turn: Option<bool>,
-    /// WAVEBOUNCE: does that same turn ALSO reverse the fighter's drift?
+    /// Does a Back+Special ALSO reverse the fighter's drift?
     ///
-    /// Irrelevant while [`Self::special_turn`] is off, because there is no turn
-    /// to strengthen. Together they are the genre's B-reverse and wavebounce as
-    /// two settings of ONE special-start rule rather than two mechanics — which
-    /// is what keeps either from becoming a fighter-specific velocity hack.
+    /// ⛔⛔ INDEPENDENT OF [`Self::special_turn`], and that is the point. It was
+    /// gated behind the turn until 2026-08-25, which made one real technique
+    /// undeclarable — the WAVEBOUNCE, where momentum reverses and the facing
+    /// does NOT:
+    ///
+    /// ```text
+    /// turn  drift   technique
+    /// ────  ─────   ──────────────────────────────────────────────
+    /// no    no      an ordinary special
+    /// yes   no      turnaround-B — you come out facing the other way
+    /// yes   yes     B-reverse — facing AND momentum turn
+    /// no    yes     a wavebounce — momentum turns, facing does not
+    /// ```
+    ///
+    /// Four outcomes from two bits of ONE special-start rule, rather than four
+    /// mechanics — which is what keeps any of them from becoming a
+    /// fighter-specific velocity hack.
+    ///
+    /// ⚠ A GAME DECLARES WHICH ONE ITS BACK+SPECIAL PERFORMS. The genre lets a
+    /// player pick per press, by the ORDER of stick and button; this seam is
+    /// handed one already-resolved direction and cannot see that order.
     pub special_turn_reverses_drift: Option<bool>,
     /// SUDDEN DEATH: the damage every surviving fighter starts on when a timed
     /// match runs out genuinely level. `None` = no sudden death, and a level

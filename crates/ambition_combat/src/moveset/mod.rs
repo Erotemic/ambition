@@ -2153,6 +2153,11 @@ pub fn trigger_moveset_moves(
         // a smash, the special arm on a special. Every other verb leaves it
         // `None` and its move never freezes.
         let mut started_by: Option<ambition_entity_catalog::ChargeGesture> = None;
+        // THE PROPOSED SPECIAL-TURN EFFECT, applied only where the move is
+        // actually accepted. See the special arm below for why it is not applied
+        // where it is decided.
+        let mut special_turn = false;
+        let mut special_turn_reverses_drift = false;
         //  every branch below asks for a move IN THIS STANCE. The capture kit
         // declares its whole vocabulary grounded-only, and a captor carried into
         // the air was still able to pummel and throw because the exact-verb
@@ -2232,30 +2237,39 @@ pub fn trigger_moveset_moves(
             // ⛔ IT DOES NOT TOUCH MOVE SELECTION. The move was already chosen
             // above from the same direction; this is where the BODY answers,
             // and the two stay separate exactly as the row requires.
-            if combat_rules.as_ref().is_some_and(|r| r.special_turn)
-                && matches!(intent.direction, AttackDir::Back)
-            {
-                kin.facing = -kin.facing;
-                if combat_rules
+            // ⛔⛔ PROPOSED HERE, APPLIED AT ACCEPTANCE. This arm is still
+            // RESOLVING which move the press would start, and that resolution
+            // can come back `None` — a fighter with no authored special for this
+            // direction. Turning the body here meant a press that threw nothing
+            // still turned it, and a BUFFERED press turned it again every tick.
+            //
+            // ⭐ THE GENERAL RULE: proposing may compute, only accepting may
+            // mutate. `facing`, `vel` and resource counters belong to the body,
+            // and a press that starts no move has spent nothing.
+            let pressed_back = matches!(intent.direction, AttackDir::Back);
+            special_turn = pressed_back && combat_rules.as_ref().is_some_and(|r| r.special_turn);
+            // ⛔⛔ NOT GATED ON THE TURN. The two halves are INDEPENDENT
+            // outcomes, and gating this one behind `special_turn` made the
+            // fourth combination undeclarable:
+            //
+            //   turn  drift   technique
+            //   ────  ─────   ─────────────────────────────────────────────
+            //   no    no      an ordinary special
+            //   yes   no      turnaround-B — you come out facing the other way
+            //   yes   yes     B-reverse — facing AND momentum turn
+            //   no    yes     a WAVEBOUNCE — momentum turns, facing does not
+            //
+            // ⚠ THE RECOGNISER IS STILL MISSING, and this does not pretend
+            // otherwise: the genre distinguishes these by the ORDER of stick and
+            // button, which this arm cannot see — it is handed one resolved
+            // direction. So a game DECLARES which technique its Back+Special
+            // performs rather than a player choosing per press. Shipping the
+            // knob is worth more than withholding it until the recogniser
+            // exists; see the ledger row for the input-order half.
+            special_turn_reverses_drift = pressed_back
+                && combat_rules
                     .as_ref()
-                    .is_some_and(|r| r.special_turn_reverses_drift)
-                {
-                    // ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel`
-                    // outright would flip a launch the fighter is riding, which
-                    // is the mistake three other maneuvers in this kernel have
-                    // already made. Only the ground/air run axis turns.
-                    //
-                    // ⛔⛔ AND THAT AXIS IS `body_frame.side()`, NOT WORLD X. The
-                    // sentence above was already the contract; `kin.vel.x = -kin.vel.x`
-                    // only honoured it while gravity pointed down the screen. Under
-                    // rotated gravity a fighter's left/right IS world Y, so the old
-                    // line reversed its RISE and left its drift alone — the exact
-                    // inversion, in the one situation the frame exists for.
-                    let side = body_frame.side;
-                    let along = kin.vel.dot(side);
-                    kin.vel -= 2.0 * along * side;
-                }
-            }
+                    .is_some_and(|r| r.special_turn_reverses_drift);
             // THIS USE IS A SPECIAL, recorded for the same reason the smash arm
             // records its own: the resolution that chose the verb is what makes
             // a chargeable neutral-B chargeable, and a move reached through
@@ -2515,6 +2529,30 @@ pub fn trigger_moveset_moves(
             // the component here and re-inserting it below would be two writes
             // where one will do.
             despawn_live_boxes(&mut commands, &mut pb);
+            // ⭐⭐ THE ACCEPTED SPECIAL-TURN, and this is its ONE commit point on
+            // this road. Proposed where the special was resolved; applied here,
+            // where the move is certain to start. ⛔ BEFORE the start impulse:
+            // the turn reverses the drift the fighter ARRIVED with, and running
+            // it afterwards would reverse the move's own impulse too.
+            if special_turn {
+                kin.facing = -kin.facing;
+            }
+            // ⛔ A SEPARATE `if`, NOT NESTED. The drift half is its own outcome —
+            // reversing momentum while the facing STAYS is a wavebounce, and
+            // nesting made that combination unreachable however it was declared.
+            {
+                if special_turn_reverses_drift {
+                    // ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel`
+                    // outright would flip a launch the fighter is riding, which
+                    // is the mistake three other maneuvers in this kernel have
+                    // already made. ⛔⛔ AND THE AXIS IS `body_frame.side`, NOT
+                    // WORLD X — under rotated gravity a fighter's left/right IS
+                    // world Y, and world X would reverse its RISE instead.
+                    let side = body_frame.side;
+                    let along = kin.vel.dot(side);
+                    kin.vel -= 2.0 * along * side;
+                }
+            }
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
                 let world_impulse = body_frame.to_world(local);
@@ -2552,6 +2590,30 @@ pub fn trigger_moveset_moves(
 
         let charges_left = jumps.get(entity).ok().map(|jump| jump.recovery_charges);
         if let Some(spec) = spec.filter(|spec| afford_recovery(spec, charges_left)) {
+            // ⭐⭐ THE ACCEPTED SPECIAL-TURN, and this is its ONE commit point on
+            // this road. Proposed where the special was resolved; applied here,
+            // where the move is certain to start. ⛔ BEFORE the start impulse:
+            // the turn reverses the drift the fighter ARRIVED with, and running
+            // it afterwards would reverse the move's own impulse too.
+            if special_turn {
+                kin.facing = -kin.facing;
+            }
+            // ⛔ A SEPARATE `if`, NOT NESTED. The drift half is its own outcome —
+            // reversing momentum while the facing STAYS is a wavebounce, and
+            // nesting made that combination unreachable however it was declared.
+            {
+                if special_turn_reverses_drift {
+                    // ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel`
+                    // outright would flip a launch the fighter is riding, which
+                    // is the mistake three other maneuvers in this kernel have
+                    // already made. ⛔⛔ AND THE AXIS IS `body_frame.side`, NOT
+                    // WORLD X — under rotated gravity a fighter's left/right IS
+                    // world Y, and world X would reverse its RISE instead.
+                    let side = body_frame.side;
+                    let along = kin.vel.dot(side);
+                    kin.vel -= 2.0 * along * side;
+                }
+            }
             // Self-motion: a body-local impulse mirrored by facing and rotated
             // into the owner's gravity frame (a jab's lunge stays "forward"
             // under any gravity). Identity when the move authors none.

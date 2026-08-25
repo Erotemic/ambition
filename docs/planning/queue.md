@@ -10336,19 +10336,48 @@ accumulator is snapshot state whose replay depends on summation order). Wire
 format v103. ⇒ second finding today of the shape **"the binary case was handled,
 so nobody checked the continuous one"** — the other was `evading()`.
 
+⭐⭐ **AND (8) + HALF OF (7), CLOSED 2026-08-25.** (8) THE SPECIAL-TURN MUTATED
+THE BODY DURING PROPOSAL: it flipped `facing` and reversed drift while still
+RESOLVING which move the press would start — and that resolution returns `None`
+for a fighter with no authored special in that direction. So Back+Special turned
+the body and threw nothing, and a BUFFERED press turned it again every tick (the
+test holds four ticks for exactly that reason). Now proposed where decided,
+applied at the two `start_move` sites after every refusal gate — and BEFORE the
+start impulse, because the turn reverses the drift the fighter ARRIVED with and
+running it after would reverse the move's own impulse too.
+
+⇒ ⭐ THIRD INSTANCE TODAY OF ONE SHAPE: an effect applied where a decision is
+COMPUTED rather than where it is COMMITTED. The others were the input scope set
+at spawn instead of re-derived [D236], and the same scope applied but never
+retracted [D236].
+
+(7) HALF: the two declared bits were GATED — `special_turn_reverses_drift` only
+acted with `special_turn` on — which made exactly one real technique
+undeclarable. Ungated, one rule now yields four outcomes: ordinary special /
+turnaround-B / B-reverse / **WAVEBOUNCE** (momentum turns, facing does not). ⛔ an
+existing arm asserted the drift knob alone "does nothing, because there is no
+turn to strengthen" — that sentence WAS the assumption, so it was updated, not
+worked around. ⚠ THE RECOGNISER IS THE REMAINING HALF and is honestly absent: the
+genre distinguishes these by the ORDER of stick and button, and this seam is
+handed one already-resolved direction. A game DECLARES which technique its
+Back+Special performs. Reopen when a customer needs per-press choice.
+
 ▢ STILL OPEN, in the review's own order: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
 split; **(5) impact hitstop reads victim hitlag BEFORE resolution** (a
-consequence of 4: carry the resolved hitlag on the event); **(6) `LiveMatchTicks`
-counts whole ticks under partial TIME SCALING** — decide what it measures and say
-so; **(7)(8) the special-turn techniques are collapsed** — turnaround-B vs
-B-reverse vs wavebounce need input ORDER, and the effect is applied during
-PROPOSAL rather than at acceptance; **(11) the turnaround edge shares
+consequence of 4: carry the resolved hitlag on the event); **(7) the INPUT-ORDER recogniser** — the four techniques are declarable now, but
+which one a PLAYER asked for still cannot be read from stick-then-button order; **(11) the turnaround edge shares
 `prev_steer_dir` with the initial dash, whose deadzone is 0.5 against the
-turnaround's 0.1** — an analog reversal near -0.2 re-arms forever; **(12)
-grounded-attack rooting says "cannot steer" by sending ZERO INTENT, which the
-ground law reads as "apply friction"** — the same seam as the roll, and it eats
-an authored dash-attack carry; **(15) `asdi_owed: bool` cannot express "once per
+turnaround's 0.1** — an analog reversal near -0.2 re-arms forever; **(12) — MEASURED AND
+PARKED, NO ADOPTER.** The seam is real and I proved it for the ROLL (107px held
+vs 33px released), where it is fixed directly. But the review's dash-attack
+customer does not exist at HEAD: `dash_attack` sets `roots_steering: false`, and
+every authored `start_impulse` is `None` or a pass-through destructure — so NO
+move both roots steering and authors a carry. For the moves that DO root
+(grounded attacks), friction toward zero is what planting looks like and is
+correct. ⇒ generalising "steering permission" apart from "axis magnitude" now
+would be an abstraction with one adopter that already has its own fix. ⚠ REOPEN
+WHEN: a move roots steering AND authors momentum it expects to keep. **(15) `asdi_owed: bool` cannot express "once per
 hit"**; **(16) the feature-hit gateway grows by SystemParam packing** — guidance
 for the next change to it, not a campaign.
 

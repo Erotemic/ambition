@@ -6563,12 +6563,18 @@ fn a_back_pressed_special_turns_the_fighter_and_optionally_its_drift() {
         "the stronger version did not reverse the drift"
     );
 
-    // ARM 4 — AND THE DRIFT KNOB ALONE DOES NOTHING, because there is no turn
-    // to strengthen. Without this a reader could think it is a second mechanic.
+    // ARM 4 — AND THE DRIFT KNOB ALONE IS THE FOURTH TECHNIQUE, not a no-op.
+    //
+    // ⛔ IT ASSERTED `(1.0, 200.0)` UNTIL 2026-08-25, on the reasoning that there
+    // was "no turn to strengthen" — which is exactly the assumption that made a
+    // WAVEBOUNCE undeclarable. Momentum reversing while the facing stays is a
+    // real technique in this genre, not a knob with nothing to act on. The four
+    // combinations are enumerated in
+    // `a_drift_reversal_without_a_facing_flip_is_declarable`.
     assert_eq!(
         outcome(false, true),
-        (1.0, 200.0),
-        "the drift knob acted without a turn to strengthen"
+        (1.0, -200.0),
+        "the drift knob alone stopped producing a wavebounce"
     );
 
     // ARM 5 — A FORWARD SPECIAL DOES NOT TURN YOU, and this arm is the reason
@@ -6803,4 +6809,122 @@ fn a_smash_thrown_out_of_a_turnaround_points_the_new_way() {
          reaches tilts but not smashes, which means it was built at the selector \
          rather than where facing is resolved"
     );
+}
+
+/// A SPECIAL THAT NEVER STARTS MUST NOT TURN THE FIGHTER.
+///
+/// ⛔⛔ THE PROPOSAL/ACCEPTANCE BOUNDARY. The special-turn arm flipped `facing`
+/// and reversed drift while still RESOLVING which move a press would start, and
+/// the resolution can come back `None` — a fighter with no authored special for
+/// that direction. So pressing Back+Special turned the body and threw nothing,
+/// and holding the press turned it again on every buffered tick.
+///
+/// ⭐ THE RULE THIS PINS IS GENERAL: proposing may compute, only accepting may
+/// mutate. `facing`, `vel` and resource counters are the body's, and a press
+/// that starts no move has spent nothing.
+#[test]
+fn a_back_special_that_starts_no_move_leaves_the_body_alone() {
+    // A moveset with NO special at all — every other verb present, so the press
+    // is understood and simply has nothing to run.
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            "attack_forward".to_string(),
+            "fwd".to_string(),
+        )]),
+        moves: vec![gesture_test_move("fwd")],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.insert_resource(crate::rules::ResolvedCombatTuning {
+        special_turn: true,
+        special_turn_reverses_drift: true,
+        ..Default::default()
+    });
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+        kin.facing = 1.0;
+        kin.vel = ae::Vec2::new(200.0, 0.0);
+    }
+
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+    *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+    // Several ticks: a buffered press that mutates would do it repeatedly, which
+    // is worse than doing it once and is what a single-tick arm would miss.
+    for _ in 0..4 {
+        app.update();
+    }
+
+    assert!(
+        app.world().get::<MovePlayback>(body).is_none(),
+        "the fixture started a move, so it cannot say anything about a press that \
+         starts none"
+    );
+    let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+    assert_eq!(
+        kin.facing, 1.0,
+        "a Back+Special that started NO move turned the fighter anyway — the turn \
+         is applied while the move is still being resolved, and the resolution \
+         came back empty"
+    );
+    assert!(
+        (kin.vel.x - 200.0).abs() < 1.0,
+        "a Back+Special that started no move reversed the drift anyway (vel.x is \
+         {:.1}, was 200)",
+        kin.vel.x
+    );
+}
+
+/// THE FOURTH TECHNIQUE: DRIFT REVERSES, FACING DOES NOT — a wavebounce.
+///
+/// ⛔⛔ IT WAS UNDECLARABLE. `special_turn_reverses_drift` was gated behind
+/// `special_turn`, so the only reachable outcomes were "nothing", "facing" and
+/// "facing and drift". The genre's wavebounce is the missing one, and a game
+/// that wants it should not have to take a facing flip it did not ask for.
+#[test]
+fn a_drift_reversal_without_a_facing_flip_is_declarable() {
+    let outcome = |turn: bool, reverse_drift: bool| -> (f32, f32) {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                "special_back".to_string(),
+                "back_b".to_string(),
+            )]),
+            moves: vec![gesture_test_move("back_b")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            special_turn: turn,
+            special_turn_reverses_drift: reverse_drift,
+            ..Default::default()
+        });
+        {
+            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+            kin.facing = 1.0;
+            kin.vel = ae::Vec2::new(200.0, 0.0);
+        }
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+        app.update();
+        let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+        (kin.facing, kin.vel.x)
+    };
+
+    // THE WAVEBOUNCE: drift only.
+    assert_eq!(
+        outcome(false, true),
+        (1.0, -200.0),
+        "declaring the drift reversal WITHOUT the turn did not produce a \
+         wavebounce — the momentum half is still gated behind the facing half"
+    );
+    // ⛔ AND THE OTHER THREE STILL DO WHAT THEY DID, so this is a fourth outcome
+    // rather than a re-wiring of the existing ones.
+    assert_eq!(
+        outcome(false, false),
+        (1.0, 200.0),
+        "an ordinary special moved"
+    );
+    assert_eq!(outcome(true, false), (-1.0, 200.0), "turnaround-B changed");
+    assert_eq!(outcome(true, true), (-1.0, -200.0), "B-reverse changed");
 }

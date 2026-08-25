@@ -73,9 +73,19 @@
 //!
 //! ⇒ **THE LEADING UNTESTED CANDIDATE IS THE AIR DODGE.** Shield + a direction
 //! IN THE AIR is not a roll, it is `air_dodge_speed` (440px/s) with air friction
-//! rather than ground friction under it — and it looks like a roll. ⚠ a first
-//! attempt to test it here failed to get the body airborne (it lands before the
-//! press), so the fixture needs a real jump rather than a teleport.
+//! rather than ground friction under it — and it looks like a roll. `--air`
+//! jumps first so the same press resolves as one.
+//!
+//! ⛔⛔ BUT `--air` DOES NOT YET GET THE BODY MEANINGFULLY AIRBORNE, and the
+//! reason is a limit of this whole probe worth knowing before trusting any
+//! number in it: **`app.update()` is a FRAME, not a sim tick.** A held jump
+//! samples at 46px/s against an authored `JUMP_SPEED` of 630 and rises 0.4px —
+//! not because the jump is broken, but because the hop begins and ends between
+//! two samples. The ground roll survives this because its launch happens to be
+//! caught (530px/s, exactly the authored value); a fast vertical arc does not.
+//!
+//! ⇒ testing the air dodge properly wants a fixed-tick harness rather than
+//! `App::update`, or a body held airborne by something other than its own jump.
 //!
 //! ⛔ The other untested candidates are things a headless probe cannot reach:
 //! another fighter's authored tuning, or the LEDGE getup roll, which is a
@@ -169,9 +179,40 @@ fn main() {
         .remove::<ambition_platformer2d::characters::brain::Brain>();
     app.update();
 
+    // ⭐ THE AIRBORNE VARIANT, on request: `--air` jumps first, so the same press
+    // resolves as an AIR DODGE rather than a roll. That is the candidate the
+    // ground readings point at — `air_dodge_speed` with air friction under it,
+    // and it looks like a roll to a player.
+    let airborne = std::env::args().any(|a| a == "--air");
+    if airborne {
+        // ⛔ HELD, not tapped, for the same reason the roll press is: a one-tick
+        // press assumes an ordering this probe has no business modelling. An
+        // earlier attempt teleported the body upward instead and it simply
+        // landed before the press.
+        for tick in 0..8 {
+            drive(
+                &mut app,
+                ControlFrame {
+                    // ⛔ ONE RISING EDGE, then HELD — which is what a pad does.
+                    // Re-pressing every tick is not a longer press; it is eight
+                    // presses, and the jump law reads the edge.
+                    jump_pressed: tick == 0,
+                    jump_held: true,
+                    ..ControlFrame::default()
+                },
+            );
+            app.update();
+        }
+        let grounded = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyGroundState>(body)
+            .map(|g| g.on_ground);
+        println!("[roll_probe] jumped; grounded={grounded:?}");
+    }
+
     // GUARD UP FIRST. `shield_held` with no direction is a shield; the roll is
     // the burst that comes out of it.
-    for _ in 0..SHIELD_FRAMES {
+    for _ in 0..if airborne { 1 } else { SHIELD_FRAMES } {
         drive(
             &mut app,
             ControlFrame {

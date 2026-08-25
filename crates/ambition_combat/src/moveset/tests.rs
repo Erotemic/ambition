@@ -6682,3 +6682,64 @@ fn an_aerial_cancels_a_double_jump_only_where_declared() {
         "a grounded press cancelled a jump"
     );
 }
+
+/// A WAVEBOUNCE REVERSES THE FIGHTER'S OWN LEFT/RIGHT — NOT WORLD X.
+///
+/// ⛔⛔ It reversed `kin.vel.x` unconditionally, which happens to be the right
+/// axis only while gravity points down the screen. Under SIDEWAYS gravity a
+/// fighter's left/right IS world Y, so the old line reversed the component the
+/// move must leave alone and left the drift untouched — the exact inversion, in
+/// the one situation the frame exists for. The old fixture drifted along world X
+/// under default gravity, where the two axes coincide, so it could not see this.
+#[test]
+fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            "special_back".to_string(),
+            "back_b".to_string(),
+        )]),
+        moves: vec![gesture_test_move("back_b")],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.insert_resource(crate::rules::ResolvedCombatTuning {
+        special_turn: true,
+        special_turn_reverses_drift: true,
+        ..Default::default()
+    });
+
+    // GRAVITY PULLS ALONG +X, so the body's side axis is world Y and its
+    // "falling" axis is world X — the two are swapped relative to the default.
+    let gravity = ae::Vec2::new(1.0, 0.0);
+    let mut resolved =
+        ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+    resolved.publish_resolved_frame(ae::MotionFrame::from_direction(gravity, 900.0));
+    app.world_mut().entity_mut(body).insert(resolved);
+
+    // Drifting along its OWN side axis (world Y) at 200, and falling along world
+    // X at 90. Both components are non-zero so each assertion below is real.
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+        kin.facing = 1.0;
+        kin.vel = ae::Vec2::new(90.0, 200.0);
+    }
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.special_pressed = true;
+    frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+    *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+    app.update();
+
+    let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+    assert!(
+        (kin.vel.y + 200.0).abs() < 1.0,
+        "the drift along the body's OWN side axis came out at {:.1} instead of -200 — \
+         the wavebounce is reversing world X, so under this gravity it turned the \
+         wrong component entirely",
+        kin.vel.y
+    );
+    assert!(
+        (kin.vel.x - 90.0).abs() < 1.0,
+        "the component along GRAVITY changed from 90 to {:.1} — a wavebounce turned \
+         the body's fall, which is a launch it does not own",
+        kin.vel.x
+    );
+}

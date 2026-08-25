@@ -96,7 +96,12 @@ fn available_dodge(
 /// ⛔ ONE FUNCTION FOR ALL THREE EVADES. The spot dodge, the ground roll and the
 /// air dodge each set their own window, and three copies of this arithmetic
 /// would drift the first time one of them was tuned.
-fn spend_evade(dodge: &mut crate::BodyDodgeState, window: f32, tuning: AxisSweptParams) -> f32 {
+fn spend_evade(
+    state: &mut super::AxisManeuverState,
+    dodge: &mut crate::BodyDodgeState,
+    window: f32,
+    tuning: AxisSweptParams,
+) -> f32 {
     let step = tuning.abilities.dodge_stale_step.max(0.0);
     let scale = if step <= 0.0 {
         // A game that declares no staling gets its authored window, untouched.
@@ -111,7 +116,13 @@ fn spend_evade(dodge: &mut crate::BodyDodgeState, window: f32, tuning: AxisSwept
     // Each spend re-arms the full forgiveness delay, so the count only starts
     // coming down once the body actually stops.
     dodge.stale_decay = tuning.abilities.dodge_stale_recovery.max(0.0);
-    window * scale
+    // ⭐⭐ THE STALED VALUE ARMS THE I-FRAMES AND NOTHING ELSE. The authored
+    // window goes back to the caller, which spends it on the MANEUVER clock:
+    // travel, endlag and commitment are what the move is, and a worn-out evade
+    // is still that move. Returning the staled number here is precisely the bug
+    // this split fixes — it made a spammed roll SHORTER rather than unsafe.
+    state.evade_invuln_timer = window * scale;
+    window
 }
 
 /// The dash half of [`resolve_burst_maneuver`] — see [`available_dodge`].
@@ -499,7 +510,8 @@ pub(super) fn apply_dodge(
             // on a floor has none, and one that spot-dodged off a ledge edge
             // must not hang in the air for the window.
             kinematics.vel = frame.down() * kinematics.vel.dot(frame.down()).max(0.0);
-            state.dodge_roll_timer = spend_evade(dodge, tuning.abilities.spot_dodge_time, tuning);
+            state.dodge_roll_timer =
+                spend_evade(state, dodge, tuning.abilities.spot_dodge_time, tuning);
             state.spot_dodging = true;
             state.phased_jump.clear();
             dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
@@ -515,7 +527,8 @@ pub(super) fn apply_dodge(
         let descend = kinematics.vel.dot(frame.down()).min(0.0);
         kinematics.vel =
             frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
-        state.dodge_roll_timer = spend_evade(dodge, tuning.abilities.dodge_roll_time, tuning);
+        state.dodge_roll_timer =
+            spend_evade(state, dodge, tuning.abilities.dodge_roll_time, tuning);
         // What this roll ADDED, so its end can take back exactly that and
         // nothing a hit or a platform contributed. See `dodge_roll_push`.
         state.dodge_roll_push = dir * tuning.abilities.dodge_roll_speed;
@@ -542,7 +555,7 @@ pub(super) fn apply_dodge(
     // stage" upward, which is the exact input a recovering body uses.
     kinematics.vel =
         (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
-    state.air_dodge_timer = spend_evade(dodge, tuning.abilities.air_dodge_time, tuning);
+    state.air_dodge_timer = spend_evade(state, dodge, tuning.abilities.air_dodge_time, tuning);
     state.air_dodge_endlag_timer = 0.0;
     state.fast_falling = false;
     state.phased_jump.clear();

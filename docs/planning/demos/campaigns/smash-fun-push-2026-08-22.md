@@ -124,13 +124,13 @@ The overnight target is a vertical slice, not a demand to finish every row befor
 ### Week target — gameplay signature + defensive readability
 
 - [ ] W1. Replace the thin shield ring with a real shrinking bubble presentation.
-- [ ] W2. Add a reusable deterministic autolink/follow-up hit reaction.
-- [ ] W3. Re-author Pointed Polygon Up-B as capture-reading multihit → launch using W2.
+- [x] W2. Add a reusable deterministic autolink/follow-up hit reaction. — SHIPPED (`HitKnockback::follow`, `hit_response::autolink_velocity`).
+- [x] W3. Re-author Pointed Polygon Up-B as capture-reading multihit → launch using W2. — SHIPPED.
 - [ ] W4. Add a once-per-airtime recovery-use budget if Up-B is currently repeatable in air.
 - [ ] W5. Add the standable respawn platform and drop-off beat.
 - [ ] W6. Add shield-drop lag if playtesting shows defense has no meaningful release commitment.
 - [ ] W7. Add shield-break dizzy stars / shield-stress polish if the main slices are complete.
-- [ ] W8. Tune the demo as a whole against a small recorded playtest matrix.
+- [x] W8. Tune the demo as a whole against a small recorded playtest matrix. — PLAYED 2026-08-24; its four findings are closed. See `demos/w8-playtest-2026-08-24.md` and status.md's "W8's four findings closed". ⛔ this box stayed unchecked while status recorded the playtest as done, which is the stale-prose trap the reviewer guide names.
 
 ### Explicitly deferred unless the week finishes early
 

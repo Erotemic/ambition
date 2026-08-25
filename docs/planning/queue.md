@@ -395,7 +395,7 @@ turned up that OUTLIVES the campaign and has no other home.
 | Lane | Owner | Executable next action |
 |---|---|---|
 | **D183 — three demos hand-roll `DefaultPlugins`, and the engine has no offscreen face** | PRESENTATION lane, 2026-08-23 | ⭐ mary-o, sanic and twintrack each declare their own `RenderMode` and their own windowed builder; **the Smash demo has NONE, so its shell has never rendered anything** and `./run_game.sh smash` loops schedules with nothing to draw to. The engine's `install_windowed_foundation` already does this job with a `gpu: bool` and its own doc says a consumer re-deriving the disables is the leak. ⇒ add the third mode — **no window, REAL backend** — beside the two it has, give Smash a builder that uses it, and leave the other three duplicated with a note |
-| **D184 — the fighter brain has no evaluation path for a MOVEMENT change** | ◐ half built 2026-08-23 | ⛔⛔ three hand edits to the movement scores, three reverts, documented in the campaign doc. `brain::fighter::evaluation` measures decisions without a match and says so in its own header; `ambition_demo_smash_app`'s `bin/match_report` measures a match without decisions. **Joining them is the slice** — a rig that plays the scenario suite through a real match and reports the verb histogram beside the outcome. ◐ **HALF LANDED**: `bin/match_report --features causal` prints the decision histogram beside the outcome and a census of what was actually thrown, and `bin/ladder_rig --weight` measures a scoring change across seeds. What is still missing is the SCENARIO half — the suite's tactical set-ups played through a real match rather than through `BrainSnapshot::idle()` |
+| **D184 — the fighter brain has no evaluation path for a MOVEMENT change** | ◐ half built 2026-08-23, RE-SCOPED 2026-08-25 | ⛔ THE "MISSING SCENARIO HALF" IS STALE — IT IS BUILT. `ladder_rig --scenarios` plays the fixtures through real CPU-vs-CPU bouts and reports time-to-elimination, stocks and damage per rung pair; RUN 2026-08-25: 5 of 9 fixtures play, and it NAMES what it skips per fixture ("cannot set up: velocity, body phase") rather than producing a positional fixture under a tactical name. ⭐ THE REAL REMAINING GAP IS TWO SMALLER, BETTER-SPECIFIED THINGS. (a) FOUR fixtures need state placement cannot make — juggle_escape (velocity, body phase), projectile_camper (projectiles), edgeguard_window (velocity), edgeguard_ledge_hang (ledge hang); each needs a staging verb, not a runner. (b) ⛔⛔ `recovery_above` MEASURES NOTHING: all four rung pairs end 3:3 stocks at 0.0% — "both survive BUT NEITHER LANDED A HIT". A fixture that produces no engagement cannot rank rungs, so its four rows are vacuous evidence and must not be read as "the ladder is flat". Diagnose the fixture before trusting any row of it |
 | **D185 — `Situation::Advantage` means two different things** | unstaffed, and the obvious fix is MEASURED not to pay | it means "they are committed, punish them" AND "they are about to hit you", because `is_punishable` covers attack startup. A fighter therefore has nowhere to decide *guard, they are swinging* — measured: a guard added to the `Neutral` arm never fires, because a fighter is never in `Neutral` while somebody winds up. What separates the two readings is whether their swing lands before yours, which `Features::frame_advantage` already computes for ATTACK options and no movement option can see. ⛔⛔ **DO NOT REPEAT THE NAIVE FIX.** Built and measured 2026-08-23: splitting an arriving swing out of `Advantage` (so a body facing one falls through to `Neutral`) is byte-free on its own, and the guard it enables — offered in `Neutral` at 0.6 against a hostile with under 0.12s of startup left — cost damage 389→290, tumbling 210→176, techs 111→67 and KOs 4→3 across five 90s streams **for parries 0-0-1 → 0-0-2.** A block the CPU's reaction delay makes too late is just a slower fight. Reverted; what is missing is the frame-advantage read, not a shield score |
 | **D195 — one swing can still hit one victim TWICE, across ticks** | unstaffed — **MECHANICS, and it gates further sweetspot content** | ⭐ GPT review of `370abbbcf`, 2026-08-23, **verified at the source before recording**. `d7e2fa7c` is titled *"Let one swing land once"* and implements something weaker: same-TICK arbitration. Every hitbox owns its own `HitboxHits`, and the `StrikeRank` rule asks only whether a lower-ranked sibling **currently reaches** the victim (`hitbox/mod.rs:386`). ⇒ so across one continuous Active window: tick A the victim overlaps only the sourspot and is recorded in the SOURSPOT's ledger; tick B it moves into the sweetspot, whose own ledger is empty and whose siblings no longer reach — **it lands again**. The reverse order too. ⚠ the shipped tests place the victim where both volumes overlap AT ONCE, so they prove arbitration and not the invariant the title claims. ⛔ note the code comment *"a sourspot whose sweetspot window has closed is free again on the very next tick, which is what a lingering late hit should be"* — that is the author's intent and it is exactly what permits the double hit, so this is a design collision and not an oversight. ⇒ the model the reviewer proposes and I agree with: a **STRIKE PULSE** — one continuous Active interval owning ONE per-victim ledger shared by all its sibling volumes, so a gap in Active time is what earns a second hit and a multihit stays possible. ⭐ it also removes an existing coupling: `advance_move_playback` currently carries hit memory between contiguous Active windows BY VOLUME INDEX, which silently attaches memory to the wrong thing if a keyframe changes volume count or order. ⇒ required tests: sour-then-sweet and sweet-then-sour within one pulse are ONE hit; volume count/order changing across contiguous Active keyframes is still one hit; a real temporal GAP permits a second |
 | **D196 — a buffered Special is re-read off the live stick, so Up-Special becomes Neutral** | unstaffed — **MECHANICS** | ⭐ GPT review 2026-08-23, **verified**: `BodyActionBuffer` stores `special: f32` — a bare timer — while Attack stores a whole `AttackGestureIntent` and its own doc says why: *"a buffered press must be replayed verbatim rather than reinterpreted from the live stick later."* At replay `trigger_moveset_moves` recomputes `attack_dir_from_axis(frame.attack_axis, kin.facing)` (`moveset/mod.rs:1673`), so pressing Up+Special during endlag and centring the stick before it resolves yields the NEUTRAL special. ⚠ the out-of-shield path is worse: `rises_out_of_shield(attack_dir_from_axis(...), UpSpecial)` means a buffered Up-Special replayed after the stick centres no longer even QUALIFIES as an up-special out of shield. ⇒ capture the semantic intent on the press edge, as Attack already does. ⛔ decide POSTURE explicitly rather than letting live ECS state answer by accident (`special_down` vs `special_air_down`); press-time is the internally consistent answer given Attack. ⛔ and do not push `AttackDir` into `ambition_platformer2d_core` just to keep `BodyActionBuffer` one struct — the generic timer is body-core, the semantic intent belongs with combat, exactly as Attack is split today |
@@ -10187,6 +10187,50 @@ times its jump speed and asserts the fact refuses the climb, with a non-vacuity
 arm confirming the fixture is really rising.
 
 Wire format v101.
+
+- ✔ **D235 — CLOSED 2026-08-25. JON'S ROLL PLAYTEST, AND THE ONE TIMER THAT
+  MEANT FOUR THINGS. (opened and closed 2026-08-25, from a GPT 5.6 review)**
+
+Jon: *"roll distance is input/history-dependent AFTER the roll has already
+begun"*. Reproduced in a unit test, with numbers:
+
+```text
+same roll, guard HELD        106px
+same roll, guard RELEASED     33px
+fresh roll                   106px over 13 ticks
+roll spammed 3x before        27px over  4 ticks
+```
+
+⭐⭐ **TWO CAUSES, ONE ROOT: `dodge_roll_timer` MEANT FOUR DIFFERENT THINGS.**
+Animation (`anim` reads `dodge_rolling`), i-frames (`evading()` read the same
+fact), movement ownership, and commitment (`evade_cancel_tail`). `spend_evade`
+returned the STALED window into it, so a spammed roll got SHORTER instead of
+unsafe — while its own header said *"STALING WEARS THE I-FRAMES, NOT THE
+DISTANCE"*. ⛔ The comment stated the contract; the code never implemented it.
+
+⇒ SPLIT: `dodge_roll_timer` keeps its name as the AUTHORED MANEUVER clock
+(travel, endlag, animation, commitment) and the new `evade_invuln_timer` carries
+the staled i-frames. ⛔ The review proposed the opposite assignment — facts on
+the invuln clock — which would have ended the roll ANIMATION early on a stale
+roll. Reading the consumer decided it.
+
+And an accepted evade now owns its horizontal travel: the gate was
+`shield_held && on_ground`, so letting go of the guard handed the ordinary
+friction law a velocity the roll had authored.
+
+⛔⛔ **MY FIRST VERSION OF THE TEST PASSED AGAINST THE BUG** — the fixture spawned
+above the floor, so the roll's first EIGHT ticks were an AIR roll and measured a
+different law entirely. Printing `on_ground` per tick found it; the gate had been
+working from tick 8 the whole time.
+
+Also closed here: the WAVEBOUNCE reflected `kin.vel.x` (world X) though its own
+comment said *"only the run axis turns"* — now `body_frame.side`, with a rotated
+gravity arm; and an interrupted LEDGE CATCH revoked nothing, so a fighter hit
+during its two exposed frames went intangible in MIDAIR after the exposure ran
+out. Only the UNVESTED grant is revoked — a window already open is what makes a
+getup safe, and both directions are poisoned.
+
+Wire format v102.
 
 ## Standing continuation rule
 

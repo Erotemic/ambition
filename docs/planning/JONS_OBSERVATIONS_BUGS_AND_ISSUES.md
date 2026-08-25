@@ -318,6 +318,16 @@ value, and unchanged so far because that is a feel call rather than a defect.
 `cargo run -p ambition_demo_smash_app --bin roll_probe` prints the
 frame-by-frame if you want to see a clean roll for comparison.
 
+✔ **2026-08-25 — AND THERE WAS A SECOND, REAL BUG UNDERNEATH, which your later
+report named exactly**: *"roll distance is input/history-dependent after the roll
+has already begun"*. Two causes, both fixed (D235). The same roll covered 106px
+with the guard held and 33px with it released, because ordinary friction was
+gated on `shield_held` rather than on the roll being active; and a roll spammed
+three times covered 27px instead of 106, because dodge STALING was shortening the
+maneuver clock rather than only the invulnerable window. A roll's distance is now
+the same however you let go of the button and however many you have just thrown.
+The 124px feel number above is unchanged and still yours to call.
+
 ## 2026-08-24 — Smash: a name floats over everyone EXCEPT player one, and barks fire on every hit
 
 Jon: *"Something I would like fixed in smash is it looks like non-player 1 gets

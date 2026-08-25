@@ -129,6 +129,18 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
+    /// How much longer this evade is INTANGIBLE — the staled half of an evade,
+    /// and the only half staling is allowed to touch.
+    ///
+    /// ⭐⭐ SEPARATE FROM [`Self::dodge_roll_timer`] BECAUSE THEY ANSWER DIFFERENT
+    /// QUESTIONS. The maneuver clock says "this roll is still happening" and owns
+    /// travel, endlag, animation and commitment; this one says "and it is still
+    /// safe". One field answering both made a spammed roll SHORTER instead of
+    /// unsafe, which is the opposite of what the mechanic is for.
+    ///
+    /// ⛔ ONE FIELD FOR ALL THREE EVADES: only one can run at a time, and three
+    /// copies would drift apart the first time one was tuned.
+    pub evade_invuln_timer: f32,
     /// THE ROLL'S OWN PUSH — signed speed along the body's side axis, stamped
     /// when a ground roll starts and shed when it ends.
     ///
@@ -318,6 +330,7 @@ impl Default for AxisManeuverState {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
+            evade_invuln_timer: 0.0,
             dodge_roll_push: 0.0,
             jab_locks: 0,
             initial_dash_timer: 0.0,
@@ -681,6 +694,21 @@ pub fn knock_off_ledge(model: &mut MotionModel, ledge: &mut BodyLedgeState) -> b
     };
     if axis.state.ledge_grab.take().is_some() {
         ledge.release_cooldown = ledge.release_cooldown.max(LEDGE_KNOCK_OFF_COOLDOWN);
+        // ⛔⛔ AND THE CATCH'S UNVESTED PROTECTION GOES WITH THE CATCH. A ledge
+        // catch arms its earned invulnerability immediately but holds it behind
+        // `ledge_vulnerable_timer` — those are the exposed frames a hit is meant
+        // to land in. Leaving the pending grant here meant a fighter struck
+        // during its vulnerable catch launched away, the exposure ran out in
+        // midair, and the protection it never got to use switched on: intangible
+        // in the air, nowhere near the edge that granted it.
+        //
+        // ⭐ ONLY THE UNVESTED HALF. A window that has already opened
+        // (`ledge_vulnerable_timer <= 0.0`) is protection the body is legitimately
+        // spending, and it survives ledge transitions on purpose.
+        if axis.state.ledge_vulnerable_timer > 0.0 {
+            axis.state.ledge_vulnerable_timer = 0.0;
+            axis.state.ledge_invuln_timer = 0.0;
+        }
         true
     } else {
         false
@@ -908,6 +936,77 @@ mod tangential_op_tests {
         assert!(
             matches!(m.state, SurfaceMotion::Airborne),
             "a refused op still changed the motion state"
+        );
+    }
+}
+
+#[cfg(test)]
+mod ledge_catch_grant_tests {
+    use super::*;
+    use crate::ledge_grab::{LedgeContact, LedgeGrabState};
+
+    fn caught(vulnerable: f32, earned: f32) -> (MotionModel, BodyLedgeState) {
+        let mut model = MotionModel::AxisSwept(Default::default());
+        if let MotionModel::AxisSwept(axis) = &mut model {
+            axis.state.ledge_grab = Some(LedgeGrabState::hanging(LedgeContact {
+                wall_normal_x: 1.0,
+                anchor: Vec2::ZERO,
+                climb_target: Vec2::ZERO,
+            }));
+            axis.state.ledge_vulnerable_timer = vulnerable;
+            axis.state.ledge_invuln_timer = earned;
+        }
+        (model, BodyLedgeState::default())
+    }
+
+    fn timers(model: &MotionModel) -> (f32, f32) {
+        match model {
+            MotionModel::AxisSwept(axis) => (
+                axis.state.ledge_vulnerable_timer,
+                axis.state.ledge_invuln_timer,
+            ),
+            _ => unreachable!("the fixture is axis-swept"),
+        }
+    }
+
+    /// A CATCH INTERRUPTED IN ITS EXPOSED FRAMES TAKES ITS PROTECTION WITH IT.
+    ///
+    /// ⛔⛔ The catch arms the earned window at once and hides it behind the two
+    /// vulnerable frames. Knocked off during those frames, the body used to keep
+    /// the pending grant: the exposure expired in midair and the fighter turned
+    /// intangible while launched, far from the edge that granted it.
+    #[test]
+    fn a_ledge_catch_knocked_off_while_exposed_loses_its_pending_invulnerability() {
+        let (mut model, mut ledge) = caught(0.033, 0.5);
+        assert!(
+            knock_off_ledge(&mut model, &mut ledge),
+            "the fixture never hung"
+        );
+        let (vulnerable, invuln) = timers(&model);
+        assert_eq!(
+            (vulnerable, invuln),
+            (0.0, 0.0),
+            "a catch interrupted during its exposed frames kept {invuln:.2}s of \
+             invulnerability behind {vulnerable:.2}s of exposure — it will switch on \
+             in midair, after the hit that took the ledge away"
+        );
+    }
+
+    /// ⭐ BUT PROTECTION ALREADY RUNNING IS THE BODY'S TO SPEND. A window past its
+    /// exposure survives leaving the ledge on purpose — that is what makes a
+    /// ledge getup safe. Clearing indiscriminately would have deleted it.
+    #[test]
+    fn a_vested_ledge_window_survives_leaving_the_ledge() {
+        let (mut model, mut ledge) = caught(0.0, 0.5);
+        assert!(
+            knock_off_ledge(&mut model, &mut ledge),
+            "the fixture never hung"
+        );
+        let (_, invuln) = timers(&model);
+        assert!(
+            (invuln - 0.5).abs() < 1e-6,
+            "a window that had already opened was revoked ({invuln:.2}s left of 0.50) \
+             — that is the legitimate protection a getup spends"
         );
     }
 }

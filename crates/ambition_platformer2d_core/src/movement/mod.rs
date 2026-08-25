@@ -459,6 +459,11 @@ fn update_body_simulation_inner(
         } else {
             state.dodge_roll_endlag_timer = dec(state.dodge_roll_endlag_timer);
         }
+        // ⭐ THE SAFE HALF OF AN EVADE RUNS DOWN ON ITS OWN. It is armed shorter
+        // than the maneuver for a body that has been spamming evades, so a stale
+        // roll finishes its travel with the last of it already hittable — which
+        // is the entire point of staling.
+        state.evade_invuln_timer = dec(state.evade_invuln_timer);
         // THE TURNAROUND runs down here with every other maneuver clock. When
         // it reaches zero the next `apply_intent` flips the facing, because the
         // stick is still asking for it.

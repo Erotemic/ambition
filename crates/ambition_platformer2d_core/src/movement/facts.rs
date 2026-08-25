@@ -70,6 +70,9 @@ pub struct BodyMotionFacts {
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
+    /// Inside the evade's INVULNERABLE window — the staled half. Shorter than
+    /// [`Self::dodge_rolling`] for a body that has been evading a lot.
+    pub evade_invulnerable: bool,
     /// LEDGE intangibility is active — the grab's earned window, a getup roll,
     /// or a getup attack.
     ///
@@ -158,7 +161,7 @@ impl BodyMotionFacts {
     /// five emit sites and miss the sixth. Adding an evade means extending this
     /// method, not auditing every caller of `body_vulnerable`.
     pub fn evading(&self) -> bool {
-        self.dodge_rolling || self.air_dodging || self.getup_invulnerable || self.ledge_intangible
+        self.evade_invulnerable || self.getup_invulnerable || self.ledge_intangible
     }
 
     /// Project the active policy's semantic facts. Non-axis policies have no
@@ -189,6 +192,9 @@ impl BodyMotionFacts {
             air_jump_rising: state.air_jump_rising,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
+            // ⭐ THE SAFE HALF OF AN EVADE, WHICH IS SHORTER THAN THE MOVE WHEN
+            // THE BODY HAS BEEN SPAMMING IT. `dodge_rolling` above is the move.
+            evade_invulnerable: state.evade_invuln_timer > 0.0,
             // ⛔ HANGING IS NOT YET INTANGIBLE. The first frames of a ledge
             // catch are exposed on purpose — see `LEDGE_GRAB_VULNERABLE_TIME`.
             ledge_intangible: state.ledge_invuln_timer > 0.0 && state.ledge_vulnerable_timer <= 0.0,

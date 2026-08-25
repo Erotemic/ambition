@@ -2244,7 +2244,16 @@ pub fn trigger_moveset_moves(
                     // outright would flip a launch the fighter is riding, which
                     // is the mistake three other maneuvers in this kernel have
                     // already made. Only the ground/air run axis turns.
-                    kin.vel.x = -kin.vel.x;
+                    //
+                    // ⛔⛔ AND THAT AXIS IS `body_frame.side()`, NOT WORLD X. The
+                    // sentence above was already the contract; `kin.vel.x = -kin.vel.x`
+                    // only honoured it while gravity pointed down the screen. Under
+                    // rotated gravity a fighter's left/right IS world Y, so the old
+                    // line reversed its RISE and left its drift alone — the exact
+                    // inversion, in the one situation the frame exists for.
+                    let side = body_frame.side;
+                    let along = kin.vel.dot(side);
+                    kin.vel -= 2.0 * along * side;
                 }
             }
             // THIS USE IS A SPECIAL, recorded for the same reason the smash arm

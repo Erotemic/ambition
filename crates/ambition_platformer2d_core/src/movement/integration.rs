@@ -494,8 +494,20 @@ pub(super) fn integrate_normal_clusters(
             //
             // ⚠ It does not fight the evade: a roll and a spot dodge SET
             // velocity directly, they do not steer through this term.
+            // ⛔⛔ AND AN ACCEPTED EVADE OWNS ITS OWN TRAVEL. Gating on
+            // `shield_held` alone meant a roll kept steering rights the moment
+            // the hand let go of the guard, so the ordinary friction/steer law
+            // resumed editing a velocity the roll had authored: the same roll
+            // covered 107px held and 33px released, which is Jon's playtest
+            // ("roll distance is input-dependent AFTER the roll has begun").
+            // A maneuver the game has already accepted is not still taking input.
+            //
+            // ⛔ NOT GATED ON `on_ground`. A roll that leaves the edge keeps the
+            // momentum it authored; handing air control back mid-roll would let
+            // the stick edit the same velocity from the other law instead.
             can_move_horizontal: abilities.abilities.move_horizontal
-                && !(input.shield_held && ground.on_ground),
+                && !(input.shield_held && ground.on_ground)
+                && state.dodge_roll_timer <= 0.0,
             // ⭐ PLANTED, NOT MERELY UNSTEERABLE. A guard raised mid-run sheds
             // the run; an EVADE does not, because a roll and a spot dodge set
             // their own velocity and this law must not brake them.

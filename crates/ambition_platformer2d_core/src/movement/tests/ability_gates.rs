@@ -1198,3 +1198,168 @@ fn air_jump_rising_is_false_for_a_climb_the_body_did_not_buy() {
          cancel would delete that launch"
     );
 }
+
+/// AN ACCEPTED ROLL TRAVELS THE SAME DISTANCE WHETHER OR NOT YOU KEEP HOLDING
+/// THE BUTTON THAT STARTED IT.
+///
+/// ⛔⛔ JON'S PLAYTEST, 2026-08-25: "roll distance is input/history-dependent
+/// AFTER the roll has already begun". Ordinary ground steering is disabled by
+/// `shield_held && on_ground` — NOT by the roll being active — so releasing the
+/// guard mid-roll switches the ordinary friction/steer law back on top of a
+/// velocity the roll owns. The existing roll arm holds the button down for the
+/// whole maneuver, so it cannot see this.
+///
+/// ⭐ A MANEUVER THE GAME HAS ALREADY ACCEPTED IS NOT STILL TAKING INPUT. Once
+/// the roll is committed its travel is authored, and what the hand does next is
+/// the NEXT action's business.
+#[test]
+fn a_roll_travels_the_same_distance_however_the_button_is_released() {
+    let world = test_world();
+    let tuning = super::TEST_TUNING;
+
+    // The stick, held toward `dir`, which is what turns a guard into a ROLL.
+    let hold = |dir: f32| {
+        let mut i = InputState::default();
+        i.axes = crate::reference_frame::LocalAxes::new(dir, 0.0);
+        i
+    };
+
+    // Every arm starts the SAME roll, then differs only in what is held after.
+    let roll_travel = |after: InputState| {
+        let mut body = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        // ⛔ SETTLE ONTO THE FLOOR FIRST. The spawn is above it, and a roll begun
+        // mid-fall is an AIR roll for its first eight ticks — which measured the
+        // air law and hid the ground one completely.
+        for _ in 0..30 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut body,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(body.ground.on_ground, "the fixture never landed");
+        let mut start_roll = hold(1.0);
+        start_roll.shield_held = true;
+        super::update_player_with_tuning_scratch(&world, &mut body, start_roll, 1.0 / 60.0, tuning);
+        assert!(
+            body.axis().dodge_roll_timer > 0.0,
+            "the fixture never rolled, so this arm measures nothing"
+        );
+        let start = body.kinematics.pos.x;
+        let mut ticks = 0;
+        while body.axis().dodge_roll_timer > 0.0 && ticks < 40 {
+            super::update_player_with_tuning_scratch(&world, &mut body, after, 1.0 / 60.0, tuning);
+            ticks += 1;
+        }
+        body.kinematics.pos.x - start
+    };
+
+    let mut held = hold(1.0);
+    held.shield_held = true;
+    let held_travel = roll_travel(held);
+
+    let released = InputState::default();
+    let released_travel = roll_travel(released);
+
+    let mut against = hold(-1.0);
+    against.shield_held = false;
+    let against_travel = roll_travel(against);
+
+    assert!(
+        held_travel > 60.0,
+        "the control arm did not roll ({held_travel:.0}px), so the comparisons below are vacuous"
+    );
+    let released_gap = (held_travel - released_travel).abs();
+    assert!(
+        released_gap < 1.0,
+        "releasing the guard mid-roll changed the distance by {released_gap:.0}px \
+         (held {held_travel:.0} vs released {released_travel:.0}) — the roll does not \
+         own its own movement, so ordinary friction is editing a velocity it did not author"
+    );
+    let against_gap = (held_travel - against_travel).abs();
+    // ⚠ 2px, not zero: the loop's LAST tick is the one where the roll expires, and
+    // on that tick the stick legitimately steers again. The defect this arm exists
+    // for was 71px.
+    assert!(
+        against_gap < 2.0,
+        "steering AGAINST an accepted roll changed the distance by {against_gap:.0}px \
+         (held {held_travel:.0} vs opposed {against_travel:.0}) — a committed maneuver \
+         is still taking input it should have stopped reading"
+    );
+}
+
+/// STALING WEARS THE I-FRAMES, NOT THE DISTANCE — the sentence `spend_evade`
+/// has always CLAIMED, now asserted.
+///
+/// ⛔⛔ It was never true. `spend_evade` returns the STALED window and that value
+/// lands in `dodge_roll_timer`, which governs travel, endlag AND commitment — so
+/// a spammed roll got shorter, not merely less safe. At the Smash floor that is
+/// about a third of the authored distance.
+#[test]
+fn staling_wears_an_evades_i_frames_and_leaves_its_distance_alone() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.base.dodge_stale_step = 0.25;
+    tuning.base.dodge_stale_floor = 0.34;
+    tuning.base.dodge_stale_recovery = 0.5;
+    assert!(
+        tuning.params().abilities.dodge_stale_step > 0.0,
+        "the fixture declares no staling, so both arms below are the same body"
+    );
+
+    let hold = |dir: f32| {
+        let mut i = InputState::default();
+        i.axes = crate::reference_frame::LocalAxes::new(dir, 0.0);
+        i
+    };
+    let roll = |evades_recent: u8| {
+        let mut body = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        body.ground.on_ground = true;
+        body.dodge.evades_recent = evades_recent;
+        let mut start_roll = hold(1.0);
+        start_roll.shield_held = true;
+        super::update_player_with_tuning_scratch(&world, &mut body, start_roll, 1.0 / 60.0, tuning);
+        let start = body.kinematics.pos.x;
+        let mut ticks = 0;
+        let mut intangible_ticks = 0;
+        while body.axis().dodge_roll_timer > 0.0 && ticks < 40 {
+            if crate::movement::BodyMotionFacts::from_model(&body.model).evading() {
+                intangible_ticks += 1;
+            }
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut body,
+                start_roll,
+                1.0 / 60.0,
+                tuning,
+            );
+            ticks += 1;
+        }
+        (body.kinematics.pos.x - start, intangible_ticks, ticks)
+    };
+
+    let (fresh_travel, fresh_iframes, fresh_ticks) = roll(0);
+    let (stale_travel, stale_iframes, stale_ticks) = roll(3);
+
+    assert!(
+        fresh_travel > 60.0 && fresh_iframes > 0,
+        "the fresh arm neither travelled ({fresh_travel:.0}px) nor went intangible \
+         ({fresh_iframes} ticks), so nothing below can be measured"
+    );
+    let gap = (fresh_travel - stale_travel).abs();
+    assert!(
+        gap < 1.0,
+        "a stale roll travelled {gap:.0}px less than a fresh one \
+         (fresh {fresh_travel:.0} over {fresh_ticks} ticks, stale {stale_travel:.0} over \
+         {stale_ticks}) — staling is wearing the DISTANCE, which is exactly what \
+         spend_evade's own header says it must not do"
+    );
+    assert!(
+        stale_iframes < fresh_iframes,
+        "a heavily stale roll was intangible for {stale_iframes} ticks against a fresh \
+         roll's {fresh_iframes} — staling is not wearing the i-frames either, so the \
+         mechanic does nothing at all"
+    );
+}

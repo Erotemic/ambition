@@ -1822,7 +1822,12 @@ fn a_repeated_evade_is_worn_down_and_recovers_when_it_stops() {
         scratch.dodge.cooldown = 0.0;
         scratch.dodge.evades_recent = evades_recent;
         update_player_with_tuning_scratch(&world, &mut scratch, burst, 1.0 / 60.0, tuning);
-        scratch.axis().dodge_roll_timer
+        // ⭐ THE INVULNERABLE WINDOW, which is what this test has always SAID it
+        // measures. It read `dodge_roll_timer` until 2026-08-25, when that field
+        // became the authored MANEUVER clock — travel, endlag and commitment —
+        // and staling stopped touching it. Reading the maneuver clock here is
+        // what let staling silently shorten the roll itself.
+        scratch.axis().evade_invuln_timer
     };
 
     let fresh = roll_window(tuning, 0);

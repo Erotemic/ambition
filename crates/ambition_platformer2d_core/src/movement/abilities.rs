@@ -467,6 +467,9 @@ pub(super) fn apply_dodge(
         kinematics.vel =
             frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
         state.dodge_roll_timer = spend_evade(dodge, tuning.abilities.dodge_roll_time, tuning);
+        // What this roll ADDED, so its end can take back exactly that and
+        // nothing a hit or a platform contributed. See `dodge_roll_push`.
+        state.dodge_roll_push = dir * tuning.abilities.dodge_roll_speed;
         state.spot_dodging = false;
         state.phased_jump.clear();
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;

@@ -129,6 +129,18 @@ pub struct AxisManeuverState {
     pub blink_aim_offset: Vec2,
     pub blink_grace_timer: f32,
     pub dodge_roll_timer: f32,
+    /// THE ROLL'S OWN PUSH — signed speed along the body's side axis, stamped
+    /// when a ground roll starts and shed when it ends.
+    ///
+    /// ⛔⛔ TRACKED SEPARATELY BECAUSE VELOCITY IS SHARED. A roll that ended by
+    /// zeroing `vel` erased the KNOCKBACK of a body struck mid-roll —
+    /// `an_up_tilt_launches_much_further_at_a_high_percent` measured a victim
+    /// rising 4.5px at 0% and 0.0px at 1427%. A maneuver that ends may only
+    /// take back what it itself put in, which means it has to remember it.
+    ///
+    /// `0.0` for the spot dodge, which covers no distance and has nothing to
+    /// shed.
+    pub dodge_roll_push: f32,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -253,6 +265,7 @@ impl Default for AxisManeuverState {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
+            dodge_roll_push: 0.0,
             ledge_invuln_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,

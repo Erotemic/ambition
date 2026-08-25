@@ -298,18 +298,23 @@ send the character flying across the stage. They should not be giving that much
 velocity, and they probably should stop at the end of the roll and leave the
 character punishable for a frame or two."*
 
-◐ The roll now owes a recovery beat on the far side. ⛔ The DISTANCE half does
-not reproduce, and FOUR explanations are refuted by measurement: ground roll
-11.2px, roll off the platform lip 12.7px, air dodge 29.5px, chained rolls
-~26px/s; and the LEDGE getup roll is bounded by construction at
-`LEDGE_ROLL_OVERSHOOT` = 36px. Nothing that moves a fighter on purpose exceeds
-~36px on a 480px platform.
+✔ FIXED 2026-08-25. Jon was right and the earlier verdict here was wrong: the
+roll did not take its velocity back when it ended, so the body kept sliding at
+the full roll speed through the whole cooldown and then rolled again. Held
+guard+direction covered **1339px in three seconds on a ~480px stage**. A roll
+now sheds its own push and ends standing: 229.7px per roll-cycle → 114.8px, and
+1339px → 804px over the same three seconds.
 
-⇒ **THE LIKELY ANSWER IS KNOCKBACK, i.e. the percent meter working.** A 1427%
-up-tilt was measured today launching at 3096.9px/s and rising 398px — that IS
-flying across the stage, and a hit landing during or just after a roll reads as
-the roll having done it. ⚠ so the question worth answering while you play is
-**what your percent was**, not how far the roll went.
+⛔ THE EARLIER MEASUREMENTS IN THIS ENTRY WERE ARTEFACTS AND ARE WITHDRAWN
+(11.2px ground roll, ~26px/s chained). They were taken through `App::update()`,
+which is a FRAME and not a sim tick — the probe sampled ONE TICK of a roll
+(8.8px) and it was read as the whole roll, which is 124px. Re-measured in the
+kernel, where a tick is a tick. ⇒ knockback was never needed to explain this.
+
+⚠ WHAT IS LEFT IS A TUNING NUMBER, NOT A BUG: the roll's own distance is still
+124px, about a quarter of the stage. If it still reads as too far when you play
+it, the knob is `DODGE_ROLL_SPEED` (530px/s over `DODGE_ROLL_TIME` 0.22s) — one
+value, and unchanged so far because that is a feel call rather than a defect.
 `cargo run -p ambition_demo_smash_app --bin roll_probe` prints the
 frame-by-frame if you want to see a clean roll for comparison.
 

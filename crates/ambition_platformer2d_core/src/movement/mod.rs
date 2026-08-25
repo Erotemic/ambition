@@ -286,6 +286,45 @@ pub(crate) fn update_body_simulation_in_frame(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// A ROLL ENDS BY STOPPING — it takes back its own push and nothing else.
+///
+/// Jon, 2026-08-25: *"shield rolls have too much motion to them. They send the
+/// character flying across the stage... they probably should stop at the end of
+/// the roll."* Measured before the fix: a held guard+direction covered 1339px
+/// in three seconds on a stage about 480px wide. The roll itself is only 124px
+/// of that — the body then COASTED at the full roll speed for the rest of the
+/// cooldown, because the roll set a velocity that nothing ever took back.
+///
+/// ⛔⛔ IT MAY NOT SIMPLY ZERO `vel`. That was tried, and it erased the
+/// knockback of a body struck mid-roll. So the shed is bounded twice: never
+/// against the body's current direction of travel, and never more than the
+/// speed actually present. A body launched out of its own roll keeps every bit
+/// of the launch; a body that merely finished one is left standing.
+fn shed_dodge_roll_push(
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    state: &mut AxisManeuverState,
+    frame: MotionFrame,
+) {
+    let push = std::mem::replace(&mut state.dodge_roll_push, 0.0);
+    if push == 0.0 {
+        return;
+    }
+    let side = frame.side();
+    let along = kinematics.vel.dot(side);
+    // ⛔⛔ THE TEST IS "IS THE BODY STILL ONLY DOING WHAT THE ROLL DID?" — same
+    // direction, and no faster than the roll pushed it. Anything faster means
+    // something else is driving (a launch replaces velocity, it does not add to
+    // it), and this must not touch it.
+    //
+    // ⭐ THE ASYMMETRY IS DELIBERATE. Shedding too little leaves a body coasting
+    // for a few frames; shedding too much deletes someone's knockback and reads
+    // as a combo that does nothing. So the doubtful case does nothing.
+    if along * push <= 0.0 || along.abs() > push.abs() {
+        return;
+    }
+    kinematics.vel -= side * along;
+}
+
 fn update_body_simulation_inner(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -412,6 +451,7 @@ fn update_body_simulation_inner(
                 // a sibling — so an endlag hung off the expiry alone is charged
                 // to a maneuver that covers no distance and never asked for one.
                 state.dodge_roll_endlag_timer = tuning.abilities.dodge_roll_endlag;
+                shed_dodge_roll_push(clusters.kinematics, state, frame);
             }
         } else {
             state.dodge_roll_endlag_timer = dec(state.dodge_roll_endlag_timer);

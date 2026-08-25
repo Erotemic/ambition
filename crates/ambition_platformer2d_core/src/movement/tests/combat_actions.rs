@@ -2073,3 +2073,84 @@ fn an_evade_is_committed_until_its_tail_and_only_when_declared() {
          — it is a longer lockout"
     );
 }
+
+/// A ROLL ENDS BY STOPPING, AND A LAUNCHED BODY KEEPS ITS LAUNCH.
+///
+/// Jon, 2026-08-25: *"shield rolls have too much motion to them. They send the
+/// character flying across the stage... they probably should stop at the end of
+/// the roll."* The roll set a velocity that nothing ever took back, so the body
+/// kept travelling at the full roll speed through the whole cooldown and then
+/// rolled again — a continuous slide, not a series of rolls.
+///
+/// ⛔⛔ THE THIRD ARM IS THE POINT. Ending a roll by zeroing `vel` was tried
+/// before and erased the knockback of a body struck mid-roll. The shed is
+/// allowed only while the body is still doing no more than the roll itself did.
+#[test]
+fn a_ground_roll_ends_stopped_but_never_eats_a_launch() {
+    let world = test_world();
+    let mut tuning = TEST_TUNING;
+    tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+    tuning.base.spot_dodge_time = 0.16;
+
+    let settle = || {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = false;
+        for _ in 0..60 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(
+            scratch.ground.on_ground,
+            "the fixture never reached the floor"
+        );
+        scratch
+    };
+    let mut guard_right = InputState::with_axes(1.0, 0.0);
+    guard_right.shield_held = true;
+    let side = tuning.frame().side();
+
+    // ARM 1 — BASELINE: the roll really is driving the body, so arm 2 is
+    // measuring a stop and not a roll that never started.
+    let mut rolling = settle();
+    update_player_with_tuning_scratch(&world, &mut rolling, guard_right, 1.0 / 60.0, tuning);
+    assert!(
+        rolling.axis().dodge_roll_timer > 0.0,
+        "guard + direction did not start a roll"
+    );
+    assert!(
+        rolling.kinematics.vel.dot(side).abs() > 100.0,
+        "the roll is not moving the body at all: {}",
+        rolling.kinematics.vel.dot(side)
+    );
+
+    // ARM 2 — THE STOP. Run the roll out and the body is left standing.
+    while rolling.axis().dodge_roll_timer > 0.0 {
+        update_player_with_tuning_scratch(&world, &mut rolling, guard_right, 1.0 / 60.0, tuning);
+    }
+    assert!(
+        rolling.kinematics.vel.dot(side).abs() < 1.0,
+        "the roll ended still carrying its own push: {}",
+        rolling.kinematics.vel.dot(side)
+    );
+
+    // ARM 3 — THE LAUNCH SURVIVES. A body struck mid-roll is moving faster than
+    // its roll ever pushed it, and the end of the roll must not touch that.
+    let mut launched = settle();
+    update_player_with_tuning_scratch(&world, &mut launched, guard_right, 1.0 / 60.0, tuning);
+    assert!(launched.axis().dodge_roll_timer > 0.0, "arm 3 never rolled");
+    let launch = side * 3000.0;
+    launched.kinematics.vel = launch;
+    while launched.axis().dodge_roll_timer > 0.0 {
+        update_player_with_tuning_scratch(&world, &mut launched, guard_right, 1.0 / 60.0, tuning);
+    }
+    assert!(
+        launched.kinematics.vel.dot(side) > 2000.0,
+        "the end of the roll ate a launch it did not create: {}",
+        launched.kinematics.vel.dot(side)
+    );
+}

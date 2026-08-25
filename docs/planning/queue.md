@@ -9563,6 +9563,55 @@ after one arm was found measuring a body that had never reached the platform.
 
 Wire format v93 (`ShieldTuning` gained a bool).
 
+- ✔ **D220 — CLOSED 2026-08-25. THE SHIELD ROLL DID THROW THE FIGHTER ACROSS
+  THE STAGE, AND MY OWN INSTRUMENT IS WHAT HID IT. (Jon's observation
+  2026-08-24, wrongly closed as "does not reproduce" the same day)**
+
+⭐⭐ **THE ROLL NEVER TOOK ITS VELOCITY BACK.** It sets `vel` once at the start
+and the timer runs out; nothing clears it. So the body rolled 124px, then
+COASTED at the full 530px/s for the rest of the 0.42s cooldown, then rolled
+again. Measured on a ~480px stage, held guard+direction:
+
+```text
+before   per roll-cycle 229.7px   3 seconds -> 1339px   (~2.8 stage widths)
+after    per roll-cycle 114.8px   3 seconds ->  804px
+```
+
+⛔⛔ **THE EARLIER "DOES NOT REPRODUCE" WAS AN INSTRUMENT ARTEFACT, AND I HAD
+ALREADY WRITTEN DOWN THE REASON.** The probe measured through `App::update()`,
+which is a FRAME and not a sim tick — a caveat recorded in that same probe, with
+the ground roll explicitly cleared as "slow enough to survive it". It was not:
+**11.2px is ONE TICK of a roll** (530 ÷ 60 = 8.8px), read as the whole roll.
+Four "refuted" numbers in the observations file were all the same error and are
+withdrawn there.
+
+⇒ ⭐⭐ **A MEASUREMENT THAT EXONERATES THE SUSPECT DESERVES MORE SCRUTINY THAN
+ONE THAT CONVICTS IT** — it is the one that ends the investigation. The kernel
+was available the whole time and gives a tick that is a tick.
+
+⭐ **THE FALSIFIER THAT MADE IT CERTAIN:** the same held press on a body with
+`dodge = false` travels **0px**, and run speed is 270 against a roll speed of
+530. So the guard does stop walking, and every one of those 1339px was the roll.
+
+⛔⛔ **IT MAY NOT END BY ZEROING `vel`, AND THE TREE ALREADY KNEW.** A comment at
+the expiry site records that exact attempt erasing a struck body's knockback —
+`an_up_tilt_launches_much_further_at_a_high_percent` saw a victim rise 4.5px at
+0% and 0.0px at 1427% — and prescribes the fix: *"the push has to be tracked
+separately from whatever else moved the body."* So `AxisManeuverState` now
+stamps `dodge_roll_push`, and the shed runs only while the body is still going
+the roll's way and no faster than the roll pushed it. ⭐ THE ASYMMETRY IS
+DELIBERATE: shedding too little leaves a body coasting a few frames, shedding
+too much deletes someone's knockback, so the doubtful case does nothing. The
+naive version is the second poison and it reproduces the historical bug exactly
+(launch 3000 -> 0).
+
+⚠ **WHAT REMAINS IS A TUNING NUMBER, NOT A DEFECT.** The roll's own 124px is a
+quarter of the stage; `DODGE_ROLL_SPEED` is one value and Jon plays it tomorrow.
+Not pre-emptively lowered — halving a knob and fixing a bug in the same change
+makes neither measurable.
+
+Wire format v94.
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

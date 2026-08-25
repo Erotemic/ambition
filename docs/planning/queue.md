@@ -10364,8 +10364,26 @@ Back+Special performs. Reopen when a customer needs per-press choice.
 
 ▢ STILL OPEN, in the review's own order: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
-split; **(5) impact hitstop reads victim hitlag BEFORE resolution** (a
-consequence of 4: carry the resolved hitlag on the event); **(7) the INPUT-ORDER recogniser** — the four techniques are declarable now, but
+split. ⚠ NOT PURELY GEOMETRIC ALREADY: the producer refuses a PARRIED hit
+("no `LandedBodyHit`: the attacker's move did not connect"), so the seam is
+half-drawn rather than absent.
+
+**(5) IMPACT HITSTOP — CONFIRMED AT HEAD 2026-08-25, AND IT IS PLAYER-FACING.**
+`request_impact_hitstop_on_landed_hits` runs in `CombatSet::Settle` and reads
+`BodyCombat::hitstop_timer` off the victim. The schedule's own comment says
+player-victim hits are handed to a FIFO "the player resolver (which runs in NEXT
+frame's PlayerSimulation) drains" — so for a PLAYER victim that timer has not
+been written yet. ⇒ **THE MATCH FREEZE WORKS WHEN A CPU IS HIT AND NOT WHEN THE
+HUMAN IS**, which is a feel difference a player can notice without knowing why.
+The existing arm is even named `two_cpus_trading_hits_freeze_the_world_with_no_
+player_in_it`, and every test in that file INJECTS `hitstop_timer` on the victim
+before firing the message — so none of them can see the ordering at all.
+
+⛔ THE FIX IS NOT "ADD THE HOLD TO THE PLAYER RESOLVER": that system carries a
+comment saying it is at Bevy's param ceiling, twice, and enlarging it is exactly
+what (16) warns against. ⇒ the resolver should PUBLISH a resolved hit carrying
+its hitlag, and a small system turns that into the freeze — which is (4)'s split
+arriving through its first real customer rather than as a refactor. **(7) the INPUT-ORDER recogniser** — the four techniques are declarable now, but
 which one a PLAYER asked for still cannot be read from stick-then-button order; **(11) the turnaround edge shares
 `prev_steer_dir` with the initial dash, whose deadzone is 0.5 against the
 turnaround's 0.1** — an analog reversal near -0.2 re-arms forever; **(12) — MEASURED AND

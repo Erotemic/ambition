@@ -337,6 +337,10 @@ left is a regrab COUNT, which is available and deliberately unbuilt until play
 shows stalling surviving the four penalties the ledge now charges — queued as
 D201.
 
+✔ And 2026-08-25: stealing the ledge now THROWS the previous holder off it
+(`ledge_trump_pop`, a declared match rule) rather than dropping them on the
+spot, so a trump is a real edge-guard option.
+
 ## 2026-08-21 — Mary-O: the pole victory TRANSLATES her, and side contact hits the snake
 
 Jon: *"if she runs into solid snake from the side, the snake gets hit instead of

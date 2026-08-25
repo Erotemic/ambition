@@ -9232,6 +9232,67 @@ combat lane is orthogonal enough to the systemic-world and rollback lanes to
 stay independently integrable. ⛔ narrow or pause it the moment it starts
 changing the same authority boundary as another live lane.
 
+- ▢ **D211 — `Exit Match` STAYS OFFERED AFTER THE MATCH IS ALREADY OVER.
+  (opened 2026-08-24, from the GPT 5.6 correction-pass review, P1)**
+
+The pause menu offers an abandon action whose whole meaning is "end a match that
+is still running". Once `StocksMatchSettled::settled(active)` is true the match
+has ended on its own, and the action either does nothing or races the settlement
+it duplicates.
+
+⇒ **withdraw the action on the settled condition, not on a mode label.** The
+condition already exists and is already the authority the settle path reads —
+see `features/stocks_match.rs`. ⛔ do not gate it on a menu state or a game-mode
+enum: those are proxies, and the row is about the OUTPUT (is this match over),
+which is exactly the discipline the same review asked for.
+
+- ▢ **D212 — TWO CONSUMERS ASK "HOW LONG HAS THIS MATCH BEEN RUNNING" AND GET
+  DIFFERENT ANSWERS. (opened 2026-08-24, from the GPT 5.6 correction-pass
+  review, P1)**
+
+The timeout and the item-spawn cadence each measure elapsed match time their own
+way, and neither excludes the opening countdown or a pause. So a match paused for
+thirty seconds is thirty seconds closer to timing out, and items keep their
+schedule through a freeze.
+
+⇒ **ONE live-match clock, owned once and read by both.** The clock excludes the
+opening countdown and every pause. ⛔ not a third timer beside the two — the
+deletion is the proof: both existing readings go away in the same slice.
+
+⚠ items are currently OFF by default (`roster.item_spawns = None`, Jon
+2026-08-23), so the cadence consumer is dormant. It is still a consumer, and the
+clock is what makes turning items back on a one-line change rather than a
+re-derivation.
+
+- ▢ **D213 — `sim_random` HAS NO MATCH-CONTEXT SEED, so two matches draw the
+  same sequence. (opened 2026-08-24, from the GPT 5.6 correction-pass review,
+  P1)**
+
+`sim_random(domain, tick, salt)` is stateless and rollback-safe, which is the
+whole point — but its inputs carry nothing that distinguishes one match from the
+next. Two matches that reach tick N in the same domain draw identically.
+
+⇒ **fold a match/session context value into the seed.** It must be canonical
+simulation state (it decides draws, so a rewind has to reproduce it) and it must
+be stated where a match begins, beside the roster and the rules.
+
+⛔ THE POISON IS TWO MATCHES, NOT TWO DOMAINS. The correlation assertion for this
+belongs on the RAW draws — a check written on reduced indices compared values
+differing only by modulus, passed, and could not have detected a shared salt.
+
+- ▢ **D214 — MULTI-SIDE SUDDEN DEATH RESETS EVERY SURVIVOR, not the tied
+  leaders. (opened 2026-08-24, from the GPT 5.6 correction-pass review, P1)**
+
+Sudden death exists to break a TIE. With three or more sides alive at timeout the
+current path carries every survivor into the extra round, including sides the
+timeout had already put behind — so a player who was losing on stocks gets an
+even restart.
+
+⇒ **carry the tied leaders only.** The tiebreak already computes the ordering it
+needs; the row is about what the sudden-death round is POPULATED with, not about
+how the winner is decided.
+
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

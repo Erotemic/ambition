@@ -278,6 +278,10 @@ impl EditableMovementTuning {
             // tuning knob, so this projection keeps the engine default and the
             // ruleset composes its own over it.
             crouch_speed_frac: ae::DEFAULT_TUNING.crouch_speed_frac,
+            // Carried, not edited: which ground-movement PHASES a game has is a
+            // rules declaration, like the crouch cost above it.
+            initial_dash_time: ae::DEFAULT_TUNING.initial_dash_time,
+            initial_dash_speed: ae::DEFAULT_TUNING.initial_dash_speed,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,

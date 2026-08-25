@@ -148,6 +148,23 @@ pub struct AxisManeuverState {
     /// Zeroed when a fresh knockdown starts, so it bounds one knockdown rather
     /// than a whole stock. Without a bound the rule is an infinite.
     pub jab_locks: u8,
+    /// THE INITIAL DASH's remaining window
+    /// ([`crate::LocomotionTuning::initial_dash_time`]), and the direction it
+    /// committed to. `0.0` whenever the phase is not running, which is always
+    /// for a body that declares no phase.
+    pub initial_dash_timer: f32,
+    /// Which way this dash is going: `-1.0`, `0.0` or `+1.0` along the body's
+    /// own side axis.
+    pub initial_dash_dir: f32,
+    /// The steer direction the ground law saw LAST tick, which is the whole of
+    /// how a fresh dash is told apart from a held one.
+    ///
+    /// ⭐ A CHANGE of direction is the entry rule, so dash-dancing and the
+    /// foxtrot are the SAME rule rather than two more mechanics: reversing
+    /// restarts the phase, and re-tapping a direction restarts it too. A held
+    /// direction never re-triggers, which is what lets the phase end and a run
+    /// begin.
+    pub prev_steer_dir: f32,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -274,6 +291,9 @@ impl Default for AxisManeuverState {
             dodge_roll_timer: 0.0,
             dodge_roll_push: 0.0,
             jab_locks: 0,
+            initial_dash_timer: 0.0,
+            initial_dash_dir: 0.0,
+            prev_steer_dir: 0.0,
             ledge_invuln_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,

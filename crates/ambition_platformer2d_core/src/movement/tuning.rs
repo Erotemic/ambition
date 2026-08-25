@@ -365,6 +365,33 @@ pub struct MovementTuning {
     /// default so no Ambition room changes; a platform fighter declares its own.
     #[serde(default = "default_crouch_speed_frac")]
     pub crouch_speed_frac: f32,
+    /// THE INITIAL DASH — how long the first phase of a ground move lasts, in
+    /// seconds. `0.0` (the default) is what every body in this engine does:
+    /// ground speed is one continuum and there is no phase at all.
+    ///
+    /// ⭐⭐ IT IS THE WINDOW IN WHICH A BODY MAY STILL CHANGE ITS MIND. A fresh
+    /// direction sets the body moving at `initial_dash_speed` AT ONCE rather
+    /// than accelerating into it, and a direction CHANGE restarts the phase —
+    /// which is dash-dancing, and it falls out of the same rule rather than
+    /// being a second mechanic. Once the phase ends the ordinary run law
+    /// resumes from whatever speed the dash reached, so a held direction flows
+    /// into a run without a seam.
+    ///
+    /// ⛔ THIS IS NOT `AbilitySet::dash`. That one is a charge-gated traversal
+    /// burst that REPLACES the velocity vector and is spent; this is the first
+    /// phase of ordinary walking, it costs nothing, and a body whose burst is
+    /// switched off still has it.
+    ///
+    /// ⛔⛔ HIGHEST BLAST RADIUS IN THE MOVEMENT KERNEL — ground locomotion is
+    /// what every game in this repo walks on. `0.0` keeps every existing world
+    /// byte-identical, and a platform fighter declares its own.
+    #[serde(default)]
+    pub initial_dash_time: f32,
+    /// How fast the initial dash moves, in engine units per second. `0.0`
+    /// inherits `max_run_speed`, which is the sensible default: the phase is
+    /// about WHEN you may turn around, not about being faster.
+    #[serde(default)]
+    pub initial_dash_speed: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -756,6 +783,13 @@ pub struct AxisLocomotion {
     /// which is what every body did before this field existed.
     #[serde(default = "default_crouch_speed_frac")]
     pub crouch_speed_frac: f32,
+    /// See [`MovementTuning::initial_dash_time`]. `0.0` = no phase, which is
+    /// what every body did before this existed.
+    #[serde(default)]
+    pub initial_dash_time: f32,
+    /// See [`MovementTuning::initial_dash_speed`]. `0.0` inherits the run speed.
+    #[serde(default)]
+    pub initial_dash_speed: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -1271,6 +1305,8 @@ impl MovementTuning {
                 max_air_speed: self.max_air_speed,
                 run_commit_frac: self.run_commit_frac,
                 crouch_speed_frac: self.crouch_speed_frac,
+                initial_dash_time: self.initial_dash_time,
+                initial_dash_speed: self.initial_dash_speed,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -1361,6 +1397,10 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     max_air_speed: 0.0,
     run_commit_frac: RUN_COMMIT_FRAC,
     crouch_speed_frac: 1.0,
+    // ⛔ NO INITIAL-DASH PHASE for the engine default: ground speed stays one
+    // continuum, which is what every world in this repo walks on.
+    initial_dash_time: 0.0,
+    initial_dash_speed: 0.0,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,

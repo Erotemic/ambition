@@ -9793,31 +9793,64 @@ satisfies the steady-state test because it eventually arrives.
 ⇒ ⭐ **A ROW WHOSE BLOCKER IS A CLAIM ABOUT THE CODE IS TWO CHECKS, NOT ONE**:
 is the claim still true, and if not, is the thing it blocked now free?
 
-- ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
-  WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
-  inventory)**
+- ◐ **D217 — THE INITIAL DASH IS BUILT AND SMASH HAS NOT ADOPTED IT. The
+  mechanism, its tests and its poisons landed 2026-08-25; the adoption is
+  BLOCKED ON AN EXPLANATION, not on tuning. (opened 2026-08-25)**
 
-⭐⭐ **ONE ROOT, EIGHT DEPENDENTS.** Foxtrot, dash dance, pivot grab, reverse
-aerial rush, run-cancel into shield, run-cancel into crouch and the turnaround
-phase are all written as "after initial-dash exists". Nothing in that block
-exists in any form — verified 2026-08-25 by grep, not by reading the rows:
-there is no `teeter`, no turnaround/pivot phase, and no initial-dash state.
+`LocomotionTuning::initial_dash_time` + `initial_dash_speed`, `0.0` everywhere
+including Smash, so every world in this repo is byte-identical today.
 
-⇒ **the customer is every ground movement in every match**, which is why this
-outranks the payload-field rows (extra shield damage, unblockable, per-hit
-multipliers): those all wait on somebody authoring a move, and this waits on
-nobody.
+⭐⭐ **ONE EDGE DOES ALL OF IT.** A steer direction that DIFFERS from last
+tick's starts the phase — that single condition is the initial dash, the free
+reversal dash-dancing needs, and the foxtrot's re-tap. A HELD direction never
+re-triggers, which is what lets the phase expire into an ordinary run. ⛔ THE
+DASH SETS THE SPEED rather than `approach`ing it: a dash is AT speed on its
+first tick, which is what makes reversing out of one instant enough to matter.
+Both halves are poisoned and red.
 
-⛔ **IT IS NOT AMBITION'S TRAVERSAL DASH.** That one is a charge-gated burst
-(`dash_timer`, `charges_available`) and the inventory says explicitly: do not
-reuse it. The genre's initial dash is the first phase of a RUN — the window in
-which the body may reverse freely, which is what makes dash-dancing a thing.
+⛔⛔ **AND THEN IT COST THE FORWARD SMASH — THE FIRST REAL FINDING.** `running`
+is a SPEED test (`travel >= run_commit_frac * max_run_speed`), and a dash is at
+full speed immediately, so a body became "running" the tick it pressed a
+direction. The move selector reads that fact, so forward + attack came out as
+`player_robot_dash_attack` where it had always been `smash_forward`.
+`a_quick_forward_smash_barely_travels_but_plain_forward_still_walks` caught it.
+⇒ **A DASH IS NOT A RUN**, which is the genre's own distinction: `running` now
+excludes the dash window, and committing to a run is exactly what
+`run_commit_frac` was always naming.
 
-⛔ **HIGHEST BLAST RADIUS OF ANY OPEN PARITY ROW**: ground locomotion is what
-every game in this repo walks on, so the phase must be DECLARED (default off =
-today's continuum, which `Walk distinct from run` measured is already a
-continuum) rather than switched on for everybody. ⚠ Mary-O is the canary —
-`converge on classic physics` means her ground feel is a fixed target.
+⛔⛔ **WHAT BLOCKS ADOPTION, AND IT IS NOT A NUMBER.** With the phase on,
+`the_stage_kills::a_second_match_on_the_same_stage_counts_in_and_ends` fails on
+its PREMISE: a one-stock match that reliably produced a KO announces ZERO
+winners, so nobody is knocked off the stage at all. Measured against three
+variants:
+
+```text
+14-frame window                 no KO
+ 4-frame window                 no KO
+dash respects analog magnitude  no KO
+phase off (0.0)                 KO, match ends, green
+```
+
+⇒ **THE WINDOW LENGTH DOES NOT MATTER**, which says the change is to the SHAPE
+of CPU ground movement rather than to its amount — most likely that a brain
+which changes steer direction now re-arms a full-speed dash every time and stops
+closing distance. ⚠ THAT IS A HYPOTHESIS AND IT HAS NOT BEEN MEASURED.
+
+⇒ **THE NEXT STEP IS AN INSTRUMENT ON FIGHTER MOVEMENT, NOT ANOTHER VALUE.** An
+emergent match test measures a trajectory and cannot attribute it — the same
+lesson the up-tilt percent guard taught this tree, and the same reason the
+shield-roll "does not reproduce" verdict was wrong. Read what a CPU's steer
+actually does over a match before turning the phase back on.
+
+⭐ **SO IT LANDS UNADOPTED, DELIBERATELY.** That is the trap D215 names, and it
+is the right call here for one reason: the proving ground says the adoption is
+wrong and I cannot yet say why. Weakening that test to make the mechanic fit
+would be deleting the only evidence there is.
+
+⚠ **AND THE FIXTURE TRAP CAUGHT ME A THIRD TIME TODAY** — `on_ground` is
+re-derived every step, so a hand-set `true` holds only until the body's real
+height is consulted, and an airborne body has no dash phase at all, which reads
+exactly like a ramp. The fixture now lands and asserts it landed.
 
 ## Standing continuation rule
 

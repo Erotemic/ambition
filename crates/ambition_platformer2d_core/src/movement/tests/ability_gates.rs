@@ -363,3 +363,126 @@ fn crouching_out_of_a_run_kills_the_momentum_within_a_few_frames() {
         "a crouch took {ticks} ticks to kill a run — that is a slow-down, not a cancel"
     );
 }
+
+/// THE INITIAL DASH: at speed on frame one, free to reverse, and gone again.
+///
+/// Five arms. The fourth is the one the mechanic exists for — reversing inside
+/// the window is INSTANT, which is what makes a dash-dance a conversation
+/// rather than a commitment — and the fifth is what keeps every other world in
+/// this repo exactly where it was.
+#[test]
+fn an_initial_dash_is_at_speed_at_once_and_may_still_reverse() {
+    let world = test_world();
+    let dashing = || {
+        let mut tuning = super::TEST_TUNING;
+        tuning.initial_dash_time = 14.0 / 60.0;
+        tuning.initial_dash_speed = 0.0; // inherit the run speed
+        tuning
+    };
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let settled = |tuning| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        // ⛔ LAND FIRST. `on_ground` is re-derived every step, so setting it
+        // above holds only until the body's real height is consulted — and an
+        // airborne body has no dash phase at all, which reads exactly like a
+        // ramp. The neutral input also leaves `prev_steer_dir` a real zero, so
+        // the first press below is a genuine CHANGE.
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(
+            scratch.ground.on_ground,
+            "the fixture never reached the floor, so every arm below measures an airborne body"
+        );
+        scratch
+    };
+    let top = super::TEST_TUNING.params().locomotion.max_run_speed;
+
+    // ARM 1 — AT SPEED ON FRAME ONE. A ramp would read a fraction of this.
+    let mut scratch = settled(dashing());
+    super::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        hold(1.0),
+        1.0 / 60.0,
+        dashing(),
+    );
+    assert!(
+        (scratch.kinematics.vel.x - top).abs() < 1.0,
+        "the initial dash ramped instead of starting at speed: {} vs {top}",
+        scratch.kinematics.vel.x
+    );
+    assert!(
+        scratch.axis().initial_dash_timer > 0.0,
+        "the phase did not start"
+    );
+
+    // ARM 2 — AND IT ENDS. Hold the same direction and the window closes.
+    for _ in 0..20 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            hold(1.0),
+            1.0 / 60.0,
+            dashing(),
+        );
+    }
+    assert!(
+        scratch.axis().initial_dash_timer <= 0.0,
+        "a held direction never let the dash phase expire — it would never become a run"
+    );
+
+    // ARM 3 — A HELD DIRECTION DOES NOT RE-TRIGGER, which is what arm 2 relies
+    // on and is worth its own assertion: the entry rule is a CHANGE.
+    assert_eq!(
+        scratch.axis().initial_dash_dir,
+        0.0,
+        "the phase re-armed itself under a held direction"
+    );
+
+    // ARM 4 — REVERSING IS FREE AND IMMEDIATE. This is the mechanic.
+    super::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        hold(-1.0),
+        1.0 / 60.0,
+        dashing(),
+    );
+    assert!(
+        (scratch.kinematics.vel.x + top).abs() < 1.0,
+        "reversing inside the dash was not instant: {} (wanted {})",
+        scratch.kinematics.vel.x,
+        -top
+    );
+
+    // ARM 5 — A WORLD THAT DECLARES NO PHASE IS UNTOUCHED, which is every
+    // Ambition room. Same press, engine tuning: it ACCELERATES.
+    let mut plain = settled(super::TEST_TUNING);
+    super::update_player_with_tuning_scratch(
+        &world,
+        &mut plain,
+        hold(1.0),
+        1.0 / 60.0,
+        super::TEST_TUNING,
+    );
+    assert!(
+        plain.kinematics.vel.x < top * 0.5,
+        "an undeclared world got the dash phase anyway: {} is already most of {top}",
+        plain.kinematics.vel.x
+    );
+    assert_eq!(
+        plain.axis().initial_dash_timer,
+        0.0,
+        "an undeclared world armed the phase"
+    );
+}

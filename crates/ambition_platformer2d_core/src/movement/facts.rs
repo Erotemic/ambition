@@ -36,6 +36,13 @@ pub struct BodyMotionFacts {
     /// above [`crate::MovementTuning::run_commit_frac`] of its top speed. The
     /// gait the genre's running attack comes out of.
     pub running: bool,
+    /// Is this body inside its INITIAL DASH — the window in which a direction
+    /// change is still free ([`crate::LocomotionTuning::initial_dash_time`])?
+    ///
+    /// Published so animation and the rows built on this phase (foxtrot, dash
+    /// dance, pivot grab) read ONE answer rather than each re-deriving it from
+    /// speed, which cannot tell a dash from a run at the same speed.
+    pub initial_dashing: bool,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -152,6 +159,7 @@ impl BodyMotionFacts {
             adhesive_crawling: false,
             dashing: state.dash_timer > 0.0,
             running: state.running,
+            initial_dashing: state.initial_dash_timer > 0.0,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             ledge_intangible: state.ledge_invuln_timer > 0.0,

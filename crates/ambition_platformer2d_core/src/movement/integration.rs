@@ -398,7 +398,19 @@ pub(super) fn integrate_velocity_clusters(
     // and its Attack press is a standing one.
     let travel = clusters.kinematics.vel.dot(frame.side());
     let steer = input.local_axis().x;
+    // ⛔⛔ A DASH IS NOT A RUN, and the distinction is the genre's rather than a
+    // nicety. `running` is a SPEED test, and the initial dash is at full speed
+    // on its first tick — so without this clause a body would be "running" the
+    // instant it pressed a direction, and every reader of the fact would agree.
+    //
+    // ⭐ MEASURED, not reasoned: it cost the forward smash. The move selector
+    // reads this fact, so a forward press + attack came out as
+    // `player_robot_dash_attack` where it had always been `smash_forward` —
+    // `a_quick_forward_smash_barely_travels_but_plain_forward_still_walks`
+    // caught it. Committing to a run is what `run_commit_frac` names, and a
+    // body still inside its dash window has committed to nothing.
     state.running = clusters.ground.on_ground
+        && state.initial_dash_timer <= 0.0
         && steer * travel > 0.0
         && travel.abs() >= tuning.locomotion.run_commit_frac * tuning.locomotion.max_run_speed;
 }
@@ -427,6 +439,8 @@ pub(super) fn integrate_normal_clusters(
     // The player adapter: project its clusters + private maneuver state into
     // the actor-generic spine context (ability components → gating flags) and
     // run the one spine.
+    let initial_dash_dir = resolve_initial_dash(state, ground.on_ground, input, dt, tuning);
+
     integrate_normal_spine(
         &mut kinematics.vel,
         &mut state.fast_falling,
@@ -441,6 +455,7 @@ pub(super) fn integrate_normal_clusters(
             can_fast_fall: abilities.abilities.fast_fall,
             can_glide: abilities.abilities.glide,
             crouching: body_mode.body_mode == crate::player_state::BodyMode::Crouching,
+            initial_dash_dir,
             // ⛔ A GROUNDED BODY HOLDING SHIELD DOES NOT WALK. Jon, 2026-08-23:
             // *"If the player is holding shield... they should not be let the
             // control move them left or right."* That is the genre's rule and it
@@ -483,6 +498,10 @@ pub struct NormalSpineCtx {
     /// clusters here, because this function takes neither — the same reason
     /// `on_ground` is a field. See `crouch_speed_frac`.
     pub crouching: bool,
+    /// THE INITIAL DASH's direction this tick, `0.0` when the phase is not
+    /// running. Resolved by the caller for the same reason `crouching` is: this
+    /// function takes neither the clusters nor the maneuver state.
+    pub initial_dash_dir: f32,
     /// `AbilitySet::variable_jump` — whether an early button release may shorten
     /// this body's jump arc. The `VelocityCut` law reads the same capability in
     /// `apply_jump_release`; `PhasedGravity` resolves its arc HERE, so without
@@ -490,6 +509,67 @@ pub struct NormalSpineCtx {
     /// set denies it.
     pub can_variable_jump: bool,
 }
+
+/// THE INITIAL DASH's phase for this tick — start it, keep it, or answer that
+/// there is none.
+///
+/// ⭐⭐ ONE EDGE DOES ALL OF IT: a steer direction that DIFFERS from last
+/// tick's starts the phase. That single rule is the initial dash, the free
+/// reversal that makes dash-dancing possible, and the foxtrot's re-tap, without
+/// any of them being a separate mechanic. A HELD direction never re-triggers,
+/// which is exactly what lets the phase expire and an ordinary run begin.
+///
+/// ⛔ GROUNDED ONLY, and it ends the moment a body leaves the floor: the phase
+/// describes a decision about footing, and an airborne body has already made a
+/// different one.
+///
+/// ⛔ `initial_dash_time <= 0.0` disables it completely — no state is written
+/// and the caller gets `0.0` — so a world that declares nothing keeps ground
+/// speed as one continuum.
+fn resolve_initial_dash(
+    state: &mut AxisManeuverState,
+    on_ground: bool,
+    input: InputState,
+    dt: f32,
+    tuning: AxisSweptParams,
+) -> f32 {
+    if tuning.locomotion.initial_dash_time <= 0.0 {
+        return 0.0;
+    }
+    let steer = input.local_axis().x;
+    let dir = if steer.abs() > STEER_DEADZONE {
+        steer.signum()
+    } else {
+        0.0
+    };
+    if !on_ground {
+        state.initial_dash_timer = 0.0;
+        state.initial_dash_dir = 0.0;
+        state.prev_steer_dir = dir;
+        return 0.0;
+    }
+    if dir != 0.0 && dir != state.prev_steer_dir {
+        state.initial_dash_timer = tuning.locomotion.initial_dash_time;
+        state.initial_dash_dir = dir;
+    } else {
+        state.initial_dash_timer = (state.initial_dash_timer - dt).max(0.0);
+        if state.initial_dash_timer <= 0.0 {
+            state.initial_dash_dir = 0.0;
+        }
+    }
+    state.prev_steer_dir = dir;
+    // Letting go mid-dash ends it: the phase is a committed DIRECTION, and a
+    // body with no direction held is not dashing anywhere.
+    if dir == 0.0 {
+        state.initial_dash_timer = 0.0;
+        state.initial_dash_dir = 0.0;
+    }
+    state.initial_dash_dir
+}
+
+/// How far the stick must leave centre before it names a direction for the
+/// initial dash. Shared with nothing: the phase is the only reader.
+const STEER_DEADZONE: f32 = 0.5;
 
 impl NormalSpineCtx {
     /// The gating a bare actor (enemy/NPC) with no player ability components
@@ -505,6 +585,9 @@ impl NormalSpineCtx {
             can_variable_jump: false,
             // A bare actor has no crouch: nothing puts one in `BodyMode::Crouching`.
             crouching: false,
+            // and no dash phase: the caller that resolves one is the player
+            // road, and a bare actor walks the continuum.
+            initial_dash_dir: 0.0,
         }
     }
 }
@@ -656,11 +739,28 @@ pub fn integrate_normal_spine(
                     } else {
                         1.0
                     };
-                    let mut v = approach(
-                        along,
-                        run * stance * tuning.locomotion.max_run_speed,
-                        accel * dt,
-                    );
+                    // ⭐⭐ THE INITIAL DASH IS A SET, NOT AN APPROACH, and that
+                    // is the whole difference between a phase and a ramp: a
+                    // dash is AT speed on its first tick, which is what makes
+                    // reversing out of one instant enough to be a mechanic.
+                    // `approach` would give a body that leans into the turn.
+                    //
+                    // ⛔ The crouch stance still applies: crouching out of a
+                    // dash plants you, exactly as crouching out of a run does.
+                    let mut v = if ctx.initial_dash_dir != 0.0 {
+                        let speed = if tuning.locomotion.initial_dash_speed > 0.0 {
+                            tuning.locomotion.initial_dash_speed
+                        } else {
+                            tuning.locomotion.max_run_speed
+                        };
+                        ctx.initial_dash_dir * speed * stance
+                    } else {
+                        approach(
+                            along,
+                            run * stance * tuning.locomotion.max_run_speed,
+                            accel * dt,
+                        )
+                    };
                     if run.abs() <= 0.1 {
                         v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);
                     }

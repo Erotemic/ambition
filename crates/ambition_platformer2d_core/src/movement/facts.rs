@@ -58,6 +58,15 @@ pub struct BodyMotionFacts {
     /// Published for control and animation. ⛔ It changes no collision: a
     /// teetering body may still walk off, and nothing here refuses it.
     pub teetering: bool,
+    /// Is this body rising on a jump IT OWNS — spent in the air, and no faster
+    /// than that jump could have pushed it?
+    ///
+    /// ⛔ THE BOUND IS PART OF THE FACT. A body going up faster than its own
+    /// air jump is riding somebody's launch, so a consumer that cancelled a
+    /// bare "rising" would delete knockback. Answering the bounded question
+    /// here means no consumer needs this body's jump tuning, and none can form
+    /// a second opinion about it.
+    pub air_jump_rising: bool,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -177,6 +186,7 @@ impl BodyMotionFacts {
             initial_dashing: state.initial_dash_timer > 0.0,
             turning_around: state.turnaround_timer > 0.0,
             teetering: state.teetering,
+            air_jump_rising: state.air_jump_rising,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             // ⛔ HANGING IS NOT YET INTANGIBLE. The first frames of a ledge

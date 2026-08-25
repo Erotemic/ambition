@@ -959,6 +959,10 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // covering a ledge is a read rather than a denial. `Hog` is the other
         // generation's answer and it is one word away.
         ledge_occupancy: Some(ambition_platformer2d::combat::rules::LedgeOccupancy::Trump),
+        // ⭐ THE DOUBLE-JUMP CANCEL: an aerial thrown out of an air jump kills
+        // the rest of that jump's rise, so a double jump is an approach rather
+        // than a commitment. ⚠ a feel call: play it.
+        double_jump_cancel: Some(true),
         // ⭐⭐ ONE HIT IN SIX SPEAKS. Jon, 2026-08-24: *"not have barks happen
         // every time a character is hit. Make it a more rare event. Not never,
         // but I'd like it to happen less often."*

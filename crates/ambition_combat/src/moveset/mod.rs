@@ -2355,6 +2355,27 @@ pub fn trigger_moveset_moves(
             // resolution that chose the smash verb is what makes the use
             // chargeable, so a move borrowed by another verb — or a running
             // attack that pre-empted the gesture — never freezes its timeline.
+            // ⭐⭐ THE DOUBLE-JUMP CANCEL: throwing an AERIAL out of a jump you
+            // spent in the air kills the rest of that jump's rise. It is what
+            // turns a double jump into an approach rather than a commitment —
+            // rise, throw, and land where you chose instead of at the top of an
+            // arc.
+            //
+            // ⛔ THE BOUND IS IN THE FACT, NOT HERE. `air_jump_rising` already
+            // means "rising on a jump I OWN" — a body going up faster than its
+            // own air jump is riding somebody's launch and the fact is false
+            // for it. That is the fifth appearance of that bound today, and the
+            // first where the PUBLISHER carries it so no consumer can disagree.
+            if combat_rules.as_ref().is_some_and(|r| r.double_jump_cancel)
+                && !gesture_grounded
+                && motion_facts.is_some_and(|facts| facts.air_jump_rising)
+            {
+                // The fact already answered "is this rise mine" — see
+                // `BodyMotionFacts::air_jump_rising`. Nothing to re-check here.
+                if kin.vel.y < 0.0 {
+                    kin.vel.y = 0.0;
+                }
+            }
             started_by = (base_verb == SMASH_VERB && !running_attack)
                 .then_some(ambition_entity_catalog::ChargeGesture::Smash);
             (spec, verb_names, ProposedVerb::Attack)

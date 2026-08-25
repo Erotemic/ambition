@@ -10160,6 +10160,34 @@ replace on `            ledge_trump_pop: None,` also matched inside the 16-space
 copy and duplicated a field. ⇒ for repeated struct literals, edit BY LINE, not
 by substring — three of today's compile errors came from this one habit.
 
+- ✔ **D234 — CLOSED 2026-08-25. THE DOUBLE-JUMP CANCEL, AND THE BEST VERSION
+  YET OF A BOUND I HAVE WRITTEN FIVE TIMES TODAY. (opened and closed
+  2026-08-25)**
+
+An aerial thrown out of an air jump kills the rest of that jump's rise —
+`double_jump_cancel`, Smash only. It turns a double jump from a commitment into
+an approach: rise, throw, land where you chose.
+
+⭐⭐ **THE OWNERSHIP BOUND MOVED INTO THE PUBLISHER.** Zeroing a climb is the
+exact shape that has deleted knockback three times today, so it needs the usual
+bound — cancel only what the jump itself could have produced. This time
+`BodyMotionFacts::air_jump_rising` carries it: the fact means "rising on a jump
+I OWN", and a body riding a launch simply reports `false`. ⇒ THE CONSUMER NEEDS
+NO JUMP TUNING AT ALL, and no consumer can form a second opinion about whose
+velocity it is. Strictly better than the four call-site bounds before it.
+
+⛔⛔ **AND A POISON FOUND THE GAP THAT FRAMING CREATES.** Dropping the bound from
+the fact left the CORE suite green — the combat test injects the fact directly,
+so it never exercises the derivation. The bound guarding against knockback loss
+was itself unguarded.
+
+⇒ ⭐ **MOVING A BOUND INTO A PUBLISHED FACT MOVES THE TEST THAT GUARDS IT.** The
+consumer's test cannot see it any more. A core arm now launches a body at four
+times its jump speed and asserts the fact refuses the climb, with a non-vacuity
+arm confirming the fixture is really rising.
+
+Wire format v101.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

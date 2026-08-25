@@ -180,6 +180,15 @@ pub struct AxisManeuverState {
     /// [`Self::running`] is: a restore that lands on an edge must not present a
     /// planted body for the tick before the next integration rewrites it.
     pub teetering: bool,
+    /// THIS BODY IS RISING ON A JUMP IT SPENT IN THE AIR — the state a
+    /// double-jump cancel consumes
+    /// ([`crate::rules`]-declared, read through
+    /// [`crate::BodyMotionFacts::air_jump_rising`]).
+    ///
+    /// Derived every tick from the jump resource, the ground and the velocity,
+    /// and SERIALIZED like [`Self::running`] beside it: a restore mid-rise must
+    /// not present a grounded body for the tick before integration rewrites it.
+    pub air_jump_rising: bool,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -316,6 +325,7 @@ impl Default for AxisManeuverState {
             prev_steer_dir: 0.0,
             turnaround_timer: 0.0,
             teetering: false,
+            air_jump_rising: false,
             ledge_invuln_timer: 0.0,
             ledge_vulnerable_timer: 0.0,
             spot_dodging: false,

@@ -421,6 +421,20 @@ pub(super) fn integrate_velocity_clusters(
             clusters.kinematics.facing,
             tuning.locomotion.teeter_margin,
         );
+    // ⭐ RISING ON A JUMP SPENT IN THE AIR — the state a double-jump cancel
+    // consumes. Post-sweep beside the other two for the same reason: it
+    // describes where the body ENDED UP, not the pose it was leaving.
+    // ⛔⛔ AND THE BOUND LIVES HERE, WITH THE TUNING. The fact means "rising on
+    // a jump I OWN", not merely "rising": a body going up FASTER than its own
+    // air jump could push it is riding somebody's launch, and a cancel that
+    // read a bare "rising" would delete that. Publishing the bounded answer
+    // keeps the consumer from needing this body's jump speed at all — and from
+    // forming a second opinion about it.
+    let rise = -clusters.kinematics.vel.dot(frame.down());
+    state.air_jump_rising = !clusters.ground.on_ground
+        && clusters.jump.air_jumps_available < tuning.locomotion.air_jumps
+        && rise > 0.0
+        && rise <= tuning.locomotion.double_jump_speed;
     state.running = clusters.ground.on_ground
         && state.initial_dash_timer <= 0.0
         && steer * travel > 0.0

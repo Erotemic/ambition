@@ -6608,3 +6608,77 @@ fn a_back_pressed_special_turns_the_fighter_and_optionally_its_drift() {
         "a FORWARD special turned the fighter around — the rule is not reading the direction"
     );
 }
+
+/// THE DOUBLE-JUMP CANCEL KILLS THE JUMP'S RISE, AND ONLY WHEN DECLARED.
+///
+/// ⛔ THE THIRD ARM IS THE ONE THAT MATTERS: a body whose `air_jump_rising` is
+/// FALSE keeps its climb whatever it throws. That fact carries the ownership
+/// bound — a body rising faster than its own air jump is riding a launch — so
+/// asserting here that a false fact changes nothing is what stops this rule
+/// from ever eating knockback.
+#[test]
+fn an_aerial_cancels_a_double_jump_only_where_declared() {
+    let rise_after = |declared: bool, air_jump_rising: bool, grounded: bool| -> f32 {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                "attack_air".to_string(),
+                "nair".to_string(),
+            )]),
+            moves: vec![gesture_test_move("nair")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            double_jump_cancel: declared,
+            ..Default::default()
+        });
+        app.world_mut().entity_mut(body).insert((
+            ambition_platformer2d_core::BodyMotionFacts {
+                air_jump_rising,
+                ..Default::default()
+            },
+            ambition_platformer2d_core::BodyGroundState {
+                on_ground: grounded,
+                ..Default::default()
+            },
+        ));
+        // Climbing at 300px/s (negative y is up).
+        app.world_mut()
+            .get_mut::<ae::BodyKinematics>(body)
+            .unwrap()
+            .vel = ae::Vec2::new(0.0, -300.0);
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+        app.update();
+        -app.world().get::<ae::BodyKinematics>(body).unwrap().vel.y
+    };
+
+    // ARM 1 — DECLARED, airborne, rising on its own jump: the climb is gone.
+    assert_eq!(
+        rise_after(true, true, false),
+        0.0,
+        "the aerial did not cancel the jump it was thrown out of"
+    );
+
+    // ARM 2 — UNDECLARED: every world in this repo keeps its full arc.
+    assert_eq!(
+        rise_after(false, true, false),
+        300.0,
+        "an undeclared world had its double jump cancelled anyway"
+    );
+
+    // ARM 3 — THE FACT SAYS NO: the body is climbing on something that is not
+    // its own air jump, so the cancel must not touch it.
+    assert_eq!(
+        rise_after(true, false, false),
+        300.0,
+        "a climb the body did not own was cancelled — that is somebody's launch"
+    );
+
+    // ARM 4 — GROUNDED presses are not aerials, whatever the fact says.
+    assert_eq!(
+        rise_after(true, true, true),
+        300.0,
+        "a grounded press cancelled a jump"
+    );
+}

@@ -1147,3 +1147,54 @@ fn fast_fall_is_refused_inside_a_tumble_and_returns_when_it_ends() {
         free.kinematics.vel.y
     );
 }
+
+/// "RISING ON A JUMP I OWN" IS NOT "RISING".
+///
+/// ⛔⛔ THE BOUND IS THE WHOLE POINT OF THE FACT. `air_jump_rising` is what a
+/// double-jump cancel consumes, and the cancel zeroes the climb — so if the
+/// fact were true for a body riding a LAUNCH, the cancel would delete that
+/// launch. Carrying the bound in the publisher is what keeps every consumer
+/// from needing this body's jump tuning, and this is the arm that proves the
+/// publisher actually carries it.
+#[test]
+fn air_jump_rising_is_false_for_a_climb_the_body_did_not_buy() {
+    let world = test_world();
+    let tuning = super::TEST_TUNING;
+    let jump_speed = tuning.params().locomotion.double_jump_speed;
+    assert!(jump_speed > 0.0, "the fixture has no air jump to own");
+
+    let after_launch = |up: f32| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 300.0));
+        scratch.ground.on_ground = false;
+        // Spend an air jump so the resource half of the fact is satisfied.
+        scratch.jump.air_jumps_available = 0;
+        scratch.flight.pending_launch = crate::Vec2::new(0.0, -up);
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        scratch
+    };
+
+    // A climb the body's own jump could have produced: the fact is true.
+    let owned = after_launch(jump_speed * 0.5);
+    assert!(
+        owned.axis().air_jump_rising,
+        "a body rising slower than its own air jump did not own its climb"
+    );
+
+    // A climb far beyond it — a launch. The fact must refuse it.
+    let launched = after_launch(jump_speed * 4.0);
+    assert!(
+        launched.kinematics.vel.y < 0.0,
+        "the fixture is not rising at all, so the refusal below is vacuous"
+    );
+    assert!(
+        !launched.axis().air_jump_rising,
+        "a body riding a launch reported the climb as its own — a double-jump \
+         cancel would delete that launch"
+    );
+}

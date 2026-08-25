@@ -304,6 +304,21 @@ pub struct DeclaredCombatRules {
     /// owns the edge and the loser is knocked off by the same path, with the
     /// same [`Self::ledge_trump_pop`].
     pub ledge_occupancy: Option<LedgeOccupancy>,
+    /// THE DOUBLE-JUMP CANCEL: does throwing an aerial out of a jump spent in
+    /// the air kill the rest of that jump's rise?
+    ///
+    /// `None`/`false` is what every body did — an air jump runs its full arc
+    /// whatever you throw out of it.
+    ///
+    /// ⭐ IT TURNS A DOUBLE JUMP FROM A COMMITMENT INTO AN APPROACH: rise,
+    /// throw, and land where you chose rather than at the top of the arc. That
+    /// is the whole reason the technique has a name.
+    ///
+    /// ⛔ IT CANCELS A RISE THE JUMP OWNS, and the bound lives in
+    /// `BodyMotionFacts::air_jump_rising` rather than here — a body going up
+    /// faster than its own air jump is riding a launch, and the fact is false
+    /// for it.
+    pub double_jump_cancel: Option<bool>,
 }
 
 /// The rules combat actually reads this tick.
@@ -354,6 +369,8 @@ pub struct ResolvedCombatTuning {
     pub ledge_trump_pop: f32,
     /// See [`DeclaredCombatRules::ledge_occupancy`].
     pub ledge_occupancy: LedgeOccupancy,
+    /// See [`DeclaredCombatRules::double_jump_cancel`].
+    pub double_jump_cancel: bool,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -461,6 +478,7 @@ impl ResolvedCombatTuning {
                 bark_chance: rules.bark_chance.unwrap_or(1.0).clamp(0.0, 1.0),
                 ledge_trump_pop: rules.ledge_trump_pop.unwrap_or(0.0).max(0.0),
                 ledge_occupancy: rules.ledge_occupancy.unwrap_or_default(),
+                double_jump_cancel: rules.double_jump_cancel.unwrap_or(false),
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -501,6 +519,7 @@ impl ResolvedCombatTuning {
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
+                double_jump_cancel: false,
             },
         }
     }
@@ -525,6 +544,7 @@ impl Default for ResolvedCombatTuning {
             bark_chance: 1.0,
             ledge_trump_pop: 0.0,
             ledge_occupancy: LedgeOccupancy::Trump,
+            double_jump_cancel: false,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
             meteor_lock_time: 0.0,
@@ -598,6 +618,7 @@ mod tests {
                 bark_chance: None,
                 ledge_trump_pop: None,
                 ledge_occupancy: None,
+                double_jump_cancel: None,
                 declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
@@ -640,6 +661,7 @@ mod tests {
             bark_chance: None,
             ledge_trump_pop: None,
             ledge_occupancy: None,
+            double_jump_cancel: None,
             declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             knockback_growth: 0.0,
@@ -675,6 +697,7 @@ mod tests {
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
+                double_jump_cancel: false,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,

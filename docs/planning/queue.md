@@ -10493,6 +10493,57 @@ ranged consumer has no body-local MUZZLE, so charge presentation uses an
 anatomically wrong fallback and `gun_sword` already carries an ID special-case —
 add the anchor with the next ranged feature rather than a second exception.
 
+- ▢ **D239 — THE DEEP REVIEW, CHECKPOINT 3: SUDDEN DEATH WAS A THIRD
+  IMPLEMENTED. (opened 2026-08-25)**
+
+⭐⭐ **CLOSED 2026-08-25 — (32) SUDDEN DEATH NEVER GAVE ANYONE ONE STOCK.** The
+transition set the damage and nothing else; it did not query `FighterStocks` at
+all. A genuine timed tie happens at whatever stock count the fighters are on —
+this file's own tiebreak arms tie at TWO — so the first KO spent a stock,
+eliminated nobody, the ordinary respawn reset the very damage the round had just
+staged, and sudden death simply CONTINUED. The stated rule is *"both at 300%, one
+stock, first hit decides"*. ⛔⛔ AND THE TEST COULD NOT SEE IT BECAUSE ITS FIXTURE
+HAD NO `FighterStocks` COMPONENT AT ALL — the day's recurring shape, a fixture
+omitting the state the bug lives in.
+
+⭐ ALSO CLOSED — (33) NON-CONTENDERS WERE RETIRED WITH HALF A TRANSITION.
+`spend_fighter_stocks` inserts `FighterEliminated` AND removes `ActiveCombatant`,
+and documents why: a body stays standing until a ruleset removes it, so a marker
+alone leaves a corpse holding attack state and a place on the anti-clump board.
+The timeout path did only the marker — a second, weaker definition of leaving the
+match, with command deferral meaning cleanup cannot cover the gap. Both halves
+poisoned.
+
+◐ **(34) THE SUDDEN-DEATH CARD LASTED ONE TICK — FIXED, NOT PROVEN.**
+`announce_the_opening_countdown` owns that HUD slot for any UNSETTLED match, and
+sudden death is deliberately unsettled (the match CONTINUING, not a result), so
+the announcer cleared the card every tick while `SuddenDeathBegan` fires once and
+cannot rewrite it. The announcer now stands down on `SuddenDeathEntered`, the
+canonical latch. ⚠ NO REGRESSION: `PreparedMatch` has private fields and no
+constructor, so a unit fixture can only build a system that EARLY-RETURNS — a
+check that cannot fail. **The follow-up is an integration harness that plays a
+timed match to expiry**, which nothing in the tree does yet.
+
+▢ STILL OPEN: **(31) CHARGE SHOT can start, animate, play its release and fire
+NOTHING** — the move has no refire prerequisite and the projectile consumer
+imposes a hidden 1.1s global cooldown, so a second Charge Shot at the earliest
+legal opportunity (0.58s) reaches its authored fire frame at 0.84s and is vetoed;
+⇒ move ACCEPTANCE should own the commitment, or refire should gate move START —
+the current accept-then-veto is the bad middle; ⭐ **(35) CLOSED 2026-08-25** — the fold
+QUERIED `Has<FighterEliminated>` AND DISCARDED IT (`_`), so an eliminated body
+scored for its side for as long as it stayed RESIDENT, and two identical
+histories ranked differently depending on whether the last stock went one tick
+before the clock or ON it. Now "who is still standing", the one reading that does
+not depend on residency. ⚠ THE OTHER READING — whole-team match HISTORY — is a
+PRODUCT RULE, not a bug fix: it needs side-level scoring that outlives a body,
+because components cannot store what a despawned fighter did. ⛔⛔ AND NO TEST RAN
+THE FOLD AT ALL: every existing arm built the side map BY HAND and asserted the
+RANKING, so none could see what the fold put in it — the third fixture today that
+omitted the state its bug lived in; **(36) borrowed archetype movesets
+use STRING SURGERY as identity** — `under_own_name` strips caller-supplied
+prefixes and panics on a move that follows none, and shipped tables already use
+two conventions, so every future move-id-referencing field is a new obligation.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

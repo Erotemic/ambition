@@ -1207,6 +1207,12 @@ fn announce_the_opening_countdown(
             ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
         >,
     >,
+    // The sudden-death latch: see the stand-down below.
+    sudden_death: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::features::stocks_match::SuddenDeathEntered,
+        >,
+    >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     use ambition_platformer2d::actors::character_runtime::OpeningPhase;
@@ -1225,6 +1231,27 @@ fn announce_the_opening_countdown(
     // The card has exactly one owner at a time and the ORDER is the whole rule: the opening owns it
     // until there is an outcome, and then the outcome does, for as long as the results stand.
     if settled.is_some_and(|settled| settled.settled(&active)) {
+        return;
+    }
+    // ⛔⛔ AND SUDDEN DEATH TAKES THE SLOT TOO, which the sentence above misses
+    // because it names the wrong handover. "Until there is an outcome" reads
+    // `StocksMatchSettled` — and sudden death deliberately leaves the match
+    // UNSETTLED, because it is the match CONTINUING rather than a result. So
+    // this system went on owning the card, cleared it on the very next tick, and
+    // "SUDDEN DEATH" lasted about one simulation tick: unreadable.
+    //
+    // ⭐ THE LATCH IS THE AUTHORITY, NOT THE MESSAGE. `SuddenDeathBegan` fires
+    // ONCE, so a card written from it cannot outlive a competing writer;
+    // `SuddenDeathEntered` is the canonical, rollback-registered fact that the
+    // round is on. The card then holds for the round, which is right — it is a
+    // STATE the players are in, not a beat that passes.
+    //
+    // ⚠ REVIEWED, NOT PROVEN, and saying so is the point. The regression wants a
+    // real match played to its time limit: `PreparedMatch` has private fields
+    // and no constructor, so a unit fixture here can only build a system that
+    // early-returns — a check that cannot fail. The follow-up is an integration
+    // harness that runs a timed match to expiry.
+    if sudden_death.is_some_and(|entered| entered.entered(&active)) {
         return;
     }
     let total = u64::from(rules.opening_countdown_ticks);
@@ -2005,22 +2032,45 @@ fn open_the_sudden_death_round(
             &ambition_platformer2d::actors::character_runtime::MatchSeat,
             Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
             &mut ambition_platformer2d::characters::actor::BodyHealth,
+            // ⛔⛔ THE STOCKS, WHICH THIS ROUND IS DEFINED BY AND NEVER TOUCHED.
+            &mut ambition_platformer2d::combat::components::FighterStocks,
         ),
         bevy::prelude::Without<ambition_platformer2d::combat::stocks::FighterEliminated>,
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for round in began.read() {
-        for (body, seat, team, mut health) in &mut fighters {
+        for (body, seat, team, mut health, mut stocks) in &mut fighters {
             // The SIDE, not the seat: a team's members stand or fall together,
             // which is the same fold the tiebreak used to name the contenders.
             let side = ambition_platformer2d::combat::stocks::side_label(seat.0, team);
             if round.contenders.iter().any(|contender| *contender == side) {
                 health.set_damage_taken(round.starting_damage);
+                // ⛔⛔ ONE STOCK, WHICH IS THE WHOLE ROUND. A genuine tie can
+                // happen with several stocks each — the existing arms tie at TWO
+                // — and this only set the damage. So the first KO spent a stock,
+                // the loser was NOT eliminated, the ordinary respawn reset the
+                // damage this round had just staged, and sudden death simply
+                // went on. "Both at 300%, one stock, first hit decides" was the
+                // stated rule and the transition implemented a third of it.
+                //
+                // ⭐ `remaining`, NOT `started_with`: the latter is what the
+                // MATCH began with and the HUD reads it to draw the stock icons.
+                stocks.remaining = 1;
             } else {
                 commands
                     .entity(body)
                     .try_insert(ambition_platformer2d::combat::stocks::FighterEliminated);
+                // ⛔⛔ AND THE OTHER HALF OF LEAVING THE MATCH. `spend_fighter_stocks`
+                // does BOTH — insert the marker and remove `ActiveCombatant` —
+                // and says why: the body stays standing until a ruleset removes
+                // it, so a marker alone leaves a corpse holding attack state and
+                // a place on the anti-clump board. Doing half of it here made a
+                // second, weaker definition of "out of the match", and command
+                // deferral means cleanup cannot be relied on to cover the gap.
+                commands
+                    .entity(body)
+                    .remove::<ambition_platformer2d::combat::components::ActiveCombatant>();
             }
         }
         readouts.set(
@@ -3302,6 +3352,13 @@ mod tests {
                     ambition_platformer2d::actors::character_runtime::MatchSeat(index),
                     MatchTeam(format!("seat{index}")),
                     health,
+                    // ⛔⛔ TWO STOCKS EACH, AND THE FIXTURE HAD NONE AT ALL. A
+                    // genuine timed tie happens at whatever stock count the
+                    // fighters are on — this file's own tiebreak arms tie at
+                    // TWO — so a sudden-death fixture where nobody holds a stock
+                    // could not see the round failing to stage one.
+                    ambition_platformer2d::combat::components::FighterStocks::new(2),
+                    ambition_platformer2d::combat::components::ActiveCombatant,
                 ))
                 .id()
         };
@@ -3356,6 +3413,45 @@ mod tests {
             "a retired side was ALSO put on the starting damage — the two arms \
              are exclusive, and doing both would leave a body that is out of the \
              match carrying the round's percent"
+        );
+
+        // ⛔⛔ ONE STOCK, WHICH IS WHAT MAKES IT SUDDEN DEATH. This staged the
+        // damage and nothing else, so at a two-stock tie the first KO spent a
+        // stock, eliminated nobody, and the ordinary respawn reset the very
+        // damage this round had just set — the round simply continued. "Both at
+        // 300%, one stock, first hit decides" was the stated rule and a third of
+        // it was implemented.
+        let stocks_of = |app: &bevy::prelude::App, body: bevy::prelude::Entity| {
+            app.world()
+                .get::<ambition_platformer2d::combat::components::FighterStocks>(body)
+                .map(|s| s.remaining)
+        };
+        assert_eq!(
+            (stocks_of(&app, tied_a), stocks_of(&app, tied_b)),
+            (Some(1), Some(1)),
+            "a contender entered sudden death still holding the stocks it had, so \
+             the first knockout costs a stock instead of the round"
+        );
+
+        // ⛔ AND RETIREMENT IS BOTH HALVES. `spend_fighter_stocks` inserts the
+        // marker AND removes `ActiveCombatant`, because a body stays standing
+        // until a ruleset removes it — a marker alone leaves a corpse holding
+        // attack state and a place on the anti-clump board. Command deferral
+        // means cleanup cannot be relied on to close that gap.
+        assert!(
+            app.world()
+                .get::<ambition_platformer2d::combat::components::ActiveCombatant>(behind)
+                .is_none(),
+            "a side retired by the timeout is still an ActiveCombatant — that is a \
+             SECOND, weaker definition of leaving the match than the one stock \
+             exhaustion uses"
+        );
+        assert!(
+            app.world()
+                .get::<ambition_platformer2d::combat::components::ActiveCombatant>(tied_a)
+                .is_some(),
+            "a CONTENDER stopped being an active combatant, so the round has \
+             nobody left to fight it"
         );
     }
 

@@ -350,7 +350,26 @@ fn fold_the_sides_on_the_clock(
     // order — the same reason `last_side_standing` uses one.
     let mut sides: std::collections::BTreeMap<String, (u32, i32)> =
         std::collections::BTreeMap::new();
-    for (seat, team, stocks, health, _) in fighters.iter() {
+    for (seat, team, stocks, health, eliminated) in fighters.iter() {
+        // ⛔⛔ A FIGHTER THAT IS OUT DOES NOT SCORE, and this column was QUERIED
+        // AND DISCARDED (`_`) until 2026-08-25 — which made the tiebreak depend
+        // on CLEANUP TIMING rather than on the match. An eliminated body stays
+        // resident until a ruleset despawns it, so a teammate knocked out one
+        // tick before the clock contributed nothing while one knocked out ON the
+        // clock tick still contributed its damage. Two identical histories,
+        // different standings.
+        //
+        // ⭐ THE STATISTIC IS "WHO IS STILL STANDING", which is the only reading
+        // that does not depend on residency. A side whose fighters are all out
+        // has already lost by last-side-standing and is not a timeout contender.
+        //
+        // ⚠ THE OTHER READING — whole-team match HISTORY — is defensible and is
+        // a product rule, not a bug fix: it would need side-level scoring that
+        // outlives a body, because components cannot store what a despawned
+        // fighter did.
+        if eliminated {
+            continue;
+        }
         let entry = sides
             .entry(ambition_combat::stocks::side_label(seat.0, team))
             .or_insert((0, 0));
@@ -664,6 +683,77 @@ mod tests {
         assert_eq!(
             leaders(vec![side("a", 2, 80), side("b", 2, 80), side("c", 2, 80)]),
             vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        );
+    }
+
+    /// A FIGHTER THAT IS OUT DOES NOT SCORE FOR ITS SIDE.
+    ///
+    /// ⛔⛔ THE COLUMN WAS QUERIED AND DISCARDED. `Has<FighterEliminated>` was
+    /// bound to `_`, so an eliminated body folded its damage into its team's
+    /// total for as long as it remained RESIDENT — and a body stays standing
+    /// until a ruleset despawns it. Two identical histories then rank
+    /// differently depending on whether the last stock was lost one tick before
+    /// the clock or ON it. That is cleanup timing deciding a match.
+    ///
+    /// ⭐ AND THIS IS THE FIRST TEST TO RUN THE FOLD AT ALL — every existing arm
+    /// builds the side map by hand and asserts the RANKING, so none of them
+    /// could see what the fold puts in it.
+    #[test]
+    fn an_eliminated_teammate_does_not_fold_into_its_sides_total() {
+        use ambition_characters::actor::{BodyHealth, Health};
+        use ambition_combat::components::FighterStocks;
+        use ambition_combat::targeting::MatchTeam;
+
+        #[derive(bevy::prelude::Resource, Default)]
+        struct Folded(std::collections::BTreeMap<String, (u32, i32)>);
+
+        fn run_the_fold(
+            fighters: Query<(
+                &crate::character_runtime::MatchSeat,
+                Option<&MatchTeam>,
+                &FighterStocks,
+                Option<&BodyHealth>,
+                Has<FighterEliminated>,
+            )>,
+            mut out: bevy::prelude::ResMut<Folded>,
+        ) {
+            out.0 = fold_the_sides_on_the_clock(&fighters);
+        }
+
+        let seat = |app: &mut bevy::prelude::App, index: usize, damage: i32, out: bool| {
+            let mut health = BodyHealth::new(Health {
+                current: 100,
+                max: 100,
+                invulnerable: Default::default(),
+            });
+            health.set_damage_taken(damage);
+            let mut body = app.world_mut().spawn((
+                crate::character_runtime::MatchSeat(index),
+                // ONE SIDE, two members — the composition the defect needs.
+                MatchTeam("blue".to_string()),
+                FighterStocks::new(if out { 0 } else { 2 }),
+                health,
+            ));
+            if out {
+                body.insert(FighterEliminated);
+            }
+        };
+
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<Folded>();
+        app.add_systems(bevy::prelude::Update, run_the_fold);
+        // A living teammate on 40, and one already OUT carrying 300.
+        seat(&mut app, 0, 40, false);
+        seat(&mut app, 1, 300, true);
+        app.update();
+
+        let folded = app.world().resource::<Folded>().0.clone();
+        assert_eq!(
+            folded.get("blue").copied(),
+            Some((2, 40)),
+            "the side folded an ELIMINATED teammate's stocks/damage into its \
+             total, so its standing depends on whether that body has been \
+             despawned yet rather than on the match"
         );
     }
 

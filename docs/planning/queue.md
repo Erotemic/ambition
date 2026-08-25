@@ -10324,6 +10324,18 @@ answered by doubling the window, and calls that *"a hand-kept ledger"*. Now a
 MIRROR MATCH: whoever loses carries the route, and the chaotic variable is gone
 without widening anything or weakening the claim.
 
+⭐ **ALSO CLOSED 2026-08-25 — (6) THE LIVE MATCH CLOCK COUNTED FRAMES, NOT
+GAMEPLAY.** It handled `sim_dt == 0` correctly, and passing that BINARY case is
+what made it look finished. Time scaling is not binary: every impact hitstop
+RAMPS it (`0.917`, `0.750`, `0.983` are all real values from one match trace), so
+on those ticks every fighter timer advanced by a fraction while this clock
+advanced a whole tick — the 8-minute timer and the item cadence both ran FAST
+against the gameplay they were timing. Now microseconds of SCALED time in the
+same single `u64` (snapshot shape unchanged; integers, because a float
+accumulator is snapshot state whose replay depends on summation order). Wire
+format v103. ⇒ second finding today of the shape **"the binary case was handled,
+so nobody checked the continuous one"** — the other was `evading()`.
+
 ▢ STILL OPEN, in the review's own order: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
 split; **(5) impact hitstop reads victim hitlag BEFORE resolution** (a

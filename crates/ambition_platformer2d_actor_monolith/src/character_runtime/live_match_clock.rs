@@ -32,7 +32,19 @@ use crate::features::stocks_match::StocksMatchSettled;
 #[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
 pub struct LiveMatchTicks {
     of: Option<MatchInstance>,
-    ticks: u64,
+    /// Live gameplay time in MICROSECONDS.
+    ///
+    /// ⛔⛔ NOT A COUNT OF FRAMES. It incremented once per unfrozen simulation
+    /// step, which is only the same thing while time runs at 1.0 — and it does
+    /// not: every impact hitstop RAMPS the scale (0.917, 0.750, 0.983 are all
+    /// real values from one match). A ramping tick advanced every fighter timer
+    /// by a fraction and this clock by a whole tick, so the match timer and the
+    /// item cadence ran fast against the gameplay they were timing.
+    ///
+    /// ⭐ MICROSECONDS, IN AN INTEGER, so it stays exact under rollback: a float
+    /// accumulator would be snapshot state whose replay depends on the order it
+    /// was summed in. The snapshot's shape is unchanged — one `u64`, as before.
+    micros: u64,
 }
 
 impl LiveMatchTicks {
@@ -40,7 +52,10 @@ impl LiveMatchTicks {
     /// which is the honest answer for one that has not started.
     pub fn of(&self, active: &ActiveMatch) -> u64 {
         if self.of == Some(active.instance()) {
-            self.ticks
+            // Sixtieths of a second of LIVE gameplay, which is what both callers
+            // (the match timeout and the item cadence) have always meant by
+            // "ticks".
+            self.micros * 60 / 1_000_000
         } else {
             0
         }
@@ -48,14 +63,14 @@ impl LiveMatchTicks {
 
     /// Rebuild from a rollback snapshot. See `snapshot_impls`.
     #[doc(hidden)]
-    pub fn from_snapshot(of: Option<MatchInstance>, ticks: u64) -> Self {
-        Self { of, ticks }
+    pub fn from_snapshot(of: Option<MatchInstance>, micros: u64) -> Self {
+        Self { of, micros }
     }
 
     /// The snapshot's view of this counter. See `snapshot_impls`.
     #[doc(hidden)]
     pub fn parts(&self) -> (Option<MatchInstance>, u64) {
-        (self.of.clone(), self.ticks)
+        (self.of.clone(), self.micros)
     }
 }
 
@@ -99,15 +114,19 @@ pub fn count_the_live_match_ticks(
     let instance = active.instance();
     if live.of != Some(instance.clone()) {
         live.of = Some(instance);
-        live.ticks = 0;
+        live.micros = 0;
     }
 
     if settled.is_some_and(|settled| settled.settled(&active)) {
         return;
     }
-    if time.is_none_or(|time| time.sim_dt() <= 0.0) {
+    let Some(time_dt) = time
+        .as_deref()
+        .map(|time| time.sim_dt())
+        .filter(|dt| *dt > 0.0)
+    else {
         return;
-    }
+    };
     // The ceremony is measured on the RAW clock — it is the thing that has not
     // started yet, so it cannot be measured on the clock it gates.
     let held = prepared
@@ -123,7 +142,10 @@ pub fn count_the_live_match_ticks(
         return;
     }
 
-    live.ticks += 1;
+    // ⭐ THE SCALED STEP, not one whole tick. `sim_dt` is already the amount of
+    // gameplay this step is worth — the same number every fighter timer advances
+    // by — so the match clock counts the same thing the match does.
+    live.micros += (f64::from(time_dt) * 1_000_000.0).round() as u64;
 }
 
 #[cfg(test)]
@@ -169,6 +191,51 @@ mod tests {
     fn counted(app: &App) -> u64 {
         let active = app.world().resource::<ActiveMatch>().clone();
         app.world().resource::<LiveMatchTicks>().of(&active)
+    }
+
+    /// ⛔⛔ AND A HALF-SPEED WORLD SPENDS THE CLOCK AT HALF SPEED.
+    ///
+    /// The stop case above is the BINARY half, and passing it is what made this
+    /// look finished: `sim_dt == 0` was handled, so "the clock follows the
+    /// world" seemed true. But time scaling is not binary — every impact hitstop
+    /// RAMPS it, and `0.917`, `0.750` and `0.983` are all real values from one
+    /// match. On those ticks every fighter timer advanced by a fraction and this
+    /// clock advanced by a whole tick, so the match timer and the item cadence
+    /// ran fast against the gameplay they were timing.
+    ///
+    /// ⭐ THE ARM IS A RATIO, NOT A CONSTANT: 120 steps at half speed must buy
+    /// the same clock as 60 at full speed, whatever the tick rate is.
+    #[test]
+    fn a_half_speed_world_spends_the_match_clock_at_half_speed() {
+        let mut app = clock_world();
+        for _ in 0..60 {
+            step(&mut app);
+        }
+        let full_speed = counted(&app);
+        assert!(
+            full_speed > 0,
+            "the fixture counted nothing at full speed, so the comparison below \
+             is between two zeroes"
+        );
+
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 120.0,
+        });
+        for _ in 0..120 {
+            step(&mut app);
+        }
+        let after_half = counted(&app) - full_speed;
+        // ⚠ ONE TICK OF SLACK, and it is truncation rather than drift: `1/120`
+        // in `f32` is 8333.33µs, which rounds to 8333 and leaves 999_960µs after
+        // 120 steps — one sixtieth short of a second. The defect this arm exists
+        // for was 120 against 60, not 59 against 60.
+        assert!(
+            after_half.abs_diff(full_speed) <= 1,
+            "120 steps of HALF-SPEED gameplay bought {after_half} of clock against \
+             {full_speed} for 60 steps at full speed — the match clock is counting \
+             FRAMES, not the gameplay those frames were worth"
+        );
     }
 
     /// ⭐⭐ A PAUSED MATCH IS NOT GETTING CLOSER TO TIMING OUT.

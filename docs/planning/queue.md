@@ -10653,6 +10653,28 @@ swing direction"*, which is simply untrue for shipped content. ⇒ capture the
 semantic `AttackIntent` where it is already known — gesture/action resolution —
 and carry it on the accepted playback. DO NOT improve the string parser.
 
+⭐ **TRACED 2026-08-25, so the next session starts scoped.** `synth_swing_from_
+move(pb: &MovePlayback)` already takes the playback, so carrying the intent there
+lets `attack_intent_from_move_id` be DELETED rather than wrapped — deletion is
+available, which is what makes this worth doing properly.
+
+```text
+1  MovePlayback gains attack_intent: Option<AttackIntent>
+2  trigger_moveset_moves sets it from the RESOLVED gesture
+   (`intent.direction` + `intent.posture`), which it already holds
+3  synth_swing_from_move reads it; the string match is deleted
+4  ⛔ WIRE FORMAT: MovePlayback is snapshotted
+   (`actor.move_playback  component-clone-resolved`), so this is a schema
+   bump + baseline row, not a local change
+5  ⚠ moves that start WITHOUT a gesture (pogo, held weapon, chain successors)
+   carry `None` — decide whether that means Forward or "not directional",
+   and say which in the type rather than in a fallback
+```
+
+⚠ NOT STARTED DELIBERATELY: a wire-format change wants a fresh session, and this
+is read-model only — `MovePlayback` stays authoritative for strike geometry, and
+the pose path prefers the authored clip, so nothing is visibly broken today.
+
 ▢ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
 reviewer found no currently-broken Author/Officer cancel reference, so do not
 invent one. The real hazard is that move IDs also live OUTSIDE `MovesetContract`

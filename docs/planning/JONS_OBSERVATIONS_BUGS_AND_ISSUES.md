@@ -301,11 +301,17 @@ character punishable for a frame or two."*
 ◐ The roll now owes a recovery beat on the far side. ⛔ The DISTANCE half does
 not reproduce, and FOUR explanations are refuted by measurement: ground roll
 11.2px, roll off the platform lip 12.7px, air dodge 29.5px, chained rolls
-~26px/s. Nothing in the evade family moves a fighter more than ~30px on a 480px
-platform. ⇒ **when you test, the useful question is what ELSE was happening** —
-a hit landing during the roll, the ledge getup roll (a different mechanism), or
-one fighter's own tuning. `cargo run -p ambition_demo_smash_app --bin roll_probe`
-prints the frame-by-frame.
+~26px/s; and the LEDGE getup roll is bounded by construction at
+`LEDGE_ROLL_OVERSHOOT` = 36px. Nothing that moves a fighter on purpose exceeds
+~36px on a 480px platform.
+
+⇒ **THE LIKELY ANSWER IS KNOCKBACK, i.e. the percent meter working.** A 1427%
+up-tilt was measured today launching at 3096.9px/s and rising 398px — that IS
+flying across the stage, and a hit landing during or just after a roll reads as
+the roll having done it. ⚠ so the question worth answering while you play is
+**what your percent was**, not how far the roll went.
+`cargo run -p ambition_demo_smash_app --bin roll_probe` prints the
+frame-by-frame if you want to see a clean roll for comparison.
 
 ## 2026-08-24 — Smash: a name floats over everyone EXCEPT player one, and barks fire on every hit
 

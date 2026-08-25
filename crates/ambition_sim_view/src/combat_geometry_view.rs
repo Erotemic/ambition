@@ -227,6 +227,8 @@ mod tests {
             ))
             .id();
         app.world_mut().spawn(Hitbox {
+            // Not a windbox: these fixtures are about the geometry VIEW.
+            windbox: None,
             owner,
             source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
@@ -272,6 +274,8 @@ mod tests {
         app.world_mut().despawn(owner);
         let center = ae::Vec2::new(310.0, 170.0);
         app.world_mut().spawn(Hitbox {
+            // Not a windbox: these fixtures are about the geometry VIEW.
+            windbox: None,
             owner,
             source: HitSide::Boss,
             anchor: HitboxAnchor::World { center },

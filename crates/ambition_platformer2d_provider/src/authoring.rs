@@ -322,10 +322,14 @@ mod tests {
         };
 
         let mut app = bevy::app::App::new();
-        app.insert_resource(ShellRouter {
-            active: Some(active("shared")),
-            ..Default::default()
-        })
+        // ⛔ NOT `ShellRouter { active, ..Default::default() }`. Functional
+        // update needs every field VISIBLE even where it names none of them,
+        // and the router keeps its activation counters private — so that form
+        // stopped compiling the day they became private, taking the whole
+        // `--workspace --lib` gate with it.
+        let mut router = ShellRouter::default();
+        router.active = Some(active("shared"));
+        app.insert_resource(router)
         .insert_resource(catalog)
         .init_resource::<ActiveDefensePresentationPolicy>()
         .add_systems(bevy::app::Update, select_active_defense_presentation);

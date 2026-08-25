@@ -24,7 +24,7 @@ use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use crate::{
-    remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
+    ActorDiedMessage, RoomTransitionCooldown, SafePositionContext, remember_safe_player_position,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
@@ -259,6 +259,7 @@ pub fn resolve_body_hit(
         g.state.active
             && crate::combat::util::guard_covers_hit(
                 g.tuning.coverage_at(g.state.integrity_fraction(g.tuning)),
+                g.state.shield_tilt,
                 body_pos,
                 g.body_size,
                 impact_pos,
@@ -777,8 +778,8 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
 // `PlayerSafetyState`/`PlayerBodyFrameOutput`, which are the avatar's, not combat's.
 #[cfg(feature = "causal")]
 pub(crate) use ambition_combat::hit_reaction::BodyReaction;
-pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
-pub(crate) use ambition_combat::hit_reaction::{hit_response_tuning, VictimStance};
+pub(crate) use ambition_combat::hit_reaction::{BodyReactionOutcome, apply_body_hit_reaction};
+pub(crate) use ambition_combat::hit_reaction::{VictimStance, hit_response_tuning};
 
 /// Announce a player-side launch, if anybody is listening.
 ///

@@ -482,15 +482,36 @@ pub fn rebuild_shield_rings_view(
         bodies
             .iter()
             .filter(|(_, shield, _, _, _)| shield.active)
-            .map(|(kin, shield, presented, model, frame)| ShieldRingFact {
-                pos: presented.map_or(kin.pos, |p| p.presented()),
-                size: kin.size,
-                parrying: shield.parrying(),
-                integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
-                stun_secs: shield.stun_timer,
-                gravity_dir: body_down(frame),
+            .map(|(kin, shield, presented, model, frame)| {
+                let down = body_down(frame);
+                ShieldRingFact {
+                    pos: presented.map_or(kin.pos, |p| p.presented())
+                        + down * (shield_half_height(kin.size, down) * shield.shield_tilt),
+                    size: kin.size,
+                    parrying: shield.parrying(),
+                    integrity: model.map_or(1.0, |m| shield.integrity_fraction(m.shield_tuning())),
+                    stun_secs: shield.stun_timer,
+                    gravity_dir: down,
+                }
             }),
     );
+}
+
+/// The body's half-extent ALONG its own gravity, which is what
+/// `BodyShieldState::shield_tilt` is a fraction of.
+///
+/// ⛔ THE SAME MEASURE THE HIT TEST USES
+/// (`ambition_combat::util::guard_covers_hit`). A bubble drawn against any
+/// other half-height would lean by a different amount than the guard that
+/// actually blocks, and the picture would be lying about where the shield is.
+fn shield_half_height(
+    size: ambition_platformer2d_core::Vec2,
+    down: ambition_platformer2d_core::Vec2,
+) -> f32 {
+    ambition_platformer2d_core::AccelerationFrame::new(down)
+        .to_world_half(size * 0.5)
+        .dot(down)
+        .abs()
 }
 
 /// This body's toward-feet direction, falling back to the engine default for a

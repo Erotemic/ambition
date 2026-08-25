@@ -516,6 +516,19 @@ pub struct BodyShieldState {
     /// costs. One timer for two causes is the mistake the ledge's borrowed
     /// dodge timer already taught this tree once.
     pub drop_lag_timer: f32,
+    /// WHERE THE RAISED GUARD SITS, as a signed fraction of the body's
+    /// half-height along gravity — positive toward the feet. `0.0` is a guard
+    /// centred on the body, which is every guard whose
+    /// [`crate::ShieldTuning::tilt_range`] is zero.
+    ///
+    /// RESOLVED ONCE per tick and read by two consumers that must not disagree:
+    /// the coverage rule that decides whether a poke gets through, and the view
+    /// that draws the bubble. Deriving it separately at each would let the
+    /// picture show a guard the hit test does not use.
+    ///
+    /// Zero whenever the guard is DOWN, so a lowered shield has no stale lean
+    /// waiting for it when it comes back up.
+    pub shield_tilt: f32,
 }
 
 impl BodyShieldState {

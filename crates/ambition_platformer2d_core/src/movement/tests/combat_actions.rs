@@ -136,6 +136,90 @@ fn shield_activates_when_held_with_ability() {
     );
 }
 
+/// THE STICK REACHES THE GUARD — the wiring, not the rule.
+///
+/// [`ambition_combat::util::guard_covers_hit`] is unit-tested against a tilt
+/// handed to it directly, which proves the coverage MATHS and nothing about
+/// whether a held stick ever produces one. This is the other half: the kernel
+/// resolves the lean, so the value the hit test reads is a real input.
+///
+/// A GENTLE stick, deliberately: past `SPOT_DODGE_STICK` the evade takes the
+/// input first, so the band a tilting player actually lives in is this one.
+///
+/// ⛔ `LocalAxes` is `+y TOWARD-FEET`, so the DOWN stick here is POSITIVE. An
+/// earlier draft of this test read it the other way, fed `-0.3` for "down", and
+/// passed — against a `tilt_bias` that was inverted to match. The direction is
+/// asserted against the named axis, not against what the stick felt like.
+#[test]
+fn a_gentle_stick_leans_the_raised_guard_and_letting_go_recentres_it() {
+    let world = test_world();
+    let mut tuning = TEST_TUNING;
+    tuning.base.shield.tilt_range = 0.34;
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.abilities.abilities.shield = true;
+
+    let mut step = |input: InputState, scratch: &mut BodyClusterScratch| {
+        update_player_with_tuning_scratch(&world, scratch, input, 1.0 / 60.0, tuning);
+    };
+
+    // LAND FIRST. `on_ground` is re-derived every step, so setting it above
+    // only holds until the body's real height is consulted — and a guard
+    // resolved in mid-air is not the case this measures.
+    for _ in 0..40 {
+        step(InputState::default(), &mut scratch);
+    }
+    assert!(
+        scratch.ground.on_ground,
+        "the fixture never reached the floor, so nothing below measures a GROUNDED guard"
+    );
+
+    // BASELINE: a raised guard with a centred stick leans nowhere, so a
+    // rule that simply wrote a constant could not pass the arms below.
+    step(
+        InputState {
+            shield_held: true,
+            ..Default::default()
+        },
+        &mut scratch,
+    );
+    assert!(scratch.shield.active);
+    assert_eq!(
+        scratch.shield.shield_tilt, 0.0,
+        "a centred stick leaned the guard"
+    );
+
+    let mut gentle_down = InputState::with_axes(0.0, 0.3);
+    gentle_down.shield_held = true;
+    step(gentle_down, &mut scratch);
+    assert!(
+        scratch.shield.shield_tilt > 0.0,
+        "a gentle DOWN stick did not lean the guard toward the feet: {}",
+        scratch.shield.shield_tilt
+    );
+    assert!(
+        scratch.ground.on_ground && scratch.shield.active,
+        "the fixture stopped guarding on the ground, so the lean above measured nothing"
+    );
+
+    let mut gentle_up = InputState::with_axes(0.0, -0.3);
+    gentle_up.shield_held = true;
+    step(gentle_up, &mut scratch);
+    assert!(
+        scratch.shield.shield_tilt < 0.0,
+        "a gentle UP stick did not lean the guard toward the head"
+    );
+
+    // AND A LOWERED GUARD KEEPS NO LEAN — otherwise the next raise starts
+    // already leaning at whatever the stick happened to be doing.
+    step(InputState::with_axes(0.0, 0.3), &mut scratch);
+    assert!(!scratch.shield.active);
+    assert_eq!(
+        scratch.shield.shield_tilt, 0.0,
+        "a guard that is DOWN kept a stale lean"
+    );
+}
+
 #[test]
 fn shield_deactivates_when_released() {
     let world = test_world();

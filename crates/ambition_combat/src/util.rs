@@ -78,7 +78,7 @@ mod util_tests {
             aabb(50.0, 67.0, 14.0, 23.0),
             platform
         )); // bottom = 90
-            // Far above -> no top contact.
+        // Far above -> no top contact.
         assert!(!player_is_standing_on(
             aabb(50.0, 0.0, 14.0, 23.0),
             platform
@@ -160,6 +160,14 @@ pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -
 /// the guard still covers ([`ambition_platformer2d_core::ShieldTuning::coverage_at`]);
 /// `1.0` covers everything and can never poke.
 ///
+/// `tilt` shifts the covered BAND rather than widening it
+/// ([`ambition_platformer2d_core::ShieldTuning::tilt_bias`]) — a signed
+/// fraction of half-height, positive toward the feet. Shifting toward one end
+/// exposes the other by the same amount, which is the trade that makes tilting
+/// a decision. It does nothing to a guard that already covers everything: a
+/// full shield has no exposed end to choose between, and only a SPENT one gives
+/// the player that question.
+///
 /// measured along the body's own gravity axis, not screen Y, so a wall-walker
 /// is poked at the ends of the axis it actually stands on.
 ///
@@ -170,6 +178,7 @@ pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -
 /// a facing failure in every trace that reads it.
 pub fn guard_covers_hit(
     coverage: f32,
+    tilt: f32,
     body_pos: ae::Vec2,
     body_size: ae::Vec2,
     hit_pos: ae::Vec2,
@@ -180,8 +189,9 @@ pub fn guard_covers_hit(
     }
     let frame = ae::AccelerationFrame::new(gravity_dir);
     let half_height = frame.to_world_half(body_size * 0.5).dot(gravity_dir).abs();
-    let along = (hit_pos - body_pos).dot(gravity_dir).abs();
-    along <= half_height * coverage.max(0.0)
+    let along = (hit_pos - body_pos).dot(gravity_dir);
+    let centre = half_height * tilt;
+    (along - centre).abs() <= half_height * coverage.max(0.0)
 }
 
 /// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
@@ -375,7 +385,7 @@ pub fn scaled_knockback(
 #[cfg(test)]
 mod hit_feedback_tests {
     use super::*;
-    use ambition_sfx::{ids, OwnedSfxMessage, SfxId};
+    use ambition_sfx::{OwnedSfxMessage, SfxId, ids};
     use ambition_vfx::vfx::DebrisBurstMessage;
     use ambition_vfx::{HurtFeedback, VfxMessage};
     use bevy::ecs::message::Messages;
@@ -719,19 +729,97 @@ mod poke_tests {
             let at_the_end = dir * (half * 0.9);
 
             assert!(
-                guard_covers_hit(1.0, body, SIZE, at_the_end, dir),
+                guard_covers_hit(1.0, 0.0, body, SIZE, at_the_end, dir),
                 "a WHOLE guard failed to cover its own body under gravity {dir:?}"
             );
             assert!(
-                !guard_covers_hit(0.45, body, SIZE, at_the_end, dir),
+                !guard_covers_hit(0.45, 0.0, body, SIZE, at_the_end, dir),
                 "a guard at 45% still covered the end of the body under gravity {dir:?}"
             );
             // ...while the middle stays covered at the same coverage.
             assert!(
-                guard_covers_hit(0.45, body, SIZE, dir * (half * 0.2), dir),
+                guard_covers_hit(0.45, 0.0, body, SIZE, dir * (half * 0.2), dir),
                 "a guard at 45% failed to cover the body's own middle"
             );
         }
+    }
+
+    /// TILTING A SPENT GUARD BUYS ONE END BY SELLING THE OTHER.
+    ///
+    /// The three arms are the whole mechanic, and the middle one alone would
+    /// not be: a rule that only ever COVERS MORE is a free upgrade every player
+    /// would hold the stick for permanently, and it would be indistinguishable
+    /// from simply raising `min_coverage`. The cost arm is what makes the tilt
+    /// a decision, so it is asserted beside the benefit rather than trusted.
+    #[test]
+    fn a_tilt_trades_one_end_of_the_body_for_the_other() {
+        for dir in CARDINALS {
+            let frame = ae::AccelerationFrame::new(dir);
+            let half = frame.to_world_half(SIZE * 0.5).dot(dir).abs();
+            let body = ae::Vec2::ZERO;
+            // `dir` points along gravity, so this end is the FEET and the
+            // opposite one is the head.
+            let feet = dir * (half * 0.9);
+            let toward_head = dir * (half * -0.3);
+            let lean_to_the_feet = 0.5;
+
+            // BASELINE, asserted first: untilted, the feet are out and a point
+            // just off centre is still behind the guard. Without this arm the
+            // two below could both pass on a rule that covers nothing at all.
+            assert!(
+                !guard_covers_hit(0.45, 0.0, body, SIZE, feet, dir),
+                "the untilted baseline changed: a 45% guard covered the feet under {dir:?}"
+            );
+            assert!(
+                guard_covers_hit(0.45, 0.0, body, SIZE, toward_head, dir),
+                "the untilted baseline changed: a 45% guard missed its own middle under {dir:?}"
+            );
+
+            // THE BENEFIT: lean toward the feet and the poke that was getting
+            // through no longer does.
+            assert!(
+                guard_covers_hit(0.45, lean_to_the_feet, body, SIZE, feet, dir),
+                "leaning toward the feet did not cover a hit on them under {dir:?}"
+            );
+            // THE COST, and the arm that separates a shift from a widening:
+            // the same lean hands over ground the guard used to hold.
+            assert!(
+                !guard_covers_hit(0.45, lean_to_the_feet, body, SIZE, toward_head, dir),
+                "leaning toward the feet cost the head nothing under {dir:?} — \
+                 the band WIDENED instead of moving"
+            );
+
+            // A WHOLE GUARD HAS NOTHING TO TRADE. Every exploration body is
+            // here, and a tilt must not be able to open a hole in one.
+            assert!(
+                guard_covers_hit(1.0, lean_to_the_feet, body, SIZE, toward_head, dir),
+                "a tilt opened a gap in an unlimited guard under {dir:?}"
+            );
+        }
+    }
+
+    /// WHICH WAY THE STICK LEANS THE GUARD, and that a body with no declared
+    /// range cannot lean at all.
+    #[test]
+    fn the_stick_leans_the_guard_toward_the_end_it_points_at() {
+        let fighter = ae::ShieldTuning::PLATFORM_FIGHTER;
+        // `LocalAxes` is +y TOWARD-FEET, so DOWN is the positive stick.
+        assert!(
+            fighter.tilt_bias(1.0) > 0.0,
+            "holding DOWN must lean the guard toward the feet (+gravity)"
+        );
+        assert!(
+            fighter.tilt_bias(-1.0) < 0.0,
+            "holding UP must lean the guard toward the head"
+        );
+        assert_eq!(fighter.tilt_bias(0.0), 0.0, "a centred stick must not lean");
+        // The stick cannot buy more lean than the body declares.
+        assert_eq!(fighter.tilt_bias(4.0), fighter.tilt_bias(1.0));
+        assert_eq!(
+            ae::ShieldTuning::OFF.tilt_bias(1.0),
+            0.0,
+            "a body that declares no tilt range must not lean"
+        );
     }
 
     /// COVERAGE FALLS WITH INTEGRITY, AND A NON-RESOURCE NEVER SHRINKS.

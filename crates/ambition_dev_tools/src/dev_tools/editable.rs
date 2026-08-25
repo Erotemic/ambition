@@ -202,6 +202,9 @@ pub struct EditableMovementTuning {
     pub shield_stun_per_damage: f32,
     pub shield_pushback_per_damage: f32,
     pub shield_min_coverage: f32,
+    /// How far a held stick shifts the guard, as a fraction of half-height. A
+    /// feel slider: how much a tilt is worth against how much it gives up.
+    pub shield_tilt_range: f32,
     /// Shield-drop lag: what letting a guard down costs, in seconds. A feel
     /// slider like the rates above it.
     pub shield_drop_lag: f32,
@@ -335,6 +338,7 @@ impl EditableMovementTuning {
                 stun_per_damage: self.shield_stun_per_damage,
                 pushback_per_damage: self.shield_pushback_per_damage,
                 min_coverage: self.shield_min_coverage,
+                tilt_range: self.shield_tilt_range,
                 drop_lag: self.shield_drop_lag,
                 out_of_shield: self.shield_out_of_shield,
                 // NOT editable, for the same reason `parry_timing` is not:
@@ -427,6 +431,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             shield_stun_per_damage: value.shield.stun_per_damage,
             shield_pushback_per_damage: value.shield.pushback_per_damage,
             shield_min_coverage: value.shield.min_coverage,
+            shield_tilt_range: value.shield.tilt_range,
             shield_drop_lag: value.shield.drop_lag,
             shield_out_of_shield: value.shield.out_of_shield,
             shield_air_guard: value.shield.air_guard,

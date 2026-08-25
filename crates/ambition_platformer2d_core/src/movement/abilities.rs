@@ -497,8 +497,8 @@ pub(super) fn apply_dodge(
 /// this tick (the edge that opens a parry window / emits a `ShieldUp` op), so the
 /// caller can fire its own side effect. Pure + frame-agnostic.
 ///
-/// The player's [`apply_shield`] and the actor resolver in `update_ecs_actors`
-/// both call this, so "raise the guard" is one implementation, not two.
+/// Split from [`apply_shield`] so the raise/parry edge can be unit-tested
+/// against bare scalars, without a body around it.
 pub fn resolve_shield(
     active: &mut bool,
     parry_window_timer: &mut f32,
@@ -603,6 +603,23 @@ pub(super) fn apply_shield(
     {
         shield.drop_lag_timer = shield.drop_lag_timer.max(tuning.abilities.shield.drop_lag);
     }
+    // SHIELD TILT — where the raised guard sits on the body.
+    //
+    // ⛔ RESOLVED HERE, not at the hit. The coverage rule and the view both
+    // read this one value, and a guard the picture draws high while the hit
+    // test still centres it is the disagreement this exists to prevent.
+    //
+    // The WHOLE stick, with no threshold of its own: past
+    // `SPOT_DODGE_STICK` the evade normally takes the input first, so what
+    // reaches the tilt in practice is the small band — but on a body whose
+    // evade is spent or on cooldown the stick has nowhere else to go, and
+    // leaning is exactly what it should still buy. A guard that is DOWN leans
+    // nowhere.
+    shield.shield_tilt = if shield.active {
+        tuning.abilities.shield.tilt_bias(input.local_axis().y)
+    } else {
+        0.0
+    };
 }
 
 /// Variable jump height: cut the rising jump short on an early button release.

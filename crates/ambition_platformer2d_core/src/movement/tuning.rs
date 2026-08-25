@@ -868,6 +868,28 @@ pub struct ShieldTuning {
     /// until it exposes the head and the feet, and that is what makes chip
     /// pressure end in a hit rather than in a stalemate.
     pub min_coverage: f32,
+    /// HOW FAR A HELD STICK SHIFTS THE GUARD along the body's own gravity
+    /// axis, as a fraction of the body's half-height. `0.0` (the default)
+    /// pins the guard to the body's centre, which is what every body did
+    /// before this existed.
+    ///
+    /// Shield tilt is the answer to [`Self::min_coverage`], not a second copy
+    /// of it: a spent guard exposes the head AND the feet, and tilting chooses
+    /// WHICH of the two you are willing to lose. A hit aimed at the part you
+    /// shifted toward is blocked; the opposite end is more exposed than it
+    /// would have been untilted. That trade is the mechanic — without the
+    /// cost it is a free coverage upgrade.
+    ///
+    /// ⛔ ONE AXIS, and deliberately. Coverage is measured along gravity
+    /// ([`ambition_combat::util::guard_covers_hit`]); the lateral question is
+    /// already answered by which side the body FACES, so a left/right tilt has
+    /// no coverage rule to bias and would be a knob that changes nothing.
+    ///
+    /// ⛔ IT COMPETES WITH NOTHING. Past [`SPOT_DODGE_STICK`] the same stick
+    /// is normally a roll or a spot dodge, so the band tilt gets in practice is
+    /// the one that used to be dead input — but the rule itself is just the
+    /// stick, so a body whose evade is spent still leans instead of going inert.
+    pub tilt_range: f32,
     /// Lateral push (px/s) the defender takes per point of damage it blocks.
     /// The half of shield pressure that costs SPACE rather than tempo: hold a
     /// guard near a ledge and the hits themselves move you toward it.
@@ -972,6 +994,7 @@ impl ShieldTuning {
         stun_per_damage: 0.0,
         pushback_per_damage: 0.0,
         min_coverage: 1.0,
+        tilt_range: 0.0,
         // No out-of-shield rule and no drop cost: the engine baseline, and what
         // every body did before the policy existed.
         out_of_shield: None,
@@ -991,6 +1014,10 @@ impl ShieldTuning {
         stun_per_damage: 0.012,
         pushback_per_damage: 6.0,
         min_coverage: 0.45,
+        // A third of a half-height. Enough that a spent guard tilted down
+        // still covers the feet a poke was reaching for, and not so much that
+        // the guard leaves the body.
+        tilt_range: 0.34,
         // A guard is a LAUNCHING PLATFORM in this genre, and these five are what
         // it launches. Everything else waits for it to come down.
         out_of_shield: Some(OutOfShield::PLATFORM_FIGHTER),
@@ -1017,6 +1044,19 @@ impl ShieldTuning {
         }
         let t = integrity.clamp(0.0, 1.0);
         self.min_coverage + (1.0 - self.min_coverage) * t
+    }
+
+    /// WHERE THIS GUARD IS CENTRED for a stick held `stick_descend`, as a
+    /// signed fraction of the body's half-height along gravity.
+    ///
+    /// ⭐ NO SIGN FLIP, and that is not luck: `LocalAxes` is already
+    /// `+y toward-feet`, the same axis and the same sense that
+    /// [`ambition_combat::util::guard_covers_hit`] measures a hit on. Holding
+    /// DOWN leans the guard toward the feet and hands the head over; holding UP
+    /// does the reverse. A negation here would silently invert the mechanic —
+    /// and a test written from the wrong assumption would agree with it.
+    pub fn tilt_bias(self, stick_descend: f32) -> f32 {
+        stick_descend.clamp(-1.0, 1.0) * self.tilt_range
     }
 }
 

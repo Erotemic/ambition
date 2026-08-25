@@ -9453,6 +9453,73 @@ wrong. **"Not mine" is not "theirs."** Both lanes were innocent and the test was
 measuring itself; a third suspect nobody had named was never eliminated because
 nobody thought to name the FIXTURE.
 
+- ✔ **D218 — CLOSED 2026-08-25. SHIELD TILT: THE GUARD LEANS, AND THE LEAN
+  COSTS. (opened and closed 2026-08-25, from the smash-parity inventory)**
+
+The coverage rule already sank a spent guard until the head and the feet came
+out from behind it — symmetrically, around the body's centre, with nothing the
+player could do about WHICH end they lost. Tilt is the answer to that, and it is
+one number: `ShieldTuning::tilt_range`, a fraction of half-height, `0.0` on
+every body that declares nothing.
+
+⭐ **IT COMPETED WITH NOTHING.** Past `SPOT_DODGE_STICK` (0.5) the stick is
+already a roll or a spot dodge; below it, while shielding, the stick did
+nothing at all. The genre puts shield shift in exactly that dead band, so the
+threshold that already existed partitions the input and no new gesture had to
+be invented. The rule itself is just the stick, so a body whose evade is spent
+or on cooldown still leans rather than going inert.
+
+⛔⛔ **THE SHIFT HAD TO COST, AND THAT IS THE WHOLE MECHANIC.** A tilt that only
+ever covers MORE is a free upgrade every player would hold the stick for
+permanently — indistinguishable from raising `min_coverage` and strictly worse
+than it, because it hides in an input instead of being declared. So the band
+MOVES rather than widening: lean toward the feet and the head is exposed by the
+same amount. The cost arm is asserted beside the benefit and poisoned
+separately (P1 stop shifting, P2 widen instead of shift); P2 passes every
+benefit assertion, which is exactly why it needed its own arm.
+
+⛔ **ONE AXIS, and it is not a simplification.** Coverage is measured along the
+body's own gravity; the lateral question is already answered by which side the
+body FACES. A left/right tilt would be a knob with no rule to bias.
+
+⭐ **RESOLVED ONCE, READ TWICE.** `apply_shield` writes
+`BodyShieldState::shield_tilt`; the hit test shifts its band by it and
+`ShieldRingsView` shifts the drawn bubble by the same half-height. Deriving it
+at each consumer would let the picture show a guard the hit test does not use —
+the same disagreement `break_total` was introduced to prevent. A guard that is
+DOWN holds no lean, so the next raise does not start already leaning.
+
+⭐ **TWO TEST HALVES, because a pure-function test proves the FUNCTION and not
+the WIRING.** `guard_covers_hit` is exercised against a tilt handed to it
+directly under all four gravities; a kernel test then drives a real gentle
+stick through `update_player_with_tuning_scratch` and reads the resolved value.
+The kernel half caught its own fixture: the body was AIRBORNE for all three
+readings — `on_ground` is re-derived every step, so setting it by hand held
+only until the body's real height was consulted. The falsifier beside the
+assertion is what surfaced it; the tilt values had been right the whole time.
+
+⛔⛔ **THE MECHANIC SHIPPED INVERTED FIRST, AND THE TEST AGREED WITH IT.** The
+first draft negated the stick — `-stick_up * range` — on the assumption that
+`+y` is up. It is not: `LocalAxes` is documented `+y toward-feet`, which
+`wants_drop_through` confirms by naming its parameter `descend` and firing on
+`y > 0.35`, and the spot dodge confirms again with `stick.y > SPOT_DODGE_STICK`.
+The kernel test was written from the SAME wrong assumption — it fed `-0.3` and
+called it "down" — so it passed against inverted code and proved nothing about
+direction. ⭐ THE CORRECT RULE HAS NO SIGN FLIP AT ALL: the stick's y is
+already in the axis and sense the coverage rule measures on, so a negation was
+the whole bug. Caught only by reading a NEIGHBOURING consumer of the same axis,
+not by any test. ⇒ when a value's sign decides a mechanic, assert it against the
+axis's documented name, and go read another consumer of that axis first.
+
+⚠ **AND A FILTERED TEST RUN THAT NEVER RAN THE TEST.** `--lib guard` matched
+three neighbours and not `a_tilt_trades_one_end_of_the_body_for_the_other`,
+whose name contains no "guard". It reported `ok` and it had measured nothing.
+
+Wire format v92 (`BodyShieldState` gained a field, `ShieldTuning` gained one).
+⭐ the schema dump names TYPE PATHS, not fields, so neither baseline moved
+except the version line — the version bump is the only thing carrying this
+change to a peer, which is precisely what it is for.
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

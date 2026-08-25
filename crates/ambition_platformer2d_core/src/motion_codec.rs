@@ -391,6 +391,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.shield.stun_per_damage);
     put_f32(out, a.shield.pushback_per_damage);
     put_f32(out, a.shield.min_coverage);
+    put_f32(out, a.shield.tilt_range);
     put_f32(out, a.shield.drop_lag);
     // The out-of-shield rule is a five-bit AUTHORED table with a "no rule at
     // all" case, encoded as one byte: `0` is `None`, and a policy sets bit 0
@@ -505,6 +506,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
                 stun_per_damage: r.f32()?,
                 pushback_per_damage: r.f32()?,
                 min_coverage: r.f32()?,
+                tilt_range: r.f32()?,
                 drop_lag: r.f32()?,
                 out_of_shield: decode_out_of_shield(r.u8()?),
                 air_guard: r.u8()? != 0,

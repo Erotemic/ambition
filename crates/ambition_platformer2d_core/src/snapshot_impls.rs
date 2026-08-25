@@ -190,6 +190,7 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     // shield it had already spent, with a fresh parry window.
     release_locked: bool,
     drop_lag_timer: f32,
+    shield_tilt: f32,
 });
 
 snapshot_pod!(crate::body_clusters::BodyOffense {

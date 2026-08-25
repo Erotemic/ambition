@@ -9605,6 +9605,26 @@ too much deletes someone's knockback, so the doubtful case does nothing. The
 naive version is the second poison and it reproduces the historical bug exactly
 (launch 3000 -> 0).
 
+⛔⛔ **THE FIRST SHED RULE SHIPPED WRONG (`f79ad7c9b`), AND ONLY AN EMERGENT
+TEST SAW IT.** It allowed the shed whenever the body was going the roll's way
+"no faster than the roll pushed it" — which a body launched the roll's own way
+at 300px/s satisfies, so that launch was deleted. `the_stage_kills::
+every_live_fighter_stays_inside_the_frame` failed on its PREMISE guard: with
+launches being eaten, NOBODY in a whole match was ever knocked out of the room
+(0 body-frames, needs >20). ⭐ THE PREMISE GUARD IS WHAT CAUGHT IT — the
+assertion the test exists for still passed.
+
+⇒ ⭐⭐ **THE TEST IS EQUALITY, NOT A BOUND.** The roll's push does not decay
+while the roll runs — gravity acts along `down`, not `side`, and nothing applies
+friction to it — so a side speed still exactly equal to the push proves nothing
+else touched it, and any other value proves something did. Fixed forward.
+
+⚠ **MY THREE-ARM UNIT TEST COULD NOT SEE IT** because arm 3 used a 3000px/s
+launch, which is FASTER than the roll and so was refused for the wrong reason.
+A fourth arm now uses a launch SLOWER than the roll, with an assertion that it
+IS slower so it cannot silently become a copy of arm 3. ⇒ when a rule is a
+comparison against a magnitude, the arms must straddle that magnitude.
+
 ⚠ **WHAT REMAINS IS A TUNING NUMBER, NOT A DEFECT.** The roll's own 124px is a
 quarter of the stage; `DODGE_ROLL_SPEED` is one value and Jon plays it tomorrow.
 Not pre-emptively lowered — halving a knob and fixing a bug in the same change

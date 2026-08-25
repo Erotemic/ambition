@@ -2153,4 +2153,29 @@ fn a_ground_roll_ends_stopped_but_never_eats_a_launch() {
         "the end of the roll ate a launch it did not create: {}",
         launched.kinematics.vel.dot(side)
     );
+
+    // ARM 4 — A SMALL LAUNCH THE ROLL'S OWN WAY, and this is the arm that
+    // matters. A first version of the shed allowed anything "same direction and
+    // no faster than the roll", which this passes — so a body nudged 300px/s
+    // along its own roll had that nudge deleted. Arm 3 could not see it,
+    // because a 3000px/s launch is faster than the roll and was refused for the
+    // wrong reason. `the_stage_kills` caught it: with launches being eaten,
+    // NOBODY in a whole match was ever knocked out of the room.
+    let mut nudged = settle();
+    update_player_with_tuning_scratch(&world, &mut nudged, guard_right, 1.0 / 60.0, tuning);
+    assert!(nudged.axis().dodge_roll_timer > 0.0, "arm 4 never rolled");
+    let gentle = 300.0;
+    assert!(
+        gentle < tuning.params().abilities.dodge_roll_speed,
+        "arm 4 must use a launch SLOWER than the roll or it is a copy of arm 3"
+    );
+    nudged.kinematics.vel = side * gentle;
+    while nudged.axis().dodge_roll_timer > 0.0 {
+        update_player_with_tuning_scratch(&world, &mut nudged, guard_right, 1.0 / 60.0, tuning);
+    }
+    assert!(
+        nudged.kinematics.vel.dot(side) > 200.0,
+        "the end of the roll ate a SLOW launch pointing its own way: {}",
+        nudged.kinematics.vel.dot(side)
+    );
 }

@@ -311,15 +311,18 @@ fn shed_dodge_roll_push(
     }
     let side = frame.side();
     let along = kinematics.vel.dot(side);
-    // ⛔⛔ THE TEST IS "IS THE BODY STILL ONLY DOING WHAT THE ROLL DID?" — same
-    // direction, and no faster than the roll pushed it. Anything faster means
-    // something else is driving (a launch replaces velocity, it does not add to
-    // it), and this must not touch it.
+    // ⛔⛤ THE TEST IS EQUALITY, NOT A BOUND, and the difference is a real bug
+    // that a bound version shipped: a body rolling right and then launched
+    // right at LESS than roll speed passes "same sign, no faster", and shedding
+    // would delete that launch. The roll's own push does not decay while the
+    // roll runs — gravity acts along `down`, not `side`, and nothing applies
+    // friction to it — so if the side speed is still exactly what the roll set,
+    // nothing else has touched it. Any other value means something did.
     //
-    // ⭐ THE ASYMMETRY IS DELIBERATE. Shedding too little leaves a body coasting
-    // for a few frames; shedding too much deletes someone's knockback and reads
-    // as a combo that does nothing. So the doubtful case does nothing.
-    if along * push <= 0.0 || along.abs() > push.abs() {
+    // ⭐ THE ASYMMETRY IS DELIBERATE. Failing to shed leaves a body coasting for
+    // a few frames; shedding wrongly deletes someone's knockback and reads as a
+    // combo that does nothing. So every doubtful case does nothing.
+    if (along - push).abs() > 1.0 {
         return;
     }
     kinematics.vel -= side * along;

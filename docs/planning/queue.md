@@ -9453,6 +9453,32 @@ wrong. **"Not mine" is not "theirs."** Both lanes were innocent and the test was
 measuring itself; a third suspect nobody had named was never eliminated because
 nobody thought to name the FIXTURE.
 
+- ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
+  WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
+  inventory)**
+
+⭐⭐ **ONE ROOT, EIGHT DEPENDENTS.** Foxtrot, dash dance, pivot grab, reverse
+aerial rush, run-cancel into shield, run-cancel into crouch and the turnaround
+phase are all written as "after initial-dash exists". Nothing in that block
+exists in any form — verified 2026-08-25 by grep, not by reading the rows:
+there is no `teeter`, no turnaround/pivot phase, and no initial-dash state.
+
+⇒ **the customer is every ground movement in every match**, which is why this
+outranks the payload-field rows (extra shield damage, unblockable, per-hit
+multipliers): those all wait on somebody authoring a move, and this waits on
+nobody.
+
+⛔ **IT IS NOT AMBITION'S TRAVERSAL DASH.** That one is a charge-gated burst
+(`dash_timer`, `charges_available`) and the inventory says explicitly: do not
+reuse it. The genre's initial dash is the first phase of a RUN — the window in
+which the body may reverse freely, which is what makes dash-dancing a thing.
+
+⛔ **HIGHEST BLAST RADIUS OF ANY OPEN PARITY ROW**: ground locomotion is what
+every game in this repo walks on, so the phase must be DECLARED (default off =
+today's continuum, which `Walk distinct from run` measured is already a
+continuum) rather than switched on for everybody. ⚠ Mary-O is the canary —
+`converge on classic physics` means her ground feel is a fixed target.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

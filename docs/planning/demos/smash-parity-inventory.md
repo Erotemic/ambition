@@ -25,6 +25,21 @@ into another standing Smash plan.
 
 `✔` shipped · `~` partial · `▢` absent
 
+⛔⛔ **RE-GREP A ROW BEFORE WORKING IT, AND DISTRUST THE DEFENSIVE AND HIT-PAYLOAD
+REGIONS FIRST.** Five rows were corrected on 2026-08-25 alone, all of them
+claiming work that HAD ALREADY LANDED: *Armored move* and *Invincible
+move/startup* (`project_move_defense_windows` consumes both tags and is
+scheduled), *Hitfall* (nothing gates fast-fall on being mid-move — the row wanted
+something unblocked that was never blocked), and *Vacuum/suction* (the windbox
+with its launch aimed inward — no second mechanic).
+
+⭐ **THE STALENESS IS NOT SPREAD EVENLY**, which is the useful half: it clusters
+where work has recently happened, because those rows were written before the work
+and never revisited. Spot-checked the same day and found ACCURATE: the whole
+ground-locomotion block (`Initial dash`, `Turnaround / pivot phase`, `Teeter` —
+none of these exist in any form). ⇒ trust the untouched regions; verify the ones
+next door to whatever last shipped.
+
 Effort: `S` small slice · `M` medium slice · `C` multi-slice campaign
 
 Engine column:

@@ -496,7 +496,26 @@ fn update_body_simulation_inner(
         // that cleared the whole count would let a fighter roll four times, wait
         // once, and be fully fresh — so recovering would cost the same whether
         // the option had been abused once or ten times.
-        if clusters.dodge.evades_recent > 0 && tuning.abilities.dodge_stale_recovery > 0.0 {
+        // ⛔⛔ AND IT DOES NOT BLEED WHILE THE EVADE IS STILL HAPPENING. The
+        // contract in `spend_evade` says the count "only starts coming down once
+        // the body actually stops", and this ticked every frame from the moment
+        // the evade was ACCEPTED — so a 0.22s roll spent about 18% of Smash's
+        // 1.2s forgiveness performing the very maneuver the delay exists to
+        // charge for. The existing decay test seeds stale state on an IDLE body,
+        // so it never ran an accepted evade through its own maneuver.
+        //
+        // ⭐ THE MANEUVER CLOCKS, which are the AUTHORED durations since the
+        // staling split — not the i-frame clock, which is exactly what a spammed
+        // evade shortens. Forgiveness must not speed up because the fighter has
+        // been abusing the option.
+        //
+        // ⛔ ENDLAG IS NOT COUNTED: recovery is what the roll OWES, not part of
+        // the evade, and a body in endlag has stopped evading.
+        let still_evading = state.dodge_roll_timer > 0.0 || state.air_dodge_timer > 0.0;
+        if !still_evading
+            && clusters.dodge.evades_recent > 0
+            && tuning.abilities.dodge_stale_recovery > 0.0
+        {
             clusters.dodge.stale_decay = dec(clusters.dodge.stale_decay);
             if clusters.dodge.stale_decay <= 0.0 {
                 clusters.dodge.evades_recent -= 1;

@@ -418,8 +418,7 @@ mod tests {
     /// the answerable question is which way the character ends up looking.
     fn drawn_direction(authored_faces_left: bool, facing: f32) -> f32 {
         let art_points = if authored_faces_left { -1.0 } else { 1.0 };
-        let flip =
-            ambition_sprite_sheet::art_is_mirrored(authored_faces_left, facing, Vec2::NEG_Y);
+        let flip = ambition_sprite_sheet::art_is_mirrored(authored_faces_left, facing, Vec2::NEG_Y);
         if flip {
             -art_points
         } else {
@@ -514,10 +513,23 @@ mod tests {
         // anybody deciding that its art was redrawn.
         left_drawn.sort_unstable();
         let expected: Vec<&str> = vec![
+            // ⭐ AUTHOR AND OFFICER ARE POINTED POLYGON'S PAPERDOLLS, so they
+            // inherit its west-drawn art — their sheets declare
+            // `authored_faces_left: true` for the same reason its own do. Added
+            // 2026-08-25 when the easter-egg fighters shipped; the guard caught
+            // it, which is what a hand-kept list is for.
+            "author",
+            "author.0_25x",
+            "author.0_5x",
+            "author.potato",
             "carl_stargan",
             "carl_stargan.0_25x",
             "carl_stargan.0_5x",
             "carl_stargan.potato",
+            "officer",
+            "officer.0_25x",
+            "officer.0_5x",
+            "officer.potato",
             "patent_clerk",
             "patent_clerk.0_25x",
             "patent_clerk.0_5x",
@@ -535,7 +547,7 @@ mod tests {
         ];
         assert_eq!(
             left_drawn, expected,
-            "exactly the three west-drawn paperdoll sheets (and their quality tiers) declare a \
+            "exactly the west-drawn paperdoll sheets (and their quality tiers) declare a \
              left-drawn art facing; every other sheet must keep the +x default"
         );
     }

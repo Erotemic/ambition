@@ -6928,3 +6928,58 @@ fn a_drift_reversal_without_a_facing_flip_is_declarable() {
     assert_eq!(outcome(true, false), (-1.0, 200.0), "turnaround-B changed");
     assert_eq!(outcome(true, true), (-1.0, -200.0), "B-reverse changed");
 }
+
+/// A ROLL'S RECOVERY REFUSES MOVES; A SPOT DODGE'S DOES NOT EXIST.
+///
+/// ⛔⛔ `dodge_roll_endlag` WAS CANONICAL STATE NOTHING CONSULTED — rollback
+/// state, ticked every frame, published as a fact, read by animation and the
+/// brain, and refusing nothing. A roll's punish window was recorded and not
+/// implemented, so a fighter could roll and attack out of the recovery it had
+/// just bought.
+///
+/// ⭐ THE GATE WAS BLOCKED ON A REAL PRECONDITION AND IT IS NOW MET. The kernel
+/// used to arm this timer off `dodge_roll_timer`'s expiry, which the SPOT DODGE
+/// shares, so gating here silenced fighters that had only spot-dodged. HEAD arms
+/// it only for a roll (`!state.spot_dodging`), which is what makes the refusal
+/// safe — and the launch test that failure was recorded against passes now.
+#[test]
+fn a_roll_recovery_refuses_a_move_and_a_spot_dodge_owes_nothing() {
+    let started = |endlag: bool| -> Option<String> {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                "attack_forward".to_string(),
+                "fwd".to_string(),
+            )]),
+            moves: vec![gesture_test_move("fwd")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::BodyMotionFacts {
+                dodge_roll_endlag: endlag,
+                ..Default::default()
+            });
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.attack_axis = ae::LocalAxes::new(1.0, 0.0);
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+        app.update();
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|p| p.spec.id.clone())
+    };
+
+    // ⛔ THE CONTROL FIRST: without it a gate that refused EVERYTHING would pass.
+    assert_eq!(
+        started(false).as_deref(),
+        Some("fwd"),
+        "a body owing no roll recovery could not attack at all, so the refusal \
+         below proves nothing"
+    );
+    assert_eq!(
+        started(true).as_deref(),
+        None,
+        "a fighter attacked out of the roll recovery it had just bought — the \
+         punish window is published and nothing refuses on it"
+    );
+}

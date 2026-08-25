@@ -1518,3 +1518,95 @@ fn a_guard_forced_down_by_leaving_the_ground_owes_no_drop_lag() {
          so the mechanic is gone rather than aimed"
     );
 }
+
+/// FORGIVENESS DOES NOT RUN WHILE THE EVADE IS STILL HAPPENING.
+///
+/// ⛔⛔ `spend_evade`'s contract says the stale count "only starts coming down
+/// once the body actually stops", and the decay ticked from the moment the evade
+/// was ACCEPTED — so a roll spent part of its own forgiveness delay performing
+/// the very maneuver the delay exists to charge for. At Smash's numbers (0.22s
+/// roll, 1.2s recovery) that is about 18% of it, every roll.
+///
+/// ⚠ THE EXISTING DECAY TEST SEEDS STALE STATE ON AN IDLE BODY, so it never runs
+/// an accepted evade through its own maneuver — the fixture omits the state the
+/// bug lives in.
+#[test]
+fn stale_forgiveness_starts_only_once_the_evade_is_over() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.base.dodge_stale_step = 0.25;
+    tuning.base.dodge_stale_floor = 0.34;
+    tuning.base.dodge_stale_recovery = 1.2;
+
+    let hold = |dir: f32| {
+        let mut i = InputState::default();
+        i.axes = crate::reference_frame::LocalAxes::new(dir, 0.0);
+        i
+    };
+
+    let mut body = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    for _ in 0..30 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(body.ground.on_ground, "the fixture never landed");
+
+    // Accept a real roll.
+    let mut start_roll = hold(1.0);
+    start_roll.shield_held = true;
+    super::update_player_with_tuning_scratch(&world, &mut body, start_roll, 1.0 / 60.0, tuning);
+    assert!(
+        body.axis().dodge_roll_timer > 0.0 && body.dodge.evades_recent > 0,
+        "the fixture never rolled, so there is no forgiveness to measure"
+    );
+    let armed = body.dodge.stale_decay;
+    assert!(
+        (armed - 1.2).abs() < 1e-3,
+        "the roll did not arm the full forgiveness delay ({armed:.3}s of 1.2)"
+    );
+
+    // Run the roll out. Forgiveness must not move while it is happening.
+    let mut ticks = 0;
+    while body.axis().dodge_roll_timer > 0.0 && ticks < 60 {
+        super::update_player_with_tuning_scratch(&world, &mut body, start_roll, 1.0 / 60.0, tuning);
+        ticks += 1;
+    }
+    assert!(
+        ticks > 4,
+        "the roll ended in {ticks} ticks — too short to measure"
+    );
+    // ⚠ ONE TICK OF SLACK, AND IT IS THE RIGHT ONE: the roll's own clock is
+    // decremented earlier in the same function than this decay, so on the tick
+    // the roll ENDS the body is already no longer evading and forgiveness
+    // legitimately begins. The defect was thirteen ticks — the whole roll.
+    let bled = armed - body.dodge.stale_decay;
+    assert!(
+        bled <= 1.5 / 60.0,
+        "forgiveness bled {bled:.3}s while the fighter was STILL ROLLING — the \
+         delay is supposed to start when the body stops, and a roll now pays part \
+         of its own penalty away just by happening"
+    );
+
+    // ⛔ AND IT STILL FORGIVES ONCE THE BODY IS IDLE. Without this the fix could
+    // be "never decay", which deletes the mechanic rather than aiming it.
+    let before = body.dodge.evades_recent;
+    for _ in 0..90 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        body.dodge.stale_decay < armed,
+        "forgiveness never ran on an IDLE body, so staling is now permanent"
+    );
+    let _ = before;
+}

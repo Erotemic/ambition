@@ -2054,21 +2054,24 @@ pub fn trigger_moveset_moves(
         {
             continue;
         }
-        // ⛔⛔ A ROLL'S RECOVERY DOES NOT REFUSE MOVES HERE, and the attempt is
-        // worth recording. `dodge_roll_endlag` is published, and gating move
-        // starts on it looks obviously right — the punish window should cost the
-        // roller something. It broke a launch test outright:
-        // `an_up_tilt_launches_much_further_at_a_high_percent` measured a victim
-        // rising 4.5px at 0% and 0.0px at 1427%.
+        // ⭐⭐ A ROLL'S RECOVERY REFUSES MOVES, AND THE PRECONDITION THIS COMMENT
+        // ASKED FOR IS NOW MET. It used to read: *"before this becomes an action
+        // gate, the roll needs a timer that is ITS OWN"* — because
+        // `dodge_roll_timer` is shared with the SPOT DODGE (`facts.spot_dodging`
+        // is a refinement of `dodge_rolling`, not a sibling), so an endlag hung
+        // off its expiry silenced fighters that had only spot-dodged, and gating
+        // on it broke `an_up_tilt_launches_much_further_at_a_high_percent`.
         //
-        // ⭐ THE CAUSE IS THAT `dodge_roll_timer` IS SHARED. The SPOT DODGE runs
-        // on the same field (`facts.spot_dodging` is a refinement of
-        // `dodge_rolling`, not a sibling), so an endlag hung off its expiry
-        // reaches maneuvers that never asked for one — and refusing moves on it
-        // silenced a fighter that had only spot-dodged.
+        // ⇒ THE KERNEL ARMS `dodge_roll_endlag_timer` ONLY FOR A ROLL now
+        // (`if state.dodge_roll_timer <= 0.0 && !state.spot_dodging`), so the
+        // fact reaches exactly the maneuver that owes recovery. The punish
+        // window a roll buys is real: it was canonical state that nothing
+        // consulted, which is a mechanic recorded and not implemented.
         //
-        // ⇒ before this becomes an action gate, the roll needs a timer that is
-        // ITS OWN. The fact stands for animation and AI in the meantime.
+        // ⛔ A SPOT DODGE STILL OWES NOTHING — it never receives this timer.
+        if motion_facts.is_some_and(|facts| facts.dodge_roll_endlag) {
+            continue;
+        }
         // ⭐⭐ AN EVADE IS A COMMITMENT UNTIL ITS TAIL. Today an attack cancels a
         // spot dodge on frame one, which makes the dodge strictly better than
         // the genre's: invulnerable AND instantly actionable. The tail is what

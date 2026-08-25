@@ -392,7 +392,7 @@ fn collect_actor_candidates(
         // "everyone is labelled except the human", and Jon named that on
         // 2026-08-24: *"This is player 1 centric behavior, and we should have
         // none of it."*
-        if fact.controlled && !rank_policy.label_driven_bodies {
+        if fact.driven && !rank_policy.label_driven_bodies {
             continue;
         }
         push_candidate_if_in_range(

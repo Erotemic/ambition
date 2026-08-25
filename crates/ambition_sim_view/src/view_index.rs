@@ -810,7 +810,9 @@ pub struct NameplateFact {
     pub label: String,
     pub center: ae::Vec2,
     pub size: ae::Vec2,
-    pub controlled: bool,
+    /// Is a PARTICIPANT driving this body? ⛔ NOT "is the camera on it" — the
+    /// two were conflated, and `label_driven_bodies` wants this one.
+    pub driven: bool,
 }
 
 /// Per-frame nameplate rows for every eligible (alive, visible) labeled
@@ -857,22 +859,11 @@ impl NameplateIndex {
         self.rows.retain(|_, (_, g)| *g == gen);
     }
 
-    fn upsert(
-        &mut self,
-        id: &str,
-        label: &str,
-        center: ae::Vec2,
-        size: ae::Vec2,
-        controlled: bool,
-    ) {
+    fn upsert(&mut self, id: &str, label: &str, center: ae::Vec2, size: ae::Vec2, driven: bool) {
         let gen = self.generation;
         if let Some(slot) = self.rows.get_mut(id) {
             let f = &slot.0;
-            if f.label == label
-                && f.center == center
-                && f.size == size
-                && f.controlled == controlled
-            {
+            if f.label == label && f.center == center && f.size == size && f.driven == driven {
                 slot.1 = gen;
                 return;
             }
@@ -880,7 +871,7 @@ impl NameplateIndex {
                 label: label.to_string(),
                 center,
                 size,
-                controlled,
+                driven,
             };
             slot.1 = gen;
             return;
@@ -892,7 +883,7 @@ impl NameplateIndex {
                     label: label.to_string(),
                     center,
                     size,
-                    controlled,
+                    driven,
                 },
                 gen,
             ),
@@ -903,8 +894,6 @@ impl NameplateIndex {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_nameplate_index(
     mut index: ResMut<NameplateIndex>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    primary_player: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     views: Res<FeatureViewIndex>,
     actors: Query<
         (
@@ -915,19 +904,30 @@ pub fn rebuild_nameplate_index(
             Option<&ambition_characters::actor::BodyCombat>,
             Option<&ambition_characters::actor::BodyHealth>,
             Option<&BossPhase>,
+            // ⭐⭐ IS THIS BODY DRIVEN — asked of the body, not of the camera.
+            bevy::prelude::Has<ambition_characters::control::DrivingParticipant>,
         ),
         With<FeatureSimEntity>,
     >,
 ) {
-    // The camera/HUD/nameplates all follow the CONTROLLED SUBJECT — the body
-    // holding `DrivingParticipant(PRIMARY)` — with the primary-player fallback
-    // for the startup frame before the subject resolver has run.
-    let controlled_body = controlled
-        .as_deref()
-        .and_then(|subject| subject.0)
-        .or_else(|| primary_player.single().ok());
+    // ⛔⛔ A PLURAL POLICY WAS PROJECTED FROM ONE SINGULAR BODY. The room rule
+    // `label_driven_bodies` is documented to apply uniformly to every body
+    // SOMEBODY IS DRIVING, and this computed a single `controlled_body` from
+    // `ControlledSubject` (the CAMERA's focus, with a `PrimaryPlayer` fallback)
+    // and flagged each row by `Some(entity) == controlled_body`. In a couch match
+    // that suppresses ONE driven fighter's plate and leaves the other's.
+    //
+    // ⭐ `DrivingParticipant` IS THE AUTHORITY AND ALREADY EXISTS —
+    // `ControlledBodiesView` projects it correctly and says why in its own
+    // comment: *"a couch-versus match has two driven bodies and neither is more
+    // protected than the other"*.
+    //
+    // ⇒ THE BUG WAS A CONFLATION of two different facts: the ONE body
+    // presentation focuses on, versus ANY body a participant drives. The plate
+    // policy wants the second.
+
     index.begin_rebuild();
-    for (entity, feature_id, identity, aabb, _combat, health, boss_phase) in &actors {
+    for (_entity, feature_id, identity, aabb, _combat, health, boss_phase, driven) in &actors {
         // Dead actors carry no plate (defeated boss / drained pool).
         if boss_phase.is_some_and(|phase| phase.is_defeated())
             || health.is_some_and(|health| !health.alive())
@@ -941,13 +941,7 @@ pub fn rebuild_nameplate_index(
         if !visible {
             continue;
         }
-        index.upsert(
-            feature_id.as_str(),
-            identity.name(),
-            center,
-            size,
-            Some(entity) == controlled_body,
-        );
+        index.upsert(feature_id.as_str(), identity.name(), center, size, driven);
     }
     index.end_rebuild();
 }
@@ -1163,6 +1157,63 @@ mod view_index_tests {
             idx.get("a").and_then(|v| v.render_size),
             Some(ae::Vec2::new(30.0, 40.0)),
             "changed facts are re-materialized, not stuck on the old snapshot"
+        );
+    }
+}
+
+#[cfg(test)]
+mod driven_nameplate_tests {
+    use super::*;
+
+    /// EVERY DRIVEN BODY IS DRIVEN — not just the one the camera is on.
+    ///
+    /// ⛔⛔ THE POLICY IS PLURAL AND THE PRODUCER WAS SINGULAR.
+    /// `label_driven_bodies` applies uniformly to every body somebody is
+    /// driving, and this flag was computed as `Some(entity) == controlled_body`
+    /// against `ControlledSubject` — the CAMERA's focus, with a `PrimaryPlayer`
+    /// fallback. In a couch match that suppresses one driven fighter's plate and
+    /// leaves the other's, which is the room policy applied to half the room.
+    ///
+    /// ⛔ NO PRIMARY DISTINCTION APPEARS IN THIS TEST, deliberately: the moment
+    /// one does, the old conflation is back.
+    #[test]
+    fn two_driven_bodies_are_both_driven_and_an_undriven_one_is_not() {
+        use ambition_characters::control::DrivingParticipant;
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<NameplateIndex>();
+        app.init_resource::<FeatureViewIndex>();
+        app.add_systems(bevy::prelude::Update, rebuild_nameplate_index);
+
+        let body = |app: &mut bevy::prelude::App, id: &str, driver: Option<u8>| {
+            let mut e = app.world_mut().spawn((
+                FeatureSimEntity,
+                FeatureId(id.to_string()),
+                ActorIdentity::new(id.to_string(), id.to_string()),
+                CenteredAabb::new(
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    ambition_platformer2d_core::Vec2::new(16.0, 32.0),
+                ),
+            ));
+            if let Some(slot) = driver {
+                e.insert(DrivingParticipant(
+                    ambition_characters::control::PlayerSlot(slot),
+                ));
+            }
+        };
+        // TWO drivers, and a body nobody drives.
+        body(&mut app, "a", Some(0));
+        body(&mut app, "b", Some(1));
+        body(&mut app, "c", None);
+        app.update();
+
+        let index = app.world().resource::<NameplateIndex>();
+        let driven_of = |id: &str| index.rows.get(id).map(|(fact, _)| fact.driven);
+        assert_eq!(
+            (driven_of("a"), driven_of("b"), driven_of("c")),
+            (Some(true), Some(true), Some(false)),
+            "a driven body was not reported as driven — the flag is still asking \
+             which ONE body the camera is on rather than which bodies have a \
+             participant driving them"
         );
     }
 }

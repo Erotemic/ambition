@@ -10452,9 +10452,25 @@ an honest widening from the "hand-kept ledger" its sibling warns about.
 ⇒ **REMOVING A SPURIOUS MECHANIC RE-TUNES EVERYTHING BUILT ON IT**, exactly as
 waking a dormant one does.
 
-▢ LIVE MOVEMENT (the rest of the pass): **(18) roll ENDLAG
-is canonical state NOTHING REFUSES ATTACKS FOR** — the comment explaining why it
-is unenforced describes the OLD shared-timer problem that HEAD already fixed;
+▢ LIVE MOVEMENT (the rest of the pass): ⭐⭐ **(18) CLOSED 2026-08-25 — AND THE
+COMMENT NAMED ITS OWN PRECONDITION.** It read *"before this becomes an action
+gate, the roll needs a timer that is ITS OWN"*, because `dodge_roll_timer` is
+shared with the SPOT DODGE and gating on it silenced fighters that had only
+spot-dodged — it even recorded the launch test that broke. HEAD arms
+`dodge_roll_endlag_timer` only for a roll, so the precondition is MET; the gate is
+in, and the named test (`an_up_tilt_launches_much_further_at_a_high_percent`)
+PASSES with it. A roll's punish window was canonical state nothing consulted — a
+mechanic recorded and not implemented.
+
+⭐ **AND (37), FROM THE GAP PASS, CLOSED WITH IT** — same family, same file:
+`spend_evade` promises the stale count "only starts coming down once the body
+actually stops" and the decay ticked from the moment the evade was ACCEPTED, so a
+0.22s roll spent ~18% of Smash's 1.2s forgiveness performing the maneuver the
+delay exists to charge for. Gated on the MANEUVER clocks (not the i-frame clock —
+forgiveness must not speed up because the fighter has been spamming). ⚠ THE
+EXISTING DECAY TEST SEEDS STALE STATE ON AN IDLE BODY, so it never ran an accepted
+evade through its own maneuver: the fourth fixture today that omitted the state
+its bug lived in.
 **(19) ROOTED MOVES ERASE STICK HISTORY** — `damped_by_move_motion` zeroes
 locomotion before the kernel sees it, so `prev_steer_dir` records 0 and merely
 HOLDING a direction through a rooted attack grants a free initial dash when it
@@ -10584,6 +10600,78 @@ omitted the state its bug lived in; **(36) borrowed archetype movesets
 use STRING SURGERY as identity** — `under_own_name` strips caller-supplied
 prefixes and panics on a move that follows none, and shipped tables already use
 two conventions, so every future move-id-referencing field is a new obligation.
+
+- ▢ **D240 — THE GAP PASS: THREE MORE, AND A CORRECTION THAT MATTERS MORE THAN
+  THEY DO. (opened 2026-08-25)**
+
+⭐⭐⭐ **THE CORRECTION FIRST — IT CHANGES HOW 4/5 GETS BUILT.** *Do not wire
+gameplay to the existing `BodyHitResolved`.* It is `#[cfg(feature = "causal")]`,
+its writer is `Option`, and its own comments guarantee nothing in the simulation
+reads it. Depending on it inverts the dependency: an OPTIONAL INSPECTOR becomes
+REQUIRED GAMEPLAY AUTHORITY. ⇒ publish an unconditional resolved-hit fact that
+simulation consumes, and let the inspector DERIVE the causal message from it.
+Reuse the resolution VOCABULARY, not the channel. ⭐ I reached the same
+conclusion independently while scoping the split and refused to reuse it — the
+agreement is worth recording because it is the one design decision most likely to
+be taken the wrong way round by a later session.
+
+⭐⭐ **(38) CLOSED 2026-08-25.** The flag now asks each body
+`Has<DrivingParticipant>`, and the singular `ControlledSubject` /
+`PrimaryPlayer` params are DELETED rather than left bound. Renamed
+`controlled` → `driven`, because the CONFLATION was the bug. The regression
+contains no PRIMARY distinction at all — the moment one appears the old reading
+is back. ⚠ ALSO FOUND ON THE WAY: `ambition_render` was RED on a hand-kept
+west-drawn-sheet list that the new Author/Officer paperdolls extend (they borrow
+Pointed Polygon's art and declare `authored_faces_left: true`). ⛔⛔ MY EARLIER
+68-CRATE SWEEP CHECKED COMPILATION, NOT TEST PASSES — `cargo check --all-targets`
+would never have caught it. **A crate's suite can be red while the gate and the
+app suite are green.**
+
+▢ ~~(38) THE NAMEPLATE POLICY IS PLURAL AND ITS PRODUCER IS SINGULAR.~~
+`label_driven_bodies` is documented to apply uniformly to every body SOMEBODY IS
+DRIVING, but `rebuild_nameplate_index` computes ONE `controlled_body` from
+`ControlledSubject` (or a `PrimaryPlayer` fallback) and sets each row's flag by
+`Some(entity) == controlled_body`. ⚠ MASKED IN SMASH, which labels driven
+fighters; it breaks a multi-driver room with the opposite policy, where P1's body
+is suppressed and P2's still gets a plate. ⭐ THE PLURAL AUTHORITY ALREADY EXISTS:
+`DrivingParticipant`, and `ControlledBodiesView` already projects it correctly —
+its own comment says *"a couch-versus match has two driven bodies and neither is
+more protected than the other"*. ⇒ read `Has<DrivingParticipant>` per body, and
+rename the flag `controlled` → `driven`: the bug IS the conflation of "the body
+the camera focuses on" with "any body a participant drives".
+
+▢ **(39) DIRECTIONAL MELEE IS RECONSTRUCTED FROM MOVE-ID SPELLING.**
+`attack_intent_from_move_id` matches a seven-entry canonical vocabulary
+(`attack_up`, `attack_air_back`, …) and falls through to `Forward`. Pointed
+authors `polygon_tilt_up`, Pugnacious `polygon_brawler_air_back`, and the
+borrowed fighters add another prefix — so ALL of them synthesise `Forward`. ⚠ NOT
+A HITBOX BUG (`MovePlayback` stays authoritative for geometry, and the pose path
+prefers the authored clip), but `BodyMelee.swing.spec.intent` is canonical-looking
+read-model state that animation, the HUD and gizmos consume. ⛔ THE COMMENT ABOVE
+`synth_swing_from_move` claims *"the move's directional variant id carries the
+swing direction"*, which is simply untrue for shipped content. ⇒ capture the
+semantic `AttackIntent` where it is already known — gesture/action resolution —
+and carry it on the accepted playback. DO NOT improve the string parser.
+
+▢ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
+reviewer found no currently-broken Author/Officer cancel reference, so do not
+invent one. The real hazard is that move IDs also live OUTSIDE `MovesetContract`
+— `HurtboxDoc::moves` is keyed by move id — and `under_own_name` cannot discover
+or rewrite them. ⇒ either make remapping a SCHEMA operation
+(`MovesetContract::remap_move_ids`) so the crate owning every internal reference
+owns the traversal, or better: keep archetype-local move keys and separate them
+from CAUSAL IDENTITY, which the runtime already does (`SubjectKey::Sim(identity)`
++ `move_id`). ⚠ THE HELPER'S PREMISE IS QUESTIONABLE: there is no architectural
+requirement that every fighter have globally distinct move keys.
+
+⭐ RECHECKED WITH NO DEFECT: HUD punch (the intermediate bug is fixed at HEAD —
+do not report it), held-Special charge propagation, shield-tilt geometry vs
+presentation, trade recoil, deterministic item spawning, the rest of the
+`stocks_match` machine, fixed-knockback/transcendent-hit (inventory work, not
+runtime), rollback registration of every new canonical field, camera reset,
+crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
+frame. A targeted rescan for direct world-axis mutations and allocator identities
+led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
 ## Standing continuation rule
 

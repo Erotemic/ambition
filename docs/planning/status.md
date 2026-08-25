@@ -35,6 +35,19 @@ geometry and a parry — no i-frame check); and adding the hold to
 `apply_player_hit_events` enlarges a system whose own comments say TWICE that it
 is at Bevy's param ceiling, which is exactly what the review's item 16 forbids.
 
+⭐⭐ **AND THE GAP REVIEW CONFIRMS THE SHAPE — read this before reaching for the
+existing `BodyHitResolved`.** Its correction to findings 4/5, verbatim in effect:
+*do not wire gameplay to the current `BodyHitResolved`*. That type is
+`#[cfg(feature = "causal")]`, its writer is `Option`, and its own comments
+guarantee nothing in the simulation reads it. Depending on it would invert the
+dependency — an OPTIONAL INSPECTOR becoming REQUIRED GAMEPLAY AUTHORITY.
+
+⇒ **THE DIRECTION IS THE OTHER WAY ROUND**: publish an unconditional resolved-hit
+fact that simulation consumes, and let the causal inspector DERIVE
+`BodyHitResolved` from it. What is worth reusing is the resolution VOCABULARY
+(`BodyHitResolution`, resolved damage, resolved hitlag, reaction kind, whether it
+counts as an offensive connect), not the causal message.
+
 **THE BLAST RADIUS, TRACED 2026-08-25 so the next session does not re-derive it:**
 
 ```text

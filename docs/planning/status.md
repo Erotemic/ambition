@@ -35,6 +35,26 @@ geometry and a parry — no i-frame check); and adding the hold to
 `apply_player_hit_events` enlarges a system whose own comments say TWICE that it
 is at Bevy's param ceiling, which is exactly what the review's item 16 forbids.
 
+**THE BLAST RADIUS, TRACED 2026-08-25 so the next session does not re-derive it:**
+
+```text
+1  define ResolvedBodyHit { victim, hitlag_s }   beside LandedBodyHit
+2  add a `resolved` MessageWriter to BOTH writer bundles — the roads differ:
+       player victim  -> BodyDeathWriters   (damage_apply.rs ~366)
+       actor victim   -> FeatureHitWriters  (damage/mod.rs ~80)
+   ⛔ NOT `Option` and NOT cfg(causal): the freeze is SIMULATION. The existing
+   `BodyHitResolved` on that bundle is instrument-only and says so — reusing it
+   would make an inspector load-bearing, which its own doc forbids.
+3  publish right after `apply_body_hit_reaction`, where `combat.hitstop_timer`
+   now holds the resolved value. Mirror `publish_reaction`'s shape: a helper
+   with a no-op fallback so call sites carry no `cfg`.
+4  impact_hitstop consumes ResolvedBodyHit instead of LandedBodyHit
+5  register the message + clear_message_on_rollback (a new channel owes both)
+6  its four tests INJECT hitstop_timer today — rewrite them onto the real road
+```
+
+⭐ NO DOUBLE-FIRE RISK: a hit takes exactly ONE of the two roads, by victim kind.
+
 ⭐ **THE SEAM TO USE IS `ambition_combat::hit_reaction::apply_body_hit_reaction`**
 — the one function all three roads (player, actor, boss) pass through, and where
 `hitstop_timer` is actually written. Have it yield the resolved hitlag, publish a

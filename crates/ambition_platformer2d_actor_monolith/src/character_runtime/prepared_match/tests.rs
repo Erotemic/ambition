@@ -1133,6 +1133,8 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         parry_timing: ambition_platformer2d_core::ParryTiming::OnRaise,
         sdi_step: 3.0,
         asdi_step: 6.0,
+        jab_lock_speed: 320.0,
+        jab_lock_limit: 3,
         shield: ambition_platformer2d_core::ShieldTuning::OFF,
         footstool: ambition_platformer2d_core::FootstoolTuning::OFF,
         crouch_speed_frac: 1.0,

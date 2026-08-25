@@ -190,6 +190,10 @@ pub struct EditableMovementTuning {
     pub sdi_step: f32,
     /// One displacement per hit, paid when hitlag ends. A feel slider.
     pub asdi_step: f32,
+    /// The jab lock, carried through an edit rather than edited: how weak a hit
+    /// pins a downed body, and how many pins before it resets.
+    pub jab_lock_speed: f32,
+    pub jab_lock_limit: u8,
     /// See [`ae::MovementTuning::spot_dodge_time`] — 0.0 means the grounded
     /// evade is always the roll.
     pub spot_dodge_time: f32,
@@ -329,6 +333,8 @@ impl EditableMovementTuning {
             tumble_speed: self.tumble_speed,
             sdi_step: self.sdi_step,
             asdi_step: self.asdi_step,
+            jab_lock_speed: self.jab_lock_speed,
+            jab_lock_limit: self.jab_lock_limit,
             spot_dodge_time: self.spot_dodge_time,
             //  NOT editable: a parry-timing swap is a rules DECLARATION about
             // which game a stage reproduces, not a slider to drag mid-session.
@@ -428,6 +434,8 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             tumble_speed: value.tumble_speed,
             sdi_step: value.sdi_step,
             asdi_step: value.asdi_step,
+            jab_lock_speed: value.jab_lock_speed,
+            jab_lock_limit: value.jab_lock_limit,
             spot_dodge_time: value.spot_dodge_time,
             parry_window_time: value.parry_window_time,
             shield_max_health: value.shield.max_health,

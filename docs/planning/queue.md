@@ -9686,6 +9686,46 @@ clears it. Both answered in the same commit rather than defaulted into.
 
 Wire format v95.
 
+- ✔ **D222 — CLOSED 2026-08-25. THE JAB LOCK: A DOWNED OPPONENT IS A POSITION
+  TO READ, NOT A FREE RESET. (opened and closed 2026-08-25)**
+
+A weak launch landing on a body already in knockdown re-pins it where it lies
+instead of throwing it — `jab_lock_speed` 320 for Smash, `jab_lock_limit` 3,
+and `0.0` disables the rule for every other world.
+
+⭐ **ASKED AT THE ONE LAUNCH GATEWAY**, beside `launch_into_tumble`, and the
+comment already sitting there argues the case: whether a body is prone is
+model-private maneuver state, the reaction that resolved the knockback does not
+hold it, and "asking it at the one gateway every launch already passes through
+is what keeps it from being a follow-up call some caller forgets."
+
+⛔ **A SPEED THRESHOLD, NOT A MOVE LIST.** A jab is worth a few hundred px/s and
+a smash thousands, so "poke a downed opponent" separates itself from "commit to
+a launch" without naming a single move — which is the exemption-list failure the
+out-of-shield policy was written to avoid.
+
+⛔⛔ **THE BOUND IS THE MECHANIC.** Unbounded, this is an infinite: weak hit,
+re-pin, forever. The dangerous wrong version is not "it never fires" but "it
+always fires", and a happy-path test would not notice either. The limit is
+poisoned separately and reddens on its own arm.
+
+⭐⭐ **AND THE WIRING ARM WAS PASSING FOR THE WRONG REASON — the poison caught
+it, not the test.** Arm 6 originally asserted that a pinned body does not MOVE.
+Removing the gateway call entirely left it green: a prone body's velocity is
+zeroed by the knockdown itself, so it stays put whether or not the pin fired.
+The observable had to be `jab_locks`, which one function writes and only the
+gateway can reach. ⇒ **when the state under test already suppresses the thing
+you are measuring, position proves nothing** — measure the side effect that only
+the new code can produce. Arm 7 then checks the gateway does not swallow
+everything: a launch far above the threshold still leaves the floor.
+
+⭐ Also corrected the **Cannot-tech hit property** row to ◐: the architecture it
+asks for is already built and by a DERIVED answer — `tumble_untechable` is
+stamped at the launch and the tech system owns eligibility. What is missing is
+only an authoring OVERRIDE, which wants a customer.
+
+Wire format v96.
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

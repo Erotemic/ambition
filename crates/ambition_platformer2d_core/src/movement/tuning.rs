@@ -550,6 +550,26 @@ pub struct MovementTuning {
     /// one that counts. Paying it at the start would just be one more SDI tick.
     #[serde(default)]
     pub asdi_step: f32,
+    /// THE JAB LOCK — how weak a hit has to be to pin a body that is already
+    /// PRONE instead of launching it. `0.0` (the default) disables the rule
+    /// entirely: a hit on a downed body launches exactly as it always did.
+    ///
+    /// A launch at or below this speed, landing on a body in knockdown,
+    /// re-pins it rather than throwing it, which is what makes a downed
+    /// opponent a position to be read rather than a free reset. A hit ABOVE it
+    /// launches normally — you cannot pin someone with a smash attack.
+    ///
+    /// ⛔ IT MUST BE BOUNDED, and [`Self::jab_lock_limit`] is the bound. An
+    /// unbounded version is an infinite: weak hit, re-pin, weak hit, forever.
+    #[serde(default)]
+    pub jab_lock_speed: f32,
+    /// How many times in a row a prone body may be pinned before the next hit
+    /// launches it whatever its speed — the RESET half of the jab lock.
+    ///
+    /// `0` with a non-zero [`Self::jab_lock_speed`] would be a rule that never
+    /// fires; the pair is authored together or not at all.
+    #[serde(default)]
+    pub jab_lock_limit: u8,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
@@ -853,6 +873,12 @@ pub struct TraversalAbilityTuning {
     /// See [`TraversalAbilityTuning::asdi_step`].
     #[serde(default)]
     pub asdi_step: f32,
+    /// See [`TraversalAbilityTuning::jab_lock_speed`].
+    #[serde(default)]
+    pub jab_lock_speed: f32,
+    /// See [`TraversalAbilityTuning::jab_lock_limit`].
+    #[serde(default)]
+    pub jab_lock_limit: u8,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
@@ -1292,6 +1318,8 @@ impl MovementTuning {
                 parry_timing: self.parry_timing,
                 sdi_step: self.sdi_step,
                 asdi_step: self.asdi_step,
+                jab_lock_speed: self.jab_lock_speed,
+                jab_lock_limit: self.jab_lock_limit,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
                 footstool: self.footstool,
@@ -1411,6 +1439,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // influence its way out of.
     sdi_step: 0.0,
     asdi_step: 0.0,
+    jab_lock_speed: 0.0,
+    jab_lock_limit: 0,
     parry_window_time: PARRY_WINDOW_TIME,
     shield: ShieldTuning::OFF,
     footstool: FootstoolTuning::OFF,

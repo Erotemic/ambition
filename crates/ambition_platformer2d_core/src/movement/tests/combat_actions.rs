@@ -2179,3 +2179,152 @@ fn a_ground_roll_ends_stopped_but_never_eats_a_launch() {
         nudged.kinematics.vel.dot(side)
     );
 }
+
+/// A WEAK HIT PINS A DOWNED BODY; A STRONG ONE STILL LAUNCHES IT; AND THE PIN
+/// RUNS OUT.
+///
+/// Five arms, because a jab lock is defined by its three refusals as much as by
+/// what it does. The dangerous wrong version is not "it never fires" — it is
+/// "it always fires", which is an infinite that no test asserting only the
+/// happy path would notice.
+#[test]
+fn a_weak_hit_pins_a_downed_body_but_the_lock_is_bounded() {
+    use crate::movement::knockdown::jab_lock;
+
+    const WEAK: f32 = 200.0;
+    const STRONG: f32 = 900.0;
+
+    let armed = || {
+        let mut tuning = TEST_TUNING;
+        tuning.base.jab_lock_speed = 320.0;
+        tuning.base.jab_lock_limit = 3;
+        tuning
+    };
+    // A body already on the floor.
+    let prone = || {
+        let mut state = crate::movement::AxisManeuverState::default();
+        state.knockdown_timer = crate::movement::knockdown::KNOCKDOWN_TIME;
+        state
+    };
+
+    // ARM 1 — THE PIN. A weak hit on a downed body does not launch it.
+    let mut state = prone();
+    assert!(
+        jab_lock(&mut state, armed().params(), WEAK),
+        "a weak hit on a downed body did not pin it"
+    );
+    assert!(
+        state.knockdown_timer > 0.0,
+        "the pin left the body no longer prone, so it pinned nothing"
+    );
+
+    // ARM 2 — A STRONG HIT STILL LAUNCHES. You cannot pin somebody with a
+    // smash; without this the rule would swallow every follow-up.
+    let mut state = prone();
+    assert!(
+        !jab_lock(&mut state, armed().params(), STRONG),
+        "a hit far above the declared speed was allowed to pin"
+    );
+
+    // ARM 3 — A BODY THAT IS NOT DOWN IS NOT PINNABLE. There is nothing to lock
+    // about a body standing up.
+    let mut standing = crate::movement::AxisManeuverState::default();
+    assert!(
+        !jab_lock(&mut standing, armed().params(), WEAK),
+        "a body that was not prone at all was pinned"
+    );
+
+    // ARM 4 — THE BOUND, and this is the arm that matters. Three pins, then the
+    // fourth weak hit launches whatever it is worth.
+    let mut state = prone();
+    for i in 0..3 {
+        assert!(
+            jab_lock(&mut state, armed().params(), WEAK),
+            "pin {i} was refused before the declared limit of 3"
+        );
+    }
+    assert!(
+        !jab_lock(&mut state, armed().params(), WEAK),
+        "the jab lock had no bound — a fourth pin means an infinite"
+    );
+
+    // ARM 5 — A BODY THAT DECLARES NOTHING IS UNTOUCHED, which is every body
+    // outside a match. Asserted against a body that IS prone and a hit that IS
+    // weak, so it cannot pass for want of the situation.
+    let mut state = prone();
+    assert!(
+        !jab_lock(&mut state, TEST_TUNING.params(), WEAK),
+        "a body declaring no jab lock pinned anyway"
+    );
+
+    // ARM 6 — THE WIRING, not the rule. Everything above proves the FUNCTION
+    // answers correctly and nothing about whether the launch gateway asks it.
+    // Drive a real weak launch at a real prone body through the kernel and the
+    // body must not move.
+    let world = test_world();
+    let mut tuning = floor_game_tuning();
+    tuning.jab_lock_speed = 320.0;
+    tuning.jab_lock_limit = 3;
+    let mut scratch = scratch_at(world.spawn);
+    for _ in 0..40 {
+        crate::test_support::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    scratch.axis_mut().knockdown_timer = crate::movement::knockdown::KNOCKDOWN_TIME;
+    let resting = scratch.kinematics.pos;
+    scratch.flight.pending_launch = Vec2::new(WEAK, 0.0);
+    crate::test_support::update_player_with_tuning_scratch(
+        &world,
+        &mut scratch,
+        InputState::default(),
+        1.0 / 60.0,
+        tuning,
+    );
+    // ⛔ NOT MEASURED BY POSITION. A prone body's velocity is zeroed by the
+    // knockdown itself, so it stays put whether or not the pin fired —
+    // removing the gateway call left a position assertion perfectly green.
+    // `jab_locks` is written by ONE function and reachable only through the
+    // gateway, so it answers the wiring question and nothing else.
+    let _ = resting;
+    assert_eq!(
+        scratch.axis().jab_locks,
+        1,
+        "the launch gateway never asked about the pin"
+    );
+    assert!(
+        scratch.axis().tumble_timer <= 0.0,
+        "the pinned body was tumbled as well as pinned"
+    );
+
+    // ARM 7 — AND THE GATEWAY DOES NOT SWALLOW EVERYTHING. The same body, a
+    // launch far above the threshold, still leaves the floor.
+    let mut launched = scratch_at(world.spawn);
+    for _ in 0..40 {
+        crate::test_support::update_player_with_tuning_scratch(
+            &world,
+            &mut launched,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    launched.axis_mut().knockdown_timer = crate::movement::knockdown::KNOCKDOWN_TIME;
+    launched.flight.pending_launch = Vec2::new(1400.0, -260.0);
+    crate::test_support::update_player_with_tuning_scratch(
+        &world,
+        &mut launched,
+        InputState::default(),
+        1.0 / 60.0,
+        tuning,
+    );
+    assert_eq!(
+        launched.axis().jab_locks,
+        0,
+        "a launch far above the threshold was pinned instead of thrown"
+    );
+}

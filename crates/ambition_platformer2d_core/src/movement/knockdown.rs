@@ -58,6 +58,37 @@ pub const GETUP_ROLL_SPEED: f32 = 320.0;
 /// write the timer itself; it says *this body was launched at this speed* and
 /// the kernel decides whether that is a tumble at all. `tumble_speed <= 0.0`
 /// (the default) means this body does not tumble, and the call is a no-op.
+/// THE JAB LOCK — does this launch PIN a body that is already prone, instead of
+/// throwing it? Answers `true` when it pinned, and the caller must then not
+/// apply the launch at all.
+///
+/// ⭐ ASKED AT THE ONE LAUNCH GATEWAY, beside `launch_into_tumble`, and for the
+/// same reason: whether a body is prone is model-private maneuver state, and the
+/// reaction that resolved the knockback does not hold it. A rule asked anywhere
+/// else would be a follow-up call some caller forgets.
+///
+/// THREE THINGS HAVE TO BE TRUE and each is a different half of the mechanic:
+/// the body is prone (there is nothing to lock otherwise), the hit is WEAK
+/// enough (a smash launches whatever you are doing), and the lock has not been
+/// spent (`jab_lock_limit`) — which is the reset that keeps this from being an
+/// infinite.
+pub fn jab_lock(state: &mut AxisManeuverState, tuning: AxisSweptParams, launch_speed: f32) -> bool {
+    let speed = tuning.abilities.jab_lock_speed;
+    if speed <= 0.0 || state.knockdown_timer <= 0.0 {
+        return false;
+    }
+    if launch_speed > speed || state.jab_locks >= tuning.abilities.jab_lock_limit {
+        return false;
+    }
+    state.jab_locks = state.jab_locks.saturating_add(1);
+    // The pin RESTARTS the floor game rather than extending it, so a locked
+    // body owes the same beat it owed the first time and the attacker's read is
+    // the same read. `max` so a pin can never SHORTEN a knockdown already
+    // running longer than the standard one.
+    state.knockdown_timer = state.knockdown_timer.max(KNOCKDOWN_TIME);
+    true
+}
+
 pub fn launch_into_tumble(
     state: &mut AxisManeuverState,
     tuning: AxisSweptParams,
@@ -303,6 +334,9 @@ pub(super) fn tick_knockdown(
         return without_evade(input);
     }
     state.knockdown_timer = KNOCKDOWN_TIME;
+    // A FRESH knockdown, so the lock budget is fresh too: the count bounds one
+    // trip through the floor game, not a whole stock.
+    state.jab_locks = 0;
     kinematics.vel = crate::Vec2::ZERO;
     events.op_clusters(combo_trace, MovementOp::Knockdown);
     InputState::default()

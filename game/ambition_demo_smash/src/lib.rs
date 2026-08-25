@@ -269,6 +269,13 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // lifts. It is what a defender gets out of a MULTIHIT, whose one-tick
         // freezes are worth almost nothing to `sdi_step`.
         asdi_step: 6.0,
+        // ⭐ A JAB IS WORTH A FEW HUNDRED px/s and a smash is worth thousands,
+        // so this threshold separates "poke a downed opponent" from "commit to
+        // a launch" without naming a single move.
+        jab_lock_speed: 320.0,
+        // Three pins and the floor game resets — a real combo route, short of
+        // an infinite.
+        jab_lock_limit: 3,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
         footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
         // A CROUCH PLANTS YOU. The genre's answer, and research rather than a

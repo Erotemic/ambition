@@ -774,6 +774,10 @@ pub struct MatchBody {
     pub sdi_step: f32,
     /// See [`crate::TraversalAbilityTuning::asdi_step`].
     pub asdi_step: f32,
+    /// See [`crate::TraversalAbilityTuning::jab_lock_speed`].
+    pub jab_lock_speed: f32,
+    /// See [`crate::TraversalAbilityTuning::jab_lock_limit`].
+    pub jab_lock_limit: u8,
     /// The guard as a resource: integrity that drains while held and breaks
     /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
     /// unlimited guard an exploration body keeps.
@@ -820,6 +824,8 @@ impl MatchBody {
             parry_timing: self.parry_timing,
             sdi_step: self.sdi_step,
             asdi_step: self.asdi_step,
+            jab_lock_speed: self.jab_lock_speed,
+            jab_lock_limit: self.jab_lock_limit,
             shield: self.shield,
             footstool: self.footstool,
             crouch_speed_frac: self.crouch_speed_frac,
@@ -870,6 +876,13 @@ mod tests {
             parry_timing: crate::ParryTiming::OnRaise,
             sdi_step: 3.0,
             asdi_step: 6.0,
+            // A jab is worth a few hundred px/s; a tilt or a smash is worth
+            // thousands. So this separates "poke a downed opponent" from
+            // "commit to a launch", which is the read the mechanic exists for.
+            jab_lock_speed: 320.0,
+            // Three pins and the floor game resets. Enough to be a real combo
+            // route, short of an infinite. ⚠ a starting point: play it.
+            jab_lock_limit: 3,
             shield: crate::ShieldTuning::PLATFORM_FIGHTER,
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
             crouch_speed_frac: 1.0,

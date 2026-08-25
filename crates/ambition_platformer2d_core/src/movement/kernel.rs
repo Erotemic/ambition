@@ -6,15 +6,15 @@
 //! plus the complete world-space acceleration for the body tick. It never lives
 //! inside a model spec and is never rebuilt by an individual solver.
 
-use crate::collision_semantics::{supporting_block, Contact, ContactKind};
+use crate::collision_semantics::{Contact, ContactKind, supporting_block};
 use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
 use super::model::MotionModel;
 use super::surface_momentum::{self, SurfaceBody, SurfaceInputs};
 use super::{
-    touching_hazard_aabb, touching_rebound_aabb, FrameEvents, GroundContactTransition, InputState,
-    ResetCause,
+    FrameEvents, GroundContactTransition, InputState, ResetCause, touching_hazard_aabb,
+    touching_rebound_aabb,
 };
 
 /// One deterministic movement tick's complete external context.
@@ -262,6 +262,13 @@ fn accept_external_launch(
         // single story for every model, so a reader does not have to know which arm secretly relies
         // on a second write somewhere else.
         MotionModel::AxisSwept(axis) => {
+            // ⛔ THE JAB LOCK IS ASKED FIRST, because a pin is the ABSENCE of a
+            // launch: a body already prone that takes a weak hit is re-pinned
+            // where it lies, and assigning the velocity before asking would
+            // slide it away from the spot the attacker is standing over.
+            if super::knockdown::jab_lock(&mut axis.state, axis.params, launch.length()) {
+                return;
+            }
             clusters.kinematics.vel = launch;
             // and the floor game starts HERE, for the same reason the drain
             // is here. "Was this launch big enough to send the body tumbling"

@@ -141,6 +141,13 @@ pub struct AxisManeuverState {
     /// `0.0` for the spot dodge, which covers no distance and has nothing to
     /// shed.
     pub dodge_roll_push: f32,
+    /// How many times this trip through the floor game has been PINNED by a
+    /// weak hit — the jab lock's budget
+    /// ([`crate::TraversalAbilityTuning::jab_lock_limit`]).
+    ///
+    /// Zeroed when a fresh knockdown starts, so it bounds one knockdown rather
+    /// than a whole stock. Without a bound the rule is an infinite.
+    pub jab_locks: u8,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -266,6 +273,7 @@ impl Default for AxisManeuverState {
             blink_grace_timer: 0.0,
             dodge_roll_timer: 0.0,
             dodge_roll_push: 0.0,
+            jab_locks: 0,
             ledge_invuln_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,

@@ -9359,9 +9359,10 @@ their own low damage while the tied sides go to 150%, so the side that LOST the
 tiebreak enters the round ahead. Both wrong readings are poisoned: carry every
 survivor, and skip the else arm.
 
-- ▢ **D215 — A HIT CAN ONLY HURT. There is no way to author a volume that PUSHES
-  and nothing else. (opened 2026-08-25, promoted from the smash-parity inventory
-  at Jon's direction: "keep pushing smash parity for the mechanics")**
+- ◐ **D215 — MECHANISM LANDED 2026-08-25 (`e06333002`), AWAITING A CUSTOMER. A
+  hit could only hurt; there was no way to author a volume that PUSHES and
+  nothing else. (opened 2026-08-25, promoted from the smash-parity inventory at
+  Jon's direction: "keep pushing smash parity for the mechanics")**
 
 `smash-parity-inventory.md` rows *Windboxes / flinchless push* and *Vacuum /
 suction hitboxes* are one primitive, not two: a hit reaction that applies
@@ -9395,6 +9396,29 @@ green and inert, which this demo has now done three times.
 ⚠ a windbox that hits repeatedly is the POINT (a gust pushes for as long as you
 stand in it), so check what the hit-repeat window does to it rather than
 inheriting the ordinary answer.
+
+✔ **LANDED, AND IT WAS HALF-BUILT ALREADY.** `damage_floor` had already been
+taught that a damageless volume is a windbox, so such a volume was authorable and
+already LAUNCHED. What it still did was stun its victim and spend its hit-once
+slot. The slice is therefore only the remaining difference: `flinchless` (the
+pulse declines to charge hitstun) and `repeating` (an authored opt-out of the
+hit-once set). Three tests, each poisoned.
+
+⛔ **THE FIRST DRAFT WAS WRONG AND IS WORTH REMEMBERING**: `WindboxVolume` was
+given its own `push` vector, which duplicates `knockback` + `launch_dir` — two
+ways to author one thing. A gust is thrown the same way a punch is; the type
+carries only what the ordinary fields cannot say.
+
+⛔ **AND `flinchless` DECLINES TO CHARGE STUN RATHER THAN CLEARING IT.** `= 0.0`
+is the obvious spelling and would have made a windbox the best combo breaker in
+the game.
+
+▢ **WHAT REMAINS IS A CUSTOMER**, and it is a character-design decision rather
+than an engineering one — see `awaiting-maintainer-decision.md`. ⚠ until a move
+uses it this is an UNADOPTED mechanic, which this demo has shipped three times;
+`match_report` should show a windbox connecting before the row closes. ⭐ the
+inventory's separate *"Vacuum / suction hitboxes"* row needs no further work —
+same primitive, launch aimed inward — so one authored move closes both.
 
 ## Standing continuation rule
 

@@ -5,12 +5,12 @@
 
 use bevy::prelude::Entity;
 
-use super::super::super::{NPC_HOSTILE_STRIKE_THRESHOLD, util::midpoint};
+use super::super::super::{util::midpoint, NPC_HOSTILE_STRIKE_THRESHOLD};
 use super::super::damage_drops::{
     drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,
 };
-use super::super::{ActorDisposition, GameplayBanner, HitEvent, HitSource, SetFlagRequested, ae};
+use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -279,12 +279,25 @@ pub(crate) fn apply_actor_hit(
             // supports it generically, but nothing threads a `WornEquipment` here.
             None,
             wallet_shield,
-            Some(crate::features::ecs::damage_apply::GuardUnderFire {
-                state: &mut *em.shield,
-                tuning: shield_tuning,
-                vel: &mut em.kin.vel,
-                body_size: victim_size,
-            }),
+            // ⛔⛔ A WINDBOX OFFERS NO GUARD — the actor road's half of the same
+            // rule the player road applies. A gust says "no shield", and handing
+            // the resolver a guard made it spend integrity, charge shieldstun
+            // and shove the defender exactly like a strike. The producer already
+            // carries the fact as `flinchless`.
+            if event
+                .knockback
+                .as_ref()
+                .is_some_and(|knockback| knockback.flinchless)
+            {
+                None
+            } else {
+                Some(crate::features::ecs::damage_apply::GuardUnderFire {
+                    state: &mut *em.shield,
+                    tuning: shield_tuning,
+                    vel: &mut em.kin.vel,
+                    body_size: victim_size,
+                })
+            },
             victim_facing,
             victim_pos,
             event.volume.center(),

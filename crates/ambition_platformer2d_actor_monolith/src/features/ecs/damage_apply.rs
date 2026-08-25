@@ -24,7 +24,7 @@ use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use crate::{
-    ActorDiedMessage, RoomTransitionCooldown, SafePositionContext, remember_safe_player_position,
+    remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
@@ -474,12 +474,39 @@ pub(crate) fn handle_player_damage_events(
         player_health.as_deref_mut(),
         armor,
         wallet_shield,
-        Some(GuardUnderFire {
-            state: clusters.shield,
-            tuning: tuning.shield,
-            vel: &mut clusters.kinematics.vel,
-            body_size: size_now,
-        }),
+        // ⛔⛔ A WINDBOX OFFERS NO GUARD TO SPEND. Its authored contract is
+        // "pushes, and nothing else" — explicitly NO SHIELD — and this handed
+        // the resolver a guard for every contact alike, so a gust spent shield
+        // integrity, charged shieldstun and applied pushback exactly like a
+        // strike. `Option` already means "no guard participates in this hit";
+        // it simply was never used to say so.
+        //
+        // ⭐ AND THE FACT WAS ALREADY HERE: the producer sets
+        // `flinchless: hitbox.windbox.is_some()`, so "this is a push, not a
+        // strike" rides the knockback all the way to this seam. No new channel.
+        //
+        // ⚠ REVIEWED, NOT PROVEN, and saying so is the point. The actor-road
+        // shield fixtures run on a tuning where BLOCKING IS FREE — measured:
+        // an ordinary blocked hit leaves `depleted`, `stun_timer` and
+        // `break_timer` all at zero — so they cannot tell a guard that declines
+        // a gust from one that engages it for nothing. The regression wants a
+        // shield tuning with a real integrity cost and shieldstun; until then
+        // this rests on the producer's own `flinchless` and on the resolver
+        // already treating `None` as "no guard participates".
+        if damage
+            .knockback
+            .as_ref()
+            .is_some_and(|knockback| knockback.flinchless)
+        {
+            None
+        } else {
+            Some(GuardUnderFire {
+                state: clusters.shield,
+                tuning: tuning.shield,
+                vel: &mut clusters.kinematics.vel,
+                body_size: size_now,
+            })
+        },
         facing_now,
         pos_now,
         impact_pos,
@@ -787,8 +814,8 @@ fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> 
 // `PlayerSafetyState`/`PlayerBodyFrameOutput`, which are the avatar's, not combat's.
 #[cfg(feature = "causal")]
 pub(crate) use ambition_combat::hit_reaction::BodyReaction;
-pub(crate) use ambition_combat::hit_reaction::{BodyReactionOutcome, apply_body_hit_reaction};
-pub(crate) use ambition_combat::hit_reaction::{VictimStance, hit_response_tuning};
+pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
+pub(crate) use ambition_combat::hit_reaction::{hit_response_tuning, VictimStance};
 
 /// Announce a player-side launch, if anybody is listening.
 ///

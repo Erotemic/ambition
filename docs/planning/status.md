@@ -42,6 +42,26 @@ victim's timer; the stale-decay test seeded an IDLE body). My own 68-crate
 `ambition_content` were red the whole time. And two of my own new assertions
 turned out to be checks that could not fail.
 
+⭐⭐ **BEFORE BUILDING ANY "GATEWAY" FIX, ASK WHETHER THE FACT IS ALREADY AT THE
+SITE.** Windbox 29c was written up as needing a new `DefenseInteraction` enum
+threaded to two seams; it needed neither. The producer already sets
+`flinchless: hitbox.windbox.is_some()`, so "push, not strike" rides the knockback
+to both damage roads, and `Option<GuardUnderFire>` already means "no guard
+participates". **The channel existed; nobody had used it to say so.** That check
+is cheap and it turned a schema-change-sized item into two conditions.
+
+⇒ APPLIED TO EVERY REMAINING GATEWAY ITEM, 2026-08-25:
+
+```text
+29c  guard interaction     ALREADY THERE  → fixed, two conditions
+29b  launch KIND           genuinely absent — `pending_launch` is a bare Vec2
+                           on a SNAPSHOTTED struct
+39   directional intent    genuinely absent — MovePlayback carries spec /
+                           facing / was_grounded / t and no intent
+24   helpless EPISODE      genuinely absent — BodyJumpState has the CHARGE only
+4/5  resolved hit          genuinely absent — needs the new channel
+```
+
 ### The open work, in the order I would take it
 
 ```text

@@ -10540,11 +10540,34 @@ directions (clearing it would make a gust the best combo breaker in the game).
 fix them as four `if windbox` exceptions: **29b** `pending_launch` is a bare
 `Vec2`, so `accept_external_launch` asks `jab_lock()` and `launch_into_tumble()`
 from SPEED ALONE — a weak gust can pin a prone body, a strong one can tumble it.
-⇒ the launch needs a KIND (`Knockback` vs `FlinchlessPush`). **29c** the parry
+⇒ the launch needs a KIND (`Knockback` vs `FlinchlessPush`). ⭐ CHECKED
+2026-08-25 AGAINST THE LESSON 29c TAUGHT — is the fact already at the site? NO,
+genuinely: `accept_external_launch` receives only `launch: Vec2`, and
+`BodyFlightState::pending_launch` is a bare `Vec2` carrying no kind. ⚠ THAT
+STRUCT IS SNAPSHOTTED, so this one really is a wire-format change — which is
+exactly what separates it from 29c, where `flinchless` was already riding the
+knockback. **29c** the parry
 producer and `resolve_body_hit` receive no fact saying the contact is a windbox,
 so a gust can be PARRIED, or blocked for shield integrity and shieldstun and
 pushback — against an authored `no shield`. ⇒ the volume needs a declared
 guard interaction (`NormalStrike` / `IgnoreGuard` / `Unstoppable`), read by both.
+
+⭐⭐ **29c FULLY CLOSED IN CODE 2026-08-25 — AND THE "GATEWAY" WAS NOT CLOSED
+AFTER ALL.** The review proposed a new `DefenseInteraction` enum threaded to both
+seams. It is not needed: the producer already sets
+`flinchless: hitbox.windbox.is_some()`, so "this is a push, not a strike" RIDES
+THE KNOCKBACK to both damage roads — and `Option<GuardUnderFire>` already means
+"no guard participates in this hit". **The channel existed; nobody had used it to
+say so.** ⇒ CHECK THAT FIRST on the remaining gateway items (29b, resolved-hit,
+recovery-helpless, directional melee): the fact may already be at the site.
+
+⚠ THE BLOCK HALF IS REVIEWED, NOT PROVEN, and that was MEASURED rather than
+assumed: I wrote the regression, its CONTROL ARM FAILED, and a probe showed why —
+the actor-road shield fixtures run on a tuning where BLOCKING IS FREE (an
+ordinary blocked hit leaves `depleted`, `stun_timer` and `break_timer` all zero),
+so they cannot tell a guard that declines a gust from one that engages it for
+nothing. ⇒ the regression wants a shield tuning with a real integrity cost and
+shieldstun.
 
 ⭐ **29c PARRY HALF CLOSED 2026-08-25.** A gust could be PARRIED, producing no
 push at all — the producer asked `shield.parrying()` for every strike volume

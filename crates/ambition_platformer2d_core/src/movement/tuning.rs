@@ -145,6 +145,10 @@ pub const AIR_DODGE_SPEED: f32 = 440.0;
 /// Endlag after the air-dodge window closes: airborne, controllable, but
 /// evading nothing. This is the punish window that makes the option a choice.
 pub const AIR_DODGE_ENDLAG: f32 = 0.16;
+/// Endlag after a GROUND ROLL comes to rest: standing, controllable, evading
+/// nothing — the same punish window as the air dodge's above, and shorter
+/// because a roll achieves less. ~5 frames at 60Hz.
+pub const DODGE_ROLL_ENDLAG: f32 = 0.08;
 /// Parry window: full invulnerability during the first moments of shield activation.
 pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
@@ -428,6 +432,15 @@ pub struct MovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    /// Recovery on the far side of a GROUND ROLL (seconds) — the same shape as
+    /// [`air_dodge_endlag`](Self::air_dodge_endlag), so the roll is a read
+    /// rather than a free reposition. The roll also comes to REST when its
+    /// window closes; before both, it kept its speed and stayed safe.
+    ///
+    /// `#[serde(default)]` — `0.0` is every body authored before this existed,
+    /// and it is the honest value for one whose roll is not a fighting option.
+    #[serde(default)]
+    pub dodge_roll_endlag: f32,
     /// The aerial evade: how long the i-frames last, how fast the body
     /// travels along the stick, and the endlag it owes on the far side.
     ///
@@ -694,6 +707,15 @@ pub struct TraversalAbilityTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    /// Recovery on the far side of a GROUND ROLL (seconds) — the same shape as
+    /// [`air_dodge_endlag`](Self::air_dodge_endlag), so the roll is a read
+    /// rather than a free reposition. The roll also comes to REST when its
+    /// window closes; before both, it kept its speed and stayed safe.
+    ///
+    /// `#[serde(default)]` — `0.0` is every body authored before this existed,
+    /// and it is the honest value for one whose roll is not a fighting option.
+    #[serde(default)]
+    pub dodge_roll_endlag: f32,
     /// See [`AbilityTuning::air_dodge_time`].
     #[serde(default)]
     pub air_dodge_time: f32,
@@ -1074,6 +1096,7 @@ impl MovementTuning {
                 dodge_roll_time: self.dodge_roll_time,
                 dodge_roll_speed: self.dodge_roll_speed,
                 dodge_roll_cooldown: self.dodge_roll_cooldown,
+                dodge_roll_endlag: self.dodge_roll_endlag,
                 air_dodge_time: self.air_dodge_time,
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
@@ -1162,6 +1185,11 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_roll_time: DODGE_ROLL_TIME,
     dodge_roll_speed: DODGE_ROLL_SPEED,
     dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
+    // ZERO by default, for the same reason the air dodge below is: an
+    // exploration body's roll is traversal, and charging it recovery would
+    // change every game that never asked for a punish window. A FIGHTER
+    // declares one.
+    dodge_roll_endlag: 0.0,
     // ZERO in the default tuning, and that is the decision, not an
     // oversight. An airborne dash press already MEANS something for a body
     // with the dash ability — it is the protagonist's air dash, a traversal

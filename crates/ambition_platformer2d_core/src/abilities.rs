@@ -720,6 +720,12 @@ pub struct MatchBody {
     /// Recovery on the far side of it (seconds), so it is a read rather than a
     /// panic button.
     pub air_dodge_endlag: f32,
+    /// Recovery after a GROUND ROLL (seconds), and the reason it is declared
+    /// HERE rather than left to the movement default: a roll that ends clean
+    /// and instantly actionable is the best button in a fighting game whatever
+    /// its distance, so the punish window is a MATCH rule. `0.0` — the
+    /// exploration default — is a roll that owes nothing.
+    pub dodge_roll_endlag: f32,
     /// Launch speed above which a hit sends a body TUMBLING (px/s), and the
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
@@ -773,6 +779,7 @@ impl MatchBody {
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
+            dodge_roll_endlag: self.dodge_roll_endlag,
             tumble_speed: self.tumble_speed,
             spot_dodge_time: self.spot_dodge_time,
             parry_timing: self.parry_timing,
@@ -804,6 +811,11 @@ mod tests {
             air_dodge_time: 0.2,
             air_dodge_speed: 440.0,
             air_dodge_endlag: 0.16,
+            // ⭐ SHORTER THAN THE AIR DODGE'S, and that is the read: a ground
+            // roll costs less because it also achieves less — it repositions
+            // along a floor you were already standing on. ~5 frames at 60Hz,
+            // which is a beat an attacker can act on and not a stun.
+            dodge_roll_endlag: 0.08,
             tumble_speed: 500.0,
             spot_dodge_time: 0.16,
             parry_timing: crate::ParryTiming::OnRaise,
@@ -967,9 +979,11 @@ mod tests {
 
     #[test]
     fn sandbox_all_has_no_compatibility_warnings() {
-        assert!(AbilitySet::sandbox_all()
-            .compatibility_warnings()
-            .is_empty());
+        assert!(
+            AbilitySet::sandbox_all()
+                .compatibility_warnings()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -983,9 +997,11 @@ mod tests {
         assert!(warnings.iter().any(|w| w.contains("double_dash")));
         assert!(warnings.iter().any(|w| w.contains("wall_climb")));
         assert!(warnings.iter().any(|w| w.contains("precision_blink")));
-        assert!(warnings
-            .iter()
-            .any(|w| w.contains("blink_through_soft_walls")));
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.contains("blink_through_soft_walls"))
+        );
     }
 
     #[test]
@@ -1019,9 +1035,11 @@ mod tests {
     #[test]
     fn sane_subset_passes_compatibility() {
         // Same contract as sandbox_all: no warnings on a curated set.
-        assert!(AbilitySet::sane_subset()
-            .compatibility_warnings()
-            .is_empty());
+        assert!(
+            AbilitySet::sane_subset()
+                .compatibility_warnings()
+                .is_empty()
+        );
     }
 
     #[test]

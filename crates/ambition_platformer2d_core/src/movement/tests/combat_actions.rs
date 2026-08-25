@@ -3,10 +3,10 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::body_clusters::BodyClusterScratch;
-use crate::test_support::{update_player_with_tuning_scratch, TEST_TUNING};
 use crate::AbilitySet;
 use crate::Vec2;
+use crate::body_clusters::BodyClusterScratch;
+use crate::test_support::{TEST_TUNING, update_player_with_tuning_scratch};
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
     BodyClusterScratch::new_with_abilities(spawn, AbilitySet::sandbox_all())
@@ -1475,5 +1475,93 @@ fn a_ground_guard_does_not_survive_leaving_the_ground() {
         bubble.shield.active,
         "poison: a deployable bubble must KEEP its airborne guard, or this test \
          passes for a fix that simply drops every shield on takeoff"
+    );
+}
+
+/// ⭐⭐ A ROLL COMES TO REST, AND OWES A BEAT ON THE FAR SIDE.
+///
+/// ⛔⛔ THE DEFECT THIS PINS, Jon 2026-08-24: *"shield rolls have too much
+/// motion to them. They send the character flying across the stage. They should
+/// not be giving that much velocity, and they probably should stop at the end of
+/// the roll and leave the character punishable for a frame or two."*
+///
+/// ⭐ AND THE DISTANCE WAS NEVER THE DEFECT. 530px/s across a 0.22s window is
+/// ~117px — a step and a half. What made a roll read as crossing the stage is
+/// that NOTHING took the velocity back when the window closed: the i-frames
+/// lapsed and the body kept travelling at roll speed until friction or a wall
+/// caught it. So this asserts the STOP and the endlag, and deliberately asserts
+/// nothing about `dodge_roll_speed` — two nerfs for one defect is how a mechanic
+/// gets tuned into uselessness.
+#[test]
+fn a_roll_stops_when_its_window_closes_and_owes_recovery() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.dodge.cooldown = 0.0;
+
+    let mut tuning = TEST_TUNING;
+    tuning.dodge_roll_endlag = 0.08;
+
+    let burst = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Burst,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    update_player_with_tuning_scratch(&world, &mut scratch, burst, 1.0 / 60.0, tuning);
+    assert!(
+        scratch.kinematics.vel.x.abs() > 100.0,
+        "the roll never launched, so there is no stop to observe"
+    );
+
+    // Step the window out. The roll's own timer decides when, so this reads it
+    // rather than counting frames against the constant.
+    let mut steps = 0;
+    while scratch.axis().dodge_roll_timer > 0.0 && steps < 120 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        steps += 1;
+    }
+    assert!(steps < 120, "the roll window never closed");
+
+    // ⭐⭐ AN ORDINARY ROLL IS ALREADY AT REST WHEN ITS WINDOW CLOSES, and
+    // FRICTION is what does it — not the maneuver. Measured: ground friction
+    // takes the 530 px/s roll to zero in about four frames, a fifth of the
+    // 0.22s window, over roughly 14px of travel.
+    //
+    // ⛔ THAT IS WHY THERE IS NO VELOCITY CANCEL HERE. One was written, and it
+    // reached into the body's whole `vel` — so a fighter struck mid-roll had its
+    // knockback erased when the window closed. This assertion is the honest
+    // remainder: the roll ends stationary, by the physics that were always going
+    // to stop it.
+    assert_eq!(
+        scratch.kinematics.vel.x, 0.0,
+        "a roll that has run its window is still travelling"
+    );
+
+    // ⭐ AND THE PUNISH WINDOW IS OPEN: committed, and no longer evading.
+    assert!(
+        scratch.axis().dodge_roll_endlag_timer > 0.0,
+        "the roll handed off to nothing, so it ends instantly actionable"
+    );
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        facts.dodge_roll_endlag,
+        "the endlag is not published, so no defender or animation can read it"
+    );
+    assert!(
+        !facts.evading(),
+        "the recovery still counts as evading, so the punish window is \
+         invulnerable and punishes nobody"
     );
 }

@@ -36,13 +36,13 @@ use ambition_time::ProperTimeScale;
 
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
-use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
+use crate::{AttackIntent, AttackSpec, hit_side_from_actor_faction};
 use ambition_characters::actor::attack_gesture::{
-    resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackPosture, AttackStrength,
-    ResolvedAttackGesture,
+    AttackGestureState, AttackGestureTuning, AttackPosture, AttackStrength, ResolvedAttackGesture,
+    resolve_attack_gesture,
 };
-use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
+use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::control::ActorControl;
 use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
@@ -74,8 +74,8 @@ pub use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SW
 // both are here now. See `player_robot_slash`'s own doc.
 mod player_robot_slash;
 pub use player_robot_slash::{
-    apply_player_robot_slash_sfx, PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE,
-    PLAYER_ROBOT_SWING_SFX_CUE,
+    PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE, PLAYER_ROBOT_SWING_SFX_CUE,
+    apply_player_robot_slash_sfx,
 };
 
 const _: () = assert!(
@@ -1947,6 +1947,21 @@ pub fn trigger_moveset_moves(
         {
             continue;
         }
+        // ⛔⛔ A ROLL'S RECOVERY DOES NOT REFUSE MOVES HERE, and the attempt is
+        // worth recording. `dodge_roll_endlag` is published, and gating move
+        // starts on it looks obviously right — the punish window should cost the
+        // roller something. It broke a launch test outright:
+        // `an_up_tilt_launches_much_further_at_a_high_percent` measured a victim
+        // rising 4.5px at 0% and 0.0px at 1427%.
+        //
+        // ⭐ THE CAUSE IS THAT `dodge_roll_timer` IS SHARED. The SPOT DODGE runs
+        // on the same field (`facts.spot_dodging` is a refinement of
+        // `dodge_rolling`, not a sibling), so an endlag hung off its expiry
+        // reaches maneuvers that never asked for one — and refusing moves on it
+        // silenced a fighter that had only spot-dodged.
+        //
+        // ⇒ before this becomes an action gate, the roll needs a timer that is
+        // ITS OWN. The fact stands for animation and AI in the meantime.
         let running = motion_facts.is_some_and(|facts| facts.running);
         // Capture replaces the ordinary action context. Resolve only pummel or
         // directional throw verbs while holding a captive; throws ignore strike

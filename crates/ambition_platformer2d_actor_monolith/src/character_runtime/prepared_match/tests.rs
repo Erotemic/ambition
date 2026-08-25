@@ -51,7 +51,7 @@ fn cpu_fighter(character: &str) -> MatchParticipant {
 /// authority must not quietly retune what the fixtures seat.
 fn fixture_policies() -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
     use ambition_characters::actor::character_catalog::{
-        parse_catalog, BrainProfileRegistry, CharacterCatalog,
+        BrainProfileRegistry, CharacterCatalog, parse_catalog,
     };
     const CATALOG: &str = r#"(
         autonomous_profiles: {
@@ -421,7 +421,7 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     )>();
     let mut seats: Vec<(String, Option<u8>)> = bodies
         .iter(world)
-        .map(|(worn, driver)| (worn.id().to_string(), driver.map(|d| d.0 .0)))
+        .map(|(worn, driver)| (worn.id().to_string(), driver.map(|d| d.0.0)))
         .collect();
     seats.sort();
 
@@ -582,7 +582,7 @@ fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
 
     let world = app.world_mut();
     let mut bodies = world.query::<&DrivingParticipant>();
-    let mut slots: Vec<u8> = bodies.iter(world).map(|driver| driver.0 .0).collect();
+    let mut slots: Vec<u8> = bodies.iter(world).map(|driver| driver.0.0).collect();
     slots.sort();
     assert_eq!(
         slots,
@@ -639,7 +639,7 @@ fn two_seats_on_one_controller_are_refused_by_name() {
 /// asked to do.
 #[test]
 fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
-    use crate::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+    use crate::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
 
     let mut app = seating_app();
     for id in ["alpha", "beta", "gamma", "delta"] {
@@ -752,8 +752,8 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
 /// ranged fighter stands there holding a gun it does not believe in.
 #[test]
 fn a_seated_fighter_receives_its_definitions_action_set() {
-    use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
     use ambition_characters::brain::ActionSet;
+    use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
 
     let mut app = seating_app();
     // The projection is the system that actually serves a seated body.
@@ -1120,6 +1120,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         air_dodge_time: 0.2,
         air_dodge_speed: 440.0,
         air_dodge_endlag: 0.16,
+        dodge_roll_endlag: 0.08,
         tumble_speed: 500.0,
         spot_dodge_time: 0.16,
         parry_timing: ambition_platformer2d_core::ParryTiming::OnRaise,
@@ -1483,7 +1484,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
 /// resolved value rather than re-deriving one it has no catalog to derive from.
 #[test]
 fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
-    use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+    use ambition_characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
 
     const CATALOG: &str = r#"(
         brain_presets: { "stand_still": StandStill },
@@ -1553,8 +1554,8 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
 /// for the worn and seated population whose kit it deliberately does not.
 #[test]
 fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
-    use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
     use ambition_characters::brain::ActionSet;
+    use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
 
     fn swiping(damage: i32) -> ActionSet {
         ActionSet {

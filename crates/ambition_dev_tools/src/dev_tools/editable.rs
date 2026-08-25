@@ -174,6 +174,9 @@ pub struct EditableMovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    /// Recovery after a ground roll — the roll comes to rest and owes this
+    /// before the body can act. See `AbilityTuning::dodge_roll_endlag`.
+    pub dodge_roll_endlag: f32,
     /// The aerial evade, exposed here for the same reason the roll is: it is a
     /// feel knob, and a feel knob the inspector cannot reach is one nobody tunes.
     pub air_dodge_time: f32,
@@ -304,6 +307,7 @@ impl EditableMovementTuning {
             dodge_roll_time: self.dodge_roll_time,
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
+            dodge_roll_endlag: self.dodge_roll_endlag,
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
@@ -399,6 +403,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             dodge_roll_time: value.dodge_roll_time,
             dodge_roll_speed: value.dodge_roll_speed,
             dodge_roll_cooldown: value.dodge_roll_cooldown,
+            dodge_roll_endlag: value.dodge_roll_endlag,
             air_dodge_time: value.air_dodge_time,
             air_dodge_speed: value.air_dodge_speed,
             air_dodge_endlag: value.air_dodge_endlag,

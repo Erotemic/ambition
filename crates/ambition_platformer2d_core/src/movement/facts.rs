@@ -12,8 +12,8 @@
 use bevy_ecs::component::Component;
 
 use super::model::MotionModel;
-use crate::ledge_grab::LedgeGetupKind;
 use crate::Vec2;
+use crate::ledge_grab::LedgeGetupKind;
 
 /// Semantic ledge-engagement facts (presentation-facing; the anchor and climb
 /// curves stay policy-private).
@@ -63,6 +63,11 @@ pub struct BodyMotionFacts {
     /// committed and no longer invulnerable. Presentation and AI read this;
     /// [`Self::evading`] deliberately does NOT include it.
     pub air_dodge_endlag: bool,
+    /// The GROUND ROLL's window has closed but its endlag has not — the same
+    /// distinction as [`Self::air_dodge_endlag`], and the beat a defender is
+    /// meant to read. Not part of [`Self::evading`]: the body is committed and
+    /// no longer invulnerable, which is the whole point of the state.
+    pub dodge_roll_endlag: bool,
     /// Launched and helpless — see [`crate::movement::knockdown`].
     pub tumbling: bool,
     /// Prone on the floor with getup options open.
@@ -111,10 +116,7 @@ impl BodyMotionFacts {
     /// five emit sites and miss the sixth. Adding an evade means extending this
     /// method, not auditing every caller of `body_vulnerable`.
     pub fn evading(&self) -> bool {
-        self.dodge_rolling
-            || self.air_dodging
-            || self.getup_invulnerable
-            || self.ledge_intangible
+        self.dodge_rolling || self.air_dodging || self.getup_invulnerable || self.ledge_intangible
     }
 
     /// Project the active policy's semantic facts. Non-axis policies have no
@@ -145,6 +147,7 @@ impl BodyMotionFacts {
             spot_dodging: state.dodge_roll_timer > 0.0 && state.spot_dodging,
             air_dodging: state.air_dodge_timer > 0.0,
             air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,
+            dodge_roll_endlag: state.dodge_roll_endlag_timer > 0.0,
             tumbling: state.tumble_until_landing,
             knocked_down: state.knockdown_timer > 0.0,
             getup_invulnerable: state.getup_invuln_timer > 0.0,

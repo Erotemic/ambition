@@ -672,6 +672,7 @@ fn room_metadata_merge_preserves_existing_values() {
         nameplate_policy: RoomNameplatePolicy {
             full_opacity_count: Some(100),
             fade_out_count: Some(120),
+            label_driven_bodies: Some(true),
         },
         gallery: true,              // takes effect — a.gallery was false (merge ORs)
         mode: Some("sanic".into()), // takes effect — a.mode was None

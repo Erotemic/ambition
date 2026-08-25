@@ -25,12 +25,12 @@
 
 use bevy_ecs::component::Component;
 
+use super::AxisSweptParams;
 use super::adhesive_crawler::{AdhesiveCrawlerMotion, CrawlerParams};
 use super::surface_momentum::{MomentumParams, SurfaceMotion};
 use super::tuning::BLINK_DISTANCE;
-use super::AxisSweptParams;
-use crate::body_clusters::{BodyLedgeState, LEDGE_KNOCK_OFF_COOLDOWN};
 use crate::Vec2;
+use crate::body_clusters::{BodyLedgeState, LEDGE_KNOCK_OFF_COOLDOWN};
 
 /// Stable identity for diagnostics, authoring, and transition tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -166,6 +166,15 @@ pub struct AxisManeuverState {
     pub air_dodge_timer: f32,
     /// Endlag after an air dodge: control is back, the evade is not.
     pub air_dodge_endlag_timer: f32,
+    /// Endlag after a GROUND ROLL, the same shape as the air dodge's above and
+    /// for the same reason: the roll's invulnerability and its commitment are
+    /// different lengths, and a defender reads the gap between them.
+    ///
+    /// ⛔ Before this existed the roll simply stopped being invulnerable while
+    /// the body kept its roll speed — "a roll sends the character flying across
+    /// the stage" (Jon, 2026-08-24) — so it was both the fastest way to cross
+    /// the stage and a safe one.
+    pub dodge_roll_endlag_timer: f32,
     /// Tumble, the helpless part: launched with no control at all, scaled by
     /// how hard the launch was. See [`super::knockdown`].
     pub tumble_timer: f32,
@@ -241,6 +250,7 @@ impl Default for AxisManeuverState {
             spot_dodging: false,
             air_dodge_timer: 0.0,
             air_dodge_endlag_timer: 0.0,
+            dodge_roll_endlag_timer: 0.0,
             tumble_timer: 0.0,
             tumble_until_landing: false,
             tumble_unannounced: false,

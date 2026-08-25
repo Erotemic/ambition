@@ -194,6 +194,20 @@ pub struct BodyCombat {
     // ── Player reaction / control-lock timers ──
     /// Hitstop: freezes `time_scale` to 0 while positive.
     pub hitstop_timer: f32,
+    /// THIS BODY OWES ONE AUTOMATIC DISPLACEMENT — banked while its hitlag
+    /// runs, spent on the first step after the freeze lifts
+    /// ([`ambition_platformer2d_core::TraversalAbilityTuning::asdi_step`]).
+    ///
+    /// ⛔ A LATCH RATHER THAN A TIMER COMPARISON. "Is this the last tick of
+    /// hitlag?" can be asked as `hitstop_timer <= dt`, but only by a reader
+    /// that runs BEFORE the decay system — and the decay is a separate system
+    /// whose order relative to the body step is not declared. A latch is
+    /// answered by two consecutive steps of the same function and cannot be
+    /// silenced by scheduling.
+    ///
+    /// A fresh hit that re-arms the freeze mid-flight simply banks it again,
+    /// which is right: that is a new hit and it owes its own displacement.
+    pub asdi_owed: bool,
     /// Landing lag: the authored recovery an aerial move owes for touching
     /// down before it finished.
     ///
@@ -265,6 +279,7 @@ impl BodyCombat {
     pub fn reset(&mut self) {
         self.hit_flash = 0.0;
         self.hitstop_timer = 0.0;
+        self.asdi_owed = false;
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;
         self.recoil_lock_timer = 0.0;
@@ -366,6 +381,11 @@ mod hard_lock_tests {
             // so it expires by being rewritten rather than by counting down.
             armored: _,
 
+            // Not a timer: a LATCH, banked while the freeze runs and spent by
+            // the body step on the far side of it. Decaying it would spend the
+            // displacement on whichever system happened to run first.
+            asdi_owed: _,
+
             // Not a timer.
             training_dummy: _,
         } = combat;
@@ -388,6 +408,10 @@ mod hard_lock_tests {
             // would be undone inside the frame and would read as a rule this
             // function does not own.
             armored: _,
+
+            // Cleared by `reset()`: a body put back to spawn owes nothing from
+            // a freeze that is no longer happening.
+            asdi_owed: _,
 
             // Construction-owned; reset does not change body identity.
             training_dummy: _,

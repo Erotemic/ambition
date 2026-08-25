@@ -265,6 +265,10 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // combo answerable rather than a sentence. The engine default is `0.0`:
         // a wandering enemy has no combo to escape.
         sdi_step: 3.0,
+        // ⭐ ONE NUDGE PER HIT, twice a single SDI tick, paid when the freeze
+        // lifts. It is what a defender gets out of a MULTIHIT, whose one-tick
+        // freezes are worth almost nothing to `sdi_step`.
+        asdi_step: 6.0,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
         footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
         // A CROUCH PLANTS YOU. The genre's answer, and research rather than a

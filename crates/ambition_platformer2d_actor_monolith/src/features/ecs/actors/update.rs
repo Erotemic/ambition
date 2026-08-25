@@ -1039,7 +1039,9 @@ pub fn integrate_sim_bodies(
             // OTHER solid body's box without including its own.
             Entity,
             ae::BodyClusterQueryData,
-            &BodyCombat,
+            // MUTABLE so the body step can bank and spend the automatic
+            // displacement it owes after a hitlag — see `BodyCombat::asdi_owed`.
+            &mut BodyCombat,
             // the body's own reason set, because a hazard TILE is damage.
             // A player who cannot be hurt — a super form, a transformation beat,
             // a scripted grant — must not be reset to spawn by walking over
@@ -1159,7 +1161,7 @@ pub fn integrate_sim_bodies(
     for (
         player_entity,
         mut cluster_item,
-        combat,
+        mut combat,
         health,
         control,
         mut hurtbox,
@@ -1185,7 +1187,7 @@ pub fn integrate_sim_bodies(
             control.0,
             &feature_world,
             &mut clusters,
-            combat,
+            &mut combat,
             health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
                 h.health.invulnerable
             }),
@@ -1608,7 +1610,7 @@ fn capture_candidate(
     use ambition_characters::brain::fighter::options::{
         AttackBinding, AttackCandidate, AttackVerb,
     };
-    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
+    use ambition_characters::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,
@@ -1934,6 +1936,7 @@ mod body_combat_rebuild_contract {
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
+            asdi_owed: _,
             landing_lag_timer: _,
             // ── Republished every tick from the live move by
             // `project_move_defense_windows`, which is the ONE writer. This

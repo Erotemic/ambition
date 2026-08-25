@@ -1132,6 +1132,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
         spot_dodge_time: 0.16,
         parry_timing: ambition_platformer2d_core::ParryTiming::OnRaise,
         sdi_step: 3.0,
+        asdi_step: 6.0,
         shield: ambition_platformer2d_core::ShieldTuning::OFF,
         footstool: ambition_platformer2d_core::FootstoolTuning::OFF,
         crouch_speed_frac: 1.0,

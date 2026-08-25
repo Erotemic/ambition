@@ -11,7 +11,10 @@ use super::BodyCombat;
 pub fn step_body(
     model: &mut ae::movement::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
-    combat: &BodyCombat,
+    // MUTABLE because the automatic displacement is BANKED here: hitlag is the
+    // only place that knows the freeze is running, and the step after it is the
+    // only place that knows it just lifted.
+    combat: &mut BodyCombat,
     axis_tuning: ae::MovementTuning,
     // Out-of-play is enforced here so controller-specific roads cannot define different dead-body motion.
     out_of_play: bool,
@@ -39,7 +42,29 @@ pub fn step_body(
                 axis_tuning.sdi_step,
             ),
         );
+        // Bank the automatic displacement while the freeze runs; it is spent
+        // below, on the first step after it lifts.
+        combat.asdi_owed = true;
         ctx.dt = 0.0;
+    } else if combat.asdi_owed {
+        // AUTOMATIC SDI — one displacement per HIT, in whatever direction the
+        // stick is held now. Paid HERE, on the far side of the freeze, because
+        // the defender has the whole of it to choose; paid at the start it
+        // would be indistinguishable from one more SDI tick.
+        //
+        // Swept like the SDI shift for the same reason: a displacement applied
+        // straight to the position could put a body inside geometry.
+        combat.asdi_owed = false;
+        ae::movement::shift_frozen_body(
+            ctx.world,
+            clusters.kinematics,
+            ctx.frame.down(),
+            ae::hit_response::smash_di_shift(
+                ctx.input.axes.vec(),
+                ctx.frame.down(),
+                axis_tuning.asdi_step,
+            ),
+        );
     }
     ae::step_motion(model, clusters, ctx)
 }

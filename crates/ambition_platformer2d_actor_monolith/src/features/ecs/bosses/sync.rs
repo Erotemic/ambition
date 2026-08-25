@@ -278,6 +278,7 @@ mod boss_combat_rebuild_contract {
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,
+            asdi_owed: _,
             landing_lag_timer: _,
             armored: _,
             training_dummy: _,

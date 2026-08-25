@@ -74,7 +74,7 @@ pub fn integrate_home_body(
     actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::BodyClustersMut<'_>,
-    combat: &BodyCombat,
+    combat: &mut BodyCombat,
     invulnerable: ambition_characters::actor::Invulnerability,
     evading: bool,
     // Is this body TUMBLING? The published projection

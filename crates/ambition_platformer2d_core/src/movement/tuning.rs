@@ -534,6 +534,22 @@ pub struct MovementTuning {
     /// long the hitlag lasts.
     #[serde(default)]
     pub sdi_step: f32,
+    /// AUTOMATIC SDI — one displacement per HIT, paid when the hitlag ends,
+    /// in whatever direction the stick is held at that moment. `0.0` (the
+    /// default) is what every body did before this existed.
+    ///
+    /// ⛔ DISTINCT FROM [`Self::sdi_step`], and the difference is WHAT IT IS
+    /// PAID PER. SDI is paid per TICK of hitlag, so a heavy hit with a long
+    /// freeze lets a defender travel far and a one-tick multihit gives them
+    /// almost nothing. This is paid once per hit whatever the freeze was
+    /// worth — which is exactly the case SDI cannot answer, and the reason the
+    /// genre has both.
+    ///
+    /// ⭐ AT THE END, not the start: the defender has the whole freeze to
+    /// choose a direction, and the stick they are holding when it lifts is the
+    /// one that counts. Paying it at the start would just be one more SDI tick.
+    #[serde(default)]
+    pub asdi_step: f32,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
@@ -834,6 +850,9 @@ pub struct TraversalAbilityTuning {
     /// See [`TraversalAbilityTuning::sdi_step`].
     #[serde(default)]
     pub sdi_step: f32,
+    /// See [`TraversalAbilityTuning::asdi_step`].
+    #[serde(default)]
+    pub asdi_step: f32,
     /// See [`ShieldTuning`].
     #[serde(default)]
     pub shield: ShieldTuning,
@@ -1272,6 +1291,7 @@ impl MovementTuning {
                 spot_dodge_time: self.spot_dodge_time,
                 parry_timing: self.parry_timing,
                 sdi_step: self.sdi_step,
+                asdi_step: self.asdi_step,
                 parry_window_time: self.parry_window_time,
                 shield: self.shield,
                 footstool: self.footstool,
@@ -1390,6 +1410,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // zero for the same reason: a body that cannot be launched has nothing to
     // influence its way out of.
     sdi_step: 0.0,
+    asdi_step: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
     shield: ShieldTuning::OFF,
     footstool: FootstoolTuning::OFF,

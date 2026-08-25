@@ -73,7 +73,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             None,
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            &ambition_characters::actor::BodyCombat::default(),
+            &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
             ae::BodyContactField::NONE,
@@ -136,7 +136,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             None,
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            &ambition_characters::actor::BodyCombat::default(),
+            &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
             ae::BodyContactField::NONE,
@@ -154,7 +154,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
 /// Drive a grounded walker (locomotion full-right) for `ticks` steps under
 /// the given post-hit stagger, as the body's own `BodyCombat`; return
 /// the ground covered along +x. The §A2 step 7 witness rig.
-fn walk_run_staggered(combat: ambition_characters::actor::BodyCombat, ticks: u32) -> f32 {
+fn walk_run_staggered(mut combat: ambition_characters::actor::BodyCombat, ticks: u32) -> f32 {
     let world = floored_world();
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let mut seed = ActorClusterSeed::new(
@@ -191,7 +191,7 @@ fn walk_run_staggered(combat: ambition_characters::actor::BodyCombat, ticks: u32
             None,
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            &combat,
+            &mut combat,
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
             ae::BodyContactField::NONE,
@@ -288,7 +288,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         None,
         ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
         None,
-        &ambition_characters::actor::BodyCombat::default(),
+        &mut ambition_characters::actor::BodyCombat::default(),
         // Not tumbling — this fixture is not about the floor game.
         false,
         ae::BodyContactField::NONE,
@@ -344,7 +344,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             None,
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            &ambition_characters::actor::BodyCombat::default(),
+            &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
             ae::BodyContactField::NONE,
@@ -432,7 +432,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
             None,
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            &ambition_characters::actor::BodyCombat::default(),
+            &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
             ae::BodyContactField::NONE,

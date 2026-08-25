@@ -772,6 +772,8 @@ pub struct MatchBody {
     /// that is not in a combo game and wrong for a fighter. See
     /// [`crate::hit_response::smash_di_shift`].
     pub sdi_step: f32,
+    /// See [`crate::TraversalAbilityTuning::asdi_step`].
+    pub asdi_step: f32,
     /// The guard as a resource: integrity that drains while held and breaks
     /// when spent. [`crate::ShieldTuning::OFF`] — the engine default — is the
     /// unlimited guard an exploration body keeps.
@@ -817,6 +819,7 @@ impl MatchBody {
             spot_dodge_time: self.spot_dodge_time,
             parry_timing: self.parry_timing,
             sdi_step: self.sdi_step,
+            asdi_step: self.asdi_step,
             shield: self.shield,
             footstool: self.footstool,
             crouch_speed_frac: self.crouch_speed_frac,
@@ -866,6 +869,7 @@ mod tests {
             spot_dodge_time: 0.16,
             parry_timing: crate::ParryTiming::OnRaise,
             sdi_step: 3.0,
+            asdi_step: 6.0,
             shield: crate::ShieldTuning::PLATFORM_FIGHTER,
             footstool: crate::FootstoolTuning::PLATFORM_FIGHTER,
             crouch_speed_frac: 1.0,

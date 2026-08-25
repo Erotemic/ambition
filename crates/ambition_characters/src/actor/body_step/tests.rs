@@ -31,7 +31,7 @@ fn frame() -> ae::MotionFrame {
 }
 
 /// Step `body` once with the attempt ALREADY ENDED, and answer how far it moved.
-fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
+fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat) -> f32 {
     let world = open_world();
     let before = body.kinematics.pos;
     {
@@ -56,7 +56,7 @@ fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) ->
 }
 
 /// Step `body` once and answer how far it actually travelled.
-fn travel(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
+fn travel(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat) -> f32 {
     stepped(
         body,
         combat,
@@ -70,7 +70,7 @@ fn travel(body: &mut ae::BodyClusterScratch, combat: &BodyCombat) -> f32 {
 /// property of both.
 fn stepped(
     body: &mut ae::BodyClusterScratch,
-    combat: &BodyCombat,
+    combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
     input: ae::InputState,
 ) -> ae::Vec2 {
@@ -106,7 +106,7 @@ fn stepped(
 /// in a test where the two happen to agree and be a different mechanic.
 #[test]
 fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
-    let frozen = BodyCombat {
+    let mut frozen = BodyCombat {
         hitstop_timer: 0.08,
         ..BodyCombat::default()
     };
@@ -122,7 +122,7 @@ fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
 
     let unauthored = stepped(
         &mut body_travelling(),
-        &frozen,
+        &mut frozen,
         ae::MovementTuning::default(),
         held.clone(),
     );
@@ -132,7 +132,7 @@ fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
         "a body that authored no SDI budget influenced anyway"
     );
 
-    let shifted = stepped(&mut body_travelling(), &frozen, tuning.clone(), held);
+    let shifted = stepped(&mut body_travelling(), &mut frozen, tuning.clone(), held);
     assert_eq!(
         shifted,
         ae::Vec2::new(0.0, -3.0),
@@ -143,7 +143,7 @@ fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
     // body that is asking for nothing.
     let idle = stepped(
         &mut body_travelling(),
-        &frozen,
+        &mut frozen,
         tuning,
         ae::InputState::default(),
     );
@@ -153,7 +153,7 @@ fn a_frozen_body_can_still_influence_where_the_next_hit_finds_it() {
 #[test]
 fn a_body_in_hitlag_does_not_travel_through_its_own_freeze() {
     let mut body = body_travelling();
-    let combat = BodyCombat {
+    let mut combat = BodyCombat {
         hitstop_timer: 0.08,
         ..BodyCombat::default()
     };
@@ -162,7 +162,7 @@ fn a_body_in_hitlag_does_not_travel_through_its_own_freeze() {
         "the fixture must actually arm the freeze, or this asserts nothing"
     );
 
-    let moved = travel(&mut body, &combat);
+    let moved = travel(&mut body, &mut combat);
 
     assert_eq!(
         moved, 0.0,
@@ -173,13 +173,13 @@ fn a_body_in_hitlag_does_not_travel_through_its_own_freeze() {
 #[test]
 fn and_the_same_body_travels_once_the_freeze_clears() {
     let mut body = body_travelling();
-    let combat = BodyCombat::default();
+    let mut combat = BodyCombat::default();
     assert!(
         !combat.is_in_hitlag(),
         "the control must NOT be frozen, or it proves nothing about the other test"
     );
 
-    let moved = travel(&mut body, &combat);
+    let moved = travel(&mut body, &mut combat);
 
     // One tick at `SPEED` is 10px; assert a floor rather than the exact figure so
     // gravity's contribution to the same tick is not a false failure.
@@ -201,9 +201,9 @@ fn and_the_same_body_travels_once_the_freeze_clears() {
 #[test]
 fn a_body_whose_attempt_ended_does_not_travel() {
     let mut body = body_travelling();
-    let combat = BodyCombat::default();
+    let mut combat = BodyCombat::default();
     assert_eq!(
-        travel_out_of_play(&mut body, &combat),
+        travel_out_of_play(&mut body, &mut combat),
         0.0,
         "a body that is out of play moved"
     );
@@ -221,8 +221,8 @@ fn a_body_whose_attempt_ended_does_not_travel() {
 #[test]
 fn the_same_body_still_in_play_travels() {
     let mut body = body_travelling();
-    let combat = BodyCombat::default();
-    let moved = travel(&mut body, &combat);
+    let mut combat = BodyCombat::default();
+    let moved = travel(&mut body, &mut combat);
     assert!(
         moved > 1.0,
         "the control case did not move ({moved}), so the out-of-play assertion \
@@ -244,11 +244,11 @@ fn the_same_body_still_in_play_travels() {
 /// while the press did nothing.
 #[test]
 fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
-    let frozen = BodyCombat {
+    let mut frozen = BodyCombat {
         hitstop_timer: 0.08,
         ..BodyCombat::default()
     };
-    let live = BodyCombat::default();
+    let mut live = BodyCombat::default();
 
     // A body that can fast-fall at all, airborne, with no horizontal travel to
     // confuse the reading.
@@ -274,7 +274,7 @@ fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
     let mut body = airborne();
     let frozen_travel = stepped(
         &mut body,
-        &frozen,
+        &mut frozen,
         ae::MovementTuning::default(),
         holding_down.clone(),
     );
@@ -286,7 +286,7 @@ fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
     );
     let after_freeze = stepped(
         &mut body,
-        &live,
+        &mut live,
         ae::MovementTuning::default(),
         holding_down,
     );
@@ -295,13 +295,13 @@ fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
     let mut neutral_body = airborne();
     stepped(
         &mut neutral_body,
-        &frozen,
+        &mut frozen,
         ae::MovementTuning::default(),
         ae::InputState::default(),
     );
     let neutral = stepped(
         &mut neutral_body,
-        &live,
+        &mut live,
         ae::MovementTuning::default(),
         ae::InputState::default(),
     );
@@ -312,5 +312,93 @@ fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
          press did not reach the first live tick, so there is no hitfall",
         after_freeze.y,
         neutral.y
+    );
+}
+
+/// ASDI IS PAID ONCE PER HIT, ON THE FAR SIDE OF THE FREEZE.
+///
+/// Four arms, because the mechanic is defined as much by where it does NOT
+/// apply as by where it does. The measurement is always the DIFFERENCE between
+/// two otherwise identical runs — one declaring the step and one not — so
+/// gravity, velocity and the SDI shift all cancel and what is left can only be
+/// this rule.
+#[test]
+fn the_automatic_shift_is_paid_once_when_the_freeze_lifts() {
+    const ASDI: f32 = 6.0;
+    // Held UP, against gravity, so nothing else about the step can produce a
+    // negative-y displacement and be mistaken for this one.
+    let held = ae::InputState {
+        axes: ae::LocalAxes::new(0.0, -1.0),
+        ..Default::default()
+    };
+
+    // `sdi_step` is left at zero throughout: this test is about the OTHER
+    // number, and a body that could also SDI would blur the two.
+    let tuning = |asdi: f32| {
+        let mut t = ae::MovementTuning::default();
+        t.asdi_step = asdi;
+        t
+    };
+
+    // Run the same three steps at two settings and answer (during, first free,
+    // second free) y-displacement.
+    let run = |asdi: f32| {
+        let mut body = body_travelling();
+        let mut combat = BodyCombat {
+            hitstop_timer: 0.08,
+            ..BodyCombat::default()
+        };
+        assert!(combat.is_in_hitlag(), "the fixture must arm the freeze");
+        let during = stepped(&mut body, &mut combat, tuning(asdi), held).y;
+        // The freeze lifts: this is what `decay_reaction_timers` would leave.
+        combat.hitstop_timer = 0.0;
+        let first_free = stepped(&mut body, &mut combat, tuning(asdi), held).y;
+        let second_free = stepped(&mut body, &mut combat, tuning(asdi), held).y;
+        (during, first_free, second_free)
+    };
+
+    let (off_during, off_first, off_second) = run(0.0);
+    let (on_during, on_first, on_second) = run(ASDI);
+
+    // ARM 1 — NOT DURING THE FREEZE. That is SDI's half; paying here would make
+    // this one more SDI tick rather than a separate rule.
+    assert!(
+        (on_during - off_during).abs() < 0.01,
+        "the automatic shift moved a body that was still frozen: {on_during} vs {off_during}"
+    );
+
+    // ARM 2 — THE PAYMENT, on the first step after the freeze lifts, in the
+    // direction the stick is holding (up, so negative y).
+    let paid = off_first - on_first;
+    assert!(
+        (paid - ASDI).abs() < 0.5,
+        "the automatic shift did not pay its declared step when the freeze lifted: \
+         paid {paid}, declared {ASDI}"
+    );
+
+    // ARM 3 — ONCE. A latch that never cleared would pay every step forever,
+    // which is a body that floats away rather than one that got nudged.
+    assert!(
+        (on_second - off_second).abs() < 0.01,
+        "the automatic shift was paid twice for one hit: {on_second} vs {off_second}"
+    );
+
+    // ARM 4 — A BODY THAT DECLARES NOTHING IS UNTOUCHED, which is every body in
+    // Ambition. Asserted against a freeze that really happened, so this is not
+    // passing for want of a hit.
+    let mut unaffected = body_travelling();
+    let mut combat = BodyCombat {
+        hitstop_timer: 0.08,
+        ..BodyCombat::default()
+    };
+    let before = unaffected.kinematics.pos;
+    stepped(&mut unaffected, &mut combat, tuning(0.0), held);
+    combat.hitstop_timer = 0.0;
+    stepped(&mut unaffected, &mut combat, tuning(0.0), held);
+    assert!(
+        unaffected.kinematics.pos.y >= before.y,
+        "a body declaring no automatic shift rose anyway: {} -> {}",
+        before.y,
+        unaffected.kinematics.pos.y
     );
 }

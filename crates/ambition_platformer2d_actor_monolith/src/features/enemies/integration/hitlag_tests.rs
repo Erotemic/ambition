@@ -85,7 +85,7 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
             None,
             ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
             None,
-            &combat,
+            &mut combat,
             // Not tumbling — this fixture is not about the floor game.
             false,
             ae::BodyContactField::NONE,

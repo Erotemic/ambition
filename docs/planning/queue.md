@@ -9632,6 +9632,60 @@ makes neither measurable.
 
 Wire format v94.
 
+- ✔ **D221 — CLOSED 2026-08-25. ASDI: THE NUDGE A MULTIHIT CANNOT DENY YOU.
+  (opened and closed 2026-08-25, from the smash-parity inventory)**
+
+⭐⭐ **THE DISTINCTION IS WHAT IT IS PAID PER, and that is the whole reason the
+genre has both.** This tree's SDI is already automatic — `sdi_step` shifts a
+frozen body every tick of hitlag from the held stick, no flick counting. So the
+question the row raises ("keep it distinct from already-shipped SDI") has a
+sharp answer: SDI is paid per TICK, so a heavy hit with a long freeze lets a
+defender travel far and a one-tick multihit gives them nearly nothing. ASDI is
+paid once per HIT whatever the freeze was worth. That is exactly the case SDI
+cannot answer.
+
+⛔ **AT THE END, NOT THE START.** The defender has the whole freeze to choose a
+direction, and the stick held when it lifts is the one that counts. Paid at the
+start it would be indistinguishable from one more SDI tick — which is the second
+poison, and it reddens the arm asserting nothing moves DURING the freeze.
+
+⛔ **A LATCH, NOT `hitstop_timer <= dt`.** "Is this the last tick of hitlag?" can
+be asked from the timer, but only by a reader that runs BEFORE the decay — and
+`decay_reaction_timers` is a separate system whose order against the body step
+is not declared anywhere. `BodyCombat::asdi_owed` is answered by two consecutive
+steps of ONE function and cannot be silenced by scheduling. A fresh hit that
+re-arms the freeze simply banks it again, which is correct: a new hit owes its
+own displacement.
+
+⭐ **THE TEST MEASURES A DIFFERENCE, NOT A POSITION.** Every arm runs the same
+three steps twice, once declaring the step and once not, so gravity, velocity
+and the SDI shift all cancel and what is left can only be this rule. Four arms:
+not during the freeze, paid on the first free step, paid ONCE, and a body
+declaring nothing is untouched.
+
+⭐ **THE BORROW WIDENING WAS THE REAL SURFACE AREA.** Banking a latch made
+`step_body` take `&mut BodyCombat`, and the compiler walked the whole chain —
+two integration roads, an enemy update, and a player query column that had to
+become `&mut BodyCombat`. Nothing was hidden; the type system enumerated it.
+
+⛔⛔ **AND THE APP GATE COULD NOT SEE ANY OF IT.**
+`cargo check -p ambition_app --all-targets` was GREEN while twelve errors sat in
+the monolith's own `cfg(test)` files — the gate builds its dependencies as
+LIBS, so their test files are never compiled. Six of the twelve were fixtures
+passing `&BodyCombat` to a signature that now wants `&mut`, and two were the
+monolith's OWN exhaustive destructures of `BodyCombat`.
+
+⇒ ⭐ **WIDENING A SHARED SIGNATURE `&` → `&mut` IS A CROSS-CRATE CHANGE WITH A
+BLIND GATE.** The lib build proves nothing about the fixtures that call it. After
+widening, run the crate suite of every crate that calls the function, not the
+app gate.
+
+⭐ **AND TWO EXHAUSTIVE DESTRUCTURES CAUGHT THE NEW FIELD** — `BodyCombat` makes
+every field declare whether the shared decay ticks it and whether `reset()`
+clears it. Both answered in the same commit rather than defaulted into.
+
+Wire format v95.
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

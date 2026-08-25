@@ -151,7 +151,7 @@ impl<'a> ActorMut<'a> {
         // granted by seating and discarded by movement — the asymmetry the
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
-        combat: &ambition_characters::actor::BodyCombat,
+        combat: &mut ambition_characters::actor::BodyCombat,
         // Is this body TUMBLING? Read from the PUBLISHED projection
         // (`BodyMotionFacts::tumbling`) by the driver, which holds it; the
         // maneuver state behind it is model-private (ADR 0024). The post-hit
@@ -282,7 +282,7 @@ impl<'a> ActorMut<'a> {
         // granted by seating and discarded by movement — the asymmetry the
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
-        combat: &ambition_characters::actor::BodyCombat,
+        combat: &mut ambition_characters::actor::BodyCombat,
         // See `update`'s own parameter: the published tumble fact, for the
         // tech exemption in the post-hit gate.
         tumbling: bool,

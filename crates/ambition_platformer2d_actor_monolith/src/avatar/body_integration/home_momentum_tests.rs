@@ -54,7 +54,7 @@ fn step_as(
         frame,
         &r.world,
         &mut clusters,
-        &BodyCombat::default(),
+        &mut BodyCombat::default(),
         invulnerable,
         false,
         // In play: this rig is about momentum, not about dying.

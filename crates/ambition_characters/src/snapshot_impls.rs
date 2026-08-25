@@ -10,8 +10,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
-    SnapshotCursor, SnapshotState,
+    Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_opt_str, put_str,
+    put_u8, put_u32, put_u64, put_vec2,
 };
 use ambition_platformer2d_core::{self as ae, snapshot_pod, snapshot_unit_enum};
 
@@ -44,6 +44,7 @@ snapshot_pod!(crate::smash_capture::SmashHoldState {
 snapshot_pod!(crate::actor::body::BodyCombat {
     hit_flash: f32,
     hitstop_timer: f32,
+    asdi_owed: bool,
     landing_lag_timer: f32,
     damage_invuln_timer: f32,
     hitstun_timer: f32,

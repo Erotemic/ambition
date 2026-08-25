@@ -9912,6 +9912,36 @@ added to a shared struct needs `prepared_match/tests.rs`, and
 dependencies as LIBS. ⇒ when touching `MatchBody`/`MovementTuning`, run the
 monolith crate suite BEFORE believing the gate.
 
+- ✔ **D226 — CLOSED 2026-08-25. THE REVERSE AERIAL RUSH EMERGED, ONCE THE
+  TURNAROUND STOPPED EVAPORATING ON TAKEOFF. (opened and closed 2026-08-25)**
+
+The row said RAR *should emerge* from turnaround → jump → back-air and forbade
+an RAR state. ⭐ MEASURING THAT SEQUENCE FIRST is what found the gap, because it
+produced the exact opposite of a rush:
+
+```text
+running right    facing +1, vel 270
+after the tap    turning, facing +1, vel 183
+jump + 6 ticks   airborne, facing STILL +1, vel_x -178
+```
+
+⇒ **AN AIRBORNE BODY MAY NOT TURN** (`can_turn` is grounded-or-flying), so a
+fighter who jumped mid-turnaround carried its OLD facing forever: the phase was
+being ABANDONED, not resolved. One rule fixes it — **a turnaround is a ground
+phase and leaving the floor FINISHES it**, so the body takes into the air the
+facing it was already paying for. The flip is the phase's own, not the stick's,
+so a player who let go on the way up still gets what they bought.
+
+⚠ **AND THE ROW'S OTHER HALF IS NOT TRUE OF THIS ENGINE.** "Momentum carries
+you" is the genre's version; here the air stop assist halts a released stick
+dead. The rush is bought by holding FORWARD after the jump — the reversed facing
+sticks precisely BECAUSE airborne bodies cannot turn — rather than by drift.
+That is written into the test, since it is a real difference from the game this
+is modelled on and the next person will expect the genre's version.
+
+⇒ Four parity rows now come out of the one direction-change edge: the initial
+dash, the foxtrot, the dash dance, and — through the turnaround — this.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

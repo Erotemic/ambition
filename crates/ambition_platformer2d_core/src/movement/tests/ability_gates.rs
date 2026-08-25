@@ -749,3 +749,97 @@ fn a_run_pays_to_turn_around_and_a_dash_does_not() {
     assert!(plain.axis().turnaround_timer <= 0.0);
     let _ = &mut plain;
 }
+
+/// THE REVERSE AERIAL RUSH EMERGES — turn, jump, and your back is pointed at
+/// where you came from while your momentum still carries you there.
+///
+/// ⛔ NO RAR STATE, which the inventory row rules out by name. What makes it
+/// work is that a turnaround RESOLVES when the body leaves the floor instead of
+/// being abandoned: measured before that rule, a fighter who jumped mid-turn
+/// stayed facing its old way forever, because an airborne body may not turn at
+/// all.
+#[test]
+fn a_reverse_aerial_rush_falls_out_of_jumping_from_a_turnaround() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    tuning.turnaround_time = 3.0 / 60.0;
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = true;
+    for _ in 0..40 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    // Commit to a run to the RIGHT.
+    for _ in 0..60 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            hold(1.0),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        scratch.axis().running,
+        "the fixture never committed to a run"
+    );
+    assert_eq!(scratch.kinematics.facing, 1.0);
+
+    // Tap the other way — a turnaround, facing still right.
+    super::update_player_with_tuning_scratch(&world, &mut scratch, hold(-1.0), 1.0 / 60.0, tuning);
+    assert!(
+        scratch.axis().turnaround_timer > 0.0,
+        "the tap did not start a turnaround, so this measures an ordinary jump"
+    );
+    assert_eq!(scratch.kinematics.facing, 1.0);
+
+    // Jump out of it, then steer FORWARD again — back the way the run was
+    // going. ⭐ THAT IS THE TECHNIQUE: an airborne body may not turn
+    // (`can_turn` is grounded-or-flying), so the reversed facing STICKS while
+    // the stick carries the fighter onward. ⛔ letting go instead would stop
+    // the body dead — this engine's air stop assist is tight, so "momentum
+    // carries you" is not a property it has, and the rush here is bought with
+    // the stick rather than with drift.
+    let mut jump = hold(-1.0);
+    jump.movement = crate::ActionEdges::EMPTY.with(
+        crate::MovementAction::Jump,
+        crate::Edge {
+            pressed: true,
+            held: true,
+            released: false,
+        },
+    );
+    super::update_player_with_tuning_scratch(&world, &mut scratch, jump, 1.0 / 60.0, tuning);
+    for _ in 0..6 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            hold(1.0),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+
+    assert!(!scratch.ground.on_ground, "the body never left the ground");
+    // THE RUSH: facing LEFT, still travelling RIGHT. A back-air thrown here
+    // points at where the fighter came from, which is the whole technique.
+    assert_eq!(
+        scratch.kinematics.facing, -1.0,
+        "the fighter carried its OLD facing into the air — no rush, just a jump"
+    );
+    assert!(
+        scratch.kinematics.vel.x > 40.0,
+        "the fighter lost the momentum it turned out of: vel_x {:.0}",
+        scratch.kinematics.vel.x
+    );
+}

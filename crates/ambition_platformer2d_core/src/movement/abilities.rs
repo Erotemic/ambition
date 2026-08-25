@@ -237,6 +237,24 @@ pub(super) fn apply_intent(
     // facing never flips at all — the body turns forever. `prev_steer_dir` is
     // the same edge the initial dash is entered on, and the turnaround's own
     // early-return keeps it fresh while the phase runs.
+    // ⭐⭐ A TURNAROUND IS A GROUND PHASE, AND LEAVING THE FLOOR FINISHES IT —
+    // the body takes into the air the facing it was already paying for. That is
+    // what a REVERSE AERIAL RUSH is: turn, jump out of the turn, and your back
+    // is pointed at where you came from while your momentum still carries you
+    // there.
+    //
+    // ⛔ NOT A SEPARATE RAR STATE, which the inventory row rules out by name.
+    // The rush emerges because the phase RESOLVES rather than being abandoned:
+    // measured before this, a body that jumped mid-turnaround stayed facing its
+    // old way forever, because an airborne body may not turn at all.
+    //
+    // ⛔ THE FLIP IS THE PHASE'S OWN, not the stick's. A turnaround was asked
+    // for to reverse this facing, so finishing it reverses this facing — and a
+    // player who let go of the stick on the way up still gets what they bought.
+    if !ground.on_ground && state.turnaround_timer > 0.0 {
+        kinematics.facing = -kinematics.facing;
+        state.turnaround_timer = 0.0;
+    }
     let asked_now = state.prev_steer_dir != local_stick.x.signum();
     if tuning.locomotion.turnaround_time > 0.0
         && ground.on_ground

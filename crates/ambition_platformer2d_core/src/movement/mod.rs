@@ -463,7 +463,14 @@ fn update_body_simulation_inner(
         // it reaches zero the next `apply_intent` flips the facing, because the
         // stick is still asking for it.
         state.turnaround_timer = dec(state.turnaround_timer);
-        state.ledge_invuln_timer = dec(state.ledge_invuln_timer);
+        // ⛔ THE LEDGE'S EXPOSURE RUNS FIRST AND THE INVULN WAITS FOR IT. Ticking
+        // both would quietly shorten every earned window by the vulnerability,
+        // so a fighter who bought its edge with a long recovery would silently
+        // get less than it earned.
+        state.ledge_vulnerable_timer = dec(state.ledge_vulnerable_timer);
+        if state.ledge_vulnerable_timer <= 0.0 {
+            state.ledge_invuln_timer = dec(state.ledge_invuln_timer);
+        }
         // The air dodge hands off to its own endlag the tick its window closes,
         // so "invulnerable" and "committed" are separable states rather than one
         // fused timer — the punish window is the half a defender reads.

@@ -795,6 +795,12 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     if axis_state.ledge_invuln_timer < earned {
         axis_state.ledge_invuln_timer = earned;
     }
+    // ⭐⭐ AND IT DOES NOT START YET. A sliver of exposure at the catch is what
+    // makes contesting a ledge possible at all — without it the edge is an
+    // unconditional safe point and the recovery is decided entirely off-stage.
+    // See `LEDGE_GRAB_VULNERABLE_TIME`; the earned window above is HELD, not
+    // spent, while this runs.
+    axis_state.ledge_vulnerable_timer = super::LEDGE_GRAB_VULNERABLE_TIME;
     axis_state.time_off_ledge = 0.0;
     // CATCHING THE LEDGE IS THE RESET, and it happens HERE rather than at each
     // way out of the hang. The genre's rule is that the edge gives you your

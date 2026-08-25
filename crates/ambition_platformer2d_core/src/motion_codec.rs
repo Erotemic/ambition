@@ -144,6 +144,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.turnaround_timer);
     put_bool(out, state.teetering);
     put_f32(out, state.ledge_invuln_timer);
+    put_f32(out, state.ledge_vulnerable_timer);
     put_bool(out, state.spot_dodging);
     put_f32(out, state.air_dodge_timer);
     put_f32(out, state.air_dodge_endlag_timer);
@@ -195,6 +196,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         turnaround_timer: r.f32()?,
         teetering: r.bool()?,
         ledge_invuln_timer: r.f32()?,
+        ledge_vulnerable_timer: r.f32()?,
         spot_dodging: r.bool()?,
         air_dodge_timer: r.f32()?,
         air_dodge_endlag_timer: r.f32()?,

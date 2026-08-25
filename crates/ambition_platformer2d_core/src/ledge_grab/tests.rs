@@ -1690,6 +1690,22 @@ fn a_ledge_grab_is_intangible_without_reading_as_a_dodge_roll() {
         &mut events
     ));
 
+    // ⭐ THE CATCH IS EXPOSED FIRST — `LEDGE_GRAB_VULNERABLE_TIME`, the sliver
+    // that makes contesting a ledge possible at all. The window below is ARMED
+    // here, it simply has not started.
+    let caught = crate::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        !caught.ledge_intangible,
+        "the ledge was untouchable on the very frame it was caught — nothing can \
+         contest an edge that is safe on contact"
+    );
+    assert!(
+        scratch.axis().ledge_invuln_timer > 0.0,
+        "the grab armed no ledge intangibility to start"
+    );
+
+    // ...and once the exposure passes, the window is the grab's own.
+    scratch.axis_mut().ledge_vulnerable_timer = 0.0;
     let facts = crate::BodyMotionFacts::from_model(&scratch.model);
     assert!(
         facts.ledge_intangible,

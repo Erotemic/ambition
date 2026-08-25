@@ -6,10 +6,10 @@
 //! water, and wall state instead of running as a post-update sandbox mutator.
 
 #![allow(unused_imports)]
+use crate::Vec2;
 use crate::geometry::{Aabb, AabbExt};
 use crate::movement::{AxisSweptParams, InputState, MovementOp, MovementTuning};
 use crate::world::{BlockKind, World};
-use crate::Vec2;
 
 /// Duration of the standard ledge pull-up transition.
 pub const LEDGE_CLIMB_TIME: f32 = 0.24;
@@ -89,6 +89,26 @@ pub const LEDGE_INVULN_FULL_AIRTIME: f32 = 1.20;
 /// re-grab cooldown ([`LEDGE_REGRAB_COOLDOWN`]) is what actually forbids the
 /// instant stall.
 pub const LEDGE_INVULN_MIN_TIME: f32 = 0.10;
+
+/// THE TWO-FRAME LEDGE VULNERABILITY — how long after catching an edge a body
+/// is still hittable, before its earned intangibility begins.
+///
+/// ⭐⭐ IT IS WHAT MAKES CONTESTING A LEDGE POSSIBLE. Without it the edge is an
+/// unconditional safe point: reach it and you are untouchable, so an opponent
+/// covering the ledge has nothing to hit and the recovery is decided entirely
+/// off-stage. The genre's answer is a sliver of exposure at the catch, and a
+/// two-frame read is exactly the kind of thing this ruleset is trying to have.
+///
+/// ⛔ IT DELAYS THE WINDOW, IT DOES NOT SPEND IT. The earned intangibility is
+/// held at full value while this runs — a fighter who bought 0.5s of edge with
+/// a long recovery still gets 0.5s, starting two frames later. Letting both
+/// clocks run would quietly shorten every window by the vulnerability.
+///
+/// ⚠ a module constant like every other ledge number here, for the reason
+/// [`LEDGE_HANG_LIMIT`] states: the whole ledge vocabulary is expressed this way
+/// and a lone authored field would be the odd one out. Only a body with the
+/// `ledge_grab` ability can reach it at all.
+pub const LEDGE_GRAB_VULNERABLE_TIME: f32 = 2.0 / 60.0;
 
 /// What this grab's intangibility is worth, given how long the body has been
 /// off a ledge. Linear between [`LEDGE_INVULN_MIN_TIME`] and

@@ -197,6 +197,11 @@ pub struct AxisManeuverState {
     /// from the roll: two maneuvers that grant the same term are still two
     /// maneuvers.
     pub ledge_invuln_timer: f32,
+    /// THE SLIVER OF EXPOSURE AT A LEDGE CATCH
+    /// ([`crate::ledge_grab::LEDGE_GRAB_VULNERABLE_TIME`]) — while this runs the
+    /// body is hanging but still hittable, and [`Self::ledge_invuln_timer`] is
+    /// HELD rather than spent.
+    pub ledge_vulnerable_timer: f32,
     /// The window on [`Self::dodge_roll_timer`] is a SPOT DODGE, not a roll.
     ///
     /// one timer, two verbs, and the flag is what tells them apart — the
@@ -312,6 +317,7 @@ impl Default for AxisManeuverState {
             turnaround_timer: 0.0,
             teetering: false,
             ledge_invuln_timer: 0.0,
+            ledge_vulnerable_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,
             air_dodge_endlag_timer: 0.0,

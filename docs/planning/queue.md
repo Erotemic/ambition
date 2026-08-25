@@ -10105,6 +10105,36 @@ to print every press that REACHED integration showed exactly ONE out of two —
 which proved the mechanism before its address was known. Poisoning
 `tick_knockdown` at its entry then reddened it immediately.
 
+- ✔ **D232 — CLOSED 2026-08-25. THE LEDGE IS NO LONGER SAFE ON CONTACT.
+  (opened and closed 2026-08-25)**
+
+`LEDGE_GRAB_VULNERABLE_TIME` — two frames of exposure at the catch, before the
+earned intangibility begins. ⭐⭐ WITHOUT IT THE EDGE IS AN UNCONDITIONAL SAFE
+POINT: reach it and you are untouchable, so an opponent covering the ledge has
+nothing to hit and the recovery is decided entirely off-stage.
+
+⛔ **IT DELAYS THE WINDOW, IT DOES NOT SPEND IT.** The earned invuln is HELD at
+full value while the exposure runs. Ticking both clocks would quietly shorten
+every earned window by the vulnerability, so a fighter who bought 0.5s of edge
+with a long recovery would silently get less than it earned.
+
+⛔ **A MODULE CONSTANT, AND ONLY BECAUSE THE MODULE SAYS SO.** `LEDGE_HANG_LIMIT`
+documents the convention for the whole ledge vocabulary — "a lone authored field
+would be the odd one out". Following an existing stated convention beats
+inventing a declaration seam for one number. Only bodies with the `ledge_grab`
+ability can reach it.
+
+⭐ **AN EXISTING TEST WENT RED, AND IT WAS THE RIGHT KIND OF RED.**
+`a_ledge_grab_is_intangible_without_reading_as_a_dodge_roll` asserted
+intangibility on the very frame of the catch. Its real claim — untouchable for
+its OWN reason rather than the dodge roll's — is untouched; only the timing
+moved. ⇒ REPAIRED, not weakened: it now asserts the catch frame IS exposed, then
+that the window is the grab's own once the exposure passes, so the test gained a
+guarantee instead of losing one. The poison that ignores the exposure reddens
+that new arm exactly.
+
+Wire format v100.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

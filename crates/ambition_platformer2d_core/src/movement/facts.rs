@@ -179,7 +179,9 @@ impl BodyMotionFacts {
             teetering: state.teetering,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
-            ledge_intangible: state.ledge_invuln_timer > 0.0,
+            // ⛔ HANGING IS NOT YET INTANGIBLE. The first frames of a ledge
+            // catch are exposed on purpose — see `LEDGE_GRAB_VULNERABLE_TIME`.
+            ledge_intangible: state.ledge_invuln_timer > 0.0 && state.ledge_vulnerable_timer <= 0.0,
             spot_dodging: state.dodge_roll_timer > 0.0 && state.spot_dodging,
             air_dodging: state.air_dodge_timer > 0.0,
             air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,

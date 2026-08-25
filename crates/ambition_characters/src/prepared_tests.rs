@@ -393,6 +393,7 @@ fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
                 damage: 1,
                 flight: None,
                 visual: None,
+            charge: None,
             }),
             ..ActionSet::default()
         })

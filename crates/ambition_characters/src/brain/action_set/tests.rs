@@ -625,3 +625,81 @@ fn resolve_multi_intent_emits_multi_request() {
         "the flat special arm is retired — no Special request from resolve"
     );
 }
+
+// ── A CHARGED SHOT IS A DIFFERENT SHOT ───────────────────────────────────────
+
+fn charging_cannon() -> RangedActionSpec {
+    RangedActionSpec::bolt(500.0, 4)
+        .with_flight(ProjectileFlight::STRAIGHT)
+        .with_charge(RangedCharge {
+            damage_mult: 3.0,
+            speed_mult: 1.5,
+            size_mult: 2.0,
+            visuals: vec!["t1".into(), "t2".into(), "t3".into()],
+        })
+}
+
+/// A tap is the shot the fighter always had; a full hold is the whole ladder.
+#[test]
+fn a_charge_scales_the_shot_it_releases() {
+    let base = charging_cannon();
+    let tap = base.at_charge(0.0);
+    assert_eq!(tap.damage, base.damage, "a tap paid a charge it never held");
+    assert_eq!(tap.speed, base.speed);
+    assert_eq!(
+        tap.flight.map(|f| f.half_extent),
+        base.flight.map(|f| f.half_extent)
+    );
+
+    let full = base.at_charge(1.0);
+    assert_eq!(full.damage, 12, "4 damage at a 3x hold");
+    assert!((full.speed - 750.0).abs() < 1e-3, "{}", full.speed);
+    let grown = full.flight.expect("the fixture authors flight").half_extent;
+    let plain = base.flight.expect("the fixture authors flight").half_extent;
+    assert!(
+        (grown.x - plain.x * 2.0).abs() < 1e-3 && (grown.y - plain.y * 2.0).abs() < 1e-3,
+        "the hit volume did not grow with the ball: {grown:?} vs {plain:?}"
+    );
+
+    // Halfway is halfway, not a step: damage is continuous even though the
+    // LOOK is not.
+    assert_eq!(base.at_charge(0.5).damage, 8);
+}
+
+/// ⛔ A SPEC WITH NO LADDER IS UNTOUCHED AT EVERY FRACTION. Every ranged action
+/// that existed before charging did takes this path, and a change here is a
+/// silent buff to the whole cast.
+#[test]
+fn a_shot_that_does_not_charge_is_the_same_shot_at_every_fraction() {
+    let plain = RangedActionSpec::bolt(500.0, 4).with_flight(ProjectileFlight::STRAIGHT);
+    assert!(plain.charge.is_none(), "the fixture opted in, so this proves nothing");
+    for fraction in [0.0, 0.25, 0.5, 0.75, 1.0] {
+        assert_eq!(
+            plain.at_charge(fraction),
+            plain,
+            "an uncharged shot changed at fraction {fraction}"
+        );
+    }
+}
+
+/// The LOOK steps, and the top of the ladder is reachable.
+///
+/// ⛔ THE POISON IS `1.0`. Indexing by `fraction * len` without the clamp runs
+/// one past the end at a full charge, which is the tier a player only ever sees
+/// after doing the thing the mechanic asks of them.
+#[test]
+fn the_visual_tier_steps_and_a_full_charge_reaches_the_last_rung() {
+    let cannon = charging_cannon();
+    let tier = |f: f32| cannon.at_charge(f).visual.expect("the ladder names a look");
+    assert_eq!(tier(0.0), "t1");
+    assert_eq!(tier(0.32), "t1");
+    assert_eq!(tier(0.34), "t2");
+    assert_eq!(tier(0.67), "t3");
+    assert_eq!(tier(1.0), "t3", "a full charge fell off the end of the ladder");
+
+    // An empty ladder keeps whatever look the shot already had.
+    let mut no_looks = charging_cannon();
+    no_looks.visual = Some("plain".into());
+    no_looks.charge.as_mut().expect("authored above").visuals.clear();
+    assert_eq!(no_looks.at_charge(1.0).visual.as_deref(), Some("plain"));
+}

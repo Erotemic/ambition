@@ -534,6 +534,53 @@ pub struct RangedActionSpec {
     /// Authored `ProjectileVisualId`. `None` = the firer's default look.
     #[serde(default)]
     pub visual: Option<String>,
+    /// How a CHARGED release of this shot differs from a tap. `None` = a shot
+    /// that does not charge, which is every ranged action that has not opted in.
+    #[serde(default)]
+    pub charge: Option<RangedCharge>,
+}
+
+/// The ladder a held shot climbs.
+///
+/// ⭐ THE SHOT IS THE PAYOFF, which is what makes this its own type rather than
+/// another `smash_charge_mult`. A charged melee swing pays in one number: the
+/// volume it already spawns hits harder. A charged shot pays in an OBJECT — it
+/// leaves bigger, faster, and looking like a different thing — and a player has
+/// to be able to read which one is coming at them before it arrives.
+///
+/// ⛔ THE TIERS ARE THE VISUAL'S, not the damage's. Damage and speed interpolate
+/// smoothly from `1.0` at a tap to their multipliers at a full hold, because a
+/// charge is continuous; the LOOK steps, because a stepped look is what a player
+/// can actually read at a glance on a busy stage. Nothing reconciles the two on
+/// purpose.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct RangedCharge {
+    /// Damage at a FULL hold, as a multiple of the uncharged shot.
+    pub damage_mult: f32,
+    /// Launch speed at a full hold, as a multiple.
+    pub speed_mult: f32,
+    /// Half-extent at a full hold, as a multiple. A charged shot that hits in
+    /// the same box it always did reads as a lie the moment it is drawn bigger.
+    pub size_mult: f32,
+    /// One `ProjectileVisualId` per tier, WEAKEST FIRST. Empty = one look at
+    /// every charge, which is the honest answer for a shot whose art does not
+    /// change.
+    pub visuals: Vec<String>,
+}
+
+impl RangedCharge {
+    /// Which tier a `0..=1` charge fraction lands in. `None` for a ladder with
+    /// no rungs.
+    fn tier(&self, fraction: f32) -> Option<&str> {
+        let count = self.visuals.len();
+        if count == 0 {
+            return None;
+        }
+        // `min(count - 1)` and not a clamp on the fraction: a full charge is
+        // exactly `1.0`, and `1.0 * count` indexes one past the end.
+        let index = ((fraction.clamp(0.0, 1.0) * count as f32) as usize).min(count - 1);
+        Some(&self.visuals[index])
+    }
 }
 
 impl RangedActionSpec {
@@ -544,6 +591,7 @@ impl RangedActionSpec {
             damage,
             flight: None,
             visual: None,
+            charge: None,
         }
     }
 
@@ -580,6 +628,38 @@ impl RangedActionSpec {
     /// Damage on hit.
     pub fn damage(&self) -> i32 {
         self.damage
+    }
+
+    /// Author how a held release of this shot differs from a tap.
+    pub fn with_charge(mut self, charge: RangedCharge) -> Self {
+        self.charge = Some(charge);
+        self
+    }
+
+    /// This shot as released at `fraction` of a full charge.
+    ///
+    /// ⭐ THE ONE PLACE A CHARGE BECOMES A SHOT. The fire site asks for the spec
+    /// at the fraction the move's playback froze and spawns whatever comes back,
+    /// so a charged weapon and an ordinary one leave through identical code.
+    ///
+    /// A spec with no ladder returns itself unchanged at every fraction, which
+    /// is byte-parity for every ranged action that existed before charging did.
+    pub fn at_charge(&self, fraction: f32) -> Self {
+        let Some(charge) = self.charge.as_ref() else {
+            return self.clone();
+        };
+        let f = fraction.clamp(0.0, 1.0);
+        let lerp = |mult: f32| 1.0 + f * (mult - 1.0);
+        let mut out = self.clone();
+        out.damage = ((self.damage as f32) * lerp(charge.damage_mult)).round() as i32;
+        out.speed = self.speed * lerp(charge.speed_mult);
+        if let Some(flight) = out.flight.as_mut() {
+            flight.half_extent *= lerp(charge.size_mult);
+        }
+        if let Some(visual) = charge.tier(f) {
+            out.visual = Some(visual.to_string());
+        }
+        out
     }
 }
 

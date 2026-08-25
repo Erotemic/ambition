@@ -6718,16 +6718,18 @@ fn a_back_pressed_special_turns_the_fighter_and_optionally_its_drift() {
     );
 }
 
-/// THE DOUBLE-JUMP CANCEL KILLS THE JUMP'S RISE, AND ONLY WHEN DECLARED.
+/// THE DOUBLE-JUMP CANCEL TAKES BACK WHAT THE JUMP PUT IN — NO MORE.
 ///
-/// ⛔ THE THIRD ARM IS THE ONE THAT MATTERS: a body whose `air_jump_rising` is
-/// FALSE keeps its climb whatever it throws. That fact carries the ownership
-/// bound — a body rising faster than its own air jump is riding a launch — so
-/// asserting here that a false fact changes nothing is what stops this rule
-/// from ever eating knockback.
+/// ⛔⛔ THE ARMS THAT MATTER ARE THE PARTIAL AND THE ZERO. `air_jump_rise_owned`
+/// is an AMOUNT, so the cancel sheds `min(owned, actual rise)` rather than
+/// zeroing the climb: a fighter whose jump gravity has half-eaten keeps the
+/// half it did not buy, and one riding a pure launch keeps all of it. The bool
+/// this replaced could only say yes or no, and it said yes to any rise under
+/// the body's jump speed for the whole airtime after an air jump — so an aerial
+/// deleted the opponent's knockback.
 #[test]
-fn an_aerial_cancels_a_double_jump_only_where_declared() {
-    let rise_after = |declared: bool, air_jump_rising: bool, grounded: bool| -> f32 {
+fn an_aerial_sheds_only_the_rise_its_own_jump_owns() {
+    let rise_after = |declared: bool, owned: f32, grounded: bool| -> f32 {
         let moveset = MovesetContract {
             verbs: std::collections::BTreeMap::from([(
                 "attack_air".to_string(),
@@ -6742,7 +6744,7 @@ fn an_aerial_cancels_a_double_jump_only_where_declared() {
         });
         app.world_mut().entity_mut(body).insert((
             ambition_platformer2d_core::BodyMotionFacts {
-                air_jump_rising,
+                air_jump_rise_owned: owned,
                 ..Default::default()
             },
             ambition_platformer2d_core::BodyGroundState {
@@ -6762,33 +6764,168 @@ fn an_aerial_cancels_a_double_jump_only_where_declared() {
         -app.world().get::<ae::BodyKinematics>(body).unwrap().vel.y
     };
 
-    // ARM 1 — DECLARED, airborne, rising on its own jump: the climb is gone.
+    // ARM 1 — DECLARED, airborne, the whole climb bought by its own jump.
     assert_eq!(
-        rise_after(true, true, false),
+        rise_after(true, 300.0, false),
         0.0,
         "the aerial did not cancel the jump it was thrown out of"
     );
 
-    // ARM 2 — UNDECLARED: every world in this repo keeps its full arc.
+    // ⛔⛔ ARM 2 — THE PARTIAL. The jump put in 120 of this 300 climb; the other
+    // 180 is somebody else's and must survive. A predicate cannot express this
+    // arm at all, which is why the fact became a quantity.
     assert_eq!(
-        rise_after(false, true, false),
+        rise_after(true, 120.0, false),
+        180.0,
+        "the cancel took the whole climb when the jump had only put 120 into it \
+         — the rest was an opponent's launch"
+    );
+
+    // ARM 3 — UNDECLARED: every world in this repo keeps its full arc.
+    assert_eq!(
+        rise_after(false, 300.0, false),
         300.0,
         "an undeclared world had its double jump cancelled anyway"
     );
 
-    // ARM 3 — THE FACT SAYS NO: the body is climbing on something that is not
-    // its own air jump, so the cancel must not touch it.
+    // ARM 4 — OWNS NOTHING: a pure launch, or a jump gravity already finished.
     assert_eq!(
-        rise_after(true, false, false),
+        rise_after(true, 0.0, false),
         300.0,
         "a climb the body did not own was cancelled — that is somebody's launch"
     );
 
-    // ARM 4 — GROUNDED presses are not aerials, whatever the fact says.
+    // ARM 5 — GROUNDED presses are not aerials, whatever the body owns.
     assert_eq!(
-        rise_after(true, true, true),
+        rise_after(true, 300.0, true),
         300.0,
         "a grounded press cancelled a jump"
+    );
+}
+
+/// AND IT SHEDS THE BODY'S OWN RISE, NOT WORLD Y.
+///
+/// ⛔⛔ The consumer read `kin.vel.y`, which is the rise axis only while gravity
+/// points down the screen. Under SIDEWAYS gravity a fighter's up IS world X, so
+/// the old line shed its lateral DRIFT and left the climb untouched — the exact
+/// inversion, in the one situation the frame exists for. The sibling arms above
+/// run under default gravity, where the two coincide, so they cannot see this.
+#[test]
+fn a_double_jump_cancel_sheds_the_bodys_own_rise_under_rotated_gravity() {
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([("attack_air".to_string(), "nair".to_string())]),
+        moves: vec![gesture_test_move("nair")],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.insert_resource(crate::rules::ResolvedCombatTuning {
+        double_jump_cancel: true,
+        ..Default::default()
+    });
+    app.world_mut().entity_mut(body).insert((
+        ambition_platformer2d_core::BodyMotionFacts {
+            air_jump_rise_owned: 300.0,
+            ..Default::default()
+        },
+        ambition_platformer2d_core::BodyGroundState {
+            on_ground: false,
+            ..Default::default()
+        },
+    ));
+
+    // GRAVITY PULLS ALONG +X, so the body's RISE axis is world -X and its
+    // side/drift axis is world Y.
+    let gravity = ae::Vec2::new(1.0, 0.0);
+    let mut resolved =
+        ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+    resolved.publish_resolved_frame(ae::MotionFrame::from_direction(gravity, 900.0));
+    app.world_mut().entity_mut(body).insert(resolved);
+
+    // Climbing at 300 along its own up (world -X) and drifting at 200 along its
+    // own side (world Y). Both non-zero, so each assertion below is real.
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+        kin.facing = 1.0;
+        kin.vel = ae::Vec2::new(-300.0, 200.0);
+    }
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+    app.update();
+
+    let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+    assert!(
+        kin.vel.x.abs() < 1.0,
+        "the climb along the body's OWN up came out at {:.1} instead of 0 — the \
+         cancel is shedding world Y, so under this gravity it took the drift and \
+         left the rise",
+        kin.vel.x
+    );
+    assert!(
+        (kin.vel.y - 200.0).abs() < 1.0,
+        "the drift along the body's side changed from 200 to {:.1} — the cancel \
+         reached into a component the jump never authored",
+        kin.vel.y
+    );
+}
+
+/// ⛔⛔ AND A REFUSED AERIAL CHANGES NO PHYSICS.
+///
+/// The cancel used to run in the middle of attack resolution, BEFORE the
+/// playing move was asked whether it permits a cancel. A press during a
+/// non-cancelable move therefore killed the fighter's rise and then started
+/// nothing at all — a proposal with a side effect, the same defect the
+/// special-turn was repaired for one commit earlier.
+#[test]
+fn an_aerial_a_playing_move_refuses_does_not_cancel_the_jump() {
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([("attack_air".to_string(), "nair".to_string())]),
+        moves: vec![gesture_test_move("nair")],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.insert_resource(crate::rules::ResolvedCombatTuning {
+        double_jump_cancel: true,
+        ..Default::default()
+    });
+    app.world_mut().entity_mut(body).insert((
+        ambition_platformer2d_core::BodyMotionFacts {
+            air_jump_rise_owned: 300.0,
+            ..Default::default()
+        },
+        ambition_platformer2d_core::BodyGroundState {
+            on_ground: false,
+            ..Default::default()
+        },
+    ));
+    // ALREADY PLAYING a move that authorises no cancel — `gesture_test_move`
+    // carries no cancel windows, so this refuses the press below.
+    let playing = gesture_test_move("nair");
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(playing, 1.0));
+    app.world_mut()
+        .get_mut::<ae::BodyKinematics>(body)
+        .unwrap()
+        .vel = ae::Vec2::new(0.0, -300.0);
+
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+    let started_at = app.world().get::<MovePlayback>(body).map(|p| p.t);
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|p| p.t == started_at.unwrap()),
+        Some(false),
+        "the fixture's playing move did not advance, so nothing was actually \
+         running to refuse the press"
+    );
+    assert_eq!(
+        -app.world().get::<ae::BodyKinematics>(body).unwrap().vel.y,
+        300.0,
+        "a press the playing move REFUSED still killed the fighter's rise — a \
+         rejected attack changed physics"
     );
 }
 

@@ -25,12 +25,12 @@
 
 use bevy_ecs::component::Component;
 
-use super::AxisSweptParams;
 use super::adhesive_crawler::{AdhesiveCrawlerMotion, CrawlerParams};
 use super::surface_momentum::{MomentumParams, SurfaceMotion};
 use super::tuning::BLINK_DISTANCE;
-use crate::Vec2;
+use super::AxisSweptParams;
 use crate::body_clusters::{BodyLedgeState, LEDGE_KNOCK_OFF_COOLDOWN};
+use crate::Vec2;
 
 /// Stable identity for diagnostics, authoring, and transition tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -192,15 +192,29 @@ pub struct AxisManeuverState {
     /// [`Self::running`] is: a restore that lands on an edge must not present a
     /// planted body for the tick before the next integration rewrites it.
     pub teetering: bool,
-    /// THIS BODY IS RISING ON A JUMP IT SPENT IN THE AIR — the state a
-    /// double-jump cancel consumes
-    /// ([`crate::rules`]-declared, read through
-    /// [`crate::BodyMotionFacts::air_jump_rising`]).
+    /// HOW MUCH OF THIS BODY'S RISE ITS OWN AIR JUMP PUT IN, and still has —
+    /// the amount a double-jump cancel is allowed to take back (read through
+    /// [`crate::BodyMotionFacts::air_jump_rise_owned`]).
     ///
-    /// Derived every tick from the jump resource, the ground and the velocity,
-    /// and SERIALIZED like [`Self::running`] beside it: a restore mid-rise must
-    /// not present a grounded body for the tick before integration rewrites it.
-    pub air_jump_rising: bool,
+    /// ⭐⭐ AN AMOUNT, NOT A PREDICATE, and that is the correction of
+    /// 2026-08-25. It was `air_jump_rising: bool`, derived as *"an air jump was
+    /// spent at some point AND the current rise is no faster than one"* — which
+    /// is a MAGNITUDE standing in for OWNERSHIP. The resource half stays true
+    /// for the whole airtime, so a fighter who had double-jumped and then been
+    /// launched upward at any speed below `double_jump_speed` read as riding
+    /// its own jump, and an aerial DELETED the opponent's launch.
+    ///
+    /// ⛔⛔ IT ONLY EVER SHRINKS. Set to the jump's authored speed when the air
+    /// jump is SPENT, then each tick clamped down to whatever rise survives
+    /// (`min(rise)`, floored at zero). Gravity eating the jump reduces it;
+    /// somebody else's launch adding rise cannot grow it back, because nothing
+    /// but a spend ever raises it. That is what makes it ownership rather than
+    /// a speed test — the same rule as the roll's shed and the dash's floor,
+    /// written as a quantity instead of a comparison.
+    ///
+    /// SERIALIZED like [`Self::running`] beside it: a restore mid-rise must not
+    /// present a grounded body for the tick before integration rewrites it.
+    pub air_jump_rise_owned: f32,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -338,7 +352,7 @@ impl Default for AxisManeuverState {
             prev_steer_dir: 0.0,
             turnaround_timer: 0.0,
             teetering: false,
-            air_jump_rising: false,
+            air_jump_rise_owned: 0.0,
             ledge_invuln_timer: 0.0,
             ledge_vulnerable_timer: 0.0,
             spot_dodging: false,

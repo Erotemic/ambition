@@ -4,8 +4,8 @@ use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::{AxisJumpLaw, AxisSweptParams, ONE_WAY_DROP_THROUGH_GRACE};
-use crate::MotionFrame;
 use crate::player_state::BodyMode;
+use crate::MotionFrame;
 
 const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
@@ -335,6 +335,12 @@ pub fn handle_jump_buffer_clusters(
             frame.down(),
             tuning.locomotion.double_jump_speed,
         );
+        // ⭐⭐ THE ONLY PLACE THAT EVER GRANTS OWNED RISE. `set_jump_velocity`
+        // SETS the rise component, so what the jump put in is exactly this
+        // number; from here `integrate` can only shrink it. A double-jump
+        // cancel may take back at most this much, which is what stops it from
+        // eating an opponent's launch.
+        state.air_jump_rise_owned = tuning.locomotion.double_jump_speed;
         // Air jumps are independent ability impulses. Do not accidentally
         // inherit a ground jump's weak-gravity phase.
         match tuning.locomotion.jump_law {

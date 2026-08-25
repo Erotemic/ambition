@@ -2226,6 +2226,13 @@ pub fn trigger_moveset_moves(
         // where it is decided.
         let mut special_turn = false;
         let mut special_turn_reverses_drift = false;
+        // ⭐⭐ PROPOSED HERE, COMMITTED WHERE THE MOVE STARTS. The double-jump
+        // cancel used to write `kin.vel` in the middle of resolution, before
+        // `cancel_permits` had been asked — so a buffered aerial thrown during a
+        // non-cancelable move killed the fighter's rise and then started
+        // nothing. A rejected attack must not change physics. Same correction
+        // the special-turn above already got, and this is its second customer.
+        let mut cancel_air_jump_rise = 0.0f32;
         //  every branch below asks for a move IN THIS STANCE. The capture kit
         // declares its whole vocabulary grounded-only, and a captor carried into
         // the air was still able to pummel and throw because the exact-verb
@@ -2452,20 +2459,16 @@ pub fn trigger_moveset_moves(
             // rise, throw, and land where you chose instead of at the top of an
             // arc.
             //
-            // ⛔ THE BOUND IS IN THE FACT, NOT HERE. `air_jump_rising` already
-            // means "rising on a jump I OWN" — a body going up faster than its
-            // own air jump is riding somebody's launch and the fact is false
-            // for it. That is the fifth appearance of that bound today, and the
-            // first where the PUBLISHER carries it so no consumer can disagree.
-            if combat_rules.as_ref().is_some_and(|r| r.double_jump_cancel)
-                && !gesture_grounded
-                && motion_facts.is_some_and(|facts| facts.air_jump_rising)
-            {
-                // The fact already answered "is this rise mine" — see
-                // `BodyMotionFacts::air_jump_rising`. Nothing to re-check here.
-                if kin.vel.y < 0.0 {
-                    kin.vel.y = 0.0;
-                }
+            // ⛔ THE BOUND IS IN THE FACT, NOT HERE — and it is an AMOUNT now.
+            // `air_jump_rise_owned` is what this body's own air jump put in and
+            // still has, a quantity that only ever shrinks. The bool it replaced
+            // said "an air jump was spent, and I am rising no faster than one
+            // could push me", which a weak opponent launch also satisfies for
+            // the rest of the airtime — so an aerial deleted knockback.
+            if combat_rules.as_ref().is_some_and(|r| r.double_jump_cancel) && !gesture_grounded {
+                cancel_air_jump_rise = motion_facts
+                    .map(|facts| facts.air_jump_rise_owned)
+                    .unwrap_or(0.0);
             }
             started_by = (base_verb == SMASH_VERB && !running_attack)
                 .then_some(ambition_entity_catalog::ChargeGesture::Smash);
@@ -2610,6 +2613,21 @@ pub fn trigger_moveset_moves(
             if special_turn {
                 kin.facing = -kin.facing;
             }
+            // ⭐⭐ THE ACCEPTED DOUBLE-JUMP CANCEL, and this is its commit point
+            // for the same reason the turn above is: the move is certain to
+            // start here and was only proposed where it was resolved.
+            //
+            // ⛔⛔ AND THE AXIS IS THE BODY'S OWN RISE, NOT WORLD Y. Under
+            // rotated gravity a fighter's up IS world X, and `vel.y` would shed
+            // its lateral drift instead. ⛔ It sheds at most what the jump put
+            // in and at most what is actually there, so a launch the fighter is
+            // riding survives whatever it throws.
+            if cancel_air_jump_rise > 0.0 {
+                let down = body_frame.down;
+                let rise = -kin.vel.dot(down);
+                let shed = rise.min(cancel_air_jump_rise).max(0.0);
+                kin.vel += shed * down;
+            }
             // ⛔ A SEPARATE `if`, NOT NESTED. The drift half is its own outcome —
             // reversing momentum while the facing STAYS is a wavebounce, and
             // nesting made that combination unreachable however it was declared.
@@ -2674,6 +2692,21 @@ pub fn trigger_moveset_moves(
             // it afterwards would reverse the move's own impulse too.
             if special_turn {
                 kin.facing = -kin.facing;
+            }
+            // ⭐⭐ THE ACCEPTED DOUBLE-JUMP CANCEL, and this is its commit point
+            // for the same reason the turn above is: the move is certain to
+            // start here and was only proposed where it was resolved.
+            //
+            // ⛔⛔ AND THE AXIS IS THE BODY'S OWN RISE, NOT WORLD Y. Under
+            // rotated gravity a fighter's up IS world X, and `vel.y` would shed
+            // its lateral drift instead. ⛔ It sheds at most what the jump put
+            // in and at most what is actually there, so a launch the fighter is
+            // riding survives whatever it throws.
+            if cancel_air_jump_rise > 0.0 {
+                let down = body_frame.down;
+                let rise = -kin.vel.dot(down);
+                let shed = rise.min(cancel_air_jump_rise).max(0.0);
+                kin.vel += shed * down;
             }
             // ⛔ A SEPARATE `if`, NOT NESTED. The drift half is its own outcome —
             // reversing momentum while the facing STAYS is a wavebounce, and

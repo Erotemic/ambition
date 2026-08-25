@@ -332,9 +332,9 @@ pub struct DeclaredCombatRules {
     /// is the whole reason the technique has a name.
     ///
     /// ⛔ IT CANCELS A RISE THE JUMP OWNS, and the bound lives in
-    /// `BodyMotionFacts::air_jump_rising` rather than here — a body going up
-    /// faster than its own air jump is riding a launch, and the fact is false
-    /// for it.
+    /// `BodyMotionFacts::air_jump_rise_owned` rather than here — an AMOUNT, so
+    /// the cancel sheds exactly what the jump put in and leaves a launch the
+    /// fighter is riding alone.
     pub double_jump_cancel: Option<bool>,
 }
 

@@ -12,8 +12,8 @@
 use bevy_ecs::component::Component;
 
 use super::model::MotionModel;
-use crate::Vec2;
 use crate::ledge_grab::LedgeGetupKind;
+use crate::Vec2;
 
 /// Semantic ledge-engagement facts (presentation-facing; the anchor and climb
 /// curves stay policy-private).
@@ -58,15 +58,21 @@ pub struct BodyMotionFacts {
     /// Published for control and animation. ⛔ It changes no collision: a
     /// teetering body may still walk off, and nothing here refuses it.
     pub teetering: bool,
-    /// Is this body rising on a jump IT OWNS — spent in the air, and no faster
-    /// than that jump could have pushed it?
+    /// HOW MUCH RISE THIS BODY'S OWN AIR JUMP PUT IN AND STILL HAS — the
+    /// amount a double-jump cancel may take back. `0.0` for a body that has not
+    /// air-jumped, has landed, or whose jump gravity has already eaten.
     ///
-    /// ⛔ THE BOUND IS PART OF THE FACT. A body going up faster than its own
-    /// air jump is riding somebody's launch, so a consumer that cancelled a
-    /// bare "rising" would delete knockback. Answering the bounded question
-    /// here means no consumer needs this body's jump tuning, and none can form
-    /// a second opinion about it.
-    pub air_jump_rising: bool,
+    /// ⛔⛔ AN AMOUNT, NOT A PREDICATE, and the difference is the whole fact.
+    /// This was a bool meaning "rising, and no faster than my own jump could
+    /// push me" — a magnitude test that a weak opponent launch also passes, so
+    /// an aerial deleted knockback. A quantity that only ever shrinks cannot be
+    /// confused with somebody else's velocity: see
+    /// [`crate::movement::MotionState::air_jump_rise_owned`].
+    ///
+    /// ⭐ THE CONSUMER SHEDS `min(this, actual rise)` ALONG THE BODY'S OWN RISE
+    /// AXIS, so no reader needs this body's jump tuning and none can form a
+    /// second opinion about it.
+    pub air_jump_rise_owned: f32,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -189,7 +195,7 @@ impl BodyMotionFacts {
             initial_dashing: state.initial_dash_timer > 0.0,
             turning_around: state.turnaround_timer > 0.0,
             teetering: state.teetering,
-            air_jump_rising: state.air_jump_rising,
+            air_jump_rise_owned: state.air_jump_rise_owned,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             // ⭐ THE SAFE HALF OF AN EVADE, WHICH IS SHORTER THAN THE MOVE WHEN

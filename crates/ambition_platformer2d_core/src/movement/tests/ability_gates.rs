@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::AbilitySet;
 use crate::body_clusters::BodyClusterScratch;
+use crate::AbilitySet;
 
 fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> BodyClusterScratch {
     BodyClusterScratch::new_with_abilities(spawn, abilities)
@@ -143,12 +143,10 @@ fn double_dash_ability_controls_dash_charges() {
 fn wall_climb_requires_wall_cling() {
     let mut abilities = AbilitySet::sandbox_all();
     abilities.wall_cling = false;
-    assert!(
-        abilities
-            .compatibility_warnings()
-            .iter()
-            .any(|w| w.contains("wall_climb"))
-    );
+    assert!(abilities
+        .compatibility_warnings()
+        .iter()
+        .any(|w| w.contains("wall_climb")));
 }
 
 /// A BODY THAT CANNOT DASH STILL RUNS, and the dash attack's whole
@@ -1148,54 +1146,101 @@ fn fast_fall_is_refused_inside_a_tumble_and_returns_when_it_ends() {
     );
 }
 
-/// "RISING ON A JUMP I OWN" IS NOT "RISING".
+/// OWNING A RISE MEANS HAVING BOUGHT IT, NOT BEING SLOW ENOUGH TO HAVE.
 ///
-/// ⛔⛔ THE BOUND IS THE WHOLE POINT OF THE FACT. `air_jump_rising` is what a
-/// double-jump cancel consumes, and the cancel zeroes the climb — so if the
-/// fact were true for a body riding a LAUNCH, the cancel would delete that
-/// launch. Carrying the bound in the publisher is what keeps every consumer
-/// from needing this body's jump tuning, and this is the arm that proves the
-/// publisher actually carries it.
+/// ⛔⛔ THE ARM THAT MATTERS IS THE LAUNCH BELOW `double_jump_speed`. What stood
+/// here asserted the opposite: it gave a body a WEAK external launch and called
+/// the climb "owned" because the number was small. That is a magnitude standing
+/// in for ownership, and it is the bug — `air_jump_rising` also required that an
+/// air jump had been spent *at some point*, which stays true for the rest of the
+/// airtime, so a fighter who had double-jumped and then been launched upward at
+/// any speed under its own jump read as riding its own jump. An aerial DELETED
+/// the opponent's launch.
+///
+/// ⭐ THE FACT IS AN AMOUNT NOW, granted only by the SPEND and only ever
+/// shrunk after it. This drives a REAL double jump for the owning arm rather
+/// than manufacturing the resource state, because a manufactured spend is
+/// exactly what let the old version agree with the bug.
 #[test]
-fn air_jump_rising_is_false_for_a_climb_the_body_did_not_buy() {
+fn owned_air_jump_rise_is_bought_by_the_jump_and_never_by_a_launch() {
     let world = test_world();
     let tuning = super::TEST_TUNING;
     let jump_speed = tuning.params().locomotion.double_jump_speed;
     assert!(jump_speed > 0.0, "the fixture has no air jump to own");
 
-    let after_launch = |up: f32| {
+    let airborne = || {
         let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 300.0));
         scratch.ground.on_ground = false;
-        // Spend an air jump so the resource half of the fact is satisfied.
-        scratch.jump.air_jumps_available = 0;
-        scratch.flight.pending_launch = crate::Vec2::new(0.0, -up);
-        super::update_player_with_tuning_scratch(
-            &world,
-            &mut scratch,
-            InputState::default(),
-            1.0 / 60.0,
-            tuning,
-        );
+        scratch.axis_mut().coyote_timer = 0.0;
         scratch
     };
+    let jump_press = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Jump,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
 
-    // A climb the body's own jump could have produced: the fact is true.
-    let owned = after_launch(jump_speed * 0.5);
+    // ⭐ A REAL DOUBLE JUMP. The spend is the only thing that grants.
+    let mut jumped = airborne();
+    jumped.jump.air_jumps_available = 1;
+    let events = step_scratch(&world, &mut jumped, jump_press);
     assert!(
-        owned.axis().air_jump_rising,
-        "a body rising slower than its own air jump did not own its climb"
+        events
+            .operations
+            .contains(&crate::movement::MovementOp::DoubleJump),
+        "the fixture never air-jumped, so the grant below is about nothing"
+    );
+    assert!(
+        jumped.axis().air_jump_rise_owned > jump_speed * 0.5,
+        "an air jump the body just spent granted {} of owned rise against a \
+         jump speed of {jump_speed}",
+        jumped.axis().air_jump_rise_owned
     );
 
-    // A climb far beyond it — a launch. The fact must refuse it.
-    let launched = after_launch(jump_speed * 4.0);
-    assert!(
-        launched.kinematics.vel.y < 0.0,
-        "the fixture is not rising at all, so the refusal below is vacuous"
+    // ⛔⛔ THE FAILING SCENARIO. Same body, jump long since eaten by gravity,
+    // then an opponent launches it upward SLOWER than its own jump — the exact
+    // shape the magnitude test could not tell from a jump.
+    let mut launched = jumped;
+    for _ in 0..240 {
+        step_scratch(&world, &mut launched, InputState::default());
+        if launched.axis().air_jump_rise_owned <= 0.0 {
+            break;
+        }
+    }
+    assert_eq!(
+        launched.axis().air_jump_rise_owned,
+        0.0,
+        "gravity never finished the jump, so the launch arm below would be \
+         measuring leftover jump rather than the launch"
     );
+    launched.flight.pending_launch = crate::Vec2::new(0.0, -jump_speed * 0.5);
+    step_scratch(&world, &mut launched, InputState::default());
     assert!(
-        !launched.axis().air_jump_rising,
-        "a body riding a launch reported the climb as its own — a double-jump \
-         cancel would delete that launch"
+        -launched.kinematics.vel.y > 0.0,
+        "the launch did not lift the body, so the refusal below is vacuous"
+    );
+    assert_eq!(
+        launched.axis().air_jump_rise_owned,
+        0.0,
+        "a launch below the body's own jump speed handed it {} of OWNED rise — \
+         an aerial would now delete the opponent's knockback",
+        launched.axis().air_jump_rise_owned
+    );
+
+    // And a body that never air-jumped owns nothing, however gently it rises.
+    let mut never = airborne();
+    never.flight.pending_launch = crate::Vec2::new(0.0, -jump_speed * 0.5);
+    step_scratch(&world, &mut never, InputState::default());
+    assert_eq!(
+        never.axis().air_jump_rise_owned,
+        0.0,
+        "a body that never spent an air jump owned some of its climb"
     );
 }
 

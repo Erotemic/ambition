@@ -291,6 +291,34 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
+## 2026-08-24 — the up-tilt percent-scaling guard is RED on the character lane
+
+▢ **NOT A MAINTAINER OBSERVATION — a measurement, recorded here because it
+outranks anything inferred.** `smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`
+fails on the character-authoring lane (`cef3d8f4c`, *"Two easter eggs take seats
+on the smash grid"* and the four commits before it), which reached `main` on
+2026-08-24 alongside the match-clock lane.
+
+```text
+the SAME move on the SAME fighter lifted them 3.8px at 0% and 38.1px at 1427%
+```
+
+The bar is `cooked > fresh * 10.0`, so this misses by a hair — the launch DOES
+scale with percent, just barely under the guard.
+
+⭐ **ATTRIBUTED, not guessed.** Every file the match-clock lane touched under
+`movement/`, `abilities.rs`, `motion_codec.rs`, `moveset/mod.rs`,
+`dev_tools/editable.rs` and the Smash body was reverted to `cef3d8f4c` and the
+test re-run: **identical numbers, 3.8 and 38.1**. A failure that does not move
+when a suspect is removed is not that suspect's — the character lane touched
+`crates/ambition_combat/src/moveset/mod.rs`, `moveset_prefabs.rs` and
+`moveset_authoring.rs`, which is where a shared up-tilt would shift.
+
+⇒ **whoever owns that lane should decide whether the guard or the tuning moved.**
+⛔ do NOT relax the `* 10.0` threshold to make it green: the test exists because
+Jon reported *"alice is at 1427% and Booul is hitting her, but she's not going
+anywhere"*, and its margin is the whole point.
+
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 
 Jon: *"Another issue is that shield rolls have too much motion to them. They

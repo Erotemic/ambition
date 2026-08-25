@@ -31,6 +31,7 @@ pub fn base() -> AgentAction {
         attack_released: false,
         attack_strong: false,
         special: false,
+        special_held: false,
         blink: false,
         blink_held: false,
         blink_released: false,

@@ -192,6 +192,24 @@ pub struct DeclaredCombatRules {
     /// `0.0` = a clank cancels the attacks and moves nobody. Irrelevant while
     /// [`Self::clank_damage_window`] is zero, because then nothing clanks.
     pub clank_rebound_speed: f32,
+    /// EDGE CANCEL: does an aerial's landing lag SURVIVE losing the ground
+    /// under it?
+    ///
+    /// `None`/`false` keeps what every body did before this existed — the lag
+    /// is a timer and it runs out wherever the body happens to be, including
+    /// halfway down a pit. `Some(true)` ends it the moment ground support
+    /// disappears.
+    ///
+    /// ⭐ IT IS THE SAME COMMITMENT SEEN FROM THE OTHER SIDE. Landing lag
+    /// exists because an aerial that touches down mid-move should cost you; a
+    /// body sliding off a platform lip is no longer touched down, so there is
+    /// nothing left for it to be paying. Charging it anyway freezes a body in
+    /// mid-air, which is the one place the lag never meant to describe.
+    ///
+    /// ⛔ A RULE, NOT A PER-MOVE FIELD. Every move's lag cancels or none does;
+    /// authoring it per move would be an exemption list, and the genre applies
+    /// it to the whole cast.
+    pub edge_cancel_recovery: Option<bool>,
     /// SUDDEN DEATH: the damage every surviving fighter starts on when a timed
     /// match runs out genuinely level. `None` = no sudden death, and a level
     /// timeout is simply a draw.
@@ -264,6 +282,8 @@ pub struct ResolvedCombatTuning {
     pub crouch_cancel_scale: f32,
     /// See [`DeclaredCombatRules::hit_repeat_window_scale`].
     pub hit_repeat_window_scale: f32,
+    /// See [`DeclaredCombatRules::edge_cancel_recovery`].
+    pub edge_cancel_recovery: bool,
     /// See [`DeclaredCombatRules::clank_damage_window`]. `0.0` = attacks pass
     /// through each other, which is what an undeclared world does.
     pub clank_damage_window: f32,
@@ -376,6 +396,7 @@ impl ResolvedCombatTuning {
                 friendly_fire: rules.friendly_fire,
                 clank_damage_window: rules.clank_damage_window,
                 clank_rebound_speed: rules.clank_rebound_speed,
+                edge_cancel_recovery: rules.edge_cancel_recovery.unwrap_or(false),
                 sudden_death_damage: rules.sudden_death_damage,
                 // A world that declared no rate barks on every hit, which is
                 // what every body did before the knob existed.
@@ -410,6 +431,10 @@ impl ResolvedCombatTuning {
                 // mistake `downward_hit` above already names.
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                // ⛔ AN UNDECLARED WORLD KEEPS ITS LAG. Nothing outside a
+                // platform fighter was tuned expecting recovery to vanish at a
+                // ledge — the same reasoning `clank_damage_window` states above.
+                edge_cancel_recovery: false,
                 sudden_death_damage: None,
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
@@ -452,6 +477,7 @@ impl Default for ResolvedCombatTuning {
             friendly_fire: false,
             clank_damage_window: 0.0,
             clank_rebound_speed: 0.0,
+            edge_cancel_recovery: false,
             sudden_death_damage: None,
         }
     }
@@ -523,6 +549,7 @@ mod tests {
                 friendly_fire: false,
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                edge_cancel_recovery: None,
                 sudden_death_damage: None,
             }),
             baseline_di,
@@ -561,6 +588,7 @@ mod tests {
             friendly_fire: true,
             clank_damage_window: 0.0,
             clank_rebound_speed: 0.0,
+            edge_cancel_recovery: None,
             sudden_death_damage: None,
         });
         assert_eq!(
@@ -590,6 +618,10 @@ mod tests {
                 friendly_fire: false,
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
+                // ⛔ AN UNDECLARED WORLD KEEPS ITS LAG. Nothing outside a
+                // platform fighter was tuned expecting recovery to vanish at a
+                // ledge — the same reasoning `clank_damage_window` states above.
+                edge_cancel_recovery: false,
                 sudden_death_damage: None,
             }
         );

@@ -1350,6 +1350,40 @@ pub fn advance_move_playback(
     }
 }
 
+/// THE EDGE CANCEL — recovery ends when the ground it was owed to goes away.
+///
+/// The other half of [`resolve_aerial_landings`]: that one charges the lag for
+/// touching down mid-move, and this one stops charging it once the body is no
+/// longer touched down. Sliding off a platform lip during recovery is the
+/// genre's reward for landing at the edge on purpose.
+///
+/// ⛔⛔ IT CANNOT LIVE IN `resolve_aerial_landings`, and that is not a style
+/// choice: the lag OUTLIVES the playback. Charging it cancels the move, so a
+/// body paying recovery has no `MovePlayback` at all and that query cannot see
+/// it. This one asks for the two components every body has.
+///
+/// ⛔ Gated on a declared rule, so a world that never asked keeps its lag
+/// running wherever the body is — see
+/// [`crate::rules::DeclaredCombatRules::edge_cancel_recovery`].
+pub fn edge_cancel_landing_recovery(
+    rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    mut bodies: bevy::prelude::Query<(
+        &ambition_platformer2d_core::BodyGroundState,
+        &mut ambition_characters::actor::BodyCombat,
+    )>,
+) {
+    // No resolved rules at all is a world outside a match, which declares
+    // nothing and changes nothing.
+    if !rules.is_some_and(|r| r.edge_cancel_recovery) {
+        return;
+    }
+    for (ground, mut combat) in &mut bodies {
+        if !ground.on_ground && combat.landing_lag_timer > 0.0 {
+            combat.landing_lag_timer = 0.0;
+        }
+    }
+}
+
 /// An aerial move that touches down before it ended owes its authored landing
 /// lag — unless it auto-cancelled.
 ///

@@ -525,6 +525,10 @@ fn track_versus_roster(
                 bark_chance: None,
                 // The versus route drops a trumped body where it hung.
                 ledge_trump_pop: None,
+                // The versus route says nothing about the edge cancel either:
+                // its landing lag runs out wherever the body is, which is what
+                // it did before the rule existed.
+                edge_cancel_recovery: None,
                 // Third time this repo has learned it: the participant roster, the prepared
                 // match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),

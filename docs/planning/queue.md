@@ -9726,6 +9726,37 @@ only an authoring OVERRIDE, which wants a customer.
 
 Wire format v96.
 
+- ✔ **D223 — CLOSED 2026-08-25. THE EDGE CANCEL: RECOVERY ENDS WHEN THE GROUND
+  IT WAS OWED TO GOES AWAY. (opened and closed 2026-08-25)**
+
+`DeclaredCombatRules::edge_cancel_recovery` — `Some(true)` for Smash, `None`
+everywhere else. Land an aerial on a platform lip, slide off, and the landing
+lag is over. That is the genre's reward for spacing a landing on purpose.
+
+⭐ **IT IS THE SAME COMMITMENT SEEN FROM THE OTHER SIDE.** Landing lag exists
+because an aerial that touches down mid-move should cost you. A body sliding off
+a lip is no longer touched down, so there is nothing left for it to be paying —
+and charging it anyway freezes a body in MID-AIR, the one state the lag was
+never describing.
+
+⛔⛔ **IT COULD NOT LIVE IN `resolve_aerial_landings`, AND NOT FOR STYLE.** The
+lag OUTLIVES the playback: charging it cancels the move, so a body paying
+recovery has no `MovePlayback` at all and that system's query cannot see it. The
+cancel is its own body-generic system over the two components every body has,
+chained straight after the landing that charges the lag — so a body that lands
+and leaves the ground in one frame is charged and then released, never released
+and then charged.
+
+⛔ **A RULE, NOT A PER-MOVE FIELD.** Every move's lag cancels or none does.
+Authoring it per move would be an exemption list, and the genre applies it to
+the whole cast.
+
+⚠ **AND THE GATE WAS BLIND AGAIN, IN THE SAME CRATE THIS TIME.** A bulk edit put
+`edge_cancel_recovery: false` into two `DeclaredCombatRules` literals that want
+`Option<bool>`; `cargo check -p ambition_app --all-targets` reported clean
+because both live in `ambition_combat`'s own `cfg(test)` files. Second time
+today. ⇒ the crate suite, not the gate, is what proves a shared type's change.
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

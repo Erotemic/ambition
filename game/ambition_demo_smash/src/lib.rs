@@ -894,6 +894,10 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // absence, and what this needs is a play session rather than another
         // guessed threshold. `9.0` is the genre's number and the one to try
         // first.
+        // ⭐ RECOVERY ENDS AT THE LIP. Landing an aerial on the edge of a
+        // platform and sliding off cancels its lag — the genre's reward for
+        // spacing a landing on purpose rather than just landing.
+        edge_cancel_recovery: Some(true),
         clank_damage_window: 0.0,
         // …and the trade throws both fighters back. Well under a launch — this
         // is a reset of the exchange, not a punish — but far enough that the two

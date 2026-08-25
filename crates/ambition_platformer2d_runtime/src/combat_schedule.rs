@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{
-    gameplay_allowed, CombatSet, Platformer2dSimulationPhaseMonolith,
+    CombatSet, Platformer2dSimulationPhaseMonolith, gameplay_allowed,
 };
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
@@ -147,6 +147,12 @@ impl Plugin for CombatSchedulePlugin {
                     // open its next window — spawning a strike volume for a
                     // move that has already been cancelled by the ground.
                     ambition_platformer2d_actor_monolith::combat::moveset::resolve_aerial_landings,
+                    // AFTER the landing that charges it, so a body that landed
+                    // and left the ground in the same frame is charged and then
+                    // released rather than released and then charged — which
+                    // would leave it paying lag in mid-air, the one state the
+                    // rule exists to prevent.
+                    ambition_platformer2d_actor_monolith::combat::moveset::edge_cancel_landing_recovery,
                     ambition_platformer2d_actor_monolith::combat::moveset::advance_move_playback,
                     // Right behind the clock that moves them: a move's authored
                     // Invuln / Armor windows are republished onto the two facts

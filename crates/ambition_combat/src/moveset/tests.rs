@@ -6379,3 +6379,69 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
     assert!((speed - 750.0).abs() < 1e-3, "{speed}");
     assert_eq!(visual.as_deref(), Some("ball"), "the tier did not travel");
 }
+
+/// RECOVERY ENDS AT THE LIP — but only where a world asked for it.
+///
+/// Four arms. The one that matters most is the second: this is an opt-in rule,
+/// and a world that declared nothing must keep paying its lag wherever it is,
+/// because nothing outside a platform fighter was tuned expecting recovery to
+/// vanish at a ledge.
+#[test]
+fn landing_recovery_cancels_when_the_ground_goes_away_only_where_declared() {
+    use ambition_platformer2d_core::BodyGroundState;
+
+    // (rule declared, grounded at the tick) -> lag still owed afterwards
+    let remaining = |declared: Option<bool>, grounded: bool| -> f32 {
+        let mut app = App::new();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            edge_cancel_recovery: declared.unwrap_or(false),
+            ..Default::default()
+        });
+        app.add_systems(Update, super::edge_cancel_landing_recovery);
+        let body = app
+            .world_mut()
+            .spawn((
+                BodyGroundState {
+                    on_ground: grounded,
+                    ..Default::default()
+                },
+                ambition_characters::actor::BodyCombat {
+                    landing_lag_timer: 0.25,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        app.update();
+        app.world()
+            .get::<ambition_characters::actor::BodyCombat>(body)
+            .expect("the body survives a tick")
+            .landing_lag_timer
+    };
+
+    // ARM 1 — THE CANCEL. Declared, and the ground is gone.
+    assert_eq!(
+        remaining(Some(true), false),
+        0.0,
+        "a declared edge cancel left the body still paying its landing lag"
+    );
+
+    // ARM 2 — AND NOT OTHERWISE. Same airborne body, no declaration.
+    assert_eq!(
+        remaining(None, false),
+        0.25,
+        "an undeclared world had its landing lag cancelled anyway"
+    );
+    assert_eq!(
+        remaining(Some(false), false),
+        0.25,
+        "a world that declared FALSE had its landing lag cancelled anyway"
+    );
+
+    // ARM 3 — A GROUNDED BODY KEEPS PAYING, which is the whole point of the
+    // lag. Without this arm a rule that simply zeroed every timer would pass.
+    assert_eq!(
+        remaining(Some(true), true),
+        0.25,
+        "the lag was cancelled for a body still standing on the ground"
+    );
+}

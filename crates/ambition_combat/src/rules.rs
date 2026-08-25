@@ -210,6 +210,26 @@ pub struct DeclaredCombatRules {
     /// authoring it per move would be an exemption list, and the genre applies
     /// it to the whole cast.
     pub edge_cancel_recovery: Option<bool>,
+    /// B-REVERSE: does a special started with a BACK press turn the fighter
+    /// around? `None`/`false` is what every body did — a special comes out the
+    /// way you were already facing.
+    ///
+    /// ⭐ THE SPECIAL'S OWN RESOLVED DIRECTION decides it, not the live stick:
+    /// `AttackDir::Back` already means "away from facing" and is republished
+    /// for the whole buffered window, so a press read after the stick centres
+    /// still means what it meant.
+    ///
+    /// ⛔ FACING ONLY. The momentum half is [`Self::special_turn_reverses_drift`]
+    /// and it is deliberately separate: the genre has both, and a game that
+    /// wants the turn without the launch-cancel should not have to take both.
+    pub special_turn: Option<bool>,
+    /// WAVEBOUNCE: does that same turn ALSO reverse the fighter's drift?
+    ///
+    /// Irrelevant while [`Self::special_turn`] is off, because there is no turn
+    /// to strengthen. Together they are the genre's B-reverse and wavebounce as
+    /// two settings of ONE special-start rule rather than two mechanics — which
+    /// is what keeps either from becoming a fighter-specific velocity hack.
+    pub special_turn_reverses_drift: Option<bool>,
     /// SUDDEN DEATH: the damage every surviving fighter starts on when a timed
     /// match runs out genuinely level. `None` = no sudden death, and a level
     /// timeout is simply a draw.
@@ -284,6 +304,10 @@ pub struct ResolvedCombatTuning {
     pub hit_repeat_window_scale: f32,
     /// See [`DeclaredCombatRules::edge_cancel_recovery`].
     pub edge_cancel_recovery: bool,
+    /// See [`DeclaredCombatRules::special_turn`].
+    pub special_turn: bool,
+    /// See [`DeclaredCombatRules::special_turn_reverses_drift`].
+    pub special_turn_reverses_drift: bool,
     /// See [`DeclaredCombatRules::clank_damage_window`]. `0.0` = attacks pass
     /// through each other, which is what an undeclared world does.
     pub clank_damage_window: f32,
@@ -397,6 +421,8 @@ impl ResolvedCombatTuning {
                 clank_damage_window: rules.clank_damage_window,
                 clank_rebound_speed: rules.clank_rebound_speed,
                 edge_cancel_recovery: rules.edge_cancel_recovery.unwrap_or(false),
+                special_turn: rules.special_turn.unwrap_or(false),
+                special_turn_reverses_drift: rules.special_turn_reverses_drift.unwrap_or(false),
                 sudden_death_damage: rules.sudden_death_damage,
                 // A world that declared no rate barks on every hit, which is
                 // what every body did before the knob existed.
@@ -435,6 +461,9 @@ impl ResolvedCombatTuning {
                 // platform fighter was tuned expecting recovery to vanish at a
                 // ledge — the same reasoning `clank_damage_window` states above.
                 edge_cancel_recovery: false,
+                // ⛔ AN UNDECLARED WORLD'S SPECIALS COME OUT THE WAY IT FACES.
+                special_turn: false,
+                special_turn_reverses_drift: false,
                 sudden_death_damage: None,
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
@@ -478,6 +507,8 @@ impl Default for ResolvedCombatTuning {
             clank_damage_window: 0.0,
             clank_rebound_speed: 0.0,
             edge_cancel_recovery: false,
+            special_turn: false,
+            special_turn_reverses_drift: false,
             sudden_death_damage: None,
         }
     }
@@ -550,6 +581,8 @@ mod tests {
                 clank_damage_window: 0.0,
                 clank_rebound_speed: 0.0,
                 edge_cancel_recovery: None,
+                special_turn: None,
+                special_turn_reverses_drift: None,
                 sudden_death_damage: None,
             }),
             baseline_di,
@@ -589,6 +622,8 @@ mod tests {
             clank_damage_window: 0.0,
             clank_rebound_speed: 0.0,
             edge_cancel_recovery: None,
+            special_turn: None,
+            special_turn_reverses_drift: None,
             sudden_death_damage: None,
         });
         assert_eq!(
@@ -622,6 +657,9 @@ mod tests {
                 // platform fighter was tuned expecting recovery to vanish at a
                 // ledge — the same reasoning `clank_damage_window` states above.
                 edge_cancel_recovery: false,
+                // ⛔ AN UNDECLARED WORLD'S SPECIALS COME OUT THE WAY IT FACES.
+                special_turn: false,
+                special_turn_reverses_drift: false,
                 sudden_death_damage: None,
             }
         );

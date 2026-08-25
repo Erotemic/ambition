@@ -10049,6 +10049,37 @@ platform ending at 500.
 dash dance, turnaround, reverse aerial rush, pivot grab, run cancel into crouch,
 run cancel into shield, teeter. Wire format v99.
 
+- ✔ **D230 — CLOSED 2026-08-25. B-REVERSE AND WAVEBOUNCE ARE ONE RULE WITH TWO
+  SETTINGS. (opened and closed 2026-08-25)**
+
+`special_turn` turns a fighter around when a special is pressed BACKWARD;
+`special_turn_reverses_drift` makes that same turn take the drift with it. Both
+`None` everywhere but Smash. ⛔ The row forbade a fighter-specific velocity
+hack by name, and one special-start policy with two knobs is what avoids it: a
+game that wants the turn without the launch-cancel is not forced to take both.
+
+⛔ **MOVE SELECTION IS UNTOUCHED.** The move was already chosen from the same
+`AttackDir::Back`; this is where the BODY answers. Keeping the two apart is what
+the row means by "keep move selection and momentum rule separate".
+
+⛔ **THE DRIFT, NOT THE WHOLE VELOCITY.** Reversing `vel` outright would flip a
+launch the fighter is riding — the fourth appearance of that shape today, and
+the first one I wrote correctly on the first try.
+
+⭐⭐ **AND THE POISON FOUND A HOLE IN MY OWN TEST.** Deleting the
+`AttackDir::Back` gate entirely left all four arms GREEN, because every one of
+them pressed Back: a rule that turned you on ANY special would have passed. Arm
+5 presses FORWARD with both knobs on and asserts no turn.
+
+⇒ ⭐ **WHEN A RULE IS GATED ON AN INPUT, AT LEAST ONE ARM MUST SUPPLY A
+DIFFERENT INPUT.** Otherwise the gate is untested and the suite is asserting
+"the rule fires", never "the rule fires ONLY THEN". Same family as the pivot
+grab's baseline arm earlier today.
+
+⭐ Arm 4 earns its place too: the drift knob ALONE does nothing, because there
+is no turn to strengthen — without it a reader could take it for a second
+mechanic rather than a modifier.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

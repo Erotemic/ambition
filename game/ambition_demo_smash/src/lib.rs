@@ -927,6 +927,13 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // platform and sliding off cancels its lag — the genre's reward for
         // spacing a landing on purpose rather than just landing.
         edge_cancel_recovery: Some(true),
+        // ⭐ B-REVERSE: a special pressed BACKWARD turns the fighter around, so
+        // a recovery or a projectile can come out the way you came from.
+        special_turn: Some(true),
+        // ⭐ AND THE WAVEBOUNCE with it: the turn takes your drift too. The two
+        // are one rule with two settings, which is what stops either becoming a
+        // per-fighter velocity hack. ⚠ both are feel calls: play them.
+        special_turn_reverses_drift: Some(true),
         clank_damage_window: 0.0,
         // …and the trade throws both fighters back. Well under a launch — this
         // is a reset of the exchange, not a punish — but far enough that the two

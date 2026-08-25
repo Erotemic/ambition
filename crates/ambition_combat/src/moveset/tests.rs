@@ -6503,3 +6503,108 @@ fn a_move_thrown_out_of_a_turnaround_points_the_new_way() {
         "a move thrown out of a turnaround still pointed the old way — no pivot"
     );
 }
+
+/// B-REVERSE AND WAVEBOUNCE, AS TWO SETTINGS OF ONE SPECIAL-START RULE.
+///
+/// ⛔ FOUR ARMS, and the pair that matters is 2-vs-3: the turn WITHOUT the
+/// drift reversal is B-reverse, the turn WITH it is a wavebounce, and a game
+/// that wants one must not be forced to take the other. Arm 1 keeps every world
+/// that declares neither exactly where it was.
+#[test]
+fn a_back_pressed_special_turns_the_fighter_and_optionally_its_drift() {
+    let outcome = |turn: bool, reverse_drift: bool| -> (f32, f32) {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                "special_back".to_string(),
+                "back_b".to_string(),
+            )]),
+            moves: vec![gesture_test_move("back_b")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            special_turn: turn,
+            special_turn_reverses_drift: reverse_drift,
+            ..Default::default()
+        });
+        // Facing RIGHT and drifting RIGHT, pressing the special BACKWARD.
+        {
+            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+            kin.facing = 1.0;
+            kin.vel = ae::Vec2::new(200.0, 0.0);
+        }
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+        app.update();
+        let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+        (kin.facing, kin.vel.x)
+    };
+
+    // ARM 1 — DECLARED NEITHER: a special comes out the way you face and your
+    // drift is your own. Every world in this repo.
+    assert_eq!(
+        outcome(false, false),
+        (1.0, 200.0),
+        "a world declaring no special turn had its fighter turned anyway"
+    );
+
+    // ARM 2 — B-REVERSE: the fighter turns, the drift does not.
+    assert_eq!(
+        outcome(true, false),
+        (-1.0, 200.0),
+        "the back special did not turn the fighter, or it moved drift it was not asked to"
+    );
+
+    // ARM 3 — WAVEBOUNCE: the same turn takes the drift with it.
+    assert_eq!(
+        outcome(true, true),
+        (-1.0, -200.0),
+        "the stronger version did not reverse the drift"
+    );
+
+    // ARM 4 — AND THE DRIFT KNOB ALONE DOES NOTHING, because there is no turn
+    // to strengthen. Without this a reader could think it is a second mechanic.
+    assert_eq!(
+        outcome(false, true),
+        (1.0, 200.0),
+        "the drift knob acted without a turn to strengthen"
+    );
+
+    // ARM 5 — A FORWARD SPECIAL DOES NOT TURN YOU, and this arm is the reason
+    // the rule reads the DIRECTION at all: every arm above presses Back, so
+    // dropping the direction gate entirely would leave them all green. It is
+    // the press that means "the other way" which reverses you.
+    let forward = {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                "special_forward".to_string(),
+                "fwd_b".to_string(),
+            )]),
+            moves: vec![gesture_test_move("fwd_b")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            special_turn: true,
+            special_turn_reverses_drift: true,
+            ..Default::default()
+        });
+        {
+            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+            kin.facing = 1.0;
+            kin.vel = ae::Vec2::new(200.0, 0.0);
+        }
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.special_pressed = true;
+        frame.attack_axis = ae::LocalAxes::new(1.0, 0.0);
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+        app.update();
+        let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
+        (kin.facing, kin.vel.x)
+    };
+    assert_eq!(
+        forward,
+        (1.0, 200.0),
+        "a FORWARD special turned the fighter around — the rule is not reading the direction"
+    );
+}

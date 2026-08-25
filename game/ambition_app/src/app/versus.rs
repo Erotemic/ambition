@@ -529,6 +529,9 @@ fn track_versus_roster(
                 // its landing lag runs out wherever the body is, which is what
                 // it did before the rule existed.
                 edge_cancel_recovery: None,
+                // The versus route's specials come out the way the body faces.
+                special_turn: None,
+                special_turn_reverses_drift: None,
                 // Third time this repo has learned it: the participant roster, the prepared
                 // match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),

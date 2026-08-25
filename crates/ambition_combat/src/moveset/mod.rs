@@ -1947,6 +1947,10 @@ pub fn body_is_helpless(
 
 pub fn trigger_moveset_moves(
     mut commands: Commands,
+    // THE MATCH'S DECLARED RULES, for the special-start turn (B-reverse /
+    // wavebounce). `Option` because a world outside a match declares none and
+    // turns nobody around.
+    combat_rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
     mut bodies: Query<(
         Entity,
         &ActorMoveset,
@@ -2213,6 +2217,36 @@ pub fn trigger_moveset_moves(
                 &[SPECIAL_VERB][..],
                 ProposedVerb::Special,
             );
+            // ⭐⭐ B-REVERSE AND WAVEBOUNCE, AS TWO SETTINGS OF ONE RULE. A
+            // special started with a BACK press turns the fighter around, and —
+            // if the ruleset asks for the stronger version — reverses its drift
+            // with it. The genre has both; making them one special-start policy
+            // is what keeps either from becoming a fighter-specific velocity
+            // hack, which the parity row rules out by name.
+            //
+            // ⛔ THE PRESS'S OWN DIRECTION, like everything else in this arm:
+            // `AttackDir::Back` already means "away from facing" and is
+            // republished for the whole buffered window, so a press read after
+            // the stick centres still means what it meant.
+            //
+            // ⛔ IT DOES NOT TOUCH MOVE SELECTION. The move was already chosen
+            // above from the same direction; this is where the BODY answers,
+            // and the two stay separate exactly as the row requires.
+            if combat_rules.as_ref().is_some_and(|r| r.special_turn)
+                && matches!(intent.direction, AttackDir::Back)
+            {
+                kin.facing = -kin.facing;
+                if combat_rules
+                    .as_ref()
+                    .is_some_and(|r| r.special_turn_reverses_drift)
+                {
+                    // ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel`
+                    // outright would flip a launch the fighter is riding, which
+                    // is the mistake three other maneuvers in this kernel have
+                    // already made. Only the ground/air run axis turns.
+                    kin.vel.x = -kin.vel.x;
+                }
+            }
             // THIS USE IS A SPECIAL, recorded for the same reason the smash arm
             // records its own: the resolution that chose the verb is what makes
             // a chargeable neutral-B chargeable, and a move reached through

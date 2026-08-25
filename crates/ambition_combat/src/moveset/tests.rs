@@ -6445,3 +6445,61 @@ fn landing_recovery_cancels_when_the_ground_goes_away_only_where_declared() {
         "the lag was cancelled for a body still standing on the ground"
     );
 }
+
+/// A MOVE THROWN OUT OF A TURNAROUND COMES OUT THE NEW WAY — the pivot.
+///
+/// ⭐ THE SAME RULE THE REVERSE AERIAL RUSH USES: a turnaround is finished by
+/// whatever you commit to out of it. Jumping resolves it in the movement
+/// kernel; acting resolves its DIRECTION here. That is what a pivot grab is,
+/// and it needs no move of its own — the existing forward move simply points
+/// the other way.
+///
+/// ⛔ THE WIRING, not `attack_dir_from_axis` — that pure rule is already
+/// covered by `attack_dir_is_relative_to_facing`, and it would pass whether or
+/// not the selector ever consults the turnaround.
+#[test]
+fn a_move_thrown_out_of_a_turnaround_points_the_new_way() {
+    let started = |turning: bool| -> Option<String> {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([
+                ("attack_forward".to_string(), "fwd".to_string()),
+                ("attack_back".to_string(), "back".to_string()),
+            ]),
+            moves: vec![gesture_test_move("fwd"), gesture_test_move("back")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::BodyMotionFacts {
+                turning_around: turning,
+                ..Default::default()
+            });
+        // Facing RIGHT, stick pressed LEFT: the way a body that just asked to
+        // turn around is holding it.
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+        app.update();
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|p| p.spec.id.clone())
+    };
+
+    // BASELINE: not turning, so a leftward press while facing right is a BACK
+    // attack. Without this arm the pivot arm could pass on a body that always
+    // threw the forward move.
+    assert_eq!(
+        started(false).as_deref(),
+        Some("back"),
+        "a leftward press while facing right was not a back attack"
+    );
+
+    // THE PIVOT: mid-turnaround the same press comes out FORWARD, because the
+    // body has already committed to facing that way.
+    assert_eq!(
+        started(true).as_deref(),
+        Some("fwd"),
+        "a move thrown out of a turnaround still pointed the old way — no pivot"
+    );
+}

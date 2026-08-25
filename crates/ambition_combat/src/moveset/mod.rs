@@ -1463,15 +1463,41 @@ pub fn resolve_attack_gestures(
         &mut AttackGestureState,
         &AttackGestureTuning,
         &mut ResolvedAttackGesture,
+        // THE TURNAROUND, because a move thrown out of one points the NEW way —
+        // see the pivot note below.
+        Option<&ambition_platformer2d_core::BodyMotionFacts>,
     )>,
 ) {
-    for (control, kin, ground, mut state, tuning, mut resolved) in &mut bodies {
+    for (control, kin, ground, mut state, tuning, mut resolved, motion) in &mut bodies {
         let frame = &control.0;
+        // ⭐⭐ THE PIVOT: A MOVE THROWN OUT OF A TURNAROUND COMES OUT THE NEW
+        // WAY. The body is mid-turn and has already committed to facing the
+        // other direction, so what it throws goes with it — which is exactly
+        // what a PIVOT GRAB is, and it needs no move of its own: the existing
+        // forward move simply points the other way.
+        //
+        // ⭐ THE SAME RULE THE REVERSE AERIAL RUSH USES, and saying it once is
+        // the point: a turnaround is FINISHED by whatever you commit to out of
+        // it. Jumping resolves it in the movement kernel; acting resolves its
+        // DIRECTION here.
+        //
+        // ⛔ RESOLVED HERE, at the ONE place facing is folded into an aim.
+        // Doing it at the move selector instead looked right and changed
+        // nothing — the direction is already decided by the time that code
+        // runs, which a test of the pure `attack_dir_from_axis` would never
+        // have caught.
+        //
+        // ⛔ THE DIRECTION ONLY: the kernel still owns the phase and its clock.
+        let facing = if motion.is_some_and(|m| m.turning_around) {
+            -kin.facing
+        } else {
+            kin.facing
+        };
         *resolved = resolve_attack_gesture(
             &mut state,
             *tuning,
             frame.attack_axis,
-            kin.facing,
+            facing,
             ground.map(|g| g.on_ground).unwrap_or(true),
             frame.melee_pressed,
             frame.melee_held,

@@ -9942,6 +9942,38 @@ is modelled on and the next person will expect the genre's version.
 ⇒ Four parity rows now come out of the one direction-change edge: the initial
 dash, the foxtrot, the dash dance, and — through the turnaround — this.
 
+- ✔ **D227 — CLOSED 2026-08-25. THE PIVOT GRAB, WITH NO MOVE OF ITS OWN.
+  (opened and closed 2026-08-25)**
+
+A move thrown while `turning_around` resolves its aim against the FLIPPED
+facing, so the existing forward grab points the other way. The row promised
+"capture itself needs no new mechanic" and that held exactly.
+
+⭐ **ONE RULE, STATED ONCE, NOW COVERS BOTH**: a turnaround is finished by
+whatever you commit to out of it. Jumping resolves it in the movement kernel
+(the reverse aerial rush); acting resolves its DIRECTION in
+`resolve_attack_gestures` (this).
+
+⛔⛔ **THE FIRST IMPLEMENTATION WAS IN THE WRONG PLACE AND READ PERFECTLY.** I
+put the flip at the move SELECTOR, beside `attack_dir_from_axis(...)`. It
+compiled, it looked right, and it changed NOTHING — the direction is already
+decided by the time that code runs, because `resolve_attack_gestures` folds
+facing into the aim earlier in the same chain.
+
+⇒ ⭐⭐ **ONLY THE WIRING TEST COULD HAVE CAUGHT THAT.** The pure rule
+(`attack_dir_is_relative_to_facing`) passes either way, and a test written
+against it would have "proved" a mechanic that does not exist. The wiring test's
+BASELINE arm is what localised it: leftward-press-while-facing-right still read
+`Back` correctly, so the fault was the turnaround being unread rather than the
+direction maths being wrong. ⇒ when a fact must reach a decision, test that the
+DECISION changed, never that the function computing it is correct.
+
+⚠ **AND TWO BUILDS DIED TO THE FOREGROUND TIMEOUT TODAY.**
+`cargo check -p ambition_app --all-targets` now exceeds two minutes on its own
+under contention, and a SIGTERM mid-compile surfaces as
+`failed to parse process output: rustc ...` — which reads like a toolchain fault
+and is not one. ⇒ never chain work AFTER the gate in one foreground command.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

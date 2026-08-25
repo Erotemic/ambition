@@ -34,13 +34,48 @@ use crate::{InputParticipant, Platformer2dInputActionMonolith};
 /// touch overlay inserts its virtual controls, and a remap will mutate it live. The recipe is the
 /// declared starting point every rebuild returns to; the layers on top re-apply themselves through
 /// their own `Changed<InputMap>` hooks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BindingBase {
-    /// A keyboard-and-gamepad preset — the primary seat's shape.
-    Preset(PresetId),
-    /// Gamepad bindings only. A second player on the same keyboard as the
-    /// first is not a second player, so extra seats start here.
+/// WHICH PHYSICAL DEVICES this seat is allowed to hear.
+///
+/// ⭐⭐ SEPARATE FROM THE PRESET, and that separation is the whole point. It was
+/// once fused into the base — `Preset(id)` meant "keyboard and pad" and
+/// `GamepadOnly` meant "an extra seat" — so the recipe could not express "seat 1
+/// is on a PAD and seat 2 is on the KEYBOARD", which is a composition character
+/// select happily produces. The result was a keyboard that drove player 1 while
+/// the keyboard player in seat 2 had no controls at all.
+///
+/// ⛔ THE FROZEN `LocalChannelPlan` IS THE AUTHORITY for a decided match; this is
+/// only where its answer is recorded. A surface with no plan (launcher, menus)
+/// is legitimately [`Self::Unified`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BindingSources {
+    /// Keyboard AND gamepad. One person playing alone, and every menu surface.
+    #[default]
+    Unified,
+    /// Keyboard only — a seat someone claimed with the keyboard.
+    KeyboardOnly,
+    /// Gamepad only — a seat someone claimed with a pad.
     GamepadOnly,
+}
+
+impl BindingSources {
+    pub fn admits_keyboard(self) -> bool {
+        matches!(self, Self::Unified | Self::KeyboardOnly)
+    }
+
+    pub fn admits_gamepad(self) -> bool {
+        matches!(self, Self::Unified | Self::GamepadOnly)
+    }
+
+    /// ⛔ OVERRIDES ARE BOUND BY THE SCOPE TOO. `apply_override` inserts a
+    /// binding even when the map holds no same-class one, so replaying a
+    /// keyboard remap onto a pad-only seat would hand it a keyboard key back —
+    /// re-creating the very alias the scope exists to remove.
+    pub fn admits(self, class: crate::OverrideDeviceClass) -> bool {
+        match class {
+            crate::OverrideDeviceClass::Keyboard => self.admits_keyboard(),
+            crate::OverrideDeviceClass::Gamepad => self.admits_gamepad(),
+        }
+    }
 }
 
 /// The declared source of one participant's `InputMap`.
@@ -54,7 +89,12 @@ pub enum BindingBase {
 /// held it by value.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BindingRecipe {
-    pub base: BindingBase,
+    /// The keyboard layout this seat would use IF it hears a keyboard at all.
+    /// Kept even for a pad-only seat, so a player who claims with a pad and then
+    /// switches does not lose the preset they picked.
+    pub preset: PresetId,
+    /// Which devices this seat hears. See [`BindingSources`].
+    pub sources: BindingSources,
     /// Which GAME's pad this seat is playing on — the middle term of
     /// `device -> profile -> semantic action -> rules`.
     ///
@@ -74,18 +114,24 @@ pub struct BindingRecipe {
 impl BindingRecipe {
     pub fn preset(id: PresetId) -> Self {
         Self {
-            base: BindingBase::Preset(id),
+            preset: id,
+            sources: BindingSources::Unified,
             layout: crate::BindingLayout::default(),
             overrides: Vec::new(),
         }
     }
 
     pub fn gamepad_only() -> Self {
-        Self {
-            base: BindingBase::GamepadOnly,
-            layout: crate::BindingLayout::default(),
-            overrides: Vec::new(),
-        }
+        // ⭐ A PAD SEAT STILL CARRIES A PRESET: the keyboard half is filtered out
+        // by the scope, not by the absence of a layout, so the same seat becomes a
+        // working keyboard seat the moment the plan says so.
+        Self::preset(KeyboardPreset::by_index(0).id).with_sources(BindingSources::GamepadOnly)
+    }
+
+    /// The same recipe restricted to the devices this seat actually claimed.
+    pub fn with_sources(mut self, sources: BindingSources) -> Self {
+        self.sources = sources;
+        self
     }
 
     /// The same recipe with these overrides layered on.
@@ -109,13 +155,13 @@ impl BindingRecipe {
     /// mode's layout is a better default; it is not an override of the person
     /// holding the controller. (`a_user_remap_beats_the_modes_layout` pins it.)
     pub fn build(&self) -> InputMap<Platformer2dInputActionMonolith> {
-        let mut map = match self.base {
-            BindingBase::Preset(id) => KeyboardPreset::of(id).input_map(),
-            BindingBase::GamepadOnly => KeyboardPreset::gamepad_only_map(),
-        };
+        let mut map = KeyboardPreset::of(self.preset).map_for(self.sources);
         self.layout.apply(&mut map);
         for over in &self.overrides {
-            apply_override(&mut map, over);
+            // ⛔ A REMAP CANNOT WIDEN THE SEAT. See `BindingSources::admits`.
+            if self.sources.admits(over.control.device_class()) {
+                apply_override(&mut map, over);
+            }
         }
         map
     }
@@ -634,7 +680,10 @@ mod tests {
 
     #[test]
     fn a_gamepad_binding_is_named_as_a_button_not_as_a_debug_blob() {
-        let mut app = app_with_seats(&[(3, crate::presets::KeyboardPreset::gamepad_only_map())]);
+        let mut app = app_with_seats(&[(
+            3,
+            crate::presets::KeyboardPreset::by_index(0).map_for(crate::BindingSources::GamepadOnly),
+        )]);
         publish(&mut app);
         let bindings = app.world().resource::<SeatBindings>();
         let jump = bindings

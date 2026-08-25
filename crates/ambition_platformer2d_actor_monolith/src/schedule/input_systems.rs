@@ -16,16 +16,16 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-use ambition_input::participant::{context_priority, ContextClaim};
+use ambition_input::participant::{ContextClaim, context_priority};
 use ambition_input::{
-    analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
-    MenuInputState, ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT,
-    GAMEPLAY_CONTEXT,
+    CUTSCENE_CONTEXT, ControlFrame, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, InputParticipant,
+    KeyboardPreset, MenuControlFrame, MenuInputState, ParticipantContexts, SeatInputContexts,
+    analog_to_dir,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
-    read_gameplay_control_frame_with_settings, read_menu_control_frame,
-    Platformer2dInputActionMonolith,
+    Platformer2dInputActionMonolith, read_gameplay_control_frame_with_settings,
+    read_menu_control_frame,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
@@ -181,7 +181,13 @@ pub fn sync_primary_recipe_from_settings(
         }
         // The layout is not a setting; it is
         // `ambition_input::apply_active_binding_layout_to_recipes`'s to own.
+        // ⭐ THE SCOPE IS NOT A SETTING EITHER. A settings edit changes the
+        // PROFILE — which preset, which remaps — and must not quietly hand the
+        // primary seat back the keyboard-and-pad shape it had before a match
+        // froze its seating. Rebuilding the whole recipe from settings is exactly
+        // how the old assumption reasserted itself one frame after being fixed.
         let wanted = ambition_input::BindingRecipe::preset(id)
+            .with_sources(recipe.sources)
             .with_layout(recipe.layout)
             .with_overrides(settings.controls.binding_overrides.clone());
         // Write only on a real change: `Res<UserSettings>` is marked changed
@@ -189,6 +195,52 @@ pub fn sync_primary_recipe_from_settings(
         if *recipe != wanted {
             *recipe = wanted;
         }
+    }
+}
+
+/// One physical source's device scope. Split out so the tests pin THIS rule
+/// rather than a second copy of it.
+#[cfg(feature = "input")]
+fn scope_for_source(
+    source: Option<ambition_input::LocalInputSource>,
+) -> ambition_input::BindingSources {
+    match source {
+        Some(ambition_input::LocalInputSource::Keyboard) => {
+            ambition_input::BindingSources::KeyboardOnly
+        }
+        Some(ambition_input::LocalInputSource::Pad(_)) => {
+            ambition_input::BindingSources::GamepadOnly
+        }
+        None => ambition_input::BindingSources::GamepadOnly,
+    }
+}
+
+/// Which devices the seat on `channel` is entitled to hear.
+///
+/// ⛔ THE FROZEN PLAN OUTRANKS THE GENERIC POLICY, the same rule
+/// `assign_local_seat_devices` already applies one layer down. A surface with no
+/// roster (launcher, menus, a headless fixture) has declared nothing, and
+/// `Unified` is the right answer there — it is only a DECIDED MATCH that knows
+/// who claimed what.
+#[cfg(feature = "input")]
+fn sources_for_channel(
+    roster: Option<&crate::character_runtime::MatchParticipantRoster>,
+    channel: ambition_input::ParticipantId,
+) -> ambition_input::BindingSources {
+    match roster.and_then(|r| r.local_channel_plan().source_for(channel)) {
+        Some(source) => scope_for_source(Some(source)),
+        // ⛔⛔ NO PLAN YET (a lobby seat nobody has claimed, a menu, a headless
+        // fixture). The OLD RULE STILL HOLDS HERE and it is not the same answer
+        // for every channel: the primary seat is the one the keyboard drives
+        // before anyone declares anything, and an extra seat sharing that one
+        // keyboard is not a second player. Returning `Unified` for every
+        // unclaimed seat put the keyboard on all of them at once — which broke
+        // the lobby exactly the way the frozen-plan bug broke the match, and the
+        // existing forward test caught it within a minute.
+        None if channel == ambition_input::ParticipantId::PRIMARY => {
+            ambition_input::BindingSources::Unified
+        }
+        None => ambition_input::BindingSources::GamepadOnly,
     }
 }
 
@@ -204,15 +256,28 @@ pub fn sync_primary_recipe_from_settings(
 /// [`spawn_primary_input_participant`] and outlives every session, because the
 /// launcher needs somebody to drive it before any roster exists.
 ///
-/// Extra seats get [`KeyboardPreset::gamepad_only_map`]. A second player on the
-/// same keyboard as the first is not a second player.
+/// ⛔ EXTRA SEATS ARE NOT "THE PAD SEATS". Each seat hears whatever the roster's
+/// `LocalChannelPlan` says claimed it — see [`sources_for_channel`]. The older
+/// rule ("a second player on the same keyboard as the first is not a second
+/// player") is still true, and the plan is what enforces it: the keyboard
+/// appears in the plan at most once.
 #[cfg(feature = "input")]
 pub fn seat_input_participants_for_roster(
     mut commands: Commands,
     roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
     offer: Option<Res<ambition_input::LocalSeatOffer>>,
     existing: Query<(Entity, &InputParticipant)>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
 ) {
+    // The persisted preset, so a seat claimed with the KEYBOARD gets the layout
+    // its player actually chose rather than preset zero.
+    let preset_id = KeyboardPreset::by_index(
+        settings
+            .as_ref()
+            .map(|s| s.controls.keyboard_preset_index)
+            .unwrap_or(0),
+    )
+    .id;
     // CHANNELS, not the SOURCES the roster names. This collected each
     // human seat's `device_slot`, which is a lobby source number and is
     // deliberately sparse — so a couch of two people on pads 1 and 2 spawned
@@ -221,6 +286,7 @@ pub fn seat_input_participants_for_roster(
     // opened handles 0 and 1. The plan is the roster's own
     // dense answer, and it is the same one the session is sized from.
     let mut wanted: Vec<u8> = roster
+        .as_ref()
         .map(|roster| {
             roster
                 .local_channel_plan()
@@ -254,12 +320,65 @@ pub fn seat_input_participants_for_roster(
         }
     }
 
+    // ⛔⛔ AND A SEAT THAT ALREADY EXISTS MUST FOLLOW THE PLAN TOO. Seats are
+    // spawned while the LOBBY is up, before any roster has declared anything, so
+    // every one of them starts on the no-plan default. Setting the scope only at
+    // spawn meant the match's frozen plan never reached them: the keyboard player
+    // who claimed card two kept the gamepad-only seat the lobby gave them and
+    // could not move at all. (`a_pad_claiming_the_first_card...` fails on exactly
+    // that, at exactly 0.00px.)
+    //
+    // ⛔ THE PRIMARY IS NOT EXEMPT EITHER. It is `Unified` before a match decides
+    // anything, but a match where BOTH fighters are on pads must leave the
+    // keyboard driving NEITHER.
+    // ⛔⛔ UNCONDITIONALLY, INCLUDING WHEN THE ROSTER IS GONE. A scope applied
+    // only while a roster exists is never RETRACTED: quitting a match left the
+    // primary holding the seating that match declared, so a host whose smash
+    // seat was on the keyboard came back to the launcher with no pad at all.
+    // `sources_for_channel` answers "no plan" with the pre-match default, so
+    // this same loop both applies and undoes.
+    {
+        for (entity, participant) in &existing {
+            // ⛔⛔ NOT THE ONES JUST DESPAWNED. The sweep above retires seats the
+            // roster no longer declares, and queueing a command against a
+            // despawned entity trips Bevy's error handler — which surfaces as a
+            // panic inside `bevy_ecs`, nowhere near this line.
+            if participant.id != ambition_input::ParticipantId::PRIMARY
+                && !wanted.contains(&participant.id.slot())
+            {
+                continue;
+            }
+            let sources = sources_for_channel(roster.as_deref(), participant.id);
+            commands
+                .entity(entity)
+                .queue(move |mut entity: EntityWorldMut| {
+                    let Some(recipe) = entity.get::<ambition_input::BindingRecipe>() else {
+                        return;
+                    };
+                    if recipe.sources == sources {
+                        return;
+                    }
+                    let recipe = recipe.clone().with_sources(sources);
+                    let map = recipe.build();
+                    entity.insert((recipe, map));
+                });
+        }
+    }
+
     for slot in wanted {
         let id = ambition_input::ParticipantId(slot);
         if existing.iter().any(|(_, participant)| participant.id == id) {
             continue;
         }
-        let recipe = ambition_input::BindingRecipe::gamepad_only();
+        // ⭐⭐ THE ROSTER'S OWN PLAN DECIDES WHICH DEVICE THIS SEAT HEARS. It was
+        // `gamepad_only()` for every non-primary seat, which encoded "player 1
+        // is on the keyboard" — so a couch where a PAD claimed card 0 and the
+        // KEYBOARD claimed card 1 gave seat 1 no controls at all, while the
+        // keyboard went on driving seat 0 as an unintended second controller.
+        // `LocalChannelPlan` has recorded the truth since character select; this
+        // is the layer that had stopped reading it.
+        let recipe = ambition_input::BindingRecipe::preset(preset_id)
+            .with_sources(sources_for_channel(roster.as_deref(), id));
         commands.spawn((
             InputParticipant::with_id(id),
             ParticipantContexts::default(),
@@ -861,8 +980,8 @@ mod focus_gate_tests {
         update_cutscene_request_from_menu,
     };
     use ambition_input::{
-        resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
-        ParticipantId, Platformer2dInputActionMonolith, SeatInputContexts,
+        InputParticipant, MenuControlFrame, ParticipantContexts, ParticipantId,
+        Platformer2dInputActionMonolith, SeatInputContexts, resolve_active_input_context,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
@@ -927,7 +1046,14 @@ mod focus_gate_tests {
             item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
-                    source: ambition_input::LocalInputSource::Pad(0),
+                    // ⭐ THE KEYBOARD, because this fixture is about a KEYBOARD
+                    // preset reaching the primary's map. It declared `Pad(0)`
+                    // here until 2026-08-25, when a seat's device scope started
+                    // following the roster — under which an all-pad roster means
+                    // the primary has no keyboard bindings at all, and a keyboard
+                    // preset has nowhere to land. That is correct behaviour, and
+                    // this fixture was quietly asking for the opposite.
+                    source: ambition_input::LocalInputSource::Keyboard,
                 }),
                 MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(1),
@@ -1001,7 +1127,14 @@ mod focus_gate_tests {
             item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
-                    source: ambition_input::LocalInputSource::Pad(0),
+                    // ⭐ THE KEYBOARD, because this fixture is about a KEYBOARD
+                    // preset reaching the primary's map. It declared `Pad(0)`
+                    // here until 2026-08-25, when a seat's device scope started
+                    // following the roster — under which an all-pad roster means
+                    // the primary has no keyboard bindings at all, and a keyboard
+                    // preset has nowhere to land. That is correct behaviour, and
+                    // this fixture was quietly asking for the opposite.
+                    source: ambition_input::LocalInputSource::Keyboard,
                 }),
                 MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(1),
@@ -1055,15 +1188,32 @@ mod focus_gate_tests {
                     vec![&PhysicalControl::Key(KeyCode::F13)],
                     "the live map binds Jump to the override and to no other key"
                 );
-                assert!(
+                // ⭐ AND THE OVERRIDE DISPLACED ONLY THE KEYBOARD HALF. This
+                // arm used to assert the PRIMARY still had a pad Jump, which
+                // said "a keyboard remap is not a pad remap" only while every
+                // primary seat was keyboard-AND-pad by construction. This
+                // roster declares the primary on the KEYBOARD, so it has no pad
+                // bindings to keep — and the claim now lives where it is real:
+                // the pad seat below, whose button Jump must be untouched.
+                assert_eq!(
                     jump.iter()
-                        .any(|control| matches!(control, PhysicalControl::Button(_))),
-                    "and the seat's pad still jumps — a keyboard remap is not a pad remap"
+                        .filter(|control| matches!(control, PhysicalControl::Button(_)))
+                        .count(),
+                    0,
+                    "a seat the roster puts on the KEYBOARD is still hearing a pad"
                 );
             } else {
                 assert!(
                     !jump.contains(&PhysicalControl::Key(KeyCode::F13)),
                     "the couch seat's bindings are its own"
+                );
+                // ⛔ A KEYBOARD REMAP IS NOT A PAD REMAP — the claim the primary
+                // arm above used to carry. This seat is on a pad, and its button
+                // Jump must survive somebody else rebinding a key.
+                assert!(
+                    jump.iter()
+                        .any(|control| matches!(control, PhysicalControl::Button(_))),
+                    "the pad seat lost its button Jump to a KEYBOARD override"
                 );
             }
         }
@@ -1951,11 +2101,12 @@ mod focus_gate_tests {
         // participant entity itself is untouched either way.
         let root = app.world_mut().spawn(SessionRoot(SessionScopeId(7))).id();
         app.update();
-        assert!(app
-            .world()
-            .resource::<SeatInputContexts>()
-            .primary()
-            .gameplay_owned());
+        assert!(
+            app.world()
+                .resource::<SeatInputContexts>()
+                .primary()
+                .gameplay_owned()
+        );
         let participant = {
             let mut q = app
                 .world_mut()
@@ -2085,4 +2236,63 @@ pub fn freeze_local_seating_for_the_decided_match(
     let mut topology = existing.as_deref().cloned().unwrap_or_default();
     topology.capture_for_roster(&order, plan);
     commands.insert_resource(topology);
+}
+
+#[cfg(all(test, feature = "input"))]
+mod binding_scope_tests {
+    use super::*;
+    use ambition_input::{BindingSources, LocalInputSource, ParticipantId};
+
+    /// ⭐ THE THREE ANSWERS, and the middle one is the whole bug: a keyboard that
+    /// claimed a NON-PRIMARY card must give that seat keyboard bindings.
+    #[test]
+    fn a_seats_devices_come_from_the_plan_that_seated_it() {
+        let plan = ambition_input::LocalChannelPlan::from_sources([
+            LocalInputSource::Pad(0),
+            LocalInputSource::Keyboard,
+        ]);
+        assert_eq!(
+            plan.source_for(ParticipantId(0)),
+            Some(LocalInputSource::Pad(0)),
+            "the fixture is not the reversed arrangement it exists to test"
+        );
+        assert_eq!(
+            scope_for_source(plan.source_for(ParticipantId(0))),
+            BindingSources::GamepadOnly
+        );
+        assert_eq!(
+            scope_for_source(plan.source_for(ParticipantId(1))),
+            BindingSources::KeyboardOnly,
+            "a keyboard player in seat two was given a pad-only seat, which is no \
+             controls at all"
+        );
+    }
+
+    /// ⛔⛔ TWO PADS AND NOBODY ON THE KEYBOARD. The primary seat must LOSE its
+    /// keyboard here: leaving it is an unintended second controller for player
+    /// one, and it is invisible until someone rests a hand on the keys.
+    ///
+    /// ⚠ WHAT THIS ARM ACTUALLY PINS is that a PAD source scopes a seat to pads
+    /// even when that seat is channel ZERO — the primary's `Unified` default is
+    /// overridden by any source the plan names for it. A poison on the no-plan
+    /// arm passes here, because in an all-pad match every channel IS named.
+    #[test]
+    fn a_two_pad_match_leaves_the_keyboard_driving_nobody() {
+        let plan = ambition_input::LocalChannelPlan::from_sources([
+            LocalInputSource::Pad(0),
+            LocalInputSource::Pad(1),
+        ]);
+        assert_eq!(
+            plan.keyboard_channel(),
+            None,
+            "the fixture seats a keyboard"
+        );
+        for channel in [ParticipantId(0), ParticipantId(1)] {
+            assert_eq!(
+                scope_for_source(plan.source_for(channel)),
+                BindingSources::GamepadOnly,
+                "channel {channel:?} still hears the keyboard in an all-pad match"
+            );
+        }
+    }
 }

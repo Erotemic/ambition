@@ -10232,6 +10232,55 @@ getup safe, and both directions are poisoned.
 
 Wire format v102.
 
+- ✔ **D236 — CLOSED 2026-08-25. THE KEYBOARD DROVE PLAYER ONE NO MATTER WHO
+  CLAIMED WHAT. (opened and closed 2026-08-25, from a GPT 5.6 review)**
+
+Character select recorded the truth all along — `LocalChannelPlan` has said
+"channel 0 = Pad(0), channel 1 = Keyboard" since the cards were claimed — and the
+BINDING layer below it did not read it. Every non-primary seat was built
+`gamepad_only()` and the primary always got a keyboard-and-pad preset. ⇒ a couch
+where a PAD took card one and the KEYBOARD took card two gave the keyboard player
+NO controls, while the keyboard went on driving player one as a second pad.
+
+⭐⭐ **DEVICE ELIGIBILITY WAS FUSED INTO THE BINDING BASE**: `Preset(id)` MEANT
+"keyboard and pad" and `GamepadOnly` MEANT "an extra seat". That shape cannot
+express a composition character select produces happily. ⇒ `BindingBase` is
+DELETED for an orthogonal `BindingSources` scope, and `KeyboardPreset::
+gamepad_only_map()` with it — both builders were the same two halves composed, so
+one `map_for(sources)` replaces the pair. The scope also bounds OVERRIDES, since
+`apply_override` inserts a binding when no same-class one exists: replaying a
+keyboard remap onto a pad seat would hand the alias straight back.
+
+⛔⛔ **AND SETTING IT AT SPAWN WAS NOT ENOUGH — THE SECOND HALF OF THE BUG, which
+the review did not have.** Seats are spawned while the LOBBY is up, before any
+roster declares anything, so they all start on the no-plan default and the
+match's frozen plan never reaches them. The keyboard player kept the gamepad-only
+seat the lobby gave them and moved 0.00px. ⇒ **A FACT SET AT CONSTRUCTION IS NOT
+A FACT THAT FOLLOWS ITS AUTHORITY**: the plan is decided AFTER the entities
+exist. Every seat's scope now re-derives, primary included.
+
+⛔ `SeatActiveDevices` answered the same question independently and defaulted the
+keyboard to PRIMARY — wrong glyphs and wrong per-pad filtering even once control
+was fixed. It now reads the frozen plan, and `None` there means NOBODY: a keypress
+during an all-pad match belongs to no fighter's seat.
+
+⛔⛔ **AND A THIRD: THE SCOPE WAS APPLIED BUT NEVER RETRACTED.** Guarding the
+refresh with `if roster.is_some()` reads as harmless, and means the value is
+never undone when its authority departs — quitting a match whose primary seat was
+on the keyboard returned to the launcher with NO PAD AT ALL. The loop now runs
+unconditionally and `sources_for_channel` answers "no plan" with the pre-match
+default, so ONE path both applies and undoes.
+
+⇒ ⭐⭐ **ONE RULE FOR ALL THREE**: a derived value is RE-DERIVED every tick from an
+authority allowed to say "nothing declared" — not written once when a decision
+arrives, and not left standing when it departs.
+
+⚠ TWO MORE THINGS I GOT WRONG AND THE TESTS CAUGHT: returning `Unified` for every
+unclaimed seat put one keyboard on all the LOBBY seats — the same alias, one
+screen earlier, caught by the EXISTING forward test in a minute. And the two-pad
+arm overclaimed: a poison on the no-plan branch PASSED, because in an all-pad
+match every channel IS named, so that branch is dead along this fixture's path.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

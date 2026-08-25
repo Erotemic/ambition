@@ -9,8 +9,8 @@
 use bevy::prelude::{GamepadButton, Query, Res, Resource};
 use leafwing_input_manager::prelude::InputMap;
 
-use crate::bindings::{BindingRecipe, PhysicalControl};
 use crate::Platformer2dInputActionMonolith;
+use crate::bindings::{BindingRecipe, PhysicalControl};
 
 /// One physical button, and the gameplay action a layout puts on it.
 ///
@@ -69,7 +69,10 @@ const SMASH_PAD: &[PadSlot] = &[
     //  the D-pad taunts, because a fighting game moves on the STICK. That
     // is the genre's own layout; the base preset's `DPad → Move` is what a
     // platform fighter gives up to get a taunt button at all.
-    slot(GamepadButton::DPadUp, Platformer2dInputActionMonolith::Taunt),
+    slot(
+        GamepadButton::DPadUp,
+        Platformer2dInputActionMonolith::Taunt,
+    ),
     slot(
         GamepadButton::DPadDown,
         Platformer2dInputActionMonolith::Taunt,
@@ -251,7 +254,8 @@ mod tests {
     }
 
     fn smash_pad() -> InputMap<Platformer2dInputActionMonolith> {
-        let mut map = KeyboardPreset::gamepad_only_map();
+        let mut map = KeyboardPreset::of(KeyboardPreset::by_index(0).id)
+            .map_for(crate::BindingSources::GamepadOnly);
         BindingLayout::Smash.apply(&mut map);
         map
     }
@@ -362,10 +366,12 @@ mod tests {
     /// a layout, and every other game silently inherited one game's taste.
     #[test]
     fn installing_the_smash_layout_does_not_move_the_generic_preset() {
-        let before = KeyboardPreset::gamepad_only_map();
+        let before = KeyboardPreset::of(KeyboardPreset::by_index(0).id)
+            .map_for(crate::BindingSources::GamepadOnly);
         let mut smash = before.clone();
         BindingLayout::Smash.apply(&mut smash);
-        let after = KeyboardPreset::gamepad_only_map();
+        let after = KeyboardPreset::of(KeyboardPreset::by_index(0).id)
+            .map_for(crate::BindingSources::GamepadOnly);
 
         assert_eq!(
             before, after,

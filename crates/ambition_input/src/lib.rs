@@ -56,7 +56,7 @@ pub use motion_input::{
 pub use actions::Platformer2dInputActionMonolith;
 #[cfg(feature = "input")]
 pub use active_input::update_seat_active_devices;
-pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
+pub use active_input::{ActiveDevice, GamepadStyle, SeatActiveDevices, gamepad_style_of};
 pub use ambition_platformer2d_core::ControlFrame;
 /// Which local source drives which control channel — the map that keeps a
 /// lobby's sparse source numbers out of the rollback host's dense handles.
@@ -69,8 +69,8 @@ pub use control::{
 pub use glyphs::glyph_for;
 #[cfg(feature = "input")]
 pub use local_seats::{
-    assign_local_seat_devices, track_local_device_order, LocalDeviceOrder, LocalSeatTopology,
-    SeatDeviceOwnership as LocalSeatDeviceOwnership,
+    LocalDeviceOrder, LocalSeatTopology, SeatDeviceOwnership as LocalSeatDeviceOwnership,
+    assign_local_seat_devices, track_local_device_order,
 };
 pub use seating::{LocalSeatOffer, SessionSeatingSource};
 
@@ -97,20 +97,20 @@ pub enum InputSet {
 }
 #[cfg(feature = "input")]
 pub use bindings::{
-    action_for_slot, action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
-    ActionBindings, BindingBase, BindingRecipe, PhysicalControl, SeatBindings,
+    ActionBindings, BindingRecipe, BindingSources, PhysicalControl, SeatBindings, action_for_slot,
+    action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
 };
 pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
 pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
 pub use menu::{
-    analog_to_dir, MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
+    MenuControlFrame, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames, analog_to_dir,
 };
 pub use participant::{
-    resolve_active_input_context, ActiveInputContext, ContextClaim, InputContextId,
-    InputParticipant, ParticipantContexts, ParticipantId, SeatInputContexts, CUTSCENE_CONTEXT,
-    DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
-    PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+    ActiveInputContext, CUTSCENE_CONTEXT, ContextClaim, DEBUG_CONTEXT, DIALOGUE_CONTEXT,
+    GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, InputContextId, InputParticipant, LAUNCHER_CONTEXT,
+    PAUSE_CONTEXT, ParticipantContexts, ParticipantId, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
+    SeatInputContexts, resolve_active_input_context,
 };
 #[cfg(feature = "input")]
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
@@ -120,8 +120,8 @@ pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDev
 pub use sources::{InputAssignmentPolicy, KeyboardOwner};
 // `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.
-pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};
+pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, key_name};
 pub use semantic::{
-    ActionConflict, ActionControlKind, ActionRegistry, InstalledActions, SemanticActionDef,
-    SemanticActionId, ENGINE_ACTIONS, ENGINE_CAPABILITY,
+    ActionConflict, ActionControlKind, ActionRegistry, ENGINE_ACTIONS, ENGINE_CAPABILITY,
+    InstalledActions, SemanticActionDef, SemanticActionId,
 };

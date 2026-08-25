@@ -57,6 +57,12 @@ pub struct KeyboardOwner(pub Option<ParticipantId>);
 /// Which participant, if any, should have exclusive keyboard bindings.
 ///
 /// With fewer than two seats, exclusivity is unnecessary and this returns `None` for every policy.
+///
+/// ⛔ THIS IS THE FALLBACK, NOT THE AUTHORITY. Once a match freezes a
+/// `LocalChannelPlan` that plan owns the question — it knows who actually
+/// claimed the keyboard, and it may say NOBODY. This generic policy answers only
+/// where nothing has been declared (launcher, menus, a lobby still filling), and
+/// `JoinToClaim`'s "leave it with player one" is the right answer THERE.
 pub fn keyboard_owner_for(
     policy: InputAssignmentPolicy,
     owner: KeyboardOwner,

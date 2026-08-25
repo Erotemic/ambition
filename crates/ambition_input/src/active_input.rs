@@ -196,6 +196,7 @@ pub fn update_seat_active_devices(
     pads: Query<(Entity, &Gamepad, Option<&Name>)>,
     offer: Option<Res<crate::seating::LocalSeatOffer>>,
     keyboard_owner: Option<Res<crate::sources::KeyboardOwner>>,
+    topology: Option<Res<crate::local_seats::LocalSeatTopology>>,
     participants: Query<(
         &crate::participant::InputParticipant,
         &leafwing_input_manager::prelude::InputMap<crate::Platformer2dInputActionMonolith>,
@@ -205,16 +206,33 @@ pub fn update_seat_active_devices(
     let seat_count = participants.iter().len();
     // The keyboard-and-mouse bundle's seat: its exclusive owner when the
     // session named one, the primary otherwise.
-    let keyboard_seat = crate::sources::keyboard_owner_for(
-        offer.map(|offer| offer.policy()).unwrap_or_default(),
-        keyboard_owner.map(|owner| *owner).unwrap_or_default(),
-        seat_count,
-    )
-    .unwrap_or(crate::participant::ParticipantId::PRIMARY)
-    .slot();
+    // ⭐⭐ A FROZEN PLAN OWNS THIS QUESTION, exactly as it owns seat devices one
+    // layer down (`assign_local_seat_devices`). This read model used to answer it
+    // independently and default to PRIMARY, so a match whose plan put the
+    // keyboard on channel 1 still lit up channel 0's prompts and picked channel
+    // 0's control filters on every keypress — wrong glyphs and wrong filtering,
+    // even after fighter control itself was repaired.
+    let declared = topology
+        .as_deref()
+        .and_then(|topology| topology.declared_channels().cloned());
+    let keyboard_seat = match &declared {
+        // ⛔ AND `None` HERE MEANS NOBODY. A plan that names no keyboard is a
+        // match played entirely on pads: a keypress during it belongs to no
+        // fighter's seat, and attributing it to one is the alias this fixes.
+        Some(plan) => plan.keyboard_channel().map(|id| id.slot()),
+        None => Some(
+            crate::sources::keyboard_owner_for(
+                offer.map(|offer| offer.policy()).unwrap_or_default(),
+                keyboard_owner.map(|owner| *owner).unwrap_or_default(),
+                seat_count,
+            )
+            .unwrap_or(crate::participant::ParticipantId::PRIMARY)
+            .slot(),
+        ),
+    };
 
     // Keyboard: any key newly pressed this frame.
-    if let Some(keys) = keys.as_deref() {
+    if let (Some(keys), Some(keyboard_seat)) = (keys.as_deref(), keyboard_seat) {
         if keys.get_just_pressed().next().is_some() {
             devices.mark(keyboard_seat, ActiveDevice::Keyboard);
         }
@@ -226,8 +244,13 @@ pub fn update_seat_active_devices(
     let mouse_pressed = mouse_buttons
         .as_deref()
         .is_some_and(|buttons| buttons.get_just_pressed().next().is_some());
-    if real_cursor_motion || mouse_pressed {
-        devices.mark(keyboard_seat, ActiveDevice::Mouse);
+    // ⛔ THE MOUSE RIDES WITH THE KEYBOARD, including into "nobody". They are one
+    // bundle (`LocalInputSource::Keyboard`), so a match played entirely on pads
+    // must not light a fighter's prompts because somebody moved the cursor.
+    if let Some(keyboard_seat) = keyboard_seat {
+        if real_cursor_motion || mouse_pressed {
+            devices.mark(keyboard_seat, ActiveDevice::Mouse);
+        }
     }
 
     // Gamepads: a button just-pressed OR an axis past a generous deflection,
@@ -388,7 +411,8 @@ mod tests {
             InputParticipant::primary(),
             KeyboardPreset::arrows_zxc().input_map(),
         ));
-        let mut seat_one_map = KeyboardPreset::gamepad_only_map();
+        let mut seat_one_map = KeyboardPreset::of(KeyboardPreset::by_index(0).id)
+            .map_for(crate::BindingSources::GamepadOnly);
         seat_one_map.set_gamepad(pad);
         app.world_mut()
             .spawn((InputParticipant::with_id(ParticipantId(1)), seat_one_map));

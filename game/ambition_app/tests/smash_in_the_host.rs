@@ -5434,3 +5434,163 @@ fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
         frame.width(),
     );
 }
+
+/// THE SAME COUCH, CLAIMED IN THE OTHER ORDER: a PAD takes card one and the
+/// KEYBOARD takes card two.
+///
+/// ⛔⛔ THIS IS THE POISON THE FORWARD TEST COULD NOT BE. Its arrangement —
+/// keyboard on card one, pad on card two — happens to agree with the stale
+/// assumption baked into seat spawning ("primary = keyboard and pad, extra seats
+/// = pad only"), so both the correct implementation and the broken one pass it.
+/// Reversed, the broken one gives the keyboard player NO usable input at all and
+/// leaves the keyboard driving player one as a second controller.
+///
+/// ⭐ The roster has recorded the truth the whole time; this pins that the
+/// binding layer reads it.
+#[test]
+fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
+    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use bevy::input::gamepad::GamepadButton;
+
+    fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
+        app.world_mut()
+            .write_message(bevy::input::gamepad::RawGamepadEvent::Button(
+                bevy::input::gamepad::RawGamepadButtonChangedEvent::new(pad, button, value),
+            ));
+    }
+
+    let mut app = shell_host_app();
+    let pad = app
+        .world_mut()
+        .spawn(bevy::input::gamepad::Gamepad::default())
+        .id();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+
+    let layout = screen(&app);
+    let pad_click = |app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect| {
+        {
+            let mut cursors = app.world_mut().resource_mut::<SelectCursors>();
+            for seat in 0..4 {
+                cursors
+                    .seat_mut(seat)
+                    .expect("seat is bounded by the loop")
+                    .move_to(rect.center());
+            }
+        }
+        pad_set(app, pad, GamepadButton::South, 1.0);
+        app.update();
+        pad_set(app, pad, GamepadButton::South, 0.0);
+        app.update();
+        settle(app);
+    };
+
+    // THE PAD GOES FIRST. This is the whole point of the fixture.
+    pad_click(&mut app, layout.role_button(0));
+    click(&mut app, layout.role_button(1));
+    assert_eq!(
+        app.world().resource::<SmashSelect>().slot(0).occupant,
+        SlotOccupant::Controller { device: 1 },
+        "card ONE was not claimed by the pad, so this fixture is not the reversed \
+         arrangement it exists to test"
+    );
+    let occupants: Vec<_> = (0..4)
+        .map(|i| app.world().resource::<SmashSelect>().slot(i).occupant)
+        .collect();
+    assert_eq!(
+        app.world().resource::<SmashSelect>().slot(1).occupant,
+        SlotOccupant::Controller { device: 0 },
+        "card TWO was not claimed by the keyboard; slots are {occupants:?}"
+    );
+
+    let token_zero = placed_token(&app, 0);
+    pad_click(&mut app, token_zero);
+    pad_click(&mut app, layout.portrait(0).expect("an authored portrait"));
+    let token_one = placed_token(&app, 1);
+    click(&mut app, token_one);
+    click(&mut app, layout.portrait(1).expect("an authored portrait"));
+    click(&mut app, layout.start_button());
+    settle(&mut app);
+
+    for _ in 0..60 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..90 {
+        app.update();
+    }
+
+    let bodies: Vec<(usize, Entity)> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, s)| (s.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows
+    };
+    assert!(
+        bodies.len() >= 2,
+        "a pad player and a keyboard player have to seat two fighters; got {}",
+        bodies.len()
+    );
+    let (_, pad_body) = bodies[0];
+    let (_, keyboard_body) = bodies[1];
+
+    wait_for_the_round_to_go_live(&mut app);
+    let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
+
+    // THE KEYBOARD PLAYER — in seat TWO this time — walks right.
+    let (before_pad, before_keyboard) = (x(&app, pad_body), x(&app, keyboard_body));
+    Buttonlike::press(&KeyCode::ArrowRight, app.world_mut());
+    for _ in 0..40 {
+        app.update();
+    }
+    Buttonlike::release(&KeyCode::ArrowRight, app.world_mut());
+    let keyboard_moved = x(&app, keyboard_body) - before_keyboard;
+    let pad_moved = x(&app, pad_body) - before_pad;
+    assert!(
+        keyboard_moved.abs() > 1.0,
+        "the keyboard player claimed card TWO, pressed right, and their fighter did \
+         not move ({keyboard_moved:.2}px). Their seat was built gamepad-only because \
+         the binding layer assumed non-primary seats are pad seats — so the person on \
+         the keyboard has no controls at all."
+    );
+    assert!(
+        pad_moved.abs() < keyboard_moved.abs() * 0.25,
+        "a KEYBOARD press moved the PAD player's fighter ({pad_moved:.2}px against the \
+         keyboard player's {keyboard_moved:.2}px) — the keyboard is still aliased onto \
+         player one as an unintended second controller.\n\
+         ⚠ CHECK THE SIGNS AND THE SEPARATION ({:.2}px apart on x) before believing \
+         that: two overlapping fighters push each other apart, which this shape of \
+         assertion has misreported as crosstalk before.",
+        (x(&app, keyboard_body) - x(&app, pad_body)).abs()
+    );
+
+    // AND THE PAD STILL DRIVES ITS OWN SEAT. Without this arm a build that gave
+    // NOBODY the keyboard would pass everything above.
+    for _ in 0..120 {
+        app.update();
+    }
+    let (before_pad, before_keyboard) = (x(&app, pad_body), x(&app, keyboard_body));
+    pad_set(&mut app, pad, GamepadButton::DPadRight, 1.0);
+    for _ in 0..40 {
+        app.update();
+    }
+    pad_set(&mut app, pad, GamepadButton::DPadRight, 0.0);
+    let pad_moved = x(&app, pad_body) - before_pad;
+    let keyboard_moved = x(&app, keyboard_body) - before_keyboard;
+    assert!(
+        pad_moved.abs() > 1.0,
+        "the pad player in card ONE pressed right and their fighter did not move \
+         ({pad_moved:.2}px)"
+    );
+    assert!(
+        keyboard_moved.abs() < pad_moved.abs() * 0.25,
+        "the pad moved the KEYBOARD player's fighter ({keyboard_moved:.2}px against \
+         {pad_moved:.2}px); separation {:.2}px",
+        (x(&app, keyboard_body) - x(&app, pad_body)).abs()
+    );
+}

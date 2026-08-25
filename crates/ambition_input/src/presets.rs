@@ -257,19 +257,28 @@ impl KeyboardPreset {
     /// behind `input` because the return type is leafwing-owned.
     #[cfg(feature = "input")]
     pub fn input_map(&self) -> InputMap<Platformer2dInputActionMonolith> {
-        let mut map = InputMap::default();
-        self.insert_keyboard_bindings(&mut map);
-        insert_gamepad_bindings(&mut map);
-        map
+        self.map_for(crate::BindingSources::Unified)
     }
 
-    /// A map with the GAMEPAD half only.
+    /// A map holding only the halves a seat is ELIGIBLE for.
     ///
-    /// This is what a second local seat gets.
+    /// ⭐⭐ ONE BUILDER FOR EVERY SEAT SHAPE. It replaced `input_map()` +
+    /// `gamepad_only_map()`, a pair that encoded "primary = keyboard and pad,
+    /// everyone else = pad" in its very shape — which is the assumption that
+    /// gave a keyboard player in seat 2 no controls at all while the keyboard
+    /// silently drove seat 1 as well.
     #[cfg(feature = "input")]
-    pub fn gamepad_only_map() -> InputMap<Platformer2dInputActionMonolith> {
+    pub fn map_for(
+        &self,
+        sources: crate::BindingSources,
+    ) -> InputMap<Platformer2dInputActionMonolith> {
         let mut map = InputMap::default();
-        insert_gamepad_bindings(&mut map);
+        if sources.admits_keyboard() {
+            self.insert_keyboard_bindings(&mut map);
+        }
+        if sources.admits_gamepad() {
+            insert_gamepad_bindings(&mut map);
+        }
         map
     }
 
@@ -704,7 +713,7 @@ mod tests {
         use crate::bindings::ActionBindings;
         use crate::layout::BindingLayout;
 
-        let default_pad = KeyboardPreset::gamepad_only_map();
+        let default_pad = KeyboardPreset::by_index(0).map_for(crate::BindingSources::GamepadOnly);
         assert!(
             ActionBindings::from_map(&default_pad)
                 .controls(&Platformer2dInputActionMonolith::Special)
@@ -713,7 +722,7 @@ mod tests {
              Special onto a button that already means something"
         );
 
-        let mut smash_pad = KeyboardPreset::gamepad_only_map();
+        let mut smash_pad = KeyboardPreset::by_index(0).map_for(crate::BindingSources::GamepadOnly);
         BindingLayout::Smash.apply(&mut smash_pad);
         assert_eq!(
             ActionBindings::from_map(&smash_pad)
@@ -741,7 +750,7 @@ mod tests {
     #[cfg(feature = "input")]
     #[test]
     fn every_control_slot_reaches_a_key_on_every_preset() {
-        use crate::bindings::{action_for_slot, ActionBindings};
+        use crate::bindings::{ActionBindings, action_for_slot};
         use ambition_entity_catalog::action_scheme::CANONICAL_SLOT_ORDER;
 
         for preset in KeyboardPreset::presets() {
@@ -775,7 +784,7 @@ mod tests {
     #[cfg(feature = "input")]
     #[test]
     fn a_second_seats_map_binds_no_key() {
-        let map = KeyboardPreset::gamepad_only_map();
+        let map = KeyboardPreset::by_index(0).map_for(crate::BindingSources::GamepadOnly);
         for (action, binding) in map.buttonlike_bindings() {
             let path = binding.as_reflect().reflect_type_path();
             assert!(

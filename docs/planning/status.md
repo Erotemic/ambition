@@ -15,7 +15,46 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-25, LATEST — the review is closed out, and Smash gained four more mechanics
+## 2026-08-25, LATEST — a 24-hour deep review, triaged end to end
+
+⭐⭐ **START HERE: the one open item worth a session is the RESOLVED-HIT SPLIT**
+(D237 item 4/5, and its design is named there). Everything else from the review
+is closed or parked with a reopening condition.
+
+**The finding, measured rather than argued:** `request_impact_hitstop_on_landed_
+hits` reads the victim's `BodyCombat::hitstop_timer` in `CombatSet::Settle`, but
+the schedule's own comment says player-victim hits go to a FIFO drained by a
+resolver in NEXT frame's PlayerSimulation. ⇒ **the match freeze fires when a CPU
+is hit and not when the human is.** Every test in that file INJECTS the timer on
+the victim before firing the message, so none of them can see it.
+
+⛔ TWO SHORTCUTS ARE BOTH WRONG, and checking them is most of the work already
+done: carrying the payload's hitlag on `LandedBodyHit` would freeze on a hit an
+INVULNERABLE victim ignored (the producer gates on self/corpse/faction/dedup/
+geometry and a parry — no i-frame check); and adding the hold to
+`apply_player_hit_events` enlarges a system whose own comments say TWICE that it
+is at Bevy's param ceiling, which is exactly what the review's item 16 forbids.
+
+⭐ **THE SEAM TO USE IS `ambition_combat::hit_reaction::apply_body_hit_reaction`**
+— the one function all three roads (player, actor, boss) pass through, and where
+`hitstop_timer` is actually written. Have it yield the resolved hitlag, publish a
+`ResolvedBodyHit` from each road, and move the freeze onto that. That is item 4's
+producer/resolved split arriving through its first real customer rather than as a
+refactor for its own sake.
+
+**Landed today, each measured → built → poisoned → verified:** the evade maneuver
+/ i-frame clock split and roll ownership (Jon's playtest, 107px vs 33px); match
+input device authority (the keyboard drove player one whoever claimed what);
+double-jump cancel; windbox zero damage; bark determinism off `SimId`; the live
+match clock counting scaled time; the special-turn proposal/acceptance boundary
+and its fourth technique (wavebounce); wire format v103.
+
+**Parked with conditions, not skipped:** the ledge-trump pop (its INPUT
+`wall_normal_x` is itself world-X, so fixing the consumer alone moves the
+inconsistency); steering-permission vs neutral friction (no move at HEAD both
+roots steering and authors a carry); the special-turn input-ORDER recogniser.
+
+## 2026-08-25 — the earlier review is closed out, and Smash gained four more mechanics
 
 ⭐⭐ **THE 2026-08-24 REVIEW IS FULLY CLOSED** — four P0s and four P1s, each with
 a production-path poison, which was the review's own stated discipline. D210 is

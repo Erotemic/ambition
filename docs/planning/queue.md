@@ -9299,9 +9299,9 @@ schema v87.
 `PreparedMatch` has no constructor outside `prepare_match`, and adding one so a
 fixture could set a countdown would be scaffolding on a production type.
 
-- ▢ **D213 — `sim_random` HAS NO MATCH-CONTEXT SEED, so two matches draw the
-  same sequence. (opened 2026-08-24, from the GPT 5.6 correction-pass review,
-  P1)**
+- ✔ **D213 — CLOSED 2026-08-24 (`bd854bd74`). `sim_random` HAD NO MATCH-CONTEXT
+  SEED, so two matches drew the same sequence. (opened and closed 2026-08-24,
+  from the GPT 5.6 correction-pass review, P1)**
 
 `sim_random(domain, tick, salt)` is stateless and rollback-safe, which is the
 whole point — but its inputs carry nothing that distinguishes one match from the
@@ -9314,6 +9314,23 @@ be stated where a match begins, beside the roster and the rules.
 ⛔ THE POISON IS TWO MATCHES, NOT TWO DOMAINS. The correlation assertion for this
 belongs on the RAW draws — a check written on reduced indices compared values
 differing only by modulus, passed, and could not have detected a shared salt.
+
+✔ **LANDED.** `sim_random(domain, context, tick, salt)` — four axes, four
+questions. The context is `MatchInstance::random_context()`, the activation stamp
+mixed with the session id, both already canonical state a rewind restores. The
+session half matters because a fresh session restarts the sim clock: without it
+the FIRST match of every session is identical.
+
+⛔ **`context` GETS ITS OWN MULTIPLIER rather than being added to the tick.**
+Stamps are ticks, so consecutive matches carry nearby numbers, and `tick +
+context` makes match A at tick 10 draw what match B drew at tick 9. Asserted
+directly.
+
+⚠ **ONE LINE IS UNREACHED BY ANY TEST** — `spawn_match_items` passing the context
+— because `PreparedMatch` has no constructor outside `prepare_match`, so no
+fixture can give the spawner a rules table. Same blocker as D212's ceremony half.
+⇒ **if a third row hits it, add the constructor**; two is a coincidence, three is
+a missing seam.
 
 - ✔ **D214 — CLOSED 2026-08-24. MULTI-SIDE SUDDEN DEATH RESET EVERY SURVIVOR,
   not the tied leaders. (opened and closed 2026-08-24, from the GPT 5.6

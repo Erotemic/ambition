@@ -10407,6 +10407,92 @@ freeze lifts"), and both places state why. ⛔ do not change the state to satisf
 a sentence that was only ever a description. **(16) the feature-hit gateway grows by SystemParam packing** — guidance
 for the next change to it, not a campaign.
 
+- ▢ **D238 — THE DEEP REVIEW, CHECKPOINT 2 (GPT 5.6): FOURTEEN MORE, AND ONE
+  SENTENCE THAT NAMES THE PATTERN. (opened 2026-08-25)**
+
+⭐⭐⭐ **THE REVIEWER'S OWN DIAGNOSIS IS THE MOST VALUABLE LINE IN EITHER REPORT,
+and it matches what I found independently all day:** *"a number of recent
+mechanics are locally tested at the point where they are authored, but their
+semantic distinction is LOST AT THE NEXT SHARED GATEWAY."* Its examples:
+
+```text
+windboxes           lose their REACTION KIND at `pending_launch: Vec2`
+shield transitions  lose their CAUSE at the active/inactive bool
+recovery helpless   loses its EPISODE by deriving from a resource COUNT
+rooted moves        lose the RAW STICK by rewriting the input frame
+match commands      lose their ROLLBACK STATUS as ordinary Bevy messages
+```
+
+⇒ every one is a fact that was true where it was decided and unrecoverable one
+seam later. My own day found the same shape three more times (a scope set at
+spawn, a scope never retracted, a body mutated during proposal) — so this is the
+project's dominant defect class right now, not a coincidence of one review.
+
+⭐ ALSO WORTH RECORDING: the reviewer looked for MISSING ROLLBACK REGISTRATION on
+every field added this week — evade staling, shield tilt, ASDI, maneuver state,
+settled items, match clock, sudden death — and found none. The registration
+discipline is holding; it is SEMANTIC OWNERSHIP that is not.
+
+▢ LIVE MOVEMENT (the pass to do first, with the roll work): **(17) shield DROP
+LAG is charged for FORCED shield loss** — `apply_shield` charges on
+`was_up && !active` with no cause check, so dropping through a platform with
+guard held bills the 11-frame release penalty and hard-locks; **(18) roll ENDLAG
+is canonical state NOTHING REFUSES ATTACKS FOR** — the comment explaining why it
+is unenforced describes the OLD shared-timer problem that HEAD already fixed;
+**(19) ROOTED MOVES ERASE STICK HISTORY** — `damped_by_move_motion` zeroes
+locomotion before the kernel sees it, so `prev_steer_dir` records 0 and merely
+HOLDING a direction through a rooted attack grants a free initial dash when it
+ends.
+
+▢ **(20) INITIAL DASH AND SHIELD SETTLING STILL INFER OWNERSHIP FROM MAGNITUDE**
+— and the reviewer is right that the ROLL got this right and these two did not:
+a launch WEAKER than the dash speed is overwritten (`-200` becomes `+270`,
+reversing a live launch), and the shield brake eats anything under
+`max_run_speed`. ⚠ THE BETTER SEAM ALREADY EXISTS: `BodyFlightState::carried_run`
+/ `carried_hold` are what `apply_body_hit_reaction` uses to describe momentum
+imparted while control was absent. ⇒ modify the LOCOMOTION-OWNED component, do
+not ask whether the total "looks like" locomotion.
+
+▢ ROLLBACK: **(21) `MatchAbandoned` cannot survive a rewind** — the registration
+comment claims `clear_message_on_rollback` makes the external request available
+to resimulation; the backend literally just `.clear()`s the channel, so an Exit
+Match consumed on a speculative frame is unreproducible after a rollback. ⛔ THE
+COMMENT DESCRIBES THE OPPOSITE OF WHAT THE CODE DOES. **(22) winner card and
+return countdown react to SPECULATIVE settlement** — `Local<Option<f32>>` on real
+time, no retraction; use the existing `ConfirmedFrameBoundary` rather than a new
+delay.
+
+▢ LIVE SMASH PARITY: **(23) an untechable tech press SPENDS NOTHING** — the
+source says "IT STILL SPENDS THE LOCKOUT BELOW" and the lockout is only charged
+when `tech_press_timer` expires, which an untechable press never arms; **(24)
+recovery helplessness is derived from `recovery_charges == 0`**, so an accepted
+hit that deliberately refunds the air dodge cannot lift it — and the tech edge it
+preserved is dropped by the helpless return.
+
+▢ **(29) THE WINDBOX PRIMITIVE VIOLATES MOST OF ITS OWN CONTRACT** — latent, no
+content authors one yet, which is the good time to fix it. Beyond the zero-damage
+half I closed today: it still takes `recoil_lock_timer` (a hard control lock), it
+can JAB-LOCK or TUMBLE its victim because `pending_launch` is a bare `Vec2` with
+no kind, and it can be PARRIED and BLOCKED. ⇒ two facts lost at two gateways, not
+four `if windbox` exceptions.
+
+▢ ALSO: **(25) `SettledItem` is permanent sleep with no support ownership** — an
+item caught by a moving platform stays fixed in world space when the platform
+leaves; **(26)(27) clank is deterministic but not SIMULTANEOUS, and reads the
+attacker's CURRENT feet rather than the attack's class** (latent — Smash declares
+`clank_damage_window = 0`); **(28) pivot selection and move-facing DISAGREE** —
+the gesture picks the forward move using the turnaround facing, `start_move` then
+snapshots the OLD `kin.facing`, so the move is selected forward and its geometry
+mirrors the old way; **(30) `MatchParticipantRoster` is accumulating match RULES**
+— one new field cost 68 struct initializers.
+
+⭐ REVIEWER CLEARED, after tracing, with no defect: crouch/body-mode scheduling,
+Z-drop's grab edge, the recovery edge-cancel landing-lag writer, route-authored
+defense presentation, charged-projectile preparation. ⚠ one authoring seam: the
+ranged consumer has no body-local MUZZLE, so charge presentation uses an
+anatomically wrong fallback and `gun_sword` already carries an ID special-case —
+add the anchor with the next ranged feature rather than a second exception.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

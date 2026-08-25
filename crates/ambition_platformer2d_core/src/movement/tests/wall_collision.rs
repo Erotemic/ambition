@@ -146,11 +146,11 @@ fn wall_jump_does_not_catapult_through_left_wall() {
     );
 
     assert!(
-            scratch.kinematics.pos.x >= initial_x - 1.0,
-            "wall jump pushed player to x={} from x={} — expected to stay near or right of starting position",
-            scratch.kinematics.pos.x,
-            initial_x,
-        );
+        scratch.kinematics.pos.x >= initial_x - 1.0,
+        "wall jump pushed player to x={} from x={} — expected to stay near or right of starting position",
+        scratch.kinematics.pos.x,
+        initial_x,
+    );
     assert!(
         scratch.kinematics.pos.x - body.half_size().x >= 0.0,
         "wall jump punched the player through the left wall (body left = {})",
@@ -180,6 +180,8 @@ fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
         };
         super::super::simulation::handle_jump_buffer_clusters(
             &world,
+            // This fixture presses no shield and stands on no platform.
+            false,
             &mut axis.state,
             clusters.env_contact,
             clusters.abilities,
@@ -284,16 +286,16 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     );
 
     assert!(
-            scratch.kinematics.pos.y >= 0.0 && scratch.kinematics.pos.y <= world.size.y,
-            "wall-cling y-sweep teleported player out of the world envelope: pos.y = {} (world.size.y = {})",
-            scratch.kinematics.pos.y,
-            world.size.y,
-        );
+        scratch.kinematics.pos.y >= 0.0 && scratch.kinematics.pos.y <= world.size.y,
+        "wall-cling y-sweep teleported player out of the world envelope: pos.y = {} (world.size.y = {})",
+        scratch.kinematics.pos.y,
+        world.size.y,
+    );
     let dy = (scratch.kinematics.pos.y - initial_y).abs();
     assert!(
-            dy < 50.0,
-            "wall-cling y-sweep moved player by {dy} px in one frame; expected at most a few pixels of slide",
-        );
+        dy < 50.0,
+        "wall-cling y-sweep moved player by {dy} px in one frame; expected at most a few pixels of slide",
+    );
     assert!(
         !scratch.ground.on_ground,
         "wall-cling y-sweep falsely set on_ground; player was supposedly grounded at y={}",
@@ -348,7 +350,9 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
     assert!(
         dy < 50.0,
         "y-sweep teleported player by {} px; expected ~tiny gravity-driven motion (start_y={}, end_y={})",
-        dy, start_y, scratch.kinematics.pos.y,
+        dy,
+        start_y,
+        scratch.kinematics.pos.y,
     );
     assert!(
         scratch.kinematics.pos.y > 0.0 && scratch.kinematics.pos.y < world.size.y,
@@ -441,17 +445,17 @@ fn body_is_side_contact_classifies_walls_vs_floors() {
         Vec2::new(14.0, 23.0),
     );
     assert!(
-            !body_is_side_contact(body_landing_on_pillar, pillar),
-            "descending onto the top edge of a tall block (slight x overlap, body.top above block.top) must NOT be classified as a side contact"
-        );
+        !body_is_side_contact(body_landing_on_pillar, pillar),
+        "descending onto the top edge of a tall block (slight x overlap, body.top above block.top) must NOT be classified as a side contact"
+    );
 
     // Player jumping up into a thick ceiling block.
     let ceiling = Aabb::new(Vec2::new(900.0, 200.0), Vec2::new(400.0, 100.0));
     let body_under_ceiling = Aabb::new(Vec2::new(900.0, 300.0 + 23.0 - 1.0), Vec2::new(14.0, 23.0));
     assert!(
-            !body_is_side_contact(body_under_ceiling, ceiling),
-            "rising into a thick ceiling (body.bottom poking past block.bottom) must NOT be classified as a side contact"
-        );
+        !body_is_side_contact(body_under_ceiling, ceiling),
+        "rising into a thick ceiling (body.bottom poking past block.bottom) must NOT be classified as a side contact"
+    );
 }
 
 /// The old overlap-depth de-penetration heuristic ejected a deeply-penetrating body hundreds of px
@@ -928,8 +932,8 @@ fn one_way_platform_works_under_sideways_gravity() {
 /// by the body's own half-extent. This pins the player path to the same no-pushout invariant.
 #[test]
 fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
-    use crate::world::Block;
     use crate::AbilitySet;
+    use crate::world::Block;
 
     // A big solid the player is jammed inside, far from every face — like the
     // hub's wide floor/ceiling slabs. With gravity along +X, X is the gravity

@@ -9520,6 +9520,49 @@ Wire format v92 (`BodyShieldState` gained a field, `ShieldTuning` gained one).
 except the version line — the version bump is the only thing carrying this
 change to a peer, which is precisely what it is for.
 
+- ✔ **D219 — CLOSED 2026-08-25. GUARD + DOWN DROPS THROUGH A SOFT PLATFORM,
+  AND THE TERRAIN IS WHAT DECIDES. (opened and closed 2026-08-25)**
+
+⭐ **NO NEW GESTURE.** Guard + down was already the spot dodge. On a one-way
+surface the genre gives the same press to the platform drop, so the surface
+under the body arbitrates and the player learns one input, not two.
+
+⛔⛔ **THE MECHANISM THE ROW SAID TO REUSE WAS UNREACHABLE.** Drop-through lives
+INSIDE `handle_jump_buffer_clusters`, behind
+`if !current_press && state.buffer_jump <= 0.0 { return; }` — so a body with no
+jump press and no buffered one returns long before it. Any declaration of the
+guard gesture would have been swallowed silently. It needed its own arm ahead
+of that gate, sharing the OUTCOME (`begin_drop_through`, one function) and not
+the entry. ⇒ "reuse the existing mechanism" is a claim about the OUTCOME; check
+what GATES it before believing the road is open.
+
+⛔ **AN EXPLICIT DECLARATION, NOT A FALLTHROUGH ON `out_of_shield`.** That gate
+reads a game with no policy as "restricts nothing", which for this action points
+the wrong way: it would hand a platform drop to every exploration body that has
+a shield and a one-way surface, waking a mechanic all of those worlds were tuned
+without. `ShieldTuning::platform_drop` sits beside `air_guard`, which is not an
+out-of-shield action either and for the same reason — which game a stage
+reproduces is a declaration, not a permission.
+
+⭐ **ONE QUESTION, TWO PHASES.** The control phase must stand the evade down or
+it eats the press; the simulation phase must fire the drop. They are separate
+top-level passes, so the condition is ONE function both call
+(`platform_drop_requested`) rather than two copies that can drift — two copies
+that disagreed would produce a press that cancels the dodge and drops nobody.
+
+⚠ **A FIXTURE THAT DECLARED HALF A RULESET.** The test set the platform-fighter
+SHIELD but left `spot_dodge_time` at the engine default, and `apply_dodge` falls
+through to the ROLL when that window is zero. So guard+down chain-rolled the
+body 455px in 90 ticks, off the end of the floor, and read as "the drop fired
+when it should not have". Declaring the window fixed it. ⇒ a fixture that
+authors half a ruleset is not that ruleset, and the half it omits is the half
+that changes what an input MEANS.
+
+⭐ Every arm asserts its OWN premise: the landing check moved inside the helper
+after one arm was found measuring a body that had never reached the platform.
+
+Wire format v93 (`ShieldTuning` gained a bool).
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

@@ -144,6 +144,18 @@ pub(crate) fn update_body_control_in_frame(
         &mut events,
     );
 
+    // Guard + down on a one-way surface is the PLATFORM DROP, so the evade has
+    // to stand down and let it through — see `platform_drop_requested`, which
+    // the simulation phase asks again to perform the drop itself.
+    let platform_drop = integration::platform_drop_requested(
+        world,
+        clusters.kinematics,
+        clusters.ground,
+        input,
+        frame,
+        tuning,
+    );
+
     abilities::apply_intent(
         clusters.kinematics,
         clusters.ground,
@@ -154,6 +166,7 @@ pub(crate) fn update_body_control_in_frame(
         tuning,
         clusters.shield,
         clusters.dodge,
+        platform_drop,
     );
 
     abilities::apply_fly_toggle(
@@ -493,6 +506,14 @@ fn update_body_simulation_inner(
     // drop-through / wall-jump / double-jump).
     simulation::handle_jump_buffer_clusters(
         world,
+        integration::platform_drop_requested(
+            world,
+            clusters.kinematics,
+            clusters.ground,
+            input,
+            frame,
+            tuning,
+        ),
         state,
         clusters.env_contact,
         clusters.abilities,

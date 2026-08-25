@@ -4,8 +4,8 @@ use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::{AxisJumpLaw, AxisSweptParams, ONE_WAY_DROP_THROUGH_GRACE};
-use crate::player_state::BodyMode;
 use crate::MotionFrame;
+use crate::player_state::BodyMode;
 
 const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
@@ -100,8 +100,27 @@ fn tick_jump_squat(
 /// regular jump, or double-jump. Each branch zeroes the buffer +
 /// coyote timer so the same press can't re-fire.
 #[allow(clippy::too_many_arguments)]
+/// LEAVE THE SURFACE DOWNWARD — the outcome both drop gestures share.
+///
+/// One function so guard+down and jump+down cannot leave the body in two
+/// different states; the grace timer is what keeps the surface passable for
+/// long enough to actually get clear of it.
+fn begin_drop_through(
+    state: &mut crate::movement::AxisManeuverState,
+    ground: &mut crate::body_clusters::BodyGroundState,
+) {
+    state.buffer_jump = 0.0;
+    ground.on_ground = false;
+    state.coyote_timer = 0.0;
+    state.drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+}
+
 pub fn handle_jump_buffer_clusters(
     world: &World,
+    // THE PLATFORM DROP, decided by the kernel against the surface under the
+    // body (see `wants_platform_drop`). A second road to the SAME
+    // drop-through this function already performs — not a second mechanic.
+    platform_drop: bool,
     state: &mut crate::movement::AxisManeuverState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
     abilities: &crate::body_clusters::BodyAbilities,
@@ -141,6 +160,17 @@ pub fn handle_jump_buffer_clusters(
             tuning,
             events,
         );
+        return;
+    }
+
+    // ⛔⛔ THE PLATFORM DROP IS NOT A JUMP, AND IT IS ANSWERED BEFORE THE JUMP
+    // GATE BELOW. The drop-through this function performs has always been
+    // reachable only through that gate — a body with no jump press and no
+    // buffered one returns before ever reaching it — so guard + down would have
+    // been silently swallowed no matter how the gesture was declared. It shares
+    // the OUTCOME with the jump road, not the entry.
+    if platform_drop {
+        begin_drop_through(state, ground);
         return;
     }
 
@@ -207,10 +237,7 @@ pub fn handle_jump_buffer_clusters(
             frame.down(),
         )
     {
-        state.buffer_jump = 0.0;
-        ground.on_ground = false;
-        state.coyote_timer = 0.0;
-        state.drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+        begin_drop_through(state, ground);
         return;
     }
 

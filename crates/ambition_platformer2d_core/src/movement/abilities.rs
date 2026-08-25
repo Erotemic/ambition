@@ -205,6 +205,12 @@ pub(super) fn apply_intent(
     // The evade's own state, so a shield+direction press can ask whether a DODGE
     // is actually available rather than filling a buffer the dash will spend.
     dodge: &BodyDodgeState,
+    // THIS PRESS IS A PLATFORM DROP, already decided by the kernel against the
+    // surface under the body — see `wants_platform_drop` there. The evade must
+    // stand down for it, and it cannot work that out itself: whether the floor
+    // can be left downward is a question about the WORLD, which this layer has
+    // no business holding.
+    platform_drop: bool,
 ) {
     let oos = tuning.abilities.shield.out_of_shield;
     let gate = OutOfShieldGate::read(shield.active, oos);
@@ -255,7 +261,12 @@ pub(super) fn apply_intent(
     //
     // ⛔ Gated on the guard being ACTIVE, so walking down a slope is untouched:
     // this is an out-of-shield option, and it is spent like one.
-    if shield_evade_direction(input, abilities, ground, dodge, state, tuning).is_some()
+    // ⛔ AND NOT WHEN THE SAME PRESS IS A PLATFORM DROP. Guard + down means the
+    // spot dodge on solid ground and the drop on a soft platform — the terrain
+    // arbitrates, and it arbitrates HERE because the evade runs first and would
+    // otherwise spend the press before the drop road ever sees it.
+    if !platform_drop
+        && shield_evade_direction(input, abilities, ground, dodge, state, tuning).is_some()
         && gate.permits(OutOfShieldAction::Burst)
     {
         state.buffer_burst = tuning.abilities.dash_buffer;
@@ -790,6 +801,8 @@ mod burst_maneuver_tests {
                 // Guard down: this case is about which BURST a body owns.
                 &mut crate::body_clusters::BodyShieldState::default(),
                 &crate::body_clusters::BodyDodgeState::default(),
+                // No platform under this fixture at all.
+                false,
             );
             assert_eq!(
                 state.buffer_burst > 0.0,

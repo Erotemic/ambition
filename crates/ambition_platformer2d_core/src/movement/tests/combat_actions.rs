@@ -220,6 +220,141 @@ fn a_gentle_stick_leans_the_raised_guard_and_letting_go_recentres_it() {
     );
 }
 
+/// GUARD + DOWN IS THE SPOT DODGE ON SOLID GROUND AND THE PLATFORM DROP ON A
+/// SOFT ONE — the terrain arbitrates, and nothing else about the press changes.
+///
+/// Three arms, because two of them alone would not pin the mechanic: a rule
+/// that always dropped would pass the drop arm, and a rule that never did
+/// would pass the other two. The declaration arm is what keeps every
+/// exploration world — none of which authors `platform_drop` — exactly where it
+/// was.
+#[test]
+fn guard_and_down_drops_through_a_soft_platform_but_spot_dodges_on_solid_ground() {
+    use crate::world::{Block, World};
+    // ⛔ `DEFAULT_GRAVITY_DIR` is `+y`, so DOWN is INCREASING y here: the body
+    // starts high (small y), the platform is below it at 300, and the floor is
+    // below that at 500. Feet are the `+y` edge.
+    let world = World {
+        name: "platform drop".to_string(),
+        size: Vec2::new(800.0, 600.0),
+        spawn: Vec2::new(400.0, 100.0),
+        blocks: vec![
+            Block::solid("floor", Vec2::new(0.0, 500.0), Vec2::new(800.0, 40.0)),
+            Block::one_way("platform", Vec2::new(300.0, 300.0), Vec2::new(200.0, 12.0)),
+        ],
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        edges: Default::default(),
+        water_regions: Vec::new(),
+    };
+    // +y in LOCAL axes is TOWARD-FEET, so this is DOWN — and it is past
+    // `SPOT_DODGE_STICK`, so both roads genuinely want this press.
+    let mut guard_and_down = InputState::with_axes(0.0, 0.8);
+    guard_and_down.shield_held = true;
+
+    let feet =
+        |scratch: &BodyClusterScratch| scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5;
+
+    let land_on_the_platform = |tuning: crate::test_support::TestTuning| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 100.0));
+        scratch.ground.on_ground = false;
+        for _ in 0..120 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        // EVERY arm checks its own premise. Asserting this for one of them and
+        // trusting the rest is how a fixture that never reached the platform
+        // gets read as a mechanic that misfired.
+        assert!(
+            scratch.ground.on_ground
+                && (scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5 - 300.0).abs() < 6.0,
+            "the fixture never landed on the one-way platform: on_ground={} feet={}",
+            scratch.ground.on_ground,
+            scratch.kinematics.pos.y + scratch.kinematics.size.y * 0.5
+        );
+        scratch
+    };
+
+    // ⛔ THE SPOT-DODGE WINDOW COMES WITH THE SHIELD, and leaving it at the
+    // engine default silently changes what guard + down MEANS: `apply_dodge`
+    // falls through to the ROLL when `spot_dodge_time` is zero, so arm 3 would
+    // have been measuring a body rolling off the stage rather than dodging in
+    // place. A fixture that declares half a ruleset is not that ruleset.
+    let mut smash = TEST_TUNING;
+    smash.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
+    smash.base.spot_dodge_time = 0.16;
+    let mut no_declaration = smash;
+    no_declaration.base.shield.platform_drop = false;
+
+    // The fixture has to actually be ON the platform, or every arm below is
+    // measuring a body in mid-air.
+    let mut dropping = land_on_the_platform(smash);
+    assert!(
+        dropping.ground.on_ground && (feet(&dropping) - 300.0).abs() < 6.0,
+        "the fixture never landed on the one-way platform: on_ground={} feet={}",
+        dropping.ground.on_ground,
+        feet(&dropping)
+    );
+
+    // ARM 1 — THE DROP. Guard + down leaves the soft platform behind.
+    for _ in 0..90 {
+        update_player_with_tuning_scratch(&world, &mut dropping, guard_and_down, 1.0 / 60.0, smash);
+    }
+    assert!(
+        feet(&dropping) > 400.0,
+        "guard + down did not drop through the platform: feet={}",
+        feet(&dropping)
+    );
+
+    // ARM 2 — THE DECLARATION. The same press on the same platform, for a body
+    // whose ruleset does not author the drop, keeps it standing.
+    let mut staying = land_on_the_platform(no_declaration);
+    for _ in 0..90 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut staying,
+            guard_and_down,
+            1.0 / 60.0,
+            no_declaration,
+        );
+    }
+    assert!(
+        (feet(&staying) - 300.0).abs() < 6.0,
+        "a body that declares no platform drop fell through anyway: feet={}",
+        feet(&staying)
+    );
+
+    // ARM 3 — SOLID GROUND STILL SPOT-DODGES. The press is not consumed by the
+    // drop road on a floor that cannot be left downward.
+    let mut grounded = scratch_with(AbilitySet::sandbox_all(), Vec2::new(100.0, 100.0));
+    grounded.ground.on_ground = false;
+    for _ in 0..120 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut grounded,
+            InputState::default(),
+            1.0 / 60.0,
+            smash,
+        );
+    }
+    assert!(grounded.ground.on_ground, "arm 3 never reached the floor");
+    let floor_feet = feet(&grounded);
+    update_player_with_tuning_scratch(&world, &mut grounded, guard_and_down, 1.0 / 60.0, smash);
+    assert!(
+        grounded.axis().dodge_roll_timer > 0.0 || grounded.axis().buffer_burst > 0.0,
+        "guard + down on solid ground did not start an evade"
+    );
+    assert!(
+        (feet(&grounded) - floor_feet).abs() < 6.0,
+        "guard + down on solid ground moved the body off the floor"
+    );
+}
+
 #[test]
 fn shield_deactivates_when_released() {
     let world = test_world();

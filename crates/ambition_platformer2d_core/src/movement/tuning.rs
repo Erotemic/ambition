@@ -890,6 +890,27 @@ pub struct ShieldTuning {
     /// the one that used to be dead input — but the rule itself is just the
     /// stick, so a body whose evade is spent still leans instead of going inert.
     pub tilt_range: f32,
+    /// MAY THIS GUARD DROP THROUGH A ONE-WAY PLATFORM? — guard + down, the
+    /// genre's platform drop.
+    ///
+    /// `false` (the default) is what every body did before this existed: the
+    /// only way down through a one-way surface is the ordinary down+jump
+    /// request, which is unchanged and still works for everyone.
+    ///
+    /// ⛔ AN EXPLICIT DECLARATION rather than a fallthrough on
+    /// [`Self::out_of_shield`], because the two defaults point opposite ways.
+    /// The out-of-shield gate reads a game with no policy as "restricts
+    /// nothing", which for THIS action would silently hand a platform drop to
+    /// every exploration body that has a shield and a one-way surface — waking
+    /// a mechanic every one of those worlds was tuned without. Same reason
+    /// [`Self::air_guard`] is not an out-of-shield action either: which game a
+    /// stage reproduces is a declaration, not a permission.
+    ///
+    /// ⭐ WHAT IT COSTS THE PLAYER IS THE SPOT DODGE. Guard + down on SOLID
+    /// ground is the spot dodge and stays so; on a one-way surface the same
+    /// press drops instead. The terrain arbitrates, which is the genre's rule
+    /// and the reason this needs no new gesture.
+    pub platform_drop: bool,
     /// Lateral push (px/s) the defender takes per point of damage it blocks.
     /// The half of shield pressure that costs SPACE rather than tempo: hold a
     /// guard near a ledge and the hits themselves move you toward it.
@@ -995,6 +1016,7 @@ impl ShieldTuning {
         pushback_per_damage: 0.0,
         min_coverage: 1.0,
         tilt_range: 0.0,
+        platform_drop: false,
         // No out-of-shield rule and no drop cost: the engine baseline, and what
         // every body did before the policy existed.
         out_of_shield: None,
@@ -1018,6 +1040,8 @@ impl ShieldTuning {
         // still covers the feet a poke was reaching for, and not so much that
         // the guard leaves the body.
         tilt_range: 0.34,
+        // Guard + down on a soft platform drops through, in every title.
+        platform_drop: true,
         // A guard is a LAUNCHING PLATFORM in this genre, and these five are what
         // it launches. Everything else waits for it to come down.
         out_of_shield: Some(OutOfShield::PLATFORM_FIGHTER),

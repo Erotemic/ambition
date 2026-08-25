@@ -1,6 +1,6 @@
+use crate::Vec2;
 use crate::geometry::AabbExt;
 use crate::world::World;
-use crate::Vec2;
 
 /// Move `value` toward `target` by at most `delta`. Inlined from the
 /// removed `ae::scalar::approach`.
@@ -53,7 +53,53 @@ pub fn gravity_descend(axis_y: f32, gravity_dir: crate::Vec2) -> f32 {
 /// inverted gravity, Hybrid reads screen-UP + jump). Computed at the consumer
 /// rather than precomputed gravity-blind at the input boundary.
 pub(super) fn wants_drop_through(descend: f32, jump_pressed: bool) -> bool {
-    descend > 0.35 && jump_pressed
+    descend > DROP_THROUGH_DESCEND && jump_pressed
+}
+
+/// How far toward the feet the stick must be held for a drop request to count,
+/// shared by both gestures so guard+down and jump+down cannot disagree about
+/// what "down" is.
+pub(super) const DROP_THROUGH_DESCEND: f32 = 0.35;
+
+/// THE PLATFORM DROP: guard + down, on a surface that can be left downward.
+///
+/// ⛔ THE BUTTON, NOT `BodyShieldState::active`, exactly as the shield evade
+/// reads it: the guard state outlives the press that raised it, so reading the
+/// state would drop a body through a platform off a guard it already let go of.
+pub(super) fn wants_platform_drop(descend: f32, shield_held: bool, on_one_way: bool) -> bool {
+    shield_held && on_one_way && descend > DROP_THROUGH_DESCEND
+}
+
+/// THE PLATFORM DROP, asked of the world — the whole question, in one place.
+///
+/// ⛔⛔ ONE IMPLEMENTATION FOR TWO PHASES, and that is the point of the
+/// function. The control phase must know so the evade STANDS DOWN, and the
+/// simulation phase must know so the drop FIRES; they are separate top-level
+/// passes, and two hand-written copies of this condition that drifted apart
+/// would produce a press that stands the dodge down and then drops nobody — an
+/// input that does nothing at all, which is the worst failure available here.
+///
+/// Both callers ask before the body has moved this tick, so they are asking
+/// about the same pose and cannot disagree.
+pub(super) fn platform_drop_requested(
+    world: &crate::World,
+    kinematics: &crate::body_clusters::BodyKinematics,
+    ground: &crate::body_clusters::BodyGroundState,
+    input: InputState,
+    frame: crate::MotionFrame,
+    tuning: AxisSweptParams,
+) -> bool {
+    tuning.abilities.shield.platform_drop
+        && ground.on_ground
+        && wants_platform_drop(
+            input.local_axis().y,
+            input.shield_held,
+            super::collision::standing_on_one_way_aabb(
+                world,
+                kinematics.aabb_oriented(frame.down()),
+                frame.down(),
+            ),
+        )
 }
 
 use super::dec;

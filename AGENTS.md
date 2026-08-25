@@ -79,11 +79,15 @@ python3 scripts/mirror_assets_for_worktree.py
 This also initializes `game/ambition_map_assets`, which backs symlinked LDtk paths.
 Full rules: `docs/recipes/adding-an-asset.md`.
 
-For a fresh clone/worktree, optionally run:
+For a fresh clone/worktree, run:
 
 ```bash
 scripts/setup_target_bindmount.sh
 ```
+
+IMPORTANT: On a fresh session verify that the target directory is not mounted
+on virtiofs and build the bindmount so the target dir works on a fast drive.
+The bind mounts do not survive a reboot.
 
 Use `--status` to verify. Do not substitute `CARGO_TARGET_DIR`; it applies only to commands launched from that shell and does not establish the repository-wide target policy.
 
@@ -99,7 +103,7 @@ Do not stop to ask about an architectural choice you can resolve from those prin
 python3 scripts/goal_guard.py --pause "Jon asked me to finish X and wait"
 ```
 
-Do not use `--pause` because a check is inconvenient. Clearing an armed run is Jon's call.
+Do not use `--pause` to end a turn early. Clearing an armed run is Jon's call.
 
 Extend an armed run with:
 

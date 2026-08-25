@@ -44,8 +44,8 @@ pub struct FxSheet {
 /// character effect sheets, in the order they are searched.
 ///
 /// generic first: a name that appears on a generic sheet and on a character
-/// sheet resolves to the generic one. No such collision exists today (all 189
-/// row names are distinct across all twelve sheets, pinned by
+/// sheet resolves to the generic one. No such collision exists today (all 195
+/// row names are distinct across all thirteen sheets, pinned by
 /// `every_authored_effect_row_is_reachable_by_name`), so the order is a
 /// tie-break rule that has never had to fire, not a policy anyone depends on.
 pub const FX_SHEETS: &[FxSheet] = &[
@@ -97,6 +97,10 @@ pub const FX_SHEETS: &[FxSheet] = &[
         target: "noether_vfx",
         cue_family: "noether",
     },
+    FxSheet {
+        target: "projectile_polygon_vfx",
+        cue_family: "projectile_polygon",
+    },
 ];
 
 /// FX sheets render at their authored frame size; nothing collides with them.
@@ -136,7 +140,7 @@ pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
         for sheet in FX_SHEETS {
             // A sheet the build did not bake is simply absent — the same
             // degradation as any other missing manifest target, and the pin
-            // test below is what says it should never happen for these twelve.
+            // test below is what says it should never happen for these thirteen.
             let Some(record) = record_for_sheet_key(sheet.target) else {
                 continue;
             };
@@ -179,8 +183,8 @@ pub fn is_authored_effect(name: &str) -> bool {
 /// not [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target),
 /// which refuses a sheet with no `idle` row — correctly, because the character
 /// path indexes by [`CharacterAnim`](crate::character::CharacterAnim) and a
-/// sheet it cannot ask for an idle pose is one it cannot draw. Eleven of the
-/// twelve FX sheets have no `idle`, and the twelfth only appeared to: five
+/// sheet it cannot ask for an idle pose is one it cannot draw. Twelve of the
+/// thirteen FX sheets have no `idle`, and the odd one only appeared to: five
 /// aliases inside `CharacterAnim::from_name` spelled `classic_burst` as *Idle*,
 /// `burst_round` as *Walk*, `shockwave` as *Run*. Those are gone. An effect row
 /// is addressed by its name, so this loads the spec without asking for a pose.
@@ -211,7 +215,11 @@ mod tests {
         }
         assert_eq!(
             from_sheets.len(),
-            189,
+            // 189 + the Projectile Polygon's six charge rows. His neutral
+            // special charges at the MUZZLE, which cannot be baked into a
+            // character row: it follows his cannon as he aims and it lasts as
+            // long as the button is down.
+            195,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
 

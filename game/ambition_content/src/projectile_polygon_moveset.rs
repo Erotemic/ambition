@@ -7,14 +7,149 @@
 
 use ambition_characters::moveset_authoring::Strike;
 use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
-use ambition_characters::moveset_prefabs::{simple_ranged, SimpleRangedParams};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
 use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_platformer2d::entity_catalog::{
+    ChargeGesture, ClipBinding, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+    MovesetContract, SmashChargeSpec, WindowTag,
+};
+
+/// How long the fill row runs, in seconds: 14 frames at 62ms, from
+/// `polygon_charge_shot`'s own authoring.
+///
+/// ⭐ THE ART AND THE MECHANIC AGREE BY CONSTRUCTION. The VFX row was drawn as
+/// one long climb rather than a loop precisely so a player could read "nearly
+/// there" off the ring count without a meter, and that only works if the fill
+/// finishes exactly when the charge does.
+const CHARGE_FILL_S: f32 = 14.0 * 0.062;
+
+/// Where in the windup he latches. Early, so the charge reads as "the shot
+/// started and stopped" rather than "the shot is about to leave and stopped" —
+/// the same rule the smash charge pose states.
+const CHARGE_HOLD_AT_S: f32 = 0.10;
+
+/// Where the charge is drawn, body-local (`+x` toward facing, `+y` gravity-down).
+///
+/// ⛔ THIS IS THE SPAWN POINT, NOT THE CANNON. See [`charge_shot`]'s note: the
+/// shared fire site launches from the body centre plus `(0, -8)`, and an effect
+/// that disagreed with it would show the ball jumping across his body on
+/// release.
+const MUZZLE: (f32, f32) = (0.0, -8.0);
+
+/// When the shot leaves, measured from the move's start. Everything before it is
+/// windup that plays out on release.
+const CHARGE_FIRE_AT_S: f32 = 0.26;
+
+/// THE CHARGE BALL — the genre's held neutral-B, and this fighter's identity.
+///
+/// Hold Special and the timeline freezes at [`CHARGE_HOLD_AT_S`] while the ball
+/// builds at the muzzle; let go (or hit the maximum, which fires on its own —
+/// a full charge is LOADED, not stored) and the rest of the windup plays into
+/// the shot. What comes out is scaled by how long it was held: see
+/// `crate::authored::projectile_polygon`'s `charged_cannon`.
+///
+/// ⛔ NO `smash_charge_mult`. That number scales the damage of a melee volume
+/// this move does not have — the payoff is entirely in the projectile — so
+/// setting one here would be a multiplier that multiplies nothing. The
+/// explicitly authored `smash_charge` is what says this move holds.
+///
+/// ⚠ THE BALL BUILDS WHERE THE SHOT LEAVES, which is not where his cannon is.
+/// `spawn_projectiles_from_brain_actions` launches every ordinary shot from the
+/// body centre plus a shared `(0, -8)`, and that offset belongs to the engine
+/// rather than to this fighter. Drawing the charge at the head-mounted cannon
+/// and then firing from the chest would read as the ball teleporting, so the
+/// effect matches the spawn instead. A per-action MUZZLE offset would fix both
+/// ends at once; it does not exist, and inventing one here would be a fighter
+/// reaching into the shared fire site.
+///
+/// ⚠ THE FILL IS FIRED ONCE, AT THE LATCH, and that is a real limitation rather
+/// than a design. A move event is a point on a timeline and a charge is a
+/// stretch of one, so nothing re-fires the VFX if the hold outlasts the row;
+/// what makes it read anyway is that the row was drawn to the same length as
+/// the hold. A hold that could outlast its own fill would want a sustained
+/// presentation channel, which does not exist yet.
+fn charge_shot() -> MoveSpec {
+    MoveSpec {
+        id: "polygon_projectile_charge_shot".to_string(),
+        display_name: Some("Charge Shot".to_string()),
+        clip: ClipBinding {
+            clip: "shoot".to_string(),
+            fallbacks: vec!["attack_side".to_string(), "idle".to_string()],
+        },
+        duration_s: 0.58,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: CHARGE_FIRE_AT_S,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+            // No Active volume: the projectile IS the damage, as it is for every
+            // ranged move. The recovery is the settle he owes for committing.
+            MoveWindow {
+                start_s: CHARGE_FIRE_AT_S,
+                end_s: 0.58,
+                tag: WindowTag::Recovery,
+                volumes: vec![],
+                sustain_effect: None,
+                motion_scale: 1.0,
+            },
+        ],
+        events: vec![
+            // The intake first: loose energy pulled toward the muzzle, so the
+            // player knows the button took before the ball is visible.
+            MoveEvent {
+                at_s: 0.01,
+                kind: MoveEventKind::Vfx {
+                    effect: "charge_intake".to_string(),
+                    at: MUZZLE,
+                    scale: 1.0,
+                    sfx: None,
+                },
+            },
+            MoveEvent {
+                at_s: CHARGE_HOLD_AT_S * 0.5,
+                kind: MoveEventKind::Vfx {
+                    effect: "charge_build".to_string(),
+                    at: MUZZLE,
+                    scale: 1.0,
+                    sfx: None,
+                },
+            },
+            MoveEvent {
+                at_s: CHARGE_FIRE_AT_S,
+                kind: MoveEventKind::Vfx {
+                    effect: "charge_release".to_string(),
+                    at: MUZZLE,
+                    scale: 1.0,
+                    sfx: None,
+                },
+            },
+            MoveEvent {
+                at_s: CHARGE_FIRE_AT_S,
+                kind: MoveEventKind::Ranged,
+            },
+        ],
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        smash_charge: Some(SmashChargeSpec {
+            hold_at_s: CHARGE_HOLD_AT_S,
+            max_hold_s: CHARGE_FILL_S,
+        }),
+        charge_gesture: ChargeGesture::Special,
+        repeat: None,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+        sprite_spin_hz: None,
+    }
+}
 
 pub fn projectile_polygon_moveset() -> MovesetContract {
     let jab = strike(Strike {
@@ -192,11 +327,7 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     });
     down_air.landing_lag_s = Some(0.25);
 
-    let mut neutral_special = simple_ranged(&SimpleRangedParams {
-        windup_s: 0.12,
-        recover_s: 0.20,
-    });
-    neutral_special.id = "polygon_projectile_shot".to_string();
+    let neutral_special = charge_shot();
 
     let side_special = impulse(
         committed_tail(

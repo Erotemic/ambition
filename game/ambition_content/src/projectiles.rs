@@ -61,6 +61,48 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // THE PROJECTILE POLYGON'S CHARGE SHOT, in five tiers.
+    //
+    // ⭐ FIVE LOOKS AND NOT ONE SCALED. A shot the player held for a second has
+    // to be readable as different from a tap the instant it leaves the barrel,
+    // and scale alone does not survive being small on a busy stage — so the
+    // sheet tells the tiers apart by SHAPE: tier 1 is a bare pellet, tier 3
+    // gains an orbiting arc, tier 5 gains a compression ring and reads as a
+    // different object. `RangedCharge::visuals` steps between them by charge
+    // fraction while damage and speed climb smoothly underneath.
+    //
+    // `Body` sizing, so the drawn ball follows the half-extent the charge
+    // scales: a shot that hits in a bigger box than it is drawn in is a lie,
+    // and the reverse is a shot that eats you from nowhere.
+    for (tier, animation) in [
+        (1, "travel_tier1"),
+        (2, "travel_tier2"),
+        (3, "travel_tier3"),
+        (4, "travel_tier4"),
+        (5, "travel_tier5"),
+    ] {
+        app.register_projectile_visual(
+            format!("polygon_charge_shot_tier{tier}"),
+            ProjectileArt {
+                source: ProjectileArtSource::Sheet {
+                    target: "polygon_charge_shot".to_string(),
+                    animation: animation.to_string(),
+                    animate: true,
+                },
+                size: ProjectileRenderSize::Body {
+                    min: 10.0,
+                    scale: 2.4,
+                },
+                // A ball has no forward face to align, and spinning one that is
+                // drawn with its own orbit would fight the animation.
+                rotation: ProjectileRotation::FlipToTravel,
+                debug_tint: [0.38, 0.84, 0.99, 1.0],
+                label: format!("polygon_charge_shot_tier{tier}"),
+                expiry_vfx: None,
+            },
+        );
+    }
+
     // Pirate gun-sword: the first idle frame of the lasersword sheet, rotated
     // along the velocity (pommel pivot read from the manifest), detonating on
     // expiry.

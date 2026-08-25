@@ -91,7 +91,41 @@ fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
         Some(actor),
         "setup: holding Down+Interact should possess the actor within a few commit windows"
     );
+    settle_out_of_any_move(sim, actor);
     actor
+}
+
+/// Step until the possessed body is out of whatever move it was playing.
+///
+/// ⛔⛔ POSSESSION LANDS ON WHATEVER STEP THE RADIUS IS CROSSED ON, and the
+/// automaton is a fighter — so it may be mid-move when the seat changes hands.
+/// On 2026-08-25 a ranged-cadence change shifted that step and possession began
+/// landing inside `generation_wipe`, a long rooted special that publishes NO
+/// locomotion: one test then read `locomotion.x = 0` on the frame it pressed
+/// right, and another drove for thirty steps and travelled half a pixel.
+///
+/// ⭐ NEITHER TEST IS ABOUT MOVES. One is a SCHEDULE invariant (same-frame slot
+/// input), the other is "a possessed body integrates like every other body" —
+/// and a rooted body is a state in which neither can show. Measured: with no
+/// move playing, the pressed frame reads `locomotion.x = 1.0` and the drive
+/// travels.
+fn settle_out_of_any_move(sim: &mut Platformer2dSimHarness, actor: Entity) {
+    let playing = |sim: &mut Platformer2dSimHarness| {
+        sim.world_mut()
+            .get::<ambition_platformer2d::actors::combat::moveset::MovePlayback>(actor)
+            .is_some()
+    };
+    for _ in 0..240 {
+        if !playing(sim) {
+            break;
+        }
+        sim.step(AgentAction::default());
+    }
+    assert!(
+        !playing(sim),
+        "setup: the possessed actor never came out of the move possession landed \
+         inside, so every measurement after this is of a rooted body"
+    );
 }
 
 /// SAME-FRAME slot input (schedule invariant): a possessed actor ticks inside
@@ -257,6 +291,7 @@ fn a_player_can_possess_drive_and_release_an_actor_end_to_end() {
          (holding the primary seat) is what makes combat treat it as player-aligned"
     );
 
+    settle_out_of_any_move(&mut sim, actor);
     // 2. Drive right. The POSSESSED body should move — it now integrates through
     //    the SAME unified `integrate_sim_bodies` phase every body uses. The vacated
     //    home avatar stays put because it holds no seat (its

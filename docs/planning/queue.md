@@ -10536,7 +10536,7 @@ refreshed that every pulse. Now it declines the lock by the same asymmetry the
 stun arm states — and does NOT discharge one, which is poisoned in both
 directions (clearing it would make a gust the best combo breaker in the game).
 
-▢ **29b AND 29c REMAIN, and they are the two GATEWAY losses** — the reason not to
+◐ **29b REMAINS, AND 29c IS HALF DONE** — both are GATEWAY losses, the reason not to
 fix them as four `if windbox` exceptions: **29b** `pending_launch` is a bare
 `Vec2`, so `accept_external_launch` asks `jab_lock()` and `launch_into_tumble()`
 from SPEED ALONE — a weak gust can pin a prone body, a strong one can tumble it.
@@ -10545,6 +10545,15 @@ producer and `resolve_body_hit` receive no fact saying the contact is a windbox,
 so a gust can be PARRIED, or blocked for shield integrity and shieldstun and
 pushback — against an authored `no shield`. ⇒ the volume needs a declared
 guard interaction (`NormalStrike` / `IgnoreGuard` / `Unstoppable`), read by both.
+
+⭐ **29c PARRY HALF CLOSED 2026-08-25.** A gust could be PARRIED, producing no
+push at all — the producer asked `shield.parrying()` for every strike volume
+alike. THE FACT WAS ALREADY ON THE `Hitbox` (`windbox`), so this was ONE
+CONDITION rather than a new channel: the parry half was cheap precisely because
+nothing had to cross a gateway. ▢ THE BLOCK HALF IS THE GATEWAY ONE and remains:
+`resolve_body_hit` receives no fact identifying the contact, so a gust still
+spends shield integrity, charges shieldstun and applies pushback against an
+authored `no shield`.
 
 ⚠ AUTHORING CLEANUP WHILE IT IS STILL LATENT: the type permits `autolink +
 windbox` together while documenting the combination as contradictory. Reject it

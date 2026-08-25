@@ -1421,6 +1421,55 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
     (app, victim)
 }
 
+/// The same fixture, but the volume is a WINDBOX.
+fn windbox_parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
+    let (mut app, victim) = parry_fixture(shield);
+    let mut boxes = app.world_mut().query::<&mut Hitbox>();
+    for mut hitbox in boxes.iter_mut(app.world_mut()) {
+        hitbox.damage = 0;
+        hitbox.windbox = Some(ambition_entity_catalog::WindboxVolume { repeating: false });
+    }
+    (app, victim)
+}
+
+/// A WINDBOX CANNOT BE PARRIED.
+///
+/// ⛔⛔ ITS AUTHORED CONTRACT IS "PUSHES, AND NOTHING ELSE" — no damage, no
+/// hitstun, NO SHIELD — and the parry producer asked `shield.parrying()` for
+/// every strike volume alike. Caught, a gust produced no push at all, so a
+/// defender could parry the WIND.
+///
+/// ⚠ THE OTHER HALF IS STILL OPEN AND THIS TEST DOES NOT CLAIM IT: ordinary
+/// guard resolution happens later in `resolve_body_hit`, which receives no fact
+/// saying the contact is a windbox — so a gust can still be BLOCKED for shield
+/// integrity, shieldstun and pushback.
+#[test]
+fn a_parry_window_does_not_catch_a_windbox() {
+    let open = || ae::BodyShieldState {
+        active: true,
+        parry_window_timer: 0.05,
+        ..Default::default()
+    };
+
+    // ⛔ THE CONTROL FIRST: the same window catches an ORDINARY strike, or this
+    // fixture cannot tell a windbox from a parry that stopped working.
+    let (mut app, victim) = parry_fixture(open());
+    app.update();
+    assert!(
+        caught(&app, victim),
+        "the parry window did not catch an ordinary strike, so the arm below \
+         proves nothing"
+    );
+
+    let (mut app, victim) = windbox_parry_fixture(open());
+    app.update();
+    assert!(
+        !caught(&app, victim),
+        "a parry CAUGHT a windbox — a gust says it does not interact with a \
+         shield, and a parry is the strongest form of exactly that"
+    );
+}
+
 fn caught(app: &App, victim: Entity) -> bool {
     app.world()
         .get::<ae::BodyShieldState>(victim)

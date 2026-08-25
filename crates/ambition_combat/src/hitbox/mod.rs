@@ -57,7 +57,11 @@ pub struct LandedBodyHit {
 /// a WINDBOX authors no damage on purpose, so flooring it to one turns a push
 /// into a hit and makes the whole category unauthorable.
 fn damage_floor(authored: i32) -> i32 {
-    if authored > 0 { 1 } else { 0 }
+    if authored > 0 {
+        1
+    } else {
+        0
+    }
 }
 
 fn resolved_hitbox_knockback_magnitude(
@@ -413,12 +417,28 @@ pub fn apply_hitbox_damage(
                         continue;
                     }
                 }
-                if let Ok(mut shield) = guards.get_mut(victim.entity) {
-                    if shield.parrying() {
-                        shield.catch_parry();
-                        hits.hit.insert(victim.entity);
-                        pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
-                        continue;
+                // ⛔⛔ A WINDBOX CANNOT BE PARRIED. Its authored contract is that
+                // it PUSHES and does nothing else — no damage, no hitstun, NO
+                // SHIELD — and a parry is the strongest form of the thing it
+                // says it does not interact with. Caught here, a gust produced
+                // no push at all, so a defender could simply parry the wind.
+                //
+                // ⭐ THE FACT IS ALREADY ON THE HITBOX (`windbox`), which is why
+                // this reads as one condition rather than a new channel. ⚠ THE
+                // OTHER HALF IS NOT FIXED: ordinary guard resolution happens
+                // later, in `resolve_body_hit`, which receives no fact saying
+                // the contact is a windbox — so a gust can still be BLOCKED for
+                // shield integrity, shieldstun and pushback. That one needs the
+                // volume's guard interaction threaded to the resolver; see the
+                // ledger.
+                if hitbox.windbox.is_none() {
+                    if let Ok(mut shield) = guards.get_mut(victim.entity) {
+                        if shield.parrying() {
+                            shield.catch_parry();
+                            hits.hit.insert(victim.entity);
+                            pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
+                            continue;
+                        }
                     }
                 }
 

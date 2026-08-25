@@ -291,6 +291,35 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
+## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
+
+Jon: *"Another issue is that shield rolls have too much motion to them. They
+send the character flying across the stage. They should not be giving that much
+velocity, and they probably should stop at the end of the roll and leave the
+character punishable for a frame or two."*
+
+▢ THREE things, and they are separable: the roll's DISTANCE is too far · it
+must COME TO REST at the end rather than carrying its speed out · and it owes a
+punishable beat after it. ⭐ the third is what makes the first two a mechanic
+rather than a nerf — a roll that ends clean and safe is still the best button in
+the game however short it is.
+
+## 2026-08-24 — Smash: a name floats over everyone EXCEPT player one, and barks fire on every hit
+
+Jon: *"Something I would like fixed in smash is it looks like non-player 1 gets
+a name over their head, whereas player 1 does not. This is player 1 centric
+behavior, and we should have none of it. A second thing I would like is in smash
+to not have barks happen every time a character is hit. Make it a more rare
+event. Not never, but I'd like it to happen less often."*
+
+▢ Two rows, and the first is the one with teeth: a nameplate whose presence is
+decided by "is this the player" is the [player-centrism this project keeps
+removing](project_engine_direction.md) wearing a label. The rule has to be about
+the PARTICIPANT, not about seat zero — whatever it turns out to be, it applies to
+every fighter the same way.
+
+▢ Barks on every hit. Rarer, not gone.
+
 ## 2026-08-24 — Smash: the ledge has no rules
 
 Jon: *"in smash we haven't built any of the ledge rules yet. A character can

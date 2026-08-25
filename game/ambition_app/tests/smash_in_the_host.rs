@@ -2179,6 +2179,81 @@ fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
     );
 }
 
+/// ⭐⭐ THE MATCH CLOCK DOES NOT START UNTIL THE CAST IS RELEASED (D212).
+///
+/// ⛔⛔ THE DEFECT THIS PINS: the timeout and the item cadence both read
+/// `ActiveMatch::ticks_since_activation`, which counts from the tick the cast was
+/// BUILT. Every second of "3, 2, 1" came off the clock the fighters were about
+/// to play against, and each consumer patched around the ceremony its own way —
+/// the timeout not at all, the spawner with a hand-written `elapsed == 0`.
+///
+/// ⭐ THIS IS THE PRODUCTION PATH FOR THE CEREMONY HALF, and it lives here
+/// rather than beside the clock's other tests because `PreparedMatch` has no
+/// constructor outside `prepare_match`: a unit fixture could only get a
+/// countdown by having one added to a production type. A real match has a real
+/// one.
+#[test]
+fn the_match_clock_does_not_start_until_the_cast_is_released() {
+    use ambition_platformer2d::actors::character_runtime::live_match_clock::LiveMatchTicks;
+
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+
+    // Step until the cast is BUILT — the point the old reading started counting
+    // from — and check the ceremony is genuinely still running, or the
+    // assertion below is about nothing.
+    let mut held = 0usize;
+    for _ in 0..600 {
+        app.update();
+        held = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<
+                &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            q.iter(world).count()
+        };
+        if held > 0 {
+            break;
+        }
+    }
+    assert!(
+        held > 0,
+        "no fighter was ever held by an opening ceremony, so this match has none \
+         and the test cannot see one excluded"
+    );
+
+    let counted = |app: &App| {
+        let active = app
+            .world()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .cloned()
+            .expect("a match is live");
+        app.world().resource::<LiveMatchTicks>().of(&active)
+    };
+
+    // ⭐ THE CEREMONY RUNS AND THE CLOCK DOES NOT. Ticks are passing — the cast
+    // exists, the world is moving — and none of them are match time.
+    for _ in 0..20 {
+        app.update();
+    }
+    assert_eq!(
+        counted(&app),
+        0,
+        "the opening countdown came off the match clock, so a match with a \
+         ceremony starts already spent"
+    );
+
+    wait_for_the_round_to_go_live(&mut app);
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(
+        counted(&app) > 0,
+        "the clock never started, so this match can never time out"
+    );
+}
+
 /// ⭐⭐ AND THE ROW IS WITHDRAWN THE MOMENT THE MATCH SETTLES (D211).
 ///
 /// The GPT 5.6 correction pass: withdraw `Exit Match` once

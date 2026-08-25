@@ -202,6 +202,18 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
+        // ⭐⭐ THE ROLL OWES A BEAT. Jon, 2026-08-24: *"shield rolls have too
+        // much motion to them... they probably should stop at the end of the
+        // roll and leave the character punishable for a frame or two."*
+        //
+        // ⛔ THE DISTANCE IS NOT WHAT WAS WRONG, and it is deliberately
+        // unchanged: 530px/s over a 0.22s window is ~117px, which is a step and
+        // a half. What made a roll read as "flying across the stage" is that
+        // NOTHING took the velocity back when the window closed, so the body
+        // kept travelling at roll speed until friction or a wall caught it. The
+        // roll comes to rest now; changing the speed on top of that would be
+        // nerfing the same thing twice.
+        dodge_roll_endlag: ambition_platformer2d::engine_core::DODGE_ROLL_ENDLAG,
         // SPOT DODGE, 0.16s. The grounded evade had one shape, so the
         // option a cornered fighter takes — nowhere to roll TO, waiting out a
         // committed swing — did not exist. Shorter than the roll's window
@@ -469,6 +481,17 @@ pub fn smash_stage() -> RoomSpec {
 
     let mut room = RoomSpec::new(SMASH_STAGE_ROOM_ID, world);
     room.metadata.mode = Some(SMASH_MODE.to_string());
+    // ⭐⭐ EVERY FIGHTER IS LABELLED THE SAME WAY. The presentation default hides
+    // the plate over a body somebody is driving, which is the right EXPLORATION
+    // rule — a plate names a body you are not inhabiting — and reads as
+    // "everyone is labelled except the human" on a stage with a cast. Jon,
+    // 2026-08-24: *"This is player 1 centric behavior, and we should have none
+    // of it."*
+    //
+    // ⛔ THE STAGE DECIDES, NOT THE RENDERER. A four-way match wants to know who
+    // is who; `Some(false)` is the other uniform answer if plates ever get in
+    // the way of reading the fight.
+    room.metadata.nameplate_policy.label_driven_bodies = Some(true);
     room
 }
 

@@ -147,6 +147,11 @@ impl LdtkLevel {
             nameplate_policy: ambition_platformer2d_world::rooms::RoomNameplatePolicy {
                 full_opacity_count: take_count("nameplate_full_opacity_count"),
                 fade_out_count: take_count("nameplate_fade_out_count"),
+                // ⛔ NOT AN LDtk FIELD YET, deliberately. Only a room with a
+                // CAST needs it, and those are declared in Rust rather than
+                // authored in LDtk; adding a field nothing sets would put a
+                // widget in the editor for a question its rooms never ask.
+                label_driven_bodies: None,
             },
             gallery: self.field_bool("gallery").unwrap_or(false),
             mode: take("mode"),

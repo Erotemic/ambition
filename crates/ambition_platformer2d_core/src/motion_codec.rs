@@ -1,6 +1,6 @@
 //! The movement-policy (`MotionModel`) rollback checksum codec — ADR 0024 §9.
 
-use crate::snapshot::{put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState};
+use crate::snapshot::{Reader, SnapshotState, put_bool, put_f32, put_u8, put_u32, put_vec2};
 
 /// The body's explicit movement policy: identity, authored parameters, and
 /// policy-private runtime state — everything a deterministic continuation
@@ -140,6 +140,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_bool(out, state.spot_dodging);
     put_f32(out, state.air_dodge_timer);
     put_f32(out, state.air_dodge_endlag_timer);
+    put_f32(out, state.dodge_roll_endlag_timer);
     put_f32(out, state.tumble_timer);
     put_bool(out, state.tumble_until_landing);
     put_bool(out, state.tumble_unannounced);
@@ -182,6 +183,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         spot_dodging: r.bool()?,
         air_dodge_timer: r.f32()?,
         air_dodge_endlag_timer: r.f32()?,
+        dodge_roll_endlag_timer: r.f32()?,
         tumble_timer: r.f32()?,
         tumble_until_landing: r.bool()?,
         tumble_unannounced: r.bool()?,
@@ -360,6 +362,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.air_dodge_time);
     put_f32(out, a.air_dodge_speed);
     put_f32(out, a.air_dodge_endlag);
+    put_f32(out, a.dodge_roll_endlag);
     put_f32(out, a.tumble_speed);
     put_f32(out, a.spot_dodge_time);
     put_f32(out, a.sdi_step);
@@ -471,6 +474,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_dodge_time: r.f32()?,
             air_dodge_speed: r.f32()?,
             air_dodge_endlag: r.f32()?,
+            dodge_roll_endlag: r.f32()?,
             tumble_speed: r.f32()?,
             spot_dodge_time: r.f32()?,
             sdi_step: r.f32()?,

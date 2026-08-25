@@ -97,6 +97,14 @@ where
         OWNER,
         "resource.sudden_death_entered",
     );
+    // …and HOW LONG it has been fought. Counted, not derived: the timeout and
+    // the item cadence both read it, and "how many ticks was this paused" is
+    // written nowhere a rewind could recompute it from.
+    registrar
+        .rollback_resource_canonical::<crate::character_runtime::live_match_clock::LiveMatchTicks>(
+            OWNER,
+            "resource.live_match_ticks",
+        );
     // …and the announcement it makes once. Written inside the sim and read
     // inside it (the stage puts its survivors on the authored damage), so a
     // reader's `Local` cursor has to rewind with the latch above — otherwise a

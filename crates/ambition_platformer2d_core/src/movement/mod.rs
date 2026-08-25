@@ -18,8 +18,8 @@
 //! kernel-private implementation vocabulary — production integration calls
 //! [`step_motion`], never an individual solver arm.
 
-use crate::world::World;
 use crate::MotionFrame;
+use crate::world::World;
 
 mod abilities;
 mod adhesive_crawler;
@@ -49,16 +49,16 @@ pub use surface_momentum::{
 };
 
 pub use abilities::{
-    resolve_burst_maneuver, resolve_shield, spend_out_of_shield, BurstManeuver, OutOfShieldAction,
-    OutOfShieldGate,
+    BurstManeuver, OutOfShieldAction, OutOfShieldGate, resolve_burst_maneuver, resolve_shield,
+    spend_out_of_shield,
 };
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
-pub use body_contact::{constrain_motion, BodyContactBlocker, BodyContactField};
+pub use body_contact::{BodyContactBlocker, BodyContactField, constrain_motion};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.
 pub use authority::{
-    arrive_body_in_room, carry_body, constrain_body_pose, halt_body, reconcile_transit,
-    shift_frozen_body, transit_body, ArrivalMomentum, TransitVelocity,
+    ArrivalMomentum, TransitVelocity, arrive_body_in_room, carry_body, constrain_body_pose,
+    halt_body, reconcile_transit, shift_frozen_body, transit_body,
 };
 pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};
@@ -78,29 +78,29 @@ pub use integration::set_jump_velocity;
 /// fast-fall/glide gates, and the fall cap. The player feeds it its rich ability
 /// clusters; enemies/NPCs feed it [`NormalSpineCtx::bare`] + per-actor tuning, so
 /// every actor falls + runs through the SAME core (the non-player-centric seam).
-pub use integration::{integrate_normal_spine, NormalSpineCtx};
-pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
+pub use integration::{NormalSpineCtx, integrate_normal_spine};
+pub use kernel::{MotionStepContext, MotionStepResult, SupportFact, step_motion};
 pub use model::{
-    footstool_victim, knock_off_ledge, switch_motion_model, AxisManeuverState, AxisSweptMotion,
-    MotionModel, MotionModelKind, MotionModelSpec, PhasedJumpState, SurfaceMomentumMotion,
+    AxisManeuverState, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
+    PhasedJumpState, SurfaceMomentumMotion, footstool_victim, knock_off_ledge, switch_motion_model,
 };
 pub use ops::{ComboMark, MovementOp};
-pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
+pub use player::{DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, default_player_body_size};
 pub use tuning::{
-    ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
-    FlightTuning, FootstoolTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
-    OutOfShield, ParryTiming, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning,
     AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS,
+    ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
     BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD,
     BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,
     DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
-    DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
-    FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED,
-    GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED,
-    MAX_FALL_SPEED, MAX_RUN_SPEED, ONE_WAY_DROP_THROUGH_GRACE, PARRY_WINDOW_TIME, POGO_SPEED,
-    PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED,
-    RUN_ACCEL, SLASH_RECOIL, SPOT_DODGE_STICK, SPOT_DODGE_TIME, WALL_CLIMB_SPEED, WALL_JUMP_X,
-    WALL_SLIDE_SPEED,
+    DODGE_ROLL_ENDLAG, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL,
+    FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED,
+    FLIGHT_TERMINAL_SPEED, FlightTuning, FootstoolTuning, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED,
+    GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, LedgeMomentumTuning, MAX_FALL_SPEED,
+    MAX_RUN_SPEED, MomentumHorizontalTuning, MovementTuning, ONE_WAY_DROP_THROUGH_GRACE,
+    OutOfShield, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
+    PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED, ParryTiming,
+    PhasedGravityJumpTuning, RUN_ACCEL, SLASH_RECOIL, SPOT_DODGE_STICK, SPOT_DODGE_TIME,
+    ShieldTuning, TraversalAbilityTuning, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
 #[cfg(test)]
@@ -367,7 +367,42 @@ fn update_body_simulation_inner(
         clusters.blink.cooldown = dec(clusters.blink.cooldown);
         state.blink_grace_timer = dec(state.blink_grace_timer);
         state.rebound_cooldown = dec(state.rebound_cooldown);
-        state.dodge_roll_timer = dec(state.dodge_roll_timer);
+        // ⭐⭐ THE ROLL HANDS OFF TO ITS OWN ENDLAG, exactly as the air dodge
+        // below does: "invulnerable" and "committed" become separable states
+        // rather than one fused timer, and the gap between them is what a
+        // defender reads. Jon, 2026-08-24, asking for a roll that leaves the
+        // character *"punishable for a frame or two."*
+        //
+        // ⛔⛔ AND IT DOES NOT CANCEL THE BODY'S VELOCITY, which this did for
+        // about an hour. Two measurements killed that:
+        //
+        //   1. THE ROLL ALREADY STOPS. Ground friction (7600 px/s²) takes the
+        //      530 px/s roll to zero in about four frames — a fifth of the
+        //      0.22s window — so the roll travels ~14px and is motionless long
+        //      before it ends. There was no persisting velocity to cancel, and
+        //      the test written to prove otherwise stayed green with the cancel
+        //      removed entirely.
+        //   2. IT ATE LAUNCHES. `vel` here is the body's WHOLE velocity, not the
+        //      roll's contribution to it, so a fighter struck during a roll had
+        //      its knockback erased on the tick the window closed:
+        //      `an_up_tilt_launches_much_further_at_a_high_percent` measured a
+        //      victim rising 4.5px at 0% and 0.0px at 1427%.
+        //
+        // ⇒ a maneuver that ends must not reach into a shared velocity it does
+        // not own. If a roll ever DOES need to shed its own push, the push has
+        // to be tracked separately from whatever else moved the body.
+        if state.dodge_roll_timer > 0.0 {
+            state.dodge_roll_timer = dec(state.dodge_roll_timer);
+            if state.dodge_roll_timer <= 0.0 && !state.spot_dodging {
+                // ⛔ NOT AFTER A SPOT DODGE. The spot dodge runs on this SAME
+                // timer — `spot_dodging` is a refinement of `dodge_rolling`, not
+                // a sibling — so an endlag hung off the expiry alone is charged
+                // to a maneuver that covers no distance and never asked for one.
+                state.dodge_roll_endlag_timer = tuning.abilities.dodge_roll_endlag;
+            }
+        } else {
+            state.dodge_roll_endlag_timer = dec(state.dodge_roll_endlag_timer);
+        }
         state.ledge_invuln_timer = dec(state.ledge_invuln_timer);
         // The air dodge hands off to its own endlag the tick its window closes,
         // so "invulnerable" and "committed" are separable states rather than one

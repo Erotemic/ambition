@@ -97,11 +97,27 @@ pub struct RoomNameplatePolicy {
     /// Ranked candidate count where nameplate opacity reaches zero.
     /// `None` falls back to the presentation default.
     pub fade_out_count: Option<usize>,
+    /// Does a body SOMEBODY IS DRIVING get a nameplate here?
+    ///
+    /// ⭐⭐ THE DEFAULT (`None` ⇒ no) IS AN EXPLORATION RULE, and it stops being
+    /// right the moment a room holds more than one driven body. A plate exists
+    /// to name a body you are not inhabiting, so hiding it over the one you are
+    /// is honest in a game with a single driven body — and in a four-fighter
+    /// match it renders as "everyone is labelled except the human", which is
+    /// exactly the player-centrism this engine keeps removing. Jon, 2026-08-24:
+    /// *"This is player 1 centric behavior, and we should have none of it."*
+    ///
+    /// ⇒ a room with a CAST declares `Some(true)` and every fighter is labelled
+    /// the same way. `Some(false)` labels none of them, which is the other
+    /// uniform answer and is one value away.
+    pub label_driven_bodies: Option<bool>,
 }
 
 impl RoomNameplatePolicy {
     pub fn is_empty(&self) -> bool {
-        self.full_opacity_count.is_none() && self.fade_out_count.is_none()
+        self.full_opacity_count.is_none()
+            && self.fade_out_count.is_none()
+            && self.label_driven_bodies.is_none()
     }
 
     pub fn merge(&mut self, other: RoomNameplatePolicy) {
@@ -110,6 +126,9 @@ impl RoomNameplatePolicy {
         }
         if self.fade_out_count.is_none() {
             self.fade_out_count = other.fade_out_count;
+        }
+        if self.label_driven_bodies.is_none() {
+            self.label_driven_bodies = other.label_driven_bodies;
         }
     }
 }

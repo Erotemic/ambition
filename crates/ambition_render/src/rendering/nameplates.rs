@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer2d_core::config::{WORLD_Z_PLAYER, world_to_bevy};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -175,6 +175,10 @@ struct NameplateCandidate {
 struct ResolvedNameplateRankPolicy {
     full_opacity_count: usize,
     fade_out_count: usize,
+    /// Does a body somebody is driving get a plate? See
+    /// [`RoomNameplatePolicy::label_driven_bodies`] — the default is the
+    /// exploration answer, and a room with a CAST overrides it.
+    label_driven_bodies: bool,
 }
 
 impl ActorNameplateSettings {
@@ -189,6 +193,12 @@ impl ActorNameplateSettings {
             fade_out_count: room_policy
                 .and_then(|policy| policy.fade_out_count)
                 .unwrap_or(self.fade_out_count),
+            // ⛔ THE DEFAULT IS `false` — a driven body gets no plate — and that
+            // is an EXPLORATION rule, right only while a room holds one driven
+            // body. A room with a cast says so.
+            label_driven_bodies: room_policy
+                .and_then(|policy| policy.label_driven_bodies)
+                .unwrap_or(false),
         }
     }
 }
@@ -293,7 +303,7 @@ pub fn sync_actor_nameplates(
         let focus_world = view_state.target_world;
         let mut candidates = Vec::new();
         if let Some(index) = nameplate_index.as_deref() {
-            collect_actor_candidates(&settings, index, focus_world, &mut candidates);
+            collect_actor_candidates(&settings, rank_policy, index, focus_world, &mut candidates);
         }
         collect_door_candidates(&settings, focus_world, &doors, &mut candidates);
 
@@ -369,14 +379,20 @@ pub fn sync_actor_nameplates(
 
 fn collect_actor_candidates(
     settings: &ActorNameplateSettings,
+    rank_policy: ResolvedNameplateRankPolicy,
     index: &NameplateIndex,
     focus_world: ae::Vec2,
     candidates: &mut Vec<NameplateCandidate>,
 ) {
     for (id, fact) in index.iter() {
-        // The controlled subject's own plate is suppressed (the body the
-        // local player is driving) — resolved sim-side into the fact.
-        if fact.controlled {
+        // ⭐⭐ WHETHER A DRIVEN BODY IS LABELLED IS THE ROOM'S CALL, not a
+        // constant. Suppressing it is the exploration answer — a plate names a
+        // body you are not inhabiting, so hiding it over the one you are is
+        // honest with ONE driven body in the room. With a cast it renders as
+        // "everyone is labelled except the human", and Jon named that on
+        // 2026-08-24: *"This is player 1 centric behavior, and we should have
+        // none of it."*
+        if fact.controlled && !rank_policy.label_driven_bodies {
             continue;
         }
         push_candidate_if_in_range(
@@ -584,13 +600,56 @@ mod tests {
         let policy = RoomNameplatePolicy {
             full_opacity_count: Some(100),
             fade_out_count: Some(120),
+            label_driven_bodies: None,
         };
         assert_eq!(
             settings.resolve_rank_policy(Some(&policy)),
             ResolvedNameplateRankPolicy {
                 full_opacity_count: 100,
                 fade_out_count: 120,
+                label_driven_bodies: false,
             }
+        );
+    }
+
+    /// ⭐⭐ A ROOM WITH A CAST LABELS EVERY FIGHTER THE SAME WAY.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS, Jon 2026-08-24: *"it looks like non-player 1
+    /// gets a name over their head, whereas player 1 does not. This is player 1
+    /// centric behavior, and we should have none of it."* The suppression was a
+    /// CONSTANT — a driven body never got a plate — which reads as an honest
+    /// relative rule with one driven body in the room and as pure
+    /// player-centrism with four.
+    #[test]
+    fn a_room_with_a_cast_can_label_the_body_you_are_driving() {
+        let settings = ActorNameplateSettings::default();
+        // The default is the exploration answer, and it is still the default.
+        assert!(!settings.resolve_rank_policy(None).label_driven_bodies);
+
+        let cast = RoomNameplatePolicy {
+            full_opacity_count: None,
+            fade_out_count: None,
+            label_driven_bodies: Some(true),
+        };
+        assert!(
+            settings
+                .resolve_rank_policy(Some(&cast))
+                .label_driven_bodies,
+            "a stage that declared its cast should be labelled uniformly still \
+             hides the plate over whoever is playing"
+        );
+
+        // ⛔ AND THE OTHER UNIFORM ANSWER IS ONE VALUE AWAY — no plates at all —
+        // which is the point of it being a knob rather than a second rule.
+        let bare = RoomNameplatePolicy {
+            full_opacity_count: None,
+            fade_out_count: None,
+            label_driven_bodies: Some(false),
+        };
+        assert!(
+            !settings
+                .resolve_rank_policy(Some(&bare))
+                .label_driven_bodies
         );
     }
 

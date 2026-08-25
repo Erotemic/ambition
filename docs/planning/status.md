@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `HEAD` (see `git log -1`) (2026-08-24 local project date).
+**Snapshot:** `HEAD` (see `git log -1`) (2026-08-25 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -15,7 +15,51 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-24, LATEST — Smash gained four mechanics; the hit-unification is repaired and CLOSED
+## 2026-08-25, LATEST — the review is closed out, and Smash gained four more mechanics
+
+⭐⭐ **THE 2026-08-24 REVIEW IS FULLY CLOSED** — four P0s and four P1s, each with
+a production-path poison, which was the review's own stated discipline. D210 is
+✔ and D211–D214 carry the details.
+
+```text
+P0-1 clank            reads StrikeVolume, orders by SimId, ends the losing MOVE
+P0-2 helpless         one derived rule gating move STARTS
+P0-3 sudden death     the spent clock stops deciding a match already in it
+P0-4 items            sleep is EXPLICIT (`SettledItem`), not read off velocity
+D211 Exit Match       withdrawn once `StocksMatchSettled` says the match is over
+D212 the match clock  ONE live clock, ceremony and pauses excluded, read by the
+                      timeout AND the item cadence. Costs wire format; says why
+D213 sim_random       a CONTEXT axis, so match two stops replaying match one
+D214 sudden death     carries the tied LEADERS, not every survivor
+```
+
+✔ **AND FOUR PARITY MECHANICS, each chosen for having a customer already**:
+dodge staling (every roll), the ledge-trump outward pop (Jon's "no way to knock
+them off"), the untechable high-launch threshold (every hard hit), and the bark
+rate (Jon: "not every time a character is hit"). The windbox primitive landed
+too but is **UNADOPTED** — no move authors one, and which move gusts is a
+character-design call sitting in `awaiting-maintainer-decision.md`.
+
+⛔⛔ **THREE PLANNING FILES WERE LYING, and correcting them was real work.** Four
+smash-parity rows claimed work that was already built (`WindowTag::Armor` and
+`Invuln` ARE consumed, by `project_move_defense_windows`); D210 was ▢ on eight
+items that had landed; and my own entries in Jon's observations file were
+multi-paragraph write-ups that its header forbids. ⇒ **re-grep a row before
+working it, and put reasoning in the ledger rather than in Jon's file.**
+
+⭐ **THE PATTERN WORTH CARRYING: most remaining parity rows are blocked on
+AUTHORED CONTENT, not on the engine.** The payload-field rows (extra shield
+damage, unblockable, per-hit hitlag/hitstun/SDI multipliers, weight-independent
+knockback) all need a move to author one, and this demo has shipped three
+mechanics green and inert already. ⇒ prefer rows whose customer is every match:
+that is why staling, the trump pop and the untechable threshold went first.
+
+⚠ **STILL OPEN AND WAITING ON JON**: the shield roll (he confirmed the report,
+will test — `cargo run -p ambition_demo_smash_app --bin roll_probe` is the
+instrument, and ⛔ it does NOT yet fire the roll, which its module doc says at
+the top); and which move should carry the windbox.
+
+## 2026-08-24 — Smash gained four mechanics; the hit-unification is repaired and CLOSED
 
 ⭐⭐ **THE SMASH CAMPAIGN WAS MOSTLY ALREADY DONE, and finding that out was the
 first job.** [`demos/campaigns/smash-fun-push-2026-08-22.md`](demos/campaigns/smash-fun-push-2026-08-22.md)
@@ -214,7 +258,7 @@ target had stopped compiling. Swept the whole tier the same day: `cargo test
 --workspace --lib`, 67 targets, all compiling and green. Run it after touching a
 shared type.
 
-## 2026-08-24, LATEST — ⛔⛔ A REVIEW REOPENED TWO ROWS. READ THE TRIAGE FIRST.
+## 2026-08-24 — ⛔⛔ A REVIEW REOPENED TWO ROWS. READ THE TRIAGE FIRST.
 
 [`triage/gpt-review-2026-08-24-correction-pass.md`](triage/gpt-review-2026-08-24-correction-pass.md)
 is the whole of it, verbatim, with four P0s. **Do not add a parity row until they
@@ -358,7 +402,7 @@ invisible to every `check`, because nothing constructs it.
 `dependency()` and `hierarchy()` publicly, and flattening set edges onto their
 member systems before running Tarjan finds the cycle in about a minute.
 
-## 2026-08-24, LATEST — D200's P2 consolidation, and two things nothing could see
+## 2026-08-24 — D200's P2 consolidation, and two things nothing could see
 
 D200's correctness half closed the day before; this pass worked the P2 list the
 review sequenced after it. Every slice is one commit.
@@ -414,7 +458,7 @@ will move, and that is the change, not a regression.
 missing an attack; `ledge_grab/runtime.rs` has six options bound, none gated.
 Written from the report's framing instead of from the source — grep first.
 
-## 2026-08-23, LATEST — the smash correctness closeout landed, and six emergent tests lied
+## 2026-08-23 — the smash correctness closeout landed, and six emergent tests lied
 
 Two GPT reviews, twelve named defects, all closed. The ledger row is **D200**;
 this is only the orientation a cold start needs.
@@ -463,7 +507,7 @@ directions, but growth is legitimate when the baseline and
 from `central-rollback-ownership-may-not-grow`, a MIGRATION constraint that
 outlived its condition. Schema is at **76**.
 
-## 2026-08-21, LATEST — D175 is CLOSED, and player two can fast-fall
+## 2026-08-21 — D175 is CLOSED, and player two can fast-fall
 
 ```text
 feel-clock latch  ✔ 889107010  SlotControlLatches — seat zero is row zero

@@ -150,7 +150,7 @@ existing seams.
 | Parry flash/chime | ✔ | S | — | Trigger on successful parry contact, not merely on the parry window. Ordinary shield block stays visually distinct. |
 | Ceiling tech | ✔ | — | E1 | `ground.head_contact` is the third tech arm in `knockdown.rs`, beside the wall's. It pushes DOWN off the surface it caught, the way the wall tech pushes along the wall normal, into a fall the body controls. Guarded by `a_tumbling_body_can_tech_off_a_ceiling`. |
 | Wall-tech jump | ~ | S/M | E1 | The wall tech itself ships (`wall.on_wall` + a live tech press → an impulse along `wall_normal_x` at `WALL_TECH_SPEED`, position untouched — not a pushout). What is missing is only the JUMP variant on top of that outcome. |
-| Untechable high-launch threshold | ▢ | S/M | E1 | Make tech eligibility depend on resolved impact/launch state through one rules knob. |
+| Untechable high-launch threshold | ✔ | S/M | E1 | LANDED 2026-08-25 (`d3b4b4abb`). `untechable_launch_speed`, decided at `launch_into_tumble` — the only place the launch SPEED exists, since it is gone by the time the body reaches a surface. ⛔ THE PRESS is what an untechable tumble refuses, not each surface, so a fourth tech surface added later cannot quietly become techable. The flag clears on every tumble entry (a footstool is techable). Smash: 1400px/s against a 500px/s tumble line. |
 | ASDI | ▢ | M | E1 | Extend hitlag displacement semantics; keep it distinct from already-shipped SDI. |
 | Hitfall | ▢ | M | E1 | Author/resolve a post-hit downward acceleration or fast-fall transition without bypassing the movement kernel. |
 | Prone damage / jab lock | ▢ | M | E1 | Extend knockdown/prone state with a bounded damage reaction and lock/reset rule. |

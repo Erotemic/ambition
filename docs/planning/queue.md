@@ -10395,8 +10395,16 @@ move both roots steering and authors a carry. For the moves that DO root
 (grounded attacks), friction toward zero is what planting looks like and is
 correct. ⇒ generalising "steering permission" apart from "axis magnitude" now
 would be an abstraction with one adopter that already has its own fix. ⚠ REOPEN
-WHEN: a move roots steering AND authors momentum it expects to keep. **(15) `asdi_owed: bool` cannot express "once per
-hit"**; **(16) the feature-hit gateway grows by SystemParam packing** — guidance
+WHEN: a move roots steering AND authors momentum it expects to keep. **(15) — RESOLVED AS A CONTRACT FIX, 2026-08-25.** The review is right that a
+`bool` cannot express "once per hit", and right that one representation was
+documented as another. But the CODE is the correct half: `asdi_owed`'s own doc
+says a fresh hit RE-ARMS the freeze rather than queueing behind it, so hits
+during hitlag extend ONE episode and the body is displaced once when it ends —
+the beat a player reads. A per-hit counter would pay a multihit several
+displacements out of a single freeze, which is a different mechanic. ⇒ the
+heading now says ONCE PER FREEZE (its test was already named "once when the
+freeze lifts"), and both places state why. ⛔ do not change the state to satisfy
+a sentence that was only ever a description. **(16) the feature-hit gateway grows by SystemParam packing** — guidance
 for the next change to it, not a campaign.
 
 ## Standing continuation rule

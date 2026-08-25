@@ -315,7 +315,24 @@ fn an_attacker_holding_down_fast_falls_the_tick_its_hitlag_ends() {
     );
 }
 
-/// ASDI IS PAID ONCE PER HIT, ON THE FAR SIDE OF THE FREEZE.
+/// ASDI IS PAID ONCE PER FREEZE, ON THE FAR SIDE OF IT — and the test's own
+/// name says "once when the freeze lifts", which is the accurate half.
+///
+/// ⛔⛔ "ONCE PER HIT" IS THE WRONG SENTENCE and it was this heading until
+/// 2026-08-25. `BodyCombat::asdi_owed` is a `bool`, so two hits landing before
+/// the body next steps freely collapse to one payment — and a review reasonably
+/// read the old wording as a defect the state shape could not satisfy.
+///
+/// ⭐ THE BOOL IS DELIBERATE, and `asdi_owed`'s own doc says why: a fresh hit
+/// RE-ARMS the freeze rather than queueing behind it, so hits arriving during
+/// hitlag extend ONE freeze episode. The body is displaced once when that
+/// episode ends, which is the beat a player reads. A per-hit counter would pay
+/// a multihit several displacements out of a single freeze, which is not the
+/// mechanic.
+///
+/// ⇒ if the rule is ever changed to per-hit, the state has to change with it —
+/// but do not change the state to satisfy a sentence that was only ever a
+/// description.
 ///
 /// Four arms, because the mechanic is defined as much by where it does NOT
 /// apply as by where it does. The measurement is always the DIFFERENCE between

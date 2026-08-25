@@ -207,6 +207,13 @@ pub struct BodyCombat {
     ///
     /// A fresh hit that re-arms the freeze mid-flight simply banks it again,
     /// which is right: that is a new hit and it owes its own displacement.
+    ///
+    /// ⭐ ONE PAYMENT PER FREEZE EPISODE, NOT PER HIT, and the `bool` states that
+    /// exactly. Hits arriving during hitlag EXTEND one freeze rather than
+    /// queueing behind it, so the body is displaced once when that episode ends
+    /// — the beat a player actually reads. A per-hit counter would pay a
+    /// multihit several displacements out of a single freeze, which is a
+    /// different mechanic and not this one.
     pub asdi_owed: bool,
     /// Landing lag: the authored recovery an aerial move owes for touching
     /// down before it finished.

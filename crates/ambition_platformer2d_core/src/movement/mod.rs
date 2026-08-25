@@ -459,6 +459,10 @@ fn update_body_simulation_inner(
         } else {
             state.dodge_roll_endlag_timer = dec(state.dodge_roll_endlag_timer);
         }
+        // THE TURNAROUND runs down here with every other maneuver clock. When
+        // it reaches zero the next `apply_intent` flips the facing, because the
+        // stick is still asking for it.
+        state.turnaround_timer = dec(state.turnaround_timer);
         state.ledge_invuln_timer = dec(state.ledge_invuln_timer);
         // The air dodge hands off to its own endlag the tick its window closes,
         // so "invulnerable" and "committed" are separable states rather than one

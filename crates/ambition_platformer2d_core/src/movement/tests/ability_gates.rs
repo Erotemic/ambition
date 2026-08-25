@@ -626,3 +626,126 @@ fn the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge() {
         "a dash dance travelled {drift:.0}px, which is a run rather than a dance"
     );
 }
+
+/// REVERSING OUT OF A RUN COSTS A TURNAROUND; REVERSING INSIDE A DASH DOES NOT.
+///
+/// The pair is the mechanic. Either half alone is just a speed: a game where
+/// every reversal is free has no ground game, and one where every reversal is
+/// slow has no dash dance. The third arm is the one that would catch a rule
+/// that charged the phase too eagerly.
+#[test]
+fn a_run_pays_to_turn_around_and_a_dash_does_not() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    tuning.turnaround_time = 7.0 / 60.0;
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let landed = || {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(scratch.ground.on_ground, "the fixture never landed");
+        scratch
+    };
+
+    // ARM 1 — INSIDE THE DASH, TURNING IS FREE. Press right, reverse on the
+    // very next tick: facing flips at once and no turnaround is owed.
+    let mut dancing = landed();
+    super::update_player_with_tuning_scratch(&world, &mut dancing, hold(1.0), 1.0 / 60.0, tuning);
+    super::update_player_with_tuning_scratch(&world, &mut dancing, hold(-1.0), 1.0 / 60.0, tuning);
+    assert_eq!(
+        dancing.kinematics.facing, -1.0,
+        "reversing inside the dash window did not flip facing immediately"
+    );
+    assert!(
+        dancing.axis().turnaround_timer <= 0.0,
+        "reversing inside the dash charged a turnaround — that deletes dash-dancing"
+    );
+
+    // ARM 2 — OUT OF A COMMITTED RUN, IT COSTS. Run until the gait line is
+    // crossed, then reverse: facing holds for the authored window.
+    let mut running = landed();
+    for _ in 0..60 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut running,
+            hold(1.0),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        running.axis().running,
+        "the fixture never committed to a run, so there is nothing to turn out of"
+    );
+    assert_eq!(running.kinematics.facing, 1.0);
+    super::update_player_with_tuning_scratch(&world, &mut running, hold(-1.0), 1.0 / 60.0, tuning);
+    assert!(
+        running.axis().turnaround_timer > 0.0,
+        "reversing out of a run owed no turnaround"
+    );
+    assert_eq!(
+        running.kinematics.facing, 1.0,
+        "the body faced the other way on the same tick it asked to — the turnaround is free"
+    );
+    // ...and it does arrive.
+    for _ in 0..12 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut running,
+            hold(-1.0),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert_eq!(
+        running.kinematics.facing, -1.0,
+        "the turnaround never completed — the body is stuck facing the wrong way"
+    );
+
+    // ARM 3 — A WORLD THAT DECLARES NO TURNAROUND FLIPS AT ONCE, which is every
+    // Ambition room. Same committed run, engine tuning.
+    let mut plain = {
+        let mut t = super::TEST_TUNING;
+        t.initial_dash_time = 14.0 / 60.0;
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                t,
+            );
+        }
+        for _ in 0..60 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                hold(1.0),
+                1.0 / 60.0,
+                t,
+            );
+        }
+        super::update_player_with_tuning_scratch(&world, &mut scratch, hold(-1.0), 1.0 / 60.0, t);
+        scratch
+    };
+    assert_eq!(
+        plain.kinematics.facing, -1.0,
+        "a world declaring no turnaround was charged one anyway"
+    );
+    assert!(plain.axis().turnaround_timer <= 0.0);
+    let _ = &mut plain;
+}

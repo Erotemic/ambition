@@ -9868,6 +9868,50 @@ zero, so the next press is a CHANGE again. Poisoned by narrowing the rule to
 reversals only, which reddens the re-tap arm exactly. ⇒ three parity rows from
 one condition, which is what "one root, eight dependents" was supposed to mean.
 
+- ✔ **D225 — CLOSED 2026-08-25. THE TURNAROUND: THE HALF THAT MAKES THE DASH'S
+  FREE REVERSAL WORTH ANYTHING. (opened and closed 2026-08-25)**
+
+`LocomotionTuning::turnaround_time` — 3 frames for Smash, `0.0` everywhere
+else. Reversing out of a COMMITTED run delays the facing flip; reversing inside
+the dash window stays free.
+
+⭐⭐ **THE PAIR IS THE MECHANIC.** A game where every reversal is free has no
+ground game; one where every reversal is slow has no dash dance. D217 shipped
+only the free half, which is why this is its completion rather than a new row.
+
+⛔ **IT DELAYS THE FACING FLIP AND NOTHING ELSE.** What the body does with its
+velocity meanwhile is the ordinary run law's business — inventing a skid here
+would be a second opinion about ground speed.
+
+⛔⛔ **ARM ON THE REQUEST EDGE, NOT ON THE CONDITION.** A body still running and
+still asking to reverse satisfies "should be turning" EVERY tick, so a
+condition-armed phase re-arms the instant it expires and the facing never flips
+at all — the body turns forever. `prev_steer_dir` is the same edge the dash is
+entered on. That version is poison T1 and reddens the "never completed" arm.
+
+⚠ **3 FRAMES IS WHAT THE PROVING GROUND TOLERATES, NOT A FEEL MEASUREMENT.** At
+7 frames `smash_it` lost two premise guards to one symptom: seat 0 stopped ever
+being knocked off the stage in a 3600-tick match while seat 1 went off 57 times
+— a CPU matchup that traded became one-sided.
+
+⭐ **AND THIS TIME IT WAS NOT A CORRUPTION.** After the dash's knockback bug I
+went straight at that class first: a body launched MID-turnaround keeps its
+launch (1400 vs 1313, the gap being the dash correctly not re-arming). Then the
+discriminating test — 3 frames green, 7 frames red — said it SCALES, which with
+corruption ruled out means tuning rather than structure. ⇒ the opposite verdict
+from the dash, where length did NOT matter and that pointed at the real defect.
+Same two experiments, different answer, and the order is what made the answer
+trustworthy.
+
+⇒ **PIVOT GRAB AND REVERSE AERIAL RUSH ARE UNBLOCKED**: both were written as
+"after the turnaround fact exists", and it does.
+
+⚠ **AND THE MONOLITH FIXTURE BROKE FOR THE FOURTH TIME TODAY.** Every field
+added to a shared struct needs `prepared_match/tests.rs`, and
+`cargo check -p ambition_app --all-targets` cannot see it — the gate builds
+dependencies as LIBS. ⇒ when touching `MatchBody`/`MovementTuning`, run the
+monolith crate suite BEFORE believing the gate.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

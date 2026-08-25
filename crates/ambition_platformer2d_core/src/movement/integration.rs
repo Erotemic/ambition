@@ -548,6 +548,15 @@ fn resolve_initial_dash(
         state.prev_steer_dir = dir;
         return 0.0;
     }
+    // ⛔ A BODY MID-TURNAROUND IS NOT STARTING A DASH. It committed to a run and
+    // is paying to face the other way; handing it a fresh full-speed dash would
+    // refund exactly what the turnaround is charging.
+    if state.turnaround_timer > 0.0 {
+        state.initial_dash_timer = 0.0;
+        state.initial_dash_dir = 0.0;
+        state.prev_steer_dir = dir;
+        return 0.0;
+    }
     if dir != 0.0 && dir != state.prev_steer_dir {
         state.initial_dash_timer = tuning.locomotion.initial_dash_time;
         state.initial_dash_dir = dir;

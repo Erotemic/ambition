@@ -296,6 +296,20 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // Inherit the run speed. The phase is about WHEN you may turn around,
         // not about being faster than a run.
         initial_dash_speed: 0.0,
+        // ⭐⭐ AND REVERSING OUT OF A RUN COSTS YOU — the half that makes the
+        // dash's free reversal above worth having, and what a pivot grab and a
+        // reverse aerial rush are both thrown out of.
+        //
+        // ⚠ 3 FRAMES IS WHAT THE PROVING GROUND TOLERATES, not a measurement of
+        // what feels right. At 7 frames `smash_it` lost two premise guards:
+        // seat 0 (george_booul) stopped ever being knocked off the stage in a
+        // 3600-tick match while seat 1 went off 57 times, so a CPU matchup that
+        // used to trade became one-sided. The launch itself is fine — a body
+        // launched mid-turnaround keeps its knockback, measured — so this is a
+        // balance effect and not the velocity corruption the initial dash had.
+        // ⇒ the number is a feel call and it is Jon's; 7 is where it visibly
+        // tips this matchup.
+        turnaround_time: 3.0 / 60.0,
     };
 
 /// THE BASIC SMASH ABILITIES — the verbs every fighter on this stage has.

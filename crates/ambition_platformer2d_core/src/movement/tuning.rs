@@ -392,6 +392,23 @@ pub struct MovementTuning {
     /// about WHEN you may turn around, not about being faster.
     #[serde(default)]
     pub initial_dash_speed: f32,
+    /// THE TURNAROUND — how long a body reversing out of a COMMITTED RUN takes
+    /// to actually change which way it faces. `0.0` (the default) flips facing
+    /// the instant the stick does, which is what every body in this engine did.
+    ///
+    /// ⭐⭐ IT IS WHAT MAKES THE INITIAL DASH'S FREE REVERSAL MEAN ANYTHING.
+    /// Reversing inside the dash window costs nothing and reversing out of a
+    /// run costs this — the two together are the genre's ground game, and
+    /// either one alone is just a speed.
+    ///
+    /// ⛔ ONLY OUT OF A RUN. A body that has not committed
+    /// (`BodyMotionFacts::running`) is still in its dash and turns for free;
+    /// charging the phase there would delete dash-dancing.
+    ///
+    /// ⛔ IT DELAYS THE FACING FLIP, it does not invent a skid. What the body
+    /// does with its velocity meanwhile is the ordinary run law's business.
+    #[serde(default)]
+    pub turnaround_time: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -790,6 +807,9 @@ pub struct AxisLocomotion {
     /// See [`MovementTuning::initial_dash_speed`]. `0.0` inherits the run speed.
     #[serde(default)]
     pub initial_dash_speed: f32,
+    /// See [`MovementTuning::turnaround_time`]. `0.0` = facing flips instantly.
+    #[serde(default)]
+    pub turnaround_time: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -1307,6 +1327,7 @@ impl MovementTuning {
                 crouch_speed_frac: self.crouch_speed_frac,
                 initial_dash_time: self.initial_dash_time,
                 initial_dash_speed: self.initial_dash_speed,
+                turnaround_time: self.turnaround_time,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -1401,6 +1422,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // continuum, which is what every world in this repo walks on.
     initial_dash_time: 0.0,
     initial_dash_speed: 0.0,
+    turnaround_time: 0.0,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,

@@ -216,7 +216,38 @@ pub(super) fn apply_intent(
     let gate = OutOfShieldGate::read(shield.active, oos);
     let can_turn = ground.on_ground || flight.fly_enabled;
     let local_stick = input.local_axis();
-    if can_turn && local_stick.x.abs() > 0.1 {
+    // ⭐⭐ REVERSING OUT OF A COMMITTED RUN COSTS A TURNAROUND, and that is what
+    // makes the initial dash's free reversal worth anything: inside the dash
+    // you turn for nothing, out of a run you pay for it. Either half alone is
+    // just a speed.
+    //
+    // ⛔ ONLY WHILE `running`, which is the gait line the body has actually
+    // crossed — a body still inside its dash window is not running (see the
+    // clause in `integrate_velocity_clusters`) and turns free, so dash-dancing
+    // is untouched.
+    //
+    // ⛔ IT DELAYS THE FACING FLIP AND NOTHING ELSE. What the body does with
+    // its velocity meanwhile is the ordinary run law's business; inventing a
+    // skid here would be a second opinion about ground speed.
+    let reversing =
+        can_turn && local_stick.x.abs() > 0.1 && local_stick.x.signum() != kinematics.facing;
+    // ⛔⛔ ON THE EDGE OF THE REQUEST, not on the condition. A body that is
+    // still running and still asking to reverse satisfies this every tick, so
+    // arming on the condition re-arms the phase the instant it expires and the
+    // facing never flips at all — the body turns forever. `prev_steer_dir` is
+    // the same edge the initial dash is entered on, and the turnaround's own
+    // early-return keeps it fresh while the phase runs.
+    let asked_now = state.prev_steer_dir != local_stick.x.signum();
+    if tuning.locomotion.turnaround_time > 0.0
+        && ground.on_ground
+        && state.running
+        && reversing
+        && asked_now
+        && state.turnaround_timer <= 0.0
+    {
+        state.turnaround_timer = tuning.locomotion.turnaround_time;
+    }
+    if can_turn && local_stick.x.abs() > 0.1 && state.turnaround_timer <= 0.0 {
         kinematics.facing = local_stick.x.signum();
     }
     // JUMP OUT OF SHIELD, the universal option — and the guard leaves with it.

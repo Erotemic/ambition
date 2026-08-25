@@ -165,6 +165,13 @@ pub struct AxisManeuverState {
     /// direction never re-triggers, which is what lets the phase end and a run
     /// begin.
     pub prev_steer_dir: f32,
+    /// THE TURNAROUND's remaining window
+    /// ([`crate::LocomotionTuning::turnaround_time`]) — how long until this
+    /// body actually faces the way its stick is pointing.
+    ///
+    /// `0.0` whenever no turnaround is running, which is always for a body
+    /// that declares none and always for a body reversing inside its dash.
+    pub turnaround_timer: f32,
     /// Intangibility earned AT A LEDGE — the grab's window, the getup roll,
     /// and the getup attack's.
     ///
@@ -294,6 +301,7 @@ impl Default for AxisManeuverState {
             initial_dash_timer: 0.0,
             initial_dash_dir: 0.0,
             prev_steer_dir: 0.0,
+            turnaround_timer: 0.0,
             ledge_invuln_timer: 0.0,
             spot_dodging: false,
             air_dodge_timer: 0.0,

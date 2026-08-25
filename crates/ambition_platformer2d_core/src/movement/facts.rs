@@ -43,6 +43,14 @@ pub struct BodyMotionFacts {
     /// dance, pivot grab) read ONE answer rather than each re-deriving it from
     /// speed, which cannot tell a dash from a run at the same speed.
     pub initial_dashing: bool,
+    /// Is this body mid-TURNAROUND — committed to a run, asking to face the
+    /// other way, and not there yet
+    /// ([`crate::LocomotionTuning::turnaround_time`])?
+    ///
+    /// Published so the rows built on the phase (pivot grab, reverse aerial
+    /// rush) read ONE answer rather than each comparing a stick against a
+    /// facing and calling the disagreement a turnaround.
+    pub turning_around: bool,
     pub jump_squatting: bool,
     /// Dodge-roll i-frames are active.
     pub dodge_rolling: bool,
@@ -160,6 +168,7 @@ impl BodyMotionFacts {
             dashing: state.dash_timer > 0.0,
             running: state.running,
             initial_dashing: state.initial_dash_timer > 0.0,
+            turning_around: state.turnaround_timer > 0.0,
             jump_squatting: state.jump_squat_timer > 0.0,
             dodge_rolling: state.dodge_roll_timer > 0.0,
             ledge_intangible: state.ledge_invuln_timer > 0.0,

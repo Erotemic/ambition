@@ -282,6 +282,7 @@ impl EditableMovementTuning {
             // rules declaration, like the crouch cost above it.
             initial_dash_time: ae::DEFAULT_TUNING.initial_dash_time,
             initial_dash_speed: ae::DEFAULT_TUNING.initial_dash_speed,
+            turnaround_time: ae::DEFAULT_TUNING.turnaround_time,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,

@@ -795,6 +795,9 @@ pub struct MatchBody {
     pub initial_dash_time: f32,
     /// See [`MovementTuning::initial_dash_speed`]. `0.0` inherits the run speed.
     pub initial_dash_speed: f32,
+    /// See [`MovementTuning::turnaround_time`] — what reversing out of a
+    /// committed run costs. `0.0` = facing flips instantly.
+    pub turnaround_time: f32,
     /// Whether a body may be stood on, and what it costs both parties.
     /// [`crate::FootstoolTuning::OFF`] — the engine default — is a world where
     /// heads are not platforms.
@@ -836,6 +839,7 @@ impl MatchBody {
             crouch_speed_frac: self.crouch_speed_frac,
             initial_dash_time: self.initial_dash_time,
             initial_dash_speed: self.initial_dash_speed,
+            turnaround_time: self.turnaround_time,
             ..base
         }
     }
@@ -895,6 +899,7 @@ mod tests {
             crouch_speed_frac: 1.0,
             initial_dash_time: 0.0,
             initial_dash_speed: 0.0,
+            turnaround_time: 0.0,
         };
         let played = stage.over(brought);
 

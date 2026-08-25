@@ -322,6 +322,7 @@ mod tests {
             gates: Default::default(),
             start_impulse: None,
             smash_charge_mult: 1.0,
+            charge_gesture: crate::ChargeGesture::default(),
             smash_charge: None,
             repeat: None,
         }

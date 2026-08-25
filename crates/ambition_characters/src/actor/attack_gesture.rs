@@ -87,6 +87,15 @@ pub struct ResolvedAttackGesture {
     /// downstream, so nothing has to learn that buffering exists. The same
     /// shape [`Self::pressed`] already has for the attack family.
     pub special: Option<SpecialGestureIntent>,
+    /// The special button is DOWN — the sustain beside [`Self::special`]'s edge,
+    /// exactly as [`Self::held`] sits beside [`Self::pressed`].
+    ///
+    /// A `bool` and not an intent, because the only question anyone asks of it
+    /// is whether the hold continues: a chargeable neutral special resolved its
+    /// direction and posture at the press, and re-deriving either from a button
+    /// still being down is the mistake [`SpecialGestureIntent`] exists to
+    /// prevent.
+    pub special_held: bool,
 }
 
 /// Ruleset/player-owned interpretation thresholds. This component is required

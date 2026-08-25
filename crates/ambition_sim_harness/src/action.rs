@@ -49,6 +49,11 @@ pub struct AgentAction {
     /// command the special (the folded player bubble_shield, a boss's authored
     /// content special via `dispatch_boss_special`, …).
     pub special: bool,
+    /// The special button STAYS DOWN this frame. The sustain beside
+    /// [`Self::special`]'s edge, and the only way a scripted driver or a policy
+    /// can charge a held neutral special: the edge starts the move and this is
+    /// what keeps its timeline frozen.
+    pub special_held: bool,
     pub blink: bool,
     pub blink_held: bool,
     pub blink_released: bool,
@@ -137,6 +142,7 @@ impl From<AgentAction> for ControlFrame {
             // Dedicated special slot (the alias `special_pressed = blink_pressed`
             // is retired): agents fire the special through `a.special`, not blink.
             special_pressed: a.special,
+            special_held: a.special_held,
             attack_pressed: a.attack,
             attack_held: a.attack_held,
             attack_released: a.attack_released,

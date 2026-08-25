@@ -59,6 +59,7 @@ pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         smash_charge: None,
         repeat: None,
     }

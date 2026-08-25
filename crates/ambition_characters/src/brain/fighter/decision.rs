@@ -166,9 +166,16 @@ pub struct FighterState {
     /// The foe as it was at the LAST decision, so the next one can name what the
     /// foe did in between and feed the habit model.
     pub last_foe: Option<FoeSample>,
-    /// Ticks of Attack still to hold for the smash in flight. Counts DOWN, and
-    /// it alone decides `melee_held`, so the button cannot latch.
+    /// Ticks the committed button still has to stay DOWN. Counts down, and it
+    /// alone decides the sustain, so no button can latch.
     pub charge_hold_ticks: u32,
+    /// WHICH button [`Self::charge_hold_ticks`] is holding.
+    ///
+    /// A held Attack is a smash charge or a string continuation; a held Special
+    /// is a charge shot. Same counter, same rule, different field on the frame —
+    /// and both fields are written every tick from this pair, so switching from
+    /// one to the other cannot leave the old one stuck down.
+    pub charge_hold_gesture: ambition_entity_catalog::ChargeGesture,
 }
 
 /// The observable facts about a foe that a habit is inferred from. Deliberately
@@ -195,6 +202,7 @@ impl FighterState {
             noise: seed,
             last_foe: None,
             charge_hold_ticks: 0,
+            charge_hold_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         }
     }
 }
@@ -239,11 +247,15 @@ pub fn tick_fighter(
     frame.clear_edges();
 
     // THE HELD BUTTON IS DERIVED, NEVER LATCHED. `clear_edges` deliberately
-    // leaves sustains alone, so a `melee_held` written once would stay written;
-    // spending the charge here means the only thing that can hold Attack down is
-    // a charge that has ticks left.
+    // leaves sustains alone, so a sustain written once would stay written;
+    // spending the charge here means the only thing that can hold a button down
+    // is a charge that has ticks left.
+    //
+    // ⛔ BOTH FIELDS, EVERY TICK. Writing only the one the current gesture wants
+    // would leave the OTHER stuck down across a switch — a brain that charged a
+    // smash and then chose a special would hold Attack forever.
     state.charge_hold_ticks = state.charge_hold_ticks.saturating_sub(1);
-    frame.melee_held = state.charge_hold_ticks > 0;
+    hold_the_committed_button(state, &mut frame);
 
     if state.ticks_until_decision > 0 {
         state.ticks_until_decision -= 1;
@@ -267,7 +279,8 @@ pub fn tick_fighter(
                 // button is doing — a hold armed a tick later has already
                 // missed the question.
                 state.charge_hold_ticks = hold;
-                frame.melee_held = hold > 0;
+                state.charge_hold_gesture = charge_gesture_of(binding.verb);
+                hold_the_committed_button(state, &mut frame);
             }
         }
         Some(pending) => {
@@ -640,7 +653,29 @@ fn decide(
                         .map_or(0.0, |attack| attack.frames.startup_s),
                     cfg.tick_hz,
                 ),
-                _ => 0,
+                // ⭐ A SPECIAL HOLDS FOR THE SAME REASON A SMASH DOES, and
+                // reaches the same decision: how long is worth holding HERE.
+                // A move that resolves no charge policy reports no hold point
+                // and the fallback holds through its startup, which for a
+                // special that does not charge is a no-op — exactly as it is
+                // for a smash that does not.
+                super::options::AttackVerb::Special => super::charge::hold_ticks(
+                    situation,
+                    options
+                        .attacks
+                        .iter()
+                        .find(|attack| {
+                            Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
+                        })
+                        .map_or(0.0, |attack| {
+                            attack
+                                .frames
+                                .charge_hold_at_s
+                                .unwrap_or(attack.frames.startup_s)
+                        }),
+                    cfg.tick_hz,
+                ),
+                super::options::AttackVerb::Grab => 0,
             },
         });
     }
@@ -790,6 +825,28 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
             frame.grab_pressed = true;
         }
     }
+}
+
+/// Which button a chosen verb holds down while it charges.
+fn charge_gesture_of(verb: super::options::AttackVerb) -> ambition_entity_catalog::ChargeGesture {
+    match verb {
+        // A held Special is a charge shot. Every other verb holds Attack — a
+        // smash charges on it and a basic continues a string on it — or holds
+        // nothing at all, in which case the counter is zero and neither field
+        // goes down.
+        super::options::AttackVerb::Special => ambition_entity_catalog::ChargeGesture::Special,
+        _ => ambition_entity_catalog::ChargeGesture::Smash,
+    }
+}
+
+/// Write BOTH sustains from the charge in flight. See the call site's note.
+fn hold_the_committed_button(state: &FighterState, frame: &mut ActorControlFrame) {
+    let holding = state.charge_hold_ticks > 0;
+    let gesture = state.charge_hold_gesture;
+    frame.melee_held =
+        holding && gesture == ambition_entity_catalog::ChargeGesture::Smash;
+    frame.special_held =
+        holding && gesture == ambition_entity_catalog::ChargeGesture::Special;
 }
 
 /// Publish the decision as a structured causal fact — and render one line of

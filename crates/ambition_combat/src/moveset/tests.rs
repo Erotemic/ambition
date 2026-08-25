@@ -729,7 +729,8 @@ fn spawn_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: MoveSpec) 
 /// a full multiplier off the move's timeline, so it passed while asserting a
 /// mechanism it never exercised.
 fn spawn_charged_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: MoveSpec) -> Entity {
-    let mut playback = MovePlayback::new(spec, 1.0).charged_by_smash_gesture(true);
+    let mut playback = MovePlayback::new(spec, 1.0)
+        .charged_by_gesture(Some(ambition_entity_catalog::ChargeGesture::Smash));
     // A move authoring no payoff resolves no policy and stays uncharged, which
     // is the parity half of the caller's question rather than a broken fixture.
     if let Some(charge) = playback.charge.as_mut() {
@@ -1657,6 +1658,7 @@ fn a_forward_special_selects_the_directional_move() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -1707,6 +1709,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -1823,6 +1826,7 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         start_impulse: Some((150.0, 0.0)),
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -3550,6 +3554,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -3848,6 +3853,7 @@ fn charging_smash() -> MoveSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
         }),
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -4227,7 +4233,8 @@ fn the_charge_is_part_of_the_playback_checksum() {
         pb.encode_ref(&mut out);
         out
     };
-    let base = MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true);
+    let base = MovePlayback::new(charging_smash(), 1.0)
+        .charged_by_gesture(Some(ambition_entity_catalog::ChargeGesture::Smash));
     let mut longer = base.clone();
     longer.charge.as_mut().unwrap().held_s = 0.12;
     let mut released = base.clone();
@@ -4285,6 +4292,7 @@ fn defended_move() -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -4478,6 +4486,7 @@ fn chain_link(
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -5171,6 +5180,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -5269,7 +5279,7 @@ fn a_move_used_without_the_smash_gesture_lands_at_unit_scale() {
         spec.smash_charge_mult > 1.0,
         "the fixture authors no payoff, so this cannot observe one being denied"
     );
-    let mut pb = MovePlayback::new(spec, 1.0).charged_by_smash_gesture(false);
+    let mut pb = MovePlayback::new(spec, 1.0).charged_by_gesture(None);
     let mut sampled = 0;
     while !pb.finished() {
         assert_eq!(
@@ -5291,7 +5301,8 @@ fn a_move_used_without_the_smash_gesture_lands_at_unit_scale() {
 /// a real smash gesture held to full still pays the whole multiplier.
 #[test]
 fn a_held_smash_gesture_still_pays_its_multiplier() {
-    let mut pb = MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true);
+    let mut pb = MovePlayback::new(charging_smash(), 1.0)
+        .charged_by_gesture(Some(ambition_entity_catalog::ChargeGesture::Smash));
     let charge = pb
         .charge
         .expect("the fixture authors a policy, so a smash charges");
@@ -5364,12 +5375,14 @@ fn a_held_charge_has_no_live_strike_and_releases_into_one() {
         phase: ambition_characters::actor::attack_gesture::AttackInputPhase::Hold,
     };
     app.world_mut().entity_mut(attacker).insert((
-        MovePlayback::new(charging_smash(), 1.0).charged_by_smash_gesture(true),
+        MovePlayback::new(charging_smash(), 1.0)
+            .charged_by_gesture(Some(ambition_entity_catalog::ChargeGesture::Smash)),
         ResolvedAttackGesture {
             pressed: None,
             held: Some(held),
             released: None,
             special: None,
+            special_held: false,
         },
     ));
 
@@ -5424,6 +5437,7 @@ fn a_held_charge_has_no_live_strike_and_releases_into_one() {
             held: None,
             released: None,
             special: None,
+            special_held: false,
         });
     let mut saw_strike = false;
     for _ in 0..120 {
@@ -5878,7 +5892,7 @@ fn an_authored_spin_mirrors_on_the_move_clock_and_an_unauthored_one_never_does()
 ///        ↓ melee_pressed + melee_strong_hint
 ///   resolve_attack_gestures           → AttackStrength::Smash
 ///        ↓
-///   trigger_moveset_moves             → MovePlayback, charged_by_smash_gesture
+///   trigger_moveset_moves             → MovePlayback, charged_by_gesture
 ///        ↓ Attack still held
 ///   the clock reaches the hold point  → MoveCharge arms, fraction rises
 ///        ↓ release
@@ -6102,4 +6116,264 @@ fn the_landing_class_refresh_restores_the_recovery_budget() {
         "poison: the default is zero, so the assertion above would hold for a \
          refresh that restores nothing"
     );
+}
+
+// ── A CHARGE BELONGS TO A GESTURE ────────────────────────────────────────────
+//
+// The mechanic was hardcoded to the smash gesture. It is now a match between
+// what the press RESOLVED to and what the move ASKED for, which is what lets a
+// held neutral special charge without a smash borrowing its freeze — and these
+// four guard both directions of that match plus the button it reads.
+
+/// The charge-shot shape: a chargeable move that pays in a PROJECTILE, so it
+/// authors a policy and deliberately no multiplier.
+fn charging_special() -> MoveSpec {
+    let mut spec = charging_smash();
+    spec.id = "charge_shot".to_string();
+    spec.charge_gesture = ambition_entity_catalog::ChargeGesture::Special;
+    // ⛔ THE POISON IS HERE. `charge_policy()` used to require a multiplier, and
+    // a fixture that kept one would still charge with the widening reverted —
+    // the test would pass over the code it exists to defend. A shot's payoff is
+    // the thing it fires; there is no melee volume for a multiplier to scale.
+    spec.smash_charge_mult = 1.0;
+    spec
+}
+
+#[test]
+fn a_move_that_charges_on_special_freezes_for_a_special_press_and_not_a_smash() {
+    let smash = Some(ambition_entity_catalog::ChargeGesture::Smash);
+    let special = Some(ambition_entity_catalog::ChargeGesture::Special);
+
+    assert!(
+        MovePlayback::new(charging_special(), 1.0)
+            .charged_by_gesture(special)
+            .charge
+            .is_some(),
+        "a special press did not charge the move that asked for one"
+    );
+    assert!(
+        MovePlayback::new(charging_special(), 1.0)
+            .charged_by_gesture(smash)
+            .charge
+            .is_none(),
+        "a SMASH gesture froze a move that charges on Special"
+    );
+    // ...and the original binding is untouched, or the widening would have been
+    // a swap rather than an addition.
+    assert!(
+        MovePlayback::new(charging_smash(), 1.0)
+            .charged_by_gesture(smash)
+            .charge
+            .is_some(),
+        "a smash gesture stopped charging a smash"
+    );
+    assert!(
+        MovePlayback::new(charging_smash(), 1.0)
+            .charged_by_gesture(special)
+            .charge
+            .is_none(),
+        "a special press froze a smash"
+    );
+    // Every verb that charges nothing.
+    assert!(
+        MovePlayback::new(charging_smash(), 1.0)
+            .charged_by_gesture(None)
+            .charge
+            .is_none(),
+        "a borrowed use froze a timeline"
+    );
+}
+
+/// An explicitly authored policy is enough on its own.
+///
+/// ⛔ THE POISON: `charging_special` sets `smash_charge_mult` to `1.0`, so this
+/// can only pass if `charge_policy` reads the authored policy. Revert the
+/// widening and it fails.
+#[test]
+fn an_authored_policy_charges_without_a_damage_multiplier() {
+    let spec = charging_special();
+    assert_eq!(
+        spec.smash_charge_mult, 1.0,
+        "the fixture pays a multiplier, so this cannot observe one being unnecessary"
+    );
+    let policy = spec
+        .charge_policy()
+        .expect("a move that authors a hold point and a maximum holds");
+    assert_eq!(policy.hold_at_s, CHARGE_HOLD_AT_S);
+    assert_eq!(policy.max_hold_s, CHARGE_MAX_HOLD_S);
+    // And a move that authors NEITHER still charges nothing.
+    let mut plain = charging_special();
+    plain.smash_charge = None;
+    assert!(
+        plain.charge_policy().is_none(),
+        "a move with no multiplier and no policy charges anyway"
+    );
+}
+
+/// The HOLD reads the button the move names, through the real system chain.
+#[test]
+fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
+    let hold_ticks = |special_held: bool, attack_held: bool| -> f32 {
+        let mut app = App::new();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 1.0 / 60.0;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 1.0 / 60.0;
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
+        app.add_message::<HitEvent>();
+        app.add_message::<crate::hitbox::LandedBodyHit>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_systems(Update, advance_move_playback);
+        let held = ambition_characters::actor::attack_gesture::AttackGestureIntent {
+            direction: ambition_characters::actor::attack_gesture::AttackDir::Neutral,
+            strength: ambition_characters::actor::attack_gesture::AttackStrength::Smash,
+            posture: ambition_characters::actor::attack_gesture::AttackPosture::Grounded,
+            phase: ambition_characters::actor::attack_gesture::AttackInputPhase::Hold,
+        };
+        let body = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics::default(),
+                ActorFaction::Enemy,
+                MovePlayback::new(charging_special(), 1.0).charged_by_gesture(Some(
+                    ambition_entity_catalog::ChargeGesture::Special,
+                )),
+                ResolvedAttackGesture {
+                    pressed: None,
+                    held: attack_held.then_some(held),
+                    released: None,
+                    special: None,
+                    special_held,
+                },
+            ))
+            .id();
+        // Past the hold point, then a few ticks of whatever the buttons say.
+        for _ in 0..8 {
+            app.update();
+        }
+        app.world()
+            .entity(body)
+            .get::<MovePlayback>()
+            .and_then(|pb| pb.charge)
+            .map_or(0.0, |charge| charge.held_s)
+    };
+
+    assert!(
+        hold_ticks(true, false) > 0.0,
+        "holding Special did not accrue a charge on a move that charges on Special"
+    );
+    // ⛔ THE POISON. Read the attack button here — the field this mechanic was
+    // written against — and the finger on the wrong button charges the shot.
+    assert_eq!(
+        hold_ticks(false, true),
+        0.0,
+        "holding ATTACK charged a shot that asked for Special"
+    );
+    assert_eq!(
+        hold_ticks(false, false),
+        0.0,
+        "a released button charged anyway"
+    );
+}
+
+/// THE CHARGE REACHES THE SHOT, through the real dispatch seam.
+///
+/// The two halves are tested apart above — a special press freezes the
+/// timeline, and `RangedActionSpec::at_charge` scales a spec — and neither says
+/// they are WIRED. This drives the actual `MoveEventKind::Ranged` arm with a
+/// released charge on the playback and reads what the projectile consumer would
+/// have been handed.
+#[test]
+fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
+    use ambition_characters::brain::action_set::{ActionSet, ProjectileFlight, RangedCharge};
+    use ambition_characters::brain::action_set::RangedActionSpec;
+    use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::control::ActorControl;
+
+    let cannon = RangedActionSpec::bolt(500.0, 4)
+        .with_flight(ProjectileFlight::STRAIGHT)
+        .with_charge(RangedCharge {
+            damage_mult: 3.0,
+            speed_mult: 1.5,
+            size_mult: 2.0,
+            visuals: vec!["pellet".into(), "ball".into()],
+        });
+
+    // `held_s` at the policy's maximum — a charge held to full and released.
+    let fired_at = |held_s: Option<f32>| -> (i32, f32, Option<String>) {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ActorActionMessage>();
+        app.add_message::<ambition_vfx::FxRequest>();
+        app.add_systems(Update, dispatch_move_events);
+
+        let mut playback = MovePlayback::new(charging_special(), 1.0).charged_by_gesture(
+            held_s.map(|_| ambition_entity_catalog::ChargeGesture::Special),
+        );
+        if let (Some(held), Some(charge)) = (held_s, playback.charge.as_mut()) {
+            charge.held_s = held;
+        }
+        let owner = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing: 1.0,
+                },
+                ActionSet {
+                    ranged: Some(cannon.clone()),
+                    ..Default::default()
+                },
+                ActorControl::default(),
+                playback,
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                world_offset: ae::Vec2::ZERO,
+                owner,
+                move_id: "charge_shot".into(),
+                presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
+                kind: MoveEventKind::Ranged,
+                world_pose: ambition_vfx::FxPose::UPRIGHT,
+            });
+        app.update();
+        let acts: Vec<ActorActionMessage> = app
+            .world_mut()
+            .resource_mut::<Messages<ActorActionMessage>>()
+            .drain()
+            .collect();
+        assert_eq!(acts.len(), 1, "the fire event bridged to one action");
+        match &acts[0].request {
+            ActionRequest::Ranged { spec, .. } => {
+                (spec.damage, spec.speed, spec.visual.clone())
+            }
+            other => panic!("expected a Ranged action, got {other:?}"),
+        }
+    };
+
+    // ⛔ THE POISON. A use that never charged must arrive untouched — every
+    // ranged move in the game takes this path, and a fraction leaking in here
+    // would silently re-tune the whole cast.
+    let (damage, speed, visual) = fired_at(None);
+    assert_eq!((damage, speed), (4, 500.0), "an uncharged shot was scaled");
+    assert_eq!(visual, None, "an uncharged shot picked a tier");
+
+    let (damage, speed, visual) = fired_at(Some(0.0));
+    assert_eq!((damage, speed), (4, 500.0), "a tapped charge paid a hold");
+    assert_eq!(visual.as_deref(), Some("pellet"));
+
+    let (damage, speed, visual) = fired_at(Some(CHARGE_MAX_HOLD_S));
+    assert_eq!(damage, 12, "a full charge did not reach the shot");
+    assert!((speed - 750.0).abs() < 1e-3, "{speed}");
+    assert_eq!(visual.as_deref(), Some("ball"), "the tier did not travel");
 }

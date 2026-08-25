@@ -277,6 +277,15 @@ pub struct ActorControlFrame {
     /// `special_pressed=true` from a player brain and a possessed
     /// goblin yield different concrete effects.
     pub special_pressed: bool,
+    /// SUSTAIN: the special button is down. The twin of [`Self::melee_held`],
+    /// and it exists for the mechanic the edge cannot express — a chargeable
+    /// neutral special freezes its timeline while this is true and fires on the
+    /// release, so by the time the charge is accruing the press is long gone.
+    ///
+    /// A brain that charges holds this the way a person does; one that taps
+    /// leaves it false and gets the minimum payoff, which is the same rule the
+    /// smash charge already plays by.
+    pub special_held: bool,
     /// Rising edge: brain wants to trigger a pogo bounce this tick.
     /// Today only the human player binds a verb here (the dedicated
     /// pogo input + attack+down combo); AI brains leave it false.
@@ -464,6 +473,7 @@ impl ActorControlFrame {
             || self.interact_pressed
             || self.shield_held
             || self.special_pressed
+            || self.special_held
             || self.grab_pressed
             || self.taunt_pressed
     }
@@ -479,8 +489,8 @@ impl ActorControlFrame {
     /// one this doc now states — an edge belongs here, a sustain does not.
     ///
     /// Sustains deliberately untouched: `jump_held`, `melee_held`,
-    /// `shield_held`, `projectile_held`, `blink_held`, `modifier_held`, and
-    /// every continuous vector (`locomotion`, `attack_axis`, aim/steer).
+    /// `shield_held`, `special_held`, `projectile_held`, `blink_held`,
+    /// `modifier_held`, and every continuous vector (`locomotion`, `attack_axis`, aim/steer).
     pub fn clear_edges(&mut self) {
         self.jump_pressed = false;
         self.jump_released = false;

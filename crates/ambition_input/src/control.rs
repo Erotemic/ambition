@@ -123,6 +123,7 @@ pub fn read_gameplay_control_frame_with_settings(
         blink_held: actions.pressed(&Platformer2dInputActionMonolith::Blink),
         blink_released: actions.just_released(&Platformer2dInputActionMonolith::Blink),
         special_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Special),
+        special_held: actions.pressed(&Platformer2dInputActionMonolith::Special),
         attack_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Attack),
         attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
         attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),

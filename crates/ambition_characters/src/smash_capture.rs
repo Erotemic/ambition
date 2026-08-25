@@ -158,6 +158,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -185,6 +186,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
@@ -239,6 +241,9 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         // on the timeline and shifts with the added startup, `max_hold_s` is a
         // duration owed at that point and does not.
         smash_charge,
+        // NEITHER a point nor a duration: which BUTTON holds the charge does
+        // not move when the timeline does.
+        charge_gesture,
         // A LOOP is a stretch of the timeline, so both of its ends are points
         // and both shift with the added startup.
         repeat,
@@ -259,6 +264,7 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         display_name: None,
         id: format!("{id}_dash"),
         clip,
+        charge_gesture,
         duration_s: duration_s + RUNNING_GRAB_EXTRA_STARTUP_S + RUNNING_GRAB_EXTRA_RECOVERY_S,
         windows,
         events,
@@ -665,6 +671,7 @@ mod tests {
             start_impulse: None,
             smash_charge_mult: 1.0,
             smash_charge: None,
+            charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
             repeat: None,
             landing_lag_s: None,
             autocancel_after_s: None,

@@ -64,6 +64,7 @@ pub fn tick_player_brain_from_control(
         grab_pressed: _,
         taunt_pressed: _,
         special_pressed: _,
+        special_held: _,
         attack_pressed: _,
         attack_held: _,
         attack_released: _,
@@ -206,6 +207,10 @@ pub fn tick_player_brain_from_control(
     // `special_pressed = blink_pressed` alias. Blink and Special are separate
     // actions: pressing blink no longer fires a body's signature special.
     out.special_pressed = c.special_pressed;
+    // The SUSTAIN beside the edge, and the charge shot is why: a held
+    // neutral-B that arrived here as an edge only would release on the tick
+    // after it started, every time.
+    out.special_held = c.special_held;
 
     // Player-specific verbs (pogo, blink, fly_toggle, fast_fall,
     // projectile charge, aim). Promoted onto the frame so the

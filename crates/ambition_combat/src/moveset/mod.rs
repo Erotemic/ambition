@@ -268,10 +268,12 @@ pub struct MovePlayback {
     /// vector alone would re-introduce the frame confusion `dir_to_world` exists
     /// to prevent.
     pub aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
-    /// The SMASH CHARGE this use is playing, or `None` for a use that never
-    /// entered charge mode.
+    /// The CHARGE this use is playing, or `None` for a use that never entered
+    /// charge mode.
     ///
-    /// Per-USE and not per-move: only a press resolved as a Smash charges, so
+    /// Per-USE and not per-move: only a press that resolved to the gesture the
+    /// move charges on ([`ambition_entity_catalog::MoveSpec::charge_gesture`] —
+    /// Smash for every smash attack, Special for a held neutral-B) charges, so
     /// the same `MoveSpec` reached through another verb plays its plain
     /// timeline. Rollback state, carried with the rest of this component.
     pub charge: Option<MoveCharge>,
@@ -462,7 +464,7 @@ impl MovePlayback {
             // the facing fallback at the fire frame is what an unaimed move gets.
             aim: None,
             // A use charges only when the press that started it asked to —
-            // `charged_by_smash_gesture` is that seam.
+            // `charged_by_gesture` is that seam.
             charge: None,
             looped_s: 0.0,
         }
@@ -474,18 +476,28 @@ impl MovePlayback {
         self
     }
 
-    /// Enter charge mode iff this use was started by a SMASH gesture AND the
-    /// move authors (or derives) a charge policy.
+    /// Enter charge mode iff the gesture that started this use is the one the
+    /// move charges on AND the move authors (or derives) a charge policy.
     ///
     /// Both halves are required, and neither is redundant: the gesture is what
-    /// makes THIS use a smash, and the policy is what makes the MOVE
+    /// makes THIS use the chargeable one, and the policy is what makes the MOVE
     /// chargeable. A move borrowed by another verb never freezes its timeline,
-    /// and a smash slot with no payoff never freezes it either.
+    /// and a slot with no payoff never freezes it either.
+    ///
+    /// ⭐ THE GESTURE IS A MATCH, NOT A BOOLEAN. This took `is_smash` while the
+    /// mechanic had exactly one binding, and the genre has two: a smash freezes
+    /// on the Attack hold and a chargeable neutral special on the Special hold.
+    /// `started_by` is what the press RESOLVED to (`None` for every verb that
+    /// charges nothing), and [`MoveSpec::charge_gesture`] is what the move
+    /// ASKED for; charge mode is where they agree.
     #[must_use]
-    pub fn charged_by_smash_gesture(mut self, is_smash: bool) -> Self {
-        self.charge = is_smash
-            .then(|| self.spec.charge_policy())
-            .flatten()
+    pub fn charged_by_gesture(
+        mut self,
+        started_by: Option<ambition_entity_catalog::ChargeGesture>,
+    ) -> Self {
+        self.charge = started_by
+            .filter(|gesture| *gesture == self.spec.charge_gesture)
+            .and_then(|_| self.spec.charge_policy())
             .map(MoveCharge::new);
         self
     }
@@ -553,6 +565,17 @@ impl MovePlayback {
         // Half-periods: one full mirror cycle per hertz means the sprite spends
         // half of each period flipped.
         ((self.t * hz * 2.0).floor() as i64).rem_euclid(2) == 1
+    }
+
+    /// The charge fraction this use PAYS OUT: live while still holding, frozen
+    /// once released. `None` for a use that never entered charge mode.
+    ///
+    /// ⛔ NOT [`Self::smash_charge_fraction`], which is the PRESENTATION
+    /// question and goes back to `None` the instant the move releases. A
+    /// payoff is read at the moment of release or later — a charged shot's
+    /// fire event lands after it — so the two cannot be the same accessor.
+    pub fn charge_fraction(&self) -> Option<f32> {
+        self.charge.map(|charge| charge.fraction())
     }
 
     pub fn smash_charge_fraction(&self) -> Option<f32> {
@@ -828,7 +851,17 @@ pub fn advance_move_playback(
                 } else {
                     let to_hold = (hold_at - t_prev).max(0.0);
                     let spare = (dt - to_hold).max(0.0);
-                    let still_held = held_attack.get(owner).is_ok_and(|g| g.held.is_some());
+                    // WHICH BUTTON, asked of the move. A smash holds on
+                    // Attack; a chargeable neutral special holds on Special.
+                    // Reading the attack hold for both is what made the second
+                    // one impossible: the finger on Special was on the wrong
+                    // field, so the charge released on the tick it latched.
+                    let still_held = held_attack.get(owner).is_ok_and(|g| {
+                        match playback.spec.charge_gesture {
+                            ambition_entity_catalog::ChargeGesture::Smash => g.held.is_some(),
+                            ambition_entity_catalog::ChargeGesture::Special => g.special_held,
+                        }
+                    });
                     let charge = playback.charge.as_mut().expect("matched above");
                     if still_held {
                         let accrued = spare.min(charge.policy.max_hold_s - charge.held_s);
@@ -1505,6 +1538,11 @@ pub fn buffer_combat_action_presses(
         }
         // ONE field downstream, live or buffered, exactly as `pressed` is.
         resolved.special = state.buffered_special;
+        // The SUSTAIN is the live button and nothing else. It is deliberately
+        // not buffered: a buffer answers "did a press happen recently", and a
+        // charge asks "is the finger still down", which only the current frame
+        // can say.
+        resolved.special_held = frame.special_held;
     }
 }
 
@@ -1743,7 +1781,8 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// Captured at START, because it is gone by the fire frame. See
     /// [`MovePlayback::aim`].
     aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
-    smash_gesture: bool,
+    /// Which gesture the press RESOLVED to, when it is one that charges.
+    started_by: Option<ambition_entity_catalog::ChargeGesture>,
     proposer: ProposedVerb,
     action_buffer: &'a mut ae::BodyActionBuffer,
     // ⭐ THE COMPONENTS, NOT THE QUERIES. A helper that took the queries would
@@ -1768,7 +1807,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         spec,
         facing,
         aim,
-        smash_gesture,
+        started_by,
         proposer,
         action_buffer,
         mut shield,
@@ -1783,7 +1822,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
             .with_aim(aim)
-            .charged_by_smash_gesture(smash_gesture),
+            .charged_by_gesture(started_by),
     );
     // ACCEPTED — the proposal is over. A buffered press that starts a move must
     // not start the next one behind it.
@@ -2009,9 +2048,10 @@ pub fn trigger_moveset_moves(
         // waiting, never what it was — see `SpecialGestureIntent`.
         let special_intent = gesture.special;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
-        // Set by the attack arm below when it resolves a SMASH; every other
-        // verb leaves it false.
-        let mut smash_gesture = false;
+        // Set by the arm that resolves a CHARGEABLE gesture — the attack arm on
+        // a smash, the special arm on a special. Every other verb leaves it
+        // `None` and its move never freezes.
+        let mut started_by: Option<ambition_entity_catalog::ChargeGesture> = None;
         //  every branch below asks for a move IN THIS STANCE. The capture kit
         // declares its whole vocabulary grounded-only, and a captor carried into
         // the air was still able to pummel and throw because the exact-verb
@@ -2061,7 +2101,7 @@ pub fn trigger_moveset_moves(
             // out of shield, and still picks the AIR variant if that is where the
             // player asked from.
             let intent = special_intent.expect("the arm above matched on it");
-            (
+            let special = (
                 moveset
                     .0
                     .move_for_directional_verb(
@@ -2073,9 +2113,15 @@ pub fn trigger_moveset_moves(
                         ),
                     )
                     .cloned(),
-                &[SPECIAL_VERB],
+                &[SPECIAL_VERB][..],
                 ProposedVerb::Special,
-            )
+            );
+            // THIS USE IS A SPECIAL, recorded for the same reason the smash arm
+            // records its own: the resolution that chose the verb is what makes
+            // a chargeable neutral-B chargeable, and a move reached through
+            // another verb must not freeze.
+            started_by = Some(ambition_entity_catalog::ChargeGesture::Special);
+            special
         } else if (gesture.pressed.is_some() || pogo_pressed)
             && rises_out_of_shield(
                 &gate,
@@ -2178,7 +2224,8 @@ pub fn trigger_moveset_moves(
             // resolution that chose the smash verb is what makes the use
             // chargeable, so a move borrowed by another verb — or a running
             // attack that pre-empted the gesture — never freezes its timeline.
-            smash_gesture = base_verb == SMASH_VERB && !running_attack;
+            started_by = (base_verb == SMASH_VERB && !running_attack)
+                .then_some(ambition_entity_catalog::ChargeGesture::Smash);
             (spec, verb_names, ProposedVerb::Attack)
         } else if frame.taunt_pressed {
             // LAST in the chain on purpose: a taunt loses to every verb that
@@ -2332,7 +2379,7 @@ pub fn trigger_moveset_moves(
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
-                smash_gesture,
+                started_by,
                 proposer,
                 action_buffer: &mut action_buffer,
                 shield: guards.get_mut(entity).ok(),
@@ -2372,7 +2419,7 @@ pub fn trigger_moveset_moves(
                 spec,
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
-                smash_gesture,
+                started_by,
                 proposer,
                 action_buffer: &mut action_buffer,
                 shield: guards.get_mut(entity).ok(),
@@ -2586,6 +2633,16 @@ pub fn dispatch_move_events(
                         &ev.move_id,
                         RANGED_VERB,
                     ),
+                    None => spec,
+                };
+                // THE CHARGE BECOMES THE SHOT, at the one place a shot is
+                // built. A move that froze its timeline on a held Special
+                // released with a fraction, and `at_charge` is what turns that
+                // fraction into damage, speed, size and the look a player reads
+                // it by. A shot that authors no ladder — every ranged action
+                // that existed before charging did — comes back unchanged.
+                let spec = match playbacks.get(ev.owner).ok().and_then(|pb| pb.charge_fraction()) {
+                    Some(fraction) => spec.at_charge(fraction),
                     None => spec,
                 };
                 let kin = positions.get(ev.owner).ok();

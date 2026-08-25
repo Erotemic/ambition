@@ -418,6 +418,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
     };
     let moveset = MovesetContract {
@@ -504,6 +505,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
     };
     app.register_character(
@@ -599,6 +601,7 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
                 start_impulse: None,
                 smash_charge_mult: 1.0,
                 smash_charge: None,
+                charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,
             }],
         }
@@ -684,6 +687,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
                 start_impulse: None,
                 smash_charge_mult: 1.0,
                 smash_charge: None,
+                charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,
             }],
         }

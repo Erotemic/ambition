@@ -730,6 +730,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             gates: MoveGates::default(),
             start_impulse: None,
             smash_charge_mult: 1.0,
+            charge_gesture: ambition_platformer2d::entity_catalog::ChargeGesture::default(),
             smash_charge: None,
             repeat: None,
             landing_lag_s: None,

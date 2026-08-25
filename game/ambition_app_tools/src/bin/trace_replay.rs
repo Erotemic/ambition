@@ -70,8 +70,10 @@ impl From<RecordedControls> for AgentAction {
             attack_released: c.attack_released,
             attack_strong: c.attack_strong_hint,
             // Recorded traces predate the dedicated Special slot; a replay carries
-            // no special edge.
+            // no special edge, and nothing holding it: a replayed trace that
+            // charged a neutral special would have recorded the hold.
             special: false,
+            special_held: false,
             blink: c.blink_pressed,
             blink_held: c.blink_held,
             blink_released: c.blink_released,

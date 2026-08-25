@@ -1143,6 +1143,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         start_impulse: None,
         smash_charge_mult: 1.0,
         smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
     };
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -1466,6 +1467,7 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
                     damage: 7,
                     flight: None,
                     visual: None,
+                    charge: None,
                 }),
                 ..ActionSet::default()
             }),
@@ -1623,6 +1625,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
             damage: 7,
             flight: None,
             visual: None,
+            charge: None,
         }),
         ..ActionSet::default()
     };

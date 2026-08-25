@@ -470,6 +470,17 @@ impl SnapshotCursor for crate::brain::Brain {
                 // this tick's press and disagree about how much longer the smash
                 // is being paid for.
                 put_u32(out, state.charge_hold_ticks);
+                // ...and WHICH button it is holding, because the two sustains
+                // are derived from the pair. Projecting only the counter would
+                // let a rewound brain hold the wrong button for the right
+                // number of ticks.
+                put_u8(
+                    out,
+                    match state.charge_hold_gesture {
+                        ambition_entity_catalog::ChargeGesture::Smash => 0,
+                        ambition_entity_catalog::ChargeGesture::Special => 1,
+                    },
+                );
             }
             _ => put_u8(out, 0),
         }
@@ -626,6 +637,11 @@ impl SnapshotState for crate::control::ActorControl {
             f.body_contact_damage_enabled,
             f.shield_held,
             f.special_pressed,
+            // The special SUSTAIN, and it is rollback state for the same reason
+            // `shield_held` above it is: a chargeable neutral special reads it
+            // every tick, so a resimulated tick that lost it would release a
+            // charge the original tick was still holding.
+            f.special_held,
             f.pogo_pressed,
             f.fast_fall_pressed,
             f.fly_toggle_pressed,
@@ -676,7 +692,7 @@ impl SnapshotState for crate::control::ActorControl {
             None
         };
         let attack_axis = ae::LocalAxes::from_vec(r.vec2()?);
-        let mut flags = [false; 21];
+        let mut flags = [false; 22];
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
@@ -698,19 +714,20 @@ impl SnapshotState for crate::control::ActorControl {
             body_contact_damage_enabled: flags[5],
             shield_held: flags[6],
             special_pressed: flags[7],
-            pogo_pressed: flags[8],
-            fast_fall_pressed: flags[9],
-            fly_toggle_pressed: flags[10],
-            projectile_pressed: flags[11],
-            projectile_held: flags[12],
-            projectile_released: flags[13],
-            blink_pressed: flags[14],
-            blink_held: flags[15],
-            blink_released: flags[16],
-            modifier_held: flags[17],
-            modifier_pressed: flags[18],
-            grab_pressed: flags[19],
-            taunt_pressed: flags[20],
+            special_held: flags[8],
+            pogo_pressed: flags[9],
+            fast_fall_pressed: flags[10],
+            fly_toggle_pressed: flags[11],
+            projectile_pressed: flags[12],
+            projectile_held: flags[13],
+            projectile_released: flags[14],
+            blink_pressed: flags[15],
+            blink_held: flags[16],
+            blink_released: flags[17],
+            modifier_held: flags[18],
+            modifier_pressed: flags[19],
+            grab_pressed: flags[20],
+            taunt_pressed: flags[21],
             blink_quick_dir: ae::WorldVec2(r.vec2()?),
             blink_aim_step: ae::WorldVec2(r.vec2()?),
             aim: ae::LocalAxes::from_vec(r.vec2()?),

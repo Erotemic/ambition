@@ -62,6 +62,14 @@ pub struct ControlFrame {
     /// blink: the player brain sources `special_pressed` from THIS, retiring the
     /// historical `special_pressed = blink_pressed` alias.
     pub special_pressed: bool,
+    /// Special button LEVEL, preserved beside the edge for the same reason
+    /// [`Self::attack_held`] is: a move can be held.
+    ///
+    /// A chargeable neutral special — the genre's charge shot — freezes its own
+    /// timeline while this is down and fires on the release. The edge alone
+    /// cannot say that: by the time the charge is accruing, the press it started
+    /// from is several ticks old.
+    pub special_held: bool,
     /// Attack button rising edge.
     pub attack_pressed: bool,
     /// Attack button level. Preserved independently from the edge so a future
@@ -158,6 +166,7 @@ impl ControlFrame {
             shield_held: sample.shield_held,
             modifier_held: sample.modifier_held,
             attack_held: sample.attack_held,
+            special_held: sample.special_held,
             // Edges — sticky until a tick consumes them.
             jump_pressed: self.jump_pressed | sample.jump_pressed,
             jump_released: self.jump_released | sample.jump_released,

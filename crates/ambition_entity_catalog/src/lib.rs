@@ -861,20 +861,36 @@ pub struct MoveSpec {
     /// `2.0` so a held smash lands twice as hard as a tap.
     #[serde(default = "default_charge_mult")]
     pub smash_charge_mult: f32,
-    /// How a SMASH-gesture use of this move holds and releases its charge.
+    /// How a chargeable use of this move holds and releases its charge.
     ///
-    /// `None` = the derived policy: the hold sits at the end of the leading
-    /// Startup window (exactly where [`Self::charge_fraction_at`] has always
-    /// read the charge from) and lasts [`SmashChargeSpec::DEFAULT_MAX_HOLD_S`].
+    /// `None` = the derived policy: the hold sits a fraction into the leading
+    /// Startup window and lasts [`SmashChargeSpec::DEFAULT_MAX_HOLD_S`].
     /// Authoring one is how a move differs — a slower windup that pays off
     /// sooner, or a charge that cannot be held at all.
     ///
-    /// This says nothing about WHETHER a use charges: only a press resolved as
-    /// a Smash enters charge mode, and only for a move whose
-    /// [`Self::smash_charge_mult`] pays for it. A move reused by another verb
-    /// is never chargeable.
+    /// ⭐ AND AUTHORING ONE IS ALSO HOW A MOVE SAYS IT CHARGES AT ALL, which it
+    /// did not used to be. The rule was *"only a move whose
+    /// [`Self::smash_charge_mult`] pays for it"*, and that is exactly wrong for
+    /// a charged SHOT: its payoff is the projectile it releases, and it lands
+    /// no melee volume for a multiplier to scale. Either statement now counts —
+    /// see [`Self::charge_policy`].
+    ///
+    /// WHICH press holds it is [`Self::charge_gesture`], and a use reached
+    /// through any other verb is never chargeable.
     #[serde(default)]
     pub smash_charge: Option<SmashChargeSpec>,
+    /// WHICH PRESS holds this move's charge.
+    ///
+    /// The charge mechanic was built for smash attacks and hardcoded to the
+    /// smash gesture, which is right for every smash and wrong for the genre's
+    /// other chargeable move: the held neutral special. Both freeze a timeline
+    /// while a button is down and release when it comes up; they differ only in
+    /// WHICH button, so the move says which rather than the runtime assuming.
+    ///
+    /// DEFAULT [`ChargeGesture::Smash`] — every move authored before this field
+    /// existed, and every smash after it.
+    #[serde(default)]
+    pub charge_gesture: ChargeGesture,
     /// The stretch of this move's timeline that REPEATS while its button is
     /// held — the rapid jab, the drill, the flurry.
     ///
@@ -972,6 +988,21 @@ pub struct SmashChargeSpec {
     /// or not the button is still down, which is what stops a held smash from
     /// being a stall.
     pub max_hold_s: f32,
+}
+
+/// Which press holds a move's charge.
+///
+/// A charge is one mechanic — freeze the timeline while a button is down,
+/// release when it comes up — and the genre binds it to two different buttons.
+/// The move says which; the runtime does the same thing to both.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub enum ChargeGesture {
+    /// The SMASH gesture. Every smash attack, and the default for a move that
+    /// says nothing.
+    #[default]
+    Smash,
+    /// The SPECIAL press that started the move — the held neutral-B.
+    Special,
 }
 
 impl SmashChargeSpec {
@@ -1163,29 +1194,42 @@ impl MoveSpec {
     /// which is why every shipped fighter became chargeable without touching a
     /// single moveset.
     pub fn charge_policy(&self) -> Option<SmashChargeSpec> {
-        if self.smash_charge_mult <= 1.0 {
+        // ⭐ EITHER PAYOFF SAYS THIS MOVE CHARGES, and the second one had to be
+        // added for a move whose payoff is not a damage multiplier at all. A
+        // charged SHOT pays in the projectile it releases — bigger, faster,
+        // and worth more the longer it was held — and it lands no melee volume
+        // for a multiplier to scale, so `smash_charge_mult` on it would be a
+        // number that multiplies nothing.
+        //
+        // An explicit `smash_charge` is therefore its own statement of intent:
+        // a move that authors a hold point and a maximum is a move that holds.
+        // This is a strict widening — every previously-chargeable move still
+        // charges — and the shipped roster is unmoved by it, because every
+        // authored policy today sits beside a multiplier that already paid.
+        let Some(policy) = self.smash_charge.or_else(|| {
+            (self.smash_charge_mult > 1.0).then_some(SmashChargeSpec {
+                // ⭐⭐ THE CHARGE POSE IS IN THE WINDUP, NOT AT THE HITBOX. Jon,
+                // 2026-08-23: *"it needs to hold on the first frames of the smash
+                // animation, before letting the rest of the animation, which
+                // actually has the hitboxes, play."* That is what the genre does:
+                // a charged smash freezes in its windup and releases into the swing.
+                //
+                // ⛔⛔ THIS DERIVED FROM THE STARTUP WINDOW'S `end_s`, AND ACTIVE
+                // MEMBERSHIP IS `start_s <= t < end_s`. Ordinary smash authoring
+                // lays Active directly against Startup, so the freeze landed on the
+                // FIRST ACTIVE INSTANT — a fighter holding a charge with a live
+                // strike volume already spawned. `rooted_by_charge` is true there,
+                // so the hold was legal, indefinite, and armed.
+                //
+                // ⇒ the hold sits a fraction into the leading windup, strictly
+                // before the first Active window. The rest of the windup plays on
+                // release, which is the beat that makes a charge readable.
+                hold_at_s: self.derived_charge_hold_at_s(),
+                max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+            })
+        }) else {
             return None;
-        }
-        let policy = self.smash_charge.unwrap_or(SmashChargeSpec {
-            // ⭐⭐ THE CHARGE POSE IS IN THE WINDUP, NOT AT THE HITBOX. Jon,
-            // 2026-08-23: *"it needs to hold on the first frames of the smash
-            // animation, before letting the rest of the animation, which
-            // actually has the hitboxes, play."* That is what the genre does:
-            // a charged smash freezes in its windup and releases into the swing.
-            //
-            // ⛔⛔ THIS DERIVED FROM THE STARTUP WINDOW'S `end_s`, AND ACTIVE
-            // MEMBERSHIP IS `start_s <= t < end_s`. Ordinary smash authoring
-            // lays Active directly against Startup, so the freeze landed on the
-            // FIRST ACTIVE INSTANT — a fighter holding a charge with a live
-            // strike volume already spawned. `rooted_by_charge` is true there,
-            // so the hold was legal, indefinite, and armed.
-            //
-            // ⇒ the hold sits a fraction into the leading windup, strictly
-            // before the first Active window. The rest of the windup plays on
-            // release, which is the beat that makes a charge readable.
-            hold_at_s: self.derived_charge_hold_at_s(),
-            max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-        });
+        };
         policy.holds().then_some(policy)
     }
 

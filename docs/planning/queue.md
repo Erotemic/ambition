@@ -10739,9 +10739,12 @@ RATE WRITTEN DOWN.** Each style's windup+recover now sums to 1.10 (Rock
 0.12+0.98, Bolt 0.18+0.92, Arrow 0.28+0.82): identical rate, and the commitment
 moved to where a player can SEE it instead of an invisible weapon lock.
 
-⛔⛔ **AND IT IS NOT LANDED — BOTH CADENCE OPTIONS HAVE A MEASURED COST, SO THIS
-NEEDS A PLAYTEST CALL.** The `ActionOrigin` plumbing, the exemption and the tests
-are written and were green in isolation; they are REVERTED pending the decision:
+⭐⭐ **LANDED 2026-08-25 — AND NEITHER MEASURED COST WAS PAID. SEE D241.** Jon's
+answer rejected the choice below: the two options were bundling three independent
+variables (firing cadence, animation commitment, locomotion freedom). The floor
+moved to move ACCEPTANCE as `RangedActionSpec::refire_s` and the moves kept their
+short recovery. Measured on `duel_arena`: PCA melee 36, robot melee 23. The two
+costs below are kept as the record of what was rejected and why:
 
 ```text
 keep the authored 0.30s moves
@@ -10874,6 +10877,84 @@ runtime), rollback registration of every new canonical field, camera reset,
 crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
+
+- ▢ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
+  THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. (opened 2026-08-25)**
+
+⭐⭐ **CLOSED — THE MATCH CLOCK'S FIX BROKE ITS PERIODIC READER (`43fe5ea`).**
+Counting SCALED gameplay is right, but the projection back to 60 Hz
+(`micros * 60 / 1_000_000`) then no longer advances every step: at half speed one
+conceptual tick lands on two consecutive steps, so the item spawner's
+`elapsed % every_ticks == 0` fired on both — two items, and two entities deriving
+the SAME `SimId`. A determinism defect, not double loot. `LiveMatchTicks::crossed`
+answers the question the spawner means, from BOTH ENDS of the step, and returns
+the boundary's ORDINAL; the identity derives from that, because an ordinal counts
+boundaries and cannot repeat however time is scaled. ⛔ THE OLD TEST MODELLED THE
+RULE LOCALLY (`elapsed % every == 0`) and agreed with itself; driving the real
+clock at half speed reports `[1, 1, 2, 2, 3, 3, …]`. ⚠ no shipped ruleset turns
+items on (`roster.item_spawns = None`), so this was unreachable in play.
+
+⭐⭐ **CLOSED — DOUBLE-JUMP CANCEL HAD THREE DEFECTS (`bd0a8a7`).**
+`air_jump_rising` was a MAGNITUDE standing in for OWNERSHIP: *"an air jump was
+spent at some point AND I am rising no faster than one could push me"*. The
+resource half stays true for the whole airtime, so a fighter launched upward
+below `double_jump_speed` read as riding its own jump and an aerial DELETED the
+launch — measured with the old derivation restored, a launch at half jump speed
+handed the body **222.5** of "owned" rise. It is an AMOUNT now
+(`air_jump_rise_owned`), granted only by the SPEND and only ever shrunk after it,
+so a launch cannot grow it back. Also fixed: the consumer shed `kin.vel.y` (the
+rise axis only under screen-down gravity), and it mutated velocity BEFORE
+`cancel_permits` — a rejected attack changed physics. Wire format v104.
+
+⭐⭐ **CLOSED — CHARGE SHOT'S CADENCE, AND IT PAID NEITHER MEASURED COST.** Jon
+ruled (via GPT) that the two options were bundling THREE independent variables —
+firing cadence, animation commitment, locomotion freedom. The refire floor moved
+OUT of the projectile consumer and became `RangedActionSpec::refire_s`, checked
+in `moveset::weapon_ready` where the move is ACCEPTED and spent in `start_move`;
+`ActionRequest::Ranged` carries a `RangedCommitment` so a controller ATTEMPT
+still meets the floor and a `CommittedMove` is guaranteed its shot. Measured on
+`duel_arena`: **PCA melee 36, robot melee 23, hp 60→34 / 60→51** — more melee
+than either rejected option, because a refused move no longer costs a windup
+(the gate runs before `proposer.spend`, so the ordinary buffer re-proposes).
+▢ STILL OWED: the presentation half of the ruling — *"give recharge enough
+presentation that an unavailable shot is legible"*. Nothing draws
+`ranged_cooldown`.
+
+⛔⛔ **#20 IS NOT A THIRD MAGNITUDE BOUND, AND MEASURING IT NAMED THE BLOCKER.**
+The dash floor (`along.abs() > want.abs()`) and the shield brake
+(`along.abs() <= max_run_speed`) are the same magnitude-as-ownership shape the
+double jump just shed. The representation they want ALREADY EXISTS —
+`BodyFlightState::carried_run` is *"signed run-axis velocity carried from the
+world"* and `hit_reaction` sets it on every launch — but `carried_hold` is set to
+`hitstun_timer` and the floor is ZEROED the moment it expires, so by the time a
+dash or a brake can be commanded the fact reads `0.0`. Reading it there would
+therefore make things WORSE: a body at 1300px/s with a surrendered floor would
+brake to a stop.
+
+⇒ **AND THE GENRE'S OWN ANSWER TO "you were launched hard" IS TUMBLE, WHICH NO
+SHIPPED BODY AUTHORS.** `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the only
+`500.0` in the tree is a unit-test fixture, and neither `ambition_characters` nor
+`ambition_content` names the field. So the two bounds are standing in for a
+DORMANT mechanic. Waking it is the real fix and it re-tunes knockback for the
+whole cast — **that** is the decision #20 is blocked on, not a number.
+
+◐ **STATUS ADJUSTMENTS GPT ASKED FOR, recorded rather than reopened:**
+
+```text
+148c158 special-turn   acceptance mutation CLOSED · gravity-relative CLOSED
+                       real wavebounce RECOGNIZER still OPEN — the four outcomes
+                       are global rule booleans, not an ordered input reading
+56fb9da settled item   wakes when unsupported CLOSED
+                       dynamic SUPPORT ownership OPEN (rides a moving platform)
+42e894b windbox guard  behaviour fixed; `flinchless ⇒ bypasses shield` is a
+                       PROVISIONAL conflation — carry an explicit guard policy
+                       when #29b touches that channel
+```
+
+⭐ ACCEPTED CLOSED by the reviewer with no further defect: `9d96948` (seat/device
+authority — *"the strongest fix in the window"*), `0e766bd`+`6d0ed2b` (roll
+lifecycle, all five separations), `ddd0417`, `f941700`, `4f1d885`, `23281e5`,
+`e970dd4`, `cec4f95`, `ba481b3`, `fd223a0`.
 
 ## Standing continuation rule
 

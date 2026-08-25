@@ -291,7 +291,7 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
-## 2026-08-24 — the up-tilt percent-scaling guard is RED on the character lane
+## 2026-08-24 — ✔ RESOLVED 2026-08-25: the up-tilt percent guard was measuring its own first strike
 
 ▢ **NOT A MAINTAINER OBSERVATION — a measurement, recorded here because it
 outranks anything inferred.** `smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`
@@ -318,6 +318,32 @@ when a suspect is removed is not that suspect's — the character lane touched
 ⛔ do NOT relax the `* 10.0` threshold to make it green: the test exists because
 Jon reported *"alice is at 1427% and Booul is hitting her, but she's not going
 anywhere"*, and its margin is the whole point.
+
+✔ **RESOLVED 2026-08-25 (`003654071`), AND THE ATTRIBUTION ABOVE WAS WRONG.**
+The elimination was sound as far as it went — reverting every file the
+match-clock lane touched did not move the numbers — but "not mine" is not
+"theirs". It was the FIXTURE.
+
+Both strikes landed on ONE victim, and the second arrived while the body still
+carried the first: `hitstop_timer` read 0.088 at the moment of contact, so the
+launch was 495.8 px/s where `base + growth * damage / weight` says 3269.
+
+```text
+struck FIRST   1427%  ->  3096.9 px/s, rises 398px   (what the formula predicts)
+struck SECOND  1427%  ->    495.8 px/s, rises  38.1
+```
+
+Same damage input, same victim weight, same empty stale queue, same attacker.
+⛔ waiting for the thaw was NOT enough (23.2px, still red): a body that has been
+launched once differs from a fresh one in more ways than the freeze, so each
+percent now gets its own match. The `* 10.0` bar is untouched and the ratio is
+now ~100x — which is why this guard could flip on any change that moved hitlag
+by a frame, and did.
+
+⭐ **THE LESSON IS THE ELIMINATION.** A failure that does not move when a suspect
+is removed is not that suspect's — but it does not follow that it belongs to
+whoever else touched the tree. Both lanes were innocent; the test was measuring
+itself.
 
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 

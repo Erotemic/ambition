@@ -207,8 +207,9 @@ commit.
 ⛔ **NEVER SIT AND WATCH A BUILD DURING COORDINATED WORK.** Give a worker
 independent writing work in a worktree while `main` verifies.
 
-⛔ **DO NOT RUN CONCURRENT BUILDS AGAINST THE SHARED TARGET DIR.** The worktree
-writes; `main` verifies.
+⛔ **DO NOT RUN CONCURRENT BUILDS AGAINST ONE TARGET DIR.** Agent worktrees each
+bind-mount their own, so builds in different slots are fine — see
+`docs/tools/agent-worktrees.md`. Pace your `-j` to your slot.
 
 The exhaustive plan `--run-everything-you-probably-dont-need-this` is intentionally
 exceptional. Use it only when the verification recipe names your change.
@@ -291,19 +292,21 @@ What belongs where:
 
 ## Coordinating subagents and worktrees
 
-Only relevant when coordinating subagents.
+⛔ **Read `docs/tools/agent-worktrees.md` before working in or assigning a worktree.**
 
-Read `docs/recipes/coordinator-and-worker-sessions.md`.
-
-Fresh worktrees have no generated assets and no initialized submodules. Prepare
-them with:
+Three fixed slots, `.worktrees/agent-worktree{1,2,3}`. A COORDINATOR assigns one;
+never claim a slot yourself and never create a worktree named after a feature.
 
 ```bash
-python3 scripts/mirror_assets_for_worktree.py
+scripts/agent_worktree.sh list          # slots, HEAD, size, who is building
+scripts/agent_worktree.sh setup all     # submodules + assets + bind-mounted target
+scripts/agent_worktree.sh jobs 2        # the -j to build with in that slot
 ```
 
-The worktree writes; `main` verifies. Do not launch concurrent builds against the
-shared target directory.
+CPU is halved down the slots — main `nproc`, then /2, /4, /8 — so three agents do
+not each build as if they own the machine. A coordinator overrules.
+
+Also read `docs/recipes/coordinator-and-worker-sessions.md`.
 
 ## Avoid bullshit guardrails
 

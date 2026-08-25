@@ -525,6 +525,9 @@ fn track_versus_roster(
                 bark_chance: None,
                 // The versus route drops a trumped body where it hung.
                 ledge_trump_pop: None,
+                // The versus route says nothing: its edges trump, which is what
+                // they always did.
+                ledge_occupancy: None,
                 // The versus route says nothing about the edge cancel either:
                 // its landing lag runs out wherever the body is, which is what
                 // it did before the rule existed.

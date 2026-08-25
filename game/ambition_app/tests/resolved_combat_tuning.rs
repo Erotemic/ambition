@@ -129,6 +129,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         bark_chance: None,
         // The versus route drops a trumped body where it hung.
         ledge_trump_pop: None,
+        ledge_occupancy: None,
         edge_cancel_recovery: None,
         special_turn: None,
         special_turn_reverses_drift: None,

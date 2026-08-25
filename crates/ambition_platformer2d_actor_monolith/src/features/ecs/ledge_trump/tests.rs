@@ -220,3 +220,51 @@ mod outward_pop {
         assert_eq!(velocity_after_trump(Some(420.0)), 420.0);
     }
 }
+
+/// UNDER THE HOG RULE THE SAME CONTEST RESOLVES THE OTHER WAY.
+///
+/// ⭐ THE PAIR IS THE POINT, and it is the same fixture twice: identical
+/// camper and arriving bodies, identical edge, one declared rule apart. That is
+/// what makes this a POLICY rather than two mechanics — and it is why the arm
+/// asserting Trump is here beside it rather than trusted from the neighbouring
+/// test, which declares no rules at all.
+#[test]
+fn the_ledge_policy_decides_which_holder_survives() {
+    let contest = |occupancy: Option<crate::combat::rules::LedgeOccupancy>| -> (bool, bool) {
+        let mut app = app();
+        if let Some(occupancy) = occupancy {
+            app.insert_resource(crate::combat::rules::ResolvedCombatTuning {
+                ledge_occupancy: occupancy,
+                ..Default::default()
+            });
+        }
+        let anchor = ae::Vec2::new(100.0, 100.0);
+        let camper = hanging_at(&mut app, "camper", anchor, 1.4);
+        let arriving = hanging_at(&mut app, "arriving", anchor, 0.02);
+        app.update();
+        (still_hanging(&app, camper), still_hanging(&app, arriving))
+    };
+
+    // TRUMP — declared explicitly, so this arm is about the RULE rather than
+    // about a world that happens to declare nothing.
+    assert_eq!(
+        contest(Some(crate::combat::rules::LedgeOccupancy::Trump)),
+        (false, true),
+        "under Trump the newcomer must take the edge and the camper must fall"
+    );
+
+    // HOG — the same contest, the other survivor.
+    assert_eq!(
+        contest(Some(crate::combat::rules::LedgeOccupancy::Hog)),
+        (true, false),
+        "under Hog the body that got there first must keep the edge"
+    );
+
+    // AND A WORLD THAT DECLARES NOTHING STILL TRUMPS, which is every ledge in
+    // this engine before the knob existed.
+    assert_eq!(
+        contest(None),
+        (false, true),
+        "an undeclared world stopped trumping"
+    );
+}

@@ -10135,6 +10135,31 @@ that new arm exactly.
 
 Wire format v100.
 
+- ✔ **D233 — CLOSED 2026-08-25. EDGEHOG VS TRUMP IS ONE COMPARISON.
+  (opened and closed 2026-08-25)**
+
+`ledge_occupancy` — `Trump` (default, today's behaviour) keeps the NEWEST grab;
+`Hog` keeps the body that got there first. Whoever sorts first keeps the edge,
+so the two generations' rules are the same authority read in opposite
+directions.
+
+⛔ **NO SECOND RULE ABOUT WHO MAY GRAB.** A hog that refused the grab outright
+would be a second ledge authority, which the row rules out by name. The loser is
+knocked off by the same path with the same pop either way, and the `SimId`
+tiebreak stays ascending in both so a same-tick contest is still deterministic.
+
+⭐ **THE TEST IS THE SAME FIXTURE TWICE, ONE DECLARED RULE APART** — identical
+camper, identical newcomer, identical edge. That is what makes this a POLICY
+rather than two mechanics. The Trump arm declares `Trump` EXPLICITLY rather than
+leaning on the neighbouring test that declares nothing, because "the rule works"
+and "the default is unchanged" are different claims; the third arm covers the
+undeclared case and poisoning the default reddens only that one.
+
+⚠ **AND A LESS-INDENTED PATTERN IS A SUBSTRING OF A MORE-INDENTED ONE.** A
+replace on `            ledge_trump_pop: None,` also matched inside the 16-space
+copy and duplicated a field. ⇒ for repeated struct literals, edit BY LINE, not
+by substring — three of today's compile errors came from this one habit.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

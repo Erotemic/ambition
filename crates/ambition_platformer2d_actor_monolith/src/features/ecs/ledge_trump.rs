@@ -53,10 +53,27 @@ pub fn resolve_ledge_trumps(
     if holders.len() < 2 {
         return;
     }
+    // ⭐⭐ THE POLICY IS THIS ONE COMPARISON. Whoever sorts FIRST keeps the
+    // edge, so trumping and hogging are the same authority read in opposite
+    // directions: Ultimate keeps the NEWEST grab (smallest `elapsed`) and
+    // knocks the old holder off; Melee keeps the body that got there FIRST and
+    // the newcomer is the one who loses. Both are coherent games.
+    //
+    // ⛔ NO SECOND RULE ABOUT WHO MAY GRAB. The loser is knocked off by the
+    // same path with the same pop either way — a hog that refused the grab
+    // outright would be a second ledge authority, which is what the parity row
+    // rules out.
+    //
+    // The `SimId` tiebreak stays ascending in both, so a same-tick contest has
+    // a deterministic winner independent of query or archetype order.
+    let hog = matches!(
+        rules.as_ref().map(|r| r.ledge_occupancy),
+        Some(crate::combat::rules::LedgeOccupancy::Hog)
+    );
     holders.sort_by(|a, b| {
-        a.1.partial_cmp(&b.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.2.cmp(&b.2))
+        let by_time = a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal);
+        let by_time = if hog { by_time.reverse() } else { by_time };
+        by_time.then_with(|| a.2.cmp(&b.2))
     });
 
     let mut kept: Vec<ae::Vec2> = Vec::new();

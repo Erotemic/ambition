@@ -955,6 +955,10 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // recover, short of sending them to the blast zone from a neutral trump.
         // ⚠ a starting point — play it and move it.
         ledge_trump_pop: Some(260.0),
+        // ⭐ ULTIMATE'S RULE: a recovering fighter can steal the edge back, so
+        // covering a ledge is a read rather than a denial. `Hog` is the other
+        // generation's answer and it is one word away.
+        ledge_occupancy: Some(ambition_platformer2d::combat::rules::LedgeOccupancy::Trump),
         // ⭐⭐ ONE HIT IN SIX SPEAKS. Jon, 2026-08-24: *"not have barks happen
         // every time a character is hit. Make it a more rare event. Not never,
         // but I'd like it to happen less often."*

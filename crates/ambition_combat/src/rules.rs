@@ -26,6 +26,19 @@ use bevy::prelude::Resource;
 /// the declaration a snapshot of the world at declaration time — which is the
 /// borrow again, wearing a different hat. A declarer that wants the world's DI
 /// omits the whole resource, or reads it and re-declares deliberately.
+/// WHO KEEPS A CONTESTED LEDGE. See
+/// [`DeclaredCombatRules::ledge_occupancy`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LedgeOccupancy {
+    /// The NEWEST grab wins and the older holder is knocked off — Ultimate's
+    /// rule, and what every ledge in this engine did before the knob existed.
+    #[default]
+    Trump,
+    /// The body already on the edge KEEPS it and the newcomer loses — Melee's
+    /// rule, and the one that makes hogging an edge a real denial.
+    Hog,
+}
+
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct DeclaredCombatRules {
     /// Which shell experience declared these rules.
@@ -274,6 +287,23 @@ pub struct DeclaredCombatRules {
     /// `wall_normal_x`. Reading it off the trumped body's facing would be wrong
     /// the moment a body hangs facing out.
     pub ledge_trump_pop: Option<f32>,
+    /// WHO KEEPS A CONTESTED EDGE — the newcomer or the body already on it?
+    ///
+    /// `None` is [`LedgeOccupancy::Trump`], which is what every ledge did
+    /// before this knob: the newest grab wins and the older holder is knocked
+    /// off. [`LedgeOccupancy::Hog`] is the older generation's answer — the body
+    /// that got there first keeps it, and the newcomer loses instead.
+    ///
+    /// ⭐⭐ THIS IS WHERE THE GAMES DIFFER, which is exactly what should be a
+    /// knob rather than a decision: Melee lets you hog an edge and deny a
+    /// recovery outright, Ultimate lets the recovering fighter steal it back.
+    /// Both are coherent games and neither is a bug.
+    ///
+    /// ⛔ ONE AUTHORITY EITHER WAY. The policy chooses which holder SURVIVES;
+    /// it adds no second rule about who may grab. `resolve_ledge_trumps` still
+    /// owns the edge and the loser is knocked off by the same path, with the
+    /// same [`Self::ledge_trump_pop`].
+    pub ledge_occupancy: Option<LedgeOccupancy>,
 }
 
 /// The rules combat actually reads this tick.
@@ -322,6 +352,8 @@ pub struct ResolvedCombatTuning {
     /// See [`DeclaredCombatRules::ledge_trump_pop`]. RESOLVED, so `0.0` — drop
     /// the trumped body in place — is what a world that declared nothing gets.
     pub ledge_trump_pop: f32,
+    /// See [`DeclaredCombatRules::ledge_occupancy`].
+    pub ledge_occupancy: LedgeOccupancy,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -428,6 +460,7 @@ impl ResolvedCombatTuning {
                 // what every body did before the knob existed.
                 bark_chance: rules.bark_chance.unwrap_or(1.0).clamp(0.0, 1.0),
                 ledge_trump_pop: rules.ledge_trump_pop.unwrap_or(0.0).max(0.0),
+                ledge_occupancy: rules.ledge_occupancy.unwrap_or_default(),
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -467,6 +500,7 @@ impl ResolvedCombatTuning {
                 sudden_death_damage: None,
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
+                ledge_occupancy: LedgeOccupancy::Trump,
             },
         }
     }
@@ -490,6 +524,7 @@ impl Default for ResolvedCombatTuning {
             // Every hit barks, which is what every body did before the knob.
             bark_chance: 1.0,
             ledge_trump_pop: 0.0,
+            ledge_occupancy: LedgeOccupancy::Trump,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
             meteor_lock_time: 0.0,
@@ -562,6 +597,7 @@ mod tests {
             Some(DeclaredCombatRules {
                 bark_chance: None,
                 ledge_trump_pop: None,
+                ledge_occupancy: None,
                 declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
@@ -603,6 +639,7 @@ mod tests {
         let declared = Some(DeclaredCombatRules {
             bark_chance: None,
             ledge_trump_pop: None,
+            ledge_occupancy: None,
             declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             knockback_growth: 0.0,
@@ -637,6 +674,7 @@ mod tests {
                 // An undeclared world barks on every hit.
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
+                ledge_occupancy: LedgeOccupancy::Trump,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,

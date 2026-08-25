@@ -9,7 +9,7 @@
           {
             "type": "command",
             "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; until [ -f \"$d/scripts/goal_guard.py\" ] || [ \"$d\" = / ]; do d=$(dirname \"$d\"); done; if [ -x \"$d/scripts/goal_guard_hook.sh\" ]; then exec bash \"$d/scripts/goal_guard_hook.sh\"; elif [ -f \"$d/scripts/goal_guard.py\" ]; then exec python3 \"$d/scripts/goal_guard.py\"; else echo '{\"decision\":\"block\",\"reason\":\"The goal guard could not be located from this working directory, so it did NOT run and NOTHING has been verified. This is not the goal being met. cd to the repository root, and fix the hook command in .claude/settings.json.\"}'; fi",
-            "timeout": 3600,
+            "timeout": 60,
             "statusMessage": "Checking the armed goal..."
           }
         ]

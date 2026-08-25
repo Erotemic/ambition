@@ -25,7 +25,7 @@ exists.
 
 ## The guard that silently ceased to exist
 
-**2026-08-05, two failures in one day, neither visible in the checks.**
+**2026-08-05, two failures in one day, neither visible from outside.**
 
 The hook command contained a relative path. A hook inherits the session's
 working directory, so one `cd` into a subdirectory made `python3
@@ -58,23 +58,41 @@ Three cases are named separately now: a new commit is progress and resets; the
 same commit is a stall; and **not knowing is a stall too**, because a guard that
 cannot see progress must not assume it.
 
-## The checks that could not fail
+## The checks that ran for 66 hours and decided nothing
 
-**2026-08-15.** Three of thirteen checks grepped campaign files that had been
-archived when their campaigns closed. `grep` on a missing path exits 2, `!`
-inverted it to 0, so they reported satisfied every turn — about campaigns that
-no longer existed, having observed nothing at all.
+**2026-08-25 — the feature is gone.** A goal used to carry a `checks` list of
+shell commands, run on every Stop, and the run released when they all passed.
+Two years of good reasons built it: a check must name a test rather than a doc
+marker, because a doc marker is a file the agent can edit; a check must fail
+when its subject cannot be read; a timeout is not a failure.
 
-Worse, the *load-bearing* check had the same shape. The permanent pin that kept
-the run alive was `! grep -q '▢' <the ledger>`. The day that ledger was archived
-like every dated file before it, the pin would have flipped green and the run
-would have released itself with the queue full.
+Every one of those is sound, and together they answered the wrong question.
+Anti-gaming is about the TERMINAL verdict — is this really done. Pacing is about
+EVERY Stop — is there work left. One list served both, so a check built to make
+completion hard to fake was billed once per turn.
 
-Hence `grep -q PAT F; test $? -eq 1` everywhere: rc 0 (found) fails, rc 1 (read
-and clean) passes, rc 2 (unreadable) **fails**. A vanished subject reddens and
-names itself. The same day, the ledger lost its date — `queue-72h-2026-08-08.md`
-became `queue.md` — because a dated filename on the one document whose declared
-property is that it never closes is what produced the defect.
+`.goal/check_cost.jsonl` had been recording the price since 2026-08-08. Read
+back on 2026-08-25: **972 runs, 66.0 hours of cargo, median 192s and rising to
+395s over the last 40 runs. Not one run ever passed. In 972 of 972 the verdict
+was already sealed by a sub-second `docs/planning` grep** — the ledger has open
+rows, so the guard was always going to block — and `run_checks` deliberately did
+not short-circuit, so the build ran anyway.
+
+Jon: *"I do not want programmatic checks to run there at all. The goal guard
+should just be firing a hook that tells the agent to continue because there is
+work left in docs/planning. There is so much backlog we are never going to
+complete it even if we ran for an entire month nonstop."*
+
+So there is no completion condition to test. `checks` is refused at `--arm`,
+which is the only thing standing between this file and the next agent that reads
+the anti-gaming argument and finds it convincing. A goal is text and clocks;
+release comes from a deadline, a fuse, or Jon. Removed with it: the per-check
+timeout, `.goal-guard.json`, `check_cost.jsonl`, and `--status --quick`, which
+existed only because `--status` used to trigger a build.
+
+Asked once before why a turn took so long, this repo built the cost ledger
+instead of deleting the checks. The ledger is what eventually made the case —
+but measuring a thing you should not be doing is not the same as stopping.
 
 ## Arming destroyed the goal it replaced
 
@@ -86,42 +104,6 @@ no other place: no archive, no git object, nothing. `clear_goal` had written a
 
 The goal was reconstructed from a verbatim dump that happened to be in the
 session transcript. That is luck, not a recovery procedure.
-
-## A timeout is not a failure, and saying so matters
-
-The default per-check timeout was 120s, and a timed-out check reported
-`timed out after 120s`. In a block listing open items, that reads exactly like a
-red test. This repo's `cargo test -p ambition_app --test app_it` cannot finish a
-cold compile inside 120s, so the guard reported a failing integration suite for
-days on the strength of a stopwatch.
-
-A timeout now says `NOT RUN — … This is the clock, not a failure` and names the
-two places to raise it. The number itself moved to `.goal-guard.json`, because
-120s is a statement about a repository, not about goal guarding.
-
-## Measuring the guard's own cost
-
-**Jon, 2026-08-08: measure compile and test time in the context of real work.**
-A guard that runs the build and the suite at the end of every turn is the
-heaviest recurring job on the machine. It had run **114 times in 11h17m** before
-anything timed it, while three purpose-built instruments made the same day
-measured only synthetic builds staged for measurement. `check_cost.jsonl` is
-that loop closing.
-
-**The motivating number was overstated, and is corrected here rather than
-quietly dropped.** The claim was that the same 688-unit build measured 833.9s
-and 540.0s *"because of this guard"*.
-`dev/ambition_dev_measurements/compile_units.jsonl` records contention per
-build, and the 540.0s run has `build_foreign_cargo_peak: 0` — it was clean. The
-833.9s run predates contention stamping and has no such field. **The cause of
-that difference is not established.** Attributing it to the guard was a story
-that fit.
-
-The reason to stamp contention survives the correction intact: a duration
-without one cannot be compared to anything.
-
-`foreign_builds` is sampled from `/proc` rather than `pgrep -f`, which matches
-its own shell and so can never report zero — a tighter regex does not fix it.
 
 ## Waiting on subagents is not stopping — and then it was not a condition at all
 
@@ -151,7 +133,7 @@ something reported, a ceiling read before every stand-down — made a mechanism
 that should not have existed slightly less wrong.
 
 ⭐ **the general form: before making X a condition, ask how often X is true when
-nothing is wrong.** A stand-down that always applies is the inverse of a check
+nothing is wrong.** A stand-down that always applies is the inverse of a guard
 that cannot fail, and it costs the same thing — the whole instrument.
 
 ⇒ `--pause` (one turn) and `--hold` (until lifted) remain. Both are explicit,
@@ -168,12 +150,12 @@ the editor never looked at.
 
 Worse, answering *"how long is left?"* meant reading `.goal/active.json` and
 `.goal/state.json` and doing the arithmetic, because the only command that knew
-was `--status`, which **runs every check** to print a date. Here that is a cargo
-build: minutes of wall clock and a screenful of output to learn a timestamp.
+was `--status`, which then ran the goal's checks — a cargo build — to print a
+date.
 
 ```bash
 python3 scripts/goal_guard.py --extend 48h   # also 2d, 90m, or an ISO timestamp
-python3 scripts/goal_guard.py --extend       # just the clocks, no checks
+python3 scripts/goal_guard.py --extend       # just the clocks
 ```
 
 It moves both clocks by the same amount, refuses to write a goal that would no
@@ -214,9 +196,9 @@ Three details that are each a defect avoided rather than a preference:
 
 - **the roster is APPENDED to, never read-modify-written.** `owner_path`'s own
   docstring records why ownership is not a key in `state.json`: a Stop hook
-  spends minutes in `run_checks` between reading and writing that dict, so a
-  concurrent claim in the window is silently dropped and the goal quietly reverts
-  to unclaimed. A roster read-modify-written has the same defect against itself.
+  reads that dict and writes the whole thing back, so a concurrent claim in the
+  window is silently dropped and the goal quietly reverts to unclaimed. A roster
+  read-modify-written has the same defect against itself.
 - **`--own` ADDS.** It used to replace, so binding a second lane released the
   first without saying so.
 - **the share marker dies with `--clear`.** A stale one would make the next goal
@@ -276,19 +258,15 @@ and points at `--resume` instead of saying nothing.
 **What both had in common was a bare `return 0`.** No state changed, so from
 outside "the guard decided to stand down" and "the hook never ran" were the same
 observation. Every path out of `mode_stop` now records a one-line verdict, and
-`--status --quick` reads it back without paying for the goal's own checks — which
-here are minutes of `cargo`, and used to sit in front of the one line that says
-whether the guard is running at all.
+`--status` reads it back.
 
 ## What this file cannot do
 
-It is not unfoolable. The checks are commands, and the agent can edit the files
-those commands read. The honest claim is narrower: it converts *"convince a
-judge"* into *"falsify a specific artifact"*, which is a much louder thing to do
-and leaves a diff. Write checks that name a test rather than a doc marker and
-the bar goes up again.
+It cannot make an agent work. It blocks a Stop and prints the goal; everything
+after that is the agent's. The honest claim is narrow — it removes *"I have
+decided I am finished"* as a way for a turn to end, and nothing more.
 
 And every word of that assumes the guard **ran**. It cannot prove that from
 inside, but it no longer has to be guessed at from outside: every Stop records
-what it decided, and `--status --quick` prints that verdict with its age, or
-says `NEVER` when no turn has been checked at all.
+what it decided, and `--status` prints that verdict with its age, or says
+`NEVER` when no turn has been checked at all.

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Deterministic Stop-hook guard for long agent runs.
 
-The guard evaluates repository checks rather than conversational claims. An
-armed goal blocks Stop until its checks pass or a configured release condition
-fires. Release conditions include an absolute deadline, a maximum run duration,
-a stalled-commit limit, and a crash fuse.
+An armed goal blocks Stop and tells the agent to keep working. It does NOT run
+commands: the backlog outlives any run, so there is nothing to verify and
+nothing to wait for. Only a release condition ends a run — an absolute deadline,
+a maximum run duration, a stalled-commit limit, or a crash fuse.
 
 `--pause` skips one Stop; `--hold` skips Stops until `--unhold`, while deadlines
 continue to run. `--extend` moves both clock-based releases. Those are the only
@@ -26,9 +26,8 @@ Typical commands::
     python3 scripts/goal_guard.py --extend 48h
     python3 scripts/goal_guard.py --clear
 
-Goal files contain `goal`, `checks`, and release limits. Checks should test real
-artifacts and fail when their subject cannot be read. The historical incidents
-behind these rules belong in `docs/tools/goal-guard.md`."""
+Goal files contain `goal` and release limits — nothing executable. The
+historical incidents behind these rules belong in `docs/tools/goal-guard.md`."""
 
 from __future__ import annotations
 
@@ -40,15 +39,13 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
-DEFAULT_CHECK_TIMEOUT = 120
 DEFAULT_MAX_STALLED_BLOCKS = 3
 # The wall-clock ceiling on how long an armed goal may block, counted from its
 # FIRST block. A backstop under `deadline_utc`, not a replacement for it: a goal
 # with no deadline (or one armed before `--arm` validated deadlines) would
-# otherwise block forever if a check could never pass.
+# otherwise block forever.
 DEFAULT_MAX_RUN_HOURS = 36.0
 # How many consecutive crashes of this script are treated as "the guard is
 # broken" rather than "the work is not done". A crashed guard keeps blocking —
@@ -108,41 +105,6 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def config_path(root: Path) -> Path:
-    return root / ".goal-guard.json"
-
-
-def guard_config(root: Path) -> dict:
-    """Load committed repository-level guard settings.
-
-    Per-run checks and release limits live in the goal JSON. This file supplies
-    repository-specific defaults such as build-process names and check timeout.
-    Missing or unreadable config falls back to built-in defaults.
-
-        {
-          "build_processes": ["cargo", "rustc"],
-          "default_check_timeout": 120
-        }
-
-    `build_processes` names processes treated as build contention. Empty makes
-    the recorder write `null` rather than `0`: a repo that never said what a
-    build looks like has not observed an idle machine, and recording that as
-    "zero contention" would be a measurement that cannot fail.
-    """
-    raw = load_json(config_path(root))
-    if not isinstance(raw, dict):
-        raw = {}
-    names = raw.get("build_processes")
-    if not isinstance(names, list):
-        names = []
-    return {
-        "build_processes": [str(n) for n in names if str(n).strip()],
-        "default_check_timeout": as_float(
-            raw.get("default_check_timeout"), DEFAULT_CHECK_TIMEOUT
-        ),
-    }
-
-
 def goal_dir(root: Path) -> Path:
     return root / ".goal"
 
@@ -181,11 +143,11 @@ def session_id_of(hook_input: dict) -> str:
 def owner_path(root: Path) -> Path:
     """Ownership gets its OWN file, deliberately, not a key in `state.json`.
 
-    `mode_stop` loads `state.json`, spends minutes in `run_checks`, then writes
-    the whole dict back. A second session claiming ownership during that window
-    would have its key silently dropped by the owning session's write — and the
-    symptom is the goal quietly reverting to unclaimed, which is the failure that
-    releases runs. A separate file has no writer to lose a race with.
+    `mode_stop` loads `state.json` and writes the whole dict back. A second
+    session claiming ownership during that window would have its key silently
+    dropped by the owning session's write — and the symptom is the goal quietly
+    reverting to unclaimed, which is the failure that releases runs. A separate
+    file has no writer to lose a race with.
     """
     return goal_dir(root) / "owner"
 
@@ -209,11 +171,11 @@ def join_owner(root: Path, session: str) -> None:
     """Add one session to the roster, by APPEND.
 
     ⛔ **append, never read-modify-write.** `owner_path`'s own docstring records
-    why ownership is not a key in `state.json`: `mode_stop` reads that dict,
-    spends minutes in `run_checks`, and writes the whole thing back, so a
-    concurrent claim is silently dropped. A roster read-modify-written has the
-    same defect against itself — two sessions joining in the same window and one
-    of them vanishing. `O_APPEND` of a single short line does not.
+    why ownership is not a key in `state.json`: `mode_stop` reads that dict and
+    writes the whole thing back, so a concurrent claim is silently dropped. A
+    roster read-modify-written has the same defect against itself — two sessions
+    joining in the same window and one of them vanishing. `O_APPEND` of a single
+    short line does not.
     """
     if not session:
         return
@@ -432,149 +394,6 @@ def stamp_utc(when: _dt.datetime) -> str:
     return when.astimezone(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-# ── Running the checks ────────────────────────────────────────────────────────
-
-
-class CheckResult:
-    def __init__(self, name: str, cmd: str, ok: bool, detail: str, seconds: float = 0.0):
-        self.name = name
-        self.cmd = cmd
-        self.ok = ok
-        self.detail = detail
-        self.seconds = seconds
-
-
-def _foreign_build_processes(names: list[str]) -> int | None:
-    """Count configured build processes using `/proc`.
-
-    Returns a count, `None` when the repository declares no build-process names,
-    or `-1` when `/proc` cannot be read. These states must not collapse to zero.
-    """
-    if not names:
-        return None
-    wanted = set(names)
-    count = 0
-    try:
-        for entry in os.listdir("/proc"):
-            if not entry.isdigit():
-                continue
-            try:
-                with open(f"/proc/{entry}/comm", "r") as handle:
-                    comm = handle.read().strip()
-            except OSError:
-                continue
-            if comm in wanted:
-                count += 1
-    except OSError:
-        return -1
-    return count
-
-
-def record_check_cost(
-    root: Path, results: list[CheckResult], load_before: float | None = None
-) -> None:
-    """Append best-effort Stop-check timing data under `.goal/`.
-
-    Rows include load averages and configured build-process contention so check
-    duration is not interpreted without machine-load context. Recording must
-    never fail or dirty the guarded repository state.
-    """
-    try:
-        watched = guard_config(root)["build_processes"]
-        payload = {
-            # Schema 2 records the process names associated with `foreign_builds`;
-            # null means this repository did not define a build-process set.
-            "schema": 2,
-            "kind": "goal_check",
-            "recorded_at": now_utc().isoformat(),
-            "head": head_sha(root),
-            "total_seconds": round(sum(r.seconds for r in results), 3),
-            "load_before": None if load_before is None else round(load_before, 2),
-            "load_after": round(os.getloadavg()[0], 2),
-            "build_processes": watched,
-            "foreign_builds": _foreign_build_processes(watched),
-            "checks": [
-                {
-                    "name": r.name,
-                    "ok": r.ok,
-                    "seconds": round(r.seconds, 3),
-                }
-                for r in results
-            ],
-        }
-        path = root / ".goal" / "check_cost.jsonl"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a") as handle:
-            handle.write(json.dumps(payload) + "\n")
-    except Exception:
-        # A measurement must never be able to break the thing it measures.
-        pass
-
-
-def run_checks(goal: dict, root: Path) -> list[CheckResult]:
-    """Every check, always — a partial answer would hide the second open item."""
-    results: list[CheckResult] = []
-    try:
-        load_before = os.getloadavg()[0]
-    except OSError:
-        load_before = None
-    fallback_timeout = guard_config(root)["default_check_timeout"]
-    for raw in goal.get("checks", []):
-        name = str(raw.get("name") or raw.get("cmd") or "unnamed check")
-        cmd = raw.get("cmd")
-        if not cmd:
-            results.append(CheckResult(name, "", False, "check has no `cmd`"))
-            continue
-        timeout = raw.get("timeout", fallback_timeout)
-        started = time.monotonic()
-        try:
-            proc = subprocess.run(
-                ["bash", "-o", "pipefail", "-c", cmd],
-                cwd=str(root),
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired:
-            # A timeout is NOT a pass. The whole point of this file is that
-            # "we could not tell" never resolves to "done".
-            #
-            # But it is not a FAILURE either, and saying only "timed out after
-            # 120s" let this repo read a green suite as red for days: the check
-            # `cargo test -p ambition_app --test app_it` cannot finish a cold
-            # compile inside the default, so the block reported an integration
-            # suite that was never actually run. The line has to say which of the
-            # two it is and what to do about it, or the next repo loses the same
-            # days to the same sentence.
-            results.append(
-                CheckResult(
-                    name, cmd, False,
-                    f"NOT RUN — timed out after {timeout:g}s. This is the "
-                    "clock, not a failure: give this check its own `timeout` "
-                    "in the goal, or raise `default_check_timeout` in "
-                    ".goal-guard.json",
-                    time.monotonic() - started,
-                )
-            )
-            continue
-        except OSError as exc:
-            results.append(
-                CheckResult(
-                    name, cmd, False, f"could not run: {exc}",
-                    time.monotonic() - started,
-                )
-            )
-            continue
-        elapsed = time.monotonic() - started
-        tail = (proc.stderr.strip() or proc.stdout.strip() or "").splitlines()
-        detail = "" if proc.returncode == 0 else " / ".join(tail[-3:])[:400]
-        results.append(
-            CheckResult(name, cmd, proc.returncode == 0, detail, elapsed)
-        )
-    record_check_cost(root, results, load_before)
-    return results
-
-
 def clear_goal(
     root: Path,
     reason: str,
@@ -686,61 +505,22 @@ def emit(payload: dict) -> None:
     sys.stdout.flush()
 
 
-def open_items_lines(goal: dict, state: dict) -> list[str]:
-    """What is open, from the LAST recorded check — never a fresh run.
-
-    `--inject` and `--resume` both answer "what is this goal and what is left",
-    and both must stay cheap: session start cannot afford the goal's own shell
-    commands. One renderer, so the answer cannot drift between them.
-    """
-    last_open = state.get("last_open")
-    if isinstance(last_open, list) and last_open:
-        head = f"Open as of the last Stop check ({state.get('last_block_at', 'unknown time')}):"
-        return [head] + [f"  ▢ {name}" for name in last_open]
-    return ["Checks that will be run at the end of every turn:"] + [
-        f"  ▢ {raw.get('name') or raw.get('cmd') or 'unnamed check'}"
-        for raw in goal.get("checks", [])
-    ]
+def open_items_text(goal: dict) -> str:
+    return f"GOAL STILL OPEN: {goal.get('goal', '(unnamed goal)')}"
 
 
-def open_items_text(goal: dict, results: list[CheckResult]) -> str:
-    failed = [r for r in results if not r.ok]
-    lines = [f"GOAL STILL OPEN: {goal.get('goal', '(unnamed goal)')}", ""]
-    lines.append(f"{len(failed)} of {len(results)} checks are still failing:")
-    for r in failed:
-        detail = f" — {r.detail}" if r.detail else ""
-        lines.append(f"  ▢ {r.name}{detail}")
-    passed = [r for r in results if r.ok]
-    if passed:
-        lines.append("")
-        lines.append("Already satisfied: " + ", ".join(r.name for r in passed))
-    return "\n".join(lines)
-
-
-def short_open_items_text(results: list[CheckResult]) -> str:
-    """The open items WITHOUT the goal preamble, for a repeat block.
+def short_open_items_text() -> str:
+    """The block WITHOUT the goal preamble, for a repeat.
 
     The preamble is several thousand tokens and is byte-identical every turn, so
     reprinting it at every block buys nothing and costs the context the agent
-    needs to actually do the work. What changes between blocks is the check
-    results, so that is what a repeat says. The full text comes back on the
-    schedule in `wants_full_reason` — above all, after a compact.
+    needs to actually do the work. The full text comes back on the schedule in
+    `wants_full_reason` — above all, after a compact.
     """
-    failed = [r for r in results if not r.ok]
-    lines = [
+    return (
         "GOAL STILL OPEN (short form — the full goal text is unchanged in "
-        ".goal/active.json, and is reprinted here after a compact).",
-        "",
-        f"{len(failed)} of {len(results)} checks are still failing:",
-    ]
-    for r in failed:
-        detail = f" — {r.detail}" if r.detail else ""
-        lines.append(f"  ▢ {r.name}{detail}")
-    passed = len(results) - len(failed)
-    if passed:
-        lines.append("")
-        lines.append(f"The other {passed} are satisfied.")
-    return "\n".join(lines)
+        ".goal/active.json, and is reprinted here after a compact)."
+    )
 
 
 def wants_full_reason(state: dict, signals: dict, goal: dict | None = None) -> bool:
@@ -767,12 +547,8 @@ def wants_full_reason(state: dict, signals: dict, goal: dict | None = None) -> b
     )
 
 
-def block_reason(
-    goal: dict, results: list[CheckResult], deadline, full: bool = True
-) -> str:
-    parts = [
-        open_items_text(goal, results) if full else short_open_items_text(results)
-    ]
+def block_reason(goal: dict, deadline, full: bool = True) -> str:
+    parts = [open_items_text(goal) if full else short_open_items_text()]
     if deadline:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
         # Only worth saying when it is close enough to shape what to do next; a
@@ -781,10 +557,9 @@ def block_reason(
         if hours <= 168.0:
             parts.append(f"\n{hours:.1f}h remain before this goal releases on its own.")
     parts.append(
-        "\nThis is a command hook reading the repository, not a judge reading "
-        "your summary. Writing a status report does not close an item and will "
-        "not end this turn. Resume the first open item above now — no recap, no "
-        "hand-off, pick up mid-thought."
+        "\nThere is open work in docs/planning and this run is not over. Writing "
+        "a status report will not end this turn. Pick up the next item now — no "
+        "recap, no hand-off, mid-thought."
     )
     return "\n".join(parts)
 
@@ -794,7 +569,7 @@ def record_verdict(root: Path, verdict: str) -> None:
 
     ⛔⛔ EVERY PATH OUT OF `mode_stop` RECORDS, ESPECIALLY THE QUIET ONES. A
     bare `return 0` makes "the guard stood down" and "the hook never ran" the
-    same observation from outside. `--status --quick` reads this back.
+    same observation from outside. `--status` reads this back.
     """
     state = load_json(state_path(root)) or {}
     state["last_verdict"] = verdict
@@ -951,15 +726,14 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     # fail. A deliberate stand-down is `--pause` (one turn) or `--hold`.
     signals = transcript_signals(hook_input)
 
-    results = run_checks(goal, root)
-    if results and all(r.ok for r in results):
-        record_verdict(root, "RELEASED: every check passed")
-        clear_goal(root, "all checks passed")
-        emit({"systemMessage": f"Goal guard: MET — {goal.get('goal', '')}"})
-        return 0
-
-    # Still open. Decide whether blocking is still useful, or whether this run
-    # is simply stuck and a human should hear about it.
+    # ⛔ THE GOAL IS NEVER "MET" HERE. Jon, 2026-08-25: the backlog outlives any
+    # run, so there is no completion condition to test — only Jon, a deadline, or
+    # a fuse ends a run. This used to execute the goal's own shell commands and
+    # release when they all passed; `.goal/check_cost.jsonl` recorded 972 such
+    # turns, 66 hours of cargo, and not one release.
+    #
+    # Decide whether blocking is still useful, or whether this run is simply
+    # stuck and a human should hear about it.
     state = load_json(state_path(root)) or {}
     sha = head_sha(root)
     # An unreadable head is not progress. A new commit resets the stall
@@ -983,16 +757,10 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             "blocks": blocks,
             "first_block_at": first_block_at,
             "last_block_at": now_utc().isoformat(),
-            "last_open": [r.name for r in results if not r.ok],
             # A clean run: the crash fuse in `main` counts consecutive crashes,
             # so reaching here at all means the guard is working.
             "crashes": 0,
-            # Reaching an ordinary block means nothing is in flight (or the
-            # wait ran past its ceiling). BOTH keys drop: a wait that survived
-            # its ceiling has just paid a full block, and the next one earns its
-            # own quiet from zero rather than inheriting an expired clock.
-            "last_verdict": "blocked: "
-            + ", ".join(r.name for r in results if not r.ok),
+            "last_verdict": "blocked: the run is not over",
             "last_verdict_at": now_utc().isoformat(),
         }
     )
@@ -1004,8 +772,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
             {
                 "systemMessage": (
                     f"Goal guard: released after {stalled} blocks with no new "
-                    f"commit — the run is stuck, not finished. Still open: "
-                    + ", ".join(state["last_open"])
+                    f"commit — the run is stuck, not finished."
                 )
             }
         )
@@ -1015,10 +782,10 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     #
     # `deadline_utc` is the intended release and every armed goal should carry
     # one — but it is optional, and an unparseable one used to become silently
-    # no deadline at all. A goal with no deadline and a check that can never pass
-    # is an unbounded block, so the guard keeps its own ceiling: `--arm` now
-    # rejects a malformed deadline outright, and this catches goals armed before
-    # that existed, or edited by hand afterwards.
+    # no deadline at all. A goal with no deadline is an unbounded block, so the
+    # guard keeps its own ceiling: `--arm` now rejects a malformed deadline
+    # outright, and this catches goals armed before that existed, or edited by
+    # hand afterwards.
     fuse_h = as_float(goal.get("max_run_hours"), DEFAULT_MAX_RUN_HOURS)
     started = parse_deadline(first_block_at)
     if fuse_h > 0 and started and now_utc() - started >= _dt.timedelta(hours=fuse_h):
@@ -1029,8 +796,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
                 "systemMessage": (
                     f"Goal guard: RELEASED by the {fuse_h}h wall-clock fuse — this "
                     f"goal has been blocking since {first_block_at} and is being "
-                    f"cleared so the session is usable. It was NOT met. Still "
-                    f"open: " + ", ".join(state["last_open"])
+                    f"cleared so the session is usable. It was NOT met."
                 )
             }
         )
@@ -1043,7 +809,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     emit(
         {
             "decision": "block",
-            "reason": block_reason(goal, results, deadline, full=full),
+            "reason": block_reason(goal, deadline, full=full),
         }
     )
     return 0
@@ -1109,10 +875,8 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         )
         return 0
 
-    open_now = state.get("last_open")
-    headline = "GOAL STILL OPEN" if open_now else "GOAL ARMED"
-    lines = [f"{headline}: {goal.get('goal', '(unnamed goal)')}", ""]
-    lines += open_items_lines(goal, state)
+    headline = "GOAL STILL OPEN" if state.get("blocks") else "GOAL ARMED"
+    lines = [f"{headline}: {goal.get('goal', '(unnamed goal)')}"]
 
     if deadline:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
@@ -1128,10 +892,8 @@ def mode_inject(root: Path, hook_input: dict) -> int:
         ]
     lines += [
         "",
-        "This goal is enforced by a command hook (scripts/goal_guard.py) reading "
-        "the repository, not by a judge reading your summary. The list above is "
-        "the last recorded state, not a fresh run — the Stop hook re-checks for "
-        "real when this turn ends. Continue working it.",
+        "A Stop hook (scripts/goal_guard.py) blocks this session's turn from "
+        "ending while the goal is armed. Continue working it.",
     ]
 
     event = hook_input.get("hook_event_name") or "SessionStart"
@@ -1174,13 +936,9 @@ def mode_resume(root: Path) -> int:
         hours = max(0.0, (deadline - now_utc()).total_seconds() / 3600.0)
         print(f"deadline: {deadline.isoformat()} ({hours:.1f}h remain)")
 
-    for line in open_items_lines(goal, load_json(state_path(root)) or {}):
-        print(line)
-
     print(
         f"\nreleased from session {previous or '(unclaimed)'}; THIS session claims "
-        f"it when the turn ends. The goal is enforced by this script reading the "
-        f"repository, not by a judge reading a summary — keep working it."
+        f"it when the turn ends — keep working it."
     )
     return 0
 
@@ -1381,7 +1139,7 @@ def mode_extend(root: Path, raw: str) -> int:
     return 0
 
 
-def mode_status(root: Path, *, quick: bool = False) -> int:
+def mode_status(root: Path) -> int:
     goal = load_json(active_path(root))
     if not goal:
         print("no goal armed")
@@ -1445,44 +1203,23 @@ def mode_status(root: Path, *, quick: bool = False) -> int:
             "⚠ if the run is not new, the hook is not reaching the guard."
         )
 
-    if quick:
-        print("(checks not run: --status --quick)")
-        return 0
-    results = run_checks(goal, root)
-    for r in results:
-        mark = "✅" if r.ok else "▢"
-        detail = f"  ({r.detail})" if r.detail and not r.ok else ""
-        print(f"  {mark} {r.name}{detail}")
-    return 0 if results and all(r.ok for r in results) else 1
+    return 0
 
 
 def validate_goal(goal: dict) -> list[str]:
     """Validate goal fields that could disable a release or crash the Stop hook."""
     problems: list[str] = []
 
-    checks = goal.get("checks")
-    if not isinstance(checks, list) or not checks:
+    if not str(goal.get("goal") or "").strip():
+        problems.append("no `goal` — the text is the whole message the block carries")
+
+    # ⛔ A goal carries no commands. `checks` was removed 2026-08-25; refusing it
+    # here is what stops the next agent quietly reintroducing a per-turn build.
+    if "checks" in goal:
         problems.append(
-            "no `checks` — a goal with nothing to verify is exactly the "
-            "judged-by-vibes hook this replaces"
+            "`checks` is not supported — the guard runs nothing. It says there is "
+            "work left in docs/planning; if you want a suite green, run the suite"
         )
-    else:
-        for index, raw in enumerate(checks):
-            label = f"check {index}"
-            if not isinstance(raw, dict):
-                problems.append(f"{label}: not an object")
-                continue
-            label = f"check {index} ({raw.get('name') or 'unnamed'})"
-            if not raw.get("cmd"):
-                problems.append(f"{label}: has no `cmd`")
-            if "timeout" in raw:
-                try:
-                    timeout = float(raw["timeout"])
-                except (TypeError, ValueError):
-                    problems.append(f"{label}: `timeout` is not a number")
-                else:
-                    if timeout <= 0:
-                        problems.append(f"{label}: `timeout` must be positive")
 
     raw_deadline = goal.get("deadline_utc")
     if raw_deadline and parse_deadline(raw_deadline) is None:
@@ -1534,19 +1271,17 @@ def main() -> int:
     # and the incidents behind the rules live in docs/tools/goal-guard.md.
     parser = argparse.ArgumentParser(
         description=(
-            "Goal guard: blocks a session's Stop until repository checks pass. "
-            "Checks are shell commands recorded in .goal/active.json; the guard "
-            "reads the repository, never the conversation."
+            "Goal guard: blocks a session's Stop while a goal is armed, so a long "
+            "run keeps going. It runs no commands -- only a clock releases it."
         ),
         epilog=(
             "typical use\n"
-            "  --status                 what is armed, who holds it, what is failing\n"
+            "  --status                 what is armed, who holds it, when it releases\n"
             "  --arm goal.json          arm a goal (replaces any current one)\n"
             "  --clear <session-id>     stand down; others keep the goal\n"
             "  --extend 4h              push the deadline out\n"
             "\n"
             "if it will not let you stop\n"
-            "  --status                 read which check is red -- fix that\n"
             "  --pause <reason>         stop enforcing for a while\n"
             "  --hold <reason>          stop enforcing until --unhold\n"
             "  --clear-all              disarm it for every session\n"
@@ -1558,12 +1293,6 @@ def main() -> int:
     )
     parser.add_argument("--inject", action="store_true", help="SessionStart mode")
     parser.add_argument("--status", action="store_true")
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="with --status: who holds the goal and whether the guard is "
-        "running, WITHOUT running the goal's checks (which can take minutes)",
-    )
     parser.add_argument("--arm", metavar="GOAL_JSON")
     parser.add_argument(
         "--clear",
@@ -1729,7 +1458,7 @@ def main() -> int:
         print("goal cleared")
         return 0
     if args.status:
-        return mode_status(root, quick=args.quick)
+        return mode_status(root)
 
     hook_input = {}
     if not sys.stdin.isatty():

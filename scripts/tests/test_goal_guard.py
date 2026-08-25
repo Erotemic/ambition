@@ -1,8 +1,9 @@
 """Poison tests for the deterministic goal guard.
 
-Cases that cannot establish completion—failed checks, timeouts, crashes, or mere
-transcript claims—must remain open. The suite verifies both the blocking outcome
-and the reason surfaced by the guard."""
+The guard runs no commands: an armed goal blocks until a CLOCK releases it. What
+must not happen is a release for any other reason — a crash, a transcript claim,
+or a hand-edited goal file. The suite verifies both the blocking outcome and the
+reason surfaced by the guard."""
 
 from __future__ import annotations
 
@@ -82,37 +83,29 @@ def run(repo: Path, *args: str, stdin: dict | None = None, cwd: Path | None = No
     return json.loads(out) if out else {}
 
 
-PASS = {"name": "always true", "cmd": "true"}
-FAIL = {"name": "the queue still has open items", "cmd": "false"}
-
-# These tests prove timeout semantics, not the passage of human-scale time.
-# Keep the subprocess genuinely hung, but let the guard cut it off quickly so
-# three timeout assertions do not spend three wall-clock seconds per suite run.
-TEST_TIMEOUT_SECONDS = 0.1
 
 
 # ── It can say no ─────────────────────────────────────────────────────────────
 
 
 def test_a_failing_check_blocks_the_stop(repo: Path) -> None:
-    arm(repo, checks=[FAIL])
+    arm(repo)
     out = run(repo)
     assert out.get("decision") == "block"
 
 
-def test_the_block_names_the_open_item(repo: Path) -> None:
-    """A block that says only "not done" sends the agent hunting. Name it."""
-    arm(repo, checks=[PASS, FAIL])
-    reason = run(repo)["reason"]
-    assert "the queue still has open items" in reason
-    assert "always true" in reason, "and say what is already satisfied"
+def test_the_block_carries_the_goal(repo: Path) -> None:
+    """A block that says only "not done" sends the agent hunting. The goal text
+    IS the message — it is the only thing the guard has to say."""
+    arm(repo, goal="work docs/planning continuously")
+    assert "work docs/planning continuously" in run(repo)["reason"]
 
 
 def test_it_tells_the_agent_a_summary_will_not_end_the_turn(repo: Path) -> None:
     """A status report must not be mistaken for completion."""
-    arm(repo, checks=[FAIL])
+    arm(repo)
     reason = run(repo)["reason"].lower()
-    assert "status report" in reason and "does not close an item" in reason
+    assert "status report" in reason and "will not end this turn" in reason
 
 
 # ── The poison cases: a plausible guard would wrongly release here ────────────
@@ -137,7 +130,7 @@ def test_a_transcript_claiming_success_does_not_release_it(repo: Path) -> None:
         )
         + "\n"
     )
-    arm(repo, checks=[FAIL])
+    arm(repo)
     out = run(
         repo,
         stdin={
@@ -155,28 +148,21 @@ def test_it_keeps_blocking_even_when_stop_hook_active_is_set(repo: Path) -> None
     The runtime owns consecutive-block loop protection; this guard keeps
     enforcing the repository checks.
     """
-    arm(repo, checks=[FAIL])
+    arm(repo)
     out = run(repo, stdin={"stop_hook_active": True})
     assert out.get("decision") == "block"
 
 
-def test_a_check_that_times_out_is_not_a_pass(repo: Path) -> None:
-    """Silence is not consent. A hung check is an unanswered question, and an
-    unanswered question leaves the goal open."""
-    arm(
-        repo,
-        checks=[
-            {"name": "slow check", "cmd": "sleep 30", "timeout": TEST_TIMEOUT_SECONDS}
-        ],
+
+
+
+def test_a_goal_carrying_checks_cannot_be_armed(repo: Path) -> None:
+    """⛔ The guard runs NOTHING. `checks` was removed 2026-08-25 after it spent
+    66 hours of cargo across 972 turns without once deciding a verdict; refusing
+    the key is what stops the next agent quietly reintroducing a per-turn build."""
+    (repo / "empty.json").write_text(
+        json.dumps({"goal": "x", "checks": [{"name": "n", "cmd": "true"}]})
     )
-    out = run(repo)
-    assert out.get("decision") == "block"
-    assert "timed out" in out["reason"]
-
-
-def test_a_goal_with_no_checks_cannot_be_armed(repo: Path) -> None:
-    """A goal with nothing to verify IS the judged-by-vibes hook this replaces."""
-    (repo / "empty.json").write_text(json.dumps({"goal": "vibes", "checks": []}))
     proc = subprocess.run(
         [sys.executable, str(guard_in(repo)), "--arm", "empty.json"],
         cwd=str(repo),
@@ -204,34 +190,29 @@ def test_an_unarmed_repo_is_completely_untouched(repo: Path) -> None:
     assert run(repo) == {}
 
 
-def test_all_checks_passing_clears_the_goal(repo: Path) -> None:
-    arm(repo, checks=[PASS, PASS])
-    out = run(repo)
-    assert "decision" not in out
-    assert "MET" in out.get("systemMessage", "")
-    assert not (repo / ".goal" / "active.json").exists(), "a met goal disarms itself"
 
 
-def test_a_met_goal_is_archived_not_deleted(repo: Path) -> None:
+
+def test_a_released_goal_is_archived_not_deleted(repo: Path) -> None:
     """What a run was asked to do is evidence for the post-mortem."""
-    arm(repo, checks=[PASS])
+    arm(repo, deadline_utc="2000-01-01T00:00:00Z")
     run(repo)
     archived = list((repo / ".goal").glob("done-*.json"))
     assert len(archived) == 1
-    assert json.loads(archived[0].read_text())["_cleared_because"] == "all checks passed"
+    assert json.loads(archived[0].read_text())["_cleared_because"] == "deadline passed"
 
 
 def test_the_deadline_releases_the_run(repo: Path) -> None:
     """"24 hours" has to mean 24 hours in BOTH directions, or an unattended
     session is pinned against the wall forever."""
-    arm(repo, checks=[FAIL], deadline_utc="2000-01-01T00:00:00Z")
+    arm(repo, deadline_utc="2000-01-01T00:00:00Z")
     out = run(repo)
     assert "decision" not in out
     assert "deadline passed" in out.get("systemMessage", "")
 
 
 def test_a_far_deadline_does_not_release_it(repo: Path) -> None:
-    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z")
+    arm(repo, deadline_utc="2999-01-01T00:00:00Z")
     out = run(repo)
     assert out.get("decision") == "block"
     assert "remain before this goal releases" not in out["reason"], (
@@ -245,7 +226,7 @@ def test_a_near_deadline_says_how_long_is_left(repo: Path) -> None:
     soon = (
         _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=6)
     ).isoformat()
-    arm(repo, checks=[FAIL], deadline_utc=soon)
+    arm(repo, deadline_utc=soon)
     assert "remain before this goal releases" in run(repo)["reason"]
 
 
@@ -255,7 +236,7 @@ def test_a_near_deadline_says_how_long_is_left(repo: Path) -> None:
 def test_it_gives_up_after_blocking_with_no_new_commit(repo: Path) -> None:
     """Blocking forever against an agent that has stopped committing is not
     enforcement, it is a hang. Three strikes and it says so out loud."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=3)
+    arm(repo, max_stalled_blocks=3)
     decisions = [run(repo).get("decision") for _ in range(4)]
     assert decisions[:3] == ["block", "block", "block"]
     assert decisions[3] is None, "the fourth must release"
@@ -266,7 +247,7 @@ def test_it_gives_up_after_blocking_with_no_new_commit(repo: Path) -> None:
 def test_a_new_commit_resets_the_stall_counter(repo: Path) -> None:
     """The poison for the test above: an agent that IS working must never be
     released early just because the goal is taking a while."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=2)
+    arm(repo, max_stalled_blocks=2)
     assert run(repo).get("decision") == "block"
     assert run(repo).get("decision") == "block"
 
@@ -299,7 +280,7 @@ def cli(repo: Path, *args: str) -> str:
 
 
 def test_a_pause_lets_exactly_this_turn_end(repo: Path) -> None:
-    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    arm(repo, max_stalled_blocks=0)
     assert run(repo).get("decision") == "block"
     cli(repo, "--pause", "Jon asked me to wait")
     out = run(repo)
@@ -310,7 +291,7 @@ def test_a_pause_lets_exactly_this_turn_end(repo: Path) -> None:
 
 def test_the_goal_is_still_armed_after_a_pause(repo: Path) -> None:
     """A one-shot pause must leave the goal armed for the next turn."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    arm(repo, max_stalled_blocks=0)
     cli(repo, "--pause")
     run(repo)  # spends it
     assert (repo / ".goal" / "active.json").exists(), "a pause must not disarm"
@@ -321,7 +302,7 @@ def test_the_goal_is_still_armed_after_a_pause(repo: Path) -> None:
 def test_a_pause_is_spent_once_and_cannot_be_re_used(repo: Path) -> None:
     """One ask, one turn. An agent that could re-spend one token would have an
     unbounded exit and the run would end whenever it got tired."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    arm(repo, max_stalled_blocks=0)
     cli(repo, "--pause")
     assert run(repo).get("decision") is None
     assert "pause_once" not in state_of(repo), "the token is consumed, not kept"
@@ -332,7 +313,7 @@ def test_a_pause_is_spent_once_and_cannot_be_re_used(repo: Path) -> None:
 def test_an_expired_pause_does_not_release_the_turn(repo: Path) -> None:
     """A token armed at hour 2 and cashed at hour 40 is not "waiting for input",
     it is a delayed release — exactly the shape this guard exists to refuse."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=0)
+    arm(repo, max_stalled_blocks=0)
     cli(repo, "--pause")
     stale = state_of(repo)
     past = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=5)
@@ -374,7 +355,7 @@ def test_extending_moves_both_clocks(repo: Path) -> None:
     run on time — an absolute deadline and a fuse counted in hours from the first
     block — and the earlier one wins. A hand edit moves the one you can see, and
     the run then releases itself on the old schedule from the one you cannot."""
-    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z", max_run_hours=74)
+    arm(repo, deadline_utc="2999-01-01T00:00:00Z", max_run_hours=74)
     assert cli_raw(repo, "--extend", "48h").returncode == 0
     after = goal_of(repo)
     assert after["deadline_utc"] == "2999-01-03T00:00:00Z"
@@ -386,7 +367,7 @@ def test_extending_does_not_forgive_a_stall(repo: Path) -> None:
     landing. A version that also reset the stall counter would turn every "give
     it another day" into an unbounded silence, which is the failure the stall
     fuse exists for."""
-    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z", max_stalled_blocks=2)
+    arm(repo, deadline_utc="2999-01-01T00:00:00Z", max_stalled_blocks=2)
     assert run(repo).get("decision") == "block"
     assert run(repo).get("decision") == "block"
     assert cli_raw(repo, "--extend", "48h").returncode == 0
@@ -399,7 +380,7 @@ def test_a_dead_deadline_extends_from_now_not_from_itself(repo: Path) -> None:
     "extend" would hand back a run that is already over — the shape where the
     command reports success and changes nothing."""
     stale = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=3)).isoformat()
-    arm(repo, checks=[FAIL], deadline_utc=stale)
+    arm(repo, deadline_utc=stale)
     assert cli_raw(repo, "--extend", "48h").returncode == 0
     extended = _dt.datetime.fromisoformat(goal_of(repo)["deadline_utc"].replace("Z", "+00:00"))
     assert extended > _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=47)
@@ -407,7 +388,7 @@ def test_a_dead_deadline_extends_from_now_not_from_itself(repo: Path) -> None:
 
 def test_a_nonsense_duration_changes_nothing(repo: Path) -> None:
     """A guard file half-written by a rejected command is an UNARMED run."""
-    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z", max_run_hours=74)
+    arm(repo, deadline_utc="2999-01-01T00:00:00Z", max_run_hours=74)
     before = (repo / ".goal" / "active.json").read_text()
     proc = cli_raw(repo, "--extend", "next tuesday")
     assert proc.returncode != 0
@@ -418,27 +399,13 @@ def test_a_nonsense_duration_changes_nothing(repo: Path) -> None:
 def test_a_bare_number_of_hours_is_echoed_as_such(repo: Path) -> None:
     """`--extend 2` is the one input a caller can mean two ways. It means hours,
     and the answer says so rather than leaving them to check the file."""
-    arm(repo, checks=[FAIL], deadline_utc="2999-01-01T00:00:00Z")
+    arm(repo, deadline_utc="2999-01-01T00:00:00Z")
     proc = cli_raw(repo, "--extend", "2")
     assert goal_of(repo)["deadline_utc"] == "2999-01-01T02:00:00Z"
     assert "2h" in proc.stdout
 
 
-def test_extending_reads_the_clocks_without_running_the_checks(repo: Path) -> None:
-    """With no argument it is the cheap read. `--status` answers the same
-    question by running every check, which in a real repository is a build."""
-    marker = repo / "ran.txt"
-    arm(
-        repo,
-        checks=[{"name": "an expensive check", "cmd": f"touch {marker}"}],
-        deadline_utc="2999-01-01T00:00:00Z",
-    )
-    before = (repo / ".goal" / "active.json").read_text()
-    proc = cli_raw(repo, "--extend")
-    assert proc.returncode == 0
-    assert not marker.exists(), "printing the clocks must not run the checks"
-    assert "2999-01-01T00:00:00Z" in proc.stdout
-    assert (repo / ".goal" / "active.json").read_text() == before
+
 
 
 def test_extending_an_unarmed_repo_arms_nothing(repo: Path) -> None:
@@ -454,32 +421,20 @@ def test_inject_restates_the_open_items(repo: Path) -> None:
     """`PostCompact` has no `additionalContext` in its schema, so the goal
     cannot be re-injected at the compaction boundary itself. SessionStart plus
     the Stop hook's own reason are the channels that survive."""
-    arm(repo, checks=[FAIL])
+    arm(repo, goal="work docs/planning continuously")
     out = run(repo, "--inject", stdin={"hook_event_name": "SessionStart"})
     specific = out["hookSpecificOutput"]
     assert specific["hookEventName"] == "SessionStart"
-    assert "the queue still has open items" in specific["additionalContext"]
+    assert "work docs/planning continuously" in specific["additionalContext"]
 
 
-def test_inject_never_runs_the_checks(repo: Path) -> None:
-    """Session injection must never execute goal checks.
 
-    Injection reads cached Stop-hook state only, so expensive or failing checks
-    cannot block session startup.
-    """
-    forever = {"name": "would wedge startup", "cmd": "sleep 600"}
-    arm(repo, checks=[forever])
-
-    out = run(repo, "--inject", stdin={"hook_event_name": "SessionStart"})
-
-    context = out["hookSpecificOutput"]["additionalContext"]
-    assert "would wedge startup" in context, "the armed check is NAMED, not run"
 
 
 def test_inject_restates_an_armed_goal_that_has_never_been_checked(repo: Path) -> None:
     """With no Stop hook run yet there is no cache, and silence would read as
     'nothing is armed' — the one thing a fresh session must not conclude."""
-    arm(repo, checks=[PASS])
+    arm(repo)
     out = run(repo, "--inject", stdin={"hook_event_name": "SessionStart"})
     assert "GOAL ARMED" in out["hookSpecificOutput"]["additionalContext"]
 
@@ -501,7 +456,7 @@ def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
     git(nested, "add", "f.txt")
     git(nested, "commit", "-qm", "sub seed")
 
-    arm(repo, checks=[FAIL])
+    arm(repo)
     assert run(repo, cwd=nested).get("decision") == "block", (
         "the guard must belong to the repository it is COMMITTED IN, "
         "not to whichever one the working directory happens to be inside"
@@ -544,7 +499,7 @@ def launched(tool_use_id: str, task_id: str = "task1") -> dict:
 
 def test_work_still_in_flight_does_not_buy_silence(repo: Path) -> None:
     """⛔⛔ THE POISON FOR THE WHOLE MECHANISM THAT USED TO LIVE HERE."""
-    arm(repo, checks=[FAIL])
+    arm(repo)
     out = run(repo, stdin={"transcript_path": transcript(repo, launched("toolu_A"))})
     assert out.get("decision") == "block", (
         "a launched background task stood the guard down, and forgetting one is "
@@ -553,7 +508,7 @@ def test_work_still_in_flight_does_not_buy_silence(repo: Path) -> None:
 
 
 def test_an_unreadable_transcript_still_blocks(repo: Path) -> None:
-    arm(repo, checks=[FAIL])
+    arm(repo)
     assert run(repo, stdin={"transcript_path": "/nope/nope.jsonl"})["decision"] == "block"
 
 
@@ -561,7 +516,7 @@ def test_an_unreadable_transcript_still_blocks(repo: Path) -> None:
 
 
 def test_a_repeat_block_drops_the_goal_preamble(repo: Path) -> None:
-    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80, checks=[FAIL])
+    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80)
     first = run(repo)["reason"]
     second = run(repo)["reason"]
     assert "THE WHOLE PREAMBLE" in first, "the first block carries the goal"
@@ -569,19 +524,20 @@ def test_a_repeat_block_drops_the_goal_preamble(repo: Path) -> None:
     assert len(second) < len(first)
 
 
-def test_a_repeat_block_still_names_the_open_item(repo: Path) -> None:
-    """Shorter must not mean vaguer: what CHANGES between blocks is the checks."""
-    arm(repo, checks=[PASS, FAIL])
+def test_a_repeat_block_still_pushes_the_agent_on(repo: Path) -> None:
+    """Shorter must not mean vaguer. The preamble is what drops, never the
+    instruction to keep going."""
+    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80)
     run(repo)
     second = run(repo)["reason"]
-    assert "the queue still has open items" in second
-    assert "does not close an item" in second, "and the closing push survives"
+    assert "will not end this turn" in second, "the closing push survives"
+    assert ".goal/active.json" in second, "and it says where the full text is"
 
 
 def test_a_compact_brings_the_whole_goal_back(repo: Path) -> None:
     """The one case that matters. A compact is precisely when the agent has lost
     the goal, so that is when reprinting it is worth the tokens."""
-    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80, checks=[FAIL])
+    arm(repo, goal="THE WHOLE PREAMBLE, " + "thousands of tokens of it. " * 80)
     tp = transcript(repo, {"type": "assistant", "message": {"content": []}})
     run(repo, stdin={"transcript_path": tp})
     assert "THE WHOLE PREAMBLE" not in run(repo, stdin={"transcript_path": tp})["reason"]
@@ -598,10 +554,10 @@ def test_a_compact_brings_the_whole_goal_back(repo: Path) -> None:
 
 def test_arming_over_a_live_goal_archives_the_one_it_replaces(repo: Path) -> None:
     """Re-arming over a live goal must archive the replaced goal first."""
-    arm(repo, goal="THE GOAL THAT WAS ALREADY RUNNING", checks=[FAIL])
+    arm(repo, goal="THE GOAL THAT WAS ALREADY RUNNING")
     replacement = repo / "next.json"
     replacement.write_text(
-        json.dumps({"goal": "the new one", "checks": [PASS], "deadline_utc": "2099-01-01T00:00:00Z"})
+        json.dumps({"goal": "the new one", "deadline_utc": "2099-01-01T00:00:00Z"})
     )
     cli(repo, "--arm", str(replacement))
     archived = [p for p in (repo / ".goal").glob("done-*.json")]
@@ -614,18 +570,12 @@ def test_arming_over_a_live_goal_archives_the_one_it_replaces(repo: Path) -> Non
 
 def test_arming_still_installs_the_new_goal(repo: Path) -> None:
     """Archiving the outgoing goal must not disarm the incoming one."""
-    arm(repo, goal="the old one", checks=[FAIL])
+    arm(repo, goal="the old one")
     replacement = repo / "next.json"
     replacement.write_text(
-        json.dumps({"goal": "the new one", "checks": [FAIL], "deadline_utc": "2099-01-01T00:00:00Z"})
+        json.dumps({"goal": "the new one", "deadline_utc": "2099-01-01T00:00:00Z"})
     )
-    # NOT `cli`, which asserts exit 0: `--arm` finishes by printing `--status`,
-    # and status exits 1 while anything is open — which is the whole point of
-    # arming a goal with an open check.
-    subprocess.run(
-        [sys.executable, str(guard_in(repo)), "--arm", str(replacement)],
-        cwd=str(repo), capture_output=True, text=True, timeout=120,
-    )
+    cli(repo, "--arm", str(replacement))
     assert json.loads((repo / ".goal" / "active.json").read_text())["goal"] == "the new one"
     assert run(repo)["decision"] == "block", "and the new goal is live"
 
@@ -633,62 +583,21 @@ def test_arming_still_installs_the_new_goal(repo: Path) -> None:
 # ── Repo-specific settings live in the repo, not in the guard ────────────────
 
 
-def test_a_repo_with_no_config_still_works(repo: Path) -> None:
-    """A port with no `.goal-guard.json` is a working port."""
-    assert not (repo / ".goal-guard.json").exists()
-    arm(repo, checks=[FAIL])
+def test_a_goal_of_text_and_clocks_alone_still_works(repo: Path) -> None:
+    """A port needs no config file and no commands: text plus clocks is a goal."""
+    arm(repo)
     assert run(repo)["decision"] == "block"
 
 
-def test_the_default_check_timeout_comes_from_the_repo(repo: Path) -> None:
-    (repo / ".goal-guard.json").write_text(
-        json.dumps({"default_check_timeout": TEST_TIMEOUT_SECONDS})
-    )
-    arm(repo, checks=[{"name": "a slow check", "cmd": "sleep 30"}])
-    reason = run(repo)["reason"]
-    expected = f"timed out after {TEST_TIMEOUT_SECONDS:g}s"
-    assert expected in reason, "the repo's number, not the built-in one"
 
 
-def test_a_timeout_says_it_is_the_clock_and_not_a_failure(repo: Path) -> None:
-    """This repo read a green integration suite as red for days, because the
-    block said only "timed out after 120s" and that looks exactly like a red
-    test. A port must not lose the same days to the same sentence."""
-    (repo / ".goal-guard.json").write_text(
-        json.dumps({"default_check_timeout": TEST_TIMEOUT_SECONDS})
-    )
-    arm(repo, checks=[{"name": "the integration suite", "cmd": "sleep 30"}])
-    reason = run(repo)["reason"]
-    assert "NOT RUN" in reason
-    assert "timeout" in reason and ".goal-guard.json" in reason, "and say how to fix it"
 
 
-def test_an_undeclared_build_is_not_a_quiet_machine(repo: Path) -> None:
-    """`foreign_builds: 0` in a repo that never said what a build looks like is a
-    measurement that cannot fail. It records null instead."""
-    arm(repo, checks=[PASS])
-    run(repo)
-    rows = [
-        json.loads(line)
-        for line in (repo / ".goal" / "check_cost.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
-    assert rows[-1]["foreign_builds"] is None
-    assert rows[-1]["build_processes"] == []
 
 
-def test_the_cost_row_says_what_it_counted(repo: Path) -> None:
-    """A contention number whose subject is unrecorded cannot be compared."""
-    (repo / ".goal-guard.json").write_text(
-        json.dumps({"build_processes": ["definitely_not_a_real_process"]})
-    )
-    arm(repo, checks=[PASS])
-    run(repo)
-    row = json.loads(
-        (repo / ".goal" / "check_cost.jsonl").read_text().splitlines()[-1]
-    )
-    assert row["build_processes"] == ["definitely_not_a_real_process"]
-    assert row["foreign_builds"] == 0, "declared and genuinely absent IS zero"
+
+
+
 
 
 # ── More than one session can be held by one run ──────────────────────────────
@@ -722,7 +631,7 @@ def test_a_bare_clear_refuses_to_disarm_a_roster_it_does_not_own(repo: Path) -> 
     Without an explicit session, the guard cannot know which owner should be
     released.
     """
-    arm(repo, goal="shared work", checks=[])
+    arm(repo, goal="shared work")
     _cli(repo, "--own", "sess-A")
     _cli(repo, "--own", "sess-B")
 
@@ -739,7 +648,7 @@ def test_a_bare_clear_refuses_to_disarm_a_roster_it_does_not_own(repo: Path) -> 
 
 def test_clearing_by_session_leaves_the_other_holders_armed(repo: Path) -> None:
     """The per-session stand-down: one name leaves, the goal does not."""
-    arm(repo, goal="shared work", checks=[])
+    arm(repo, goal="shared work")
     _cli(repo, "--own", "sess-A")
     _cli(repo, "--own", "sess-B")
 
@@ -754,7 +663,7 @@ def test_clearing_by_session_leaves_the_other_holders_armed(repo: Path) -> None:
 def test_the_last_holder_leaving_disarms_the_goal(repo: Path) -> None:
     """⚠ the other half, and without it the fix would strand goals forever: a
     goal nobody holds is not armed, it is litter."""
-    arm(repo, goal="shared work", checks=[])
+    arm(repo, goal="shared work")
     _cli(repo, "--own", "sess-A")
     _cli(repo, "--own", "sess-B")
 
@@ -771,7 +680,7 @@ def test_the_last_holder_leaving_disarms_the_goal(repo: Path) -> None:
 def test_clear_all_disarms_a_shared_roster_on_purpose(repo: Path) -> None:
     """The escape hatch the refusal points at. Named separately so that ending a
     run for everybody is a thing you TYPE, not a thing you get by accident."""
-    arm(repo, goal="shared work", checks=[])
+    arm(repo, goal="shared work")
     _cli(repo, "--own", "sess-A")
     _cli(repo, "--own", "sess-B")
 
@@ -816,14 +725,14 @@ def _cli(repo: Path, *args: str) -> str:
 
 def test_an_unshared_goal_still_holds_exactly_one_session(repo: Path) -> None:
     """An unshared goal must hold only the session that claimed it."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     assert _stop(repo, "first")["decision"] == "block"
     assert _stop(repo, "second") == {}, "an unshared goal held a session that never claimed it"
 
 
 def test_a_shared_goal_holds_every_session_that_stops(repo: Path) -> None:
     """The capability itself: two sessions, one run, both held."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     assert _stop(repo, "first")["decision"] == "block"
     _cli(repo, "--share")
     assert _stop(repo, "second")["decision"] == "block", "a shared goal let a second session go"
@@ -835,7 +744,7 @@ def test_a_shared_goal_holds_every_session_that_stops(repo: Path) -> None:
 def test_sharing_is_an_explicit_act_and_is_reversible(repo: Path) -> None:
     """⚠ a shared run holds windows nobody meant to enlist, so it must be
     possible to narrow it again WITHOUT releasing the sessions already working."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, "first")
     _cli(repo, "--share")
     assert _stop(repo, "second")["decision"] == "block"
@@ -848,7 +757,7 @@ def test_sharing_is_an_explicit_act_and_is_reversible(repo: Path) -> None:
 def test_disown_removes_only_the_session_that_runs_it(repo: Path) -> None:
     """⛔ the multi-session failure that would be worst: one lane finishing and
     silently releasing the other."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, "first")
     _cli(repo, "--share")
     _stop(repo, "second")
@@ -862,7 +771,7 @@ def test_disown_removes_only_the_session_that_runs_it(repo: Path) -> None:
 def test_own_adds_a_second_session_rather_than_replacing_the_first(repo: Path) -> None:
     """`--own` used to REPLACE, so binding a second lane released the first
     without saying so."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, "first")
     _cli(repo, "--own", "second")
     assert _stop(repo, "first")["decision"] == "block", "--own released the session already held"
@@ -872,12 +781,12 @@ def test_own_adds_a_second_session_rather_than_replacing_the_first(repo: Path) -
 def test_clearing_a_run_takes_its_share_marker_with_it(repo: Path) -> None:
     """⛔ a stale marker would make the NEXT goal armed here hold every window in
     the repository without anybody asking for it."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, "first")
     _cli(repo, "--share")
     _cli(repo, "--clear")
     assert not (repo / ".goal" / "shared").exists(), "the share marker outlived its run"
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     assert _stop(repo, "a")["decision"] == "block"
     assert _stop(repo, "b") == {}, "a cleared run's sharing leaked into the next goal"
 
@@ -912,7 +821,7 @@ def continuation(repo: Path, previous: str, name: str) -> str:
 
 
 def test_the_same_conversation_under_a_new_id_inherits_the_run(repo: Path) -> None:
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, CONTINUED)
     assert _roster(repo) == [CONTINUED]
 
@@ -934,7 +843,7 @@ def test_the_same_conversation_under_a_new_id_inherits_the_run(repo: Path) -> No
 def test_a_stranger_window_still_does_not_inherit_the_run(repo: Path) -> None:
     """⛔ THE POISON. Inheritance is proof of continuation, not a way for any new
     window to take a goal it is not doing — that is what `--share` is for."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, CONTINUED)
     assert _stop(repo, ROTATED) == {}, "a window with no continuation took the run"
     assert _roster(repo) == [CONTINUED]
@@ -943,7 +852,7 @@ def test_a_stranger_window_still_does_not_inherit_the_run(repo: Path) -> None:
 def test_session_start_says_so_when_a_goal_is_armed_but_not_held(repo: Path) -> None:
     """Silence is how an orphan stays an orphan: nothing distinguished "somebody
     else holds this" from "the guard is enforcing on nobody"."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, CONTINUED)
     out = run(repo, "--inject", stdin={"session_id": "some-other-window"})
     message = out.get("systemMessage", "")
@@ -954,14 +863,6 @@ def test_session_start_says_so_when_a_goal_is_armed_but_not_held(repo: Path) -> 
     )
 
 
-def test_status_quick_answers_without_running_the_checks(repo: Path) -> None:
-    """The line that says the guard is not running used to sit behind minutes of
-    the goal's own cargo commands."""
-    arm(repo, checks=[{"name": "expensive", "cmd": "sleep 30"}])
-    out = cli(repo, "--status", "--quick")
-    assert "blocks so far" in out
-    assert "NEVER" in out, "a guard that has never fired is the failure being looked for"
-    assert "expensive" not in out
 
 
 # ── A quiet exit that leaves no trace is the bug, not the tidy path ───────────
@@ -971,7 +872,7 @@ def test_every_quiet_stand_down_records_what_it_decided(repo: Path) -> None:
     """⛔⛔ THE INVARIANT BEHIND BOTH 2026-08-23 DEFECTS. A bare `return 0` wrote
     nothing, so "the guard decided to stand down" and "the hook never ran" were
     the same observation from outside — no state changed either way."""
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, "holder")
     assert "blocked" in state_of(repo)["last_verdict"]
 
@@ -983,8 +884,7 @@ def test_every_quiet_stand_down_records_what_it_decided(repo: Path) -> None:
 
 
 def test_status_reads_the_last_decision_back(repo: Path) -> None:
-    arm(repo, checks=[FAIL], max_stalled_blocks=99)
+    arm(repo, max_stalled_blocks=99)
     _stop(repo, "holder")
-    out = cli(repo, "--status", "--quick")
+    out = cli(repo, "--status")
     assert "last Stop decided: blocked:" in out
-    assert FAIL["name"] in out, "the block names its open item without re-running it"

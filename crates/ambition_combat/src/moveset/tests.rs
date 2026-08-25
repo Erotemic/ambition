@@ -6990,6 +6990,90 @@ fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
     );
 }
 
+/// ⛔⛔ AND THE PIVOT PICKED THE MOVE THE NEW WAY AND THEN MIRRORED IT THE OLD.
+///
+/// `resolve_attack_gestures` resolves the attack DIRECTION against `-kin.facing`
+/// while the body is turning, which is what makes a pivot grab need no move of
+/// its own. But the body still HOLDS the old facing, and `start_move` snapshots
+/// `kin.facing` into the playback — the value every hit volume is mirrored by
+/// and every `start_impulse` is multiplied by. So the correct move came out
+/// pointing backwards: the right name, the wrong geometry.
+///
+/// ⭐ THE SIBLING ARM BELOW CANNOT SEE THIS — it asserts which move STARTED,
+/// which was always right. The playback's facing is the half nothing read.
+#[test]
+fn a_move_thrown_out_of_a_turnaround_is_mirrored_the_new_way() {
+    let started_facing = |turning: bool| -> f32 {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([("attack".to_string(), "jab".to_string())]),
+            moves: vec![gesture_test_move("jab")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::BodyMotionFacts {
+                turning_around: turning,
+                ..Default::default()
+            });
+        // Facing RIGHT and pressing LEFT — a body mid-turnaround holds the stick
+        // the way it is turning.
+        set_frame(&mut app, body, |f| {
+            f.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+            f.melee_pressed = true;
+        });
+        app.update();
+        app.world()
+            .get::<MovePlayback>(body)
+            .expect("the press started a move")
+            .facing
+    };
+
+    assert_eq!(
+        started_facing(false),
+        1.0,
+        "a body that is NOT turning threw its move backwards, so the arm below \
+         is measuring the fixture rather than the pivot"
+    );
+    assert_eq!(
+        started_facing(true),
+        -1.0,
+        "the pivot picked the move by the NEW facing and then mirrored it by the \
+         OLD one — the right move came out pointing the way the body had already \
+         stopped facing"
+    );
+
+    // ⛔⛔ AND A REFUSED PRESS TURNS NOBODY. The flip is committed where the move
+    // starts, not where the gesture is resolved — the same rule the special-turn
+    // and the double-jump cancel were repaired for.
+    let moveset = MovesetContract {
+        verbs: std::collections::BTreeMap::from([("attack".to_string(), "jab".to_string())]),
+        moves: vec![gesture_test_move("jab")],
+    };
+    let (mut app, body) = playing_app(moveset);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_platformer2d_core::BodyMotionFacts {
+            turning_around: true,
+            ..Default::default()
+        });
+    // ALREADY PLAYING a move that authorises no cancel, so the press below is
+    // refused.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(MovePlayback::new(gesture_test_move("jab"), 1.0));
+    set_frame(&mut app, body, |f| {
+        f.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+        f.melee_pressed = true;
+    });
+    app.update();
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(body).unwrap().facing,
+        1.0,
+        "a press the playing move REFUSED still turned the fighter around — a \
+         rejected attack changed the body"
+    );
+}
+
 /// AND THE PIVOT IS NOT A TILT RULE — A SMASH THROWN OUT OF A TURNAROUND ALSO
 /// COMES OUT THE NEW WAY.
 ///

@@ -2226,6 +2226,14 @@ pub fn trigger_moveset_moves(
         // where it is decided.
         let mut special_turn = false;
         let mut special_turn_reverses_drift = false;
+        // ⭐⭐ THE PIVOT'S OTHER HALF. `resolve_attack_gestures` already resolves
+        // the attack DIRECTION against `-kin.facing` while the body is turning —
+        // that is what makes a pivot grab need no move of its own. The body
+        // still HOLDS the old facing, and `start_move` snapshots it into the
+        // playback, which is the value every hit volume is mirrored by and every
+        // `start_impulse` multiplied by. So the correct move came out pointing
+        // backwards: the right name, the wrong geometry.
+        let mut pivot_turn = false;
         // ⭐⭐ PROPOSED HERE, COMMITTED WHERE THE MOVE STARTS. The double-jump
         // cancel used to write `kin.vel` in the middle of resolution, before
         // `cancel_permits` had been asked — so a buffered aerial thrown during a
@@ -2472,6 +2480,9 @@ pub fn trigger_moveset_moves(
             }
             started_by = (base_verb == SMASH_VERB && !running_attack)
                 .then_some(ambition_entity_catalog::ChargeGesture::Smash);
+            // ⛔ PROPOSED, like everything else on this road. A press the
+            // playing move refuses must not turn the fighter around.
+            pivot_turn = motion_facts.is_some_and(|facts| facts.turning_around);
             (spec, verb_names, ProposedVerb::Attack)
         } else if frame.taunt_pressed {
             // LAST in the chain on purpose: a taunt loses to every verb that
@@ -2610,7 +2621,11 @@ pub fn trigger_moveset_moves(
             // where the move is certain to start. ⛔ BEFORE the start impulse:
             // the turn reverses the drift the fighter ARRIVED with, and running
             // it afterwards would reverse the move's own impulse too.
-            if special_turn {
+            // ⭐ TWO ROADS ASK FOR ONE FLIP — the special arm's B-reverse and
+            // the attack arm's PIVOT — and they are exclusive by construction,
+            // being different verbs. `||`, so a reader does not have to wonder
+            // whether two flips could cancel.
+            if special_turn || pivot_turn {
                 kin.facing = -kin.facing;
             }
             // ⭐⭐ THE ACCEPTED DOUBLE-JUMP CANCEL, and this is its commit point
@@ -2690,7 +2705,11 @@ pub fn trigger_moveset_moves(
             // where the move is certain to start. ⛔ BEFORE the start impulse:
             // the turn reverses the drift the fighter ARRIVED with, and running
             // it afterwards would reverse the move's own impulse too.
-            if special_turn {
+            // ⭐ TWO ROADS ASK FOR ONE FLIP — the special arm's B-reverse and
+            // the attack arm's PIVOT — and they are exclusive by construction,
+            // being different verbs. `||`, so a reader does not have to wonder
+            // whether two flips could cancel.
+            if special_turn || pivot_turn {
                 kin.facing = -kin.facing;
             }
             // ⭐⭐ THE ACCEPTED DOUBLE-JUMP CANCEL, and this is its commit point

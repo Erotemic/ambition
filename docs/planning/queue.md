@@ -9259,9 +9259,9 @@ does not implement reads as coverage.
 route changes and when the match resource goes away, and both happen a few
 seconds later, so a test asserting only the absence passes for the wrong reason.
 
-- ▢ **D212 — TWO CONSUMERS ASK "HOW LONG HAS THIS MATCH BEEN RUNNING" AND GET
-  DIFFERENT ANSWERS. (opened 2026-08-24, from the GPT 5.6 correction-pass
-  review, P1)**
+- ✔ **D212 — CLOSED 2026-08-24 (`f4cee3e63`). TWO CONSUMERS ASKED "HOW LONG HAS
+  THIS MATCH BEEN RUNNING" AND GOT DIFFERENT ANSWERS. (opened and closed
+  2026-08-24, from the GPT 5.6 correction-pass review, P1)**
 
 The timeout and the item-spawn cadence each measure elapsed match time their own
 way, and neither excludes the opening countdown or a pause. So a match paused for
@@ -9276,6 +9276,28 @@ deletion is the proof: both existing readings go away in the same slice.
 2026-08-23), so the cadence consumer is dormant. It is still a consumer, and the
 clock is what makes turning items back on a one-line change rather than a
 re-derivation.
+
+✔ **LANDED.** `character_runtime::live_match_clock::LiveMatchTicks`, counted by
+one system in `WorldPrep` so both readers downstream see THIS tick's number.
+Both private readings are deleted, including the spawner's hand-written
+`elapsed == 0` — which was standing in for "not during the countdown" and stops
+being true the moment an interval is shorter than a countdown.
+
+⭐ **THE FOUR REASONS A TICK DOES NOT COUNT ARE EACH THE CONDITION ITSELF**: no
+active match · `opening_phase` still `Counting` · `sim_dt == 0` · already
+settled. `sim_dt` rather than a pause flag, because "is the world moving" is what
+the clock wants and a menu state would miss every other reason it stopped.
+
+⛔⛔ **AND IT COSTS WIRE FORMAT, which the thing it replaces did not.**
+`time_remaining`'s own doc calls itself a pure function of `(activated_on, now)`
+and names that as why a match clock needs no snapshot bytes. `SimTick` advances
+while paused — deliberately, it is the netcode timeline — so "how long was this
+stopped" is written nowhere else and a rewind must restore the count. Registered;
+schema v87.
+
+⛔ **THE CEREMONY HALF IS PINNED ON THE PRODUCTION PATH**, not in a unit test:
+`PreparedMatch` has no constructor outside `prepare_match`, and adding one so a
+fixture could set a countdown would be scaffolding on a production type.
 
 - ▢ **D213 — `sim_random` HAS NO MATCH-CONTEXT SEED, so two matches draw the
   same sequence. (opened 2026-08-24, from the GPT 5.6 correction-pass review,

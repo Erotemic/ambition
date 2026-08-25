@@ -8,7 +8,7 @@
 use bevy::math::bounding::IntersectsVolume as _;
 use bevy::prelude::*;
 
-use super::{captive_of, CaptureAttemptRequested, CapturedBy};
+use super::{CaptureAttemptRequested, CapturedBy, captive_of};
 use crate::hitbox::StrikeVictim;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
@@ -2446,6 +2446,8 @@ pub fn apply_capture_throws(
             weight,
         );
         let knockback = ae::hit_response::HitKnockback {
+            // A throw is a hit: it stuns.
+            flinchless: false,
             // The captor's facing decides which way "forward" points, exactly as
             // it does for the hold anchor — a throw follows the hands.
             dir: captor_kin.facing,

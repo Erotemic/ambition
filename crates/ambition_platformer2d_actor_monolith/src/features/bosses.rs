@@ -143,6 +143,8 @@ pub fn boss_attack_moveset(
                         let c = aabb.center();
                         let h = aabb.half_size();
                         HitVolume {
+                            // An ordinary hit, not a gust.
+                            windbox: None,
                             hit_sfx: None,
                             shape: VolumeShape::Rect {
                                 offset: (c.x, c.y),

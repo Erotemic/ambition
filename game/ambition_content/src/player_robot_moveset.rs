@@ -657,6 +657,8 @@ mod tests {
 pub fn theorem_chain_moveset() -> MovesetContract {
     let volume = |offset: (f32, f32), half_extents: (f32, f32), damage: i32, knockback: f32| {
         HitVolume {
+            // An ordinary hit, not a gust.
+            windbox: None,
             shape: VolumeShape::Rect {
                 offset,
                 half_extents,

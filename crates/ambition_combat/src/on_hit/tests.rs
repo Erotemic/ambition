@@ -32,15 +32,15 @@ fn landed_body_hit_projects_the_authored_effect_without_re_resolving_contact() {
     app.add_message::<LandedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
     app.init_resource::<CapturedEffects>();
-    app.add_systems(Update, (dispatch_landed_hit_effects, capture_effects).chain());
+    app.add_systems(
+        Update,
+        (dispatch_landed_hit_effects, capture_effects).chain(),
+    );
 
     let attacker = app.world_mut().spawn_empty().id();
     let victim = app.world_mut().spawn_empty().id();
     let effect = EffectRef::new("lifesteal");
-    let hitbox = app
-        .world_mut()
-        .spawn(HitboxOnHit::new(effect.clone()))
-        .id();
+    let hitbox = app.world_mut().spawn(HitboxOnHit::new(effect.clone())).id();
     let volume: ae::CombatVolume =
         ae::Aabb::new(ae::Vec2::new(40.0, 50.0), ae::Vec2::new(8.0, 6.0)).into();
 
@@ -64,7 +64,10 @@ fn pogo_app(
     app.add_message::<LandedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_systems(Update, (dispatch_landed_hit_effects, apply_pogo_bounce).chain());
+    app.add_systems(
+        Update,
+        (dispatch_landed_hit_effects, apply_pogo_bounce).chain(),
+    );
 
     let owner = app
         .world_mut()
@@ -97,8 +100,7 @@ fn pogo_app(
 
 #[test]
 fn from_damageable_pogo_uses_the_resolved_body_hit_as_its_contact_fact() {
-    let (mut app, owner, victim, hitbox) =
-        pogo_app(PogoPolicy::FromDamageable, None);
+    let (mut app, owner, victim, hitbox) = pogo_app(PogoPolicy::FromDamageable, None);
     let volume: ae::CombatVolume =
         ae::Aabb::new(ae::Vec2::new(100.0, 130.0), ae::Vec2::new(18.0, 18.0)).into();
     app.world_mut()
@@ -121,8 +123,7 @@ fn from_damageable_pogo_uses_the_resolved_body_hit_as_its_contact_fact() {
 
 #[test]
 fn disabled_pogo_policy_rejects_an_otherwise_landed_body_hit() {
-    let (mut app, owner, victim, hitbox) =
-        pogo_app(PogoPolicy::Disabled, None);
+    let (mut app, owner, victim, hitbox) = pogo_app(PogoPolicy::Disabled, None);
     let volume: ae::CombatVolume =
         ae::Aabb::new(ae::Vec2::new(100.0, 130.0), ae::Vec2::new(18.0, 18.0)).into();
     app.world_mut()
@@ -167,8 +168,8 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
     use crate::components::ActorFaction;
     use crate::events::HitEvent;
     use crate::hitbox::{
-        apply_hitbox_damage, HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
-        HitboxLifetime,
+        HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
+        apply_hitbox_damage,
     };
     use ambition_platformer2d_core::AabbExt;
     use ambition_vfx::vfx::VfxMessage;
@@ -255,6 +256,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 autolink: None,
+                windbox: None,
             },
             HitboxLifetime { remaining_s: 0.1 },
             HitboxHits::default(),
@@ -265,7 +267,10 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
     app.update();
 
     let hits = app.world().get::<HitboxHits>(hitbox).expect("live hitbox");
-    assert!(hits.hit.contains(&victim), "the separated victim is the landed body");
+    assert!(
+        hits.hit.contains(&victim),
+        "the separated victim is the landed body"
+    );
     assert!(
         !hits.hit.contains(&owner),
         "the attacking body never becomes its own landed-hit victim"

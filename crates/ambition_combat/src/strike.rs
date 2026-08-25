@@ -65,6 +65,13 @@ pub struct Hitbox {
     /// attacker's velocity at the pulse, because that is a fact about the
     /// moment and not about the move. `None` is an ordinary hit.
     pub autolink: Option<ambition_entity_catalog::AutolinkVolume>,
+    /// WINDBOX: this volume PUSHES its victim and does nothing else — carried
+    /// from the authored volume. `None` is an ordinary hit.
+    ///
+    /// ⭐ IT SITS BESIDE `autolink` BECAUSE IT IS THE SAME KIND OF FACT: a
+    /// per-volume override of the REACTION, leaving targeting, faction and
+    /// contact exactly as they are for a hit.
+    pub windbox: Option<ambition_entity_catalog::WindboxVolume>,
     pub frame_down: ae::Vec2,
     /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
     /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin
@@ -177,6 +184,9 @@ pub fn spawn_damage_box(
     let mut e = commands.spawn((
         Hitbox {
             strike_sfx: None,
+            // A `DamageBox` effect is a hit by construction — the name is the
+            // contract. A gust is authored on a move's volume, never here.
+            windbox: None,
             owner,
             source,
             anchor: HitboxAnchor::World { center },
@@ -268,6 +278,7 @@ mod hitbox_shape_tests {
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             autolink: None,
+            windbox: None,
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
             ae::CombatVolume::Circle { center, radius } => {
@@ -297,6 +308,7 @@ mod hitbox_shape_tests {
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             autolink: None,
+            windbox: None,
         };
         assert!(matches!(
             hb.world_volume(ae::Vec2::ZERO),

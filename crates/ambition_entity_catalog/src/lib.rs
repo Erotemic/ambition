@@ -304,6 +304,14 @@ pub struct HitVolume {
     /// and the victim keeps every verb it has.
     #[serde(default)]
     pub autolink: Option<AutolinkVolume>,
+    /// WINDBOX: this volume PUSHES its victim and does nothing else — no damage,
+    /// no hitstun, no shield. `None` is an ordinary hit.
+    ///
+    /// ⛔ MUTUALLY EXCLUSIVE WITH `autolink` in meaning, not in type: both
+    /// override the reaction, and a volume authoring both is asking to hold and
+    /// to shove at once. The runtime resolves the windbox first and says so.
+    #[serde(default)]
+    pub windbox: Option<WindboxVolume>,
     /// Optional technique fired when this volume lands, with owner/victim/contact
     /// context. `None` is an ordinary damage-only volume.
     #[serde(default)]
@@ -329,6 +337,37 @@ pub struct HitVolume {
     /// throws are the VICTIM's, carried on its `HurtFeedback`.
     #[serde(default)]
     pub hit_sfx: Option<String>,
+}
+
+/// A WINDBOX: this volume MOVES its victim without hurting it.
+///
+/// ⭐⭐ IT CARRIES NO PUSH OF ITS OWN, and that is the design. A volume already
+/// says where and how hard it throws — `knockback` and `launch_dir` — and a
+/// gust is thrown the same way a punch is. Adding a second push vector here
+/// would be a second way to author one thing, and the two would disagree the
+/// first time somebody set both.
+///
+/// ⭐ HALF OF THIS MECHANIC ALREADY EXISTED. `damage: 0` is authorable and the
+/// damage floor deliberately keeps it at zero (see `damage_floor` — *"a volume
+/// that authors NO damage is a WINDBOX, and flooring it to one turned a push
+/// into a hit"*). What a damageless volume still did was STUN its victim and
+/// spend its hit-once slot, so it was a punch that dealt nothing rather than a
+/// gust. This field is the remaining difference and nothing more.
+///
+/// ⛔ IT IS STILL AN ORDINARY VOLUME EVERYWHERE ELSE. Targeting, faction and
+/// contact resolve exactly as they do for a hit, because "who is standing in
+/// this" is the same question whether the answer hurts or not.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct WindboxVolume {
+    /// May this volume move the SAME body again while it stands in the gust?
+    ///
+    /// ⭐ A GUST PUSHES FOR AS LONG AS YOU ARE IN IT, which an ordinary strike
+    /// must not: the hit-once set exists so a long active window cannot re-hit a
+    /// stationary target every frame. `true` opts out of that set — correct for
+    /// a sustained wind, wrong for a one-shot shove, so it is authored rather
+    /// than assumed.
+    #[serde(default)]
+    pub repeating: bool,
 }
 
 /// The authored half of an autolink pulse: where it holds, how hard, and how

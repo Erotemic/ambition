@@ -856,12 +856,13 @@ pub fn advance_move_playback(
                     // Reading the attack hold for both is what made the second
                     // one impossible: the finger on Special was on the wrong
                     // field, so the charge released on the tick it latched.
-                    let still_held = held_attack.get(owner).is_ok_and(|g| {
-                        match playback.spec.charge_gesture {
-                            ambition_entity_catalog::ChargeGesture::Smash => g.held.is_some(),
-                            ambition_entity_catalog::ChargeGesture::Special => g.special_held,
-                        }
-                    });
+                    let still_held =
+                        held_attack
+                            .get(owner)
+                            .is_ok_and(|g| match playback.spec.charge_gesture {
+                                ambition_entity_catalog::ChargeGesture::Smash => g.held.is_some(),
+                                ambition_entity_catalog::ChargeGesture::Special => g.special_held,
+                            });
                     let charge = playback.charge.as_mut().expect("matched above");
                     if still_held {
                         let accrued = spare.min(charge.policy.max_hold_s - charge.held_s);
@@ -1223,6 +1224,9 @@ pub fn advance_move_playback(
                             // does — an intermediate multi-hit pulse authors it,
                             // the final one does not.
                             autolink: volume.autolink,
+                            // The authored gust, carried the same way the
+                            // autolink is: one field, one hop, no rule.
+                            windbox: volume.windbox,
                             frame_down,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the
@@ -2656,7 +2660,11 @@ pub fn dispatch_move_events(
                 // fraction into damage, speed, size and the look a player reads
                 // it by. A shot that authors no ladder — every ranged action
                 // that existed before charging did — comes back unchanged.
-                let spec = match playbacks.get(ev.owner).ok().and_then(|pb| pb.charge_fraction()) {
+                let spec = match playbacks
+                    .get(ev.owner)
+                    .ok()
+                    .and_then(|pb| pb.charge_fraction())
+                {
                     Some(fraction) => spec.at_charge(fraction),
                     None => spec,
                 };

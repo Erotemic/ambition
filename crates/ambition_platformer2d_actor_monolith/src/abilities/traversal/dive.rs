@@ -195,6 +195,8 @@ pub fn fire_dive_system(
         target: crate::features::HitTarget::Volume,
         mode: crate::features::HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
+            // An ordinary hit: it stuns.
+            flinchless: false,
             dir: local_dir.x.signum(),
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
             source_pos: corridor_center,

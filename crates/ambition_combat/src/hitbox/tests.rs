@@ -48,6 +48,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         autolink: None,
+        windbox: None,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
@@ -76,6 +77,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         autolink: None,
+        windbox: None,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
@@ -122,6 +124,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 autolink: None,
+                windbox: None,
             },
             HitboxLifetime { remaining_s: 0.01 },
             HitboxHits::default(),
@@ -159,6 +162,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 autolink: None,
+                windbox: None,
             },
             HitboxLifetime { remaining_s: 5.0 },
             HitboxHits::default(),
@@ -299,6 +303,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -359,6 +364,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -488,6 +494,7 @@ fn enemy_hitbox_over_player_app_dealing(
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -591,6 +598,7 @@ fn player_faction_hitbox_only_fires_once() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
@@ -678,6 +686,7 @@ fn player_melee_never_targets_its_owner() {
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -762,6 +771,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -849,6 +859,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         autolink: None,
+        windbox: None,
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -943,6 +954,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         autolink: None,
+        windbox: None,
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -1044,6 +1056,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1111,6 +1124,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1283,6 +1297,50 @@ mod windbox {
         );
         assert_eq!(damage_floor(0), 0, "a windbox floors at nothing");
     }
+
+    /// How many times this volume connects with the body over `ticks`.
+    fn connections(repeating: Option<bool>, ticks: usize) -> usize {
+        let (mut app, _) = enemy_hitbox_over_player_app_dealing(FactionRelations::default(), 0);
+        if let Some(repeating) = repeating {
+            let world = app.world_mut();
+            let mut q = world.query::<&mut Hitbox>();
+            for mut hitbox in q.iter_mut(world) {
+                hitbox.windbox = Some(ambition_entity_catalog::WindboxVolume { repeating });
+            }
+        }
+        for _ in 0..ticks {
+            app.update();
+        }
+        app.world().resource::<CapturedHits>().body_hits().len()
+    }
+
+    /// ⭐⭐ A GUST PUSHES FOR AS LONG AS YOU STAND IN IT.
+    ///
+    /// The hit-once set exists so a long active window cannot re-hit a
+    /// stationary target every frame — exactly right for a strike, and exactly
+    /// wrong for a wind. ⛔ BOTH ARMS ARE ASSERTED: a change that made every
+    /// volume repeat would satisfy the windbox half and quietly turn every
+    /// lingering sword into a multihit.
+    #[test]
+    fn only_a_repeating_windbox_connects_more_than_once() {
+        assert_eq!(
+            connections(None, 4),
+            1,
+            "an ordinary volume connected more than once — the hit-once set is \
+             not holding, and every lingering strike is now a multihit"
+        );
+        assert_eq!(
+            connections(Some(false), 4),
+            1,
+            "a windbox that did NOT ask to repeat still repeated: a one-shot \
+             shove is a windbox too, and it wants the ordinary rule"
+        );
+        assert!(
+            connections(Some(true), 4) > 1,
+            "a repeating gust connected only once, so it pushes on the frame you \
+             enter it and never again — which is a shove, not a wind"
+        );
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1355,6 +1413,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             autolink: None,
+            windbox: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),

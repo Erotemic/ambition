@@ -473,6 +473,9 @@ pub fn shadow_step(
     }
     if foe_attack_lands(&s.foe, &s.me, frame.side, down, tuning) {
         let kb = HitKnockback {
+            // The brain's shadow model of being hit. A gust is not a threat it
+            // plans against, so the pulse it imagines is an ordinary one.
+            flinchless: false,
             dir: s.foe.facing,
             magnitude: HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: s.foe.pos,
@@ -824,6 +827,8 @@ fn my_knockback(me: &ShadowFighter, foe: &ShadowFighter) -> Option<HitKnockback>
         return None;
     };
     (frames.max_knockback > 0.0).then(|| HitKnockback {
+        // Same shadow model, attacker side.
+        flinchless: false,
         dir: me.facing,
         magnitude: HitKnockbackMagnitude::LaunchSpeed(frames.max_knockback),
         source_pos: me.pos,

@@ -57,11 +57,7 @@ pub struct LandedBodyHit {
 /// a WINDBOX authors no damage on purpose, so flooring it to one turns a push
 /// into a hit and makes the whole category unauthorable.
 fn damage_floor(authored: i32) -> i32 {
-    if authored > 0 {
-        1
-    } else {
-        0
-    }
+    if authored > 0 { 1 } else { 0 }
 }
 
 fn resolved_hitbox_knockback_magnitude(
@@ -473,6 +469,12 @@ pub fn apply_hitbox_damage(
                 );
                 let magnitude = magnitude.scaled(rage * stale);
                 let knockback = Some(HitKnockback {
+                    // ⭐ A GUST IS THROWN THE SAME WAY A PUNCH IS — the strength
+                    // and direction above are the volume's ordinary authoring —
+                    // and the only thing it declines to do is stun. That is why
+                    // this is one bool here rather than a second push vector on
+                    // the authored volume.
+                    flinchless: hitbox.windbox.is_some(),
                     dir,
                     magnitude,
                     source_pos: owner_pos,
@@ -545,7 +547,21 @@ pub fn apply_hitbox_damage(
                     volume: world_volume.clone(),
                     contact: impact,
                 });
-                hits.hit.insert(victim.entity);
+                // ⭐⭐ A SUSTAINED GUST DOES NOT SPEND ITS HIT-ONCE SLOT. The set
+                // exists so a long active window cannot re-hit a stationary
+                // target every frame — exactly right for a strike, and exactly
+                // wrong for a wind, which is supposed to keep pushing for as
+                // long as you stand in it.
+                //
+                // ⛔ AUTHORED, NOT ASSUMED. A one-shot shove is a windbox too,
+                // and it wants the ordinary once-only rule; only a volume that
+                // says `repeating` opts out.
+                if !hitbox
+                    .windbox
+                    .is_some_and(|gust: ambition_entity_catalog::WindboxVolume| gust.repeating)
+                {
+                    hits.hit.insert(victim.entity);
+                }
                 pulse_records.push((hitbox_entity, hitbox.owner, victim.entity));
             }
 

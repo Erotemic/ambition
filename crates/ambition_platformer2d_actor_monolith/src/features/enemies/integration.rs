@@ -607,6 +607,8 @@ impl ContactAttack {
             target: HitTarget::Body(target),
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {
+                // An ordinary hit: it stuns.
+                flinchless: false,
                 dir,
                 magnitude: HitKnockbackMagnitude::FeelScale(self.strength),
                 source_pos: self.source_pos,

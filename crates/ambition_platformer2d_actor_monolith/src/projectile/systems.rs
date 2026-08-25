@@ -619,6 +619,8 @@ pub fn step_projectiles(
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
                     knockback: Some(HitKnockback {
+                        // An ordinary hit: it stuns.
+                        flinchless: false,
                         dir: knock_dir,
                         magnitude: HitKnockbackMagnitude::FeelScale(0.85),
                         source_pos: kin.pos,

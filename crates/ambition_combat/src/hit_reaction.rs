@@ -199,7 +199,19 @@ pub fn apply_body_hit_reaction(
     // the run*. Written here rather than applied here for the same reason: this
     // function has a `&mut Vec2` and no world and no `MotionModel`.
     flight.pending_launch = launch;
-    combat.hitstun_timer = ae::hit_response::hitstun_duration(Some(knockback), &response);
+    // ⭐⭐ A GUST MOVES YOU AND LEAVES YOU IN CONTROL. The launch above is
+    // computed exactly as a strike's is — a windbox authors its strength and
+    // direction the ordinary way — and the ONE difference is here: no hitstun,
+    // so a body being blown off a ledge can still act on the way. That is the
+    // whole reason the genre has windboxes rather than weak hits.
+    //
+    // ⛔ `= 0.0` WOULD BE WRONG. A body already reeling from a real hit that
+    // then drifts through a gust must not have its stun CLEARED by it — that
+    // would make a windbox the best combo breaker in the game. A flinchless
+    // pulse declines to charge stun; it does not discharge it.
+    if !knockback.flinchless {
+        combat.hitstun_timer = ae::hit_response::hitstun_duration(Some(knockback), &response);
+    }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +
     // i-frames). The window ending IS the genre's "meteor cancel"; there is no second verb to
@@ -317,6 +329,7 @@ mod super_armor_tests {
 
     fn hard_knockback() -> crate::HitKnockback {
         crate::HitKnockback {
+            flinchless: false,
             dir: 1.0,
             magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(600.0),
             source_pos: ae::Vec2::new(0.0, 0.0),
@@ -386,5 +399,93 @@ mod super_armor_tests {
         );
         // ... and the launch the plain body took is exactly what was refused.
         let _ = (plain_flight, plain_combat);
+    }
+
+    /// ⭐⭐ A GUST MOVES YOU AND LEAVES YOU IN CONTROL.
+    ///
+    /// The whole of the parity inventory's *"Windboxes / flinchless push"* row:
+    /// hit reaction may apply velocity without hitstun. ⛔ AND THE LAUNCH HALF
+    /// IS ASSERTED FIRST — a windbox that quietly stopped launching would
+    /// satisfy "no hitstun" perfectly while doing nothing at all, which is the
+    /// shape a mechanic ships green and inert in.
+    #[test]
+    fn a_windbox_launches_the_body_without_stunning_it() {
+        let gust = crate::HitKnockback {
+            flinchless: true,
+            ..hard_knockback()
+        };
+        let mut vel = ae::Vec2::new(120.0, 0.0);
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat::default();
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            ae::Vec2::new(20.0, 0.0),
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+            false,
+            Some(&gust),
+            // A gust deals no damage — the authored zero the damage floor was
+            // taught to preserve.
+            0,
+            ae::Vec2::ZERO,
+            VictimStance::default(),
+            None,
+            None,
+            feel(),
+        );
+
+        assert_ne!(
+            vel,
+            ae::Vec2::new(120.0, 0.0),
+            "the gust did not move the body at all, so 'it pushes without \
+             stunning' is only half true and the half that matters is missing"
+        );
+        assert_eq!(
+            combat.hitstun_timer, 0.0,
+            "the gust stunned its victim, which is what makes it a weak hit \
+             rather than a windbox"
+        );
+    }
+
+    /// ⛔⛔ AND IT DECLINES TO CHARGE STUN, IT DOES NOT DISCHARGE IT.
+    ///
+    /// A body already reeling from a real hit that then drifts through a gust
+    /// keeps the stun it was already in. `hitstun_timer = 0.0` on the flinchless
+    /// path would have made a windbox the best combo breaker in the game — and
+    /// it is the obvious way to write this, which is why it is pinned.
+    #[test]
+    fn a_windbox_does_not_clear_stun_the_victim_was_already_in() {
+        let gust = crate::HitKnockback {
+            flinchless: true,
+            ..hard_knockback()
+        };
+        let mut vel = ae::Vec2::new(120.0, 0.0);
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat {
+            hitstun_timer: 0.4,
+            ..Default::default()
+        };
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            ae::Vec2::new(20.0, 0.0),
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+            false,
+            Some(&gust),
+            0,
+            ae::Vec2::ZERO,
+            VictimStance::default(),
+            None,
+            None,
+            feel(),
+        );
+        assert_eq!(
+            combat.hitstun_timer, 0.4,
+            "a gust wiped the stun a real hit had already charged"
+        );
     }
 }

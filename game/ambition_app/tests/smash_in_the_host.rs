@@ -5063,6 +5063,8 @@ mod launched {
             .world_mut()
             .spawn((
                 ambition_platformer2d::combat::strike::Hitbox {
+                    // An ordinary hit, not a gust.
+                    windbox: None,
                     owner: attacker,
                     source: ambition_platformer2d::combat::strike::HitSide::Enemy,
                     anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {

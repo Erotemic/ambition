@@ -258,6 +258,8 @@ pub fn apply_contact_harm(
                 target: HitTarget::Body(victim),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
+                    // An ordinary hit: it stuns.
+                    flinchless: false,
                     dir,
                     magnitude: HitKnockbackMagnitude::FeelScale(harm.knockback),
                     source_pos: kin.pos,

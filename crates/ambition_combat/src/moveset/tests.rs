@@ -117,9 +117,10 @@ fn prefab_registry_rejects_unknown_key_and_bad_params() {
         "bad params"
     );
     // Empty params hydrate to the prefab defaults (every field defaults).
-    assert!(reg
-        .expand("simple_charge", &empty, "smash", drawable)
-        .is_ok());
+    assert!(
+        reg.expand("simple_charge", &empty, "smash", drawable)
+            .is_ok()
+    );
 }
 
 /// CM5: a prefab row authors its OWN swing sfx + a cosmetic burst, so the
@@ -1978,8 +1979,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 /// so that is what this drives.
 #[test]
 fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
-    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
     use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
     use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
@@ -2059,8 +2060,8 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
 #[test]
 fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     use ambition_characters::actor::control::ActorFireRequest;
-    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec, RangedStyle};
     use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec, RangedStyle};
     use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
@@ -2142,8 +2143,8 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
 /// play as "Maryo's fireball only shoots to her right, not the way she is facing".
 #[test]
 fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
-    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
     use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
     use ambition_characters::control::ActorControl;
     for facing in [-1.0f32, 1.0] {
         let mut app = App::new();
@@ -2639,7 +2640,7 @@ fn the_real_hit_path_sets_the_landed_fact() {
 fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
     use ambition_characters::equipment::{
-        apply_equipment_grants, EquipmentGrant, EquipmentRow, WornEquipment,
+        EquipmentGrant, EquipmentRow, WornEquipment, apply_equipment_grants,
     };
 
     let flower = EquipmentRow {
@@ -2892,6 +2893,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         vfx: None,
         hit_sfx: None,
         autolink: None,
+        windbox: None,
     };
     spec.windows = vec![MoveWindow {
         start_s: 0.0,
@@ -3832,6 +3834,7 @@ fn charging_smash() -> MoveSpec {
                     on_hit: None,
                     vfx: None,
                     autolink: None,
+                    windbox: None,
                 }],
                 sustain_effect: None,
                 motion_scale: 1.0,
@@ -4807,6 +4810,7 @@ fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
         on_hit: None,
         vfx: None,
         autolink: None,
+        windbox: None,
     }
 }
 
@@ -4945,6 +4949,7 @@ fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
         on_hit: None,
         vfx: None,
         autolink: None,
+        windbox: None,
     }
 }
 
@@ -5651,6 +5656,7 @@ fn clashing_swing() -> MoveSpec {
             knockback_growth: None,
             launch_dir: None,
             autolink: None,
+            windbox: None,
             on_hit: None,
             vfx: None,
             hit_sfx: None,
@@ -5905,7 +5911,7 @@ fn an_authored_spin_mirrors_on_the_move_clock_and_an_unauthored_one_never_does()
 fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::fighter::{
-        decision::tick_fighter, FighterBrainProfile, FighterCfg, FighterState,
+        FighterBrainProfile, FighterCfg, FighterState, decision::tick_fighter,
     };
     use ambition_characters::perception::{BodyPhase, PerceivedActor, SelfView, WorldView};
 
@@ -6239,9 +6245,8 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
             .spawn((
                 ae::BodyKinematics::default(),
                 ActorFaction::Enemy,
-                MovePlayback::new(charging_special(), 1.0).charged_by_gesture(Some(
-                    ambition_entity_catalog::ChargeGesture::Special,
-                )),
+                MovePlayback::new(charging_special(), 1.0)
+                    .charged_by_gesture(Some(ambition_entity_catalog::ChargeGesture::Special)),
                 ResolvedAttackGesture {
                     pressed: None,
                     held: attack_held.then_some(held),
@@ -6289,9 +6294,9 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
 /// have been handed.
 #[test]
 fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
-    use ambition_characters::brain::action_set::{ActionSet, ProjectileFlight, RangedCharge};
-    use ambition_characters::brain::action_set::RangedActionSpec;
     use ambition_characters::brain::ActorActionMessage;
+    use ambition_characters::brain::action_set::RangedActionSpec;
+    use ambition_characters::brain::action_set::{ActionSet, ProjectileFlight, RangedCharge};
     use ambition_characters::control::ActorControl;
 
     let cannon = RangedActionSpec::bolt(500.0, 4)
@@ -6313,9 +6318,8 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
         app.add_message::<ambition_vfx::FxRequest>();
         app.add_systems(Update, dispatch_move_events);
 
-        let mut playback = MovePlayback::new(charging_special(), 1.0).charged_by_gesture(
-            held_s.map(|_| ambition_entity_catalog::ChargeGesture::Special),
-        );
+        let mut playback = MovePlayback::new(charging_special(), 1.0)
+            .charged_by_gesture(held_s.map(|_| ambition_entity_catalog::ChargeGesture::Special));
         if let (Some(held), Some(charge)) = (held_s, playback.charge.as_mut()) {
             charge.held_s = held;
         }
@@ -6354,9 +6358,7 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
             .collect();
         assert_eq!(acts.len(), 1, "the fire event bridged to one action");
         match &acts[0].request {
-            ActionRequest::Ranged { spec, .. } => {
-                (spec.damage, spec.speed, spec.visual.clone())
-            }
+            ActionRequest::Ranged { spec, .. } => (spec.damage, spec.speed, spec.visual.clone()),
             other => panic!("expected a Ranged action, got {other:?}"),
         }
     };

@@ -10558,11 +10558,44 @@ can JAB-LOCK or TUMBLE its victim because `pending_launch` is a bare `Vec2` with
 no kind, and it can be PARRIED and BLOCKED. ⇒ two facts lost at two gateways, not
 four `if windbox` exceptions.
 
-▢ ALSO: **(25) `SettledItem` is permanent sleep with no support ownership** — an
-item caught by a moving platform stays fixed in world space when the platform
-leaves; **(26)(27) clank is deterministic but not SIMULTANEOUS, and reads the
-attacker's CURRENT feet rather than the attack's class** (latent — Smash declares
-`clank_damage_window = 0`); **(28) pivot selection and move-facing DISAGREE** —
+▢ ALSO: ◐ **(25) HALF CLOSED 2026-08-25 — AN UNSUPPORTED ITEM NOW FALLS.**
+`SettledItem` was lifted only by CUSTODY transitions, so an item that landed on a
+MOVING PLATFORM — which the composited collision world deliberately lets it do —
+stayed fixed in world space once that platform left. Support is re-validated each
+tick against the SAME probe `ground_item_physics` uses, so "what counts as
+support" has one definition rather than two that can disagree.
+
+⚠ **THE ENDPOINT IS STILL SUPPORT IDENTITY**: this makes an unsupported item
+FALL; it does not make a supported one RIDE. Carrying an item with its platform
+needs which-block plus a local offset.
+
+⛔⛔ AND A POISON MADE ME DELETE AN ARM I HAD WRITTEN. Waking EVERY settled item
+each tick leaves the fixture green: physics re-settles in the same tick and
+detects the block before moving anything, so the item does not drift by a
+thousandth of a pixel. **The two implementations are the same program along every
+path that world can take.** The support check earns its place on semantics and
+per-tick churn, not on observable behaviour — and the test now SAYS that instead
+of asserting something it cannot distinguish. (Second time today a poison caught
+an arm that could not fail.) **(26)(27) CLANK — CONFIRMED AND SCOPED, DELIBERATELY NOT SHIPPED.** (26) the
+sweep skips a pair when `ended.contains(a_owner) || ended.contains(b_owner)`, so
+an EARLIER pair's outcome decides whether a LATER pair is considered at all: with
+three equal attacks overlapping on one tick, A/B resolves first by stable id,
+both end, A/C and B/C are skipped, and C survives BECAUSE OF `SimId` ORDER.
+Deterministic, not simultaneous. ⇒ THE FIX IS ONE LINE — drop the two
+`ended.contains` terms from the skip; `resolved` stays the dedup and `ended`
+becomes what its own comment already says it is, a COMMIT ledger applied after.
+(27) eligibility asks `BodyGroundState::on_ground` AT COLLISION TIME, so a ground
+attack stops clanking when its owner walks off a ledge and an aerial starts when
+its owner lands — "grounded attack" is a CLASSIFICATION, not a foot contact; latch
+it on the strike volume when the move is accepted.
+
+⛔ **I MADE THE (26) CHANGE AND REVERTED IT UNVERIFIED.** No test exercises
+`arbitrate_attack_clanks` at all — the only clank test covers the pure
+`clank_verdict`. The fixture needs three owners with kinematics, ground state,
+opposed factions and playbacks, plus three overlapping strike volumes; that is
+real work, and shipping a behavioural change to arbitration without it is exactly
+what I have refused all day. ⚠ LATENT: Smash declares `clank_damage_window = 0`,
+so nothing is at risk while it waits. **(28) pivot selection and move-facing DISAGREE** —
 the gesture picks the forward move using the turnaround facing, `start_move` then
 snapshots the OLD `kin.facing`, so the move is selected forward and its geometry
 mirrors the old way; **(30) `MatchParticipantRoster` is accumulating match RULES**

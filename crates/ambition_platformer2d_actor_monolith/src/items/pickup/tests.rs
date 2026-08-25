@@ -1145,3 +1145,90 @@ fn an_item_whose_holder_is_gone_is_the_rooms_again() {
          room can retire it — it does not outlive every sweep in the engine",
     );
 }
+
+/// AN ITEM WHOSE SUPPORT LEAVES FALLS.
+///
+/// ⛔⛔ SETTLING WAS PERMANENT. `ground_item_physics` skips `Without<SettledItem>`
+/// and the marker was only lifted by CUSTODY transitions, so an item that landed
+/// on a MOVING PLATFORM — which the composited collision world deliberately lets
+/// it do — stayed fixed in WORLD SPACE once the platform moved on. A platform
+/// that disappears leaves the same hovering item.
+///
+/// ⚠ THIS PINS THE SAFE MINIMUM, and says so: an unsupported item FALLS. It does
+/// not RIDE a support that is still there — that needs support identity, which
+/// the ledger records as the endpoint.
+#[test]
+fn a_settled_item_wakes_when_its_support_goes_away() {
+    let mut app = App::new();
+    let world_with = |blocks: Vec<ae::Block>| {
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "phys",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 360.0),
+            blocks,
+        ))
+    };
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        world_with(vec![ae::Block::solid(
+            "ledge",
+            Vec2::new(0.0, 380.0),
+            Vec2::new(400.0, 20.0),
+        )]),
+    );
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_systems(
+        Update,
+        (wake_unsupported_settled_items, ground_item_physics).chain(),
+    );
+
+    let item = app
+        .world_mut()
+        .spawn(GroundItem {
+            spec: axe_spec(),
+            pos: Vec2::new(200.0, 300.0),
+            vel: Vec2::new(0.0, 0.0),
+            half_extent: Vec2::splat(PICKUP_HALF),
+        })
+        .id();
+    for _ in 0..120 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<SettledItem>(item).is_some(),
+        "the item never settled on the floor, so nothing below is about waking"
+    );
+    let resting = app.world().get::<GroundItem>(item).unwrap().pos.y;
+
+    // ⚠ NO ARM HERE FOR "A SUPPORTED ITEM STAYS SETTLED", AND THAT IS MEASURED
+    // RATHER THAN LAZY. Poisoning the support check to wake EVERY settled item
+    // each tick leaves this fixture green: `ground_item_physics` re-settles in
+    // the same tick and, because it detects the block before moving anything,
+    // the item does not drift by so much as a thousandth of a pixel. The two
+    // implementations are the SAME PROGRAM along every path this world can take.
+    //
+    // ⇒ The support check earns its place on semantics and per-tick churn, not
+    // on observable behaviour, and an assertion claiming otherwise would be a
+    // check that cannot fail.
+
+    // THE SUPPORT LEAVES. A moving platform that travels on, or one that is
+    // removed outright — the composited world simply stops holding a block here.
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        world_with(Vec::new()),
+    );
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let fell = app.world().get::<GroundItem>(item).unwrap().pos.y - resting;
+    assert!(
+        fell > 10.0,
+        "the item stayed put ({fell:.1}px) after its support went away — settling \
+         is permanent, so an item caught by a moving platform hangs in world \
+         space once that platform leaves"
+    );
+}

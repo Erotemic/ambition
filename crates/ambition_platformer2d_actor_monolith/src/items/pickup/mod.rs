@@ -129,6 +129,11 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // hanging at its point for one frame.
                 crate::items::match_spawn::spawn_match_items
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                // ⭐ SUPPORT IS RE-VALIDATED BEFORE THE STEP, so an item whose
+                // platform left falls THIS tick rather than hanging for one —
+                // the same reason the spawn above runs before the physics.
+                wake_unsupported_settled_items
+                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 ground_item_physics
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 // RESIDENCY FOLLOWS CUSTODY. Last in the chain, so it sees
@@ -332,6 +337,53 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// this marker; things somebody threw, dropped or spawned do not.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
 pub struct SettledItem;
+
+/// Wake a settled item whose support has gone away.
+///
+/// ⛔⛔ SETTLING WAS PERMANENT. `ground_item_physics` skips `Without<SettledItem>`
+/// and the marker was only removed by CUSTODY transitions (released from a hand,
+/// thrown), so an item that landed on a MOVING PLATFORM — which the composited
+/// collision world lets it do, deliberately — stayed fixed in WORLD SPACE when
+/// the platform moved on. A platform that disappears leaves the same hovering
+/// item.
+///
+/// ⭐ THE PROBE IS THE ONE `ground_item_physics` ALREADY USES, against the same
+/// composited world, so "what counts as support" has one definition rather than
+/// two that can disagree.
+///
+/// ⚠ THIS IS THE SAFE MINIMUM, NOT THE ENDPOINT. It makes an unsupported item
+/// FALL; it does not make a supported one RIDE. Carrying an item with its
+/// platform needs support IDENTITY (which body/block, and the local offset),
+/// which is the design the ledger records — this removes the hovering item
+/// without pretending to have built that.
+pub fn wake_unsupported_settled_items(
+    mut commands: Commands,
+    world: ambition_platformer2d_world::collision::CollisionWorld,
+    settled: Query<(Entity, &GroundItem, &ItemCustody), With<SettledItem>>,
+) {
+    let Some(world) = world.solids() else {
+        return;
+    };
+    for (entity, item, custody) in &settled {
+        if !custody.in_world() {
+            continue;
+        }
+        // A thin band just past the item's own footprint: what it would rest ON.
+        let probe = ae::Aabb::new(
+            item.pos + Vec2::new(0.0, 1.0),
+            item.half_extent + Vec2::new(0.0, 1.0),
+        );
+        let supported = world.blocks.iter().any(|block| {
+            matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+            ) && probe.strict_intersects(block.aabb)
+        });
+        if !supported {
+            commands.entity(entity).remove::<SettledItem>();
+        }
+    }
+}
 
 /// Integrate in-world ground items under gravity and settle them when they'd
 /// enter a solid / one-way surface. [`SettledItem`] items are skipped.

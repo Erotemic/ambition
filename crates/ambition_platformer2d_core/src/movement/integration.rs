@@ -470,6 +470,12 @@ pub(super) fn integrate_normal_clusters(
             // velocity directly, they do not steer through this term.
             can_move_horizontal: abilities.abilities.move_horizontal
                 && !(input.shield_held && ground.on_ground),
+            // ⭐ PLANTED, NOT MERELY UNSTEERABLE. A guard raised mid-run sheds
+            // the run; an EVADE does not, because a roll and a spot dodge set
+            // their own velocity and this law must not brake them.
+            settling: ground.on_ground
+                && state.dodge_roll_timer <= 0.0
+                && state.air_dodge_timer <= 0.0,
             can_variable_jump: abilities.abilities.variable_jump,
         },
         input,
@@ -502,6 +508,14 @@ pub struct NormalSpineCtx {
     /// running. Resolved by the caller for the same reason `crouching` is: this
     /// function takes neither the clusters nor the maneuver state.
     pub initial_dash_dir: f32,
+    /// This body is PLANTED: grounded, not steering, and nothing else is
+    /// driving its ground speed — so it should shed that speed to friction.
+    ///
+    /// ⛔ Resolved by the caller because the exclusion is an EVADE, which is
+    /// maneuver state this function does not hold. A roll is shield-held too
+    /// and sets its own velocity; braking it here would be reaching into a
+    /// speed this law does not own.
+    pub settling: bool,
     /// `AbilitySet::variable_jump` — whether an early button release may shorten
     /// this body's jump arc. The `VelocityCut` law reads the same capability in
     /// `apply_jump_release`; `PhasedGravity` resolves its arc HERE, so without
@@ -597,6 +611,9 @@ impl NormalSpineCtx {
             // and no dash phase: the caller that resolves one is the player
             // road, and a bare actor walks the continuum.
             initial_dash_dir: 0.0,
+            // A bare actor is never refused horizontal control, so it never
+            // reaches the settling branch.
+            settling: false,
         }
     }
 }
@@ -873,6 +890,39 @@ pub fn integrate_normal_spine(
         };
         *kin_vel += (new_along - along) * m;
         *carried_run = carried_run.clamp(new_along.min(0.0), new_along.max(0.0));
+    } else if ctx.settling {
+        // ⛔⛔ MAY NOT STEER IS NOT MAY NOT STOP, and the whole ground-speed
+        // block — friction included — sits inside `can_move_horizontal`. So a
+        // body that raised its guard mid-run kept its run: measured at 270px/s,
+        // still 270 sixty ticks later, guard up the whole time. A shielding
+        // fighter GLIDED across the stage.
+        //
+        // ⭐ THIS IS THE "RUN CANCEL INTO SHIELD" ROW: planting yourself is what
+        // makes a raised guard a decision rather than a free slide.
+        //
+        // ⛔ THE CALLER DECIDES `settling`, because the exclusion that matters
+        // is an EVADE: a roll is also shield-held and it SETS its own velocity,
+        // so braking here would be this function reaching into a speed it does
+        // not own — the same mistake the initial dash made with knockback.
+        let m = frame.side();
+        let along = kin_vel.dot(m);
+        // ⛔⛔ A BRAKE MAY ONLY TAKE BACK SPEED THE BODY COULD HAVE WALKED UP
+        // TO. Anything faster than its own run is somebody else's velocity — a
+        // LAUNCH — and planting yourself must not delete knockback.
+        //
+        // ⭐ MEASURED, and by the guard written for the ground roll earlier the
+        // same day: `a_ground_roll_ends_stopped_but_never_eats_a_launch` went
+        // red the moment this branch existed, because a launched body holding
+        // its guard is grounded, not evading, and therefore looked "planted".
+        // Third time this shape has appeared — the roll's shed, the initial
+        // dash, and now this — and the answer is the same each time: bound the
+        // effect by what the maneuver itself put in.
+        let owned = tuning.locomotion.max_run_speed;
+        if along.abs() <= owned {
+            let braked = approach(along, 0.0, tuning.locomotion.ground_friction * dt);
+            *kin_vel += (braked - along) * m;
+            *carried_run = carried_run.clamp(braked.min(0.0), braked.max(0.0));
+        }
     }
 
     if let Some(contact) = ctx.water {

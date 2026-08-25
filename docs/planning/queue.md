@@ -9974,6 +9974,44 @@ under contention, and a SIGTERM mid-compile surfaces as
 `failed to parse process output: rustc ...` — which reads like a toolchain fault
 and is not one. ⇒ never chain work AFTER the gate in one foreground command.
 
+- ✔ **D228 — CLOSED 2026-08-25. A SHIELDING FIGHTER GLIDED ACROSS THE STAGE,
+  AND "RUN CANCEL INTO SHIELD" WAS THE BUG REPORT. (opened and closed
+  2026-08-25)**
+
+⛔⛔ **MEASURED FIRST, AND THE ROW WAS A LIVE DEFECT.** A body running at
+270px/s that raises its guard was still doing 270 SIXTY TICKS LATER, guard up
+throughout. The whole ground-speed block — friction included — sits inside
+`if ctx.can_move_horizontal`, which a raised guard turns off. **"May not steer"
+is not "may not stop."** Now 270 → 143 → 17 → 0: planted in three frames.
+
+⚠ **AND THE FIRST MEASUREMENT CORRECTED THE ROW ITSELF.** Shield + DIRECTION
+made the body speed UP to 530 — that is the roll (Jon, 2026-08-23: a direction
+behind a guard chooses an evade). The cancel is shield with a NEUTRAL stick, and
+a probe that assumed otherwise would have "found" the mechanic already working.
+
+⛔⛔ **THIRD TIME TODAY FOR ONE SHAPE — A MANEUVER REACHING INTO A VELOCITY IT
+DOES NOT OWN.**
+
+```text
+ground roll     shed its push at expiry     bound: speed still EXACTLY the push
+initial dash    set speed on frame one      bound: may only SPEED YOU UP
+shield brake    braked a planted body       bound: only speed it could WALK to
+```
+
+Each time the failure mode is deleting somebody's knockback, and each time the
+answer is to bound the effect by what the maneuver itself put in. ⭐ THE GUARD
+WRITTEN FOR THE ROLL THIS MORNING CAUGHT THIS ONE:
+`a_ground_roll_ends_stopped_but_never_eats_a_launch` reddened the moment the
+brake existed, because a launched body holding its guard is grounded, not
+evading, and therefore looked "planted".
+
+⚠ **AND TWO OF MY OWN TEST ARMS COULD NOT SEE THE POISON, BOTH BY SAMPLING THE
+WRONG MOMENT.** The roll arm read velocity on tick ONE — a single frame of
+friction barely dents 530px/s, so the bad version passed. The launch arm read
+`peak`, which is the launch's own first tick and survives any braking after it.
+⇒ **WHEN THE EFFECT IS GRADUAL, AN INSTANTANEOUS SAMPLE CANNOT SEE IT**: measure
+the distance covered, not the speed at a moment.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

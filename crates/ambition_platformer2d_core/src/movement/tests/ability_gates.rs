@@ -843,3 +843,131 @@ fn a_reverse_aerial_rush_falls_out_of_jumping_from_a_turnaround() {
         scratch.kinematics.vel.x
     );
 }
+
+/// RAISING A GUARD MID-RUN PLANTS YOU — but a ROLL still travels.
+///
+/// ⛔⛔ THE BUG THIS PINS: the whole ground-speed block, friction included, sits
+/// inside `can_move_horizontal`, which a raised guard turns off. So a fighter
+/// who shielded out of a run KEPT the run — measured at 270px/s, still 270
+/// sixty ticks later with the guard up the whole time. "May not steer" is not
+/// "may not stop".
+///
+/// ⛔ THE SECOND ARM IS WHY THE FIX IS NOT SIMPLY "BRAKE WHEN SHIELDING": a
+/// roll is shield-held too and SETS its own velocity, so braking it would be
+/// the movement law reaching into a speed it does not own — the mistake the
+/// initial dash made with knockback.
+#[test]
+fn a_guard_raised_out_of_a_run_plants_the_body_but_a_roll_still_travels() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    tuning.turnaround_time = 3.0 / 60.0;
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let committed = || {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.abilities.abilities.shield = true;
+        for _ in 0..40 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        for _ in 0..60 {
+            super::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                hold(1.0),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(
+            scratch.kinematics.vel.x > 200.0,
+            "the fixture never reached a real run, so there is nothing to cancel"
+        );
+        scratch
+    };
+
+    // ARM 1 — THE CANCEL. Guard up, stick neutral: the run is gone in a few
+    // frames rather than gliding on.
+    let mut planted = committed();
+    let mut guard = InputState::default();
+    guard.shield_held = true;
+    let mut stopped_after = None;
+    for t in 0..60 {
+        super::update_player_with_tuning_scratch(&world, &mut planted, guard, 1.0 / 60.0, tuning);
+        if stopped_after.is_none() && planted.kinematics.vel.x.abs() < 1.0 {
+            stopped_after = Some(t + 1);
+        }
+    }
+    assert!(planted.shield.active, "the guard never came up");
+    let ticks = stopped_after.expect("a raised guard never stopped the run — the body glided");
+    assert!(
+        ticks <= 8,
+        "a raised guard took {ticks} ticks to plant the body — that is a glide, not a cancel"
+    );
+
+    // ARM 2 — AND A ROLL STILL TRAVELS. Same guard button, WITH a direction:
+    // that is the evade, it sets its own speed, and the brake must leave it be.
+    let mut rolling = committed();
+    let mut roll = hold(1.0);
+    roll.shield_held = true;
+    super::update_player_with_tuning_scratch(&world, &mut rolling, roll, 1.0 / 60.0, tuning);
+    assert!(
+        rolling.axis().dodge_roll_timer > 0.0,
+        "shield + direction did not roll, so arm 2 measures nothing"
+    );
+    // ⛔ MEASURED OVER THE ROLL, NOT ON ITS FIRST TICK. One tick of friction
+    // barely dents 530px/s, so a single sample passes even when the brake is
+    // eating the roll — the version that braked regardless of the evade slipped
+    // through exactly that way.
+    let start = rolling.kinematics.pos.x;
+    let mut ticks = 0;
+    while rolling.axis().dodge_roll_timer > 0.0 && ticks < 30 {
+        super::update_player_with_tuning_scratch(&world, &mut rolling, roll, 1.0 / 60.0, tuning);
+        ticks += 1;
+    }
+    let travelled = rolling.kinematics.pos.x - start;
+    assert!(
+        travelled > 60.0,
+        "the brake ate the roll: it covered {travelled:.0}px over {ticks} ticks"
+    );
+
+    // ARM 3 — AND IT MUST NOT EAT A LAUNCH. A body holding its guard on the
+    // ground is "planted" by every test this branch applies, INCLUDING one that
+    // was just hit — which is how the first version of this brake deleted
+    // knockback and reddened
+    // `a_ground_roll_ends_stopped_but_never_eats_a_launch`. The bound is
+    // ownership: a brake may only take back speed the body could have walked
+    // up to.
+    let mut launched = committed();
+    launched.flight.pending_launch = crate::Vec2::new(1400.0, -60.0);
+    let mut guard_only = InputState::default();
+    guard_only.shield_held = true;
+    // ⛔ THE DISTANCE COVERED, not the peak: the peak is the launch's own first
+    // tick and it survives any amount of braking afterwards, so a peak
+    // assertion cannot tell the two versions apart — the unbounded brake passed
+    // it.
+    let from = launched.kinematics.pos.x;
+    for _ in 0..10 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut launched,
+            guard_only,
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    let flew = launched.kinematics.pos.x - from;
+    assert!(
+        flew > 150.0,
+        "planting the body ate a launch it did not create: it covered {flew:.0}px in 10 ticks"
+    );
+}

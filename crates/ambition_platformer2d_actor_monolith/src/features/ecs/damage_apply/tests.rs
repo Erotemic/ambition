@@ -1,7 +1,7 @@
 use super::*;
 // The parent module imports only the handful of Bevy items its systems need,
 // so the App-level tests below bring in their own.
-use bevy::prelude::{default, App, Messages, Update};
+use bevy::prelude::{App, Messages, Update, default};
 
 /// A guard that is UP, with a shield that is not a spendable resource — the
 /// shape every body in this file has. `resolve_body_hit` takes the guard itself
@@ -1016,8 +1016,8 @@ fn incoming_multiplier_ignores_the_outgoing_damage_slider() {
 /// `resolve_body_hit`'s documented contract.
 #[test]
 fn incoming_multiplier_is_difficulty_times_assist() {
-    use ambition_persistence::settings::gameplay::AssistMode;
     use ambition_persistence::settings::GameplaySettings;
+    use ambition_persistence::settings::gameplay::AssistMode;
     let mut g = GameplaySettings::default();
     g.difficulty = ambition_persistence::settings::gameplay::Difficulty::Hard;
     g.assist = AssistMode::Off;
@@ -2109,4 +2109,79 @@ fn a_downward_launch_on_an_airborne_body_locks_it_longer() {
         0.10,
         "a game with no meteor rule got one anyway"
     );
+}
+
+/// A WINDBOX AUTHORS ZERO AND THE BODY KEEPS ITS HEALTH.
+///
+/// ⛔⛔ THE SHARED RESOLVER UNDID THE HITBOX LAYER'S WORK ONE SEAM LATER. The
+/// producer already preserves an authored `0` and says so in its own comment;
+/// this road then ran `damage.max(1)` on every hit alike, so a gust that was
+/// never meant to hurt anybody took a point of health per pulse. A repeating
+/// windbox killed a body it was only supposed to push.
+///
+/// ⭐ THE FLOOR IS STILL RIGHT FOR A STRIKE. A heavily staled or scaled-down
+/// attack must not silently round away to nothing — that is what the `max(1)`
+/// is for, and the third arm keeps it.
+#[test]
+fn an_authored_zero_damage_windbox_takes_no_health() {
+    let hit = |raw: i32, multiplier: f32| -> (BodyHitResolution, i32) {
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(10);
+        let pos = ae::Vec2::new(100.0, 200.0);
+        let res = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            None,
+            None,
+            None,
+            1.0,
+            pos,
+            pos + ae::Vec2::new(50.0, 0.0),
+            DOWN,
+            raw,
+            multiplier,
+            false,
+            TEST_FEEL,
+            false,
+            false,
+        );
+        (res, health.current())
+    };
+
+    // ARM 1 — THE WINDBOX. Zero in, zero out, and the body is untouched.
+    let (res, health) = hit(0, 1.0);
+    assert_eq!(
+        res,
+        BodyHitResolution::Damaged {
+            damage: 0,
+            died: false
+        },
+        "an authored zero-damage volume was resolved as something other than a \
+         zero-damage hit"
+    );
+    assert_eq!(
+        health, 10,
+        "a WINDBOX took health ({health} left of 10) — it is a push, not an attack, \
+         and a repeating one would eventually kill somebody it never damaged"
+    );
+
+    // ARM 2 — AND STALING CANNOT MANUFACTURE DAMAGE EITHER. A zero scaled by
+    // anything is still zero, which is the arm that catches a floor applied
+    // after the multiplier.
+    let (_, health) = hit(0, 0.5);
+    assert_eq!(health, 10, "a scaled windbox took health");
+
+    // ARM 3 — THE FLOOR SURVIVES FOR A REAL STRIKE. Without this the fix could
+    // be "never floor anything", and a heavily staled attack would round to
+    // nothing and read as the game dropping hits.
+    let (res, health) = hit(1, 0.1);
+    assert_eq!(
+        res,
+        BodyHitResolution::Damaged {
+            damage: 1,
+            died: false
+        },
+        "a real strike scaled below one point rounded away to nothing"
+    );
+    assert_eq!(health, 9, "the floored strike took no health");
 }

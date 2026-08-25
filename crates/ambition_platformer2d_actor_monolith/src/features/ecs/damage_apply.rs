@@ -327,7 +327,16 @@ pub fn resolve_body_hit(
     combat.hit_flash = feel.hit_flash;
     combat.damage_invuln_timer = feel.damage_invuln_time;
     let damage = ((raw_damage as f32) * damage_multiplier).round() as i32;
-    let damage = damage.max(1);
+    // ⛔⛔ AN AUTHORED ZERO IS A WINDBOX, NOT A ROUNDING ACCIDENT. The floor
+    // exists so a heavily staled or scaled-down STRIKE still registers as a hit
+    // rather than silently doing nothing; applied to a volume whose author wrote
+    // `0`, it invented a point of damage the move never asked for. The hitbox
+    // layer already preserves the authored zero and says so — this line was
+    // undoing that work one seam later, on the shared road every body takes.
+    //
+    // ⭐ THE PHYSICAL REACTION IS UNCHANGED: a windbox still pushes, still lands,
+    // still publishes its hit. What it does not do is take health.
+    let damage = if raw_damage <= 0 { 0 } else { damage.max(1) };
     let died = if never_dies && !unstoppable {
         false
     } else {

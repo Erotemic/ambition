@@ -6743,3 +6743,64 @@ fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
         kin.vel.x
     );
 }
+
+/// AND THE PIVOT IS NOT A TILT RULE — A SMASH THROWN OUT OF A TURNAROUND ALSO
+/// COMES OUT THE NEW WAY.
+///
+/// ⭐ THE PARITY ROW "PIVOT SMASH" ASKED FOR NOTHING BUT THIS. It was written
+/// blocked on "the ground-turnaround phase in §4", and warned: *do not invent
+/// pivot timing only inside attack selection*. Once the phase existed the pivot
+/// went in at `resolve_attack_gestures` — the ONE place a facing is folded into
+/// an aim — so every attack family inherits it and the smash needs no rule of
+/// its own. This arm is the evidence for that claim rather than a second
+/// mechanism.
+#[test]
+fn a_smash_thrown_out_of_a_turnaround_points_the_new_way() {
+    let started = |turning: bool| -> Option<String> {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([
+                ("smash_forward".to_string(), "fsmash".to_string()),
+                ("smash_back".to_string(), "bsmash".to_string()),
+            ]),
+            moves: vec![gesture_test_move("fsmash"), gesture_test_move("bsmash")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::BodyMotionFacts {
+                turning_around: turning,
+                ..Default::default()
+            });
+        // Facing RIGHT, smashing LEFT — the way a body that just asked to turn
+        // around is holding it. ⛔ A SMASH IS A FLICK THEN A PRESS: the strength
+        // comes from a direction arriving just before the button, so pressing
+        // both on one tick is a TILT and this fixture would measure nothing.
+        set_frame(&mut app, body, |f| {
+            f.attack_axis = ae::LocalAxes::new(-1.0, 0.0)
+        });
+        app.update();
+        set_frame(&mut app, body, |f| {
+            f.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+            f.melee_pressed = true;
+        });
+        app.update();
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|p| p.spec.id.clone())
+    };
+
+    // BASELINE, without which the pivot arm would pass on a body that always
+    // threw the forward smash.
+    assert_eq!(
+        started(false).as_deref(),
+        Some("bsmash"),
+        "a leftward smash while facing right was not a BACK smash"
+    );
+    assert_eq!(
+        started(true).as_deref(),
+        Some("fsmash"),
+        "a smash thrown out of a turnaround still pointed the old way — the pivot \
+         reaches tilts but not smashes, which means it was built at the selector \
+         rather than where facing is resolved"
+    );
+}

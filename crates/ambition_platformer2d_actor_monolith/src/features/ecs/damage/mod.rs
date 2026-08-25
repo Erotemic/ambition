@@ -208,15 +208,21 @@ impl BarkDraw<'_> {
     }
 
     /// May the hit on `victim` speak, under `rules`?
+    /// ⛔ THE VICTIM ARRIVES AS ITS SIMULATION NAME, not as an entity. Resolving
+    /// it here would mean another query on this already-broad gateway; the
+    /// caller that resolves hits holds `identities` for its own reasons.
     pub fn allows(
         &self,
         rules: &crate::combat::rules::ResolvedCombatTuning,
-        victim: Entity,
+        victim: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     ) -> bool {
         bark_is_allowed(
             Some(rules),
             self.tick.as_deref(),
             self.active.as_deref(),
+            // ⛔⛔ THE VICTIM'S SIMULATION NAME, NOT ITS ENTITY BITS. See
+            // `bark_is_allowed`. `None` for a body with no canonical identity —
+            // a bare fixture — which the salt below answers explicitly.
             victim,
         )
     }
@@ -244,7 +250,7 @@ pub(crate) fn bark_is_allowed(
     rules: Option<&crate::combat::rules::ResolvedCombatTuning>,
     tick: Option<&ambition_time::SimTick>,
     active: Option<&crate::character_runtime::ActiveMatch>,
-    victim: Entity,
+    victim: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) -> bool {
     let chance = rules.map_or(1.0, |rules| rules.bark_chance);
     if chance >= 1.0 {
@@ -263,7 +269,20 @@ pub(crate) fn bark_is_allowed(
             |active| active.instance().random_context(),
         ),
         tick.get(),
-        victim.to_bits(),
+        // ⛔⛔ THE SIMULATION NAME, NEVER `Entity::to_bits()`. An entity index is
+        // ALLOCATOR HISTORY: two peers that spawned the same cast in a different
+        // order hold different bits for one fighter, so a draw salted with them
+        // agrees locally and disagrees across the wire. Rollback hides it — a
+        // rewind reuses the same ids — which is why it survives every test that
+        // is not a netplay test.
+        //
+        // ⭐ A BODY WITH NO CANONICAL NAME DRAWS FROM ZERO, deliberately: a bare
+        // fixture is not in a networked match, and inventing an allocator-derived
+        // fallback here would put the same non-determinism back under a longer
+        // name.
+        victim.map_or(0, |id| {
+            ambition_platformer2d_core::sim_random::sim_salt_for_name(id.as_str())
+        }),
     );
     // The draw is uniform over the whole `u64`, so a fraction of it is the
     // fraction of hits that speak.
@@ -722,7 +741,7 @@ pub fn apply_feature_hit_events(
                 // ⛔ AND IT IS `sim_random`, never a stream: this is read inside
                 // the rollback window, so a resimulated hit has to reach the
                 // same answer or the bubble flickers on a rewind.
-                bark_draw.allows(&resolved_rules, actor_entity),
+                bark_draw.allows(&resolved_rules, writers.identities.get(actor_entity).ok()),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

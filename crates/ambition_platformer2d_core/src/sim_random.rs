@@ -97,6 +97,26 @@ pub fn sim_random(domain: RandomDomain, context: RandomContext, tick: u64, salt:
     z ^ (z >> 31)
 }
 
+/// A stable numeric salt for a NAMED simulation subject.
+///
+/// ⛔⛔ THE ALTERNATIVE IS `Entity::to_bits()`, AND IT IS NOT DETERMINISTIC ACROSS
+/// PEERS. A Bevy entity's index is allocator history: two machines that spawned
+/// the same cast in a different order hold different bits for the same fighter,
+/// so a draw salted with them agrees on one machine and disagrees on the next.
+/// Rollback hides it — a rewind reuses the same ids — which is exactly why it
+/// survives testing and fails in netplay.
+///
+/// FNV-1a, spelled out rather than borrowed from `DefaultHasher`, whose output is
+/// explicitly not stable across releases.
+pub fn sim_salt_for_name(name: &str) -> u64 {
+    let mut hash: u64 = 0xCBF2_9CE4_8422_2325;
+    for byte in name.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01B3);
+    }
+    hash
+}
+
 /// A draw in `0..len`, or `None` for an empty range.
 pub fn sim_random_index(
     domain: RandomDomain,

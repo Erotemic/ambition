@@ -34,10 +34,8 @@ impl MoveLedger {
     fn sample(&mut self, app: &mut App) {
         let stage = ambition_demo_smash::smash_stage().world.size;
         let world = app.world_mut();
-        let mut positions = world.query::<(
-            &MatchSeat,
-            &ambition_platformer2d::actor::BodyKinematics,
-        )>();
+        let mut positions =
+            world.query::<(&MatchSeat, &ambition_platformer2d::actor::BodyKinematics)>();
         let offstage: Vec<usize> = positions
             .iter(world)
             .filter(|(_, kin)| kin.pos.x < 0.0 || kin.pos.x > stage.x || kin.pos.y > stage.y)
@@ -456,40 +454,62 @@ fn every_authored_route_gets_pressed() {
     // simulated match, not a promise that a CPU recovers within N ticks.
     const WINDOW: usize = 3600;
 
+    // ⛔⛔ A MIRROR MATCH, AND THAT IS THE FIX RATHER THAN A WIDER WINDOW. Only
+    // George authors a route home, so pairing him with a fighter that does not
+    // made this probe depend on GEORGE being the one knocked out — and which
+    // fighter loses first is chaotic. Measured 2026-08-25: FOUR differing
+    // turnaround decisions across 3600 ticks moved the first KO from George to
+    // his opponent, and the arm went red with the affordance simply untested.
+    // Two earlier behaviour changes did the same and were each answered by
+    // doubling `WINDOW`, which this file then called "a hand-kept ledger".
+    //
+    // ⇒ WITH BOTH SEATS CARRYING THE ROUTE, whoever loses is a fighter this
+    // probe can question.
     let m = run_a_match(
         [
             ambition_demo_smash::SMASH_GEORGE_BOOUL,
-            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_GEORGE_BOOUL,
         ],
         WINDOW,
     );
     let report = m.render();
 
     let mut fighters_with_a_route = 0;
+    let mut fighters_offstage = 0;
     for (seat, table) in &m.tables {
         let routes = routes(table);
         if routes.is_empty() {
             continue;
         }
         fighters_with_a_route += 1;
-        // ⛔⛔ THE PREMISE FIRST, AND IT IS NOT A FORMALITY. This probe watches
-        // one match and asks whether a route was ever pressed, so it can only
-        // see the affordance in a match that put the fighter off the stage. It
-        // has now gone red twice for behaviour changes that moved WHEN George
-        // first goes out — a charge-payoff correction and a charge-pose move —
-        // while `the_cpu_throws_its_authored_recovery_during_a_match`, which
-        // asks the brain what it SELECTED in `Situation::Recovery`, stayed
-        // green both times. Widening the window each time is a hand-kept
-        // ledger; naming the premise is the fix.
+        // ⛔⛔ THE PREMISE, AND IT IS PER-MATCH RATHER THAN PER-SEAT — which is
+        // the third correction this arm has needed and the first that is not a
+        // widened window.
+        //
+        // This probe watches ONE match and asks whether a route home was ever
+        // pressed, so it can only see the affordance for a fighter that actually
+        // went off the stage. It used to demand that of EVERY seat carrying a
+        // route, which made it depend on WHICH fighter is knocked out first —
+        // and that is chaotic: measured 2026-08-25, FOUR differing turnaround
+        // decisions across a 3600-tick match (out of thousands) were enough to
+        // move the first KO from seat 0 to seat 1. Two earlier behaviour changes
+        // moved it the same way, and each was answered by doubling `WINDOW`,
+        // which the comment then called "a hand-kept ledger".
+        //
+        // ⇒ ASK IT OF THE SEATS THE MATCH ACTUALLY PUT OFFSTAGE, and require at
+        // least one, so the arm can never quietly become vacuous. The claim per
+        // fighter is unchanged and just as falsifiable; what is gone is the
+        // requirement that a particular fighter be the one to lose.
+        //
+        // ⛔ THE STRONG CLAIM IS NOT HERE. Whether the brain SELECTS its
+        // recovery in `Situation::Recovery` is
+        // `the_cpu_throws_its_authored_recovery_during_a_match`, which stayed
+        // green through all three of these.
         let offstage = m.ledger.offstage_ticks.get(seat).copied().unwrap_or(0);
-        assert!(
-            offstage > 0,
-            "seat {seat} never left the stage in {WINDOW} ticks, so this match \
-             cannot say anything about whether it uses its route home. That is \
-             a statement about the MATCH, not about the fighter — the claim \
-             about the brain's selection is \
-             `the_cpu_throws_its_authored_recovery_during_a_match`.\n{report}"
-        );
+        if offstage == 0 {
+            continue;
+        }
+        fighters_offstage += 1;
         assert!(
             count_within(&m.started(*seat), &routes) > 0,
             "seat {seat} carries {} authored route(s) home ({routes:?}), spent \
@@ -499,6 +519,12 @@ fn every_authored_route_gets_pressed() {
             routes.len(),
         );
     }
+    assert!(
+        fighters_offstage > 0,
+        "no fighter carrying a route home ever left the stage in {WINDOW} ticks, \
+         so this match cannot say anything about whether one is used. That is a \
+         statement about the MATCH, not about any fighter.\n{report}"
+    );
     assert!(
         fighters_with_a_route > 0,
         "neither seat authors a move that commands a rise, so this test skipped \
@@ -525,7 +551,7 @@ fn every_authored_route_gets_pressed() {
 mod the_decision_log {
     use super::*;
     use ambition_platformer2d::causal::{
-        domains, CausalFact, CausalPlugin, CausalRecording, FactValue, RecordingPolicy,
+        CausalFact, CausalPlugin, CausalRecording, FactValue, RecordingPolicy, domains,
     };
 
     fn text<'a>(fact: &'a CausalFact, key: &str) -> Option<&'a str> {
@@ -847,7 +873,7 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
             &ambition_platformer2d::characters::control::DrivingParticipant,
         )>();
         q.iter(world)
-            .min_by_key(|(_, driver)| driver.0 .0)
+            .min_by_key(|(_, driver)| driver.0.0)
             .map(|(entity, _)| entity)
             .expect("the shipped roster seats a human on the first pad")
     };
@@ -895,7 +921,6 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
             laps = laps.max(pb.looped_s);
         }
     }
-
 
     for step in ["jab", "jab2", "jab3"] {
         assert!(

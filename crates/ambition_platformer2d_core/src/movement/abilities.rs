@@ -266,7 +266,25 @@ pub(super) fn apply_intent(
         kinematics.facing = -kinematics.facing;
         state.turnaround_timer = 0.0;
     }
-    let asked_now = state.prev_steer_dir != local_stick.x.signum();
+    // ⛔⛔ BOTH SIDES OF THIS COMPARISON AT ONE THRESHOLD. `prev_steer_dir` is
+    // written by the initial dash past a 0.5 deadzone; testing it against a bare
+    // `local_stick.x.signum()` compared a value recorded at one threshold with a
+    // value read at another, so a stick held around -0.2 was NEUTRAL to the
+    // writer and A DEFINITE REVERSE to the reader — an edge that was true on
+    // every tick.
+    //
+    // ⭐ SHARING THE DASH'S THRESHOLD RATHER THAN CARRYING A SECOND MEMORY. A
+    // turnaround is a committed run being reversed, which is the same firm push
+    // the dash asks for; and a separate `prev_turn_steer_dir` would be one more
+    // ROLLBACK FIELD bought for a difference nothing can currently observe (the
+    // facing snaps to the stick the moment the timer expires — see below — so
+    // the phase cannot actually re-arm forever). Same threshold, no new state.
+    let turn_dir = if local_stick.x.abs() > super::integration::STEER_DEADZONE {
+        local_stick.x.signum()
+    } else {
+        0.0
+    };
+    let asked_now = state.prev_steer_dir != turn_dir;
     if tuning.locomotion.turnaround_time > 0.0
         && ground.on_ground
         && state.running

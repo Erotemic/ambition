@@ -1363,3 +1363,75 @@ fn staling_wears_an_evades_i_frames_and_leaves_its_distance_alone() {
          mechanic does nothing at all"
     );
 }
+
+/// A REVERSE TOO SOFT FOR A DASH IS TOO SOFT FOR A TURNAROUND, AND THE FACING
+/// STILL ARRIVES.
+///
+/// ⛔⛔ THE EDGE TEST COMPARED TWO DIFFERENT THRESHOLDS. `prev_steer_dir` is
+/// written by the initial dash only past a 0.5 deadzone, and the turnaround
+/// tested it against a bare `signum()`: a stick held around -0.2 was NEUTRAL to
+/// the writer and A DEFINITE REVERSE to the reader, so that edge was true on
+/// every single tick. ⚠ Full-stick and keyboard input clear both thresholds,
+/// which is why every existing arm passed.
+///
+/// ⭐⭐ WHAT THAT DID NOT DO IS RE-ARM FOREVER, and measuring it is what kept a
+/// rollback field out of the fix: the facing SNAPS to the stick the moment the
+/// timer expires, so `reversing` goes false and the phase cannot retrigger. The
+/// review predicted an endless turn; the code cannot produce one. So the defect
+/// is the mismatched comparison itself, and the fix is one threshold, not a
+/// second memory.
+#[test]
+fn a_reverse_too_soft_to_dash_does_not_buy_a_turnaround() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.base.turnaround_time = 0.05;
+
+    let mut body = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    for _ in 0..30 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    // Commit a run to the RIGHT at full stick, which is what a turnaround needs
+    // to be paid out of.
+    let mut forward = InputState::default();
+    forward.axes = crate::reference_frame::LocalAxes::new(1.0, 0.0);
+    for _ in 0..90 {
+        super::update_player_with_tuning_scratch(&world, &mut body, forward, 1.0 / 60.0, tuning);
+    }
+    assert!(
+        body.axis().running && body.kinematics.facing > 0.0,
+        "the fixture never committed a rightward run, so nothing below is a turnaround"
+    );
+
+    // Now hold a MODERATE reverse — past the turnaround's 0.1, under the dash's
+    // 0.5 — for far longer than the phase lasts.
+    let mut partial = InputState::default();
+    partial.axes = crate::reference_frame::LocalAxes::new(-0.2, 0.0);
+    let mut armings = 0;
+    let mut was_turning = false;
+    for _ in 0..60 {
+        super::update_player_with_tuning_scratch(&world, &mut body, partial, 1.0 / 60.0, tuning);
+        let turning = body.axis().turnaround_timer > 0.0;
+        if turning && !was_turning {
+            armings += 1;
+        }
+        was_turning = turning;
+    }
+
+    assert_eq!(
+        armings, 0,
+        "a stick too soft to start a DASH bought {armings} turnaround(s) — the two \
+         mechanics are reading one memory at two different thresholds"
+    );
+    // ⛔ AND THE BODY STILL TURNS. Without this the fix could be "never turn on a
+    // soft stick", which would strand an analog player facing the wrong way.
+    assert!(
+        body.kinematics.facing < 0.0,
+        "a soft reverse left the body facing its old direction entirely"
+    );
+}

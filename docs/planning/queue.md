@@ -10281,6 +10281,65 @@ screen earlier, caught by the EXISTING forward test in a minute. And the two-pad
 arm overclaimed: a poison on the no-plan branch PASSED, because in an all-pad
 match every channel IS named, so that branch is dead along this fixture's path.
 
+- ▢ **D237 — THE 24-HOUR DEEP REVIEW (GPT 5.6, snapshot `cab773ccf`): SEVEN
+  CLOSED THE SAME DAY, SIX OPEN, ONE REFUSED AS A HALF-FIX. (opened 2026-08-25)**
+
+⭐ CLOSED 2026-08-25, each measured → built → poisoned → verified: (1) match input
+device authority [D236]; (2) roll ownership + the evade timer split [D235]; (3)
+authored ZERO-DAMAGE WINDBOXES — the hitbox layer preserved the authored `0` and
+`damage_apply.rs`'s `damage.max(1)` undid it one seam later on the shared road,
+so a repeating gust took a point of health per pulse and would eventually kill
+what it was only meant to push; (9) wavebounce reversing world X [D235]; (10) the
+unvested ledge grant [D235]; (14) BARK DETERMINISM — the draw was salted with
+`Entity::to_bits()`, which is ALLOCATOR HISTORY: two peers that spawned one cast
+in a different order disagree, and ROLLBACK HIDES IT because a rewind reuses the
+same ids. Now `sim_salt_for_name(SimId)`, with an arm proving two independently
+built identities for one fighter agree and a different fighter still differs.
+Plus the parity row PIVOT SMASH, which was already true — the pivot went in
+where facing is resolved, so every attack family inherited it.
+
+⛔⛔ **(13) LEDGE-TRUMP POP: REFUSED AS A HALF-FIX, AND THIS IS THE INTERESTING
+ONE.** The review is right that `kin.vel.x = outward.signum() * pop` is world X.
+But its INPUT, `LedgeContact::wall_normal_x`, is a world-X SCALAR — the whole
+ledge contact representation is world-X — so projecting only the consumer onto
+`body_frame.side` would move the inconsistency rather than remove it. ⇒ the real
+item is **give the ledge contact a frame-relative normal**, and that is a design
+change, not a line. ⚠ contrast the WAVEBOUNCE, which WAS a line: there the input
+was already a vector and the frame was already in scope.
+
+⚠ **AND (11) COST A FIXTURE, WHICH IS THE MOST USEFUL THING IN THIS ROW.**
+Unifying the threshold changed exactly FOUR arming decisions across a 3600-tick
+match — and that moved which fighter is knocked out first, reddening
+`every_authored_route_gets_pressed`. ⛔⛔ TWO PROBES SAID IT COULD NOT: CPUs steer
+at exactly `signum()`, and a probe printing where the two COMPARISONS differ
+showed disagreements only at `x=0.000`, where the gate is shut. Printing the
+whole ARMING PREDICATE instead found the real values — 0.342, −0.258, −0.376,
+−0.158, off the survival/DI stick rather than the movement verb. ⇒ **PROBE THE
+DECISION, NOT AN INPUT TO THE DECISION.**
+
+⇒ The fixture paired George — the only fighter with an authored route home —
+against one without, so it silently required GEORGE to be the one knocked out.
+Its own comment records two earlier behaviour changes that flipped it, each
+answered by doubling the window, and calls that *"a hand-kept ledger"*. Now a
+MIRROR MATCH: whoever loses carries the route, and the chaotic variable is gone
+without widening anything or weakening the claim.
+
+▢ STILL OPEN, in the review's own order: **(4) `LandedBodyHit` means OVERLAP and
+new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
+split; **(5) impact hitstop reads victim hitlag BEFORE resolution** (a
+consequence of 4: carry the resolved hitlag on the event); **(6) `LiveMatchTicks`
+counts whole ticks under partial TIME SCALING** — decide what it measures and say
+so; **(7)(8) the special-turn techniques are collapsed** — turnaround-B vs
+B-reverse vs wavebounce need input ORDER, and the effect is applied during
+PROPOSAL rather than at acceptance; **(11) the turnaround edge shares
+`prev_steer_dir` with the initial dash, whose deadzone is 0.5 against the
+turnaround's 0.1** — an analog reversal near -0.2 re-arms forever; **(12)
+grounded-attack rooting says "cannot steer" by sending ZERO INTENT, which the
+ground law reads as "apply friction"** — the same seam as the roll, and it eats
+an authored dash-attack carry; **(15) `asdi_owed: bool` cannot express "once per
+hit"**; **(16) the feature-hit gateway grows by SystemParam packing** — guidance
+for the next change to it, not a campaign.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

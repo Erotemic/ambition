@@ -2125,7 +2125,14 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
 mod bark_rate {
     use super::super::bark_is_allowed;
     use crate::combat::rules::ResolvedCombatTuning;
-    use bevy::prelude::Entity;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    /// A victim named the way the simulation names one. ⛔ NOT an `Entity`: the
+    /// draw is salted by SIMULATION IDENTITY, because an entity index is
+    /// allocator history and two peers do not agree on it.
+    fn victim_named(name: &str) -> SimId {
+        SimId::placement(name)
+    }
 
     fn rules(chance: f32) -> ResolvedCombatTuning {
         ResolvedCombatTuning {
@@ -2134,14 +2141,14 @@ mod bark_rate {
         }
     }
 
-    fn spoke(chance: f32, ticks: u64, victim: Entity) -> usize {
+    fn spoke(chance: f32, ticks: u64, victim: &SimId) -> usize {
         (0..ticks)
             .filter(|t| {
                 bark_is_allowed(
                     Some(&rules(chance)),
                     Some(&ambition_time::SimTick(*t)),
                     None,
-                    victim,
+                    Some(victim),
                 )
             })
             .count()
@@ -2151,10 +2158,10 @@ mod bark_rate {
     /// before the knob existed.
     #[test]
     fn an_undeclared_world_still_barks_on_every_hit() {
-        let victim = Entity::from_raw_u32(7).expect("a valid entity id");
-        assert_eq!(spoke(1.0, 200, victim), 200);
+        let victim = victim_named("fighter_seven");
+        assert_eq!(spoke(1.0, 200, &victim), 200);
         assert!(
-            bark_is_allowed(None, None, None, victim),
+            bark_is_allowed(None, None, None, Some(&victim)),
             "a composition with no combat rules at all went silent"
         );
     }
@@ -2162,8 +2169,8 @@ mod bark_rate {
     /// ⛔ AND "RARE" IS NOT "NEVER". Jon said so in the same sentence.
     #[test]
     fn a_low_rate_speaks_sometimes_and_is_mostly_quiet() {
-        let victim = Entity::from_raw_u32(7).expect("a valid entity id");
-        let spoke_at_a_fifth = spoke(0.2, 400, victim);
+        let victim = victim_named("fighter_seven");
+        let spoke_at_a_fifth = spoke(0.2, 400, &victim);
         assert!(
             spoke_at_a_fifth > 0,
             "a 0.2 rate never spoke in 400 hits, which is the 'never' Jon ruled out"
@@ -2173,7 +2180,7 @@ mod bark_rate {
             "a 0.2 rate spoke {spoke_at_a_fifth} times in 400 hits — that is not rarer"
         );
         // Zero is still authorable, and it is the only value that means silence.
-        assert_eq!(spoke(0.0, 100, victim), 0);
+        assert_eq!(spoke(0.0, 100, &victim), 0);
     }
 
     /// ⭐⭐ TWO FIGHTERS STRUCK ON THE SAME TICK DECIDE INDEPENDENTLY.
@@ -2184,13 +2191,13 @@ mod bark_rate {
     /// fixed. The victim is the salt.
     #[test]
     fn two_victims_on_one_tick_do_not_chorus() {
-        let a = Entity::from_raw_u32(7).expect("a valid entity id");
-        let b = Entity::from_raw_u32(9).expect("a valid entity id");
+        let a = victim_named("fighter_seven");
+        let b = victim_named("fighter_nine");
         let disagreements = (0..400u64)
             .filter(|t| {
                 let tick = ambition_time::SimTick(*t);
-                bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, a)
-                    != bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, b)
+                bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&a))
+                    != bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&b))
             })
             .count();
         assert!(
@@ -2200,17 +2207,61 @@ mod bark_rate {
         );
     }
 
+    /// ⛔⛔ AND IT DOES NOT DEPEND ON ENTITY ALLOCATION. The salt was
+    /// `victim.to_bits()` until 2026-08-25 — allocator history, which two peers
+    /// that spawned the same cast in a different order do not agree on. Rollback
+    /// hides it (a rewind reuses the same ids), so only a peer-vs-peer test can
+    /// see it; this arm is that test's cheap local form.
+    ///
+    /// ⭐ THE PREMISE IS THE POINT: the two draws below share a NAME and nothing
+    /// else. If identity ever leaks back into the salt, they diverge.
+    #[test]
+    fn one_fighter_draws_the_same_however_its_entity_was_allocated() {
+        // The same fighter, as two independently constructed identities — which
+        // is what the same fighter looks like on two machines.
+        let here = victim_named("fighter_seven");
+        let there = victim_named("fighter_seven");
+        let other = victim_named("fighter_nine");
+
+        let mut agreed = 0;
+        let mut differed_from_other = 0;
+        for t in 0..400u64 {
+            let tick = ambition_time::SimTick(t);
+            let a = bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&here));
+            let b = bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&there));
+            let c = bark_is_allowed(Some(&rules(0.5)), Some(&tick), None, Some(&other));
+            if a == b {
+                agreed += 1;
+            }
+            if a != c {
+                differed_from_other += 1;
+            }
+        }
+        assert_eq!(
+            agreed,
+            400,
+            "two peers holding the SAME fighter disagreed on {} of 400 ticks —              something allocator-derived is back in the salt",
+            400 - agreed
+        );
+        // ⛔ NON-VACUITY: if the salt stopped mattering entirely, every body
+        // would agree and the arm above would pass while saying nothing.
+        assert!(
+            differed_from_other > 40,
+            "a DIFFERENT fighter drew the same answer on all but {differed_from_other}              of 400 ticks, so the name is not reaching the draw at all"
+        );
+    }
+
     /// ⛔ AND IT IS REPRODUCIBLE, because it is read inside the rollback window:
     /// a resimulated hit that answered differently would flicker the bubble on
     /// every rewind.
     #[test]
     fn the_same_hit_answers_the_same_way_twice() {
-        let victim = Entity::from_raw_u32(7).expect("a valid entity id");
+        let victim = victim_named("fighter_seven");
         let tick = ambition_time::SimTick(123);
-        let first = bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, victim);
+        let first = bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, Some(&victim));
         for _ in 0..8 {
             assert_eq!(
-                bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, victim),
+                bark_is_allowed(Some(&rules(0.3)), Some(&tick), None, Some(&victim)),
                 first,
                 "the same hit answered differently on a re-ask, so a rewind \
                  changes what the fighter said"

@@ -630,7 +630,7 @@ fn resolve_initial_dash(
 
 /// How far the stick must leave centre before it names a direction for the
 /// initial dash. Shared with nothing: the phase is the only reader.
-const STEER_DEADZONE: f32 = 0.5;
+pub(super) const STEER_DEADZONE: f32 = 0.5;
 
 impl NormalSpineCtx {
     /// The gating a bare actor (enemy/NPC) with no player ability components

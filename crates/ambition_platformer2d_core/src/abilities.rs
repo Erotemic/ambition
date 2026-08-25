@@ -738,6 +738,14 @@ pub struct MatchBody {
     pub dodge_stale_floor: f32,
     /// See [`Self::dodge_stale_step`]. Seconds to forgive ONE recent evade.
     pub dodge_stale_recovery: f32,
+    /// UNTECHABLE LAUNCH — the launch speed at or above which a tumble cannot be
+    /// teched, engine units/s. `0.0` (the engine default) leaves every launch
+    /// techable.
+    ///
+    /// ⭐ A MATCH RULE: "a hit hard enough to kill should not be survivable by a
+    /// well-timed press" is a fighting-game sentence. An exploration body that
+    /// tumbles at all should keep its escape.
+    pub untechable_launch_speed: f32,
     /// Launch speed above which a hit sends a body TUMBLING (px/s), and the
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
@@ -795,6 +803,7 @@ impl MatchBody {
             dodge_stale_step: self.dodge_stale_step,
             dodge_stale_floor: self.dodge_stale_floor,
             dodge_stale_recovery: self.dodge_stale_recovery,
+            untechable_launch_speed: self.untechable_launch_speed,
             tumble_speed: self.tumble_speed,
             spot_dodge_time: self.spot_dodge_time,
             parry_timing: self.parry_timing,
@@ -839,6 +848,8 @@ mod tests {
             dodge_stale_step: 0.25,
             dodge_stale_floor: 0.34,
             dodge_stale_recovery: 1.2,
+            // Roughly a kill-power launch on this stage: hard hits commit.
+            untechable_launch_speed: 1400.0,
             tumble_speed: 500.0,
             spot_dodge_time: 0.16,
             parry_timing: crate::ParryTiming::OnRaise,

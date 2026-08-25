@@ -226,6 +226,14 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         dodge_stale_step: 0.25,
         dodge_stale_floor: 0.34,
         dodge_stale_recovery: 1.2,
+        // ⭐⭐ A KILL-POWER HIT COMMITS. Above 1400px/s the tumble cannot be
+        // teched, so the hit that should end a stock is not survivable by a
+        // well-timed press against the wall behind you.
+        //
+        // ⛔ WELL ABOVE THE TUMBLE THRESHOLD (500px/s), so ordinary launches
+        // keep their escape and only the hard ones lose it — a threshold near
+        // the tumble line would delete the tech instead of reserving it.
+        untechable_launch_speed: 1400.0,
         // SPOT DODGE, 0.16s. The grounded evade had one shape, so the
         // option a cornered fighter takes — nowhere to roll TO, waiting out a
         // committed swing — did not exist. Shorter than the roll's window

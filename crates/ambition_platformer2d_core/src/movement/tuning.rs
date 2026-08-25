@@ -469,6 +469,16 @@ pub struct MovementTuning {
     /// than a mechanic.
     #[serde(default)]
     pub dodge_stale_recovery: f32,
+    /// UNTECHABLE LAUNCH — the launch speed at or above which a tumble cannot be
+    /// teched out of, engine units/s. `0.0` (the baseline) means every launch is
+    /// techable, which is what every body did before the rule existed.
+    ///
+    /// ⭐ THE GENRE'S RULE: a hit hard enough to kill should not be survivable by
+    /// a well-timed press on the wall behind you. It is a rules knob rather than
+    /// a per-move flag because it is a property of how HARD the launch was, not
+    /// of which move threw it.
+    #[serde(default)]
+    pub untechable_launch_speed: f32,
     /// The aerial evade: how long the i-frames last, how fast the body
     /// travels along the stick, and the endlag it owes on the far side.
     ///
@@ -767,6 +777,16 @@ pub struct TraversalAbilityTuning {
     /// than a mechanic.
     #[serde(default)]
     pub dodge_stale_recovery: f32,
+    /// UNTECHABLE LAUNCH — the launch speed at or above which a tumble cannot be
+    /// teched out of, engine units/s. `0.0` (the baseline) means every launch is
+    /// techable, which is what every body did before the rule existed.
+    ///
+    /// ⭐ THE GENRE'S RULE: a hit hard enough to kill should not be survivable by
+    /// a well-timed press on the wall behind you. It is a rules knob rather than
+    /// a per-move flag because it is a property of how HARD the launch was, not
+    /// of which move threw it.
+    #[serde(default)]
+    pub untechable_launch_speed: f32,
     /// See [`AbilityTuning::air_dodge_time`].
     #[serde(default)]
     pub air_dodge_time: f32,
@@ -1151,6 +1171,7 @@ impl MovementTuning {
                 dodge_stale_step: self.dodge_stale_step,
                 dodge_stale_floor: self.dodge_stale_floor,
                 dodge_stale_recovery: self.dodge_stale_recovery,
+                untechable_launch_speed: self.untechable_launch_speed,
                 air_dodge_time: self.air_dodge_time,
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
@@ -1249,6 +1270,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_stale_step: 0.0,
     dodge_stale_floor: 1.0,
     dodge_stale_recovery: 0.0,
+    // Every launch is techable in a game that declares nothing.
+    untechable_launch_speed: 0.0,
     // ZERO in the default tuning, and that is the decision, not an
     // oversight. An airborne dash press already MEANS something for a body
     // with the dash ability — it is the protagonist's air dash, a traversal

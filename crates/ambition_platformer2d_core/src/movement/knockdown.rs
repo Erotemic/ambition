@@ -8,8 +8,8 @@ use super::input::InputState;
 use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
-use crate::body_clusters::{BodyComboTrace, BodyGroundState, BodyKinematics};
 use crate::MotionFrame;
+use crate::body_clusters::{BodyComboTrace, BodyGroundState, BodyKinematics};
 
 /// How long a body stays in tumble after a launch, per unit of launch speed
 /// over its threshold — clamped to [`MAX_TUMBLE_TIME`]. A harder hit keeps you
@@ -69,6 +69,15 @@ pub fn launch_into_tumble(
     }
     let over = launch_speed - threshold;
     enter_tumble(state, TUMBLE_TIME_PER_SPEED * over);
+    // ⭐⭐ A HARD ENOUGH LAUNCH CANNOT BE TECHED, and this is the only place that
+    // can decide it: the launch SPEED is an input here and is gone by the time
+    // the body reaches a surface. Deciding it at the wall would need the impact
+    // to reconstruct how hard the hit was, which nothing downstream knows.
+    //
+    // `0.0` — the default — means every launch is techable, which is what every
+    // body did before the rule existed.
+    let untechable = tuning.abilities.untechable_launch_speed;
+    state.tumble_untechable = untechable > 0.0 && launch_speed >= untechable;
     true
 }
 
@@ -102,6 +111,10 @@ pub fn tumble_from_footstool(
 /// and airborne, and a getup's i-frames do not survive being put back in the
 /// air.
 fn enter_tumble(state: &mut AxisManeuverState, seconds: f32) {
+    // ⛔ CLEARED ON EVERY ENTRY, so an untechable launch cannot leave the flag
+    // latched on the NEXT tumble — a footstool is not a launch, and a body that
+    // was once hit hard must not spend the rest of the stock untechable.
+    state.tumble_untechable = false;
     state.tumble_timer = state.tumble_timer.max(seconds.min(MAX_TUMBLE_TIME));
     state.tumble_until_landing = true;
     state.knockdown_timer = 0.0;
@@ -176,7 +189,20 @@ pub(super) fn tick_knockdown(
     // carries no rising edge in this kernel, and inventing one here would be a
     // second source of truth about when a button went down. While tumbling
     // every other meaning of the press is gone anyway, so it is unambiguous.
-    if input.burst_pressed() && state.tech_lockout_timer <= 0.0 && state.tech_press_timer <= 0.0 {
+    // ⭐⭐ A LAUNCH TOO HARD TO TECH REFUSES THE PRESS AT THE SOURCE, not at each
+    // surface. The wall, the ceiling and the floor each have their own tech arm,
+    // and gating them one by one is how a fourth surface added later quietly
+    // becomes techable again — so the PRESS is what an untechable tumble
+    // refuses, and all three arms are covered by construction.
+    //
+    // ⛔ AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes into an
+    // untechable launch should not be free to keep mashing, which is the same
+    // reason a missed tech has a lockout at all.
+    if input.burst_pressed()
+        && !state.tumble_untechable
+        && state.tech_lockout_timer <= 0.0
+        && state.tech_press_timer <= 0.0
+    {
         state.tech_press_timer = TECH_WINDOW;
     }
     if state.tech_press_timer > 0.0 {

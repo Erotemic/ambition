@@ -188,6 +188,13 @@ pub struct AxisManeuverState {
     /// short and a launch that peaks high lands on its feet as if nothing
     /// happened, too long and the body is helpless for the whole arc.
     pub tumble_until_landing: bool,
+    /// This tumble came from a launch too hard to TECH out of.
+    ///
+    /// ⭐ DECIDED AT THE LAUNCH, because that is the only moment the launch
+    /// SPEED exists: by the time the body reaches a wall or the floor, nothing
+    /// downstream knows how hard the hit was. Cleared on every tumble entry, so
+    /// it cannot latch onto a later, gentler one.
+    pub tumble_untechable: bool,
     /// A launch began a tumble and the frame has not reported it yet.
     ///
     /// A resimulation that replays the launch replays this with it.
@@ -253,6 +260,7 @@ impl Default for AxisManeuverState {
             dodge_roll_endlag_timer: 0.0,
             tumble_timer: 0.0,
             tumble_until_landing: false,
+            tumble_untechable: false,
             tumble_unannounced: false,
             tech_press_timer: 0.0,
             tech_lockout_timer: 0.0,

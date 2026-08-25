@@ -1691,3 +1691,83 @@ fn evade_staling_bleeds_off_one_evade_at_a_time() {
          gets the option back"
     );
 }
+
+/// ⭐⭐ A LAUNCH HARD ENOUGH TO KILL CANNOT BE TECHED OUT OF.
+///
+/// The parity inventory's *"Untechable high-launch threshold"*: tech eligibility
+/// depends on the resolved launch through one rules knob. The genre's reason is
+/// that a hit which should end a stock must not be survivable by a well-timed
+/// press against the wall behind you.
+///
+/// ⛔ BOTH ARMS, because a threshold that refused EVERY tech would satisfy the
+/// headline and delete the mechanic: the same fixture, under the same launch,
+/// techs when the game declares no threshold.
+#[test]
+fn a_launch_above_the_untechable_threshold_refuses_the_wall_tech() {
+    let world = test_world();
+
+    let teched_under = |untechable_launch_speed: f32| -> bool {
+        let mut tuning = floor_game_tuning();
+        tuning.untechable_launch_speed = untechable_launch_speed;
+        let mut scratch = scratch_at(world.spawn);
+        scratch.kinematics.pos = Vec2::new(world.size.x - 120.0, world.size.y - 500.0);
+        scratch.ground.on_ground = false;
+        // Well over the 420 tumble threshold, so this is a real launch either way.
+        scratch.flight.pending_launch = Vec2::new(1400.0, -260.0);
+        crate::test_support::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        assert!(
+            scratch.axis().tumble_timer > 0.0,
+            "the launch did not tumble the body, so this measures nothing"
+        );
+
+        let dash = InputState {
+            movement: crate::ActionEdges::EMPTY.with(
+                crate::MovementAction::Burst,
+                crate::Edge {
+                    pressed: true,
+                    held: false,
+                    released: false,
+                },
+            ),
+            ..Default::default()
+        };
+        for _ in 0..90 {
+            let on_wall = scratch.wall.on_wall;
+            let events = crate::test_support::update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                if on_wall { dash } else { InputState::default() },
+                1.0 / 60.0,
+                tuning,
+            );
+            if events.operations.contains(&MovementOp::Tech) {
+                return true;
+            }
+        }
+        false
+    };
+
+    // ⛔ THE CONTROL FIRST: without a threshold this exact launch DOES tech, so
+    // the refusal below is the rule and not the fixture failing to reach a wall.
+    assert!(
+        teched_under(0.0),
+        "the fixture never teched even with no threshold declared, so it cannot \
+         show one refusing"
+    );
+    // The launch is ~1424px/s; a threshold under it makes this hit untechable.
+    assert!(
+        !teched_under(900.0),
+        "a launch above the declared untechable speed was teched anyway"
+    );
+    // …and a threshold ABOVE the launch leaves it alone.
+    assert!(
+        teched_under(4000.0),
+        "a launch well under the threshold was refused a tech it had earned"
+    );
+}

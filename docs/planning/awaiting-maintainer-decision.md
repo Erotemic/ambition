@@ -1575,3 +1575,28 @@ contract prover.
 ⛔ **`BlockKind` is the plan's other half and is NOT in scope.** Its diagnosis
 — one enum mixing contact law, traversal permission, world consequence and contact
 affordance — was re-measured as correct, and its trigger has not fired.
+
+## WHICH MOVE GUSTS? — the windbox has a mechanism and no customer (2026-08-25)
+
+The windbox primitive landed (`e06333002`, D215): a volume may now push without
+hurting — no hitstun, and optionally repeating so it pushes for as long as you
+stand in it. It is guarded by three poisoned tests.
+
+⛔ **NO MOVE USES IT, and that is deliberate rather than unfinished.** Which
+fighter gets a gust, and on which move, is a CHARACTER-DESIGN decision — the
+kind the W8 list asked not to be invented without direction. The engine question
+is answered; this one is yours.
+
+⇒ **what would settle it:** name one move. The genre's own examples are a
+lingering wind that shoves an edge-guarding opponent off their spacing, or a
+suction that drags one in — the second needs no new mechanic, only a launch
+aimed back toward the owner.
+
+⚠ **and until one exists the mechanic is UNADOPTED.** This demo has shipped
+three mechanics green and inert (the smash charge, DI, the tech), each caught by
+counting in a real match rather than by a unit test — so `match_report` should
+show a windbox connecting before this row is called done.
+
+⭐ the sibling parity row *"Vacuum / suction hitboxes"* needs NO further work:
+it is the same primitive with the launch aimed inward, so authoring one move
+closes both rows.

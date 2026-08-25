@@ -1061,3 +1061,89 @@ fn a_body_teeters_only_on_the_brink_it_is_facing() {
         "a world declaring no teeter margin produced one anyway"
     );
 }
+
+/// FAST-FALL COMES BACK WHEN THE LAUNCH LETS GO OF YOU, AND NOT BEFORE.
+///
+/// The parity row asks for exactly this and no new state: "reuse fast-fall once
+/// hitstun/control gates permit it". Measured 2026-08-25 — it already holds,
+/// because `tick_knockdown` strips control input for the tumble's duration and
+/// hands it back whole. This pins BOTH halves, since either alone is a
+/// different game: refused forever is a fighter who cannot come down, and
+/// permitted always is a launch you can cancel.
+#[test]
+fn fast_fall_is_refused_inside_a_tumble_and_returns_when_it_ends() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.tumble_speed = 500.0;
+    let mut ff = InputState::default();
+    ff.movement = crate::ActionEdges::EMPTY.with(
+        crate::MovementAction::FastFall,
+        crate::Edge {
+            pressed: true,
+            held: true,
+            released: false,
+        },
+    );
+    let launched = || {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 150.0));
+        scratch.ground.on_ground = false;
+        scratch.flight.pending_launch = crate::Vec2::new(120.0, -700.0);
+        scratch
+    };
+
+    // DURING — still tumbling AND already descending. ⛔ the descending half
+    // matters: fast-fall on a RISING body does nothing anyway, so a probe taken
+    // at the top of the arc passes whether the tumble suppresses control or
+    // not. Launched flat so gravity has it falling well inside the window.
+    let mut mid = {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(200.0, 150.0));
+        scratch.ground.on_ground = false;
+        scratch.flight.pending_launch = crate::Vec2::new(700.0, -40.0);
+        scratch
+    };
+    for _ in 0..8 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut mid,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        mid.axis().tumble_timer > 0.0 && mid.kinematics.vel.y > 0.0,
+        "the fixture is not a tumbling, DESCENDING body: tumble {:.2}, vy {:.0}",
+        mid.axis().tumble_timer,
+        mid.kinematics.vel.y
+    );
+    super::update_player_with_tuning_scratch(&world, &mut mid, ff, 1.0 / 60.0, tuning);
+    assert!(
+        !mid.axis().fast_falling,
+        "a tumbling body fast-fell — a launch you can cancel is not a launch"
+    );
+
+    // AFTER — the tumble has run out and the body is still in the air.
+    let mut free = launched();
+    for _ in 0..40 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut free,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(
+        free.axis().tumble_timer <= 0.0 && !free.ground.on_ground,
+        "the fixture is not a free airborne body: tumble {:.2}, on_ground {}",
+        free.axis().tumble_timer,
+        free.ground.on_ground
+    );
+    let before = free.kinematics.vel.y;
+    super::update_player_with_tuning_scratch(&world, &mut free, ff, 1.0 / 60.0, tuning);
+    assert!(
+        free.axis().fast_falling && free.kinematics.vel.y > before,
+        "fast-fall did not come back after the tumble: {before:.0} -> {:.0}",
+        free.kinematics.vel.y
+    );
+}

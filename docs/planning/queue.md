@@ -10080,6 +10080,31 @@ grab's baseline arm earlier today.
 is no turn to strengthen — without it a reader could take it for a second
 mechanic rather than a modifier.
 
+- ✔ **D231 — CLOSED 2026-08-25. FAST-FALL AFTER A LAUNCH WAS ALREADY TRUE, AND
+  PROVING IT HONESTLY WAS THE WORK. (opened and closed 2026-08-25)**
+
+`tick_knockdown` strips control for the tumble's duration and hands it back
+whole, so fast-fall is REFUSED inside the tumble and returns the moment it ends
+(863 → 931 px/s). No production code. Both halves are guarded, because either
+alone is a different game: refused forever is a fighter who cannot come down,
+permitted always is a launch you can cancel.
+
+⛔⛔ **MY FIRST REFUSAL ARM PASSED FOR THE WRONG REASON.** It pressed three ticks
+into the tumble, while the body was still RISING — and fast-fall on a rising
+body does nothing whether or not control is suppressed. The arm was green with
+the suppression intact AND with it poisoned away. Launching FLAT, so gravity has
+the body descending well inside the window, is what made it discriminate.
+
+⇒ ⭐⭐ **AN ARM THAT ASSERTS A REFUSAL MUST BE TAKEN IN A STATE WHERE PERMISSION
+WOULD VISIBLY DO SOMETHING.** Third time today a test arm sampled the wrong
+moment — the roll's first tick, the launch's peak, and now the top of an arc.
+
+⭐ **AND WHEN A POISON WILL NOT REDDEN, COUNT INSTEAD OF GUESSING.** I burned
+three attempts hunting the line that swallows the press. Instrumenting the gate
+to print every press that REACHED integration showed exactly ONE out of two —
+which proved the mechanism before its address was known. Poisoning
+`tick_knockdown` at its entry then reddened it immediately.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

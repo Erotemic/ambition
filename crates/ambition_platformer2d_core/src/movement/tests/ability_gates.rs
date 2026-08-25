@@ -3,8 +3,8 @@
 
 use super::super::*;
 use super::{step_scratch, test_world};
-use crate::body_clusters::BodyClusterScratch;
 use crate::AbilitySet;
+use crate::body_clusters::BodyClusterScratch;
 
 fn scratch_with(abilities: AbilitySet, spawn: bevy_math::Vec2) -> BodyClusterScratch {
     BodyClusterScratch::new_with_abilities(spawn, abilities)
@@ -143,10 +143,12 @@ fn double_dash_ability_controls_dash_charges() {
 fn wall_climb_requires_wall_cling() {
     let mut abilities = AbilitySet::sandbox_all();
     abilities.wall_cling = false;
-    assert!(abilities
-        .compatibility_warnings()
-        .iter()
-        .any(|w| w.contains("wall_climb")));
+    assert!(
+        abilities
+            .compatibility_warnings()
+            .iter()
+            .any(|w| w.contains("wall_climb"))
+    );
 }
 
 /// A BODY THAT CANNOT DASH STILL RUNS, and the dash attack's whole
@@ -311,5 +313,53 @@ fn the_run_gait_does_not_depend_on_the_dash_ability() {
         "a body that let go of the stick is still reported as running \
          (travelling {} px/s)",
         scratch.kinematics.vel.x,
+    );
+}
+
+/// A RUN CANCELS INTO A CROUCH IN A HANDFUL OF FRAMES.
+///
+/// The neighbouring `a_crouch_costs_speed_only_where_a_ruleset_asks_for_it`
+/// starts a body ALREADY crouching, so it pins the steady state and says
+/// nothing about the TRANSITION — and the transition is the mechanic here:
+/// crouching is how a platform fighter kills run momentum on purpose.
+///
+/// Measured 2026-08-25 at 270px/s top speed: 183 → 97 → 10 → 0, stopped on the
+/// fourth tick. ⛔ THIS IS WHAT THE CAP BUYS. A version that scaled the
+/// ACCELERATION instead would leave the body coasting at run speed for a long
+/// time and still pass the steady-state test, because it eventually arrives.
+#[test]
+fn crouching_out_of_a_run_kills_the_momentum_within_a_few_frames() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.crouch_speed_frac = 0.0;
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = true;
+    let hold = InputState {
+        axes: crate::reference_frame::LocalAxes::new(1.0, 0.0),
+        ..InputState::default()
+    };
+    for _ in 0..80 {
+        super::update_player_with_tuning_scratch(&world, &mut scratch, hold, 1.0 / 60.0, tuning);
+    }
+    let top = scratch.kinematics.vel.x;
+    assert!(
+        top > 200.0,
+        "the fixture never reached a real run ({top:.0} px/s), so the cancel below cancels nothing"
+    );
+
+    // Crouch, WITHOUT letting go of the direction — a cancel you have to hold
+    // through, not a body that simply stopped being asked to move.
+    scratch.body_mode.body_mode = crate::player_state::BodyMode::Crouching;
+    let mut stopped_after = None;
+    for t in 0..60 {
+        super::update_player_with_tuning_scratch(&world, &mut scratch, hold, 1.0 / 60.0, tuning);
+        if stopped_after.is_none() && scratch.kinematics.vel.x.abs() < 1.0 {
+            stopped_after = Some(t + 1);
+        }
+    }
+    let ticks = stopped_after.expect("a crouch that never stops a run is not a cancel");
+    assert!(
+        ticks <= 8,
+        "a crouch took {ticks} ticks to kill a run — that is a slow-down, not a cancel"
     );
 }

@@ -9757,6 +9757,42 @@ the whole cast.
 because both live in `ambition_combat`'s own `cfg(test)` files. Second time
 today. ⇒ the crate suite, not the gate, is what proves a shared type's change.
 
+- ✔ **D224 — CLOSED 2026-08-25. TWO CROUCH ROWS CLOSED WITHOUT WRITING ANY
+  PRODUCTION CODE: ONE STALE, ONE ALREADY TRUE. (opened and closed 2026-08-25)**
+
+⭐⭐ **BOTH WERE ▢ ON WORK THAT WAS ALREADY DONE**, which the goal warns has cost
+this project four sessions. Grepping first cost ten minutes and saved building a
+mechanic twice.
+
+**`Crouch walk` was stale on BOTH of its claims.** It said `Crouching` never
+reaches the locomotion law — it does: `integration.rs` scales the ground speed
+CAP by `crouch_speed_frac`, landed 2026-08-24 by the very measurement the row
+quotes, guarded by
+`a_crouch_costs_speed_only_where_a_ruleset_asks_for_it`. And it implied nobody
+had adopted it — Smash declares `crouch_speed_frac: 0.0`, *"in every Smash,
+crouching stops you outright"*. So the smaller hurtbox and the shortened launch
+are paid for, and the "free defensive win" the row describes no longer exists.
+
+**`Run cancel into crouch` was already true, and MEASURING is what settled it.**
+Its stated blocker was the stale claim above. With that gone, the question was
+only how FAST — the cap is approached through `approach(.., accel * dt)`, so a
+run might have bled off slowly. Measured at 270px/s top speed:
+
+```text
+tick  1     2    3    4
+     183   97   10   0      stopped on the fourth tick
+```
+
+⇒ no production code. ⭐ **BUT IT EARNED A TEST**, because the existing crouch
+test starts a body ALREADY crouching: it pins the steady state and says nothing
+about the TRANSITION, which is the whole mechanic here. The new guard poisons
+against the specific wrong version the kernel comment already names — scaling
+the ACCELERATION rather than the cap, which coasts at run speed and still
+satisfies the steady-state test because it eventually arrives.
+
+⇒ ⭐ **A ROW WHOSE BLOCKER IS A CLAIM ABOUT THE CODE IS TWO CHECKS, NOT ONE**:
+is the claim still true, and if not, is the thing it blocked now free?
+
 - ▢ **D217 — THE GROUND GAME HAS NO INITIAL DASH, AND EIGHT PARITY ROWS ARE
   WAITING BEHIND IT. (opened 2026-08-25, promoted from the smash-parity
   inventory)**

@@ -416,6 +416,25 @@ fn update_body_simulation_inner(
             state.air_dodge_endlag_timer = dec(state.air_dodge_endlag_timer);
         }
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
+        // ⭐ DODGE STALING BLEEDS OFF, one evade at a time. A fighter who stops
+        // rolling gets the option back; one who keeps rolling never reaches the
+        // delay's end, which is the whole mechanic.
+        //
+        // ⛔ ONE AT A TIME, not "forgive everything after a pause": a window
+        // that cleared the whole count would let a fighter roll four times, wait
+        // once, and be fully fresh — so recovering would cost the same whether
+        // the option had been abused once or ten times.
+        if clusters.dodge.evades_recent > 0 && tuning.abilities.dodge_stale_recovery > 0.0 {
+            clusters.dodge.stale_decay = dec(clusters.dodge.stale_decay);
+            if clusters.dodge.stale_decay <= 0.0 {
+                clusters.dodge.evades_recent -= 1;
+                clusters.dodge.stale_decay = if clusters.dodge.evades_recent > 0 {
+                    tuning.abilities.dodge_stale_recovery
+                } else {
+                    0.0
+                };
+            }
+        }
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
         clusters.shield.parry_caught_timer = dec(clusters.shield.parry_caught_timer);
         clusters.shield.drop_lag_timer = dec(clusters.shield.drop_lag_timer);

@@ -9,7 +9,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use crate::snapshot::{put_bool, put_f32, put_u32, put_vec2, Reader, SnapshotState};
+use crate::snapshot::{Reader, SnapshotState, put_bool, put_f32, put_u32, put_vec2};
 use crate::{snapshot_pod, snapshot_unit_enum};
 
 impl SnapshotState for crate::AbilitySet {
@@ -166,7 +166,12 @@ snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 });
 
 snapshot_pod!(crate::body_clusters::BodyDodgeState {
     cooldown: f32,
-    air_dodge_spent: bool
+    air_dodge_spent: bool,
+    // DODGE STALING is rollback state: how worn the option is decides how long
+    // the NEXT evade is invulnerable, so a rewind that restored the wrong count
+    // gives a fighter back i-frames it had spent.
+    evades_recent: u8,
+    stale_decay: f32
 });
 
 snapshot_pod!(crate::body_clusters::BodyShieldState {

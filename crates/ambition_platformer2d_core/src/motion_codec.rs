@@ -363,6 +363,9 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.air_dodge_speed);
     put_f32(out, a.air_dodge_endlag);
     put_f32(out, a.dodge_roll_endlag);
+    put_f32(out, a.dodge_stale_step);
+    put_f32(out, a.dodge_stale_floor);
+    put_f32(out, a.dodge_stale_recovery);
     put_f32(out, a.tumble_speed);
     put_f32(out, a.spot_dodge_time);
     put_f32(out, a.sdi_step);
@@ -475,6 +478,9 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_dodge_speed: r.f32()?,
             air_dodge_endlag: r.f32()?,
             dodge_roll_endlag: r.f32()?,
+            dodge_stale_step: r.f32()?,
+            dodge_stale_floor: r.f32()?,
+            dodge_stale_recovery: r.f32()?,
             tumble_speed: r.f32()?,
             spot_dodge_time: r.f32()?,
             sdi_step: r.f32()?,

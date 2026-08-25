@@ -1565,3 +1565,129 @@ fn a_roll_stops_when_its_window_closes_and_owes_recovery() {
          invulnerable and punishes nobody"
     );
 }
+
+/// ⭐⭐ A SPAMMED ROLL GETS WORSE, AND A FIGHTER WHO STOPS GETS IT BACK.
+///
+/// The parity inventory's *"Dodge staling"* row: a small per-body evade history
+/// shortens the invulnerable window. It is the genre's answer to rolling being
+/// the answer to everything — and it needs no authored content at all, because
+/// every fighter already rolls.
+///
+/// ⛔ FOUR CLAUSES, and three of them are the ways this goes quietly wrong: a
+/// game that never asked for staling getting it anyway, a stale evade decaying
+/// to nothing (unreadable), the count never coming down (a trap rather than a
+/// mechanic), and the count wrapping so that spamming RESETS it.
+#[test]
+fn a_repeated_evade_is_worn_down_and_recovers_when_it_stops() {
+    let world = test_world();
+    let mut tuning = TEST_TUNING;
+    tuning.base.dodge_stale_step = 0.25;
+    tuning.base.dodge_stale_floor = 0.4;
+    tuning.base.dodge_stale_recovery = 0.5;
+
+    let burst = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Burst,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    // One evade, from a body that has not been evading: the authored window.
+    let roll_window = |tuning: crate::test_support::TestTuning, evades_recent: u8| -> f32 {
+        let mut scratch = scratch_at(world.spawn);
+        scratch.ground.on_ground = true;
+        scratch.dodge.cooldown = 0.0;
+        scratch.dodge.evades_recent = evades_recent;
+        update_player_with_tuning_scratch(&world, &mut scratch, burst, 1.0 / 60.0, tuning);
+        scratch.axis().dodge_roll_timer
+    };
+
+    let fresh = roll_window(tuning, 0);
+    assert!(fresh > 0.0, "the fixture never rolled");
+
+    // ⭐ EACH RECENT EVADE COSTS SOME OF THE WINDOW.
+    let once = roll_window(tuning, 1);
+    let twice = roll_window(tuning, 2);
+    assert!(
+        once < fresh && twice < once,
+        "a repeated roll kept its whole invulnerable window: {fresh} -> {once} -> {twice}"
+    );
+
+    // ⛔ AND IT FLOORS. An evade with no i-frames is not a worse option, it is a
+    // broken one, and a player cannot read the difference.
+    //
+    // ⚠ THE `dt` IS ADDED BACK BEFORE COMPARING, and leaving it out is what made
+    // this assertion fail against correct code: the window is read one tick
+    // AFTER it is set, so every reading here has already lost a frame, and a
+    // ratio taken between two such readings is not the ratio between the two
+    // windows. 0.4 x (0.2033 + dt) - dt is the floor; 0.4 x 0.2033 is not.
+    const DT: f32 = 1.0 / 60.0;
+    let worn_out = roll_window(tuning, 40);
+    let floor = (fresh + DT) * 0.4 - DT;
+    assert!(
+        worn_out >= floor - 0.0001,
+        "staling took the window below its floor: {worn_out} against a floor of \
+         {floor}"
+    );
+
+    // ⛔ A GAME THAT DECLARED NO STALING IS UNTOUCHED, however much it evades.
+    assert_eq!(
+        roll_window(TEST_TUNING, 40),
+        roll_window(TEST_TUNING, 0),
+        "a body in a game with no dodge staling was staled anyway"
+    );
+}
+
+/// ⛔⛔ THE COUNT COMES DOWN ONE AT A TIME, and it must come down at all.
+///
+/// A step with no recovery is a trap rather than a mechanic: a fighter who
+/// rolled four times early would carry it for the rest of the stock. And
+/// forgiving the WHOLE count at once would make recovering cost the same
+/// whether the option had been abused once or ten times.
+#[test]
+fn evade_staling_bleeds_off_one_evade_at_a_time() {
+    let world = test_world();
+    let mut tuning = TEST_TUNING;
+    tuning.base.dodge_stale_step = 0.25;
+    tuning.base.dodge_stale_recovery = 0.5;
+
+    let mut scratch = scratch_at(world.spawn);
+    scratch.ground.on_ground = true;
+    scratch.dodge.evades_recent = 3;
+    scratch.dodge.stale_decay = tuning.base.dodge_stale_recovery;
+
+    // Half a second of standing still forgives exactly one.
+    for _ in 0..30 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert_eq!(
+        scratch.dodge.evades_recent, 2,
+        "half a second forgave the wrong number of evades"
+    );
+
+    // …and the rest come off in their own time, down to fresh and no further.
+    for _ in 0..200 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert_eq!(
+        scratch.dodge.evades_recent, 0,
+        "the count never reached fresh, so a fighter who stopped rolling never \
+         gets the option back"
+    );
+}

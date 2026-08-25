@@ -149,6 +149,11 @@ pub const AIR_DODGE_ENDLAG: f32 = 0.16;
 /// nothing — the same punish window as the air dodge's above, and shorter
 /// because a roll achieves less. ~5 frames at 60Hz.
 pub const DODGE_ROLL_ENDLAG: f32 = 0.08;
+
+/// `#[serde(default)]` for a fraction whose absent value is "unchanged".
+fn one_f32() -> f32 {
+    1.0
+}
 /// Parry window: full invulnerability during the first moments of shield activation.
 pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
@@ -441,6 +446,29 @@ pub struct MovementTuning {
     /// and it is the honest value for one whose roll is not a fighting option.
     #[serde(default)]
     pub dodge_roll_endlag: f32,
+    /// DODGE STALING — how much of its invulnerable window an evade loses per
+    /// recent evade, as a fraction. `0.0` (the baseline) is no staling at all,
+    /// which is what an exploration body wants: its roll is traversal.
+    ///
+    /// ⭐ IT WEARS THE I-FRAMES, not the distance or the recovery. The option a
+    /// spammed roll is abusing is INVULNERABILITY, so that is what a fighter who
+    /// keeps rolling should have less of — a roll that still travelled and still
+    /// recovered but stopped being safe is the read the genre wants.
+    #[serde(default)]
+    pub dodge_stale_step: f32,
+    /// The floor [`Self::dodge_stale_step`] cannot take an evade below, as a
+    /// fraction of its authored window. `1.0` = staling can never weaken one.
+    ///
+    /// ⛔ NEVER ZERO IN PRACTICE: an evade with no i-frames at all is not a
+    /// worse option, it is a different (and useless) one, and a player cannot
+    /// read the difference between "stale" and "broken".
+    #[serde(default = "one_f32")]
+    pub dodge_stale_floor: f32,
+    /// Seconds of body time before one recent evade is forgiven. `0.0` with a
+    /// nonzero step means the count never comes down, which is a trap rather
+    /// than a mechanic.
+    #[serde(default)]
+    pub dodge_stale_recovery: f32,
     /// The aerial evade: how long the i-frames last, how fast the body
     /// travels along the stick, and the endlag it owes on the far side.
     ///
@@ -716,6 +744,29 @@ pub struct TraversalAbilityTuning {
     /// and it is the honest value for one whose roll is not a fighting option.
     #[serde(default)]
     pub dodge_roll_endlag: f32,
+    /// DODGE STALING — how much of its invulnerable window an evade loses per
+    /// recent evade, as a fraction. `0.0` (the baseline) is no staling at all,
+    /// which is what an exploration body wants: its roll is traversal.
+    ///
+    /// ⭐ IT WEARS THE I-FRAMES, not the distance or the recovery. The option a
+    /// spammed roll is abusing is INVULNERABILITY, so that is what a fighter who
+    /// keeps rolling should have less of — a roll that still travelled and still
+    /// recovered but stopped being safe is the read the genre wants.
+    #[serde(default)]
+    pub dodge_stale_step: f32,
+    /// The floor [`Self::dodge_stale_step`] cannot take an evade below, as a
+    /// fraction of its authored window. `1.0` = staling can never weaken one.
+    ///
+    /// ⛔ NEVER ZERO IN PRACTICE: an evade with no i-frames at all is not a
+    /// worse option, it is a different (and useless) one, and a player cannot
+    /// read the difference between "stale" and "broken".
+    #[serde(default = "one_f32")]
+    pub dodge_stale_floor: f32,
+    /// Seconds of body time before one recent evade is forgiven. `0.0` with a
+    /// nonzero step means the count never comes down, which is a trap rather
+    /// than a mechanic.
+    #[serde(default)]
+    pub dodge_stale_recovery: f32,
     /// See [`AbilityTuning::air_dodge_time`].
     #[serde(default)]
     pub air_dodge_time: f32,
@@ -1097,6 +1148,9 @@ impl MovementTuning {
                 dodge_roll_speed: self.dodge_roll_speed,
                 dodge_roll_cooldown: self.dodge_roll_cooldown,
                 dodge_roll_endlag: self.dodge_roll_endlag,
+                dodge_stale_step: self.dodge_stale_step,
+                dodge_stale_floor: self.dodge_stale_floor,
+                dodge_stale_recovery: self.dodge_stale_recovery,
                 air_dodge_time: self.air_dodge_time,
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
@@ -1190,6 +1244,11 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     // change every game that never asked for a punish window. A FIGHTER
     // declares one.
     dodge_roll_endlag: 0.0,
+    // NO DODGE STALING by default: an exploration body's roll is traversal, and
+    // wearing out its i-frames would change every game that never asked.
+    dodge_stale_step: 0.0,
+    dodge_stale_floor: 1.0,
+    dodge_stale_recovery: 0.0,
     // ZERO in the default tuning, and that is the decision, not an
     // oversight. An airborne dash press already MEANS something for a body
     // with the dash ability — it is the protagonist's air dash, a traversal

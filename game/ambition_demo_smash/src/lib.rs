@@ -214,6 +214,18 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         // roll comes to rest now; changing the speed on top of that would be
         // nerfing the same thing twice.
         dodge_roll_endlag: ambition_platformer2d::engine_core::DODGE_ROLL_ENDLAG,
+        // ⭐⭐ DODGE STALING — the genre's answer to rolling being the answer to
+        // everything, and the other half of the roll question Jon raised. A
+        // quarter of the invulnerable window comes off per recent evade, floored
+        // at a third, forgiven one at a time every 1.2s.
+        //
+        // ⛔ IT WEARS THE I-FRAMES, NOT THE DISTANCE. A stale roll still travels
+        // and still recovers — it is simply no longer safe, which is a read a
+        // player can see without a HUD. Shortening the roll instead would make
+        // the fighter feel broken rather than punished.
+        dodge_stale_step: 0.25,
+        dodge_stale_floor: 0.34,
+        dodge_stale_recovery: 1.2,
         // SPOT DODGE, 0.16s. The grounded evade had one shape, so the
         // option a cornered fighter takes — nowhere to roll TO, waiting out a
         // committed swing — did not exist. Shorter than the roll's window

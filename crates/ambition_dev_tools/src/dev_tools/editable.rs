@@ -308,6 +308,11 @@ impl EditableMovementTuning {
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
             dodge_roll_endlag: self.dodge_roll_endlag,
+            // Dodge staling is a MATCH rule, not a per-body dev knob: the
+            // editor tunes one body, and staling is about the option.
+            dodge_stale_step: 0.0,
+            dodge_stale_floor: 1.0,
+            dodge_stale_recovery: 0.0,
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,

@@ -726,6 +726,18 @@ pub struct MatchBody {
     /// its distance, so the punish window is a MATCH rule. `0.0` — the
     /// exploration default — is a roll that owes nothing.
     pub dodge_roll_endlag: f32,
+    /// DODGE STALING — how much of its invulnerable window an evade loses per
+    /// recent evade, its floor, and how long one takes to be forgiven.
+    ///
+    /// ⭐⭐ A MATCH RULE, like the roll's recovery beside it. Rolling being the
+    /// answer to everything is a FIGHTING-game problem: an exploration body's
+    /// roll is traversal and wearing it out would only make traversal worse.
+    /// `0.0` step — the engine default — is no staling at all.
+    pub dodge_stale_step: f32,
+    /// See [`Self::dodge_stale_step`]. `1.0` = staling never weakens an evade.
+    pub dodge_stale_floor: f32,
+    /// See [`Self::dodge_stale_step`]. Seconds to forgive ONE recent evade.
+    pub dodge_stale_recovery: f32,
     /// Launch speed above which a hit sends a body TUMBLING (px/s), and the
     /// landing that follows is a knockdown unless it is teched. `0.0` is no
     /// floor game — right for a wandering enemy, wrong for a fighter.
@@ -780,6 +792,9 @@ impl MatchBody {
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
             dodge_roll_endlag: self.dodge_roll_endlag,
+            dodge_stale_step: self.dodge_stale_step,
+            dodge_stale_floor: self.dodge_stale_floor,
+            dodge_stale_recovery: self.dodge_stale_recovery,
             tumble_speed: self.tumble_speed,
             spot_dodge_time: self.spot_dodge_time,
             parry_timing: self.parry_timing,
@@ -816,6 +831,14 @@ mod tests {
             // along a floor you were already standing on. ~5 frames at 60Hz,
             // which is a beat an attacker can act on and not a stun.
             dodge_roll_endlag: 0.08,
+            // ⭐ A QUARTER OFF PER RECENT EVADE, floored at a third, forgiven
+            // one at a time every 1.2s. So a second roll is noticeably less
+            // safe, a fourth is nearly not an evade at all, and a fighter who
+            // stops rolling is fresh again in a few seconds. ⚠ a starting
+            // point: play it and move it.
+            dodge_stale_step: 0.25,
+            dodge_stale_floor: 0.34,
+            dodge_stale_recovery: 1.2,
             tumble_speed: 500.0,
             spot_dodge_time: 0.16,
             parry_timing: crate::ParryTiming::OnRaise,

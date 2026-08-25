@@ -6,11 +6,11 @@ use super::input::InputState;
 use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
+use crate::MotionFrame;
 use crate::body_clusters::{
     BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState,
     BodyKinematics, BodyShieldState,
 };
-use crate::MotionFrame;
 
 /// Maneuver a burst press would resolve to in the body's current state.
 ///
@@ -83,6 +83,35 @@ fn available_dodge(
         && state.air_dodge_timer <= 0.0
         && state.air_dodge_endlag_timer <= 0.0)
         .then_some(BurstManeuver::AirDodge)
+}
+
+/// How long an evade's invulnerable window lasts for a body that has been
+/// evading a lot — and the record that it just spent another one.
+///
+/// ⭐⭐ STALING WEARS THE I-FRAMES, NOT THE DISTANCE. The thing a spammed roll
+/// abuses is invulnerability, so that is what wears out: a stale roll still
+/// travels and still recovers, it is simply no longer safe. That is the read the
+/// genre wants and it is legible without a HUD.
+///
+/// ⛔ ONE FUNCTION FOR ALL THREE EVADES. The spot dodge, the ground roll and the
+/// air dodge each set their own window, and three copies of this arithmetic
+/// would drift the first time one of them was tuned.
+fn spend_evade(dodge: &mut crate::BodyDodgeState, window: f32, tuning: AxisSweptParams) -> f32 {
+    let step = tuning.abilities.dodge_stale_step.max(0.0);
+    let scale = if step <= 0.0 {
+        // A game that declares no staling gets its authored window, untouched.
+        1.0
+    } else {
+        (1.0 - step * f32::from(dodge.evades_recent))
+            .max(tuning.abilities.dodge_stale_floor.clamp(0.0, 1.0))
+    };
+    // ⛔ SATURATING: a body that evades forever must not wrap its count back to
+    // fresh, which is the one way this mechanic could reward spamming.
+    dodge.evades_recent = dodge.evades_recent.saturating_add(1);
+    // Each spend re-arms the full forgiveness delay, so the count only starts
+    // coming down once the body actually stops.
+    dodge.stale_decay = tuning.abilities.dodge_stale_recovery.max(0.0);
+    window * scale
 }
 
 /// The dash half of [`resolve_burst_maneuver`] — see [`available_dodge`].
@@ -410,7 +439,7 @@ pub(super) fn apply_dodge(
             // on a floor has none, and one that spot-dodged off a ledge edge
             // must not hang in the air for the window.
             kinematics.vel = frame.down() * kinematics.vel.dot(frame.down()).max(0.0);
-            state.dodge_roll_timer = tuning.abilities.spot_dodge_time;
+            state.dodge_roll_timer = spend_evade(dodge, tuning.abilities.spot_dodge_time, tuning);
             state.spot_dodging = true;
             state.phased_jump.clear();
             dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
@@ -426,7 +455,7 @@ pub(super) fn apply_dodge(
         let descend = kinematics.vel.dot(frame.down()).min(0.0);
         kinematics.vel =
             frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
-        state.dodge_roll_timer = tuning.abilities.dodge_roll_time;
+        state.dodge_roll_timer = spend_evade(dodge, tuning.abilities.dodge_roll_time, tuning);
         state.spot_dodging = false;
         state.phased_jump.clear();
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
@@ -450,7 +479,7 @@ pub(super) fn apply_dodge(
     // stage" upward, which is the exact input a recovering body uses.
     kinematics.vel =
         (frame.side() * aim.x + frame.down() * aim.y) * tuning.abilities.air_dodge_speed;
-    state.air_dodge_timer = tuning.abilities.air_dodge_time;
+    state.air_dodge_timer = spend_evade(dodge, tuning.abilities.air_dodge_time, tuning);
     state.air_dodge_endlag_timer = 0.0;
     state.fast_falling = false;
     state.phased_jump.clear();
@@ -670,6 +699,7 @@ pub(super) fn apply_dash(
 #[cfg(test)]
 mod burst_maneuver_tests {
     use super::*;
+    use crate::MotionFrame;
     use crate::body_clusters::{
         BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyGroundState,
         BodyKinematics,
@@ -678,7 +708,6 @@ mod burst_maneuver_tests {
     use crate::movement::input::InputState;
     use crate::movement::model::AxisManeuverState;
     use crate::movement::tuning::AxisSweptParams;
-    use crate::MotionFrame;
 
     /// A body that owns BOTH verbs — the shipped Smash fighter (P4.30).
     fn both_abilities() -> BodyAbilities {

@@ -5,11 +5,11 @@
 //! [`BodyClustersMut`] collects mutable cluster references for movement entry
 //! points, while [`BodyClusterScratch`] provides the same shape for tests.
 
+use crate::Vec2;
 use crate::abilities::AbilitySet;
 use crate::movement::ComboMark;
 use crate::player_state::{BodyMode, ResourceMeter};
 use crate::world::{ClimbableContact, WaterContact};
-use crate::Vec2;
 
 /// Mutable body-cluster view consumed by movement entry points.
 pub struct BodyClustersMut<'a> {
@@ -427,6 +427,25 @@ pub struct BodyDodgeState {
     /// Cleared where every other aerial resource is — on ground contact and on a ledge grab —
     /// rather than by a timer, because "one per trip through the air" is the rule players learn.
     pub air_dodge_spent: bool,
+    /// DODGE STALING — how many evades this body has spent recently.
+    ///
+    /// ⭐⭐ THE GENRE'S ANSWER TO A SPAMMED ROLL, and it is why staling belongs
+    /// on the DODGE rather than on the move-staling queue: an evade is not a
+    /// move, it has no id, and the thing that wears out is the OPTION rather
+    /// than any particular one of them. A body that has rolled four times in a
+    /// row should find the fifth roll worse — which is exactly what stops
+    /// rolling being the answer to everything.
+    ///
+    /// Counted up by each evade and bled off by [`Self::stale_decay`], so a
+    /// fighter who stops rolling gets the option back. `0` is a fresh body and
+    /// is what every body carries in a game that declares no staling.
+    pub evades_recent: u8,
+    /// Seconds left before one recent evade is forgiven.
+    ///
+    /// ⛔ A DECAY, NOT A WINDOW. A fixed window would forgive the whole count at
+    /// once, so a fighter could roll four times, wait, and be fully fresh; the
+    /// count comes off one at a time so recovering costs proportionally.
+    pub stale_decay: f32,
 }
 
 /// How long a caught parry stays readable, in seconds of the body's own time.
@@ -1010,7 +1029,7 @@ impl BodyClusterScratch {
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
     pub fn new_with_abilities(spawn: Vec2, abilities: crate::abilities::AbilitySet) -> Self {
-        use crate::movement::{default_player_body_size, DEFAULT_TUNING};
+        use crate::movement::{DEFAULT_TUNING, default_player_body_size};
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
@@ -1269,8 +1288,8 @@ mod reset_tests {
     #[test]
     fn a_pending_restart_is_announced_once() {
         use bevy_ecs::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         let mut world = World::new();
         let seen = Arc::new(AtomicUsize::new(0));

@@ -157,3 +157,66 @@ fn a_body_mid_getup_is_neither_trumper_nor_trumped() {
         "a body mid-getup trumped somebody it had already stopped contesting"
     );
 }
+
+/// ⭐⭐ A TRUMPED BODY IS THROWN OFF THE EDGE — WHEN THE MATCH ASKS FOR IT.
+///
+/// The parity inventory's *"Ledge-trump outward pop/commitment"*. ⛔ AND IT IS A
+/// DECLARED RULE, not the law: trumping exists in every platform fighter and
+/// being popped outward does not, so a world that declares nothing keeps
+/// today's behaviour — the loser simply drops.
+mod outward_pop {
+    use super::*;
+
+    /// A hanging body that also has a velocity to be thrown with.
+    fn hanging_body_at(app: &mut App, id: &str, anchor: ae::Vec2, elapsed: f32) -> Entity {
+        let entity = hanging_at(app, id, anchor, elapsed);
+        app.world_mut()
+            .entity_mut(entity)
+            .insert(ae::BodyKinematics::default());
+        entity
+    }
+
+    fn velocity_after_trump(pop: Option<f32>) -> f32 {
+        let mut app = app();
+        if let Some(pop) = pop {
+            app.world_mut()
+                .insert_resource(crate::combat::rules::ResolvedCombatTuning {
+                    ledge_trump_pop: pop,
+                    ..Default::default()
+                });
+        }
+        let edge = ae::Vec2::new(100.0, 100.0);
+        // The EARLIER arrival is the one that loses the edge.
+        let loser = hanging_body_at(&mut app, "loser", edge, 0.5);
+        let _winner = hanging_body_at(&mut app, "winner", edge, 0.1);
+        app.update();
+        assert!(
+            !still_hanging(&app, loser),
+            "the fixture never trumped anybody, so there is no pop to observe"
+        );
+        app.world()
+            .get::<ae::BodyKinematics>(loser)
+            .expect("the loser kept its kinematics")
+            .vel
+            .x
+    }
+
+    /// ⛔ THE BASELINE IS UNCHANGED. A world that declared no rule drops the
+    /// loser where it hung, which is what every trump did before this existed.
+    #[test]
+    fn a_world_that_declares_no_pop_drops_the_loser_in_place() {
+        assert_eq!(velocity_after_trump(None), 0.0);
+        assert_eq!(velocity_after_trump(Some(0.0)), 0.0);
+    }
+
+    /// ⭐ AND THE POP GOES OUTWARD — away from the wall, at the declared speed.
+    ///
+    /// ⛔ THE DIRECTION IS THE HANG'S `wall_normal_x`, read before the knock-off
+    /// clears it. A reading off the body's facing would be backwards for a body
+    /// hanging facing out, and there would be nothing left to read afterwards.
+    #[test]
+    fn a_declared_pop_throws_the_loser_away_from_the_wall() {
+        // The fixture hangs with the wall pushing toward +x.
+        assert_eq!(velocity_after_trump(Some(420.0)), 420.0);
+    }
+}

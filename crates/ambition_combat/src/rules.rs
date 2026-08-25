@@ -222,6 +222,20 @@ pub struct DeclaredCombatRules {
     /// peers would desync nothing and look like a bug forever. See
     /// [`ambition_platformer2d_core::sim_random`].
     pub bark_chance: Option<f32>,
+    /// LEDGE TRUMP POP — how fast a body that has just had its ledge STOLEN is
+    /// thrown off it, engine units/s. `None` and `0.0` drop it in place, which
+    /// is what every trump did before this existed.
+    ///
+    /// ⭐⭐ THE KNOB IS THE POINT, because this is where the GAMES DIFFER.
+    /// Trumping exists in every platform fighter; being popped outward and
+    /// briefly committed does not. Ambition's own answer is to drop, and a stage
+    /// that wants the harsher rule says so — shipping one of them as the law
+    /// would be choosing a game rather than building an engine.
+    ///
+    /// ⛔ OUTWARD MEANS AWAY FROM THE WALL, resolved from the hang's own
+    /// `wall_normal_x`. Reading it off the trumped body's facing would be wrong
+    /// the moment a body hangs facing out.
+    pub ledge_trump_pop: Option<f32>,
 }
 
 /// The rules combat actually reads this tick.
@@ -261,6 +275,9 @@ pub struct ResolvedCombatTuning {
     /// barks — is what a world that declared nothing gets, which is what every
     /// body did before the knob existed.
     pub bark_chance: f32,
+    /// See [`DeclaredCombatRules::ledge_trump_pop`]. RESOLVED, so `0.0` — drop
+    /// the trumped body in place — is what a world that declared nothing gets.
+    pub ledge_trump_pop: f32,
     /// See [`DeclaredCombatRules::grab_hold_base_seconds`].
     pub grab_hold_base_seconds: f32,
     /// See [`DeclaredCombatRules::grab_hold_per_damage`].
@@ -363,6 +380,7 @@ impl ResolvedCombatTuning {
                 // A world that declared no rate barks on every hit, which is
                 // what every body did before the knob existed.
                 bark_chance: rules.bark_chance.unwrap_or(1.0).clamp(0.0, 1.0),
+                ledge_trump_pop: rules.ledge_trump_pop.unwrap_or(0.0).max(0.0),
             },
             // growth has NO world baseline to fall back to, unlike DI and
             // friendly fire: nothing outside a declaration authors it, so an
@@ -394,6 +412,7 @@ impl ResolvedCombatTuning {
                 clank_rebound_speed: 0.0,
                 sudden_death_damage: None,
                 bark_chance: 1.0,
+                ledge_trump_pop: 0.0,
             },
         }
     }
@@ -416,6 +435,7 @@ impl Default for ResolvedCombatTuning {
             di_max_angle: crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
             // Every hit barks, which is what every body did before the knob.
             bark_chance: 1.0,
+            ledge_trump_pop: 0.0,
             knockback_growth: 0.0,
             downward_hit: DownwardHitStyle::Pogo,
             meteor_lock_time: 0.0,
@@ -484,6 +504,7 @@ mod tests {
         let resolved = ResolvedCombatTuning::resolve(
             Some(DeclaredCombatRules {
                 bark_chance: None,
+                ledge_trump_pop: None,
                 declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
@@ -521,6 +542,7 @@ mod tests {
     fn dropping_the_declaration_returns_to_the_baseline_with_no_restore_step() {
         let declared = Some(DeclaredCombatRules {
             bark_chance: None,
+            ledge_trump_pop: None,
             declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             knockback_growth: 0.0,
@@ -551,6 +573,7 @@ mod tests {
                 di_max_angle: 0.12,
                 // An undeclared world barks on every hit.
                 bark_chance: 1.0,
+                ledge_trump_pop: 0.0,
                 knockback_growth: 0.0,
                 downward_hit: DownwardHitStyle::Pogo,
                 meteor_lock_time: 0.0,

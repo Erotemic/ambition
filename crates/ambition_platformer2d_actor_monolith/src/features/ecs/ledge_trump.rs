@@ -24,11 +24,21 @@ pub fn resolve_ledge_trumps(
         &SimId,
         &mut crate::features::MotionModel,
         &mut ae::BodyLedgeState,
+        // ⛔⛔ OPTIONAL, AND THAT IS NOT TIDINESS. Adding this as a REQUIRED
+        // column silently narrowed the population the rule sees: a hanging body
+        // without kinematics stopped being trumped at all, and two existing
+        // tests went red with "two bodies shared one edge". Trumping is about
+        // the EDGE; the pop is a bonus a body with a velocity can receive.
+        Option<&mut ae::BodyKinematics>,
     )>,
+    // The match's own answer to *what does losing the edge cost*. Optional
+    // because a world that declares no combat rules still trumps — it simply
+    // drops the loser, which is what every trump did before the knob.
+    rules: Option<bevy::prelude::Res<crate::combat::rules::ResolvedCombatTuning>>,
 ) {
     // (anchor, elapsed, id, entity) for every body currently hanging.
     let mut holders: Vec<(ae::Vec2, f32, SimId, Entity)> = Vec::new();
-    for (entity, id, model, _) in bodies.iter() {
+    for (entity, id, model, _, _) in bodies.iter() {
         let ae::MotionModel::AxisSwept(axis) = &*model else {
             continue;
         };
@@ -62,11 +72,34 @@ pub fn resolve_ledge_trumps(
         }
     }
 
+    let pop = rules.map_or(0.0, |rules| rules.ledge_trump_pop);
     for entity in trumped {
-        let Ok((_, _, mut model, mut ledge)) = bodies.get_mut(entity) else {
+        let Ok((_, _, mut model, mut ledge, mut kin)) = bodies.get_mut(entity) else {
             continue;
         };
+        // ⭐ THE OUTWARD DIRECTION IS THE HANG'S, read BEFORE the knock-off
+        // clears it. `wall_normal_x` is the way the wall pushes, so it already
+        // points away from the stage — and it is right for a body hanging
+        // FACING OUT, which a reading off `kin.facing` would get backwards.
+        let outward = if let ae::MotionModel::AxisSwept(axis) = &*model {
+            axis.state
+                .ledge_grab
+                .as_ref()
+                .map(|hang| hang.contact.wall_normal_x)
+        } else {
+            None
+        };
         if ae::movement::knock_off_ledge(&mut model, &mut ledge) {
+            // ⭐⭐ THE POP, and it is a declared rule rather than the law:
+            // trumping exists in every platform fighter, being thrown off it
+            // does not. `0.0` drops the loser where it hung.
+            if pop > 0.0 {
+                if let (Some(outward), Some(kin)) =
+                    (outward.filter(|n| n.abs() > 0.0), kin.as_mut())
+                {
+                    kin.vel.x = outward.signum() * pop;
+                }
+            }
             // the window goes with the edge. It was bought with airtime this
             // body no longer has, and a falling fighter that kept it would be
             // the safest thing on the stage.

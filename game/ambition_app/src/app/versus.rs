@@ -523,6 +523,8 @@ fn track_versus_roster(
                 // The versus route says nothing about barks: every hit speaks,
                 // which is what it did before the rate existed.
                 bark_chance: None,
+                // The versus route drops a trumped body where it hung.
+                ledge_trump_pop: None,
                 // Third time this repo has learned it: the participant roster, the prepared
                 // match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),

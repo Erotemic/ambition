@@ -878,6 +878,16 @@ pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::De
         // decides it. The number is what makes "short" short — at 150 almost any
         // connect is a kill, which is the genre's whole point.
         sudden_death_damage: Some(150),
+        // ⭐⭐ LOSING THE LEDGE COSTS SOMETHING. Jon, 2026-08-24: *"A character
+        // can just stay on the ledge, and there is no way to knock them off."*
+        // Stealing the edge now throws the previous holder off it rather than
+        // dropping them on the spot, so a trump is a real edge-guard option and
+        // not just a swap.
+        //
+        // ⛔ 260px/s is a SHOVE, not a kill: enough that the loser has to
+        // recover, short of sending them to the blast zone from a neutral trump.
+        // ⚠ a starting point — play it and move it.
+        ledge_trump_pop: Some(260.0),
         // ⭐⭐ ONE HIT IN SIX SPEAKS. Jon, 2026-08-24: *"not have barks happen
         // every time a character is hit. Make it a more rare event. Not never,
         // but I'd like it to happen less often."*

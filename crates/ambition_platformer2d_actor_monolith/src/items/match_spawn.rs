@@ -69,9 +69,15 @@ pub fn spawn_match_items(
         return;
     }
 
+    // ⭐⭐ WHICH MATCH IS DRAWING. Without it every match is the same match: the
+    // clock above restarts at zero, so match two drew match one's items, in
+    // order, from its first drop. The stamp is already canonical simulation
+    // state, so a resimulated tick draws with the context it drew with before.
+    let context = active.instance().random_context();
     let weights: Vec<u32> = rules.table.iter().map(|(_, weight)| *weight).collect();
     let Some(chosen) = ae::sim_random::sim_random_weighted(
         ae::sim_random::DOMAIN_ITEM_SPAWN,
+        context,
         elapsed,
         SALT_WHICH_ITEM,
         &weights,
@@ -80,6 +86,7 @@ pub fn spawn_match_items(
     };
     let Some(point) = ae::sim_random::sim_random_index(
         ae::sim_random::DOMAIN_ITEM_SPAWN,
+        context,
         elapsed,
         SALT_WHICH_POINT,
         rules.points.len(),
@@ -126,6 +133,11 @@ pub fn spawn_match_items(
 mod tests {
     use super::*;
     use crate::character_runtime::MatchItemSpawns;
+
+    /// One match's context, for the draws these tests inspect directly. The
+    /// value is arbitrary — what matters is that it is the SAME one across a
+    /// comparison, since the point of those assertions is the salt.
+    const CONTEXT: ae::sim_random::RandomContext = 0x5A11_0000_1234_0001;
 
     fn rules(every_ticks: u32) -> MatchItemSpawns {
         MatchItemSpawns {
@@ -185,6 +197,7 @@ mod tests {
         for tick in 1..200u64 {
             let item = ae::sim_random::sim_random_weighted(
                 ae::sim_random::DOMAIN_ITEM_SPAWN,
+                CONTEXT,
                 tick,
                 SALT_WHICH_ITEM,
                 &weights,
@@ -192,6 +205,7 @@ mod tests {
             .expect("the table has weight");
             let point = ae::sim_random::sim_random_index(
                 ae::sim_random::DOMAIN_ITEM_SPAWN,
+                CONTEXT,
                 tick,
                 SALT_WHICH_POINT,
                 3,
@@ -202,6 +216,7 @@ mod tests {
                 item,
                 ae::sim_random::sim_random_weighted(
                     ae::sim_random::DOMAIN_ITEM_SPAWN,
+                    CONTEXT,
                     tick,
                     SALT_WHICH_ITEM,
                     &weights,
@@ -218,11 +233,13 @@ mod tests {
             assert_ne!(
                 ae::sim_random::sim_random(
                     ae::sim_random::DOMAIN_ITEM_SPAWN,
+                    CONTEXT,
                     tick,
                     SALT_WHICH_ITEM
                 ),
                 ae::sim_random::sim_random(
                     ae::sim_random::DOMAIN_ITEM_SPAWN,
+                    CONTEXT,
                     tick,
                     SALT_WHICH_POINT
                 ),

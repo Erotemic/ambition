@@ -55,6 +55,13 @@ pub const SMASH_ROSTER: &[&str] = &[
     // the same seating, scoring and match rules a melee one does.
     "projectile_polygon",
     "pugnacious_polygon",
+    // THE TWO EASTER EGGS, and they sit HERE — after the archetypes they
+    // borrow, before the stand-ins. Each is a polygon archetype wearing a
+    // different person: same skeleton, same clips, same frame data under its
+    // own move names. On the grid because a hidden fighter is FOUND, and
+    // nothing in the game depends on either being picked.
+    "author",
+    "officer",
     // THE STAND-INS, and they are LAST for a reason. See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,
     crate::SMASH_OPPONENT_ID,

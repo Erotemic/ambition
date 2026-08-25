@@ -62,6 +62,9 @@ pub mod provider;
 // crate. Re-exported here so `content::features` paths keep working.
 pub use ambition_platformer2d_actor_monolith::features;
 pub mod alice_moveset;
+/// How a fighter borrows an archetype's timings under its own name.
+pub mod archetype_moveset;
+pub mod author_moveset;
 pub mod bob_moveset;
 pub mod carl_stargan_moveset;
 pub mod cellular_automaton_moveset;
@@ -79,6 +82,7 @@ mod moveset_sound;
 #[cfg(feature = "audio")]
 pub mod music;
 pub mod ninja_shadow_oni_leader_moveset;
+pub mod officer_moveset;
 pub mod oiler_moveset;
 pub mod patent_clerk_moveset;
 pub mod pirate_admiral_moveset;

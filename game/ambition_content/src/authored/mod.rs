@@ -13,6 +13,7 @@
 
 use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
 
+mod author;
 mod goblin;
 mod hall_humanoids;
 mod npc_ai_slop;
@@ -35,6 +36,7 @@ mod npc_pirate_crew;
 mod npc_pirate_raider;
 mod npc_puppy_slug;
 mod npc_salvage_guard;
+mod officer;
 mod perfect_cellular_automaton;
 mod pointed_polygon;
 mod projectile_polygon;
@@ -114,6 +116,12 @@ pub(crate) const AUTHORED_CAST: &[(
     // the rule its own doc states. Same walk, same health, sixteen new answers.
     (&["npc_oiler"], npc_oiler::author),
     (&["goblin"], goblin::author),
+    // THE TWO EASTER EGGS. Both are a polygon archetype wearing a different
+    // person, and their entries say only what differs from it — see their
+    // modules, and `crate::archetype_moveset` for why they borrow the table
+    // rather than copying or sharing it.
+    (&["author"], author::author),
+    (&["officer"], officer::author),
     (&["npc_goblin_brute"], npc_goblin_brute::author),
 ];
 

@@ -2765,6 +2765,65 @@
             ),
             hall_dialogue_id: None,
         ),
+        // THE TWO EASTER EGGS, and they are deliberately not advertised anywhere
+        // else: no hall dialogue, no quest, no encounter table. They are on the
+        // smash grid because that is where a hidden fighter is FOUND, and
+        // nothing in the game depends on either being selected.
+        "author": (
+            display_name: "The Author",
+            spritesheet: "sprites/author_spritesheet.png",
+            manifest: "sprites/author_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The sword archetype's preset, by the same rule its row states: an
+            // armed MainHall melee fighter takes what every other one takes.
+            // What he is armed WITH is a pen, which is a fact about the art and
+            // the joke, not about his autonomous policy.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "pen_fighter", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "The person writing the game, standing in it: red hair, beard, glasses, work shirt and jeans, levelling an oversized red-and-brass fountain pen at everything. He follows the Pointed Polygon sword template exactly -- one rigid prop on the hand bone, occupying the blade's axis and length -- so the shared humanoid swing library retargets onto him without a pose being re-authored. He is meant to be found, not announced.",
+            gameplay_description: "A medium-weight fundamentals fighter with sword spacing, delivered by a pen. His swings leave ink rather than steel-light; the timings are the sword archetype's, because his identity is who he is and what he holds rather than how he swings.",
+            fallback_dialogue: [
+                "I did write you, you know.",
+                "This is not the scene I planned.",
+                "Mightier. Demonstrably.",
+            ],
+            barks: (
+                idle: ["Draft one.", "Still editing."],
+                on_hit: ["Noted.", "That is going in."],
+                provoked: ["Fine. Revisions."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "officer": (
+            display_name: "The Officer",
+            spritesheet: "sprites/officer_spritesheet.png",
+            manifest: "sprites/officer_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The brawler archetype's preset, for the reason the Pugnacious
+            // Polygon's row gives: an unarmed MainHall melee fighter is still a
+            // MainHall melee fighter.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "brawler", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "A broad, plainly drawn law officer in a dark t-shirt, work jeans, boots and a grey campaign hat -- out of uniform from the neck down and entirely in character from the neck up. He follows the Pugnacious Polygon brawler template: no weapon part, no held props, and swings read by what they do to the AIR rather than by a blade catching light.",
+            gameplay_description: "A medium-weight close-range fundamentals brawler. Tilts throw a pale whoosh and smashes open a re-entry plume that leads with its tip, so an unarmed hitbox stays as legible as an armed one. The timings are the brawler archetype's.",
+            fallback_dialogue: [
+                "I'm not here for you. Yet.",
+                "Everybody's a civilian until they aren't.",
+                "Do this the easy way. Please.",
+            ],
+            barks: (
+                idle: ["That's far enough.", "Hands where I can see them."],
+                on_hit: ["Cute.", "Last warning."],
+                provoked: ["You're going to want to sit down."],
+            ),
+            hall_dialogue_id: None,
+        ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",
             spritesheet: "sprites/patent_clerk_spritesheet.png",

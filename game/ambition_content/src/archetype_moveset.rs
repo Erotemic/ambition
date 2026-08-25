@@ -1,0 +1,172 @@
+//! One fighter borrowing another's TIMINGS, under its own name.
+//!
+//! The two easter-egg fighters are the polygon archetypes' art with different
+//! people drawn on it. Their sprite rigs say so in as many words — *"he binds
+//! to the same humanoid motion library as the polygon reference fighters, so
+//! his moveset is theirs until he earns bespoke posing"* — and every clip they
+//! publish is the archetype's clip retargeted, frame for frame.
+//!
+//! ⛔ SO THE TABLE IS NOT COPIED. A second seven-hundred-line file that starts
+//! byte-identical to the first is a table that drifts: the archetype gets tuned,
+//! the copy does not, and nothing says they were ever supposed to agree.
+//!
+//! ⛔⛔ AND IT IS NOT SHARED VERBATIM EITHER. A move id is what a causal log
+//! attributes a hit to, what a cue table addresses, and what a cancel window
+//! names. Two fighters answering to `polygon_jab` are two fighters a trace
+//! cannot tell apart. [`under_own_name`] is the whole difference: the frame
+//! data stays the archetype's and the NAMES become the borrower's, so a fighter
+//! that later wants its own jab replaces one move rather than forking a file.
+
+use ambition_platformer2d::entity_catalog::{MovesetContract, WindowTag};
+
+/// The archetype's table with every move id re-prefixed for the fighter that
+/// borrows it.
+///
+/// `archetype` is the set of prefixes the source table's ids carry; `owner`
+/// replaces whichever one an id starts with. A SET and not one prefix, because
+/// a shipped table uses more than one: the Pointed Polygon's normals are
+/// `polygon_*` while its taunt and dash attack are `pointed_polygon_*`, and the
+/// brawler's split the same way. Longest match wins, so a prefix that is
+/// another's suffix cannot claim its ids.
+///
+/// Renames three things, because a move id appears in three places and missing
+/// one is a press that resolves to nothing:
+///
+/// * `moves[].id` — the move itself,
+/// * `verbs` — what a press resolves to,
+/// * a `Cancelable` window's `into` list, when it names a move rather than a
+///   verb class.
+///
+/// ⛔ PANICS on a move whose id carries none of the prefixes. A half-applied
+/// rename is the failure this exists to prevent, and it is the kind that
+/// surfaces as one dead button in a match rather than as a red test. It fired
+/// the first time this ran, on exactly the two ids that break the pattern.
+pub fn under_own_name(
+    mut contract: MovesetContract,
+    archetype: &[&str],
+    owner: &str,
+) -> MovesetContract {
+    // Longest first: `polygon` is a prefix of nothing here, but `polygon` and
+    // `polygon_brawler` are one edit away from being each other's problem.
+    let mut prefixes: Vec<&str> = archetype.to_vec();
+    prefixes.sort_by_key(|p| std::cmp::Reverse(p.len()));
+    let rename = |id: &str| -> String {
+        for prefix in &prefixes {
+            if let Some(rest) = id.strip_prefix(prefix) {
+                return format!("{owner}{rest}");
+            }
+        }
+        panic!(
+            "moveset id `{id}` carries none of the archetype prefixes {archetype:?}, so \
+             renaming it for `{owner}` would leave the two fighters sharing a name"
+        )
+    };
+    // Old id → new id, so a cancel target can be recognised without guessing.
+    let by_old: std::collections::BTreeMap<String, String> = contract
+        .moves
+        .iter()
+        .map(|mv| (mv.id.clone(), rename(&mv.id)))
+        .collect();
+    for mv in &mut contract.moves {
+        mv.id = rename(&mv.id);
+        for window in &mut mv.windows {
+            if let WindowTag::Cancelable { into, .. } = &mut window.tag {
+                for target in into.iter_mut() {
+                    // A verb class (`"attack"`, `"any_attack"`) is NOT a move id
+                    // and must survive untouched; only a name this table itself
+                    // defines is renamed with it.
+                    if let Some(new) = by_old.get(target.as_str()) {
+                        *target = new.clone();
+                    }
+                }
+            }
+        }
+    }
+    for target in contract.verbs.values_mut() {
+        *target = rename(target);
+    }
+    debug_assert_eq!(
+        contract
+            .moves
+            .iter()
+            .map(|mv| mv.id.as_str())
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        contract.moves.len(),
+        "the rename collapsed two moves onto one id"
+    );
+    contract
+}
+
+#[cfg(test)]
+mod tests {
+    /// EVERY BORROWED TABLE RENAMES CLEAN, and neither easter egg answers to a
+    /// name its archetype answers to.
+    ///
+    /// ⛔ THIS IS THE TEST THAT WAS MISSING. The first version of `under_own_name`
+    /// took ONE prefix, and both shipped tables use two — their taunt and dash
+    /// attack are named after the CHARACTER (`pointed_polygon_taunt`) while the
+    /// rest are named after the archetype (`polygon_jab`). Nothing said so until
+    /// the panic fired inside a headless boot, nineteen tests deep.
+    #[test]
+    fn a_borrowed_table_renames_every_id_and_collides_with_nothing() {
+        for (borrowed, archetype, owner) in [
+            (
+                crate::author_moveset::author_moveset(),
+                crate::pointed_polygon_moveset::pointed_polygon_moveset(),
+                "author",
+            ),
+            (
+                crate::officer_moveset::officer_moveset(),
+                crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
+                "officer",
+            ),
+        ] {
+            assert_eq!(
+                borrowed.moves.len(),
+                archetype.moves.len(),
+                "{owner} lost or gained a move in the rename"
+            );
+            for mv in &borrowed.moves {
+                assert!(
+                    mv.id.starts_with(owner),
+                    "{owner} answers to `{}`, which is not its own name",
+                    mv.id
+                );
+            }
+            let theirs: std::collections::BTreeSet<&str> =
+                archetype.moves.iter().map(|mv| mv.id.as_str()).collect();
+            for mv in &borrowed.moves {
+                assert!(
+                    !theirs.contains(mv.id.as_str()),
+                    "{owner} and its archetype both answer to `{}`",
+                    mv.id
+                );
+            }
+            // EVERY PRESS STILL RESOLVES. A rename that moved the ids and not the
+            // verb table is a fighter with a full moveset and no buttons.
+            assert_eq!(
+                borrowed.verbs.len(),
+                archetype.verbs.len(),
+                "{owner} lost a verb binding"
+            );
+            let ids: std::collections::BTreeSet<&str> =
+                borrowed.moves.iter().map(|mv| mv.id.as_str()).collect();
+            for (verb, target) in &borrowed.verbs {
+                assert!(
+                    ids.contains(target.as_str()),
+                    "{owner}'s `{verb}` resolves to `{target}`, which is not a move it has"
+                );
+            }
+            // ...and the FRAME DATA is the archetype's, which is the whole point
+            // of borrowing rather than copying.
+            for (mine, theirs) in borrowed.moves.iter().zip(archetype.moves.iter()) {
+                assert_eq!(
+                    mine.duration_s, theirs.duration_s,
+                    "{owner}'s `{}` drifted from the archetype's timing",
+                    mine.id
+                );
+            }
+        }
+    }
+}

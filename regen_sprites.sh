@@ -367,6 +367,11 @@ tackon_targets=(
     # only by accident of local history.
     pointed_polygon
     pugnacious_polygon
+    # The two easter-egg fighters, for the same reason as the polygons above and
+    # by the same test: `character_catalog.ron` names their sheets, so a roster
+    # that omits them is a fresh clone with two rows pointing at nothing.
+    author
+    officer
     # NAMED HERE, not only reachable by `--target`. The game loads
     # `sprites/hud_stock_icon.png` by path from `STOCK_ICON_ASSET`, so a clone
     # that cannot produce it has a match HUD with holes where the stocks go —
@@ -395,6 +400,10 @@ tackon_targets=(
     portal_gun_orange
     hunting_bow
     bow_arrow
+    # The Projectile Polygon's charge shot. A projectile is its own sheet
+    # because it OUTLIVES the pose that fired it — five tiers plus spawn and
+    # two impacts, none of which a character row can carry.
+    polygon_charge_shot
     robot_slash
     news_board
     town_tileset
@@ -447,6 +456,7 @@ tackon_targets=(
     noether_vfx
     patent_clerk_vfx
     pca_vfx
+    projectile_polygon_vfx
     # Detached leader-specific effects for the Pirate Admiral and Shadow Oni
     # Leader. Their metadata stays character-contextual while the runtime
     # presentation seam remains generic.

@@ -10525,11 +10525,36 @@ check that cannot fail. **The follow-up is an integration harness that plays a
 timed match to expiry**, which nothing in the tree does yet.
 
 ▢ STILL OPEN: **(31) CHARGE SHOT can start, animate, play its release and fire
-NOTHING** — the move has no refire prerequisite and the projectile consumer
-imposes a hidden 1.1s global cooldown, so a second Charge Shot at the earliest
-legal opportunity (0.58s) reaches its authored fire frame at 0.84s and is vetoed;
-⇒ move ACCEPTANCE should own the commitment, or refire should gate move START —
-the current accept-then-veto is the bad middle; ⭐ **(35) CLOSED 2026-08-25** — the fold
+NOTHING — CONFIRMED AT HEAD 2026-08-25.** The numbers are exact: `duration_s
+0.58`, `CHARGE_FIRE_AT_S 0.26`, `RANGED_REFIRE_S 1.1`. A second Charge Shot at
+the earliest legal opportunity (0.58s) reaches its authored fire frame at 0.84s —
+0.58s after the first shot — and `try_fire_ranged` refuses it, so the move plays
+its release and no projectile appears. ⛔ THE CONSUMER'S COMMENT ("simply spawns
+nothing this tick") is right for a controller SPAMMING fire and wrong for an
+authored move that has already been accepted, played startup, charged and reached
+its firing frame.
+
+⚠ **TWO COHERENT FIXES AND THEY ARE NOT EQUIVALENT — THIS IS A BALANCE DECISION,
+so it is named rather than picked:**
+
+```text
+(a) gate the move's START on refire      keeps the weapon resource
+    availability                          AUTHORITATIVE; no balance change;
+                                          needs the ranged resource where moves
+                                          are selected
+(b) an accepted move's authored event    makes the authored timeline TRUTHFUL;
+    is GUARANTEED                         Charge Shot can then fire every 0.58s
+                                          instead of 1.1s — a real balance change
+```
+
+⭐ (b) IS THE DAY'S PATTERN EXACTLY: the fact *"this event came from an already
+committed move"* is lost at the `ActorActionMessage` boundary, which carries only
+`actor` and `request`. Blast radius measured: THIRTEEN construction sites, of
+which the two in `moveset/mod.rs` (~2832, ~2889) are the committed ones. A
+constructor pair (`requested` / `committed`) keeps the call sites honest.
+
+⇒ **JON PICKS.** (a) preserves current feel; (b) makes the move honest and speeds
+the weapon up. ⭐ **(35) CLOSED 2026-08-25** — the fold
 QUERIED `Has<FighterEliminated>` AND DISCARDED IT (`_`), so an eliminated body
 scored for its side for as long as it stayed RESIDENT, and two identical
 histories ranked differently depending on whether the last stock went one tick

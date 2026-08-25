@@ -1600,3 +1600,31 @@ show a windbox connecting before this row is called done.
 ⭐ the sibling parity row *"Vacuum / suction hitboxes"* needs NO further work:
 it is the same primitive with the launch aimed inward, so authoring one move
 closes both rows.
+
+## 2026-08-25 — Charge Shot plays its release and fires nothing: which fix?
+
+A second Charge Shot thrown at the earliest legal moment produces no projectile.
+The move is `0.58s` long and fires at `0.26s`; the projectile consumer imposes a
+hidden `1.1s` refire. So the second shot's authored fire frame lands `0.58s`
+after the first and is silently vetoed — the move starts, animates, plays its
+release presentation, and nothing comes out.
+
+⛔ NOT A TUNING QUESTION, and that is why it is here: both fixes are correct and
+they give different games.
+
+```text
+(a) refuse to START Charge Shot until the weapon can fire
+    → the 1.1s weapon cooldown stays authoritative
+    → nothing about current feel changes
+    → the button sometimes does nothing, which reads as unresponsive
+
+(b) an accepted move's authored shot is GUARANTEED
+    → the timeline becomes truthful: what plays, fires
+    → Charge Shot can fire every 0.58s instead of every 1.1s
+    → a real balance change to Projectile Polygon
+```
+
+⭐ I lean (b) — a move that visibly commits should not be vetoed halfway — but it
+speeds the weapon up by roughly half, and that is your call rather than mine.
+
+⚠ Either way the current behaviour is wrong: accept-then-veto is the bad middle.

@@ -14,12 +14,12 @@
 //! own, and the stage arrives only once the screen has decided.
 
 use ambition_platformer2d::characters::smash_capture::SmashHoldState;
+use bevy::MinimalPlugins;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
-use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
@@ -2179,6 +2179,71 @@ fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
     );
 }
 
+/// ⭐⭐ AND THE ROW IS WITHDRAWN THE MOMENT THE MATCH SETTLES (D211).
+///
+/// The GPT 5.6 correction pass: withdraw `Exit Match` once
+/// `StocksMatchSettled::settled(active)`. A decided match is STILL ACTIVE — the
+/// winner card is up and the return countdown is running — so `ActiveMatch`
+/// alone cannot answer this, and the row stood for those four seconds offering
+/// to stop something already stopped. Pressing it did nothing: the abandon
+/// road's once-only latch discards a verdict for a match that already has one.
+///
+/// ⛔ THE ASSERTION HOLDS ALL THREE AT ONCE — still on the stage, `ActiveMatch`
+/// still installed, offer gone. Drop either of the first two and this passes for
+/// the wrong reason, because the offer is also withdrawn when the route changes
+/// and when the match resource goes away, and both of those happen shortly
+/// after.
+#[test]
+fn a_settled_match_withdraws_the_exit_row_while_the_winner_card_is_still_up() {
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+    wait_for_the_round_to_go_live(&mut app);
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::game_shell::ShellAbandonOffer>()
+            .is_some(),
+        "a live match offered nothing to exit, so this test cannot see it withdrawn"
+    );
+
+    // Settle it by the engine's own match-level verb — the same one the row
+    // itself writes — rather than by reaching into the settlement resource.
+    app.world_mut()
+        .write_message(ambition_platformer2d::actor::MatchAbandoned);
+    app.update();
+    app.update();
+
+    let active = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .cloned();
+    assert!(
+        active.is_some(),
+        "the match resource was gone already, so this frame proves nothing about \
+         withdrawing on SETTLEMENT"
+    );
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "the route changed already, so this frame proves nothing about \
+         withdrawing on SETTLEMENT"
+    );
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled>()
+            .is_some_and(|settled| settled
+                .settled(active.as_ref().expect("checked just above"))),
+        "the match did not settle, so the condition under test never became true"
+    );
+
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::game_shell::ShellAbandonOffer>()
+            .is_none(),
+        "the match is over and the pause menu still offers to exit it — a row \
+         whose press the abandon latch discards"
+    );
+}
+
 /// ⭐⭐ A FIGHTER COMES BACK WITH ITS RECOVERY, BEFORE IT LANDS (review §10).
 ///
 /// The GPT review, on the recovery budget: *"A fresh or stock-respawned airborne
@@ -2279,8 +2344,8 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 1); // the person takes the only source
     cycle_role(&mut app, 1, 1); // no source left, so: CPU
-                                // Two DIFFERENT fighters, so this proves two characters seat rather than
-                                // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
+    // Two DIFFERENT fighters, so this proves two characters seat rather than
+    // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
     pick_fighter(&mut app, 0, PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, OTHER_PREPARED_FIGHTER);
 
@@ -2324,7 +2389,7 @@ fn a_cpu_ordered_before_the_person_still_starts_the_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
     cycle_role(&mut app, 1, 1); // …which the person then takes
-                                // Different fighter IDs make seat ordering observable.
+    // Different fighter IDs make seat ordering observable.
     pick_fighter(&mut app, 0, OTHER_PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, PREPARED_FIGHTER);
 
@@ -2929,7 +2994,7 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
 /// specific verb rather than merely that some verb exists.
 #[test]
 fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
-    use ambition_platformer2d::input::{SeatInputContexts, SELECT_CONTEXT};
+    use ambition_platformer2d::input::{SELECT_CONTEXT, SeatInputContexts};
     use ambition_platformer2d::sim_view::{ControlContextKind, ControlPrompt};
 
     let app = open_the_lobby();
@@ -5179,7 +5244,7 @@ fn no_single_cue_is_asked_for_twice_in_one_tick_during_a_grab() {
 #[test]
 fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
     use ambition_platformer2d::character::{
-        portrait_for_declared_character, CharacterCatalog, PortraitSheetRegistry,
+        CharacterCatalog, PortraitSheetRegistry, portrait_for_declared_character,
     };
     use ambition_platformer2d::presentation::HudReadouts;
 

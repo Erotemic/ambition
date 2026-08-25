@@ -1775,16 +1775,35 @@ fn offer_to_exit_the_match(
     active: Option<
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
     >,
+    // The SETTLEMENT, and it is what the comment below is about. Optional
+    // because a composition may reach this route before the stocks feature has
+    // installed anything, and there the honest answer is "not settled".
+    settled: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
+        >,
+    >,
     offered: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellAbandonOffer>>,
 ) {
     let on_stage = router
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
-    // A match that has been DECIDED is still active — the winner card is up and
-    // the return countdown is running — and offering to abandon it then would be
-    // offering to stop something already stopped.
-    let offer = on_stage && active.is_some();
+    // ⭐⭐ A MATCH THAT HAS BEEN DECIDED IS STILL ACTIVE — the winner card is up
+    // and the return countdown is running — so `ActiveMatch` alone cannot answer
+    // this, and offering to abandon then is offering to stop something already
+    // stopped. The press would reach `MatchAbandoned`, whose once-only latch
+    // discards it because the match already settled: a row that does nothing.
+    //
+    // ⛔ THE CONDITION, NOT A PROXY. Not the winner card's presence, not a menu
+    // state, not a countdown — `StocksMatchSettled::settled` is the authority
+    // that decided the match, and it is the same one the abandon road reads.
+    let running = active.as_deref().is_some_and(|active| {
+        settled
+            .as_deref()
+            .is_none_or(|settled| !settled.settled(active))
+    });
+    let offer = on_stage && running;
     match (offer, offered.is_some()) {
         (true, false) => {
             commands.insert_resource(ambition_platformer2d::game_shell::ShellAbandonOffer {

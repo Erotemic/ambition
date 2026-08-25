@@ -9232,8 +9232,9 @@ combat lane is orthogonal enough to the systemic-world and rollback lanes to
 stay independently integrable. ⛔ narrow or pause it the moment it starts
 changing the same authority boundary as another live lane.
 
-- ▢ **D211 — `Exit Match` STAYS OFFERED AFTER THE MATCH IS ALREADY OVER.
-  (opened 2026-08-24, from the GPT 5.6 correction-pass review, P1)**
+- ✔ **D211 — CLOSED 2026-08-24. `Exit Match` STAYED OFFERED AFTER THE MATCH WAS
+  ALREADY OVER. (opened and closed 2026-08-24, from the GPT 5.6 correction-pass
+  review, P1)**
 
 The pause menu offers an abandon action whose whole meaning is "end a match that
 is still running". Once `StocksMatchSettled::settled(active)` is true the match
@@ -9245,6 +9246,18 @@ condition already exists and is already the authority the settle path reads —
 see `features/stocks_match.rs`. ⛔ do not gate it on a menu state or a game-mode
 enum: those are proxies, and the row is about the OUTPUT (is this match over),
 which is exactly the discipline the same review asked for.
+
+✔ **LANDED.** `offer_to_exit_the_match` now reads `StocksMatchSettled` beside
+`ActiveMatch`. ⭐ **AND THE DOC COMMENT ALREADY CLAIMED THIS** — *"A match that
+has been DECIDED is still active... offering to abandon it then would be offering
+to stop something already stopped"* sat above `let offer = on_stage &&
+active.is_some()`, which does not check it. A comment describing a rule the code
+does not implement reads as coverage.
+
+⛔ **THE TEST HOLDS THREE THINGS AT ONCE** — still on the gameplay route,
+`ActiveMatch` still installed, offer gone. The offer is ALSO withdrawn when the
+route changes and when the match resource goes away, and both happen a few
+seconds later, so a test asserting only the absence passes for the wrong reason.
 
 - ▢ **D212 — TWO CONSUMERS ASK "HOW LONG HAS THIS MATCH BEEN RUNNING" AND GET
   DIFFERENT ANSWERS. (opened 2026-08-24, from the GPT 5.6 correction-pass

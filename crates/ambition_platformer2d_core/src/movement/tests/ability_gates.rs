@@ -551,3 +551,78 @@ fn an_initial_dash_never_slows_a_body_that_was_launched() {
         );
     }
 }
+
+/// FOXTROT AND DASH DANCE, DRIVEN END TO END.
+///
+/// Both are parity rows in their own right, and both should fall out of the
+/// initial dash's entry rule — a direction CHANGE — without a line of code
+/// each. This test is what turns "should" into "does": a re-tap through
+/// neutral re-arms the phase (foxtrot), and alternating directions re-arms it
+/// each time while the body stays put (dash dance).
+#[test]
+fn the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 14.0 / 60.0;
+    let hold = |x: f32| InputState {
+        axes: crate::reference_frame::LocalAxes::new(x, 0.0),
+        ..InputState::default()
+    };
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    scratch.ground.on_ground = true;
+    for _ in 0..40 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    assert!(scratch.ground.on_ground, "the fixture never landed");
+    let mut step = |input: InputState, scratch: &mut crate::body_clusters::BodyClusterScratch| {
+        super::update_player_with_tuning_scratch(&world, scratch, input, 1.0 / 60.0, tuning);
+    };
+
+    // THE FOXTROT — tap, let the phase run out, tap again through neutral.
+    step(hold(1.0), &mut scratch);
+    assert!(
+        scratch.axis().initial_dash_timer > 0.0,
+        "the first tap did not dash"
+    );
+    for _ in 0..20 {
+        step(hold(1.0), &mut scratch);
+    }
+    assert!(
+        scratch.axis().initial_dash_timer <= 0.0,
+        "the phase never expired under a held direction"
+    );
+    step(InputState::default(), &mut scratch);
+    step(hold(1.0), &mut scratch);
+    assert!(
+        scratch.axis().initial_dash_timer > 0.0,
+        "a RE-TAP of the same direction did not re-arm the phase — no foxtrot"
+    );
+
+    // THE DASH DANCE — alternate, and the body should stay roughly where it is
+    // rather than committing to either direction.
+    let anchor = scratch.kinematics.pos.x;
+    let mut rearms = 0;
+    for t in 0..24 {
+        let was = scratch.axis().initial_dash_timer;
+        step(hold(if t % 4 < 2 { 1.0 } else { -1.0 }), &mut scratch);
+        if scratch.axis().initial_dash_timer > was {
+            rearms += 1;
+        }
+    }
+    assert!(
+        rearms >= 4,
+        "alternating directions re-armed the phase only {rearms} times in 24 ticks — \
+         a dash dance is exactly that re-arm"
+    );
+    let drift = (scratch.kinematics.pos.x - anchor).abs();
+    assert!(
+        drift < tuning.params().locomotion.max_run_speed * 0.25,
+        "a dash dance travelled {drift:.0}px, which is a run rather than a dance"
+    );
+}

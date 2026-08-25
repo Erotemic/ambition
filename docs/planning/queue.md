@@ -9853,9 +9853,20 @@ stays.
 the genre, not measured against this game; `0.0` restores the previous ground
 feel exactly.
 
-⇒ **FOXTROT AND DASH DANCE ARE NOW UNBLOCKED** and both are likely already true
-— the re-tap and the reversal are the same edge — but neither has been driven
-end to end, so both stay ▢ marked MEASURE BEFORE BUILDING.
+⇒ **FOXTROT AND DASH DANCE CLOSED THE SAME DAY, WITH NO PRODUCTION CODE.**
+Both were predicted to fall out of the entry rule, and driving them end to end
+is what turned that into a fact:
+
+```text
+foxtrot      tap → let the phase expire → neutral → tap again   re-arms ✔
+dash dance   alternate directions: >=4 re-arms in 24 ticks,
+             drift under a quarter of a run speed               a dance ✔
+```
+
+⭐ The neutral tick is what makes the re-tap work: `prev_steer_dir` resets to
+zero, so the next press is a CHANGE again. Poisoned by narrowing the rule to
+reversals only, which reddens the re-tap arm exactly. ⇒ three parity rows from
+one condition, which is what "one root, eight dependents" was supposed to mean.
 
 ## Standing continuation rule
 

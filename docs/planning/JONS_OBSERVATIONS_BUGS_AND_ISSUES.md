@@ -291,60 +291,6 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
-## 2026-08-24 — ✔ RESOLVED 2026-08-25: the up-tilt percent guard was measuring its own first strike
-
-▢ **NOT A MAINTAINER OBSERVATION — a measurement, recorded here because it
-outranks anything inferred.** `smash_in_the_host::launched::an_up_tilt_launches_much_further_at_a_high_percent`
-fails on the character-authoring lane (`cef3d8f4c`, *"Two easter eggs take seats
-on the smash grid"* and the four commits before it), which reached `main` on
-2026-08-24 alongside the match-clock lane.
-
-```text
-the SAME move on the SAME fighter lifted them 3.8px at 0% and 38.1px at 1427%
-```
-
-The bar is `cooked > fresh * 10.0`, so this misses by a hair — the launch DOES
-scale with percent, just barely under the guard.
-
-⭐ **ATTRIBUTED, not guessed.** Every file the match-clock lane touched under
-`movement/`, `abilities.rs`, `motion_codec.rs`, `moveset/mod.rs`,
-`dev_tools/editable.rs` and the Smash body was reverted to `cef3d8f4c` and the
-test re-run: **identical numbers, 3.8 and 38.1**. A failure that does not move
-when a suspect is removed is not that suspect's — the character lane touched
-`crates/ambition_combat/src/moveset/mod.rs`, `moveset_prefabs.rs` and
-`moveset_authoring.rs`, which is where a shared up-tilt would shift.
-
-⇒ **whoever owns that lane should decide whether the guard or the tuning moved.**
-⛔ do NOT relax the `* 10.0` threshold to make it green: the test exists because
-Jon reported *"alice is at 1427% and Booul is hitting her, but she's not going
-anywhere"*, and its margin is the whole point.
-
-✔ **RESOLVED 2026-08-25 (`003654071`), AND THE ATTRIBUTION ABOVE WAS WRONG.**
-The elimination was sound as far as it went — reverting every file the
-match-clock lane touched did not move the numbers — but "not mine" is not
-"theirs". It was the FIXTURE.
-
-Both strikes landed on ONE victim, and the second arrived while the body still
-carried the first: `hitstop_timer` read 0.088 at the moment of contact, so the
-launch was 495.8 px/s where `base + growth * damage / weight` says 3269.
-
-```text
-struck FIRST   1427%  ->  3096.9 px/s, rises 398px   (what the formula predicts)
-struck SECOND  1427%  ->    495.8 px/s, rises  38.1
-```
-
-Same damage input, same victim weight, same empty stale queue, same attacker.
-⛔ waiting for the thaw was NOT enough (23.2px, still red): a body that has been
-launched once differs from a fresh one in more ways than the freeze, so each
-percent now gets its own match. The `* 10.0` bar is untouched and the ratio is
-now ~100x — which is why this guard could flip on any change that moved hitlag
-by a frame, and did.
-
-⭐ **THE LESSON IS THE ELIMINATION.** A failure that does not move when a suspect
-is removed is not that suspect's — but it does not follow that it belongs to
-whoever else touched the tree. Both lanes were innocent; the test was measuring
-itself.
-
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 
 Jon: *"Another issue is that shield rolls have too much motion to them. They
@@ -352,11 +298,9 @@ send the character flying across the stage. They should not be giving that much
 velocity, and they probably should stop at the end of the roll and leave the
 character punishable for a frame or two."*
 
-▢ THREE things, and they are separable: the roll's DISTANCE is too far · it
-must COME TO REST at the end rather than carrying its speed out · and it owes a
-punishable beat after it. ⭐ the third is what makes the first two a mechanic
-rather than a nerf — a roll that ends clean and safe is still the best button in
-the game however short it is.
+◐ The roll now owes a recovery beat on the far side; the DISTANCE half is not
+reproduced — measured, a roll travels ~14px and stops in ~4 frames — so
+`cargo run -p ambition_demo_smash_app --bin roll_probe` is there to watch it.
 
 ## 2026-08-24 — Smash: a name floats over everyone EXCEPT player one, and barks fire on every hit
 
@@ -366,13 +310,8 @@ behavior, and we should have none of it. A second thing I would like is in smash
 to not have barks happen every time a character is hit. Make it a more rare
 event. Not never, but I'd like it to happen less often."*
 
-▢ Two rows, and the first is the one with teeth: a nameplate whose presence is
-decided by "is this the player" is the [player-centrism this project keeps
-removing](project_engine_direction.md) wearing a label. The rule has to be about
-the PARTICIPANT, not about seat zero — whatever it turns out to be, it applies to
-every fighter the same way.
-
-▢ Barks on every hit. Rarer, not gone.
+✔ Nameplates: the Smash stage now labels every fighter the same way.
+▢ Barks still fire on every hit.
 
 ## 2026-08-24 — Smash: the ledge has no rules
 

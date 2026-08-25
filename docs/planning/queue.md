@@ -9420,6 +9420,32 @@ uses it this is an UNADOPTED mechanic, which this demo has shipped three times;
 inventory's separate *"Vacuum / suction hitboxes"* row needs no further work —
 same primitive, launch aimed inward — so one authored move closes both.
 
+- ✔ **D216 — CLOSED 2026-08-25 (`003654071`). THE UP-TILT PERCENT GUARD WAS
+  MEASURING ITS OWN FIRST STRIKE. (opened and closed 2026-08-25)**
+
+`an_up_tilt_launches_much_further_at_a_high_percent` landed both strikes on ONE
+victim, and the second arrived while the body still carried the first —
+`hitstop_timer` read 0.088 at contact, so the launch was 495.8 px/s where
+`base + growth * damage / weight` says 3269.
+
+```text
+struck FIRST   1427%  ->  3096.9 px/s, rises 398px   (what the formula predicts)
+struck SECOND  1427%  ->    495.8 px/s, rises  38.1
+```
+
+Same damage input, same victim weight (1.0), same empty stale queue, same
+attacker damage. ⛔ waiting for the thaw was NOT enough (23.2px, still red): a
+body launched once differs from a fresh one in more ways than the freeze, so each
+percent now gets its own match. The `* 10.0` bar is untouched and the ratio is
+now ~100x.
+
+⭐⭐ **THE LESSON IS THE ELIMINATION.** It was first attributed to the character
+lane on the strength of a sound elimination — reverting every file the
+match-clock lane touched did not move the numbers — and that conclusion was
+wrong. **"Not mine" is not "theirs."** Both lanes were innocent and the test was
+measuring itself; a third suspect nobody had named was never eliminated because
+nobody thought to name the FIXTURE.
+
 ## Standing continuation rule
 
 **This file is a continuation LEDGER, not a terminal checklist.** There is no

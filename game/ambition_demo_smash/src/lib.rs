@@ -1835,22 +1835,44 @@ fn abandon_the_match_when_the_shell_asks(
 /// level on what the tiebreak measures, not that everybody is still alive —
 /// putting a body that already lost its last stock back on the stage would
 /// invent a fighter the match had finished with.
+///
+/// ⭐⭐ AND ONLY THE TIED SIDES FIGHT IT. With three or more sides alive at the
+/// timeout, a side the clock had already put behind is not part of the tie the
+/// round exists to break; carrying it in would hand a losing side an even
+/// restart, and leaving it on the stage at its own low damage would hand it a
+/// BETTER one. A non-contender is out on the clock, said with the same
+/// `FighterEliminated` an exhausted fighter is out with — so
+/// [`take_eliminated_fighters_out_of_play`] clears its body and
+/// `last_side_standing` decides the round among the contenders, with no second
+/// notion of "out of the match" to keep in step with the first.
 fn open_the_sudden_death_round(
+    mut commands: bevy::prelude::Commands,
     mut began: bevy::prelude::MessageReader<
         ambition_platformer2d::actors::features::stocks_match::SuddenDeathBegan,
     >,
     mut fighters: bevy::prelude::Query<
-        &mut ambition_platformer2d::characters::actor::BodyHealth,
         (
-            bevy::prelude::With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
-            bevy::prelude::Without<ambition_platformer2d::combat::stocks::FighterEliminated>,
+            bevy::prelude::Entity,
+            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
+            &mut ambition_platformer2d::characters::actor::BodyHealth,
         ),
+        bevy::prelude::Without<ambition_platformer2d::combat::stocks::FighterEliminated>,
     >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for round in began.read() {
-        for mut health in &mut fighters {
-            health.set_damage_taken(round.starting_damage);
+        for (body, seat, team, mut health) in &mut fighters {
+            // The SIDE, not the seat: a team's members stand or fall together,
+            // which is the same fold the tiebreak used to name the contenders.
+            let side = ambition_platformer2d::combat::stocks::side_label(seat.0, team);
+            if round.contenders.iter().any(|contender| *contender == side) {
+                health.set_damage_taken(round.starting_damage);
+            } else {
+                commands
+                    .entity(body)
+                    .try_insert(ambition_platformer2d::combat::stocks::FighterEliminated);
+            }
         }
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
@@ -3089,6 +3111,105 @@ mod tests {
         );
     }
 
+    /// ⭐⭐ SUDDEN DEATH IS FOUGHT BY THE TIED SIDES, AND THE REST ARE OUT.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS, found by review 2026-08-24: the round put
+    /// every SURVIVOR on the starting damage. With three sides alive at a
+    /// timeout that means a side the clock had already put behind gets an even
+    /// restart against the two it was losing to.
+    ///
+    /// ⛔ AND "LEAVE IT ALONE" IS WORSE THAN THE BUG, which is why the else arm
+    /// is an elimination and not a skip: a non-contender left standing keeps its
+    /// own low damage while the tied sides go to 150%, so the side that lost the
+    /// tiebreak would enter the round AHEAD.
+    ///
+    /// ⭐ The retirement is the same `FighterEliminated` an exhausted fighter is
+    /// out with, so `take_eliminated_fighters_out_of_play` clears the body and
+    /// `last_side_standing` decides the round among the contenders — there is no
+    /// second notion of "out of the match" to keep in step with the first.
+    #[test]
+    fn only_the_tied_sides_are_carried_into_the_sudden_death_round() {
+        use ambition_platformer2d::actors::features::stocks_match::SuddenDeathBegan;
+        use ambition_platformer2d::characters::actor::{BodyHealth, Health};
+        use ambition_platformer2d::combat::stocks::FighterEliminated;
+        use ambition_platformer2d::combat::targeting::MatchTeam;
+
+        let mut app = bevy::prelude::App::new();
+        app.add_message::<SuddenDeathBegan>();
+        app.init_resource::<ambition_platformer2d::presentation::HudReadouts>();
+        app.add_systems(bevy::prelude::Update, open_the_sudden_death_round);
+
+        // Three sides, seated the way the roster seats them, each carrying the
+        // damage it had when the clock ran out.
+        let seat = |app: &mut bevy::prelude::App, index: usize, damage: i32| {
+            let mut health = BodyHealth::new(Health {
+                current: 100,
+                max: 100,
+                invulnerable: Default::default(),
+            });
+            health.set_damage_taken(damage);
+            app.world_mut()
+                .spawn((
+                    ambition_platformer2d::actors::character_runtime::MatchSeat(index),
+                    MatchTeam(format!("seat{index}")),
+                    health,
+                ))
+                .id()
+        };
+        let tied_a = seat(&mut app, 0, 80);
+        let tied_b = seat(&mut app, 1, 80);
+        let behind = seat(&mut app, 2, 12);
+
+        // The engine's own message, naming the sides the tiebreak found level.
+        // ⭐ THE LABELS COME FROM `side_label`, which is what the fold that
+        // named them used — a stage that spelled a side its own way would look
+        // exactly like this defect.
+        app.world_mut().write_message(SuddenDeathBegan {
+            starting_damage: 150,
+            contenders: vec![
+                ambition_platformer2d::combat::stocks::side_label(
+                    0,
+                    Some(&MatchTeam("seat0".to_string())),
+                ),
+                ambition_platformer2d::combat::stocks::side_label(
+                    1,
+                    Some(&MatchTeam("seat1".to_string())),
+                ),
+            ],
+        });
+        app.update();
+
+        let damage_on = |app: &bevy::prelude::App, body| {
+            app.world()
+                .get::<BodyHealth>(body)
+                .expect("the fighter still has a body")
+                .damage_taken()
+        };
+        assert_eq!(
+            (damage_on(&app, tied_a), damage_on(&app, tied_b)),
+            (150, 150),
+            "a tied side did not go to the authored sudden-death damage"
+        );
+        assert!(
+            app.world().get::<FighterEliminated>(tied_a).is_none()
+                && app.world().get::<FighterEliminated>(tied_b).is_none(),
+            "a side that was TIED was retired from the round it is the point of"
+        );
+
+        assert!(
+            app.world().get::<FighterEliminated>(behind).is_some(),
+            "the side the clock had already put behind is still in the match, so \
+             it gets to fight for a win the timeout had denied it"
+        );
+        assert_eq!(
+            damage_on(&app, behind),
+            12,
+            "a retired side was ALSO put on the starting damage — the two arms \
+             are exclusive, and doing both would leave a body that is out of the \
+             match carrying the round's percent"
+        );
+    }
+
     /// Two fighters do not come back to the same point.
     ///
     /// the arrangement is symmetric about the centre and stays ON the
@@ -3506,7 +3627,7 @@ mod tests {
     #[test]
     fn every_authored_difficulty_is_a_published_controller_policy() {
         use ambition_platformer2d::characters::actor::character_catalog::{
-            parse_catalog, CharacterCatalog,
+            CharacterCatalog, parse_catalog,
         };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
@@ -3544,7 +3665,7 @@ mod tests {
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
         use ambition_platformer2d::characters::actor::character_catalog::{
-            parse_catalog, CharacterCatalog,
+            CharacterCatalog, parse_catalog,
         };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
@@ -3597,10 +3718,10 @@ mod tests {
 mod pause_arbitration_tests {
     use super::*;
     use ambition_platformer2d::input::participant::{
-        context_priority, resolve_active_input_context, ContextClaim, ParticipantContexts,
+        ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
     };
     use ambition_platformer2d::input::{
-        InputParticipant, MenuControlFrame, SeatInputContexts, SeatMenuFrames, PAUSE_CONTEXT,
+        InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
     };
     use bevy::prelude::*;
 

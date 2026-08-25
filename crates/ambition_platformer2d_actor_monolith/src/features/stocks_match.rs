@@ -11,12 +11,12 @@
 use bevy::prelude::{Has, MessageWriter, Query, Res, ResMut, Resource, World};
 
 use crate::character_runtime::{ActiveMatch, MatchInstance};
-use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 use ambition_time::ClockDomain;
+use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
 
 use ambition_combat::stocks::{
-    last_side_standing, FighterEliminated, MatchAbandoned, MatchVerdict, SidesOutcome,
-    StocksMatchDecided,
+    FighterEliminated, MatchAbandoned, MatchVerdict, SidesOutcome, StocksMatchDecided,
+    last_side_standing,
 };
 
 /// THE STOCKS OUTCOME FOR ONE MATCH: which match has been settled.
@@ -128,11 +128,19 @@ impl SuddenDeathEntered {
 }
 
 /// A level timeout became sudden death. The RULESET does the rest — putting the
-/// survivors on the authored damage is a stage's business, not the count's.
-#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+/// contenders on the authored damage is a stage's business, not the count's.
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
 pub struct SuddenDeathBegan {
-    /// The damage every surviving fighter starts on.
+    /// The damage every contender starts on.
     pub starting_damage: i32,
+    /// ⭐⭐ THE TIED SIDES, AND ONLY THOSE. Sudden death breaks a TIE, so the
+    /// round is populated by the sides that were tied — with three or more
+    /// sides alive at the timeout, a side the clock had already put behind is
+    /// not one of them, and carrying it in would hand a losing side an even
+    /// restart.
+    ///
+    /// Side labels in `BTreeMap` order, so a replay names them the same way.
+    pub contenders: Vec<String>,
 }
 
 /// Decide a stocks match, once.
@@ -260,7 +268,12 @@ pub fn decide_stocks_match(
             // ⛔ ONLY ON A GENUINE TIE. A timeout with a leader is a WIN, and
             // sending a fighter who was ahead into a coin flip would take away
             // the thing the clock was measuring.
-            let outcome = decide_on_the_clock(&fighters);
+            // ONE FOLD, both readings. The verdict and the sudden-death field
+            // are two questions about the same standing, and computing them
+            // from separate passes is how they come to disagree about who was
+            // tied with whom.
+            let sides = fold_the_sides_on_the_clock(&fighters);
+            let outcome = clock_outcome(&sides);
             if let Some(damage) = timeout_continues_as_sudden_death(
                 &outcome,
                 combat_rules
@@ -271,6 +284,7 @@ pub fn decide_stocks_match(
                     sudden_death.enter(&active);
                     began.write(SuddenDeathBegan {
                         starting_damage: damage,
+                        contenders: leading_sides(&sides),
                     });
                 }
                 // ⛔ AND IT RETURNS UNSETTLED. Every later tick is caught by the
@@ -322,7 +336,7 @@ fn timeout_continues_as_sudden_death(
 /// hit decides — where this calls it a draw. Sudden death is a second match
 /// staged from the first's result, which is a lifecycle question rather than a
 /// counting one, and belongs with whoever owns the stage transition.
-fn decide_on_the_clock(
+fn fold_the_sides_on_the_clock(
     fighters: &Query<(
         &crate::character_runtime::MatchSeat,
         Option<&ambition_combat::targeting::MatchTeam>,
@@ -330,7 +344,7 @@ fn decide_on_the_clock(
         Option<&ambition_characters::actor::BodyHealth>,
         Has<FighterEliminated>,
     )>,
-) -> SidesOutcome {
+) -> std::collections::BTreeMap<String, (u32, i32)> {
     // BTreeMap, so a tie is broken the same way on a replay rather than by hash
     // order — the same reason `last_side_standing` uses one.
     let mut sides: std::collections::BTreeMap<String, (u32, i32)> =
@@ -342,12 +356,20 @@ fn decide_on_the_clock(
         entry.0 += stocks.remaining;
         entry.1 += health.map_or(0, |h| h.damage_taken());
     }
-    clock_outcome(&sides)
+    sides
 }
 
-/// The tiebreak itself, over folded sides — split from the query so the RULE can
-/// be asked without a `World` and the fold cannot hide inside the answer.
-fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> SidesOutcome {
+/// WHO IS AHEAD when the clock runs out — every side that reaches the best
+/// standing, which is one side when the clock decided it and several when it
+/// did not.
+///
+/// ⭐ ONE DEFINITION, because two consumers ask this question and a match whose
+/// WINNER and whose SUDDEN-DEATH FIELD were computed by separate comparisons
+/// could disagree about who was tied with whom.
+///
+/// Empty only when there are no sides at all. `BTreeMap` order, so a replay
+/// lists them the same way.
+fn leading_sides(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Vec<String> {
     // one comparison on `(stocks, -damage)`, so the two rungs cannot disagree
     // about which is the tiebreak.
     let Some(best) = sides
@@ -355,13 +377,20 @@ fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Side
         .map(|(stocks, damage)| (*stocks, -*damage))
         .max()
     else {
-        return SidesOutcome::Draw;
+        return Vec::new();
     };
-    let mut leaders = sides
+    sides
         .iter()
-        .filter(|(_, (stocks, damage))| (*stocks, -*damage) == best);
-    match (leaders.next(), leaders.next()) {
-        (Some((side, _)), None) => SidesOutcome::Winner(side.clone()),
+        .filter(|(_, (stocks, damage))| (*stocks, -*damage) == best)
+        .map(|(side, _)| side.clone())
+        .collect()
+}
+
+/// The tiebreak itself, over folded sides — split from the query so the RULE can
+/// be asked without a `World` and the fold cannot hide inside the answer.
+fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> SidesOutcome {
+    match leading_sides(sides).as_slice() {
+        [alone] => SidesOutcome::Winner(alone.clone()),
         _ => SidesOutcome::Draw,
     }
 }
@@ -581,6 +610,59 @@ mod tests {
                 side("blue", 2, 0)
             ]),
             SidesOutcome::Winner("red".to_string()),
+        );
+    }
+
+    /// ⭐⭐ SUDDEN DEATH IS FOUGHT BY THE TIED SIDES, NOT BY EVERYONE ALIVE.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS, found by review 2026-08-24: with three or more
+    /// sides alive at a timeout, the round carried every SURVIVOR. A side the
+    /// clock had already put behind on stocks got an even restart against the
+    /// two it was losing to — the clock measured eight minutes and then handed
+    /// its result back.
+    ///
+    /// ⭐ AND THE FIELD COMES FROM THE SAME COMPARISON AS THE VERDICT. Two
+    /// passes over one standing is how "who won" and "who was tied" come to
+    /// disagree, so `clock_outcome` is built on this function rather than
+    /// beside it — a Winner is exactly the one-element case.
+    #[test]
+    fn sudden_death_is_fought_by_the_tied_leaders_and_not_by_every_survivor() {
+        let leaders = |rows: Vec<(String, u32, i32)>| {
+            let mut sides: std::collections::BTreeMap<String, (u32, i32)> =
+                std::collections::BTreeMap::new();
+            for (label, stocks, damage) in rows {
+                let entry = sides.entry(label).or_insert((0, 0));
+                entry.0 += stocks;
+                entry.1 += damage;
+            }
+            super::leading_sides(&sides)
+        };
+
+        // THE CASE. Three sides alive, two of them level at the top: the third
+        // is a stock behind and is not part of the tie the round exists to
+        // break.
+        assert_eq!(
+            leaders(vec![side("a", 2, 80), side("b", 2, 80), side("c", 1, 0)]),
+            vec!["a".to_string(), "b".to_string()],
+            "a side the clock had already put behind was carried into sudden death"
+        );
+        // ⛔ AND THE DAMAGE RUNG SEPARATES TOO, or a side level on stocks but
+        // visibly closer to losing one would join a tie it is not in.
+        assert_eq!(
+            leaders(vec![side("a", 2, 80), side("b", 2, 80), side("c", 2, 300)]),
+            vec!["a".to_string(), "b".to_string()],
+        );
+        // A DECIDED timeout has exactly one leader — which is what makes
+        // `clock_outcome` a special case of this and not a second opinion.
+        assert_eq!(
+            leaders(vec![side("a", 3, 0), side("b", 2, 0), side("c", 1, 0)]),
+            vec!["a".to_string()],
+        );
+        // Every side level is every side tied: nobody is dropped from a round
+        // that nobody is behind in.
+        assert_eq!(
+            leaders(vec![side("a", 2, 80), side("b", 2, 80), side("c", 2, 80)]),
+            vec!["a".to_string(), "b".to_string(), "c".to_string()],
         );
     }
 

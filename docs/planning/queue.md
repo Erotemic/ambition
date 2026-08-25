@@ -9280,8 +9280,9 @@ be stated where a match begins, beside the roster and the rules.
 belongs on the RAW draws — a check written on reduced indices compared values
 differing only by modulus, passed, and could not have detected a shared salt.
 
-- ▢ **D214 — MULTI-SIDE SUDDEN DEATH RESETS EVERY SURVIVOR, not the tied
-  leaders. (opened 2026-08-24, from the GPT 5.6 correction-pass review, P1)**
+- ✔ **D214 — CLOSED 2026-08-24. MULTI-SIDE SUDDEN DEATH RESET EVERY SURVIVOR,
+  not the tied leaders. (opened and closed 2026-08-24, from the GPT 5.6
+  correction-pass review, P1)**
 
 Sudden death exists to break a TIE. With three or more sides alive at timeout the
 current path carries every survivor into the extra round, including sides the
@@ -9291,6 +9292,20 @@ even restart.
 ⇒ **carry the tied leaders only.** The tiebreak already computes the ordering it
 needs; the row is about what the sudden-death round is POPULATED with, not about
 how the winner is decided.
+
+✔ **LANDED.** `SuddenDeathBegan` now names its `contenders`, drawn from
+`leading_sides` — and `clock_outcome` is REBUILT on that function rather than
+sitting beside it, so a Winner is exactly its one-element case and the two
+readings cannot disagree about who was tied with whom. The stage puts the
+contenders on the authored damage and retires the rest with the same
+`FighterEliminated` an exhausted fighter is out with, so
+`take_eliminated_fighters_out_of_play` clears those bodies and
+`last_side_standing` decides the round among the contenders.
+
+⛔ **"LEAVE THE NON-CONTENDERS ALONE" IS WORSE THAN THE BUG** — they would keep
+their own low damage while the tied sides go to 150%, so the side that LOST the
+tiebreak enters the round ahead. Both wrong readings are poisoned: carry every
+survivor, and skip the else arm.
 
 
 ## Standing continuation rule

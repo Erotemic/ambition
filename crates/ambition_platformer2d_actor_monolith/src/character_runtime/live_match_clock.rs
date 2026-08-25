@@ -19,8 +19,8 @@
 
 use bevy::prelude::{Res, ResMut, Resource};
 
-use super::PreparedMatch;
 use super::seating::{ActiveMatch, MatchInstance};
+use super::PreparedMatch;
 use crate::features::stocks_match::StocksMatchSettled;
 
 /// Ticks THIS match has spent being fought — ceremony and pauses excluded.
@@ -45,6 +45,20 @@ pub struct LiveMatchTicks {
     /// accumulator would be snapshot state whose replay depends on the order it
     /// was summed in. The snapshot's shape is unchanged — one `u64`, as before.
     micros: u64,
+    /// [`Self::micros`] as it stood at the START of this step.
+    ///
+    /// ⭐⭐ A PERIODIC CONSUMER NEEDS BOTH ENDS OF THE STEP, not a sample of one.
+    /// The projection [`Self::of`] returns is no longer guaranteed to advance
+    /// every step — at half speed a conceptual tick lands on two consecutive
+    /// steps — so `elapsed % interval == 0` fires TWICE on the same conceptual
+    /// tick. That is what [`Self::crossed`] exists to answer instead.
+    ///
+    /// ⛔ NOT SNAPSHOT STATE, and that is a scheduling contract rather than an
+    /// oversight: this system runs in `WorldPrep` and every consumer is
+    /// downstream of it (the clock's own registration says so), so the value is
+    /// written before it is read on every tick it is read on. A rewind restores
+    /// `micros`, and the first re-simulated step rebuilds this from it.
+    prev_micros: u64,
 }
 
 impl LiveMatchTicks {
@@ -61,10 +75,49 @@ impl LiveMatchTicks {
         }
     }
 
+    /// The boundary of `interval_ticks` this STEP crossed, as its ORDINAL —
+    /// `1` is the first boundary, one whole interval into the match. `None`
+    /// when the step crossed none.
+    ///
+    /// ⭐⭐ THE QUESTION IS "DID GAMEPLAY TIME CROSS N", not "is the sampled
+    /// tick divisible by N". Those were the same question only while the clock
+    /// advanced exactly one conceptual tick per step, and it stopped doing that
+    /// the moment it started counting SCALED gameplay: under a hitstop ramp the
+    /// projection repeats a value across consecutive steps, and a divisibility
+    /// test fires on every one of them. The item spawner did exactly that —
+    /// two items, and worse, two entities deriving the SAME `SimId` from the
+    /// repeated sample.
+    ///
+    /// ⭐ AND THE ORDINAL IS WHAT AN IDENTITY SHOULD BE DERIVED FROM. It counts
+    /// boundaries, so it cannot repeat however time is scaled; the projected
+    /// tick can.
+    ///
+    /// ⚠ ONE BOUNDARY PER STEP. A step long enough to span two intervals
+    /// reports only the one it landed past — an interval shorter than a frame
+    /// is not a cadence.
+    pub fn crossed(&self, active: &ActiveMatch, interval_ticks: u32) -> Option<u64> {
+        if self.of != Some(active.instance()) || interval_ticks == 0 {
+            return None;
+        }
+        // `micros * 60 / (interval * 1_000_000)` is `elapsed_ticks / interval`
+        // without the intermediate truncation mattering — integer division is
+        // monotone, so the two floors agree.
+        let period = u64::from(interval_ticks) * 1_000_000;
+        let ordinal = |micros: u64| micros * 60 / period;
+        let now = ordinal(self.micros);
+        (now > ordinal(self.prev_micros)).then_some(now)
+    }
+
     /// Rebuild from a rollback snapshot. See `snapshot_impls`.
     #[doc(hidden)]
     pub fn from_snapshot(of: Option<MatchInstance>, micros: u64) -> Self {
-        Self { of, micros }
+        Self {
+            of,
+            micros,
+            // Rebuilt by `count_the_live_match_ticks` on the first re-simulated
+            // step, before any consumer reads it. See the field's own note.
+            prev_micros: micros,
+        }
     }
 
     /// The snapshot's view of this counter. See `snapshot_impls`.
@@ -116,6 +169,10 @@ pub fn count_the_live_match_ticks(
         live.of = Some(instance);
         live.micros = 0;
     }
+    // ⭐ WHERE THIS STEP STARTED, recorded BEFORE every early return below so a
+    // step that counted nothing reports no boundary crossed rather than
+    // comparing against a stale end. See `LiveMatchTicks::crossed`.
+    live.prev_micros = live.micros;
 
     if settled.is_some_and(|settled| settled.settled(&active)) {
         return;
@@ -236,6 +293,94 @@ mod tests {
              {full_speed} for 60 steps at full speed — the match clock is counting \
              FRAMES, not the gameplay those frames were worth"
         );
+    }
+
+    /// ⭐⭐ A BOUNDARY IS CROSSED ONCE, HOWEVER SLOWLY TIME IS RUNNING.
+    ///
+    /// ⛔⛔ THE SIBLING ARM ABOVE FIXED THE CLOCK AND BROKE ITS PERIODIC READER.
+    /// Counting scaled gameplay is right, but the projection back to 60 Hz is
+    /// then no longer guaranteed to ADVANCE every step: at half speed one
+    /// conceptual tick lands on two consecutive steps. The item spawner asked
+    /// `elapsed % every == 0`, so it fired on both — two items, and two entities
+    /// deriving the SAME `SimId` from the repeated sample, which is a
+    /// determinism defect rather than double loot.
+    ///
+    /// ⭐ THE ASSERTION IS `1, 2, 3, …` WITH NO REPEATS, not a count. A count
+    /// cannot tell "crossed four boundaries" from "crossed three and reported
+    /// one twice", which is exactly the failure.
+    ///
+    /// ⛔ AND THE ARMS STRADDLE THE THING THAT BROKE IT: full speed is the only
+    /// rate the old sampling was ever correct at, half speed is where it
+    /// doubled, and the ramp is what a real match actually runs at — `0.917`,
+    /// `0.750` and `0.983` are measured hitstop scales from one match, none of
+    /// which divides the frame evenly.
+    #[test]
+    fn each_interval_is_crossed_exactly_once_at_any_time_scale() {
+        // Half a second, so a few seconds of fixture crosses several.
+        const EVERY: u32 = 30;
+
+        /// Drive the REAL clock for `steps`, taking each step's scale from
+        /// `scales` in turn, and collect every ordinal `crossed` reported.
+        fn crossings(scales: &[f32], steps: usize) -> Vec<u64> {
+            let mut app = clock_world();
+            let mut seen = Vec::new();
+            for i in 0..steps {
+                app.insert_resource(ambition_time::WorldTime {
+                    raw_dt: 1.0 / 60.0,
+                    scaled_dt: scales[i % scales.len()] / 60.0,
+                });
+                step(&mut app);
+                let active = app.world().resource::<ActiveMatch>().clone();
+                if let Some(ordinal) = app
+                    .world()
+                    .resource::<LiveMatchTicks>()
+                    .crossed(&active, EVERY)
+                {
+                    seen.push(ordinal);
+                }
+            }
+            seen
+        }
+
+        /// `1, 2, 3, …` — every boundary reported once, in order, none skipped.
+        fn each_once(seen: &[u64]) -> bool {
+            seen.iter().copied().eq(1..=seen.len() as u64)
+        }
+
+        let full = crossings(&[1.0], 240);
+        assert!(
+            full.len() >= 3,
+            "the full-speed fixture crossed {} boundaries, so the comparisons \
+             below are between empty lists",
+            full.len()
+        );
+        assert!(each_once(&full), "full speed reported {full:?}");
+
+        // ⛔⛔ THE ARM THAT FAILED. Twice the steps at half the speed is the same
+        // gameplay, so it must buy the same boundaries — each of them once.
+        let half = crossings(&[0.5], 480);
+        assert!(
+            each_once(&half),
+            "a half-speed world reported {half:?} — the projected tick repeats \
+             across consecutive steps and a divisibility test fires on every one \
+             of them, so this interval dropped two items sharing one SimId"
+        );
+        assert!(
+            half.len().abs_diff(full.len()) <= 1,
+            "480 half-speed steps crossed {} boundaries against {} for 240 at \
+             full speed",
+            half.len(),
+            full.len()
+        );
+
+        // A real match never runs at a round scale for long.
+        let ramped = crossings(&[0.917, 0.750, 0.983, 1.0], 480);
+        assert!(
+            ramped.len() >= 3,
+            "the ramping fixture crossed {} boundaries",
+            ramped.len()
+        );
+        assert!(each_once(&ramped), "a ramping scale reported {ramped:?}");
     }
 
     /// ⭐⭐ A PAUSED MATCH IS NOT GETTING CLOSER TO TIMING OUT.

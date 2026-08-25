@@ -8,8 +8,8 @@
 //!
 //! ⛔⛔ NO SCHEDULE STATE OF ITS OWN, and that is still the whole design. There
 //! is no countdown resource here and no "last spawned" tick: a drop happens on
-//! the ticks where `elapsed % every_ticks == 0`, a pure function of the match
-//! clock the same way the opening ceremony's phase is.
+//! the step where gameplay time CROSSES a multiple of `every_ticks`, a pure
+//! function of the match clock the same way the opening ceremony's phase is.
 //!
 //! ⚠ WHAT CHANGED, 2026-08-24: `elapsed` is now the LIVE match clock
 //! ([`LiveMatchTicks`](crate::character_runtime::live_match_clock::LiveMatchTicks))
@@ -21,12 +21,20 @@
 //! below used to be doing.
 //!
 //! ⛔ AND THE IDENTITY IS DERIVED, not sequenced. `SimId::match_spawn(activation,
-//! tick)` — the pickup road mints under the THROWER and takes a `SimIdCounter`
-//! from it, and a match-level spawner has no thrower. Deriving is not a
-//! workaround for that: `(match, tick)` determines the object completely and at
-//! most one spawn per tick exists, so a counter would be a second authority on a
-//! fact the tick already settles. ⚠ the tick in that pair is the LIVE one now,
-//! which is still strictly increasing within a match and so still unique.
+//! ordinal)` — the pickup road mints under the THROWER and takes a
+//! `SimIdCounter` from it, and a match-level spawner has no thrower. Deriving is
+//! not a workaround for that: `(match, ordinal)` determines the object
+//! completely, so a counter would be a second authority on a fact the cadence
+//! already settles.
+//!
+//! ⛔⛔ AND THE ORDINAL IS THE DROP'S NUMBER, NOT THE TICK IT LANDED ON, which is
+//! the correction of 2026-08-25. The paragraph above used to claim the live tick
+//! was *"strictly increasing within a match and so still unique"*. It is not:
+//! the live clock counts SCALED gameplay and projects it back to 60 Hz, so under
+//! a hitstop ramp one conceptual tick lands on two consecutive steps. A
+//! divisibility test fired on both — two items, and two entities deriving the
+//! SAME `SimId`, which is a determinism defect rather than double loot. Counting
+//! BOUNDARIES cannot repeat however time is scaled.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnScopedExt;
@@ -56,18 +64,24 @@ pub fn spawn_match_items(
     if !rules.active() {
         return;
     }
-    // ⭐ THE LIVE CLOCK — ticks this match has actually been FOUGHT, with the
+    // ⭐ THE LIVE CLOCK — gameplay this match has actually been FOUGHT, with the
     // opening ceremony and every pause already excluded by the one system that
     // owns the question. This used to be `ticks_since_activation` plus a
     // hand-written `elapsed == 0`, which stood in for "not during the countdown"
     // and stopped being true the moment an interval was shorter than one.
-    let elapsed = live.of(&active);
-    // ⛔ AND ZERO IS STILL SKIPPED, for what is now its real reason: live tick
-    // zero is the RELEASE tick, and an item landing on it is an item nobody had
-    // a frame to contest. The first drop is one full interval in.
-    if elapsed == 0 || elapsed % u64::from(rules.every_ticks) != 0 {
+    //
+    // ⛔⛔ AND IT ASKS FOR A CROSSING, NOT A SAMPLE. `elapsed % every == 0` was
+    // reading a projection that no longer advances once per step: at half speed
+    // one conceptual tick lands on two consecutive steps and the test fired on
+    // both. See `LiveMatchTicks::crossed`.
+    //
+    // ⛔ ZERO IS STILL NEVER A DROP, for what is now its structural reason
+    // rather than a hand-written guard: the first boundary a match can cross is
+    // ordinal 1, one whole interval in. Live tick zero is the RELEASE tick, and
+    // an item landing on it is an item nobody had a frame to contest.
+    let Some(ordinal) = live.crossed(&active, rules.every_ticks) else {
         return;
-    }
+    };
 
     // ⭐⭐ WHICH MATCH IS DRAWING. Without it every match is the same match: the
     // clock above restarts at zero, so match two drew match one's items, in
@@ -78,7 +92,7 @@ pub fn spawn_match_items(
     let Some(chosen) = ae::sim_random::sim_random_weighted(
         ae::sim_random::DOMAIN_ITEM_SPAWN,
         context,
-        elapsed,
+        ordinal,
         SALT_WHICH_ITEM,
         &weights,
     ) else {
@@ -87,7 +101,7 @@ pub fn spawn_match_items(
     let Some(point) = ae::sim_random::sim_random_index(
         ae::sim_random::DOMAIN_ITEM_SPAWN,
         context,
-        elapsed,
+        ordinal,
         SALT_WHICH_POINT,
         rules.points.len(),
     )
@@ -109,7 +123,7 @@ pub fn spawn_match_items(
         return;
     };
     let sim_id = active.instance().parts().1.map(|activated_on| {
-        ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(activated_on, elapsed)
+        ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(activated_on, ordinal)
     });
     let mut spawned = commands.spawn_room_scoped((
         crate::items::pickup::GroundItem {
@@ -262,25 +276,17 @@ mod tests {
         );
     }
 
-    /// ⭐ AND THE SCHEDULE IS A PURE FUNCTION OF THE MATCH CLOCK.
-    ///
-    /// ⛔⛔ NO COUNTDOWN RESOURCE, which is the point: a ticking timer here would
-    /// be authoritative mutable state inside the rollback window, the trap
-    /// `prepared_match` documents having paid for once already. And tick ZERO
-    /// never drops — the fighters are still held by the opening countdown, and an
-    /// item nobody can contest is one somebody walks into.
-    #[test]
-    fn the_drop_schedule_is_the_clock_and_the_opening_tick_is_never_one() {
-        let every = 480u64;
-        let drops = |elapsed: u64| elapsed != 0 && elapsed % every == 0;
-
-        assert!(!drops(0), "a match dropped an item on the tick it opened");
-        assert!(!drops(479));
-        assert!(drops(480), "the first interval did not drop");
-        assert!(drops(960), "the second interval did not drop");
-        assert!(!drops(961));
-        // …and re-asking any tick answers the same, because there is nothing to
-        // advance.
-        assert_eq!(drops(480), drops(480));
-    }
+    // ⭐ THE SCHEDULE IS A PURE FUNCTION OF THE MATCH CLOCK, and the rule now
+    // lives entirely in `LiveMatchTicks::crossed` — so it is pinned where the
+    // real clock can be driven, by
+    // `live_match_clock::tests::each_interval_is_crossed_exactly_once_at_any_time_scale`.
+    // What used to stand here re-implemented `elapsed % every == 0` locally and
+    // agreed with itself; it could not have seen the repeat that a scaled clock
+    // produces, because it never asked the clock.
+    //
+    // ⛔⛔ NO COUNTDOWN RESOURCE, which is still the point: a ticking timer here
+    // would be authoritative mutable state inside the rollback window, the trap
+    // `prepared_match` documents having paid for once already. And ordinal ZERO
+    // never drops — the fighters are still held by the opening countdown, and an
+    // item nobody can contest is one somebody walks into.
 }

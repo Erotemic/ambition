@@ -9359,6 +9359,42 @@ their own low damage while the tied sides go to 150%, so the side that LOST the
 tiebreak enters the round ahead. Both wrong readings are poisoned: carry every
 survivor, and skip the else arm.
 
+- ▢ **D215 — A HIT CAN ONLY HURT. There is no way to author a volume that PUSHES
+  and nothing else. (opened 2026-08-25, promoted from the smash-parity inventory
+  at Jon's direction: "keep pushing smash parity for the mechanics")**
+
+`smash-parity-inventory.md` rows *Windboxes / flinchless push* and *Vacuum /
+suction hitboxes* are one primitive, not two: a hit reaction that applies
+VELOCITY without damage, hitstun or shield interaction. Suction is the same
+thing with the push aimed inward.
+
+⭐ **THE SEAM IS ALREADY THERE, AND `autolink` IS THE PRECEDENT** — measured
+2026-08-25, so the next session does not re-derive it:
+
+| where | what it already does |
+| --- | --- |
+| `ambition_entity_catalog/src/lib.rs:306` | the authored volume carries `autolink: Option<AutolinkVolume>` — a per-volume REACTION OVERRIDE, exactly the shape a windbox wants |
+| `combat/src/moveset/mod.rs:1225` | carries the authored field onto the spawned `Hitbox` |
+| `combat/src/strike.rs` | `Hitbox` holds it for the live volume |
+| `combat/src/hit_reaction.rs:165` | ⭐ the branch point: `match knockback.follow` already chooses HOLD instead of LAUNCH, and writes ONE velocity under the victim's own body authority |
+
+⇒ **a windbox is a third arm of that same `match`.** ⛔ but the reaction is only
+half: the other half is UPSTREAM, in the damage-apply path, which must not spend
+damage, hitstun, a hit-repeat slot, or shield on a gust. Find that before
+writing the arm — the parity row's own words are *"keep contact/faction/shield
+arbitration in the normal hit path"*, so the volume still resolves targets the
+ordinary way and only its REACTION differs.
+
+⛔ **IT NEEDS A CUSTOMER, and that is the acceptance criterion.** The inventory's
+sibling row *Cannot-clank/transcendent hit* is marked UNBLOCKED AND DELIBERATELY
+UNBUILT for exactly this reason. Author one real move that uses it — a gust that
+pushes a fighter off the ledge is the genre's own example — and let the move
+prove the primitive. A field with no authored consumer is a mechanic that ships
+green and inert, which this demo has now done three times.
+
+⚠ a windbox that hits repeatedly is the POINT (a gust pushes for as long as you
+stand in it), so check what the hit-repeat window does to it rather than
+inheriting the ordinary answer.
 
 ## Standing continuation rule
 

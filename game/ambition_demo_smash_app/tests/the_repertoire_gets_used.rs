@@ -298,7 +298,21 @@ fn the_cpu_reaches_for_more_than_one_move() {
 /// generic version of the claim is `every_authored_route_gets_pressed` below.
 #[test]
 fn the_cpu_throws_its_authored_recovery_during_a_match() {
-    const WINDOW: usize = 1800;
+    // ⚠ 3600, NOT 1800 — and this widening is MEASURED rather than nudged:
+    // 2100 fails, 2400 passes, so 3600 is half again past the turn. The sibling
+    // test below calls repeated widening "a hand-kept ledger" and it is right;
+    // what makes this one honest is that the CAUSE is known.
+    //
+    // ⛔⛔ THE CAUSE WAS A BUG BEING FIXED, NOT DRIFT. Until 2026-08-25 a guard
+    // forced down by leaving the ground billed the full 11-frame shield-release
+    // penalty, and `drop_lag_timer` feeds `hard_lock_timer` — so every CPU that
+    // dropped through a platform holding Shield hard-locked for it. Removing a
+    // penalty nobody earned changes how the CPUs play, and George now takes
+    // longer to find himself offstage.
+    //
+    // ⇒ THIS WINDOW IS A PATIENCE BUDGET, not a claim that a CPU recovers within
+    // N ticks. The claim is that its AUTHORED route is the one it throws.
+    const WINDOW: usize = 3600;
 
     let ledger = watch_a_match(ambition_demo_smash::SMASH_GEORGE_BOOUL, WINDOW);
     let seen = ledger.every_move_seen();

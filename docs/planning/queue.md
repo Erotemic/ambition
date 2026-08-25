@@ -10433,10 +10433,26 @@ every field added this week — evade staling, shield tilt, ASDI, maneuver state
 settled items, match clock, sudden death — and found none. The registration
 discipline is holding; it is SEMANTIC OWNERSHIP that is not.
 
-▢ LIVE MOVEMENT (the pass to do first, with the roll work): **(17) shield DROP
-LAG is charged for FORCED shield loss** — `apply_shield` charges on
-`was_up && !active` with no cause check, so dropping through a platform with
-guard held bills the 11-frame release penalty and hard-locks; **(18) roll ENDLAG
+⭐⭐ **(17) CLOSED 2026-08-25 — THE COMMENT STATED THE RULE AND THE CODE ASKED A
+DIFFERENT QUESTION.** Drop lag's own comment says the cost is for *"you simply let
+go"*; the condition was `was_up && !active`, which is EVERY way a guard can end.
+Under `air_guard: false` (Smash) a fighter dropping through a platform with Shield
+still held had its guard forced down and was billed the full 11-frame release
+penalty — and `drop_lag_timer` feeds `hard_lock_timer`, so a platform drop
+hard-locked the body for letting go of a button nobody let go of. The same
+misreading caught a shield that BREAKS. Now `!input.shield_held` is the
+authority: the hand says whether the player released. Both directions poisoned.
+
+⚠ **AND IT RE-TUNED THE CPUs, WHICH IS THE INTERESTING PART.** Removing a penalty
+nobody earned changed how matches play out: `the_cpu_throws_its_authored_recovery
+_during_a_match` went red because George now takes longer to find himself
+offstage. Widened 1800 → 3600, MEASURED (2100 fails, 2400 passes, so half again
+past the turn) and with the CAUSE recorded in the test — which is what separates
+an honest widening from the "hand-kept ledger" its sibling warns about.
+⇒ **REMOVING A SPURIOUS MECHANIC RE-TUNES EVERYTHING BUILT ON IT**, exactly as
+waking a dormant one does.
+
+▢ LIVE MOVEMENT (the rest of the pass): **(18) roll ENDLAG
 is canonical state NOTHING REFUSES ATTACKS FOR** — the comment explaining why it
 is unenforced describes the OLD shared-timer problem that HEAD already fixed;
 **(19) ROOTED MOVES ERASE STICK HISTORY** — `damped_by_move_motion` zeroes

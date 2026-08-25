@@ -1435,3 +1435,86 @@ fn a_reverse_too_soft_to_dash_does_not_buy_a_turnaround() {
         "a soft reverse left the body facing its old direction entirely"
     );
 }
+
+/// A GUARD YOU DID NOT DROP COSTS NOTHING.
+///
+/// ⛔⛔ THE DROP-LAG RULE ASKED THE EFFECT, NOT THE CAUSE. Its own comment says
+/// the cost is for "you simply let go", and the condition was `was_up &&
+/// !active` — which is EVERY way a guard can end. Under `air_guard: false` a
+/// fighter that leaves the ground with Shield STILL HELD has its guard forced
+/// down, and this billed the full release penalty; `drop_lag_timer` feeds
+/// `hard_lock_timer`, so a platform drop could hard-lock the body for the
+/// ordinary cost of letting go of a button the player never let go of.
+#[test]
+fn a_guard_forced_down_by_leaving_the_ground_owes_no_drop_lag() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.base.shield.drop_lag = 11.0 / 60.0;
+    // The composition the defect needs: a guard that cannot be held in the air.
+    tuning.base.shield.air_guard = false;
+    assert!(
+        tuning.params().abilities.shield.drop_lag > 0.0,
+        "the fixture declares no drop lag, so neither arm below measures anything"
+    );
+
+    let mut guarding = InputState::default();
+    guarding.shield_held = true;
+
+    // ── ARM 1: the guard is taken away by LEAVING THE GROUND, hand still down.
+    let mut body = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    for _ in 0..30 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    super::update_player_with_tuning_scratch(&world, &mut body, guarding, 1.0 / 60.0, tuning);
+    assert!(
+        body.shield.active,
+        "the fixture never raised a guard, so nothing below is a forced drop"
+    );
+    // Off the floor with the button STILL HELD.
+    body.ground.on_ground = false;
+    body.kinematics.pos.y -= 64.0;
+    super::update_player_with_tuning_scratch(&world, &mut body, guarding, 1.0 / 60.0, tuning);
+    assert!(
+        !body.shield.active,
+        "the guard survived going airborne, so this arm is not a forced drop"
+    );
+    assert_eq!(
+        body.shield.drop_lag_timer, 0.0,
+        "a guard taken away by LEAVING THE GROUND charged the release penalty \
+         ({:.3}s) — the player never let go, and this timer hard-locks the body",
+        body.shield.drop_lag_timer
+    );
+
+    // ── ARM 2: AND LETTING GO STILL COSTS. Without this the fix could be
+    // "never charge", which deletes the mechanic instead of aiming it.
+    let mut dropper = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    for _ in 0..30 {
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut dropper,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+    super::update_player_with_tuning_scratch(&world, &mut dropper, guarding, 1.0 / 60.0, tuning);
+    assert!(dropper.shield.active, "arm 2 never raised a guard");
+    super::update_player_with_tuning_scratch(
+        &world,
+        &mut dropper,
+        InputState::default(),
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!(
+        dropper.shield.drop_lag_timer > 0.0,
+        "a player who LET GO of the guard on the floor was not charged for it, \
+         so the mechanic is gone rather than aimed"
+    );
+}

@@ -693,8 +693,21 @@ pub(super) fn apply_shield(
     // `spend_on_action`, and this is the other road: you simply let go, and the
     // genre charges you for it. `0.0` for a game that declares no rule, which
     // is what dropping always cost.
-    if was_up && !shield.active && !shield.release_locked && tuning.abilities.shield.drop_lag > 0.0
-    {
+    //
+    // ⛔⛔ "YOU SIMPLY LET GO" IS A CAUSE, AND THIS ASKED ONLY THE EFFECT. The
+    // condition was `was_up && !active`, which is every way a guard can end —
+    // including the ones the player did not choose. Under `air_guard: false`
+    // (Smash) a fighter that DROPS THROUGH A PLATFORM with Shield still held
+    // becomes airborne, the guard is forced down, and this billed the full
+    // release penalty — 11 frames of `drop_lag_timer`, which
+    // `apply_post_hit_input_gates` folds into `hard_lock_timer`. The same
+    // misreading catches a shield that BREAKS and one whose ability goes away.
+    //
+    // ⭐ THE HAND IS THE AUTHORITY: the button is no longer held, so the player
+    // let go. Every other way a guard ends is somebody else's decision and owes
+    // nothing.
+    let voluntary_release = was_up && !input.shield_held && !shield.release_locked;
+    if voluntary_release && !shield.active && tuning.abilities.shield.drop_lag > 0.0 {
         shield.drop_lag_timer = shield.drop_lag_timer.max(tuning.abilities.shield.drop_lag);
     }
     // SHIELD TILT — where the raised guard sits on the body.

@@ -187,9 +187,15 @@ pub fn apply_post_hit_input_gates(
     // decision rather than a button.
     //
     // ⛔ AFTER the two gates above, deliberately: a helpless body that is ALSO
-    // in hitstun is both, and the strictest answer is the honest one. And after
-    // the tech exemption is computed but BEFORE it is restored, because a
-    // helpless body has no floor game to tech into — it has not been hit.
+    // in hitstun is both, and the strictest answer is the honest one.
+    //
+    // ⛔⛔ BUT IT NO LONGER RETURNS BEFORE THE TECH IS RESTORED. That ordering
+    // was justified as *"a helpless body has no floor game to tech into — it has
+    // not been hit"*, and the premise is false exactly where it matters:
+    // `tech_press` is `Some` ONLY while TUMBLING, and a tumbling body has been
+    // hit by definition. So a fighter that spent its recovery, went helpless,
+    // and was then launched into a wall lost the tech — punished twice for one
+    // decision, and specifically because it had already spent recovery.
     if helpless {
         input.movement.set(ae::MovementAction::Jump, ae::Edge::NONE);
         input
@@ -203,6 +209,13 @@ pub fn apply_post_hit_input_gates(
         // ⛔ FAST FALL SURVIVES, and it belongs to the same idea the drift does:
         // choosing to come down faster is a decision about where you land, not
         // an action. Every game in the genre keeps it.
+        //
+        // ⭐ AND SO DOES THE TECH, for the reason above: this value exists only
+        // while tumbling, so restoring it here cannot hand a Burst to a body
+        // that was not hit.
+        if let Some(edge) = tech_press {
+            input.movement.set(ae::MovementAction::Burst, edge);
+        }
         return;
     }
     if let Some(edge) = tech_press {
@@ -548,6 +561,48 @@ mod tests {
         assert_eq!(
             pogo_target_for_attack_hitbox(&world, attack),
             Some(orb.aabb)
+        );
+    }
+
+    /// A HELPLESS BODY THAT IS TUMBLING KEEPS ITS TECH.
+    ///
+    /// ⛔⛔ THE ORDERING WAS JUSTIFIED BY A PREMISE THAT IS FALSE WHERE IT
+    /// MATTERS. The helpless branch returned BEFORE restoring the preserved tech
+    /// edge, on the reasoning that *"a helpless body has no floor game to tech
+    /// into — it has not been hit"*. But the preserved edge only exists while
+    /// TUMBLING, and a tumbling body has been hit by definition. So a fighter
+    /// that spent its recovery, went helpless, and was then launched into a wall
+    /// lost the tech — punished twice for one decision, and specifically for
+    /// having already spent recovery.
+    #[test]
+    fn a_helpless_body_in_a_tumble_still_reaches_its_tech() {
+        let dt = 1.0 / 60.0;
+        let mut frame = ActorControlFrame::neutral();
+        frame.burst_pressed = true;
+        // Jump is stripped by helplessness and must stay stripped — without this
+        // the arm below would pass on a gate that stopped refusing anything.
+        frame.jump_pressed = true;
+
+        let input = engine_input_from_actor_control(
+            frame,
+            Platformer2dFeelTuningMonolith::default(),
+            // TUMBLING is what makes the Burst a tech rather than a dodge.
+            &ambition_characters::actor::BodyCombat::default(),
+            &ae::BodyShieldState::default(),
+            dt,
+            true,
+            // HELPLESS: the recovery is spent.
+            true,
+        );
+        assert!(
+            input.burst_pressed(),
+            "a helpless body in a TUMBLE lost its tech press — it has been hit, \
+             which is the one situation the preserved edge exists for"
+        );
+        assert!(
+            !input.jump_pressed(),
+            "helplessness stopped refusing the jump, so this fixture no longer \
+             measures a helpless body at all"
         );
     }
 }

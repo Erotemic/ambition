@@ -10501,10 +10501,32 @@ was only charged where `tech_press_timer` EXPIRES, which an untechable press nev
 arms. Mashing into a launch too hard to tech cost NOTHING. One gate, three
 outcomes now, in the order a press is judged. ⇒ THIRD TIME TODAY that a COMMENT
 STATED THE CORRECT RULE while the code beneath asked a different question —
-shield drop lag, roll endlag's precondition, and this; **(24)
-recovery helplessness is derived from `recovery_charges == 0`**, so an accepted
-hit that deliberately refunds the air dodge cannot lift it — and the tech edge it
-preserved is dropped by the helpless return.
+shield drop lag, roll endlag's precondition, and this; ◐ **(24) HALF CLOSED
+2026-08-25 — the half that needed no new state.** The helpless branch RETURNED
+BEFORE restoring the preserved tech edge, justified as *"a helpless body has no
+floor game to tech into — it has not been hit"*. ⛔⛔ THE PREMISE IS FALSE EXACTLY
+WHERE THE VALUE EXISTS: `tech_press` is `Some` ONLY while TUMBLING, and a tumbling
+body has been hit by definition. A fighter that spent recovery, went helpless and
+was then launched into a wall lost its tech — punished twice for one decision, and
+specifically for having already spent recovery. Poisoned.
+
+▢ **THE REMAINING HALF NEEDS AN EPISODE AND A WIRE BUMP.** `body_is_helpless` is
+`recovery_charges == 0 && !grounded && !still_recovering` — pure resource state —
+so an accepted hit that deliberately refunds the AIR DODGE (*"a launched fighter
+that could not dodge would have no answer to the follow-up"*) cannot lift the
+helplessness, and the refreshed dodge is unusable. ⇒ model the EPISODE:
+
+```text
+spend last recovery      arm post_recovery_helpless
+recovery move playing    episode suppressed
+move ends airborne       helpless becomes effective
+accepted hit             episode CLEARED — charge stays spent
+land / ledge / respawn   cleared with the ordinary refresh
+```
+
+⛔ DO NOT restore the recovery charge or the spent double jump on hit; those are
+recent, deliberate corrections. ⚠ `BodyJumpState` is snapshotted, so this is a
+schema bump plus four seams — a fresh session's work, not a tail-end one.
 
 ▢ **(29) THE WINDBOX PRIMITIVE VIOLATES MOST OF ITS OWN CONTRACT** — latent, no
 content authors one yet, which is the good time to fix it. Beyond the zero-damage

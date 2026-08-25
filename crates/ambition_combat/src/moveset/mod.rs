@@ -36,13 +36,13 @@ use ambition_time::ProperTimeScale;
 
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
-use crate::{AttackIntent, AttackSpec, hit_side_from_actor_faction};
+use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
 use ambition_characters::actor::attack_gesture::{
-    AttackGestureState, AttackGestureTuning, AttackPosture, AttackStrength, ResolvedAttackGesture,
-    resolve_attack_gesture,
+    resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackPosture, AttackStrength,
+    ResolvedAttackGesture,
 };
+use ambition_characters::brain::action_set::{ActionRequest, RangedCommitment, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
-use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::control::ActorControl;
 use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
@@ -74,8 +74,8 @@ pub use ambition_characters::moveset_prefabs::{SLASH_ARC_VFX, SLASH_POKE_VFX, SW
 // both are here now. See `player_robot_slash`'s own doc.
 mod player_robot_slash;
 pub use player_robot_slash::{
-    PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE, PLAYER_ROBOT_SWING_SFX_CUE,
-    apply_player_robot_slash_sfx,
+    apply_player_robot_slash_sfx, PLAYER_ROBOT_IMPACT_SFX_CUE, PLAYER_ROBOT_POGO_SFX_CUE,
+    PLAYER_ROBOT_SWING_SFX_CUE,
 };
 
 const _: () = assert!(
@@ -1857,6 +1857,11 @@ struct StartingMove<'a, 'cw, 'cs> {
     shield: Option<bevy::prelude::Mut<'a, ae::BodyShieldState>>,
     oos_policy: Option<ae::OutOfShield>,
     jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
+    /// The body's weapon and the recharge its ranged action authors — spent
+    /// here when the accepted move is one that fires. `None` for a body with no
+    /// melee cluster or no ranged action, which is every move that fires
+    /// nothing.
+    weapon: Option<(&'a mut BodyMelee, f32)>,
 }
 
 fn start_move(m: StartingMove<'_, '_, '_>) {
@@ -1877,7 +1882,10 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         mut shield,
         oos_policy,
         jump,
+        weapon,
     } = m;
+    // Asked before `spec` is handed to the playback below.
+    let fires_ranged = move_fires_ranged(&spec);
     if spec.gates.spends_recovery {
         if let Some(mut jump) = jump {
             jump.recovery_charges = jump.recovery_charges.saturating_sub(1);
@@ -1894,6 +1902,19 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     // ... and the guard leaves with the action it launched.
     if let Some(shield) = shield.as_mut() {
         ae::movement::spend_out_of_shield(shield, oos_policy);
+    }
+    // ⭐⭐ AND THE WEAPON IS SPENT AT ACCEPTANCE, not at the fire beat. That is
+    // what lets `dispatch_move_events` promise the shot: by the time the
+    // timeline reaches `MoveEventKind::Ranged` there is nothing left to refuse
+    // it with, and no second firing move can have slipped in during the windup.
+    //
+    // ⛔ `max`, NOT ASSIGN. A shorter weapon must never shorten a longer
+    // recharge that is already running (a worn modifier, a future rule) — the
+    // only thing a fire may do to this clock is push it out.
+    if let Some((melee, refire_s)) = weapon {
+        if fires_ranged {
+            melee.ranged_cooldown = melee.ranged_cooldown.max(refire_s.max(0.0));
+        }
     }
 }
 
@@ -1915,6 +1936,36 @@ fn afford_recovery(spec: &ambition_entity_catalog::MoveSpec, charges_left: Optio
     // A body with no jump cluster is a bare fixture, not a fighter with an
     // exhausted budget — it has no recovery to spend and none to run out of.
     charges_left.is_none_or(|left| left > 0)
+}
+
+/// Does this move author a SHOT? A move whose timeline carries
+/// [`MoveEventKind::Ranged`] fires the owner's ranged action when it reaches
+/// that beat.
+fn move_fires_ranged(spec: &ambition_entity_catalog::MoveSpec) -> bool {
+    spec.events
+        .iter()
+        .any(|ev| matches!(ev.kind, ambition_entity_catalog::MoveEventKind::Ranged))
+}
+
+/// May this body START a move that fires its weapon?
+///
+/// ⭐⭐ THE WEAPON IS ASKED HERE, WHERE THE MOVE IS ACCEPTED — the one change
+/// that makes an accepted firing move honest. The recharge used to be asked at
+/// the projectile spawner instead, a quarter of a second after the move had
+/// begun: the fighter committed, the windup played, the muzzle flashed, and the
+/// shot was silently dropped. Measured 2026-08-23, that was happening to 22 of
+/// 28 authored ranged events in the duel arena.
+///
+/// ⛔ AND REFUSING HERE IS NOT THE SAME AS SWALLOWING THE PRESS. This runs
+/// BEFORE `proposer.spend`, so a buffered press keeps re-proposing for the rest
+/// of its window and starts the move the moment the weapon comes back — the
+/// ordinary buffering every other move already gets, rather than a queue of its
+/// own.
+///
+/// ⛔ A MOVE THAT FIRES NOTHING IS NEVER REFUSED, and a body with no melee
+/// cluster (a bare fixture) has no weapon to be recharging.
+fn weapon_ready(spec: &ambition_entity_catalog::MoveSpec, melee: Option<&BodyMelee>) -> bool {
+    !move_fires_ranged(spec) || melee.is_none_or(|m| m.ranged_cooldown <= 0.0)
 }
 
 /// A fighter that spent its recovery, is still in the air, and whose RECOVERY
@@ -1988,6 +2039,14 @@ pub fn trigger_moveset_moves(
         // window, and accepting one is what ends the proposal — so a buffered
         // press starts exactly one move.
         &mut ae::BodyActionBuffer,
+        // THE WEAPON, and the recharge its ranged action authors. Taken here
+        // rather than by a lookup query because starting a firing move is a
+        // SPEND — the same shape the guard and the recovery budget already use,
+        // and they are looked up only because they are read by other systems in
+        // the same set. `Option` on both: a body with no melee cluster and a
+        // body with no ranged action both fire nothing.
+        Option<&mut BodyMelee>,
+        Option<&ambition_characters::brain::action_set::ActionSet>,
     )>,
     // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -2032,8 +2091,14 @@ pub fn trigger_moveset_moves(
         held,
         motion_facts,
         mut action_buffer,
+        mut melee,
+        action_set,
     ) in &mut bodies
     {
+        // The weapon this body would spend if the move it starts fires one.
+        let refire_s = action_set
+            .and_then(|set| set.ranged.as_ref())
+            .map(|ranged| ranged.refire_s);
         let body_frame = resolved_frame
             .map(|frame| frame.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
@@ -2521,6 +2586,11 @@ pub fn trigger_moveset_moves(
             if !afford_recovery(&spec, jumps.get(entity).ok().map(|j| j.recovery_charges)) {
                 continue;
             }
+            // ⛔ AND ASKED BEFORE THE TEARDOWN FOR THE SAME REASON: a fighter
+            // refused for a recharging weapon keeps the move it was playing.
+            if !weapon_ready(&spec, melee.as_deref()) {
+                continue;
+            }
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
             if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {
@@ -2587,12 +2657,16 @@ pub fn trigger_moveset_moves(
                 shield: guards.get_mut(entity).ok(),
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
+                weapon: melee.as_deref_mut().zip(refire_s),
             });
             continue;
         }
 
         let charges_left = jumps.get(entity).ok().map(|jump| jump.recovery_charges);
-        if let Some(spec) = spec.filter(|spec| afford_recovery(spec, charges_left)) {
+        if let Some(spec) = spec
+            .filter(|spec| afford_recovery(spec, charges_left))
+            .filter(|spec| weapon_ready(spec, melee.as_deref()))
+        {
             // ⭐⭐ THE ACCEPTED SPECIAL-TURN, and this is its ONE commit point on
             // this road. Proposed where the special was resolved; applied here,
             // where the move is certain to start. ⛔ BEFORE the start impulse:
@@ -2651,6 +2725,7 @@ pub fn trigger_moveset_moves(
                 shield: guards.get_mut(entity).ok(),
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
+                weapon: melee.as_deref_mut().zip(refire_s),
             });
         }
     }
@@ -2892,6 +2967,10 @@ pub fn dispatch_move_events(
                 actions.write(ActorActionMessage {
                     actor: ev.owner,
                     request: ActionRequest::Ranged {
+                        // ⭐ THE MOVE WAS ACCEPTED, so this shot is owed. The
+                        // weapon's recharge was spent at `start_move`; the
+                        // consumer must not ask again.
+                        commitment: RangedCommitment::CommittedMove,
                         spec,
                         origin,
                         dir,

@@ -117,10 +117,9 @@ fn prefab_registry_rejects_unknown_key_and_bad_params() {
         "bad params"
     );
     // Empty params hydrate to the prefab defaults (every field defaults).
-    assert!(
-        reg.expand("simple_charge", &empty, "smash", drawable)
-            .is_ok()
-    );
+    assert!(reg
+        .expand("simple_charge", &empty, "smash", drawable)
+        .is_ok());
 }
 
 /// CM5: a prefab row authors its OWN swing sfx + a cosmetic burst, so the
@@ -1979,8 +1978,8 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 /// so that is what this drives.
 #[test]
 fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
-    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
@@ -2060,8 +2059,8 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
 #[test]
 fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     use ambition_characters::actor::control::ActorFireRequest;
-    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::control::ActorControl;
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
@@ -2143,8 +2142,8 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
 /// play as "Maryo's fireball only shoots to her right, not the way she is facing".
 #[test]
 fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
-    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::control::ActorControl;
     for facing in [-1.0f32, 1.0] {
         let mut app = App::new();
@@ -2269,6 +2268,110 @@ fn a_fire_intent_triggers_the_ranged_move() {
         .get::<MovePlayback>(body)
         .expect("the fire intent started the ranged move");
     assert_eq!(pb.spec.id, RANGED_VERB);
+}
+
+/// ⭐⭐ THE WEAPON IS ASKED WHERE THE MOVE IS ACCEPTED, and the answer is the
+/// move's, not the projectile's.
+///
+/// The recharge used to be enforced at the projectile spawner, a quarter of a
+/// second and one whole windup after the fighter had committed: the move
+/// started, the charge animation played, the muzzle flashed, and the shot was
+/// dropped. Measured 2026-08-23 in the duel arena, that was the fate of 22 of
+/// 28 authored ranged events.
+///
+/// ⛔ THE ARMS STRADDLE THE COMPARISON `ranged_cooldown <= 0.0`, because a gate
+/// that only ever sees a cold weapon cannot tell "refuses correctly" from
+/// "never refuses". The third arm is the premise: with no fire intent nothing
+/// starts and nothing is spent, so the second arm's `0.5` is attributable to
+/// the accepted move rather than to the tick.
+#[test]
+fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
+    use ambition_characters::actor::control::ActorFireRequest;
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::control::ActorControl;
+
+    /// One arm: a firing body whose weapon has `cooldown` seconds left, ticked
+    /// through the REAL chain. Returns (did the move start, weapon left).
+    fn arm(cooldown: f32, fire_intent: bool) -> (bool, f32) {
+        let contract =
+            build_actor_moveset(None, None, Some(&RangedActionSpec::bolt(240.0, 3)), None)
+                .expect("a ranged weapon → a moveset with a fire move");
+        let mut app = App::new();
+        app.init_resource::<WorldTime>();
+        app.add_systems(
+            Update,
+            (
+                resolve_attack_gestures,
+                buffer_combat_action_presses,
+                trigger_moveset_moves,
+            )
+                .chain(),
+        );
+        let mut control = ActorControl::default();
+        if fire_intent {
+            control.0.fire = Some(ActorFireRequest::world_space(
+                ae::Vec2::new(1.0, 0.0),
+                240.0,
+            ));
+        }
+        let body = app
+            .world_mut()
+            .spawn((
+                ActorMoveset(contract),
+                control,
+                // The WEAPON's own recharge, authored on the action — not the
+                // move's duration and not a constant in the spawner.
+                ActionSet {
+                    ranged: Some(RangedActionSpec::bolt(240.0, 3).with_refire(0.5)),
+                    ..Default::default()
+                },
+                BodyMelee {
+                    ranged_cooldown: cooldown,
+                    ..Default::default()
+                },
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.update();
+        (
+            app.world().get::<MovePlayback>(body).is_some(),
+            app.world().get::<BodyMelee>(body).unwrap().ranged_cooldown,
+        )
+    }
+
+    let (started, left) = arm(0.0, true);
+    assert!(started, "a ready weapon starts the firing move");
+    assert_eq!(
+        left, 0.5,
+        "accepting the move SPENDS the weapon, so the shot the timeline reaches \
+         0.26s from now cannot be refused and no second firing move can slip in \
+         during the windup"
+    );
+
+    let (started, left) = arm(0.3, true);
+    assert!(
+        !started,
+        "a recharging weapon must refuse the MOVE — letting it start means \
+         committing the fighter to a windup whose shot gets dropped downstream"
+    );
+    assert_eq!(
+        left, 0.3,
+        "a refused move spends nothing: the recharge already running is the \
+         only clock, and a refusal must not extend it"
+    );
+
+    let (started, left) = arm(0.0, false);
+    assert!(!started, "no fire intent, no move");
+    assert_eq!(
+        left, 0.0,
+        "nothing was accepted, so nothing was spent — this is what makes the \
+         0.5 above the ACCEPTED MOVE's doing rather than the tick's"
+    );
 }
 
 /// Only the `"attack"` move projects a swing.
@@ -2640,7 +2743,7 @@ fn the_real_hit_path_sets_the_landed_fact() {
 fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
     use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
     use ambition_characters::equipment::{
-        EquipmentGrant, EquipmentRow, WornEquipment, apply_equipment_grants,
+        apply_equipment_grants, EquipmentGrant, EquipmentRow, WornEquipment,
     };
 
     let flower = EquipmentRow {
@@ -5911,7 +6014,7 @@ fn an_authored_spin_mirrors_on_the_move_clock_and_an_unauthored_one_never_does()
 fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::fighter::{
-        FighterBrainProfile, FighterCfg, FighterState, decision::tick_fighter,
+        decision::tick_fighter, FighterBrainProfile, FighterCfg, FighterState,
     };
     use ambition_characters::perception::{BodyPhase, PerceivedActor, SelfView, WorldView};
 
@@ -6294,9 +6397,9 @@ fn a_special_charge_is_held_by_the_special_button_and_not_the_attack_button() {
 /// have been handed.
 #[test]
 fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
-    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::brain::action_set::RangedActionSpec;
     use ambition_characters::brain::action_set::{ActionSet, ProjectileFlight, RangedCharge};
+    use ambition_characters::brain::ActorActionMessage;
     use ambition_characters::control::ActorControl;
 
     let cannon = RangedActionSpec::bolt(500.0, 4)

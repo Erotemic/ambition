@@ -538,6 +538,40 @@ pub struct RangedActionSpec {
     /// that does not charge, which is every ranged action that has not opted in.
     #[serde(default)]
     pub charge: Option<RangedCharge>,
+    /// Seconds the WEAPON needs between shots.
+    ///
+    /// ⭐⭐ THIS IS THE WEAPON'S RECHARGE, NOT THE MOVE'S RECOVERY, and keeping
+    /// them apart is the whole point of the field. A firing move authors how
+    /// long the fighter is committed to the animation; this authors how long
+    /// the weapon is unavailable. They used to be one number by accident, so
+    /// making a shot come out faster also took the fighter's legs away for
+    /// longer.
+    ///
+    /// ⛔⛔ IT IS CHECKED WHERE THE MOVE IS ACCEPTED, never where the shot is
+    /// spawned. A move accepted with a hot weapon is guaranteed to fire: the
+    /// old arrangement accepted the move and then vetoed its projectile
+    /// downstream, which meant the animation played, the sound played, and
+    /// nothing came out.
+    #[serde(default = "default_ranged_refire_s")]
+    pub refire_s: f32,
+}
+
+/// The recharge a ranged action gets when it authors none.
+///
+/// ⭐ THIS NUMBER IS THE GAME THAT WAS PLAYTESTED. It began life as a generic
+/// anti-spam floor on every ranged ATTEMPT, one layer below anything a
+/// character could author — but four months of play happened underneath it, so
+/// it is now also the de facto cadence of ranged combat. Measured 2026-08-23:
+/// 22 of 28 authored ranged events in the duel arena were being refused by it,
+/// and removing it made every ranged fighter fire ~3.7x faster and stop
+/// meleeing altogether.
+///
+/// ⛔ SO IT MOVED RATHER THAN DIED. Per-character tuning starts from this
+/// baseline, one weapon at a time — not from whatever falls out of deleting it.
+pub const DEFAULT_RANGED_REFIRE_S: f32 = 1.1;
+
+fn default_ranged_refire_s() -> f32 {
+    DEFAULT_RANGED_REFIRE_S
 }
 
 /// The ladder a held shot climbs.
@@ -592,6 +626,7 @@ impl RangedActionSpec {
             flight: None,
             visual: None,
             charge: None,
+            refire_s: DEFAULT_RANGED_REFIRE_S,
         }
     }
 
@@ -617,6 +652,12 @@ impl RangedActionSpec {
     /// Author the `ProjectileVisualId` this action's shot carries.
     pub fn with_visual(mut self, visual: impl Into<String>) -> Self {
         self.visual = Some(visual.into());
+        self
+    }
+
+    /// Author how long this weapon takes to recharge between shots.
+    pub fn with_refire(mut self, refire_s: f32) -> Self {
+        self.refire_s = refire_s.max(0.0);
         self
     }
 
@@ -853,6 +894,30 @@ impl PunchSpec {
     };
 }
 
+/// Whether a ranged request is a controller POLL or a shot a move already
+/// committed to.
+///
+/// ⭐⭐ TWO ROADS REACH ONE CONSUMER, and they owe different things. A brain
+/// emits `fire` on every in-band tick and never rate-limits itself, so its
+/// request is an ATTEMPT and the weapon's recharge is the only thing standing
+/// between it and a stream of projectiles. A moveset `Ranged` event is the
+/// other road: the body already accepted a move, paid for it with its
+/// recharge, and has been playing the animation for a quarter of a second.
+///
+/// ⛔ WITHOUT THIS DISTINCTION THE CONSUMER HAS TO GUESS, and it guessed the
+/// same way for both — which is how an accepted Charge Shot could play its
+/// windup, flash its muzzle, and fire nothing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RangedCommitment {
+    /// A controller poll. The weapon's recharge refuses it silently, which is
+    /// correct: nothing was promised and nothing was shown.
+    #[default]
+    Attempt,
+    /// A move the body ACCEPTED authored this shot. The weapon was spent at
+    /// acceptance, so the shot is guaranteed here.
+    CommittedMove,
+}
+
 /// Concrete effect a brain's abstract intent resolves to, after
 /// reading the actor's `ActionSet`. The EFFECTS-stage spawn systems
 /// consume this list per actor per tick and translate each into a
@@ -897,6 +962,10 @@ pub enum ActionRequest {
         /// Frame policy for `dir`; consumers convert at their own simulation
         /// seam, where the actor's current acceleration frame is known.
         dir_policy: ae::GameplayFramePolicy,
+        /// WHO IS ASKING — and it is the only thing that decides whether the
+        /// weapon's recharge may still refuse this shot. See
+        /// [`RangedCommitment`].
+        commitment: RangedCommitment,
     },
     /// Trigger the actor's special. Resolved by the per-actor
     /// special handler (player ability system, boss encounter
@@ -1060,6 +1129,8 @@ pub fn resolve(
                 origin,
                 dir: req.dir,
                 dir_policy: req.dir_policy,
+                // The brain polls; the weapon decides. See `RangedCommitment`.
+                commitment: RangedCommitment::Attempt,
             });
         }
     }

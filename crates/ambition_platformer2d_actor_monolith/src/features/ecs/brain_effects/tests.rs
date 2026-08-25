@@ -2,7 +2,7 @@ use super::*;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::features::ecs::actor_clusters::ActorClusterSeed;
 use crate::projectile::ProjectileSeqCounter;
-use ambition_characters::brain::{ActionSet, RangedActionSpec};
+use ambition_characters::brain::{ActionSet, RangedActionSpec, RangedCommitment};
 
 /// Build a rider-shaped hostile actor: standalone PirateRaider
 /// archetype on the runtime side, but the caller is expected to
@@ -87,6 +87,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                commitment: RangedCommitment::Attempt,
             },
         });
     app.update();
@@ -97,7 +98,9 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
         actor_pos + ae::Vec2::new(0.0, -8.0),
         "an ordinary body fires from its authored body origin, not the gun-sword hand",
     );
-    let mut owners = app.world_mut().query::<&crate::projectile::ProjectileOwner>();
+    let mut owners = app
+        .world_mut()
+        .query::<&crate::projectile::ProjectileOwner>();
     assert_eq!(
         owners.single(app.world()).expect("one projectile owner").0,
         actor,
@@ -136,6 +139,7 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                commitment: RangedCommitment::Attempt,
             },
         });
     app.update();
@@ -177,6 +181,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::ControlledBodyLocal,
+                commitment: RangedCommitment::Attempt,
             },
         });
     app.update();
@@ -206,6 +211,7 @@ fn ranged_message_for_dead_actor_is_dropped() {
                 origin: actor_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                commitment: RangedCommitment::Attempt,
             },
         });
     app.update();
@@ -230,4 +236,68 @@ fn _silence_action_set_import(_: ActionSet) {}
 #[test]
 fn default_combat_tuning_helper_exists() {
     let _ = default_combat_tuning();
+}
+
+/// ⭐⭐ AN ACCEPTED MOVE'S SHOT IS OWED; A CONTROLLER'S POLL IS NOT.
+///
+/// Two roads reach this one consumer. A brain emits `fire` on every in-band
+/// tick and rate-limits itself nowhere, so its request is an ATTEMPT and this
+/// weapon recharge is the only thing between it and a stream of projectiles. A
+/// moveset fire event is the other road: the body accepted the move a quarter
+/// of a second ago and PAID for it then (`moveset::start_move`), and the
+/// windup the player watched was the promise.
+///
+/// ⛔ ASKING THE SAME QUESTION FOR BOTH is what made an accepted Charge Shot
+/// play its charge, flash its muzzle and fire nothing.
+///
+/// ⛔ THE ARMS STRADDLE THE ONE THING UNDER TEST — same hot weapon, same
+/// request, different commitment — so a consumer that had simply stopped
+/// enforcing the floor would fail the second arm.
+#[test]
+fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
+    fn shots_fired(commitment: RangedCommitment) -> usize {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let enemy = ActorClusterSeed::new(
+            "hot_weapon",
+            "Skitter",
+            aabb,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        let mut bundle = enemy_actor(enemy);
+        // The weapon is MID-RECHARGE. `.1 .6` is `BodyMelee` in the cluster
+        // bundle — the body-side authority on the ranged fire rate.
+        bundle.1 .6.ranged_cooldown = 0.9;
+        let actor = app.world_mut().spawn(bundle).id();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::rock(300.0, 1),
+                    origin: actor_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    commitment,
+                },
+            });
+        app.update();
+        live_projectile_bodies(&mut app).len()
+    }
+
+    assert_eq!(
+        shots_fired(RangedCommitment::CommittedMove),
+        1,
+        "the move was accepted and its recharge already spent — refusing here \
+         drops a shot the fighter committed to and the player was shown"
+    );
+    assert_eq!(
+        shots_fired(RangedCommitment::Attempt),
+        0,
+        "a controller poll has promised nothing, so the weapon's recharge is \
+         still the rate limit — the floor MOVED upstream for committed moves, \
+         it did not go away"
+    );
 }

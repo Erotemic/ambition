@@ -20,12 +20,12 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
-#[cfg(test)]
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::brain::{
-    action_set::{ActionRequest, ProjectileFlight},
+    action_set::{ActionRequest, ProjectileFlight, RangedCommitment},
     ActorActionMessage,
 };
+#[cfg(test)]
+use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Recoil applied to the firing enemy along the negative fire
@@ -39,13 +39,6 @@ const RANGED_RECOIL_DEFAULT: f32 = 60.0;
 /// will move this into an `ActionSet`-derived parameter.
 const PROJECTILE_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(10.0, 8.0);
 const PROJECTILE_MAX_LIFETIME: f32 = 2.4;
-
-/// Body-side ranged refire interval (s) — the floor on every ranged-capable body's fire rate
-/// (invariant I3). The controller (AI brain, possessing human, or future RL policy) may attempt
-/// `fire` every tick; the body accepts a shot at most once per this interval. It now lives on the
-/// body. Per-archetype tempos will move this onto an `ActionSet`-derived parameter, like the
-/// projectile envelope above.
-const RANGED_REFIRE_S: f32 = 1.1;
 
 /// How long the actor's post-fire Shoot overlay pose holds — matches the player's
 /// `SHOOT_ANIM_HOLD_SECS` (`projectile::systems`) so a possessed body and an
@@ -96,6 +89,7 @@ pub fn spawn_projectiles_from_brain_actions(
             origin,
             dir,
             dir_policy,
+            commitment,
         } = msg.request.clone()
         else {
             continue;
@@ -116,13 +110,25 @@ pub fn spawn_projectiles_from_brain_actions(
         if health.is_some_and(|h| !h.alive()) {
             continue;
         }
-        // Body-side fire-rate enforcement (invariant I3): the controller attempts
-        // a shot every time it emits `fire`; the body accepts it only when the
-        // ranged weapon is off cooldown, re-arming on each accepted shot. A
-        // blocked attempt simply spawns nothing this tick. This is the single
-        // place the weapon rate is enforced, identical for an AI spam controller,
-        // a tactical brain, and a possessing human.
-        if !melee.try_fire_ranged(RANGED_REFIRE_S).accepted() {
+        // Body-side fire-rate enforcement for an ATTEMPT (invariant I3): a
+        // controller emits `fire` every in-band tick and never rate-limits
+        // itself, so the body accepts a shot only when the weapon is off
+        // cooldown. A blocked attempt spawns nothing, and that is honest — the
+        // controller was told nothing and the player was shown nothing.
+        //
+        // ⭐⭐ A COMMITTED MOVE IS NOT AN ATTEMPT. Its recharge was spent where
+        // the move was ACCEPTED (`moveset::start_move`), a quarter of a second
+        // and one whole windup animation ago. Asking again here is what made an
+        // accepted Charge Shot play its charge and fire nothing — 22 of 28
+        // authored ranged events in the duel arena, measured 2026-08-23.
+        //
+        // ⛔ SO THE FLOOR DID NOT GO AWAY; IT MOVED UPSTREAM, and it is authored
+        // now (`RangedActionSpec::refire_s`) rather than being one constant in
+        // this file that every character in the game was silently balanced
+        // around.
+        if commitment == RangedCommitment::Attempt
+            && !melee.try_fire_ranged(spec.refire_s).accepted()
+        {
             continue;
         }
         // The shot is committed — arm the firing body's Shoot overlay pose (the

@@ -527,6 +527,7 @@ fn action_request_label_returns_per_variant_string() {
         origin: ae::Vec2::ZERO,
         dir: ae::Vec2::new(1.0, 0.0),
         dir_policy: ae::GameplayFramePolicy::WorldSpace,
+        commitment: RangedCommitment::Attempt,
     };
     assert_eq!(ranged.label(), "ranged_bolt");
 
@@ -672,7 +673,10 @@ fn a_charge_scales_the_shot_it_releases() {
 #[test]
 fn a_shot_that_does_not_charge_is_the_same_shot_at_every_fraction() {
     let plain = RangedActionSpec::bolt(500.0, 4).with_flight(ProjectileFlight::STRAIGHT);
-    assert!(plain.charge.is_none(), "the fixture opted in, so this proves nothing");
+    assert!(
+        plain.charge.is_none(),
+        "the fixture opted in, so this proves nothing"
+    );
     for fraction in [0.0, 0.25, 0.5, 0.75, 1.0] {
         assert_eq!(
             plain.at_charge(fraction),
@@ -695,11 +699,20 @@ fn the_visual_tier_steps_and_a_full_charge_reaches_the_last_rung() {
     assert_eq!(tier(0.32), "t1");
     assert_eq!(tier(0.34), "t2");
     assert_eq!(tier(0.67), "t3");
-    assert_eq!(tier(1.0), "t3", "a full charge fell off the end of the ladder");
+    assert_eq!(
+        tier(1.0),
+        "t3",
+        "a full charge fell off the end of the ladder"
+    );
 
     // An empty ladder keeps whatever look the shot already had.
     let mut no_looks = charging_cannon();
     no_looks.visual = Some("plain".into());
-    no_looks.charge.as_mut().expect("authored above").visuals.clear();
+    no_looks
+        .charge
+        .as_mut()
+        .expect("authored above")
+        .visuals
+        .clear();
     assert_eq!(no_looks.at_charge(1.0).visual.as_deref(), Some("plain"));
 }

@@ -5015,15 +5015,39 @@ mod launched {
         // attacker is re-parked every pass so he cannot walk back into the
         // reading while the victim is settling.
         park(app, victim, VICTIM_X);
+        // ⭐⭐ SETTLED MEANS STANDING **AND THAWED**, and the second half was
+        // missing.
+        //
+        // ⛔⛔ MEASURED 2026-08-25. This helper is called twice on ONE victim —
+        // once at 0% and once at 1427% — and the second strike was landing while
+        // the body was still FROZEN by the first: `hitstop_timer` read 0.088 at
+        // the moment of contact. The launch that came out was 495.8 px/s where
+        // the knockback formula says 3269, so the caller read the pair as "the
+        // percent meter is not reaching the launch" while the meter was fine and
+        // the FIXTURE was overlapping its own two readings.
+        //
+        // ⭐ THE PROOF IS THE ORDER. Struck FIRST, the 1427% up-tilt launches at
+        // 3096.9 px/s and rises 398px — what the formula predicts. Struck
+        // SECOND, 495.8 and 38.1. Same damage input, same victim weight, same
+        // empty stale queue, same attacker: the only difference was the freeze.
+        //
+        // ⇒ waiting for the thaw is what makes the two readings comparable. It
+        // is not a relaxation — with it the ratio is ~100x rather than sitting a
+        // hair either side of the 10x bar, which is why this test could flip on
+        // a change that moved hitlag by a frame.
         let mut grounded = false;
         for _ in 0..200 {
             park(app, attacker, ATTACKER_X);
             app.update();
-            if app
+            let standing = app
                 .world()
                 .get::<BodyGroundState>(victim)
-                .is_some_and(|g| g.on_ground)
-            {
+                .is_some_and(|g| g.on_ground);
+            let thawed = app
+                .world()
+                .get::<ambition_platformer2d::characters::actor::BodyCombat>(victim)
+                .is_some_and(|c| !c.is_in_hitlag() && c.hitstun_timer <= 0.0);
+            if standing && thawed {
                 grounded = true;
                 break;
             }
@@ -5165,12 +5189,42 @@ mod launched {
     /// further at 1427% than at 0% — that is the whole percent meter.
     #[test]
     fn an_up_tilt_launches_much_further_at_a_high_percent() {
-        let mut app = open_the_lobby();
-        let (attacker, victim) = two_seated_fighters(&mut app);
-        let fresh =
-            strike_a_grounded_fighter(&mut app, attacker, victim, 0, Some(UP_TILT_LAUNCH_DIR));
-        let cooked =
-            strike_a_grounded_fighter(&mut app, attacker, victim, 1427, Some(UP_TILT_LAUNCH_DIR));
+        // ⭐⭐ ONE MATCH PER READING, and the second one is why.
+        //
+        // ⛔⛔ MEASURED 2026-08-25. Both strikes used to land on ONE victim, and
+        // the second arrived while the body was still carrying the first: at the
+        // moment of contact `hitstop_timer` read 0.088, so the launch that came
+        // out was 495.8 px/s where the knockback formula says 3269. The caller
+        // read that as "the percent meter is not reaching the launch" while the
+        // meter was fine and the FIXTURE was overlapping its own two readings.
+        //
+        // ⭐ THE PROOF WAS THE ORDER: struck FIRST the 1427% up-tilt launches at
+        // 3096.9 px/s and rises 398px — exactly what the formula predicts —
+        // and struck SECOND, 495.8 and 38.1. Same damage input, same victim
+        // weight, same empty stale queue, same attacker.
+        //
+        // ⛔ AND WAITING FOR THE THAW WAS NOT ENOUGH. Adding "settled means
+        // standing AND unfrozen" moved the second reading to 23.2px and left it
+        // failing, because a body that has already been launched once differs
+        // from a fresh one in more ways than the freeze. A shared victim cannot
+        // be scrubbed back to new; a new victim can.
+        //
+        // ⇒ each percent gets its own match. It costs one extra boot and it is
+        // the only version of this fixture where the two readings differ in the
+        // one variable the test's name claims.
+        let strike_at = |percent: i32| {
+            let mut app = open_the_lobby();
+            let (attacker, victim) = two_seated_fighters(&mut app);
+            strike_a_grounded_fighter(
+                &mut app,
+                attacker,
+                victim,
+                percent,
+                Some(UP_TILT_LAUNCH_DIR),
+            )
+        };
+        let fresh = strike_at(0);
+        let cooked = strike_at(1427);
         assert!(
             fresh.left_the_ground && cooked.left_the_ground,
             "both strikes have to launch at all before their sizes can be \

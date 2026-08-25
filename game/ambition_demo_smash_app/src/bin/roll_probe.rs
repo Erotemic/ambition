@@ -74,9 +74,11 @@
 //! ⛔⛔ **AND THE AIR DODGE IS REFUTED TOO, measured 2026-08-25 in the KERNEL**
 //! (where a tick is a tick, which is what this probe cannot promise): it
 //! launches at its authored 440px/s and travels **29.5px**, stopped by frame 15.
-//! `AIR_FRICTION` is 650 against ground's 7600 and the arithmetic suggested
-//! ~149px of coast — the measurement says otherwise, so something ends the
-//! dodge's velocity rather than letting it decay.
+//! `AIR_FRICTION` is 650 against ground's 7600, so the arithmetic suggested
+//! ~149px of coast. ⚠ THAT ARITHMETIC WAS INCOMPLETE, not the measurement:
+//! `AIR_STOP_ASSIST` is 3750 — a hands-off airborne stop assist that stacks with
+//! the friction — so ~30px is the tuning working, and nothing cancels the
+//! dodge's velocity. (A first reading of this said something did; it does not.)
 //!
 //! ⇒ **NOTHING IN THE EVADE FAMILY MOVES A FIGHTER MORE THAN ~30px.** Ground
 //! roll 11.2, roll off the lip 12.7, air dodge 29.5, chained rolls ~26px/s.

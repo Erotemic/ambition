@@ -311,7 +311,8 @@ to not have barks happen every time a character is hit. Make it a more rare
 event. Not never, but I'd like it to happen less often."*
 
 ✔ Nameplates: the Smash stage now labels every fighter the same way.
-▢ Barks still fire on every hit.
+✔ Barks: Smash declares one hit in six; the rate is a knob, so say if it is
+still too chatty (or too quiet) and it is one number.
 
 ## 2026-08-24 — Smash: the ledge has no rules
 

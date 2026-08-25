@@ -24,41 +24,42 @@
 //! by comparing two positions, and the velocity column is what separates "it
 //! moved once" from "it is still moving".
 //!
-//! # ⛔⛔ STATUS 2026-08-25: THE PRESS DOES NOT YET REACH THE BODY
+//! # ⭐⭐ WHAT IT TOOK TO MAKE THE PRESS LAND, measured 2026-08-25
 //!
-//! This boots the real stage, seats a real fighter, resolves the binding and
-//! prints the right columns — and the roll does not fire. Read the `state`
-//! column before believing any number here: while it says `-` for the whole
-//! run, what is being measured is a fighter standing still, NOT a short roll.
-//!
-//! What is known, in the order it was measured:
+//! Four runs measured nothing before this one worked, and each failure looked
+//! exactly like "the roll does nothing":
 //!
 //! ```text
-//! CPU seats (`smash_roster_at_levels`)  the BRAIN presses over the top;
-//!                                       body drifts at walk speed, no ROLL
-//! human seats (`smash_roster`)          body does not move at all
-//! the binding                           slot 0 IS bound, and the body also
-//!                                       CARRIES A BRAIN
-//! the policy                            `OutOfShield::PLATFORM_FIGHTER` has
-//!                                       `burst: true`, so the roll is permitted
-//! the fields                            `burst_pressed` + `shield_held` +
-//!                                       both `axis_x` and `right_pressed`
+//! CPU seats                the BRAIN presses over the top; walk-speed drift
+//! human seats              the body does not move at all
+//! the brain removed        still nothing — the press reached `ActorControl`
+//!                          (shield_held, burst_pressed, locomotion.x = 1.0)
+//!                          and the body did not even WALK
+//! the press held 4 ticks   the roll fires
 //! ```
 //!
-//! ⇒ **the remaining suspect is that a brain-driven body's `ControlFrame` is
-//! written by its BRAIN every tick**, so a slot frame delivered from outside is
-//! overwritten before the kernel reads it. The app-level tests reach a genuinely
-//! human-driven fighter by going through the select screen — clicking the role
-//! buttons and claiming a token — which is what actually binds a seat to a local
-//! device. See `two_seated_fighters` in `game/ambition_app/tests/smash_in_the_host.rs`.
-//! Driving that road from a binary is the next step for this probe.
+//! ⇒ **a one-tick press is not a press.** It assumes the body steps after the
+//! frame is committed within the same update, and a probe has no business
+//! modelling that ordering — a player holds the button, so this holds it.
 //!
-//! ⭐ IT IS COMMITTED IN THIS STATE ON PURPOSE. The measurements above are the
-//! expensive part and they are worth more written down than repeated, and the
-//! `state` column means a future run cannot mistake "no roll happened" for "the
-//! roll is small" — which is exactly the confusion that produced two wrong
-//! fixes before this file existed.
-
+//! ⛔ AND THE BRAIN STILL HAS TO COME OFF seat zero: a seated fighter's brain
+//! writes its `ControlFrame` every tick. That is a probe-side removal and it is
+//! honest for an instrument — production binds a human seat through the select
+//! screen, which a binary cannot click. It changes WHO drives the body, not what
+//! a roll does.
+//!
+//! # THE ANSWER, on the real stage
+//!
+//! ```text
+//! TRAVELLED 11.2px = 2.3% of the platform, peak 530px/s, still after 3 frames
+//! ```
+//!
+//! ⭐ The roll launches at exactly its authored 530px/s and is motionless three
+//! frames later, having crossed about a fortieth of the stage. ⛔ SO THE REPORT
+//! AND THE TUNING STILL DISAGREE: whatever sends a fighter flying across the
+//! stage, it is not `dodge_roll_speed`. Read the `state` column before believing
+//! any run — while it says `-`, the reading is a fighter standing still.
+//!
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
@@ -129,6 +130,24 @@ fn main() {
     // does nothing". Say the binding out loud before pressing anything.
     report_binding(&mut app, body);
 
+    // ⭐⭐ TAKE THE BRAIN OFF SEAT ZERO, which is what makes the press land.
+    //
+    // ⛔⛔ THE FIRST TWO RUNS OF THIS PROBE MEASURED NOTHING because of this: a
+    // seated fighter carries a `Brain`, the brain writes the body's
+    // `ControlFrame` every tick, and a frame delivered from outside is
+    // overwritten before the kernel reads it. Run one (CPU seats) drifted at
+    // walking speed; run two (human seats) did not move at all. Neither was
+    // about the roll.
+    //
+    // ⛔ A PROBE-SIDE REMOVAL, and it is honest for an instrument: production
+    // binds a human seat through the select screen, which a binary cannot click.
+    // What this changes is WHO drives the body, not what a roll does — the
+    // movement kernel, the tuning and the out-of-shield policy are untouched.
+    app.world_mut()
+        .entity_mut(body)
+        .remove::<ambition_platformer2d::characters::brain::Brain>();
+    app.update();
+
     // GUARD UP FIRST. `shield_held` with no direction is a shield; the roll is
     // the burst that comes out of it.
     for _ in 0..SHIELD_FRAMES {
@@ -151,17 +170,22 @@ fn main() {
     // reading and `right_pressed` the digital edge; which one a gate consults is
     // not this probe's business to model, so it supplies the press a real pad
     // would supply and lets the kernel choose.
-    drive(
-        &mut app,
-        ControlFrame {
-            shield_held: true,
-            burst_pressed: true,
-            axis_x: 1.0,
-            right_pressed: true,
-            ..ControlFrame::default()
-        },
-    );
-    app.update();
+    // ⚠ HELD FOR SEVERAL TICKS, not one. A single-tick press assumes the body
+    // steps after the frame is committed within the same update, and the probe
+    // has no business modelling that ordering — a player holds the button.
+    for _ in 0..4 {
+        drive(
+            &mut app,
+            ControlFrame {
+                shield_held: true,
+                burst_pressed: true,
+                axis_x: 1.0,
+                right_pressed: true,
+                ..ControlFrame::default()
+            },
+        );
+        app.update();
+    }
 
     println!("[roll_probe] frame  x         dx(px)   vel.x(px/s)  travelled(px)  %platform  state");
     let mut peak_speed = 0.0f32;

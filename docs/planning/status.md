@@ -55,6 +55,33 @@ is at Bevy's param ceiling, which is exactly what the review's item 16 forbids.
 
 ⭐ NO DOUBLE-FIRE RISK: a hit takes exactly ONE of the two roads, by victim kind.
 
+⛔⛔ **BUILT ONCE ON 2026-08-25 AND SET ASIDE — READ THIS BEFORE REBUILDING IT.**
+The whole split works: `ResolvedBodyHit` carrying the resolved hitlag, published
+from both roads, freeze consuming it, message + rollback clear + baseline + v104.
+Gate green, every crate suite green. It was set aside for ONE reason, and it is
+not a defect in the split:
+
+⭐⭐ **ADDING THE WRITER PERTURBS THE MATCH BY ITSELF.** Two app fixtures went red
+(`the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored`,
+`a_dash_less_fighter_presses_attack_out_of_a_run_and_gets_the_dash_attack`), and
+they redden even with the FREEZE DISABLED — so it is not the new hitstop. A new
+`MessageWriter` param changes Bevy's parallel scheduling constraints, which
+reorders execution, which reshapes a chaotic match. Committed HEAD passes both;
+the split reddens both.
+
+⇒ **FIX THE TWO FIXTURE PREMISES FIRST, THEN LAND THE SPLIT.** Both are premise
+guards, not assertions about the split: the slug reads 320 px/s against its
+authored 80 while hitstun, hitstop and recoil are ALL ZERO and nothing was
+disturbed — it is coasting or being shoved, and "is this velocity the body's
+own" is a question no state check answers. ⚠ I tried four repairs (hitstop as
+disturbance, start-from-rest, proximity, both) and none held; the fixture needs
+a real look, not another guard.
+
+⚠ AND MY FIRST ISOLATION WAS WRONG, which cost four probes: disabling the freeze
+made three tests pass, so I blamed the freeze — but the slug fails with the
+freeze off too. ⇒ **ONE ISOLATION RUN IS A HYPOTHESIS, NOT A RESULT**, and in a
+chaotic sim a single differing tick reshapes the match.
+
 ⭐ **THE SEAM TO USE IS `ambition_combat::hit_reaction::apply_body_hit_reaction`**
 — the one function all three roads (player, actor, boss) pass through, and where
 `hitstop_timer` is actually written. Have it yield the resolved hitlag, publish a

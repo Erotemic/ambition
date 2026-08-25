@@ -1601,6 +1601,46 @@ show a windbox connecting before this row is called done.
 it is the same primitive with the launch aimed inward, so authoring one move
 closes both rows.
 
+## ◐ ANSWERED, THEN REOPENED ON MEASUREMENT — Charge Shot's cadence
+
+⭐ JON ANSWERED THE ARCHITECTURE (2026-08-25): an accepted authored move
+guarantees its authored fire event; the 1.1s constant is a generic legacy ATTEMPT
+floor, not character balance. That part is settled and implemented.
+
+⛔⛔ **WHAT MEASURING IT TURNED UP NEEDS A SECOND ANSWER — A PLAYTEST ONE.** The
+floor was refusing **22 of 28** authored ranged events in one duel, so the rate
+every ranged actor has ever played at is the VETO'S (1.1s), not the move's
+(~0.3s). Both ways of landing it cost something real:
+
+```text
+keep 0.30s moves     everyone fires ~3.7× faster
+                     measured: duel fighters stop meleeing entirely (melee 0)
+
+stretch to 1.10s     identical fire rate, commitment visible
+                     ⛔ but recovery DAMPS STEERING, so a ranged body is now
+                     immobile ~1.1s per shot instead of ~0.3s
+                     measured: a possessed actor reads locomotion.x = 0
+```
+
+⚠ **"SAME RATE" IS NOT "SAME FEEL"** — under the veto a body finished its short
+move and WALKED FREELY while an invisible cooldown ticked. Authored recovery
+takes that mobility away from every ranged actor in the game.
+
+⇒ The code (plumbing + exemption + tests, all green in isolation) is reverted and
+ready to re-land the moment you pick. A third option exists: keep the recovery
+short and give the weapon an explicit, VISIBLE recharge that does not damp
+movement.
+
+## ✔ ANSWERED 2026-08-25 — Charge Shot plays its release and fires nothing
+
+⭐ JON: *"An accepted authored move should guarantee its authored fire event. If
+0.58s is too fast, encode the desired cadence at move acceptance/authoring rather
+than vetoing the projectile downstream."* ⇒ (b), plus the observation that the
+1.1s constant is a generic legacy ATTEMPT floor rather than character balance.
+Shipped; see D239 item 31 for what measuring it turned up (22 of 28 authored
+ranged events were being refused game-wide, so the content pass was the shipped
+rate written down rather than a balance change).
+
 ## 2026-08-25 — Charge Shot plays its release and fires nothing: which fix?
 
 A second Charge Shot thrown at the earliest legal moment produces no projectile.

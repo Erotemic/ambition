@@ -10480,10 +10480,24 @@ ends.
 — and the reviewer is right that the ROLL got this right and these two did not:
 a launch WEAKER than the dash speed is overwritten (`-200` becomes `+270`,
 reversing a live launch), and the shield brake eats anything under
-`max_run_speed`. ⚠ THE BETTER SEAM ALREADY EXISTS: `BodyFlightState::carried_run`
-/ `carried_hold` are what `apply_body_hit_reaction` uses to describe momentum
-imparted while control was absent. ⇒ modify the LOCOMOTION-OWNED component, do
-not ask whether the total "looks like" locomotion.
+`max_run_speed`. ⛔⛔ **AND THE REVIEW'S PROPOSED SEAM IS NOT AVAILABLE — CHECKED 2026-08-25.** It
+says `BodyFlightState::carried_run` already carries the external component, so
+these should modify the locomotion-owned part. But `carried_run` is ZEROED the
+instant `carried_hold` expires, and the code says why in its own words:
+*"SURRENDERED. The floor was owed because the body could not answer for the
+momentum; control is back, so it stops being owed."* ⇒ it describes momentum
+imparted WHILE CONTROL WAS ABSENT, and it is surrendered exactly when control
+returns — which is precisely when a player dashes or raises a guard. **The
+distinction the review wants the implementation to already possess expires before
+the window these bugs live in.**
+
+⇒ **SO THE FIX IS THE ROLL'S, NOT THE CARRY'S**: remember what the maneuver
+ITSELF put in and take back only that (`dodge_roll_push` is the pattern). ⚠ FOR
+THE DASH THAT IS A FEEL CHANGE AND NEEDS JON: the dash currently SETS the run
+axis, which is why it can delete a launch; making it ADD a bounded push instead
+means dashing while carrying momentum no longer produces a fixed speed. The
+shield brake can be fixed the same way with no feel change — brake only the
+speed the brake itself is responsible for.
 
 ▢ ROLLBACK: **(21) `MatchAbandoned` cannot survive a rewind** — the registration
 comment claims `clear_message_on_rollback` makes the external request available
@@ -10700,8 +10714,59 @@ committed move"* is lost at the `ActorActionMessage` boundary, which carries onl
 which the two in `moveset/mod.rs` (~2832, ~2889) are the committed ones. A
 constructor pair (`requested` / `committed`) keeps the call sites honest.
 
-⇒ **JON PICKS.** (a) preserves current feel; (b) makes the move honest and speeds
-the weapon up. ⭐ **(35) CLOSED 2026-08-25** — the fold
+⭐⭐ **JON PICKED (b), 2026-08-25, AND REFRAMED IT — CLOSED.** *"An accepted
+authored move should guarantee its authored fire event. If 0.58s is too fast,
+encode the desired cadence at move acceptance/authoring rather than vetoing the
+projectile downstream."* ⛔ AND HIS KEY OBSERVATION WAS THAT `RANGED_REFIRE_S`
+IS NOT PROJECTILE POLYGON BALANCE — it is a generic legacy floor for low-level
+fire ATTEMPTS. Two authorities had come to overlap; the move is the right one,
+because a 0.58s move with recovery IS a fire-rate limiter.
+
+⇒ SHIPPED: `ActorActionMessage` carries an `ActionOrigin` (`Requested` /
+`CommittedMove`); the floor binds attempts only; a committed shot still ARMS the
+floor so a brain cannot fire free the tick after an authored one. Both poisons
+redden — vetoing committed events, and deleting the floor.
+
+⛔⛔ **AND MEASURING IT FIRST FOUND SOMETHING MUCH BIGGER THAN CHARGE SHOT.** In
+the duel arena, **22 of 28 authored ranged events were being refused by that
+floor.** The shared `simple_ranged` prefab authors 0.30–0.50s moves, so the rate
+every ranged actor in the game has ever PLAYED at is 1.1s while its move claimed
+0.3s. Arming the exemption without a content pass made them all fire ~3.7× faster
+and the duel fighters stopped closing to melee entirely (measured: `melee 0`).
+
+⇒ **SO THE STEP-4 CONTENT PASS WAS NOT A BALANCE JUDGEMENT — IT WAS THE SHIPPED
+RATE WRITTEN DOWN.** Each style's windup+recover now sums to 1.10 (Rock
+0.12+0.98, Bolt 0.18+0.92, Arrow 0.28+0.82): identical rate, and the commitment
+moved to where a player can SEE it instead of an invisible weapon lock.
+
+⛔⛔ **AND IT IS NOT LANDED — BOTH CADENCE OPTIONS HAVE A MEASURED COST, SO THIS
+NEEDS A PLAYTEST CALL.** The `ActionOrigin` plumbing, the exemption and the tests
+are written and were green in isolation; they are REVERTED pending the decision:
+
+```text
+keep the authored 0.30s moves
+  → every ranged actor fires ~3.7× faster than it ever has
+  → measured: both duel fighters stop closing to melee entirely (melee 0)
+
+stretch each style to sum 1.10 (Rock 0.12+0.98, …)
+  → identical fire RATE, commitment made visible
+  → ⛔ BUT the recovery is REAL: the body is motion-damped for ~1.1s per shot
+     instead of ~0.3s. Measured: a possessed actor reads locomotion.x = 0,
+     because it is now inside a damping move most of the time.
+```
+
+⇒ **"SAME RATE" IS NOT "SAME FEEL".** Under the veto a body finished its 0.3s
+move and WALKED FREELY for 0.8s while an invisible cooldown ticked; authored
+recovery takes that mobility away. That is a real change to every ranged actor
+and it is Jon's to make — which is exactly the playtest step he sequenced.
+
+⭐⭐⭐ **THE GENERAL HAZARD, worth more than the fix: A DOWNSTREAM VETO THAT
+SILENTLY SWALLOWS A COMMITTED ACTION BECOMES LOAD-BEARING.** Content is authored
+underneath it and tuned by playtest AGAINST the vetoed behaviour, so the authored
+number was never a rate anyone experienced. Removing such a veto PROMOTES
+whatever it was silently enforcing into something that must now be authored.
+Same shape as the shield drop-lag fix the same day — except the affected surface
+is CONTENT rather than a fixture. ⭐ **(35) CLOSED 2026-08-25** — the fold
 QUERIED `Has<FighterEliminated>` AND DISCARDED IT (`_`), so an eliminated body
 scored for its side for as long as it stayed RESIDENT, and two identical
 histories ranked differently depending on whether the last stock went one tick

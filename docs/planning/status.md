@@ -15,7 +15,61 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-25, LATEST — a 24-hour deep review, triaged end to end
+## 2026-08-25, LATEST — four review checkpoints, seventeen closed, five scoped
+
+⭐⭐⭐ **THE ONE SENTENCE WORTH CARRYING FORWARD**, from the reviewer and
+confirmed independently a dozen times today: *recent mechanics are locally tested
+where they are AUTHORED, but their semantic distinction is LOST AT THE NEXT
+SHARED GATEWAY.* Windboxes lose their reaction kind at `pending_launch`; shield
+transitions lose their CAUSE at a bool; recovery helplessness loses its EPISODE
+by deriving from a resource count; an input scope was set at spawn and never
+re-derived; a body was mutated during PROPOSAL. **Look there first.**
+
+⭐⭐ **AND A SECOND PATTERN THAT FOUND THREE DEFECTS**: a COMMENT stated the
+correct rule and the predicate beneath it asked a DIFFERENT question — shield
+drop lag ("you simply let go" vs every way a guard ends), roll endlag ("before
+this becomes a gate, the roll needs its own timer" — since satisfied), the
+untechable tech press ("it still spends the lockout below" — that road never
+armed the timer). ⇒ **this repo's comments are load-bearing specifications, so
+they work as a defect index.**
+
+⛔⛔ **AND THE HARDEST-WON ONE: A GREEN SUITE IS ONLY EVIDENCE ABOUT WHAT IT
+EXERCISES.** Today, FOUR fixtures omitted the state their bug lived in (the
+sudden-death fixture had no `FighterStocks`; the timeout tiebreak's arms built the
+side map BY HAND and never ran the fold; the impact-hitstop tests INJECTED the
+victim's timer; the stale-decay test seeded an IDLE body). My own 68-crate
+"sweep" checked COMPILATION, not passes — `ambition_render` and
+`ambition_content` were red the whole time. And two of my own new assertions
+turned out to be checks that could not fail.
+
+### The open work, in the order I would take it
+
+```text
+1  resolved-hit split (D237 4/5)   the freeze fires for a CPU victim and not
+                                   for the human; blast radius traced in full
+                                   below; ⛔ do NOT reuse the causal
+                                   BodyHitResolved — publish an unconditional
+                                   fact and DERIVE the inspector from it
+2  windbox 29b + 29c               `pending_launch` is a bare Vec2 so jab-lock
+                                   and tumble come from SPEED ALONE; and no
+                                   fact says "windbox" at the parry/guard seam.
+                                   ⭐ latent — fix the primitive BEFORE content
+                                   authors one
+3  recovery-helpless EPISODE       body_is_helpless is pure resource state, so
+                                   a hit that refunds the air dodge cannot lift
+                                   it. Needs a BodyJumpState field → schema bump
+4  clank simultaneity (26/27)      one-line fix WRITTEN AND REVERTED: nothing
+                                   exercises arbitrate_attack_clanks at all
+5  directional melee read model    delete attack_intent_from_move_id; carry the
+                                   resolved AttackIntent on MovePlayback
+6  Charge Shot                     ⚠ WAITING ON JON — a balance decision, in
+                                   awaiting-maintainer-decision.md
+```
+
+⚠ Items 1, 3 and 5 each need a WIRE-FORMAT change; 2 and 4 each need a real
+fixture. None of them is a tail-end job.
+
+## 2026-08-25 — a 24-hour deep review, triaged end to end
 
 ⭐⭐ **START HERE: the one open item worth a session is the RESOLVED-HIT SPLIT**
 (D237 item 4/5, and its design is named there). Everything else from the review

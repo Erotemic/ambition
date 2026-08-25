@@ -298,13 +298,19 @@ a PrimaryPlayerOnly body carrying the full cluster query + PlayerBlinkCameraStat
 and `camera_snap_timer > 0.0`. Its poison is deleting the
 `snap_after_placement` call.
 
-- ▢ **D210 — FOUR P0 DEFECTS FROM THE 2026-08-24 REVIEW, ALL VERIFIED AT HEAD,
-  NONE FIXED.** (opened 2026-08-24; the review is
+- ✔ **D210 — CLOSED 2026-08-25. FOUR P0 DEFECTS FROM THE 2026-08-24 REVIEW, AND
+  THE FOUR P1s BEHIND THEM.** (opened 2026-08-24; the review is
   [`triage/gpt-review-2026-08-24-correction-pass.md`](triage/gpt-review-2026-08-24-correction-pass.md),
   which is the AUTHORITY — this row is the pointer)
 
-⛔⛔ **DO NOT ADD A PARITY ROW UNTIL THESE CLOSE.** Two rows were marked ✔ on
-tests that proved a nearby SURROGATE road, and the ledger said so for a day.
+✔ **ALL EIGHT CLOSED, verified at HEAD 2026-08-25** — the early-out is gone from
+`pickup/mod.rs`, the sudden-death guard and `body_is_helpless` are both in place,
+and `clank.rs` reads `StrikeVolume`. The P1s closed as D211–D214.
+
+⛔⛔ **DO NOT ADD A PARITY ROW UNTIL THESE CLOSE** — the prohibition that ran this
+row, kept because it is the standing discipline and not a fact about these four:
+two rows were marked ✔ on tests that proved a nearby SURROGATE road, and the
+ledger said so for a day.
 
 ```text
 P0-1 clank never reaches authored moves   arbitrate_attack_clanks: With<HitboxLifetime>
@@ -333,11 +339,12 @@ wants ONE derived rule gating move STARTS plus both integration roads, and
 not any `MovePlayback`; P0-3's stage half also has to move out of literal
 `Update`, because it writes rollback-canonical `BodyHealth`.
 
-⭐ **P1s, after the four**: withdraw `Exit Match` once `StocksMatchSettled` says
-this match is settled; one live-match clock that excludes the opening countdown
-and pause, used by BOTH the time limit and item cadence; a match/session context
-seed for `sim_random` before it founds "random stage"; and multi-side sudden
-death must carry the tied leaders rather than resetting every survivor.
+✔ **THE P1s, ALL FOUR CLOSED** and each carries its own row: `Exit Match`
+withdrawn on settlement (D211, `3052d2279`); one live-match clock excluding the
+ceremony and every stopped world, read by the timeout AND the item cadence
+(D212, `f4cee3e63`); a match context axis for `sim_random` so match two stops
+replaying match one (D213, `bd854bd74`); sudden death carrying the tied leaders
+(D214, `77313b155`).
 
 ### ✔ LANDED 2026-08-15 — six worker lanes, all merged, validated and pushed
 

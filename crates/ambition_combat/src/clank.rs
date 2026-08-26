@@ -303,6 +303,29 @@ pub fn rebound_from_clanks(
         .copied()
         .unwrap_or_default()
         .knockback_recoil_lock_time;
+    // ⛔⛔ ONE RECOIL PER FIGHTER PER TICK, NOT ONE PER PAIR. Arbitration emits a
+    // message for every qualifying PAIR, so three mutually-overlapping attacks
+    // announce AB, AC and BC — and applying an impulse per message pushed the
+    // middle fighter twice as hard as the other two for being in the middle. A
+    // clash is one event to the body in it: the genre has a rebound, not a
+    // rebound COUNT, and this repo already fixed the same shape once when a 2×2
+    // volume overlap produced four rebounds for one conceptual clash.
+    //
+    // ⭐ THE DIRECTION IS THE SUM AND THE SPEED IS NOT. A fighter that clanked
+    // two opponents is pushed away from BOTH — the sum says where — and then
+    // pushed at exactly `clank_rebound_speed`, because being outnumbered is not
+    // a reason to fly faster. Two opposite clanks sum to nothing and nobody is
+    // pushed, which is the same answer coincident bodies already get.
+    //
+    // ⭐ ACCUMULATED IN A `Vec` IN MESSAGE ORDER rather than a map: message order
+    // is write order and deterministic, and a hash map's iteration is neither.
+    let mut recoil: Vec<(bevy::prelude::Entity, ae::Vec2)> = Vec::new();
+    let mut push = |body: bevy::prelude::Entity, away: ae::Vec2| {
+        match recoil.iter_mut().find(|(seen, _)| *seen == body) {
+            Some((_, total)) => *total += away,
+            None => recoil.push((body, away)),
+        }
+    };
     for clank in clanked.read() {
         let (a, b) = clank.owners;
         // The axis, once, from the pair. `get_many` is not used because the two
@@ -322,15 +345,23 @@ pub fn rebound_from_clanks(
         } else {
             ae::Vec2::ZERO
         };
-        for (body, away) in [(a, -axis), (b, axis)] {
-            if let Ok((mut kin, mut combat)) = bodies.get_mut(body) {
-                kin.vel += away * rules.clank_rebound_speed;
-                combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
-            }
-            // ⛔ THE MOVE IS ALREADY OVER — `arbitrate_attack_clanks` ends it, so
-            // that the STRONGER-WINS case (which announces nothing) ends its
-            // loser by the same road. Cancelling again here would be a second
-            // authority on when an attack stops.
+        push(a, -axis);
+        push(b, axis);
+        // ⛔ THE MOVE IS ALREADY OVER — `arbitrate_attack_clanks` ends it, so
+        // that the STRONGER-WINS case (which announces nothing) ends its
+        // loser by the same road. Cancelling again here would be a second
+        // authority on when an attack stops.
+    }
+    for (body, total) in recoil {
+        let Ok((mut kin, mut combat)) = bodies.get_mut(body) else {
+            continue;
+        };
+        // ⭐ THE LOCK IS OWED FOR HAVING CLANKED AT ALL, even when the pushes
+        // cancelled: the fighter's attack ended and it does not get to act
+        // through the beat just because the geometry was symmetrical.
+        combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
+        if total.length_squared() > f32::EPSILON {
+            kin.vel += total.normalize() * rules.clank_rebound_speed;
         }
     }
 }
@@ -483,6 +514,93 @@ mod tests {
              CONSIDERED, so the last id standing wins by allocator-independent \
              luck rather than by the contest",
             still_swinging.len()
+        );
+    }
+
+    /// ⛔⛔ A THREE-WAY CLASH IS ONE RECOIL EACH, NOT ONE PER PAIR.
+    ///
+    /// Arbitration announces every qualifying PAIR — AB, AC and BC for three
+    /// mutually-overlapping attacks — and the rebound applied a full impulse per
+    /// message, so the fighter in the MIDDLE was pushed twice as hard as the
+    /// other two for being in the middle. A clash is one event to the body in
+    /// it: the genre has a rebound, not a rebound count, and this repo already
+    /// fixed the same shape once when a 2×2 volume overlap produced four
+    /// rebounds for one conceptual clash.
+    ///
+    /// ⛔⛔ AND THE EXISTING THREE-WAY ARM COULD NOT SEE ANY OF IT, which is why
+    /// this one exists beside it. It stands all three fighters at `Vec2::ZERO`,
+    /// where the rebound axis is deliberately zero for coincident bodies — so it
+    /// proves the attacks all end and says nothing whatever about recoil. These
+    /// three are spread out.
+    ///
+    /// ⭐ THE MIDDLE FIGHTER IS THE MEASUREMENT. A and C are pushed apart; B,
+    /// between them, is pushed by both and away from both, and the two pushes
+    /// very nearly cancel. What must NOT happen is B leaving at twice anybody
+    /// else's speed.
+    #[test]
+    fn a_three_way_clash_pushes_each_fighter_once() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<AttacksClanked>();
+        let speed = 300.0;
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            clank_rebound_speed: speed,
+            ..Default::default()
+        });
+        app.add_systems(Update, rebound_from_clanks);
+
+        // A — B — C in a line, so every pair has a real axis and B is between.
+        let mut fighter = |x: f32| -> Entity {
+            app.world_mut()
+                .spawn((
+                    ae::BodyKinematics {
+                        pos: ae::Vec2::new(x, 0.0),
+                        vel: ae::Vec2::ZERO,
+                        size: ae::Vec2::new(16.0, 32.0),
+                        facing: 1.0,
+                    },
+                    ambition_characters::actor::BodyCombat::default(),
+                ))
+                .id()
+        };
+        let a = fighter(-10.0);
+        let b = fighter(0.0);
+        let c = fighter(10.0);
+
+        for owners in [(a, b), (a, c), (b, c)] {
+            app.world_mut()
+                .write_message(AttacksClanked { owners });
+        }
+        app.update();
+
+        let speed_of = |e: Entity| {
+            app.world()
+                .get::<ae::BodyKinematics>(e)
+                .expect("the fighter exists")
+                .vel
+                .length()
+        };
+
+        // The premise: the outer two really were pushed, so the assertion about
+        // B is about ONE recoil rather than about a system that did nothing.
+        assert!(
+            (speed_of(a) - speed).abs() < 1e-3,
+            "the outer fighter was not pushed at exactly one rebound speed: {}",
+            speed_of(a)
+        );
+        assert!(
+            (speed_of(c) - speed).abs() < 1e-3,
+            "the other outer fighter was not pushed at exactly one rebound speed: {}",
+            speed_of(c)
+        );
+        assert!(
+            speed_of(b) <= speed + 1e-3,
+            "the fighter in the MIDDLE of a three-way clash left at {} against a \
+             rebound speed of {} — it is being pushed once per PAIR it is in, so \
+             standing between two opponents launches you",
+            speed_of(b),
+            speed
         );
     }
 

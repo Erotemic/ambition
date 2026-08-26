@@ -21,7 +21,7 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 #[test]
 fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
     use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
-    use ambition_platformer2d::mount::{Mountable, RideLease, RidingOn};
+    use ambition_platformer2d::mount::{MountReservedFor, Mountable, RideLease, RidingOn};
     use bevy::prelude::*;
 
     let mut app =
@@ -69,23 +69,42 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
          talking to nobody and nothing below measures the up-B"
     );
 
-    let sharks = |app: &mut App| -> usize {
+    // ⛔⛔ SHARKS THIS ADMIRAL OWNS, not sharks on the stage. This counted every
+    // `Mountable` in the world, which is a premise only a rival who never acts
+    // can satisfy — and the OTHER admiral in this mirror match is a CPU that can
+    // summon its own. It held only because the 3-second opening ceremony used up
+    // most of the 240-frame settle above; shortening the ceremony made a
+    // perfectly correct rival look like a broken assertion.
+    //
+    // ⇒ attribute by SUMMONER. A shark is this admiral's if it is reserved for
+    // them or if they are on it, which is exactly what every assertion below
+    // means by "the shark".
+    let sharks = |app: &mut App, rider: Entity| -> usize {
+        let ridden = app.world().get::<RidingOn>(rider).map(|on| on.mount);
         let world = app.world_mut();
-        let mut q = world.query_filtered::<Entity, With<Mountable>>();
-        q.iter(world).count()
+        let mut q = world.query_filtered::<(Entity, Option<&MountReservedFor>), With<Mountable>>();
+        q.iter(world)
+            .filter(|(mount, reserved)| {
+                ridden == Some(*mount) || reserved.is_some_and(|reserved| reserved.rider == rider)
+            })
+            .count()
     };
-    // ⛔ THE PREMISE: no shark before the press. Without this the count below
-    // could be counting an authored stage prop.
-    assert_eq!(sharks(&mut app), 0, "the stage already carries a mountable");
+    // ⛔ THE PREMISE: this admiral has no shark before the press.
+    assert_eq!(
+        sharks(&mut app, seat0),
+        0,
+        "this admiral already owns a mountable, so the summon below proves nothing"
+    );
 
     // ── PRESS UP + SPECIAL. Held, because a one-tick press assumes the body
     //    steps after the frame is committed inside one update. ──
-    let press = |app: &mut App, frames: usize, frame: ambition_platformer2d::engine_core::ControlFrame| {
-        for _ in 0..frames {
-            ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
-            app.update();
-        }
-    };
+    let press =
+        |app: &mut App, frames: usize, frame: ambition_platformer2d::engine_core::ControlFrame| {
+            for _ in 0..frames {
+                ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
+                app.update();
+            }
+        };
     // ⛔ ONE press FRAME, then HELD. `special_pressed` is a rising EDGE: holding
     // it true for ten frames is ten presses, which repopulates the special
     // buffer every tick. The direction comes from `axis_y` — the fighter brain
@@ -112,7 +131,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
     }
 
     assert_eq!(
-        sharks(&mut app),
+        sharks(&mut app, seat0),
         1,
         "the up-B summoned no shark, so nothing below is about riding one"
     );
@@ -173,7 +192,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
         app.update();
     }
     assert_eq!(
-        sharks(&mut app),
+        sharks(&mut app, seat0),
         0,
         "the shark stayed on the stage after losing its rider — an unridden \
          mount running its own brain around a platform fighter is exactly what \
@@ -271,17 +290,37 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
     // the subject of the test above.
     app.update();
 
+    // ⛔⛔ THE SUMMONER'S SHARK, not the stage's only one. This took the sole
+    // `Mountable` in the world, which is a premise only a rival who never acts
+    // can satisfy — and the rival here is a CPU admiral who can summon too. It
+    // held because the 3-second opening ceremony ate most of the 240-frame
+    // settle above, so shortening the ceremony turned a correct rival into a
+    // failing assertion. A test about WHOSE shark this is cannot identify it by
+    // being the only one.
     let shark = {
+        // ⚠ RESERVED-FOR **OR** RIDDEN, because the board may already have
+        // happened and `board_reserved_mounts` spends the reservation when it
+        // does — which is the same both-are-correct reasoning the assertion
+        // below states in words.
+        let ridden = app.world().get::<RidingOn>(summoner).map(|on| on.mount);
         let world = app.world_mut();
-        let mut q = world.query_filtered::<Entity, With<Mountable>>();
-        let all: Vec<Entity> = q.iter(world).collect();
+        let mut q = world.query_filtered::<(Entity, Option<&MountReservedFor>), With<Mountable>>();
+        let mine: Vec<Entity> = q
+            .iter(world)
+            .filter(|(mount, reserved)| {
+                ridden == Some(*mount)
+                    || reserved.is_some_and(|reserved| reserved.rider == summoner)
+            })
+            .map(|(mount, _)| mount)
+            .collect();
         assert_eq!(
-            all.len(),
+            mine.len(),
             1,
-            "the up-B summoned {} sharks, so nothing below is about one of them",
-            all.len()
+            "the summoner's up-B left him {} sharks, so nothing below is about \
+             one of them",
+            mine.len()
         );
-        all[0]
+        mine[0]
     };
 
     // ⭐ THE RESERVATION NAMES ITS SUMMONER. Either it is still held — the board
@@ -300,9 +339,18 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
         "the summoned shark is neither held for the admiral that called it nor \
          already carrying them: reserved_for={reserved_for:?} boarded={boarded:?}"
     );
-    assert!(
-        app.world().get::<RidingOn>(rival).is_none(),
-        "the rival admiral is riding a shark it did not summon"
+    // ⛔ NOT ON **THIS** SHARK. This asked whether the rival was riding at ALL,
+    // which is a different claim and not the rule: the rival is an admiral too
+    // and summoning its own shark is exactly what it should do. The rule is that
+    // it may not be on the one somebody else called.
+    let rival_rides = app
+        .world()
+        .get::<RidingOn>(rival)
+        .map(|riding| riding.mount);
+    assert_ne!(
+        rival_rides,
+        Some(shark),
+        "the rival admiral is riding the shark the OTHER admiral summoned"
     );
 
     // ── AND THE RIVAL IS REFUSED IF IT ASKS. ──

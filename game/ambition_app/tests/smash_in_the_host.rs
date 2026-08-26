@@ -2547,14 +2547,39 @@ fn the_match_clock_does_not_start_until_the_cast_is_released() {
 
     // ⭐ THE CEREMONY RUNS AND THE CLOCK DOES NOT. Ticks are passing — the cast
     // exists, the world is moving — and none of them are match time.
-    for _ in 0..20 {
+    //
+    // ⛔ ASKED WHILE THE HOLD IS ON, not for a fixed twenty frames. Twenty was a
+    // number that fit inside a three-second ceremony, so it silently encoded the
+    // ceremony's LENGTH into a test about what the clock does DURING one; the
+    // moment the ceremony got shorter the window outlasted it and the failure
+    // read as "the countdown came off the clock" when nothing of the sort had
+    // happened. The condition is the hold, and the hold is observable.
+    let mut held_frames = 0;
+    for _ in 0..600 {
+        let still_held = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<
+                &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            q.iter(world).count() > 0
+        };
+        if !still_held {
+            break;
+        }
+        held_frames += 1;
+        assert_eq!(
+            counted(&app),
+            0,
+            "the opening countdown came off the match clock, so a match with a \
+             ceremony starts already spent"
+        );
         app.update();
     }
-    assert_eq!(
-        counted(&app),
-        0,
-        "the opening countdown came off the match clock, so a match with a \
-         ceremony starts already spent"
+    assert!(
+        held_frames > 0,
+        "the hold was already off before a single frame of the ceremony was \
+         observed, so nothing above measured the clock during one"
     );
 
     wait_for_the_round_to_go_live(&mut app);

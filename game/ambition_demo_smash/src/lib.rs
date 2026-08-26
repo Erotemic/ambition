@@ -149,7 +149,18 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     //
     // ticks rather than seconds, because the release is a comparison against
     // the sim clock — see `MatchRules::opening_countdown_ticks`.
-    roster.rules.opening_countdown_ticks = 3 * 60;
+    //
+    // ⚠⚠ TEMPORARY DEV MODE, Jon 2026-08-26: *"make the 3, 2, 1, countdown go
+    // 10x as fast."* The ceremony is here to be WATCHED, and watching it once per
+    // playtest iteration is three seconds a fighter is not being tuned. Revert by
+    // setting `COUNTDOWN_SPEEDUP` back to 1 — the divisor is named rather than
+    // folded into the number so that reverting is a one-token edit and so that
+    // nobody later reads `18` as a considered ceremony length.
+    //
+    // ⛔ NOT A SETTING and not a feature flag: a knob would outlive the reason
+    // for it and would need a menu row, a default and somewhere to persist. This
+    // is a constant with a date and a sentence, which is what temporary means.
+    roster.rules.opening_countdown_ticks = 3 * 60 / COUNTDOWN_SPEEDUP;
     // THE MATCH CLOCK. Ultimate's default stock match runs eight minutes,
     // and the clock exists so a match between two fighters who will not approach
     // each other still ends — the stock economy alone has no answer to that.
@@ -916,6 +927,18 @@ pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
     "smash_fighter_3",
 ];
 /// The winner card. One slot, because the stage says one thing at a time.
+/// ⚠⚠ TEMPORARY: how much faster than authored the opening ceremony runs.
+///
+/// Jon, 2026-08-26, asking for a dev mode: *"make the 3, 2, 1, countdown go 10x
+/// as fast."* `1` restores the authored three seconds, and that is the whole of
+/// the revert.
+///
+/// ⛔ IT DIVIDES THE TICKS, NOT THE BEATS. `MatchRules::beats()` still counts
+/// three numbers — the ceremony says the same thing, it just says it quicker —
+/// and every test that waits out the countdown reads the roster's value rather
+/// than a literal, so they follow this without knowing about it.
+const COUNTDOWN_SPEEDUP: u32 = 10;
+
 pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
 /// What one remaining stock is drawn as, under the sprites asset root.

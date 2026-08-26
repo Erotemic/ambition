@@ -5535,6 +5535,26 @@ runtime's room transition and reset (`sandbox_reset`, `room_transition/commit`,
 `sim_core_resources`) and the monolith's damage road — two domains, neither able
 to own it without the wrong edge, which is `shared_tangle`'s own admission test.
 
+✔✔ **BOTH REMOVALS LANDED 2026-08-26, AND `damage_apply` IS DOWN FROM SEVEN
+OUTWARD ITEMS TO TWO.** The safe-position memory went to
+`shared_tangle::safe_position` and the actor-death announcement to
+`ambition_combat::death_rules`. What is left:
+
+```text
+crate::avatar::PlayerBodyFrameOutput               real
+crate::world::overlay::FeatureWorldOverlaySet      real — a SCHEDULE SET, not data
+crate::features::MotionModel                       a sibling; travels with any carve
+crate::actor::{PrimaryPlayerOnly, BodyAnimFacts}   not edges
+```
+
+⛔⛔ **AND THE SECOND MOVE COULD NOT GO WHERE THE FIRST ONE DID, which is the
+lesson worth more than either move.** The reflex after a successful move is to
+send the next thing to the same place — but `DeathCause` is built from
+`ambition_combat::HitSource`, and `shared_tangle` does not depend on combat.
+Sending it there would have pointed a FOUNDATIONAL crate upward at a domain,
+which is the edge shared_tangle exists to prevent. ⇒ **a destination follows the
+VOCABULARY the type is built from, not the last place a move succeeded.**
+
 ⛔ **PRICE, so the next session does not re-derive it:** `PlayerSafetyState` and
 `RoomTransitionCooldown` are BOTH rollback-registered and encoded, so the move
 touches the path-keyed ledgers (registration turbofish, exit oracle, the JSON

@@ -91,61 +91,12 @@ pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Message};
 
-/// Sandbox-side actor-death notification. Emitted from `death_respawn_player`
-/// the frame a controlled actor's HP drops to zero and it respawns at the room
-/// spawn. The encounter system reads this through `MessageReader` to fail any
-/// in-flight encounter (despawn mobs, drop the lock wall, re-arm the trigger)
-/// without sandbox-runtime polling.
-///
-/// Named for the *actor* role, not "player": the relativity principle wants
-/// death framed as a fact about whichever controlled actor died, so this stays
-/// correct when more than the local player can die (multiplayer / scripted
-/// actors). Today only the controlled player routes through it.
-///
-/// `pos` carries the impact location for downstream consumers (vfx, future
-/// death-replay tooling). `cause` carries the attribution — what dealt the
-/// killing blow — so causality exists for future death-replay / multiplayer
-/// kill-credit without a downstream consumer having to reconstruct it from the
-/// raw [`ambition_combat::HitEvent`] stream. Today the encounter system ignores both.
-///
-/// Replaces the previous `player_died_pending` bool — the Vec-collector →
-/// `MessageWriter` pattern matches the rest of the sim → presentation seam
-/// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
-#[derive(Message, Clone, Debug)]
-pub struct ActorDiedMessage {
-    /// WHO died.
-    ///
-    /// this message carried no victim at all, so a consumer could only take the last death
-    /// and assume it was theirs. Mary-O does exactly that — reads the latest message and
-    /// applies it to the current `ControlledSubject` — and it works only because emission is
-    /// effectively restricted to the one controlled body today.
-    ///
-    /// an `Entity` is a SAME-FRAME identity, not a durable one. Bevy
-    /// recycles indices, so this is right for a consumer filtering "was that my
-    /// body, this tick" and wrong for a replay or a peer. A durable
-    /// victim identity — participant, or the body's stable
-    /// `PresentationSourceId` — is what multiplayer attribution will need, and
-    /// naming that here is the point of writing it down rather than discovering
-    /// it later.
-    pub victim: bevy::prelude::Entity,
-    pub pos: ae::Vec2,
-    pub cause: DeathCause,
-}
+// ⛔ THE ACTOR-DEATH ANNOUNCEMENT LEFT THIS CRATE ROOT, 2026-08-26.
+// `ActorDiedMessage` and `DeathCause` are `ambition_combat::death_rules`', beside
+// `BodyKnockedOut` and the death rules they belong with — the runtime, two demos
+// and five app tests read them, and `DeathCause` is built from combat's own
+// `HitSource`. Imported, never re-exported.
 
-/// Attribution for an actor death — what dealt the killing blow.
-///
-/// Compact by design: the killing hit's [`ambition_combat::HitSource`] category plus the
-/// attacker entity when the source carries one (player-side hits do; enemy /
-/// boss / hazard sources identify by category only today — threading their
-/// dealing entity is the deeper actor-attribution work). Reuses `HitSource`
-/// rather than a parallel enum so a new attack source needs no second edit.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DeathCause {
-    /// The killing hit's source category (melee / projectile / hazard / …).
-    pub source: ambition_combat::HitSource,
-    /// The entity that dealt the killing blow, when known.
-    pub attacker: Option<bevy::prelude::Entity>,
-}
 
 // ⛔ THE SAFE-POSITION MEMORY LEFT THIS CRATE ROOT, 2026-08-26.
 // `SafePositionContext`, `RoomTransitionCooldown`,

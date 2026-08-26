@@ -346,3 +346,71 @@ mod tests {
         );
     }
 }
+
+// ⛔ IT LIVED AT THE ACTOR MONOLITH'S CRATE ROOT UNTIL 2026-08-26, and it was
+// never that crate's fact: the runtime, two demos and five app tests read it,
+// and its `DeathCause` is built from `HitSource` — combat's own vocabulary,
+// beside `BodyKnockedOut` and the death rules in this very module.
+//
+// ⛔⛔ AND `shared_tangle` COULD NOT TAKE IT, which is the part worth writing
+// down. That is where the safe-position memory went an hour earlier and the
+// reflex is to send everything there — but `DeathCause` carries
+// `ambition_combat::HitSource`, and shared_tangle does not depend on combat.
+// Moving it there would have pointed a FOUNDATIONAL crate upward at a domain,
+// which is the edge shared_tangle exists to avoid. The destination follows the
+// VOCABULARY the type is built from, not the last place a move succeeded.
+/// Sandbox-side actor-death notification. Emitted from `death_respawn_player`
+/// the frame a controlled actor's HP drops to zero and it respawns at the room
+/// spawn. The encounter system reads this through `MessageReader` to fail any
+/// in-flight encounter (despawn mobs, drop the lock wall, re-arm the trigger)
+/// without sandbox-runtime polling.
+///
+/// Named for the *actor* role, not "player": the relativity principle wants
+/// death framed as a fact about whichever controlled actor died, so this stays
+/// correct when more than the local player can die (multiplayer / scripted
+/// actors). Today only the controlled player routes through it.
+///
+/// `pos` carries the impact location for downstream consumers (vfx, future
+/// death-replay tooling). `cause` carries the attribution — what dealt the
+/// killing blow — so causality exists for future death-replay / multiplayer
+/// kill-credit without a downstream consumer having to reconstruct it from the
+/// raw [`crate::HitEvent`] stream. Today the encounter system ignores both.
+///
+/// Replaces the previous `player_died_pending` bool — the Vec-collector →
+/// `MessageWriter` pattern matches the rest of the sim → presentation seam
+/// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
+#[derive(Message, Clone, Debug)]
+pub struct ActorDiedMessage {
+    /// WHO died.
+    ///
+    /// this message carried no victim at all, so a consumer could only take the last death
+    /// and assume it was theirs. Mary-O does exactly that — reads the latest message and
+    /// applies it to the current `ControlledSubject` — and it works only because emission is
+    /// effectively restricted to the one controlled body today.
+    ///
+    /// an `Entity` is a SAME-FRAME identity, not a durable one. Bevy
+    /// recycles indices, so this is right for a consumer filtering "was that my
+    /// body, this tick" and wrong for a replay or a peer. A durable
+    /// victim identity — participant, or the body's stable
+    /// `PresentationSourceId` — is what multiplayer attribution will need, and
+    /// naming that here is the point of writing it down rather than discovering
+    /// it later.
+    pub victim: bevy::prelude::Entity,
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub cause: DeathCause,
+}
+
+/// Attribution for an actor death — what dealt the killing blow.
+///
+/// Compact by design: the killing hit's [`crate::HitSource`] category plus the
+/// attacker entity when the source carries one (player-side hits do; enemy /
+/// boss / hazard sources identify by category only today — threading their
+/// dealing entity is the deeper actor-attribution work). Reuses `HitSource`
+/// rather than a parallel enum so a new attack source needs no second edit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeathCause {
+    /// The killing hit's source category (melee / projectile / hazard / …).
+    pub source: crate::HitSource,
+    /// The entity that dealt the killing blow, when known.
+    pub attacker: Option<bevy::prelude::Entity>,
+}

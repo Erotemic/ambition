@@ -137,7 +137,7 @@ pub struct WaveEncounterDriven;
 pub fn drive_wave_encounters(
     mut commands: SessionCommands<'_, '_>,
     world_time: Res<ambition_time::WorldTime>,
-    mut died_messages: MessageReader<crate::ActorDiedMessage>,
+    mut died_messages: MessageReader<ambition_combat::death_rules::ActorDiedMessage>,
     mut encounters: Query<(
         &Encounter,
         &EncounterLifecycle,

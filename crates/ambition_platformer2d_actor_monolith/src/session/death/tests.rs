@@ -8,7 +8,7 @@
 //! `try_insert(ScriptedControl)` was wrong.
 
 use super::*;
-use crate::DeathCause;
+use ambition_combat::death_rules::DeathCause;
 use ambition_characters::control::{release_control_hold, ControlHold, ControlHolds, ScriptedControl};
 use ambition_combat::events::HitSource;
 use bevy::prelude::{App, Commands, Entity, Query, Update};

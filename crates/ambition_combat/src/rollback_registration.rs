@@ -310,6 +310,12 @@ where
         OWNER,
         "message.gameplay_banner_requested",
     );
+    // ⛔ THE STABLE NAME STAYS `message.actor_died` THOUGH THE TYPE MOVED, 2026-08-26.
+    // It came from the actor monolith's crate root with `DeathCause`, which is
+    // built from this crate's own `HitSource`. A stable name is an identity on the
+    // wire, not an address.
+    registrar
+        .clear_message_on_rollback::<crate::death_rules::ActorDiedMessage>(OWNER, "message.actor_died");
     registrar.clear_message_on_rollback::<crate::events::GameplaySfxRequested>(
         OWNER,
         "message.gameplay_sfx_requested",

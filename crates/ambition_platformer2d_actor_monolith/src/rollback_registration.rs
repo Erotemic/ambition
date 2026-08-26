@@ -511,7 +511,6 @@ where
         OWNER,
         "message.spawn_actor_request",
     );
-    registrar.clear_message_on_rollback::<crate::ActorDiedMessage>(OWNER, "message.actor_died");
     registrar.clear_message_on_rollback::<crate::session::reset::NewGameResetCommitted>(
         OWNER,
         "message.sandbox_reset_committed",

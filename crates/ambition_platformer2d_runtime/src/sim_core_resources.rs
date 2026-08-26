@@ -22,7 +22,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::session::data;
-use ambition_platformer2d_actor_monolith::ActorDiedMessage;
+use ambition_combat::death_rules::ActorDiedMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
 

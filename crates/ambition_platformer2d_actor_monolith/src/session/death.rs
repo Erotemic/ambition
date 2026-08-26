@@ -16,7 +16,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 
 use crate::session::reset::RoomReplayRequested;
-use crate::ActorDiedMessage;
+use ambition_combat::death_rules::ActorDiedMessage;
 
 #[cfg(test)]
 mod tests;

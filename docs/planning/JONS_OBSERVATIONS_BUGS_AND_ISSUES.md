@@ -725,3 +725,16 @@ the facade/review lane. Its two LOW items were both mine and are fixed.
 
 * D202 and D206 were both examined and accepted by the review; D206's one `MatchSeat` check has a crisp semantic reason, with the caveat that a SECOND such check would belong in an effective match-body policy rather than another `if MatchSeat`.
   * ✔ no action.
+
+## Fifth review, of HEAD `38df5cc78`, relayed by Jon 2026-08-26
+
+Three substantive items, all mine, all closed.
+
+* **`OutOfPlay` did not generically end a body's move.** I put the teardown inside `spend_fighter_stocks`, which fixed Smash and left the other real customer broken: `session::death::open_death_interlude` — how Mary-O and every non-stock ruleset die — inserted `OutOfPlay` and left the move clock running, so a body could die mid-swing and go on opening hit windows and firing authored events.
+  * ✔ `end_moves_for_bodies_out_of_play`, an INVARIANT re-established each tick at the head of `CombatSet::Trigger`, not a transition each death road remembers. ⛔ deliberately NOT an `Add` observer: that fires when GGRS re-inserts a component during a snapshot restore, so it would tear down moves on a rollback that merely replayed a body into the same state. The stocks seam keeps only the ELIMINATED case, because elimination opens no death window and so never becomes out-of-play.
+
+* **CPUs still targeted fighters waiting to respawn — a live gameplay defect.** `select_actor_targets` filtered on `hp.current() > 0` under a comment calling health "the one uniform liveness gate", and D201 made that false: the stock spend calls `health.reset()`, so a body lying untouchable at the blast line reads FULL HEALTH for the whole interval. A surviving CPU went on selecting, chasing and aiming at it; the hit filters stop it hurting that body and say nothing about where it walks.
+  * ✔ both sides gated through `body_is_untouchable` — an out-of-play body is not a candidate, and an out-of-play actor does not acquire either (it was refreshing its own `ActorTarget` while dead and coming back holding the lock). The stale comment is corrected at the source.
+
+* **The safe-position extraction stopped one step short** — types, codecs and consumers moved to `shared_tangle`, and the two rollback declarations stayed in the monolith.
+  * ✔ moved. ⛔⛔ THIS IS THE THIRD TIME TODAY and the second time I caused it: mount and rooms were the same shape, I wrote the lesson down for both, and then repeated it an hour later. Moving a type is FOUR things — the type, its codec, its consumers, and its ROLLBACK DECLARATION — and the declaration is the one that goes on compiling where it is.

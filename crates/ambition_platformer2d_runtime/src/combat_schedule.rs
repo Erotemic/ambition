@@ -110,6 +110,13 @@ impl Plugin for CombatSchedulePlugin {
                 // control frame presses a verb edge starts the matching move (inserts
                 // `MovePlayback`).
                 (
+                    // ⛔ FIRST IN THE COMBAT PHASE, so a body that left play on
+                    // any road last tick has no move before this tick's trigger
+                    // or playback can touch it. See
+                    // `end_moves_for_bodies_out_of_play` for why it is an
+                    // invariant re-established here rather than a line in each
+                    // death road.
+                    ambition_combat::death_rules::end_moves_for_bodies_out_of_play,
                     ambition_combat::moveset::resolve_attack_gestures,
                     // Input leniency sits BETWEEN interpretation and the action
                     // authority, and only there: it decays the body's combat

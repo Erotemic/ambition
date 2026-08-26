@@ -398,10 +398,16 @@ pub fn spend_fighter_stocks(
         };
         let eliminated = stocks.spend();
         let remaining = stocks.remaining;
-        // Whether the fighter is out for good or out for a beat, the swing is
-        // over: it belonged to a body that is no longer in the fight.
-        if let Ok(mut playback) = swings.get_mut(knockout.body) {
-            crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback);
+        // ⭐ THE SWING IS OVER, AND FOR AN ELIMINATED FIGHTER THIS IS THE ONLY
+        // PLACE THAT CAN SAY SO. A body that enters `OutOfPlay` has its move
+        // ended by `end_moves_for_bodies_out_of_play`, which is the generic
+        // invariant — but elimination does NOT open a death window, so an
+        // eliminated fighter never becomes out-of-play and would keep swinging
+        // until its ruleset despawned it.
+        if eliminated {
+            if let Ok(mut playback) = swings.get_mut(knockout.body) {
+                crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback);
+            }
         }
         // The beat, at the place it happened. A presentation INTENT, so it rides
         // the confirmed-effect quarantine with the sfx and the shake beside it
@@ -657,6 +663,9 @@ mod tests {
     /// part D201 handed back to the engine, so a harness that ticked the window
     /// itself would be testing its own arithmetic and would go on passing if the
     /// engine's ticker were removed entirely.
+    /// ⛔ THE HARNESS RUNS THE INVARIANT TOO. Production ends an out-of-play
+    /// body's move in `end_moves_for_bodies_out_of_play`, not in the spend, so a
+    /// fixture wiring only the spend measures a rule that no longer lives there.
     fn respawn_app(interval_seconds: f32) -> App {
         let mut app = App::new();
         app.add_message::<BodyKnockedOut>();
@@ -676,6 +685,7 @@ mod tests {
             Update,
             (
                 spend_fighter_stocks,
+                crate::death_rules::end_moves_for_bodies_out_of_play,
                 crate::death_rules::tick_death_interlude,
                 respawn_when_the_interlude_closes,
             )
@@ -780,6 +790,31 @@ mod tests {
         );
     }
 
+    /// A five-second swing: long enough that nothing ends it but the rule under
+    /// test.
+    fn swing_spec() -> ambition_entity_catalog::MoveSpec {
+        ambition_entity_catalog::MoveSpec {
+                display_name: None,
+                id: "swing".to_string(),
+                clip: ambition_entity_catalog::ClipBinding {
+                    clip: "swing".to_string(),
+                    fallbacks: vec![],
+                },
+                duration_s: 5.0,
+                windows: vec![],
+                events: vec![],
+                gates: Default::default(),
+                start_impulse: None,
+                smash_charge_mult: 1.0,
+                smash_charge: None,
+                charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+                repeat: None,
+                landing_lag_s: None,
+                autocancel_after_s: None,
+                sprite_spin_hz: None,
+            }
+    }
+
     /// ⛔⛔ THE SWING DOES NOT SURVIVE THE STOCK IT COST.
     ///
     /// A move clock is not the movement kernel. D201 froze the body — `OutOfPlay`
@@ -806,29 +841,7 @@ mod tests {
             let body = combat_fighter(&mut app, stocks);
             app.world_mut()
                 .entity_mut(body)
-                .insert(MovePlayback::new(
-                    ambition_entity_catalog::MoveSpec {
-                        display_name: None,
-                        id: "swing".to_string(),
-                        clip: ambition_entity_catalog::ClipBinding {
-                            clip: "swing".to_string(),
-                            fallbacks: vec![],
-                        },
-                        duration_s: 5.0,
-                        windows: vec![],
-                        events: vec![],
-                        gates: Default::default(),
-                        start_impulse: None,
-                        smash_charge_mult: 1.0,
-                        smash_charge: None,
-                        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
-                        repeat: None,
-                        landing_lag_s: None,
-                        autocancel_after_s: None,
-                        sprite_spin_hz: None,
-                    },
-                    1.0,
-                ));
+                .insert(MovePlayback::new(swing_spec(), 1.0));
             app.update();
             let _ = returned_this_tick(&mut app);
             assert!(
@@ -837,6 +850,15 @@ mod tests {
                  measures the spend"
             );
             knock_out(&mut app, body);
+            // ⭐ ONE MORE TICK, because the guarantee is per COMBAT PHASE and not
+            // per instruction. Production runs
+            // `end_moves_for_bodies_out_of_play` first in `CombatSet::Trigger`,
+            // so a body put out of play by a spend has no move before anything
+            // triggers or advances one — which is the tick after the spend, not
+            // the instruction after it. An ELIMINATED fighter never becomes
+            // out-of-play at all, so the spend itself still ends its move and
+            // this extra tick changes nothing for that arm.
+            app.update();
             app.world().get::<MovePlayback>(body).is_some()
         }
 
@@ -847,8 +869,49 @@ mod tests {
         );
         assert!(
             !swing_after_knockout(1),
-            "an ELIMINATED fighter kept swinging — the move belonged to a body \
-             that is not in the fight either way"
+            "an ELIMINATED fighter kept swinging — and elimination opens no death \
+             window, so the generic out-of-play invariant never sees it and this \
+             seam is the only thing that can end the move"
+        );
+    }
+
+    /// ⛔⛔ AND IT IS AN INVARIANT, NOT A RULE EACH DEATH ROAD REMEMBERS.
+    ///
+    /// The first version of this lived inside `spend_fighter_stocks`, which
+    /// fixed Smash and left the other real customer broken:
+    /// `session::death::open_death_interlude` — how Mary-O and every non-stock
+    /// ruleset die — inserts `OutOfPlay` and cancelled nothing. A body could die
+    /// mid-swing and go on opening hit windows and firing authored events.
+    ///
+    /// ⭐ SO THIS ARM DOES NOT SPEND A STOCK AT ALL. It puts `OutOfPlay` on a
+    /// body directly, which is what every death road has in common, and asks
+    /// whether the move survives it.
+    #[test]
+    fn any_body_that_leaves_play_loses_its_move_however_it_left() {
+        use crate::moveset::MovePlayback;
+
+        let mut app = App::new();
+        app.add_systems(Update, crate::death_rules::end_moves_for_bodies_out_of_play);
+        let body = app
+            .world_mut()
+            .spawn(MovePlayback::new(swing_spec(), 1.0))
+            .id();
+        app.update();
+        assert!(
+            app.world().get::<MovePlayback>(body).is_some(),
+            "a body still IN play lost its move, so the arm below would pass for \
+             the wrong reason"
+        );
+
+        app.world_mut()
+            .entity_mut(body)
+            .insert(crate::death_rules::OutOfPlay);
+        app.update();
+        assert!(
+            app.world().get::<MovePlayback>(body).is_none(),
+            "a body that left play kept swinging. Whatever road put it out — a \
+             stock, a pit, a hazard, a script — the world has its hands off it \
+             and the move clock does not care"
         );
     }
 

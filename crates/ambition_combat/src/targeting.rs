@@ -275,6 +275,8 @@ pub fn select_actor_targets(
             &BodyHealth,
             &ActorFaction,
             Option<&MatchTeam>,
+            // The world's hands are off it — see the candidate filter below.
+            Has<crate::death_rules::OutOfPlay>,
         ),
         With<PlayerEntity>,
     >,
@@ -297,6 +299,8 @@ pub fn select_actor_targets(
             // it answers a different question from the damage side — see
             // [`combat_relation`].
             Option<&MatchTeam>,
+            // The world's hands are off it — see the candidate filter below.
+            Has<crate::death_rules::OutOfPlay>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -314,18 +318,30 @@ pub fn select_actor_targets(
             Option<&mut ActorDisposition>,
             Has<ActiveCombatant>,
         ),
-        With<FeatureSimEntity>,
+        // ⛔ AND AN OUT-OF-PLAY ACTOR DOES NOT ACQUIRE. The world's hands are off
+        // it, which has to mean its hands are off the world too: a fighter
+        // waiting out its death beat was still refreshing its own `ActorTarget`
+        // and came back holding a lock it picked while dead.
+        (With<FeatureSimEntity>, Without<crate::death_rules::OutOfPlay>),
     >,
     // Stable semantic identity, used ONLY to put the candidate list in a
     // canonical order — never to decide who is a foe. See the sort below.
     sim_ids: Query<&SimId>,
 ) {
     let relations = relations.map(|r| r.clone()).unwrap_or_default();
-    // ALIVE candidates only: a dead body (health drained to 0) is never a valid
+    // REACHABLE candidates only: a body the world cannot touch is never a valid
     // target. So the instant a foe dies the actor goes target-less — it stops
-    // swinging at the corpse and stands down in this same targeting phase — instead
-    // of chasing a dead entity until it despawns. Death zeroes `BodyHealth` on every body
-    // (player + actor), so this is the one uniform liveness gate.
+    // swinging at the corpse and stands down in this same targeting phase —
+    // instead of chasing it until it despawns.
+    //
+    // ⛔⛔ AND HEALTH IS NOT THE UNIFORM LIVENESS GATE ANY MORE, though this
+    // comment said it was. D201's stock loss calls `health.reset()` the instant
+    // the stock is spent — a fighter comes back FRESH — so a body waiting out its
+    // death beat reads FULL HEALTH while lying untouchable at the blast line. A
+    // surviving CPU went on selecting, chasing and aiming at it for the whole
+    // respawn interval, and the hit filters that stop it HURTING that body do
+    // nothing about where it walks. `body_is_untouchable` is the gate that knows
+    // both facts.
     // ONE candidate set — the player is just another body, carrying faction Player.
     // No unconditional player special-case; nearest foe wins.
     let mut candidates: Vec<(
@@ -336,8 +352,10 @@ pub fn select_actor_targets(
         Option<MatchTeam>,
     )> = players
         .iter()
-        .filter(|(_, _, hp, _, _)| hp.current() > 0)
-        .map(|(e, kin, _, faction, team)| {
+        .filter(|(_, _, hp, _, _, out_of_play)| {
+            !crate::util::body_is_untouchable(Some(*hp), *out_of_play)
+        })
+        .map(|(e, kin, _, faction, team, _)| {
             (
                 e,
                 kin.pos,
@@ -349,8 +367,10 @@ pub fn select_actor_targets(
         .chain(
             others
                 .iter()
-                .filter(|(_, _, _, hp, _, _)| hp.current() > 0)
-                .map(|(e, aabb, faction, _, driver, team)| {
+                .filter(|(_, _, _, hp, _, _, out_of_play)| {
+                    !crate::util::body_is_untouchable(Some(*hp), *out_of_play)
+                })
+                .map(|(e, aabb, faction, _, driver, team, _)| {
                     (
                         e,
                         aabb.center,

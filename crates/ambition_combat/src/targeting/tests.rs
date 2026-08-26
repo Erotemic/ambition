@@ -742,3 +742,88 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
         victim,
     ));
 }
+
+/// ⛔⛔ A FIGHTER WAITING OUT ITS DEATH BEAT IS NOT A TARGET — AND IT IS AT FULL
+/// HEALTH, WHICH IS WHY THE OLD GATE COULD NOT SEE IT.
+///
+/// Selection filtered on `hp.current() > 0` under a comment calling health "the
+/// one uniform liveness gate". D201 made that false: the stock spend calls
+/// `health.reset()` the instant the stock is spent, because a fighter comes back
+/// FRESH — so a body lying untouchable at the blast line reads full health for
+/// the whole respawn interval. A surviving CPU went on selecting, chasing and
+/// aiming at it, and the hit filters that stop it HURTING that body say nothing
+/// about where it walks.
+///
+/// ⭐ THE NEARER FOE IS THE OUT-OF-PLAY ONE, deliberately. Nearest wins, so if
+/// the gate does nothing the hunter locks the dead body — and the farther live
+/// foe is the only answer that proves the gate ran rather than the geometry.
+#[test]
+fn a_body_waiting_to_respawn_is_not_hunted_though_it_is_at_full_health() {
+    let mut app = App::new();
+    let hunter = enemy_at(&mut app, ae::Vec2::new(0.0, 0.0));
+    let waiting = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 0.0));
+    let live = spawn_player(&mut app, 1, false, ae::Vec2::new(400.0, 0.0));
+    app.add_systems(Update, select_actor_targets);
+
+    // Premise: with both in play the NEARER one is chosen, so the swap below is
+    // the out-of-play gate and not a change of mind about distance.
+    app.update();
+    assert_eq!(
+        app.world().entity(hunter).get::<ActorTarget>().unwrap().entity,
+        Some(waiting),
+        "the nearer foe was not chosen, so this fixture cannot show the gate"
+    );
+
+    app.world_mut()
+        .entity_mut(waiting)
+        .insert(crate::death_rules::OutOfPlay);
+    app.update();
+    assert_eq!(
+        app.world().entity(hunter).get::<ActorTarget>().unwrap().entity,
+        Some(live),
+        "the hunter kept aiming at a body that had left play — it is at FULL \
+         HEALTH for the whole respawn interval, so the health gate never saw it"
+    );
+
+    // …and it is a foe again the moment it comes back.
+    app.world_mut()
+        .entity_mut(waiting)
+        .remove::<crate::death_rules::OutOfPlay>();
+    app.update();
+    assert_eq!(
+        app.world().entity(hunter).get::<ActorTarget>().unwrap().entity,
+        Some(waiting),
+        "a returned fighter stayed invisible to targeting"
+    );
+}
+
+/// ⛔ AND AN OUT-OF-PLAY HUNTER DOES NOT ACQUIRE EITHER. The world's hands are
+/// off it, which has to mean its hands are off the world: a fighter that
+/// refreshed its own `ActorTarget` while dead came back holding a lock it picked
+/// during the interlude.
+#[test]
+fn a_hunter_that_has_left_play_does_not_pick_up_a_target() {
+    let mut app = App::new();
+    let hunter = enemy_at(&mut app, ae::Vec2::new(0.0, 0.0));
+    app.world_mut()
+        .entity_mut(hunter)
+        .insert(crate::death_rules::OutOfPlay);
+    let prey = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 0.0));
+    app.add_systems(Update, select_actor_targets);
+    app.update();
+    assert_eq!(
+        app.world().entity(hunter).get::<ActorTarget>().unwrap().entity,
+        None,
+        "a body that has left play acquired a target while it was out"
+    );
+
+    app.world_mut()
+        .entity_mut(hunter)
+        .remove::<crate::death_rules::OutOfPlay>();
+    app.update();
+    assert_eq!(
+        app.world().entity(hunter).get::<ActorTarget>().unwrap().entity,
+        Some(prey),
+        "the hunter never acquired at all, so the arm above proves nothing"
+    );
+}

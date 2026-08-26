@@ -112,14 +112,6 @@ where
             OWNER,
             "resource.pending_lifecycle_commit",
         );
-    // ⛔ THE STABLE NAMES DO NOT MOVE THOUGH THE TYPES DID, 2026-08-26. Both left
-    // for `shared_tangle::safe_position` with the mechanic they belong to; a
-    // stable name is an identity on the wire, not an address, so renaming either
-    // would be a declared schema change bought for tidiness.
-    registrar.rollback_resource_canonical::<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>(
-        OWNER,
-        "resource.sandbox_sim_state",
-    );
     registrar.rollback_resource_clone_entity_set::<crate::abilities::traversal::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
@@ -160,10 +152,6 @@ where
     registrar.rollback_component_canonical::<crate::features::ActorSurfaceState>(
         OWNER,
         "actor.surface_state",
-    );
-    registrar.rollback_component_canonical::<ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>(
-        OWNER,
-        "player.safety_state",
     );
     registrar.rollback_component_clone::<crate::control::LocalPlayer>(OWNER, "player.local_marker");
     registrar.rollback_component_clone::<crate::features::ActorConfig>(OWNER, "actor.config");

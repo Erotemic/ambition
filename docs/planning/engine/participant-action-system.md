@@ -13,10 +13,26 @@
   carry a primary-seat special path while secondary seats use slot/seat state.
   Converge on one participant-keyed input channel without changing simulation
   semantics merely for naming symmetry.
+  ⚠ **RE-READ THIS ONE BEFORE REMOVING ANYTHING (2026-08-26).** The split is
+  still there and it is now DEFENDED rather than merely present: `input_systems.rs`
+  carries six separate paragraphs on why the primary seat is the keyboard's, why
+  `gamepad_only()` for every non-primary seat encoded the wrong thing, and why
+  the primary seat *"has no equivalent hazard because GGRS overwrites"*. ⇒ the
+  first question is no longer *how* to converge but whether this is still a
+  SPLIT or has become a stated DESIGN — and this row's own last sentence
+  (*"not merely for naming symmetry"*) is the test to apply.
 
-- ▢ **Per-seat pause ownership.** Any seat may open pause and the opening seat
-  owns navigation until the menu closes. `SeatMenuFrames` already provides the
-  channel; the missing part is menu ownership/state.
+- ✔ **Per-seat pause ownership — SHIPPED, verified at HEAD 2026-08-26.** This
+  doc's header predates it. `PauseMenu` carries the owner
+  (*"the seat currently driving the pause menu, if one owns it"*), reads
+  `SeatMenuFrames`, and implements exactly the rule stated here: while OPEN it
+  reads only the opening seat's frames, and while CLOSED every seat is a
+  candidate with the first in slot order winning, *"which makes a simultaneous
+  press deterministic rather than dependent on iteration luck"*. Guarded by
+  `the_seat_that_paused_is_the_seat_that_drives_the_menu`
+  (`pause_menu.rs:788`). ⚠ the global `MenuControlFrame` remains the fallback on
+  purpose — a standalone demo composes the shell without the participant
+  pipeline, and there the one global frame IS the only seat.
 
 - ▢ **Dialogue through participant contexts only.** Finish the ruling that
   dialogue is per-seat by default rather than globally suspending the world.

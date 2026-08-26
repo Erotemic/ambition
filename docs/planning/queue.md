@@ -3093,6 +3093,65 @@ FIGHTER BODY beside the fighter moveset it already authors. ⛔ the eleven are n
 on a wrong base by choice — they are on the wandering-ENEMY baseline by default,
 which is nobody's design.
 
+⭐⭐ **MEASURED ON THE SHIPPED HOST 2026-08-26, and the numbers above were stale
+in three ways at once.** The census is now a test rather than a sentence:
+`a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body`
+(`smash_in_the_host.rs`) partitions the ASSEMBLED grid and then seats one of the
+silent fighters to prove the population actually moves that way.
+
+```text
+17 of 19 grid fighters author no movement feel      (the row said 13 of 14)
+the 2 that do   smash_george_booul, mary_o_tall
+seated proof    player_robot_v3 -> gravity 1450, run accel 650, fall cap 760
+```
+
+⇒ **AND THE HEADLINE IS NOT GRAVITY.** The row calls the gap "floatier", which
+is the smallest part of it. Against the body every human-driven character in the
+game rides:
+
+```text
+                DEFAULT_TUNING (player)   BASELINE (wandering enemy)
+gravity                        2250                  1450   0.64x
+max_fall_speed                 1900                   760   0.40x
+run_accel                      5200                   650   0.125x   <- the one
+jump_speed                      630                   520
+double_jump_speed               520                   430
+```
+
+A grid fighter builds ground speed at an EIGHTH of the player's rate and caps its
+fall at forty percent of the player's. ⚠ the row's "gravity 2500" is also wrong —
+`GRAVITY` is 2250.
+
+⭐ **THE MECHANISM, stated so nobody re-derives it**: `MatchRules::body_over`
+composes `SMASH_FIGHTER_BODY.over(authored.unwrap_or(built))`, and `built` is the
+seed's `ActorTuning.movement` — `BodyMovementTuning::BASELINE`. So the stage's six
+numbers land correctly on top and disturb nothing else, exactly as `MatchBody`
+promises. ⛔ **the base is what nobody chose, and the mode may not fix it**:
+`MatchBody`'s own doc refuses a mode-owned gravity in advance (*"adding a field
+here is declaring that a MODE owns that number for every fighter alive"*).
+
+⚠ **`sanic` is on the list for a DIFFERENT REASON and authoring him a tuning
+would not move him** — a `SurfaceMomentum` body has no `AxisManeuverState` and
+reads none of these numbers. Taking him off is the engine gap this row already
+records, not an authoring job.
+
+▢▢ **AND THE REMAINING SIXTEEN SPLIT INTO TWO POPULATIONS I COULD NOT SEPARATE
+CHEAPLY — read this before pricing the authoring.** A catalog row's
+`axis_tuning` is the character's feel EVERYWHERE, not just on the stage, so
+authoring one for a fighter that also has a home self changes that character in
+the adventure game too. That is the same second-tuning-for-one-character problem
+the Mary-O air-jump item above is blocked on (the deferred `SmashFighterFacet`).
+A fighter that exists ONLY on the grid has no such conflict and can be authored
+today.
+
+⛔ **do not guess the partition from a grep, and that is measured too.** Neither
+`.ldtk` files nor the content assets name characters by catalog id — `npc_alice`,
+`goblin` and `player_robot_v3` all read ZERO `.ldtk` mentions, and the protagonist
+lineage reads zero content mentions outside the catalog. Placement is reached
+through archetypes and Rust spawners, so an absence-grep on the id says nothing.
+⇒ the honest instrument is the SPAWNER side: ask which ids the room/archetype
+construction can reach, not which files spell them.
+
 ▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
 not the burst button.** In the genre a dodge is shield + direction. Recorded,
 not done — it belongs with item 2/3 below.

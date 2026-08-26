@@ -1408,6 +1408,154 @@ fn the_grid_fighters_that_state_their_own_moves_only_grow() {
     );
 }
 
+/// WHICH BODY DOES A GRID FIGHTER ACTUALLY MOVE ON? Measured, because the
+/// planning ledger's answer ("thirteen bodies are floatier than the
+/// fourteenth") predates half the grid and understates the difference.
+///
+/// ⭐⭐ A SEAT ALWAYS GETS A BODY, AND THE QUESTION IS WHAT IT IS COMPOSED OVER.
+/// `MatchRules::body_over` reads `SMASH_FIGHTER_BODY.over(authored.unwrap_or(built))`,
+/// and `built` is the seed's `ActorTuning.movement` — `BodyMovementTuning::BASELINE`,
+/// the WANDERING-ENEMY body — for every fighter whose character authored no feel
+/// of its own. The stage's six numbers land correctly on top of it and disturb
+/// nothing else, exactly as `MatchBody` promises; what nobody chose is the base.
+///
+/// ⛔ THIS IS A RATCHET AND IT MAY ONLY SHRINK. The fix is per-character
+/// (`MatchBody`'s own doc refuses a mode-owned gravity in advance), so this list
+/// empties one authored fighter at a time and must never grow.
+#[test]
+fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() {
+    // The wandering-enemy body (`BodyMovementTuning::BASELINE`) against the one
+    // every player-driven body in the game rides (`DEFAULT_TUNING`). Spelled out
+    // rather than imported so the failure message carries the contrast: the
+    // headline is not gravity, it is that a fighter builds speed at an EIGHTH of
+    // the player's rate and caps its fall at forty percent of the player's.
+    const ENEMY_GRAVITY: f32 = 1450.0;
+    const ENEMY_RUN_ACCEL: f32 = 650.0;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+
+    let (authored, silent): (Vec<String>, Vec<String>) = {
+        let registry = app
+            .world()
+            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+        );
+        let roster = app
+            .world()
+            .resource::<ambition_demo_smash::select::SmashRoster>();
+        roster.ids().map(str::to_string).partition(|id| {
+            registry
+                .get(id)
+                .is_some_and(|character| character.movement_tuning.is_some())
+        })
+    };
+    assert!(
+        !authored.is_empty(),
+        "no fighter on the grid authors a movement feel at all, so this census \
+         is measuring an empty registry rather than the content: {silent:?}"
+    );
+
+    // AND THE CENSUS IS NOT THE PROOF — it names the population, and a seated
+    // body is what says the population actually moves that way. Forcing the grid
+    // is the same instrument `the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored`
+    // uses.
+    let subject = silent
+        .first()
+        .cloned()
+        .expect("the ratchet below is vacuous once every fighter authors a feel");
+    {
+        let registry = app
+            .world()
+            .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+        );
+        assert!(
+            registry.get(&subject).is_some() && registry.get("goblin").is_some(),
+            "`{subject}` or the opponent is not registered in the shipped host, \
+             so this cannot force a seat"
+        );
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
+            subject.clone(),
+            "goblin".to_string(),
+        ]));
+    decide_a_solo_match(&mut app);
+    settle(&mut app);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let seated: Vec<(usize, f32, f32, f32)> = {
+        let world = app.world_mut();
+        let mut query = world.query::<(
+            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            &ambition_platformer2d::engine_core::AuthoredMovementTuning,
+        )>();
+        let mut rows: Vec<(usize, f32, f32, f32)> = query
+            .iter(world)
+            .map(|(seat, tuning)| {
+                (
+                    seat.0,
+                    tuning.0.gravity,
+                    tuning.0.run_accel,
+                    tuning.0.max_fall_speed,
+                )
+            })
+            .collect();
+        rows.sort_by_key(|(seat, ..)| *seat);
+        rows
+    };
+    assert_eq!(
+        seated.len(),
+        2,
+        "the stage seated {} bodies carrying a movement feel, so nothing below \
+         measures a forced seat: {seated:?}",
+        seated.len()
+    );
+    let (_, gravity, run_accel, max_fall_speed) = seated[0];
+    assert_eq!(
+        (gravity, run_accel),
+        (ENEMY_GRAVITY, ENEMY_RUN_ACCEL),
+        "`{subject}` authors no movement feel and is seated on gravity \
+         {gravity} / run accel {run_accel} / fall cap {max_fall_speed}. This \
+         assertion is the CURRENT state, not the wanted one: the wandering-enemy \
+         baseline is 1450/650/760 and the player body every human drives is \
+         2250/5200/1900. When this fighter authors a body of its own, take it \
+         off the ratchet below and pick a different subject"
+    );
+
+    // THE RATCHET. Every fighter here is on the wandering-enemy body.
+    // MEASURED 2026-08-26, not chosen: 17 of 19, with only George Booul and
+    // Mary-O authoring a feel of their own.
+    //
+    // ⚠ `sanic` is on this list for a DIFFERENT REASON than the other sixteen
+    // and authoring him a `MovementTuning` would not move him: he is a
+    // `SurfaceMomentum` body, so he has no `AxisManeuverState` and reads none of
+    // these numbers. Taking him off costs the other motion model a seat for the
+    // state, which is the engine gap the ledger records — not an authoring job.
+    const ON_THE_ENEMYS_BODY: usize = 17;
+    assert_eq!(
+        silent.len(),
+        ON_THE_ENEMYS_BODY,
+        "{} of {} grid fighters author no movement feel and are therefore \
+         seated on the wandering enemy's body: {silent:?}. The {} that do: \
+         {authored:?}. ⛔ This number may only FALL — a fighter authors its \
+         body beside the moveset it already authors; the stage may not own \
+         gravity (see `MatchBody`'s own doc)",
+        silent.len(),
+        silent.len() + authored.len(),
+        authored.len(),
+    );
+}
+
 /// `SmashRoster::assemble` FILTERS to what the catalog carries, and that is
 /// correct behaviour — a host that composes only some providers shows only the
 /// fighters it has, which is what lets the bare smash app run at all. It also

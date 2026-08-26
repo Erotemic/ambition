@@ -1,5 +1,31 @@
 # For review: keep, rebase, or drop `respawn-interval-holding`?
 
+> ## ✔ ANSWERED 2026-08-25 — **verdict 3: re-do on current main**
+>
+> - **D194 is CLOSED** by `3a2100d86`. The evidence is stronger than "fixed one
+>   grab bug": it measured the exact D194 matchup in the full app and went from
+>   40 captures / 2028 capture-ticks (28%) / 0 pummels / 0 throws to
+>   2 / 74 (1%) / 2 / 2, with the duel actually ending. The mechanism was
+>   same-tick mutual capture making both bodies captor **and** captive, which put
+>   the real capture policy out of reach. The old hold precondition is satisfied.
+> - **D192 is still needed.** `respawn_delay_ticks` is absent from main and
+>   `game/ambition_demo_smash/src/lib.rs` still places the body on the same tick.
+>   `KnockoutsView`'s `LastSeenBodies` cache exists *because* of that.
+> - **Do not merge or rebase the branch.** It was built on rollback schema 73;
+>   main is 104. A conflict-resolved rebase means answering "how do I reproduce
+>   what schema-73 code did" hunk by hunk. The right question is "what is the
+>   smallest correct respawn-interval representation in schema 104".
+> - **All three branches are pushed and frozen as reference.** Salvage behaviour,
+>   tests, measurements and the KO-attribution lesson; do not port schema-73
+>   registrations or old staging shapes. Delete them once the replacement lands.
+> - **Re-evaluate, do not port, the knockout-velocity message change.** If KO
+>   position/velocity belongs anywhere it is `BodyKnockedOut` — where the event
+>   occurs — not `FighterStockSpent`, a later rules consequence.
+> - **The acceptance guard** is the test the hold could never run: the repaired
+>   D194 mirror *with* a 60-tick interval enabled. Structural, not pinned to 74
+>   ticks — no body both captor and captive, pummels and throws occur, captures
+>   stay in the repaired regime.
+
 **The judgement asked for:** three branches hold D192's respawn-interval mechanism
 and its follow-on work. They have not been merged for **two days and 271 commits**.
 Decide whether they are still worth carrying, and if so whether the merge happens

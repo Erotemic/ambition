@@ -1884,6 +1884,10 @@ struct StartingMove<'a, 'cw, 'cs> {
     shield: Option<bevy::prelude::Mut<'a, ae::BodyShieldState>>,
     oos_policy: Option<ae::OutOfShield>,
     jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
+    /// The B-REVERSE WINDOW this accepted move opens, and the gesture history it
+    /// opens on. `None` when the move is not a special, or the match declares no
+    /// special turn — see `AttackGestureState::special_turn_window`.
+    gesture_window: Option<(&'a mut AttackGestureState, f32)>,
     /// The body's weapon and the recharge its ranged action authors — spent
     /// here when the accepted move is one that fires. `None` for a body with no
     /// melee cluster or no ranged action, which is every move that fires
@@ -1911,6 +1915,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         oos_policy,
         jump,
         weapon,
+        gesture_window,
     } = m;
     // Asked before `spec` is handed to the playback below.
     let fires_ranged = move_fires_ranged(&spec);
@@ -1945,6 +1950,11 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     // ⛔ `max`, NOT ASSIGN. A shorter weapon must never shorten a longer
     // recharge that is already running (a worn modifier, a future rule) — the
     // only thing a fire may do to this clock is push it out.
+    // ⭐ THE B-REVERSE WINDOW OPENS WHERE THE MOVE IS ACCEPTED, never where the
+    // press is resolved: a press that starts nothing turns nobody.
+    if let Some((gesture, window)) = gesture_window {
+        gesture.special_turn_window = window;
+    }
     if let Some((melee, refire_s)) = weapon {
         if fires_ranged {
             melee.ranged_cooldown = melee.ranged_cooldown.max(refire_s.max(0.0));
@@ -2088,6 +2098,11 @@ pub fn trigger_moveset_moves(
         // body with no ranged action both fire nothing.
         Option<&mut BodyMelee>,
         Option<&ambition_characters::brain::action_set::ActionSet>,
+        // THE GESTURE HISTORY, so an accepted special can open its B-reverse
+        // window. Taken here rather than in the gesture system because opening
+        // it is an ACCEPTANCE, and this is the acceptance authority.
+        Option<&mut AttackGestureState>,
+        Option<&AttackGestureTuning>,
     )>,
     // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -2134,6 +2149,8 @@ pub fn trigger_moveset_moves(
         mut action_buffer,
         mut melee,
         action_set,
+        mut gesture_state,
+        gesture_tuning,
     ) in &mut bodies
     {
         // The weapon this body would spend if the move it starts fires one.
@@ -2266,7 +2283,7 @@ pub fn trigger_moveset_moves(
         // actually accepted. See the special arm below for why it is not applied
         // where it is decided.
         let mut special_turn = false;
-        let mut special_turn_reverses_drift = false;
+
         // ⭐⭐ THE PIVOT'S OTHER HALF. `resolve_attack_gestures` already resolves
         // the attack DIRECTION against `-kin.facing` while the body is turning —
         // that is what makes a pivot grab need no move of its own. The body
@@ -2274,6 +2291,9 @@ pub fn trigger_moveset_moves(
         // playback, which is the value every hit volume is mirrored by and every
         // `start_impulse` multiplied by. So the correct move came out pointing
         // backwards: the right name, the wrong geometry.
+        // Seconds of B-reverse window this press would open. `0.0` = none —
+        // not a special, or a match that declares no special turn.
+        let mut special_turn_window = 0.0f32;
         let mut pivot_turn = false;
         // The direction the resolved gesture asked for, carried onto the
         // accepted playback. `Forward` for a move no directional gesture
@@ -2376,6 +2396,20 @@ pub fn trigger_moveset_moves(
             // and a press that starts no move has spent nothing.
             let pressed_back = matches!(intent.direction, AttackDir::Back);
             special_turn = pressed_back && combat_rules.as_ref().is_some_and(|r| r.special_turn);
+            // ⭐⭐ AND THE OTHER TOGGLE OPENS ITS WINDOW. A flick DURING it flips
+            // the facing again and reverses the drift — so back-then-flick is a
+            // B-reverse, and back-before-AND-flick-after flips twice (which is
+            // no flip) and reverses the drift, which is a WAVEBOUNCE. The fourth
+            // outcome needs no recognition of its own.
+            //
+            // ⛔ THE RULESET'S OWN READING OF "one gesture", not a new knob:
+            // `flick_window_ticks` is already how long a flick and a press count
+            // as the same intent.
+            if combat_rules.as_ref().is_some_and(|r| r.special_turn) {
+                special_turn_window = gesture_tuning
+                    .map(|tuning| f32::from(tuning.flick_window_ticks) / 60.0)
+                    .unwrap_or(0.0);
+            }
             // ⛔⛔ NOT GATED ON THE TURN. The two halves are INDEPENDENT
             // outcomes, and gating this one behind `special_turn` made the
             // fourth combination undeclarable:
@@ -2394,10 +2428,6 @@ pub fn trigger_moveset_moves(
             // performs rather than a player choosing per press. Shipping the
             // knob is worth more than withholding it until the recogniser
             // exists; see the ledger row for the input-order half.
-            special_turn_reverses_drift = pressed_back
-                && combat_rules
-                    .as_ref()
-                    .is_some_and(|r| r.special_turn_reverses_drift);
             // THIS USE IS A SPECIAL, recorded for the same reason the smash arm
             // records its own: the resolution that chose the verb is what makes
             // a chargeable neutral-B chargeable, and a move reached through
@@ -2700,22 +2730,12 @@ pub fn trigger_moveset_moves(
                 let shed = rise.min(cancel_air_jump_rise).max(0.0);
                 kin.vel += shed * down;
             }
-            // ⛔ A SEPARATE `if`, NOT NESTED. The drift half is its own outcome —
-            // reversing momentum while the facing STAYS is a wavebounce, and
-            // nesting made that combination unreachable however it was declared.
-            {
-                if special_turn_reverses_drift {
-                    // ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel`
-                    // outright would flip a launch the fighter is riding, which
-                    // is the mistake three other maneuvers in this kernel have
-                    // already made. ⛔⛔ AND THE AXIS IS `body_frame.side`, NOT
-                    // WORLD X — under rotated gravity a fighter's left/right IS
-                    // world Y, and world X would reverse its RISE instead.
-                    let side = body_frame.side;
-                    let along = kin.vel.dot(side);
-                    kin.vel -= 2.0 * along * side;
-                }
-            }
+            // ⛔⛔ THE DRIFT HALF IS NOT HERE ANY MORE, and that is the
+            // recogniser. It used to reverse on EVERY back-special, which is the
+            // B-reverse final state applied unconditionally — so one gesture
+            // could not choose between turnaround-B, B-reverse and wavebounce.
+            // A flick during the window this move just opened is what buys it:
+            // see `apply_special_turn_flicks`.
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
                 let world_impulse = body_frame.to_world(local);
@@ -2749,6 +2769,13 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 weapon: melee.as_deref_mut().zip(refire_s),
+                gesture_window: (special_turn_window > 0.0)
+                    .then(|| {
+                        gesture_state
+                            .as_deref_mut()
+                            .map(|g| (g, special_turn_window))
+                    })
+                    .flatten(),
             });
             continue;
         }
@@ -2785,22 +2812,12 @@ pub fn trigger_moveset_moves(
                 let shed = rise.min(cancel_air_jump_rise).max(0.0);
                 kin.vel += shed * down;
             }
-            // ⛔ A SEPARATE `if`, NOT NESTED. The drift half is its own outcome —
-            // reversing momentum while the facing STAYS is a wavebounce, and
-            // nesting made that combination unreachable however it was declared.
-            {
-                if special_turn_reverses_drift {
-                    // ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel`
-                    // outright would flip a launch the fighter is riding, which
-                    // is the mistake three other maneuvers in this kernel have
-                    // already made. ⛔⛔ AND THE AXIS IS `body_frame.side`, NOT
-                    // WORLD X — under rotated gravity a fighter's left/right IS
-                    // world Y, and world X would reverse its RISE instead.
-                    let side = body_frame.side;
-                    let along = kin.vel.dot(side);
-                    kin.vel -= 2.0 * along * side;
-                }
-            }
+            // ⛔⛔ THE DRIFT HALF IS NOT HERE ANY MORE, and that is the
+            // recogniser. It used to reverse on EVERY back-special, which is the
+            // B-reverse final state applied unconditionally — so one gesture
+            // could not choose between turnaround-B, B-reverse and wavebounce.
+            // A flick during the window this move just opened is what buys it:
+            // see `apply_special_turn_flicks`.
             // Self-motion: a body-local impulse mirrored by facing and rotated
             // into the owner's gravity frame (a jab's lunge stays "forward"
             // under any gravity). Identity when the move authors none.
@@ -2837,7 +2854,85 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 weapon: melee.as_deref_mut().zip(refire_s),
+                gesture_window: (special_turn_window > 0.0)
+                    .then(|| {
+                        gesture_state
+                            .as_deref_mut()
+                            .map(|g| (g, special_turn_window))
+                    })
+                    .flatten(),
             });
+        }
+    }
+}
+
+/// THE OTHER HALF OF THE SPECIAL TURN: a lateral FLICK inside the window an
+/// accepted special opened.
+///
+/// ⭐⭐ TWO TOGGLES, NOT THREE TECHNIQUES. Each qualifying input flips the
+/// facing; a flick AFTER the press also reverses the lateral drift.
+///
+/// ```text
+/// back BEFORE the press       flip                   → turnaround-B
+/// back flick AFTER the press  flip + reverse drift   → B-reverse
+/// both                        flip twice (= no flip)
+///                             + reverse drift        → WAVEBOUNCE
+/// ```
+///
+/// ⛔ SO THE FOURTH OUTCOME FALLS OUT OF THE OTHER TWO. Before this, the drift
+/// reversal was applied unconditionally to every back-special — the B-reverse
+/// final state, with no way for one gesture to ask for a different one.
+///
+/// ⛔ THE DRIFT, NOT THE WHOLE VELOCITY: reversing `vel` outright would flip a
+/// launch the fighter is riding, which is the mistake three other maneuvers in
+/// this kernel have already made. ⛔⛔ AND THE AXIS IS the body's own SIDE — under
+/// rotated gravity a fighter's left/right IS world Y, and world X would reverse
+/// its RISE instead.
+///
+/// ⛔ ONCE. The window closes on the flick that spends it, so a stick waggled
+/// through a long special turns the fighter one time.
+pub fn apply_special_turn_flicks(
+    time: Option<bevy::prelude::Res<WorldTime>>,
+    combat_rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
+    mut bodies: bevy::prelude::Query<(
+        &mut AttackGestureState,
+        &ActorControl,
+        &AttackGestureTuning,
+        &mut ae::BodyKinematics,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
+) {
+    let dt = time.map(|time| time.sim_dt()).unwrap_or(0.0);
+    let reverses_drift = combat_rules
+        .as_ref()
+        .is_some_and(|rules| rules.special_turn_reverses_drift);
+    for (mut gesture, control, tuning, mut kin, frame) in &mut bodies {
+        // The stick's lateral sign, in the body's own local frame — the same
+        // reading the special's own direction was resolved from.
+        let lateral = control.0.locomotion.vec().x;
+        let sign = if lateral.abs() > tuning.directional_deadzone {
+            lateral.signum()
+        } else {
+            0.0
+        };
+        let flicked = sign != 0.0 && sign != gesture.prev_lateral_sign;
+        gesture.prev_lateral_sign = sign;
+        if gesture.special_turn_window <= 0.0 {
+            continue;
+        }
+        gesture.special_turn_window = (gesture.special_turn_window - dt).max(0.0);
+        if !flicked {
+            continue;
+        }
+        gesture.special_turn_window = 0.0;
+        kin.facing = -kin.facing;
+        if reverses_drift {
+            let body_frame = frame
+                .map(|frame| frame.basis())
+                .unwrap_or_else(|| ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
+            let side = body_frame.side;
+            let along = kin.vel.dot(side);
+            kin.vel -= 2.0 * along * side;
         }
     }
 }

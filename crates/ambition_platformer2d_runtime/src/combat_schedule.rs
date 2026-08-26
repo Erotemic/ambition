@@ -169,6 +169,11 @@ impl Plugin for CombatSchedulePlugin {
                 // boss `Special(key)` profiles reuse). After `advance` so this
                 // frame's events dispatch this frame — and before every consumer
                 // below, so what it dispatches is also CONSUMED this frame.
+                // ⭐ THE OTHER HALF OF THE SPECIAL TURN, after the trigger that
+                // opens its window — a flick on the same tick as the press is
+                // the press, not a B-reverse.
+                ambition_platformer2d_actor_monolith::combat::moveset::apply_special_turn_flicks
+                    .run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
                 // Writes no gameplay — the real strike is the move's own hitbox.
                 ambition_platformer2d_actor_monolith::combat::moveset::project_moveset_melee_to_body_melee

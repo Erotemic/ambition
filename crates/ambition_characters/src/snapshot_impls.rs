@@ -793,6 +793,8 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
                 );
             }
         }
+        put_f32(out, self.special_turn_window);
+        put_f32(out, self.prev_lateral_sign);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -835,6 +837,8 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
             active,
             buffered_press,
             buffered_special,
+            special_turn_window: r.f32()?,
+            prev_lateral_sign: r.f32()?,
         })
     }
 }
@@ -1121,6 +1125,10 @@ mod attack_gesture_wire_tests {
                 direction: AttackDir::Up,
                 posture: AttackPosture::Airborne,
             }),
+            // Mid-window and mid-flick: a restore that lost either would
+            // classify the replayed B-reverse differently.
+            special_turn_window: 0.08,
+            prev_lateral_sign: -1.0,
         };
         let bytes = ambition_platformer2d_core::snapshot::encode_state(&state);
         let back = ambition_platformer2d_core::snapshot::decode_state::<AttackGestureState>(&bytes)

@@ -6641,29 +6641,43 @@ fn a_move_thrown_out_of_a_turnaround_points_the_new_way() {
     );
 }
 
-/// B-REVERSE AND WAVEBOUNCE, AS TWO SETTINGS OF ONE SPECIAL-START RULE.
+/// ⭐⭐ THE THREE TECHNIQUES ARE TWO TOGGLES, AND THE INPUT PICKS THEM.
 ///
-/// ⛔ FOUR ARMS, and the pair that matters is 2-vs-3: the turn WITHOUT the
-/// drift reversal is B-reverse, the turn WITH it is a wavebounce, and a game
-/// that wants one must not be forced to take the other. Arm 1 keeps every world
-/// that declares neither exactly where it was.
+/// Each qualifying input flips the facing; a lateral FLICK inside the window an
+/// accepted special opens also reverses the lateral drift.
+///
+/// ```text
+/// back BEFORE the press       flip                   → turnaround-B
+/// back flick AFTER the press  flip + reverse drift   → B-reverse
+/// both                        flip twice (= no flip)
+///                             + reverse drift        → WAVEBOUNCE
+/// ```
+///
+/// ⛔⛔ THESE ARMS USED TO BE RULE COMBINATIONS, and that was the defect: the
+/// drift reversal was applied to EVERY back-special, which is the B-reverse
+/// final state with no way for one gesture to ask for a different one. The rules
+/// still gate — a game that declares no special turn gets none — but WHICH
+/// technique comes out is now the player's.
 #[test]
-fn a_back_pressed_special_turns_the_fighter_and_optionally_its_drift() {
-    let outcome = |turn: bool, reverse_drift: bool| -> (f32, f32) {
+fn the_special_turn_techniques_are_chosen_by_the_input_order() {
+    /// Press the special with `press_dir` (facing-relative), then optionally
+    /// flick the stick to `flick` on the next tick. Reports (facing, drift).
+    fn outcome(declared: bool, press_dir: f32, flick: Option<f32>) -> (f32, f32) {
         let moveset = MovesetContract {
-            verbs: std::collections::BTreeMap::from([(
-                "special_back".to_string(),
-                "back_b".to_string(),
-            )]),
-            moves: vec![gesture_test_move("back_b")],
+            verbs: std::collections::BTreeMap::from([
+                ("special_back".to_string(), "back_b".to_string()),
+                ("special".to_string(), "neutral_b".to_string()),
+            ]),
+            moves: vec![gesture_test_move("back_b"), gesture_test_move("neutral_b")],
         };
         let (mut app, body) = playing_app(moveset);
+        app.add_systems(bevy::prelude::Update, apply_special_turn_flicks);
         app.insert_resource(crate::rules::ResolvedCombatTuning {
-            special_turn: turn,
-            special_turn_reverses_drift: reverse_drift,
+            special_turn: declared,
+            special_turn_reverses_drift: declared,
             ..Default::default()
         });
-        // Facing RIGHT and drifting RIGHT, pressing the special BACKWARD.
+        // Facing RIGHT and drifting RIGHT.
         {
             let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
             kin.facing = 1.0;
@@ -6671,84 +6685,50 @@ fn a_back_pressed_special_turns_the_fighter_and_optionally_its_drift() {
         }
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.special_pressed = true;
-        frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+        frame.attack_axis = ae::LocalAxes::new(press_dir, 0.0);
+        frame.locomotion = ae::LocalAxes::new(press_dir, 0.0);
         *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
         app.update();
+        if let Some(flick) = flick {
+            let mut after = ambition_characters::actor::control::ActorControlFrame::neutral();
+            after.locomotion = ae::LocalAxes::new(flick, 0.0);
+            *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(after);
+            app.update();
+        }
         let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
         (kin.facing, kin.vel.x)
-    };
+    }
 
-    // ARM 1 — DECLARED NEITHER: a special comes out the way you face and your
-    // drift is your own. Every world in this repo.
+    // UNDECLARED: a special comes out the way you face and your drift is your
+    // own, however the stick moves. Every world in this repo that says nothing.
     assert_eq!(
-        outcome(false, false),
+        outcome(false, -1.0, Some(1.0)),
         (1.0, 200.0),
         "a world declaring no special turn had its fighter turned anyway"
     );
 
-    // ARM 2 — B-REVERSE: the fighter turns, the drift does not.
+    // TURNAROUND-B: back before the press, nothing after.
     assert_eq!(
-        outcome(true, false),
+        outcome(true, -1.0, None),
         (-1.0, 200.0),
-        "the back special did not turn the fighter, or it moved drift it was not asked to"
+        "a back special did not turn the fighter, or it moved drift nobody asked \
+         it to — the drift half is a FLICK's to buy now"
     );
 
-    // ARM 3 — WAVEBOUNCE: the same turn takes the drift with it.
+    // B-REVERSE: press forward, flick back. Facing turns AND drift reverses.
     assert_eq!(
-        outcome(true, true),
+        outcome(true, 1.0, Some(-1.0)),
         (-1.0, -200.0),
-        "the stronger version did not reverse the drift"
+        "a flick inside the window bought neither the turn nor the drift"
     );
 
-    // ARM 4 — AND THE DRIFT KNOB ALONE IS THE FOURTH TECHNIQUE, not a no-op.
-    //
-    // ⛔ IT ASSERTED `(1.0, 200.0)` UNTIL 2026-08-25, on the reasoning that there
-    // was "no turn to strengthen" — which is exactly the assumption that made a
-    // WAVEBOUNCE undeclarable. Momentum reversing while the facing stays is a
-    // real technique in this genre, not a knob with nothing to act on. The four
-    // combinations are enumerated in
-    // `a_drift_reversal_without_a_facing_flip_is_declarable`.
+    // WAVEBOUNCE: back before AND a flick after — two flips is no flip, and the
+    // drift still reverses. The outcome no rule combination could reach.
     assert_eq!(
-        outcome(false, true),
+        outcome(true, -1.0, Some(1.0)),
         (1.0, -200.0),
-        "the drift knob alone stopped producing a wavebounce"
-    );
-
-    // ARM 5 — A FORWARD SPECIAL DOES NOT TURN YOU, and this arm is the reason
-    // the rule reads the DIRECTION at all: every arm above presses Back, so
-    // dropping the direction gate entirely would leave them all green. It is
-    // the press that means "the other way" which reverses you.
-    let forward = {
-        let moveset = MovesetContract {
-            verbs: std::collections::BTreeMap::from([(
-                "special_forward".to_string(),
-                "fwd_b".to_string(),
-            )]),
-            moves: vec![gesture_test_move("fwd_b")],
-        };
-        let (mut app, body) = playing_app(moveset);
-        app.insert_resource(crate::rules::ResolvedCombatTuning {
-            special_turn: true,
-            special_turn_reverses_drift: true,
-            ..Default::default()
-        });
-        {
-            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
-            kin.facing = 1.0;
-            kin.vel = ae::Vec2::new(200.0, 0.0);
-        }
-        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        frame.special_pressed = true;
-        frame.attack_axis = ae::LocalAxes::new(1.0, 0.0);
-        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
-        app.update();
-        let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
-        (kin.facing, kin.vel.x)
-    };
-    assert_eq!(
-        forward,
-        (1.0, 200.0),
-        "a FORWARD special turned the fighter around — the rule is not reading the direction"
+        "back-then-flick did not compose: a wavebounce reverses momentum and \
+         leaves the fighter facing the way it was"
     );
 }
 
@@ -6981,6 +6961,7 @@ fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
         moves: vec![gesture_test_move("back_b")],
     };
     let (mut app, body) = playing_app(moveset);
+    app.add_systems(bevy::prelude::Update, apply_special_turn_flicks);
     app.insert_resource(crate::rules::ResolvedCombatTuning {
         special_turn: true,
         special_turn_reverses_drift: true,
@@ -7005,7 +6986,15 @@ fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     frame.special_pressed = true;
     frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
+    frame.locomotion = ae::LocalAxes::new(-1.0, 0.0);
     *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
+    app.update();
+    // ⛔ AND THE FLICK IS WHAT BUYS THE DRIFT NOW. The press alone is a
+    // turnaround-B; this is the half that reaches for the velocity, which is
+    // the half whose AXIS this test is about.
+    let mut after = ambition_characters::actor::control::ActorControlFrame::neutral();
+    after.locomotion = ae::LocalAxes::new(1.0, 0.0);
+    *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(after);
     app.update();
 
     let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
@@ -7326,60 +7315,6 @@ fn a_back_special_that_starts_no_move_leaves_the_body_alone() {
          {:.1}, was 200)",
         kin.vel.x
     );
-}
-
-/// THE FOURTH TECHNIQUE: DRIFT REVERSES, FACING DOES NOT — a wavebounce.
-///
-/// ⛔⛔ IT WAS UNDECLARABLE. `special_turn_reverses_drift` was gated behind
-/// `special_turn`, so the only reachable outcomes were "nothing", "facing" and
-/// "facing and drift". The genre's wavebounce is the missing one, and a game
-/// that wants it should not have to take a facing flip it did not ask for.
-#[test]
-fn a_drift_reversal_without_a_facing_flip_is_declarable() {
-    let outcome = |turn: bool, reverse_drift: bool| -> (f32, f32) {
-        let moveset = MovesetContract {
-            verbs: std::collections::BTreeMap::from([(
-                "special_back".to_string(),
-                "back_b".to_string(),
-            )]),
-            moves: vec![gesture_test_move("back_b")],
-        };
-        let (mut app, body) = playing_app(moveset);
-        app.insert_resource(crate::rules::ResolvedCombatTuning {
-            special_turn: turn,
-            special_turn_reverses_drift: reverse_drift,
-            ..Default::default()
-        });
-        {
-            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
-            kin.facing = 1.0;
-            kin.vel = ae::Vec2::new(200.0, 0.0);
-        }
-        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        frame.special_pressed = true;
-        frame.attack_axis = ae::LocalAxes::new(-1.0, 0.0);
-        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
-        app.update();
-        let kin = app.world().get::<ae::BodyKinematics>(body).unwrap();
-        (kin.facing, kin.vel.x)
-    };
-
-    // THE WAVEBOUNCE: drift only.
-    assert_eq!(
-        outcome(false, true),
-        (1.0, -200.0),
-        "declaring the drift reversal WITHOUT the turn did not produce a \
-         wavebounce — the momentum half is still gated behind the facing half"
-    );
-    // ⛔ AND THE OTHER THREE STILL DO WHAT THEY DID, so this is a fourth outcome
-    // rather than a re-wiring of the existing ones.
-    assert_eq!(
-        outcome(false, false),
-        (1.0, 200.0),
-        "an ordinary special moved"
-    );
-    assert_eq!(outcome(true, false), (-1.0, 200.0), "turnaround-B changed");
-    assert_eq!(outcome(true, true), (-1.0, -200.0), "B-reverse changed");
 }
 
 /// A ROLL'S RECOVERY REFUSES MOVES; A SPOT DODGE'S DOES NOT EXIST.

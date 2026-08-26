@@ -166,7 +166,7 @@ pub struct RecentAttackFlick {
 
 /// Authoritative per-body gesture history. This is rollback state: restoring in
 /// the middle of a flick window must classify the replayed press identically.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct AttackGestureState {
     pub flick_armed: bool,
     pub recent_flick: Option<RecentAttackFlick>,
@@ -190,6 +190,33 @@ pub struct AttackGestureState {
     /// clock — see [`SpecialGestureIntent`] for why a timer alone was not
     /// enough.
     pub buffered_special: Option<SpecialGestureIntent>,
+    /// Seconds left in which a lateral FLICK still turns the special this body
+    /// just started — the B-reverse window.
+    ///
+    /// ⭐⭐ THE TECHNIQUES ARE TWO TOGGLES, NOT THREE NAMES. Each qualifying
+    /// input flips the facing, and a flick AFTER the press also reverses the
+    /// lateral drift:
+    ///
+    /// ```text
+    /// back BEFORE the press       flip                   → turnaround-B
+    /// back flick AFTER the press  flip + reverse drift   → B-reverse
+    /// both                        flip twice (= no flip)
+    ///                             + reverse drift        → WAVEBOUNCE
+    /// ```
+    ///
+    /// ⛔ SO THE FOURTH OUTCOME NEEDS NO RECOGNITION OF ITS OWN, which is why
+    /// this is one timer rather than a gesture vocabulary. The pre-press half is
+    /// `special_turn`, committed where the move starts; this is the other half,
+    /// and it must apply a few ticks INTO the move — which is what the genre
+    /// does and why it cannot be decided at move-start.
+    ///
+    /// ⛔ ARMED WHERE THE MOVE IS ACCEPTED, never where the press is resolved: a
+    /// press that starts nothing turns nobody.
+    pub special_turn_window: f32,
+    /// The lateral stick sign this body was holding last tick, for the flick
+    /// edge above. Same shape and the same reason as the movement kernel's
+    /// `prev_steer_dir`: a flick is an EDGE, and an edge needs a memory.
+    pub prev_lateral_sign: f32,
 }
 
 impl Default for AttackGestureState {
@@ -200,6 +227,8 @@ impl Default for AttackGestureState {
             active: None,
             buffered_press: None,
             buffered_special: None,
+            special_turn_window: 0.0,
+            prev_lateral_sign: 0.0,
         }
     }
 }

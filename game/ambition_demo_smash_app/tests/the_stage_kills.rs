@@ -555,8 +555,26 @@ fn the_camera_closes_no_faster_than_it_opened() {
     let mut previous: Option<ambition_platformer2d::engine_core::Vec2> = None;
     let mut widest_open = 0.0f32;
     let mut widest_close = 0.0f32;
+    // ⭐ THE PREMISE IS THE KO, NOT A WIDENING NUMBER. This used to require the
+    // frame to open by >25 units in one tick, and that number was measuring a
+    // CORPSE: a knocked-out body kept flying past the blast line at launch
+    // speed, dragging the outward edge with it. Now that the beat holds a
+    // waiting body still (D201/ADR 0033), the widest live launch in a 5,400
+    // tick match is 16.7 — and the rule below was never about how far a body
+    // flies. It is about the TELEPORT back, so the premise asks whether one
+    // happened.
+    let mut stock_spent = false;
     for tick in 0..5_400 {
         app.update();
+        {
+            let world = app.world_mut();
+            let mut spends = world.resource_mut::<
+                bevy::prelude::Messages<ambition_platformer2d::actor::FighterStockSpent>,
+            >();
+            if !spends.drain().collect::<Vec<_>>().is_empty() {
+                stock_spent = true;
+            }
+        }
         let view = {
             let world = app.world_mut();
             let observer = ambition_platformer2d::sim_view::the_only_view(world);
@@ -583,10 +601,15 @@ fn the_camera_closes_no_faster_than_it_opened() {
     }
 
     assert!(
-        widest_open > 25.0,
-        "the frame never widened by more than {widest_open:.1} units in a frame, \
-         so nobody was launched far enough to move the camera and the ratio \
-         below is about a match that never happened"
+        stock_spent,
+        "no fighter lost a stock in 5,400 ticks, so nobody was ever teleported \
+         back from the blast zone and the ratio below is about a match that \
+         never happened"
+    );
+    assert!(
+        widest_open > 0.0,
+        "the frame never widened at all, so there is no opening rate to compare \
+         the close against"
     );
     assert!(
         widest_close <= widest_open * 2.0,

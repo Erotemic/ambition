@@ -3457,11 +3457,14 @@ lib.
 today**, so the two stale fixtures were the only ones hiding there:
 
 ```text
-ambition_demo_smash --lib     112 passed
-ambition_demo_mary_o --lib    151 passed (1 ignored)
-ambition_demo_sanic --lib      77 passed
-ambition_demo_twintrack --lib  24 passed
-ambition_demo_pocket --lib      1 passed
+ambition_demo_smash --lib      112 passed
+ambition_demo_mary_o --lib     151 passed (1 ignored)
+ambition_demo_sanic --lib       77 passed
+ambition_demo_twintrack --lib   24 passed
+ambition_content --lib         237 passed
+ambition_menu_kaleidoscope     12 passed
+ambition_demo_pocket --lib       1 passed
+ambition_app_tools             no library target — nothing to run
 ```
 
 ⇒ **run these when you move a reader's authority.** They are the Rust half of the

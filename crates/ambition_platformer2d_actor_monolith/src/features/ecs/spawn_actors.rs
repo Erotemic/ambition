@@ -2204,23 +2204,23 @@ pub fn apply_summon_effects(
         }
         world.flush();
 
-        // ⭐ BOARD INSIDE THE SAME EXCLUSIVE COMMAND. This is the only moment
-        // the new mount and its summoner are both in hand: before the flush the
-        // mount does not exist, and after this closure returns the mount would
-        // have been simulated for a tick with an empty saddle — long enough for
-        // its own brain to move it out from under the rider.
+        // ⭐⭐ CONSTRUCTION RESERVES THE MOUNT; IT DOES NOT BOARD IT. This used
+        // to weld the rider here, inside the same exclusive command that built
+        // the body — the only moment both were in hand — and install the lease
+        // in the same breath. That was right while a summoned mount appeared on
+        // top of its summoner and wrong the moment it has to travel to them.
         //
-        // ⛔ THE CLASS CHECK IS STILL `mount::board`'s. A summon that named
-        // something unmountable, or a summoner that cannot pilot the class,
-        // simply spawns the body and nobody gets on — the summon is not an
-        // authority on who may ride what.
+        // ⛔ AND IT WAS NEVER THE ATOMIC TRANSACTION ITS COMMENT CLAIMED. A
+        // refused board left the freshly-built mount standing in the world with
+        // no `MountSlot`, which every cleanup path filters on, so nothing could
+        // see it — a GPT review named this and Jon hit it in play. Now the
+        // reservation is the whole of what construction owes: it either becomes
+        // a ride or becomes a `RideRefused`, and `board_reserved_mounts` owns
+        // both endings.
         //
-        // ⚠ the eventual home for this is the `ambition.mount` RELATION ADR 0020
-        // names as planned; the construction request already carries a
-        // `relations` list. Nothing registers a production relation kind yet
-        // (the registry's only users are toy fixtures), so this resolves the
-        // identity directly rather than standing up the relation road for one
-        // caller.
+        // ⚠ THE SUMMONER'S IDENTITY IS KNOWN BEFORE THE BODY EXISTS —
+        // `SimId::spawned` is what the request below derives — so the
+        // reservation can name its rider without a channel or a follow-up tick.
         for (rider, mount_id, ride) in board_after_commit {
             let mount = {
                 let mut q = world.query::<(
@@ -2233,22 +2233,13 @@ pub fn apply_summon_effects(
             };
             match mount {
                 Some(mount) => {
-                    if ambition_mount::board(world, rider, mount) {
-                        // ⭐ THE LEASE IS PART OF THE BOARD, not a separate write
-                        // by whoever asked for the summon. A refused pair must
-                        // leave NOTHING behind: a lease on a body that is not
-                        // riding is one `apply_dismount_requests` will never
-                        // collect, because it skips a rider with no link.
-                        world.entity_mut(rider).insert(ambition_mount::RideLease {
-                            remaining: ride.seconds,
+                    world
+                        .entity_mut(mount)
+                        .insert(ambition_mount::MountReservedFor {
+                            rider,
+                            lease_seconds: ride.seconds,
+                            board_within: ride.board_within,
                         });
-                    } else {
-                        bevy::log::warn!(
-                            target: "ambition_platformer2d::construction",
-                            "summon `{mount_id:?}` asked to be ridden and the pair was refused \
-                             — check the mount's class against the rider's `CanPilot`",
-                        );
-                    }
                 }
                 None => bevy::log::warn!(
                     target: "ambition_platformer2d::construction",

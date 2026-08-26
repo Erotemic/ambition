@@ -58,21 +58,6 @@ pub const SMASH_DUELIST_BRAIN: &str = "duelist";
 /// oldest rule in the genre and it is a rule about SAFETY, not about drama.
 pub const RESPAWN_HEIGHT_PX: f32 = 160.0;
 
-/// Which mount classes THIS STAGE licenses a seat for.
-///
-/// ⛔ ONE FIGHTER, BY ID, AND THAT IS THE POINT. A shark exists on this stage
-/// only because the admiral's up-B makes one; who is allowed to sit on one is
-/// this match's business, and the narrowest true answer is "the fighter whose
-/// move it is". The version that granted it to every seat was a match
-/// manufacturing a capability for a cast that has no way to use it.
-fn seat_mount_licence(character: &str) -> Vec<&'static str> {
-    if character == SMASH_SHARK_RIDER {
-        vec![ambition_platformer2d::characters::smash_ride::SHARK_CLASS]
-    } else {
-        Vec::new()
-    }
-}
-
 /// The one fighter on this grid whose up-B summons a mount.
 pub const SMASH_SHARK_RIDER: &str = "npc_pirate_admiral";
 
@@ -95,15 +80,10 @@ where
         .enumerate()
         .map(|(index, character)| {
             let character: ambition_platformer2d::entity_catalog::CharacterId = character.into();
-            // ⭐ THE ADMIRAL'S SEAT MAY RIDE A SHARK; nobody else's may, and his
-            // own character does not — his up-B is Smash-only (D207), and
-            // piloting is half of it. Stated per SEAT rather than by a
-            // route-wide sweep, so the capability arrives with the body instead
-            // of being discovered after construction by a schedule that does not
-            // replay under rollback.
-            let pilots = seat_mount_licence(character.as_str());
+            // ⛔ THE MOUNT LICENCE IS NOT GRANTED HERE ANY MORE. It is a rule
+            // of the MATCH, so `apply_smash_match_rules` states it for every
+            // road that builds one — see the comment there.
             MatchParticipant::new(character)
-                .piloting(pilots)
                 .driven_by(if index == 0 {
                     ControllerBinding::Human {
                         source: ambition_platformer2d::actor::LocalInputSource::FIRST_PAD,
@@ -143,6 +123,23 @@ where
 
 /// WHAT KIND OF MATCH THIS IS — the Smash ruleset, in one place.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
+    // ⛔⛔ THIS MATCH GRANTS NO PILOT LICENCE, AND THE HISTORY IS WORTH KEEPING.
+    // It briefly did, in two places and then in one: `smash_roster` granted the
+    // shark class per seat, `SmashSelect::roster_seeded` — the road a player
+    // actually travels from the character-select grid — assembled its
+    // participants from scratch and never did, and the admiral reached the match
+    // unable to board the shark its own up-B summons. Jon found it by playing.
+    //
+    // ⭐ THE REAL FIX WAS UPSTREAM OF BOTH ROADS. An admiral can ride a shark
+    // because it is an admiral — Jon: *"Yes the admiral could fly on a shark in
+    // ambition"* — so `npc_pirate_admiral` authors `pilotable_classes` like
+    // `npc_pirate_raider` already did, and `prepared_match` unions it into
+    // `CanPilot` on every road that builds a body. A match that manufactures a
+    // capability its cast already owns has two answers to one question.
+    //
+    // ⚠ AND WHICH SHARK is a different question, answered on the MOUNT: see
+    // `ambition_mount::MountReservedFor`, which is what stops the second admiral
+    // in a mirror match from boarding the first one's summon.
     roster.rules.opens_suspended = true;
     // THE OPENING CEREMONY: 3 — 2 — 1 — GO.
     //
@@ -771,6 +768,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::shark_ride::dissolve_the_ride_when_the_shark_dies,
                 crate::shark_ride::dismount_launched_riders,
+                crate::shark_ride::dismount_riders_who_left_play,
                 crate::shark_ride::bail_out_of_the_saddle,
             )
                 .chain()
@@ -781,6 +779,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             sim,
             (
                 crate::shark_ride::depart_when_riderless,
+                crate::shark_ride::send_away_a_shark_nobody_boarded,
                 crate::shark_ride::tick_departures,
             )
                 .chain()

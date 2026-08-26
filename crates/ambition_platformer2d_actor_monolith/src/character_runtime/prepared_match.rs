@@ -155,9 +155,6 @@ pub struct PreparedSeat {
     pub body_px: Vec2,
     pub faction: ambition_combat::components::ActorFaction,
     pub team: Option<ambition_combat::targeting::MatchTeam>,
-    /// Mount classes this SEAT may pilot, on top of its character's own. See
-    /// [`super::staging::MatchParticipant::pilots`].
-    pub pilots: Vec<String>,
     /// What will drive it, attached AFTER the body exists — never a fork in how
     /// the body is built.
     pub authority: ControlAuthority,
@@ -843,7 +840,6 @@ pub fn prepare_match(
             // else in the world.
             faction: ambition_combat::components::ActorFaction::Player,
             team: Some(team_for(index, participant.team.as_ref())),
-            pilots: participant.pilots.clone(),
             authority,
             match_kit: participant.action_set.clone(),
             identity_kit,
@@ -1418,30 +1414,20 @@ pub fn activate_the_prepared_match(
                 ambition_platformer2d_core::AbilityBase::new(abilities),
             ));
         }
-        // ⭐⭐ THE MOUNT ROLE THIS CHARACTER AUTHORED, on the road that seats it.
+        // WHICH MOUNT CLASSES THIS BODY MAY PILOT, and there is exactly one
+        // source: the character. A raider seated in a match keeps the shark its
+        // character authors, and so does an admiral.
         //
-        // ⛔⛔ THE SEATING ROAD USED TO DROP IT. `CharacterBodyBlueprint` carries
-        // `mount` and exists precisely so a construction fact does not go
-        // missing on one of the three roads — its own doc says *"a fact one road
-        // reads from a registry the others cannot reach is a fact that goes
-        // missing on two of them"* — and `new_character_in` swallowed it in a
-        // `..`. So a pirate who authors `pilotable_classes: ["shark"]` could
-        // board one when a room spawned him and could not when a match seated
-        // him, and the first version of the shark up-B answered that with a
-        // ruleset system granting shark-piloting to the whole cast from
-        // `Update`. That is a match manufacturing a character capability, from a
-        // schedule that does not replay under rollback.
+        // ⛔⛔ A SEAT HALF USED TO SIT BESIDE THIS and it was the wrong shape.
+        // The idea was that shark-riding was Smash-only, so the MATCH would hand
+        // it to one seat — but a match that manufactures a capability has to do
+        // it on every road that builds a roster, and the character-select screen
+        // was a road that did not. The admiral reached the match unable to board
+        // its own summon. Jon settled the premise: the admiral rides sharks in
+        // Ambition too, so the character says so and every road inherits it.
         //
-        // ⭐ PILOTING ONLY, not `Mountable`. A seated fighter is not a rideable
-        // body: the mount half of `CharacterMount` describes a thing that
-        // carries riders, and nothing seats a shark as a fighter. If something
-        // ever does, this is where that arm goes.
-        // ⭐ UNION: what the CHARACTER pilots and what this SEAT adds.
-        //
-        // The character half fixes a road that dropped a fact it already
-        // carried; the seat half is how a match-only capability reaches one
-        // fighter without reaching its other game. A raider seated in a match
-        // keeps the shark its character authors either way.
+        // ⚠ WHICH PARTICULAR MOUNT is a separate question and is NOT answered
+        // here — see `ambition_mount::MountReservedFor`.
         let mut classes: Vec<ambition_mount::MountClass> = seat
             .definition
             .mount
@@ -1449,7 +1435,6 @@ pub fn activate_the_prepared_match(
             .map(|mount| mount.pilotable_classes.clone())
             .unwrap_or_default()
             .into_iter()
-            .chain(seat.pilots.iter().cloned())
             .map(ambition_mount::MountClass)
             .collect();
         // Sorted and deduped so the component is a set rather than an

@@ -411,6 +411,11 @@ pub enum DismountReason {
     /// The rider was hit hard enough to be taken off. A rider that merely
     /// flinches stays aboard; this is the launch.
     RiderLaunched,
+    /// The rider left play entirely — a ring-out, a stock spent, a death the
+    /// ruleset is about to answer with a respawn. ⛔ NOT [`Self::RiderLaunched`]:
+    /// a launch is a hit the rider survives and this is not, and a rider can
+    /// reach this one without ever tumbling by simply steering out of bounds.
+    RiderLeftPlay,
     /// The mount is gone: killed, despawned, or otherwise no longer carrying
     /// anybody.
     MountLost,
@@ -450,6 +455,107 @@ pub struct DismountRequested {
 pub struct RideLease {
     /// Seconds of sim time left before the rider is put down.
     pub remaining: f32,
+}
+
+/// A mount HELD FOR ONE RIDER until they get on.
+///
+/// ⭐⭐ THIS IS WHAT SPLITS A SUMMON FROM ITS BOARD. The two used to be one
+/// exclusive command: construct the mount, flush, weld the rider, install the
+/// lease. That was defensible when the mount appeared on top of its summoner,
+/// and it is wrong the moment the mount has to TRAVEL to them — which is where
+/// this mechanic is going. Boarding on ARRIVAL is the general shape, and a mount
+/// that arrives instantly is just the degenerate case of it.
+///
+/// ⛔⛔ AND IT IS WHAT STOPS THE SECOND ADMIRAL STEALING THE FIRST ONE'S SHARK.
+/// Jon: *"in a mirror match, with two admirals, if one summons a shark, the
+/// other should not be able to ride it."* A class licence cannot express that —
+/// [`CanPilot`] says *"I can ride sharks"*, which is true of both admirals and
+/// SHOULD be, because the admiral can ride sharks in Ambition too. The
+/// distinction is not about the rider's capability at all; it is that THIS
+/// mount is spoken for. So it is recorded on the mount, where the fact lives.
+///
+/// ⚠ A RESERVATION IS NOT A LINK. The mount is unridden while it holds one:
+/// nothing is welded, no lease is running, and every system that filters on
+/// [`MountSlot`] or [`RidingOn`] correctly ignores it.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct MountReservedFor {
+    /// The only body that may board this mount.
+    pub rider: Entity,
+    /// How long the ride lasts once they do — see [`RideLease`]. Carried here
+    /// because the summon that asked for the ride is long gone by the time the
+    /// board happens, and a lease installed early would be a clock running on a
+    /// ride that has not started.
+    pub lease_seconds: f32,
+    /// How close the rider must be, in world units, before they get on.
+    ///
+    /// ⭐ A DISTANCE RATHER THAN A FLAG, so a mount summoned underfoot and a
+    /// mount that flies in from off-screen take the same road. The first simply
+    /// satisfies it on the tick it appears.
+    pub board_within: f32,
+}
+
+/// Board every reserved mount whose rider is in reach, and retire the
+/// reservation either way.
+///
+/// ⛔ IT DECIDES ONCE. A reservation that comes within reach is spent on that
+/// tick — boarded, or [`RideRefused`] and gone. It does not linger and retry,
+/// because a mount that kept trying could never FAIL to board, and "the rider
+/// was not in a state to get on when it arrived" is a real outcome a ruleset
+/// wants to be able to answer.
+pub fn board_reserved_mounts(
+    mut commands: bevy::prelude::Commands,
+    reserved: Query<(
+        Entity,
+        &MountReservedFor,
+        &ambition_platformer2d_core::BodyKinematics,
+    )>,
+    riders: Query<&ambition_platformer2d_core::BodyKinematics>,
+    mut refused: MessageWriter<RideRefused>,
+) {
+    // Sorted: two mounts arriving on one tick must be decided in a stable order,
+    // and `Query` iteration order is not guaranteed.
+    let mut arrivals: Vec<(Entity, MountReservedFor)> = reserved
+        .iter()
+        .filter_map(|(mount, reservation, kin)| {
+            let rider_kin = riders.get(reservation.rider).ok()?;
+            // A rider that no longer has a body has not arrived and never will.
+            // The reservation is retired below by the same road as a refusal.
+            (kin.pos.distance(rider_kin.pos) <= reservation.board_within)
+                .then_some((mount, *reservation))
+        })
+        .collect();
+    arrivals.sort_by_key(|(mount, _)| *mount);
+    for (mount, reservation) in arrivals {
+        commands.entity(mount).remove::<MountReservedFor>();
+        commands.queue(move |world: &mut bevy::prelude::World| {
+            if board(world, reservation.rider, mount) {
+                // ⭐ THE LEASE IS PART OF THE BOARD, never a separate write: a
+                // lease on a body that is not riding is one
+                // `apply_dismount_requests` will never collect, because it skips
+                // a rider with no link.
+                world.entity_mut(reservation.rider).insert(RideLease {
+                    remaining: reservation.lease_seconds,
+                });
+            } else {
+                world.write_message(RideRefused {
+                    rider: reservation.rider,
+                    mount,
+                });
+            }
+        });
+    }
+    // Retire a reservation whose rider is gone entirely, so the mount is not
+    // held forever for a body that no longer exists.
+    let mut orphaned: Vec<(Entity, Entity)> = reserved
+        .iter()
+        .filter(|(_, reservation, _)| riders.get(reservation.rider).is_err())
+        .map(|(mount, reservation, _)| (mount, reservation.rider))
+        .collect();
+    orphaned.sort();
+    for (mount, rider) in orphaned {
+        commands.entity(mount).remove::<MountReservedFor>();
+        refused.write(RideRefused { rider, mount });
+    }
 }
 
 /// Weld a rider into a mount's saddle — ADR 0020's board action.
@@ -500,7 +606,26 @@ pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> 
     {
         return false;
     }
-    world.entity_mut(rider).insert((RidingOn { mount }, Mounted));
+    // ⛔⛔ A MOUNT HELD FOR SOMEBODY ELSE REFUSES EVERYONE ELSE. Without this a
+    // class licence is the whole check, and in a mirror match both admirals hold
+    // one — so the second could walk onto the first one's summoned shark. The
+    // licence is right and stays: what is wrong is treating "I can ride sharks"
+    // as "I can ride THIS shark". See [`MountReservedFor`].
+    if world
+        .get::<MountReservedFor>(mount)
+        .is_some_and(|held| held.rider != rider)
+    {
+        return false;
+    }
+    // ⭐ AND THE BODY SAYS IT IS HELD. `PoseOwnedExternally` is the one fact a
+    // constrained body owes the domains that cannot see this one — the movement
+    // kernel must not integrate its locomotion and a move may forbid itself
+    // while it is set. See the marker's own note for why it lives in `_core`.
+    world.entity_mut(rider).insert((
+        RidingOn { mount },
+        Mounted,
+        ambition_platformer2d_core::PoseOwnedExternally,
+    ));
     world.entity_mut(mount).insert(MountSlot {
         rider: Some(rider),
     });
@@ -584,7 +709,12 @@ pub fn apply_dismount_requests(
         aabb.half_size = kin.size * 0.5;
         commands
             .entity(request.rider)
-            .remove::<(RidingOn, Mounted, RideLease)>();
+            .remove::<(
+                RidingOn,
+                Mounted,
+                RideLease,
+                ambition_platformer2d_core::PoseOwnedExternally,
+            )>();
         if let Ok(mut slot) = mounts.get_mut(mount) {
             // Only if it is still THIS rider's slot: a mount already re-crewed
             // must not be emptied by a stale request.
@@ -870,6 +1000,12 @@ impl bevy::ecs::entity::MapEntities for MountSlot {
     }
 }
 
+impl bevy::ecs::entity::MapEntities for MountReservedFor {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.rider = mapper.get_mapped(self.rider);
+    }
+}
+
 impl bevy::ecs::entity::MapEntities for RidingOn {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         self.mount = mapper.get_mapped(self.mount);
@@ -926,6 +1062,13 @@ where
     registrar.rollback_map_entities::<MountSlot>(OWNER, "map.mount_slot");
     registrar.rollback_component_clone::<Mountable>(OWNER, "mount.mountable");
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
+    // ⚠ OWNED HERE, NOT BY `_core`, and the split is deliberate: `_core` DEFINES
+    // the marker so both domains can name it, and whoever maintains its
+    // lifecycle registers it. Today the saddle is the only thing that sets it.
+    registrar.rollback_component_clone::<ambition_platformer2d_core::PoseOwnedExternally>(
+        OWNER,
+        "mount.pose_owned_externally",
+    );
     registrar.rollback_component_clone_entity_ref::<RidingOn>(OWNER, "mount.riding_on", |riding| {
         riding.mount
     });
@@ -953,8 +1096,48 @@ where
     // rollback-registered state (`RideLease` and `RidingOn`), so a resim re-emits
     // them on the tick it emitted them before. Losing the buffered copy is what
     // should happen to a message the simulation will say again.
+    // ⛔ AN ENTITY REFERENCE, so it needs the mapping pass as well as the clone —
+    // the same pair `RidingOn` gets, for the same reason: a resimulation rebuilds
+    // the world's entities and a raw id would point at whoever landed in that
+    // slot.
+    registrar.rollback_component_clone_entity_ref::<MountReservedFor>(
+        OWNER,
+        "mount.reserved_for",
+        |held| held.rider,
+    );
+    registrar.rollback_map_entities::<MountReservedFor>(OWNER, "map.mount_reserved_for");
     registrar.clear_message_on_rollback::<DismountRequested>(OWNER, "message.dismount_requested");
     registrar.clear_message_on_rollback::<RiderDismounted>(OWNER, "message.rider_dismounted");
+    // ⭐ AND THE REFUSAL FOR THE SAME REASON. It is derived from the summon that
+    // asked for it, so a resim that replays the summon replays the refusal.
+    registrar.clear_message_on_rollback::<RideRefused>(OWNER, "message.ride_refused");
+}
+
+/// A pairing that was ASKED FOR and REFUSED — the mount exists, and nobody is
+/// on it.
+///
+/// ⛔⛔ WITHOUT THIS A REFUSED BOARD LEAVES A BODY NOBODY OWNS. [`board`] returns
+/// `false` and the mount simply stands there: it never got a [`MountSlot`], so
+/// every system that cleans up after a ride — `depart_when_riderless` included —
+/// filters it straight out, and nothing else in the world has a reason to look
+/// at it. That is how an admiral with no `CanPilot` ended up standing next to an
+/// immortal shark.
+///
+/// ⭐ IT SAYS REFUSED, NOT DISMOUNTED, and the distinction is load-bearing.
+/// [`RiderDismounted`] means a ride ENDED; a consumer may reasonably assume the
+/// rider was aboard, was welded, and has state to unwind. Nothing here was ever
+/// true of this pair. Reusing that message would have saved a channel and lied.
+///
+/// ⭐ THE RULESET DECIDES WHAT A REFUSAL COSTS. This says only that it happened.
+/// A platform fighter sends the summoned mount away and charges the player for
+/// the attempt; a game where you whistle for a horse you have not tamed might
+/// leave it standing there, which is the same fact with a different answer.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RideRefused {
+    /// Who asked to get on.
+    pub rider: Entity,
+    /// What they were refused. Still alive, still in the world.
+    pub mount: Entity,
 }
 
 /// Where the rider sits, relative to the mount's centre, in WORLD units.

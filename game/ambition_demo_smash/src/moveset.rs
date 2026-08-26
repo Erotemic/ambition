@@ -33,6 +33,9 @@ pub(crate) fn grounded_only() -> MoveGates {
         spends_recovery: false,
         // Inert without `spends_recovery`; the pair is the statement.
         recovery_without_freefall: false,
+        // A posture says nothing about being HELD — that is the move's own
+        // statement, and only `call_the_shark` makes it today.
+        forbidden_while_held: false,
     }
 }
 
@@ -49,6 +52,9 @@ pub(crate) fn airborne_only() -> MoveGates {
         spends_recovery: false,
         // Inert without `spends_recovery`; the pair is the statement.
         recovery_without_freefall: false,
+        // A posture says nothing about being HELD — that is the move's own
+        // statement, and only `call_the_shark` makes it today.
+        forbidden_while_held: false,
     }
 }
 

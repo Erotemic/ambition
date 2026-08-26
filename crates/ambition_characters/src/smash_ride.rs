@@ -66,6 +66,12 @@ pub fn author_summon_ride(mut spec: MoveSpec, at_s: f32, params: SummonRideParam
     // that said only one of them would be a different mechanic wearing this
     // one's name.
     spec.gates.spends_recovery = true;
+    // ⛔⛔ REFUSED FROM THE SADDLE, AT ACCEPTANCE. Jon: *"No you cannot cast it
+    // from the saddle."* This used to be enforced downstream, where the summon
+    // effect was translated — so a mounted pirate who got flinched (which
+    // refunds the recovery) could press up-B, start the move, spend the charge,
+    // play the startup, and get nothing. See `MoveGates::forbidden_while_held`.
+    spec.gates.forbidden_while_held = true;
     spec.gates.recovery_without_freefall = true;
     spec
 }

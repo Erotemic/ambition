@@ -89,8 +89,11 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
             // default, which is "the body keeps steering".
             roots_steering: false,
             spends_recovery: false,
-        // Inert without `spends_recovery`; the pair is the statement.
-        recovery_without_freefall: false,
+            // Inert without `spends_recovery`; the pair is the statement.
+            recovery_without_freefall: false,
+            // No duelist move refuses to start from a saddle; none of them can
+            // reach one.
+            forbidden_while_held: false,
         };
         verbs.insert(verb.to_string(), id.to_string());
         moves.push(spec);

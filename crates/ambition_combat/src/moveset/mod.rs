@@ -2032,6 +2032,17 @@ fn afford_recovery(spec: &ambition_entity_catalog::MoveSpec, charges_left: Optio
     charges_left.is_none_or(|left| left > 0)
 }
 
+/// May this move start on a body whose pose somebody else owns?
+///
+/// ⭐ THE SIBLING OF [`afford_recovery`], and shaped like it on purpose:
+/// read-only, asked BEFORE any teardown, returning a plain bool. Both answer the
+/// same kind of question — *is this move allowed to begin* — and both must be
+/// asked in the same breath, because a move that passes one and fails the other
+/// after acceptance has already spent what it cost.
+fn permitted_while_held(spec: &ambition_entity_catalog::MoveSpec, held: bool) -> bool {
+    !(held && spec.gates.forbidden_while_held)
+}
+
 /// Does this move author a SHOT? A move whose timeline carries
 /// [`MoveEventKind::Ranged`] fires the owner's ranged action when it reaches
 /// that beat.
@@ -2153,8 +2164,19 @@ pub fn trigger_moveset_moves(
         // THE GESTURE HISTORY, so an accepted special can open its B-reverse
         // window. Taken here rather than in the gesture system because opening
         // it is an ACCEPTANCE, and this is the acceptance authority.
-        Option<&mut AttackGestureState>,
-        Option<&AttackGestureTuning>,
+        // ⚠ NESTED, AND ONLY BECAUSE OF ARITY. Bevy's `QueryData` tuple runs out
+        // at sixteen and this query reached it; the gesture pair travels with
+        // the held-fact purely so the outer tuple still fits. No meaning is
+        // implied by the grouping.
+        (
+            Option<&mut AttackGestureState>,
+            Option<&AttackGestureTuning>,
+            // IS SOMETHING ELSE HOLDING THIS BODY — a saddle, a lift, a grab.
+            // Read as a bare fact rather than by asking WHO, because the domains
+            // that hold a body are ones this crate does not depend on and should
+            // not. See `MoveGates::forbidden_while_held`.
+            bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+        ),
     )>,
     // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -2201,8 +2223,9 @@ pub fn trigger_moveset_moves(
         mut action_buffer,
         mut melee,
         action_set,
-        mut gesture_state,
-        gesture_tuning,
+        // ⚠ `body_is_held` is NOT `held` above, which is the item in this body's
+        // HAND. This one is whether the BODY is held.
+        (mut gesture_state, gesture_tuning, body_is_held),
     ) in &mut bodies
     {
         // The weapon this body would spend if the move it starts fires one.
@@ -2763,6 +2786,13 @@ pub fn trigger_moveset_moves(
             if !weapon_ready(&spec, melee.as_deref()) {
                 continue;
             }
+            // ⛔ THE CANCEL ROAD OWES THE SAME REFUSAL AS THE TRIGGER ROAD. A
+            // move forbidden while the body is held is forbidden however it was
+            // reached; a gate enforced on only one of two entry paths is a gate
+            // somebody will walk around without meaning to.
+            if !permitted_while_held(&spec, body_is_held) {
+                continue;
+            }
             let mut names: Vec<&str> = verb_names.to_vec();
             names.push(spec.id.as_str());
             if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {
@@ -2857,6 +2887,7 @@ pub fn trigger_moveset_moves(
         let charges_left = jumps.get(entity).ok().map(|jump| jump.recovery_charges);
         if let Some(spec) = spec
             .filter(|spec| afford_recovery(spec, charges_left))
+            .filter(|spec| permitted_while_held(spec, body_is_held))
             .filter(|spec| weapon_ready(spec, melee.as_deref()))
         {
             // ⭐⭐ THE ACCEPTED SPECIAL-TURN, and this is its ONE commit point on

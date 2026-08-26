@@ -52,6 +52,13 @@ pub struct Departing {
     pub velocity: ae::Vec2,
 }
 
+/// How close the shark must be before the admiral is aboard.
+///
+/// The shark is summoned at the admiral's own position, so this is satisfied
+/// immediately; it exists as a number rather than as "always" because the fly-in
+/// (D246) is the same mechanism with a longer approach.
+const SUMMON_BOARD_RADIUS: f32 = 96.0;
+
 /// How fast a dismissed shark leaves.
 const DEPART_SPEED: f32 = 1_400.0;
 
@@ -62,17 +69,20 @@ const DEPART_SECONDS: f32 = 2.0;
 
 /// Recognise the authored summon-and-ride and ask for the mount.
 ///
-/// ⛔ IT REFUSES WHILE ALREADY MOUNTED, explicitly rather than by relying on the
-/// recovery budget to be empty. Jon: *"No you cannot cast it from the saddle,
-/// but that is because you won't be able to land or ledge grab I think."* That
-/// reasoning is right today and is a coincidence of two other rules — a hit that
-/// flinches a rider now refunds the recovery, so a pirate jabbed in the saddle
-/// would have the charge back and nothing but this to stop a second shark
-/// appearing under the first.
+/// ⛔⛔ IT NO LONGER REFUSES A MOUNTED CASTER, BECAUSE IT IS TOO LATE HERE. It
+/// used to: `if riders.get(actor).is_ok() { continue }`, which read as the rule
+/// *"no recast from the saddle"* and was not one. By the time this runs the move
+/// has been accepted, the recovery charge spent and the startup played, so all
+/// the check achieved was that no shark appeared — an accept-then-veto, and a
+/// mounted pirate who got flinched (which refunds the recovery) could press up-B
+/// and lose the charge to nothing.
+///
+/// ⭐ THE RULE MOVED TO WHERE A MOVE IS ALLOWED TO BEGIN:
+/// `MoveGates::forbidden_while_held`, asked beside `afford_recovery`. Once
+/// `call_the_shark` starts, its authored summon is owed.
 pub fn translate_shark_summons(
     mut actions: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_platformer2d::vfx::EffectRequest>,
-    riders: Query<&RidingOn>,
     bodies: Query<&ae::BodyKinematics>,
 ) {
     for message in actions.read() {
@@ -90,9 +100,6 @@ pub fn translate_shark_summons(
                 continue;
             }
         };
-        if riders.get(message.actor).is_ok() {
-            continue;
-        }
         let Ok(kin) = bodies.get(message.actor) else {
             continue;
         };
@@ -125,6 +132,14 @@ pub fn translate_shark_summons(
                     // here would leave an orphan behind a refused board.
                     ridden_by_summoner: Some(ambition_platformer2d::vfx::SummonedRide {
                         seconds: params.seconds,
+                        // ⭐ GENEROUS TODAY BECAUSE THE SHARK APPEARS UNDERFOOT,
+                        // and it is the number D246 will shrink: once the shark
+                        // is called from off-screen, this is the radius at which
+                        // it has ARRIVED and the admiral either gets on or is
+                        // gimped. Wide enough here that a body which drifted a
+                        // few pixels in the tick between the summon and the
+                        // board still boards.
+                        board_within: SUMMON_BOARD_RADIUS,
                     }),
                 },
             ),
@@ -201,6 +216,83 @@ pub fn depart_when_riderless(
 ) {
     for event in left.read() {
         let Ok(kin) = departs.get(event.mount) else {
+            continue;
+        };
+        commands.entity(event.mount).insert(Departing {
+            remaining: DEPART_SECONDS,
+            velocity: departure_heading(kin.pos) * DEPART_SPEED,
+        });
+    }
+}
+
+/// A RIDER THAT LEAVES PLAY LEAVES THE SADDLE.
+///
+/// ⛔⛔ WITHOUT THIS, A STOCK LOST IN THE SADDLE OUTLIVES THE STOCK. Jon asked
+/// for riding out of bounds to be possible — *"Yes you can ride out of bounds
+/// and kill yourself"* — and that is the exact path nothing else covers:
+/// `dismount_launched_riders` fires on `BodyMotionFacts::tumbling`, and a pirate
+/// who STEERS into the blast zone is not tumbling, they are flying. The stock is
+/// spent, the body goes `OutOfPlay` and waits out its `DeathInterlude`, and
+/// `RidingOn` is still on it the whole time — so the corpse rides along, and
+/// when the respawn places it, `sync_riders_to_mounts` snaps it straight back to
+/// the shark. Found by a GPT review of this branch, and it is the more serious
+/// of the two lifecycle holes because it costs a stock and then hands the ride
+/// back.
+///
+/// ⭐ LEASED RIDES ONLY, AND THAT IS THE SAME LINE `dissolve_the_ride_when_the_shark_dies`
+/// DRAWS. ADR 0020 keeps the link across a death ON PURPOSE — *"keeping the link
+/// record lets the same-room reset path re-mount the rider once the mount is
+/// alive again"* — which is right for an authored pair whose shark is still
+/// standing there when you respawn beside it. A summoned, leased ride is
+/// disposable, so for it the same event means the opposite thing. The rule is
+/// not "a dead rider dismounts"; it is "a TRANSIENT ride does not survive its
+/// rider leaving play".
+pub fn dismount_riders_who_left_play(
+    riders: Query<
+        Entity,
+        (
+            With<RidingOn>,
+            With<RideLease>,
+            With<ambition_platformer2d::combat::death_rules::OutOfPlay>,
+        ),
+    >,
+    mut dismounts: MessageWriter<DismountRequested>,
+) {
+    // Self-limiting: the dismount takes `RidingOn` and `RideLease` off the body,
+    // so this cannot re-ask on the next tick of the same interlude.
+    let mut gone: Vec<Entity> = riders.iter().collect();
+    gone.sort();
+    for rider in gone {
+        dismounts.write(DismountRequested {
+            rider,
+            reason: DismountReason::RiderLeftPlay,
+        });
+    }
+}
+
+/// A shark NOBODY EVER GOT ON leaves too.
+///
+/// ⛔⛔ THIS IS THE ARM THAT WAS MISSING, AND JON FOUND IT BY PLAYING. Every
+/// other departure hangs off [`RiderDismounted`], which presupposes a ride that
+/// STARTED. When `mount::board` refuses the pair, the shark spawns and then
+/// exists forever: it never received a `MountSlot`, so `depart_when_riderless`
+/// — which filters on exactly that — cannot see it, and no other system in the
+/// world has a reason to look at a summoned body with an empty saddle.
+///
+/// ⭐ IT IS ALSO THE MECHANISM THE FLY-IN NEEDS (D246). Once the shark is called
+/// from off-screen and boards ON ARRIVAL, a rider who is not in a mountable
+/// state at that moment is refused BY DESIGN — Jon: *"the special ends, the
+/// shark flys off, and the player is gimped."* That is this system, reached
+/// deliberately instead of by accident.
+pub fn send_away_a_shark_nobody_boarded(
+    mut commands: Commands,
+    mut refused: MessageReader<ambition_platformer2d::mount::RideRefused>,
+    // ⛔ NOT `With<MountSlot>`. A refused mount never got one — that is the
+    // whole reason this system exists rather than another arm of the one below.
+    bodies: Query<&ae::BodyKinematics>,
+) {
+    for event in refused.read() {
+        let Ok(kin) = bodies.get(event.mount) else {
             continue;
         };
         commands.entity(event.mount).insert(Departing {

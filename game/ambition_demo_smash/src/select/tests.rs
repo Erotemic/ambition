@@ -626,3 +626,4 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }
+

@@ -864,6 +864,23 @@ pub struct MoveGates {
     /// statements this way and neither is a special case in input code.
     #[serde(default)]
     pub spends_recovery: bool,
+    /// This move REFUSES TO START while something else owns the body's pose —
+    /// a saddle, a lift, a grab.
+    ///
+    /// ⛔⛔ IT IS A START CONDITION, NOT A LATE VETO, AND THAT DISTINCTION IS THE
+    /// WHOLE REASON IT EXISTS. The pirate's shark up-B first enforced "no recast
+    /// from the saddle" downstream, where the summon effect was translated: by
+    /// then the move had been accepted, the recovery charge spent, and the
+    /// startup cues played, and all that happened was that no shark appeared. A
+    /// mounted pirate who got flinched — which refunds the recovery — could
+    /// press up-B and simply lose the charge to nothing.
+    ///
+    /// ⭐ ONCE A MOVE STARTS, ITS AUTHORED EVENTS ARE OWED. Anything that can
+    /// refuse the move has to say so before `start_move` spends what starting it
+    /// costs; a rule enforced after acceptance is not a rule, it is a silent
+    /// failure with a comment.
+    #[serde(default)]
+    pub forbidden_while_held: bool,
     /// This move spends a recovery use WITHOUT leaving its owner in freefall.
     ///
     /// Ignored unless [`Self::spends_recovery`] is set — the two are a pair, and

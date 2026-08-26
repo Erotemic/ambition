@@ -125,7 +125,15 @@ pub struct SummonSpec {
 /// clock like every other gameplay countdown.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SummonedRide {
+    /// How long the ride lasts once the summoner is aboard.
     pub seconds: f32,
+    /// How close the mount must be to its summoner before they get on.
+    ///
+    /// ⭐ A DISTANCE, NOT A FLAG, so "it appears underneath me" and "it flies in
+    /// from off-screen" are the same request with different numbers. A mount
+    /// summoned at the rider's own position satisfies this on the tick it
+    /// exists. See `ambition_mount::MountReservedFor`.
+    pub board_within: f32,
 }
 
 /// A composable non-projectile effect an actor *technique* emits.

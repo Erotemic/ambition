@@ -22,6 +22,11 @@ const GROUNDED: MoveGates = MoveGates {
     // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
     // without it.
     recovery_without_freefall: false,
+    // A posture says nothing about being HELD. Whether a move refuses to start
+    // from a saddle is that move's own statement -- `call_the_shark` makes it --
+    // and a stance default answering for every move would be this file deciding
+    // a question it cannot see.
+    forbidden_while_held: false,
     // ⭐ A GROUNDED ATTACK ROOTS ITS OWNER. Jon, W8 playtest: *"When I quickly
     // perform a Forward Smash, the fighter currently travels noticeably before
     // the Forward Smash takes over... I should not effectively dash first and
@@ -45,6 +50,11 @@ const AIRBORNE: MoveGates = MoveGates {
     // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
     // without it.
     recovery_without_freefall: false,
+    // A posture says nothing about being HELD. Whether a move refuses to start
+    // from a saddle is that move's own statement -- `call_the_shark` makes it --
+    // and a stance default answering for every move would be this file deciding
+    // a question it cannot see.
+    forbidden_while_held: false,
     // ⭐ AND AN AERIAL KEEPS ITS DRIFT, which is the other half of the same
     // rule: the genre trades ground control for air control, and a fighter that
     // could not steer a forward air would lose every edgeguard it has.
@@ -57,6 +67,11 @@ const EITHER: MoveGates = MoveGates {
     // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
     // without it.
     recovery_without_freefall: false,
+    // A posture says nothing about being HELD. Whether a move refuses to start
+    // from a saddle is that move's own statement -- `call_the_shark` makes it --
+    // and a stance default answering for every move would be this file deciding
+    // a question it cannot see.
+    forbidden_while_held: false,
     // A special answers from either stance, so it cannot state a stance rule.
     // What a special does to its owner's motion is the SPECIAL's own business
     // and is authored on its windows.
@@ -324,6 +339,10 @@ impl SmashRepertoire {
                 roots_steering,
                 spends_recovery: _,
                 recovery_without_freefall: _,
+                // THE MOVE'S OWN, NOT THE POSTURE'S -- same side of the line as
+                // the two above. `call_the_shark` sets it; a stance template
+                // overwriting it would delete the rule.
+                forbidden_while_held: _,
             } = gates;
             spec.gates.grounded = grounded;
             spec.gates.roots_steering = roots_steering;
@@ -363,9 +382,10 @@ mod tests {
                 grounded: Some(true),
                 roots_steering: false,
                 spends_recovery: false,
-    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
-    // without it.
-    recovery_without_freefall: false,
+                // Nothing to be exempt from — this pairs with `spends_recovery`
+                // and is inert without it.
+                recovery_without_freefall: false,
+                forbidden_while_held: false,
             },
             start_impulse: None,
             smash_charge_mult: 1.0,

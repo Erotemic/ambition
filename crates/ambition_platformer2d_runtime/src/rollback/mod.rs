@@ -56,6 +56,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_cutscene::register_rollback_state(registrar);
     ambition_projectiles::register_rollback_state(registrar);
     ambition_sim_view::register_rollback_state(registrar);
+    ambition_platformer2d_world::rooms::register_rollback_state(registrar);
     ambition_platformer2d_world::rooms::register_gate_portal_rollback_state(registrar);
 
     // Rollback participation. These anchors cover the canonical session root,

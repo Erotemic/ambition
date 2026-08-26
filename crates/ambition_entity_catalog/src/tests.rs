@@ -1603,3 +1603,78 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
          beside it was renamed — which unhooks every window that names one"
     );
 }
+
+/// ⛔⛔ A WINDBOX MAY NOT AUTHOR DAMAGE, AND THE TYPE USED TO LET IT.
+///
+/// `VolumeReaction::Windbox` promises "pushes its victim and does nothing else
+/// — no damage, no hitstun, no shield". The runtime honours the hitstun and the
+/// shield; `damage` was published exactly as an ordinary hit's is, so the
+/// contract lived in a doc comment and in every fixture's good manners.
+///
+/// ⭐ REJECTED RATHER THAN ZEROED, because throwing away a number somebody
+/// deliberately typed is how a content error turns into a mystery about why a
+/// move does nothing.
+///
+/// ⭐⭐ THE ZERO-DAMAGE ARM IS THE POINT OF THE SECOND HALF. A rule that
+/// refused every windbox would satisfy the first assertion perfectly while
+/// making the mechanic unauthorable, which is the shape a validation ships
+/// broken in.
+#[test]
+fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
+    let catalog = |damage: i32| {
+        let mut gust = bare_move("gust", None);
+        gust.duration_s = 0.5;
+        gust.windows = vec![MoveWindow {
+            start_s: 0.1,
+            end_s: 0.3,
+            tag: WindowTag::Active,
+            volumes: vec![HitVolume {
+                hit_sfx: None,
+                shape: VolumeShape::Circle {
+                    offset: (0.0, 0.0),
+                    radius: 12.0,
+                },
+                damage,
+                knockback: 40.0,
+                knockback_growth: None,
+                launch_dir: None,
+                on_hit: None,
+                vfx: None,
+                reaction: Some(VolumeReaction::Windbox(WindboxVolume { repeating: true })),
+            }],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        }];
+        EntityCatalogDoc {
+            schema_version: 1,
+            entities: vec![EntityDef {
+                id: "gusty".to_string(),
+                contracts: EntityContracts {
+                    moveset: Some(MovesetContract {
+                        verbs: BTreeMap::from([("special".to_string(), "gust".to_string())]),
+                        moves: vec![gust],
+                    }),
+                    ..Default::default()
+                },
+            }],
+        }
+    };
+
+    let errors = catalog(10).validate();
+    assert!(
+        errors
+            .iter()
+            .any(|e| matches!(e, CatalogError::WindboxWithDamage { damage: 10, .. })),
+        "a windbox authoring damage 10 was accepted; the contract says a gust \
+         does nothing but push, and nothing was enforcing it: {errors:?}"
+    );
+
+    assert!(
+        !catalog(0)
+            .validate()
+            .iter()
+            .any(|e| matches!(e, CatalogError::WindboxWithDamage { .. })),
+        "a windbox authoring NO damage was rejected, which makes the mechanic \
+         unauthorable rather than validated"
+    );
+}

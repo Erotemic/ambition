@@ -2113,6 +2113,27 @@ pub enum CatalogError {
         hold_at_s: f32,
         first_active_s: f32,
     },
+    /// A WINDBOX volume authors damage, which its own contract forbids.
+    ///
+    /// ⛔⛔ THE CONTRACT LIVED IN A COMMENT AND IN EVERY FIXTURE'S GOOD MANNERS.
+    /// `VolumeReaction::Windbox` says it *"pushes its victim and does nothing
+    /// else — no damage, no hitstun, no shield"*, the runtime honours the last
+    /// two, and `damage` was published normally: the type permitted
+    /// `damage: 10` beside a windbox and every existing fixture merely
+    /// remembered to write zero.
+    ///
+    /// ⭐ REJECTED, NOT SILENTLY ZEROED. Discarding a number somebody
+    /// deliberately typed is how a content error becomes a mystery about why a
+    /// move does nothing; saying which move and which volume is the whole value
+    /// of catching it here. And it is caught NOW because no shipped move
+    /// authors a windbox yet — the moment before content starts depending on
+    /// the ambiguity is the only cheap one.
+    WindboxWithDamage {
+        entity: String,
+        mv: String,
+        window: usize,
+        damage: i32,
+    },
     /// A non-Active window carries hit volumes (they would never fire).
     VolumesOnInactiveWindow {
         entity: String,
@@ -2193,6 +2214,20 @@ impl std::fmt::Display for CatalogError {
                     "{entity}/{mv}: the smash charge freezes at {hold_at_s}s but \
                      a strike goes live at {first_active_s}s — a held charge \
                      would stand inside it"
+                )
+            }
+            CatalogError::WindboxWithDamage {
+                entity,
+                mv,
+                window,
+                damage,
+            } => {
+                write!(
+                    f,
+                    "{entity}/{mv}: window[{window}] authors a WINDBOX with \
+                     damage {damage}. A windbox pushes its victim and does \
+                     nothing else — author `damage: 0`, or use an ordinary hit \
+                     volume if the contact is meant to hurt"
                 )
             }
             CatalogError::VolumesOnInactiveWindow { entity, mv, index } => {
@@ -2372,6 +2407,14 @@ impl EntityCatalogDoc {
                             }
                             VolumeShape::Circle { radius, .. } => radius <= 0.0,
                         };
+                        if v.damage != 0 && v.windbox().is_some() {
+                            errors.push(CatalogError::WindboxWithDamage {
+                                entity: entity.id.clone(),
+                                mv: mv.id.clone(),
+                                window: index,
+                                damage: v.damage,
+                            });
+                        }
                         if degenerate {
                             errors.push(CatalogError::DegenerateVolume {
                                 entity: entity.id.clone(),

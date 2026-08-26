@@ -29,7 +29,10 @@ fn field(identifier: &str, value: &str) -> LdtkFieldInstance {
 /// WITHOUT it, and a fixture whose default is the boring case makes the negative
 /// test a one-line edit.
 fn project_with_one_wall(gated_by: Option<&str>) -> LdtkProject {
-    let mut fields = vec![field("id", "alice_private_return_lock"), field("name", "wall")];
+    let mut fields = vec![
+        field("id", "alice_private_return_lock"),
+        field("name", "wall"),
+    ];
     if let Some(gated_by) = gated_by {
         fields.push(field("gated_by", gated_by));
     }
@@ -195,7 +198,11 @@ fn the_wall_stands_until_its_authored_condition_is_satisfied() {
         .data_mut()
         .set_flag(FLAG, true);
     app.update();
-    assert_eq!(standing(&app), 0, "the condition is satisfied; the wall opens");
+    assert_eq!(
+        standing(&app),
+        0,
+        "the condition is satisfied; the wall opens"
+    );
 }
 
 /// A REPLACED ROOM SET INVALIDATES THE CACHE.
@@ -234,5 +241,75 @@ fn swapping_the_room_set_alone_invalidates_the_cached_walls() {
         standing(&app),
         0,
         "the wall set must track the replaced room set"
+    );
+}
+
+/// A QUESTION THAT CANNOT BE PREPARED YET LEAVES THE WALL STANDING — AND IS
+/// RETRIED.
+///
+/// ⭐⭐ THE CACHE HOLDS A PREPARED QUESTION NOW, and preparation happens when the
+/// room is cached. That buys a wall a `PreparedCondition` instead of a freshly
+/// minted argument every frame — and it introduces an ORDER the old code could
+/// not have: a provider that registers AFTER the first room is cached would have
+/// left its walls holding `None` forever, which is a gate that never opens
+/// because of startup sequence rather than because of the world.
+///
+/// ⛔ BOTH ARMS, because one cannot show the rule: the wall must STAND while the
+/// question is unpreparable (the same safe direction an unanswerable question
+/// takes) and must OPEN once the provider arrives and the flag is set. A test
+/// that only checked the first would pass over a permanent `None`.
+#[test]
+fn a_wall_whose_question_cannot_be_prepared_yet_stands_and_is_retried() {
+    use ambition_platformer2d_shared_tangle::authored_logic::ConditionCatalog;
+
+    let mut app = App::new();
+    app.insert_resource(ActiveLdtkProject(project_with_one_wall(Some(FLAG))));
+    app.insert_resource(ambition_persistence::save::AmbitionGameSave::default());
+    app.insert_resource(FeatureEcsWorldOverlay::default());
+    // A catalog that exists and does NOT publish `world.flag_set`. The system
+    // returns early when there is no catalog at all, so an empty one is what puts
+    // the fixture in the state under test rather than past it.
+    app.init_resource::<ConditionCatalog>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        crate::rooms::RoomSet::from_parts(
+            "alice_relay",
+            vec![room_with_one_wall(Some(FLAG), "alice_relay")],
+            Vec::new(),
+        ),
+    );
+    app.add_systems(
+        Update,
+        (
+            |mut overlay: ResMut<FeatureEcsWorldOverlay>| overlay.gate_solids.clear(),
+            sync_authored_gated_lock_walls,
+        )
+            .chain(),
+    );
+
+    app.update();
+    assert_eq!(
+        standing(&app),
+        1,
+        "nobody can answer this wall's question yet, so it must stay up — a gate \
+         that opened because its provider had not registered would open in \
+         exactly the situations where the world is least well understood"
+    );
+
+    // The provider arrives, and the flag it answers about is set.
+    app.publish_condition(
+        crate::world_facts::flag_set_descriptor(),
+        crate::world_facts::flag_set,
+    );
+    app.world_mut()
+        .resource_mut::<ambition_persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_flag(FLAG, true);
+    app.update();
+    assert_eq!(
+        standing(&app),
+        0,
+        "the provider registered after the room was cached and the wall never \
+         retried its preparation, so it stands forever on a satisfied condition"
     );
 }

@@ -7733,9 +7733,29 @@ M2  ◐ the PREPARED CALL landed: PreparedCondition / PreparedCommand, private
 M5  ▢ diagnostics, untouched
 ```
 
-⇒ two follow-ups are named and are NOT this row's next action: `gated_lock_walls`
+⇒ ~~two follow-ups are named and are NOT this row's next action:~~ **BOTH DONE
+2026-08-26.** ~~`gated_lock_walls`
 still rebuilds its condition arguments every tick instead of holding a
-`PreparedCondition`, and ~~`ambition_conversation::dialog::authored_commands`
+`PreparedCondition`~~ ✔ **— and `ConditionCatalog::prepare`'s own doc names this
+caller as its reason for existing** (*"a caller that spells its own question in
+Rust (a lock wall asking `world.flag_set`)"*), so the road was built FOR it and
+never adopted. `ConditionCatalog::ask` was already there too. The cache now holds
+the wall AND its `PreparedCondition`, prepared when the room is cached.
+
+⛔⛔ **AND THE ADOPTION INTRODUCED AN ORDER THE OLD CODE COULD NOT HAVE.**
+Evaluating fresh every frame is immune to registration order; preparing ONCE is
+not. A provider registering after the first room is cached would have left its
+walls holding `None` forever — a gate that never opens because of startup
+SEQUENCE rather than because of the world. ⇒ an unpreparable question leaves the
+wall standing (the same safe direction an unanswerable one takes) and is
+RETRIED, and both arms are guarded:
+`a_wall_whose_question_cannot_be_prepared_yet_stands_and_is_retried` seats an
+empty catalog, asserts the wall stands, then publishes the provider and sets the
+flag and asserts it opens. Poisoned by dropping the retry — the second arm
+reddens. ⚠ **caching a validated thing buys speed and costs freshness; name what
+can arrive late before you cache.**
+
+and ~~`ambition_conversation::dialog::authored_commands`
 still owns a second text→`AuthoredArg` conversion that `prepared::prepare_args`
 now generalises~~.
 

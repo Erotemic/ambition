@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    AuthoredArg, ConditionCatalog, ConditionId,
+    ConditionCatalog, ConditionId, PreparedCondition,
 };
 
 /// The block-name prefix a gated wall contributes under.
@@ -55,11 +55,30 @@ pub fn authored_gated_lock_walls(
         .collect()
 }
 
+/// One cached wall and the question it asks.
+///
+/// ⭐⭐ THE QUESTION IS PREPARED ONCE, WITH THE WALL. `PreparedCondition` has no
+/// public constructor, so holding one is a structural claim that
+/// `world.flag_set` exists and takes exactly this argument — made when the room
+/// is cached rather than re-spelled and re-minted on every frame this wall is
+/// on screen.
+///
+/// ⛔ `None` MEANS THE QUESTION COULD NOT BE PREPARED, and it is retried. A
+/// provider can register after the first room is cached, so a permanent `None`
+/// would be a wall that stands forever because of startup ORDER. The retry costs
+/// one preparation per frame per unpreparable wall, which is the population that
+/// is supposed to be empty.
+#[derive(Clone, Debug)]
+struct CachedWall {
+    wall: GatedLockWall,
+    question: Option<PreparedCondition>,
+}
+
 /// Per-frame cache — see the module header on why its three inputs are three.
 #[derive(Resource, Default)]
 pub struct GatedLockWallCache {
     room: Option<String>,
-    walls: Vec<GatedLockWall>,
+    walls: Vec<CachedWall>,
 }
 
 /// Contribute a solid for every authored gated wall whose condition is not yet
@@ -106,9 +125,18 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
         let cache = world.get_resource::<GatedLockWallCache>();
         cache.is_none_or(|cache| cache.room.as_deref() != Some(active_room_id.as_str()))
     };
+    let flag_set = ConditionId::new("world", "flag_set");
     if rooms_changed || stale {
+        let catalog = world.resource::<ConditionCatalog>().clone();
+        let prepared: Vec<CachedWall> = walls
+            .into_iter()
+            .map(|wall| CachedWall {
+                question: prepare_question(&catalog, &flag_set, &wall),
+                wall,
+            })
+            .collect();
         let mut cache = world.get_resource_or_insert_with(GatedLockWallCache::default);
-        cache.walls = walls;
+        cache.walls = prepared;
         cache.room = Some(active_room_id.clone());
     }
 
@@ -118,7 +146,6 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
     // and pushing needs `&mut` on the overlay; a borrow that spanned both would
     // not compile, and cloning a handful of rows once a frame is not the cost
     // worth contorting the code to avoid.
-    let flag_set = ConditionId::new("world", "flag_set");
     let catalog = world.resource::<ConditionCatalog>().clone();
     let walls = world
         .get_resource::<GatedLockWallCache>()
@@ -126,15 +153,23 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
         .unwrap_or_default();
     let standing: Vec<&GatedLockWall> = walls
         .iter()
-        .filter(|wall| {
-            !catalog
-                .evaluate(
-                    world,
-                    &flag_set,
-                    &[AuthoredArg::Name(wall.gated_by.clone())],
-                )
-                .is_satisfied()
+        .filter(|cached| {
+            // ⛔ AN UNPREPARABLE QUESTION LEAVES THE WALL STANDING, the same
+            // direction an unanswerable one does, and for the same reason: a gate
+            // that opened because nobody could ask its question would open in
+            // exactly the situations where the world is least well understood.
+            // Retried here so a provider registering after the first room is
+            // cached is not a wall that stands forever.
+            let Some(question) = cached
+                .question
+                .clone()
+                .or_else(|| prepare_question(&catalog, &flag_set, &cached.wall))
+            else {
+                return true;
+            };
+            !catalog.ask(world, &question).is_satisfied()
         })
+        .map(|cached| &cached.wall)
         .collect();
     if standing.is_empty() {
         return;
@@ -153,6 +188,23 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
                 wall.size,
             ));
     }
+}
+
+/// Prepare one wall's `world.flag_set(<gated_by>)`, or `None` when the catalog
+/// cannot yet answer for it.
+///
+/// ⚠ SILENT ON FAILURE, because the caller's answer to `None` is already the safe
+/// one and a per-frame retry would make a warning here a per-frame warning. The
+/// visible symptom of a permanently unpreparable wall is a wall that never opens,
+/// which is the same symptom the unanswerable path has always had.
+fn prepare_question(
+    catalog: &ConditionCatalog,
+    flag_set: &ConditionId,
+    wall: &GatedLockWall,
+) -> Option<PreparedCondition> {
+    catalog
+        .prepare(flag_set.clone(), &[wall.gated_by.as_str()])
+        .ok()
 }
 
 #[cfg(test)]

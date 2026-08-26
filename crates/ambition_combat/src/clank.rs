@@ -170,7 +170,18 @@ pub fn arbitrate_attack_clanks(
             } else {
                 (*b_owner, *a_owner)
             };
-            if resolved.contains(&pair) || ended.contains(a_owner) || ended.contains(b_owner) {
+            // ⛔⛔ `resolved` IS THE DEDUP; `ended` IS NOT AN ELIGIBILITY GATE.
+            // Skipping a pair because either owner was already ended let an
+            // EARLIER pair's outcome decide whether a LATER pair was CONSIDERED
+            // at all — measured with three equal attacks on one tick: A/B
+            // resolves first by `SimId`, both end, A/C and B/C are skipped, and
+            // C survives BECAUSE OF ID ORDER. Deterministic, and not
+            // simultaneous.
+            //
+            // ⭐ `ended` is a COMMIT LEDGER, applied after the sweep, exactly as
+            // its own comment below says: a body that loses to two attackers on
+            // one tick is ended once. Reading it here made it a third thing.
+            if resolved.contains(&pair) {
                 continue;
             }
             if !opposed(*a_owner, *b_owner, &factions, &teams, rules) {
@@ -346,5 +357,127 @@ mod tests {
         // accident.
         assert_eq!(clank_verdict(10, 10, 0.0), None);
         assert_eq!(clank_verdict(4, 99, 0.0), None);
+    }
+
+    /// ⛔⛔ THREE EQUAL ATTACKS MEETING ON ONE TICK: ALL THREE TRADE.
+    ///
+    /// The sweep skipped a pair when either owner was already in `ended`, so an
+    /// EARLIER pair's outcome decided whether a LATER pair was CONSIDERED at
+    /// all. With A/B/C overlapping and equal: A/B resolves first by `SimId`,
+    /// both end, A/C and B/C are skipped — and **C survives because of `SimId`
+    /// order**. Deterministic, and not simultaneous.
+    ///
+    /// ⭐ `resolved` IS THE DEDUP; `ended` IS A COMMIT LEDGER, applied after the
+    /// sweep, exactly as its own comment says. Reading it as an eligibility gate
+    /// was the bug.
+    ///
+    /// ⛔ NO TEST EXERCISED `arbitrate_attack_clanks` AT ALL before this — the
+    /// only clank arm covered the pure `clank_verdict` — which is why a one-line
+    /// change to shipped arbitration was written and reverted unverified on
+    /// 2026-08-25 rather than shipped blind.
+    /// One equal swing, long enough to still be playing after the sweep.
+    fn a_swing(team: &str) -> ambition_entity_catalog::MoveSpec {
+        ambition_entity_catalog::MoveSpec {
+            display_name: None,
+            id: format!("swing_{team}"),
+            clip: ambition_entity_catalog::ClipBinding {
+                clip: "attack".to_string(),
+                fallbacks: vec![],
+            },
+            duration_s: 0.4,
+            windows: vec![],
+            events: vec![],
+            gates: Default::default(),
+            start_impulse: None,
+            smash_charge_mult: 1.0,
+            smash_charge: None,
+            charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+            repeat: None,
+            landing_lag_s: None,
+            autocancel_after_s: None,
+            sprite_spin_hz: None,
+        }
+    }
+
+    #[test]
+    fn three_attacks_meeting_at_once_all_trade() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<AttacksClanked>();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            clank_damage_window: 9.0,
+            ..Default::default()
+        });
+        app.add_systems(Update, arbitrate_attack_clanks);
+
+        // Three fighters standing on one spot, each mid-move, each on a
+        // different side so every pair is opposed.
+        let mut fighter = |team: &str| -> Entity {
+            app.world_mut()
+                .spawn((
+                    ae::BodyKinematics {
+                        pos: ae::Vec2::ZERO,
+                        vel: ae::Vec2::ZERO,
+                        size: ae::Vec2::new(16.0, 32.0),
+                        facing: 1.0,
+                    },
+                    ae::BodyGroundState {
+                        on_ground: true,
+                        ..Default::default()
+                    },
+                    crate::targeting::MatchTeam::new(team.to_string()),
+                    crate::moveset::MovePlayback::new(a_swing(team), 1.0),
+                ))
+                .id()
+        };
+        let a = fighter("a");
+        let b = fighter("b");
+        let c = fighter("c");
+
+        // One equal strike volume each, all overlapping at the origin. The ids
+        // are stated so the sweep's order is the fixture's, not the allocator's.
+        for (owner, id) in [(a, "vol_a"), (b, "vol_b"), (c, "vol_c")] {
+            app.world_mut().spawn((
+                Hitbox {
+                    strike_sfx: None,
+                    owner,
+                    source: crate::strike::HitSide::Enemy,
+                    anchor: crate::strike::HitboxAnchor::FollowOwner {
+                        local_offset: ae::Vec2::ZERO,
+                    },
+                    half_extent: ae::Vec2::new(20.0, 20.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: 10,
+                    knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
+                    launch_dir: None,
+                    frame_down: ae::Vec2::new(0.0, 1.0),
+                    autolink: None,
+                    windbox: None,
+                },
+                crate::moveset::StrikeVolume { owner, window: 0 },
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+            ));
+        }
+
+        app.update();
+
+        let still_swinging: Vec<Entity> = [a, b, c]
+            .into_iter()
+            .filter(|e| {
+                app.world()
+                    .get::<crate::moveset::MovePlayback>(*e)
+                    .is_some()
+            })
+            .collect();
+        assert!(
+            still_swinging.is_empty(),
+            "{} of three equal attacks survived a simultaneous clank — an \
+             earlier pair's outcome is deciding whether a later pair is \
+             CONSIDERED, so the last id standing wins by allocator-independent \
+             luck rather than by the contest",
+            still_swinging.len()
+        );
     }
 }

@@ -11786,12 +11786,49 @@ monolith              1194 / 1202 (causal)          ⛔ same; ✔ fixed
 ambition_demo_smash    --lib red for days           the gate runs the APP target
 ```
 
-⚠ **AND ONE MORE ROAD THE RUST GATE CANNOT SEE AT ALL: the sprite renderer's
-PYTHON suite**, in the `tools/ambition_sprite2d_renderer` submodule. Run
-2026-08-26: **685 passed, 15 skipped** — green, including the codegen-vs-rigdoc
-comparison D129 had recorded as *"left red on purpose"*. ⇒ no rot there today,
-but nothing in `cargo` would have told anyone: `python -m pytest` in that
-submodule is its own gate and it is not in anybody's habit.
+⛔⛔ **AND THE BIGGEST HOLE IS NOT A CARGO FEATURE AT ALL — IT IS THE FOUR PYTHON
+SUITES. Swept 2026-08-26: ELEVEN RED TESTS, in three of the four.**
+
+```text
+tools/ambition_sprite2d_renderer   685 pass  15 skip   green (incl. the codegen
+                                                       comparison D129 called
+                                                       "left red on purpose")
+tools/ambition_sfx_renderer         2 FAIL → 14 pass
+tools/ambition_ldtk_tools           5 FAIL → 236 pass
+tools/ambition_music_renderer       4 FAIL → 218 pass, 3 skip
+```
+
+⭐ **AND EVERY ONE WAS A TEST DESCRIBING A WORLD THAT HAD MOVED**, not a broken
+tool:
+
+```text
+sfx     two cue tests asked for a bare `jump` / `death` after all 490 cues
+        were namespaced; retargeted to `player.jump` / `player.death`, which
+        also straddle the 300ms wav/ogg policy boundary
+ldtk    the spec-brain guard pointed at `character_archetypes.ron`, DELETED by
+        `74bd5e9ae Delete the enemy-archetype ontology`, so every test in the
+        file died on `FileNotFoundError` rather than reporting. Retargeted to
+        the catalog's `autonomous_profiles` + `brain_presets`; it passes for the
+        RIGHT reason — 18 placements still name deleted archetypes and every one
+        carries `character_id`, which is what its own rule permits
+ldtk    the silent-default test used `LoadingZone.activation`, and the converter
+        was FIXED to refuse; retargeted to `KinematicPath.mode`, one of nine
+        fields that still declare `silent_default`
+music   three tests patched `subprocess.run` after `_render_sfizz_cli` moved to
+        `Popen` + a heartbeat, so they recorded ZERO calls and every argv
+        assertion was unreachable; one compared an order that needed two files
+        written microseconds apart to have distinguishable mtimes
+```
+
+⛔ **plus one defect in the SHIPPED contract, found by the ldtk guard the moment
+it could run**: `LockWall.gated_by` carried `"kind"` and `"required"` — the only
+field of 46 to do so, and the only one missing `presence`/`sample`. Rust's
+`FieldContract` has neither key and no `deny_unknown_fields`, so serde dropped
+them silently. Replaced with the vocabulary both readers know.
+
+⇒ **nothing in `cargo` would have told anyone about any of it**: `python -m
+pytest` in each of those four directories is its own gate, and it is not in
+anybody's habit.
 
 ▢ **WHAT IS STILL UNAUDITED, and it is the expensive half**: the PERSONA
 features — `android_platform`, `web_platform`, `visible_web`, `web_served` — need

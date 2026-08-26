@@ -670,7 +670,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ `1d5f2b708` — the first reading, because a constraint with authority over ONE body cannot express a two-body rotation. ⚠ its descendant is open below: the new helper's doc claims facing-relative `+x` and `to_world` does not know facing.
 
 * **6. Three-way clank applies rebound more than once per fighter.** Arbitration emits `AttacksClanked` per qualifying pair (AB, AC, BC) and `rebound_from_clanks` adds a full impulse per message. The new three-way arm cannot see it: all three bodies sit at `Vec2::ZERO`, where the rebound axis is deliberately zero. Decide the rule — summed pairwise or one bounded recoil per participant — before clanking is enabled (`clank_damage_window` is 0.0 in Smash today).
-  * ▢
+  * ✔ ONE BOUNDED RECOIL PER PARTICIPANT (`707871fcc`). The genre has a rebound, not a rebound COUNT, and this repo already fixed the same shape when a 2×2 volume overlap produced four rebounds for one clash. The DIRECTION is the sum of the pair axes — a fighter that clanked two opponents is pushed away from both — and the SPEED is not: being outnumbered is not a reason to fly faster. Accumulated in a `Vec` in message order, because a hash map's iteration is not deterministic. The new arm spreads the three fighters into a line; the existing one stands them all at `Vec2::ZERO` where the rebound axis is deliberately zero, so it could never have measured recoil.
 
 * Hygiene, same window: trailing whitespace in this file and a new blank line at EOF in `game/ambition_app/tests/duel_arena.rs`.
   * ▢

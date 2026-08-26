@@ -44,6 +44,45 @@ pub struct LandedBodyHit {
     pub contact: ae::Vec2,
 }
 
+/// A hit that RESOLVED — damage applied, defences asked, reaction chosen, and
+/// the hitlag it earned known.
+///
+/// ⭐⭐ [`LandedBodyHit`] MEANS OVERLAP; THIS MEANS CONNECT. They looked like the
+/// same fact for as long as the only consumer was presentation, and they stopped
+/// being one the moment a consumer needed the RESULT of the hit rather than its
+/// geometry. The match freeze was that consumer: it read the victim's
+/// `hitstop_timer` in `CombatSet::Settle`, which is written that frame for an
+/// actor victim and NEXT frame for a player victim (the player resolver drains a
+/// rollback FIFO in `PlayerSimulation`). ⛔⛔ SO THE CONNECT THAT STOPPED THE
+/// WORLD FOR A CPU DID NOT STOP IT FOR THE HUMAN — measured 2026-08-25 in the
+/// real schedule: 0.036s of player hitlag, zero frozen frames.
+///
+/// ⛔ NOT `BodyHitResolved`, which is the INSPECTOR's message: that one is
+/// `#[cfg(feature = "causal")]` behind an optional writer and its own doc
+/// guarantees nothing in the simulation reads it. Depending on it would turn an
+/// optional instrument into required gameplay authority. This reuses the
+/// resolution VOCABULARY and not the channel.
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
+pub struct ResolvedBodyHit {
+    /// The body that took it.
+    pub victim: bevy::prelude::Entity,
+    /// The hitlag this connect earned, in seconds — the resolver's own answer,
+    /// carried rather than re-read off the victim, because WHEN it is readable
+    /// differs by road and that is the whole bug.
+    pub hitlag_seconds: f32,
+    /// WHAT HIT IT.
+    ///
+    /// ⛔⛔ THIS CHANNEL IS BROADER THAN `LandedBodyHit` AND THE SOURCE IS HOW A
+    /// CONSUMER NARROWS IT. `LandedBodyHit` comes off the hitbox sweep, so it is
+    /// strikes and shots only; this comes off the RESOLVER, which also serves
+    /// contact attrition, hazards and the blast zone. Measured 2026-08-25: a
+    /// fighter leaning on another produced SEVENTEEN `Contact` resolutions in
+    /// twenty-three ticks, and a match freeze that armed on all of them
+    /// alternated frozen/moving forever. A consumer that wants a CONNECT must
+    /// say so.
+    pub source: crate::HitSource,
+}
+
 /// Resolve a live hitbox's unit-bearing payload for one victim.
 ///
 /// Feel multipliers pass through unchanged. Launch-speed growth is resolved against the victim's

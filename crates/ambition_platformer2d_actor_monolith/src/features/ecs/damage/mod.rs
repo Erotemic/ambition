@@ -18,18 +18,18 @@ use bevy::prelude::{
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
 use super::{
-    ActorDisposition, ActorIdentity, BodyCombat, BreakableFeature, CenteredAabb, FeatureId,
-    FeatureName, FeatureSimEntity, GameplayBanner, HitEvent, HitSource, SetFlagRequested,
-    sync_actor_components_from_cluster,
+    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
+    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
+    HitEvent, HitSource, SetFlagRequested,
 };
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 #[cfg(test)]
-use super::PickupFeature;
-#[cfg(test)]
 use super::damage_drops::EXPLODER_BLAST_DAMAGE;
 use super::damage_predicates::target_is_ignored;
+#[cfg(test)]
+use super::PickupFeature;
 use crate::features::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -89,6 +89,9 @@ pub struct FeatureHitWriters<'w, 's> {
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
     /// the consequence over.
     pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+    /// The hit's RESULT, for the simulation — the match freeze reads it.
+    /// `Option` for the reason spelled out on the player-side twin.
+    pub resolved: Option<MessageWriter<'w, crate::combat::hitbox::ResolvedBodyHit>>,
     /// The resolver's DECISION about each hit, for the causal inspector.
     /// `Option` for the reason spelled out on the player-side twin: this is read
     /// by an instrument and by nothing else, so a composition that never

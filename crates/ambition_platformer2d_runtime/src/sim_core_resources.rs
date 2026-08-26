@@ -45,6 +45,14 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_platformer2d_actor_monolith::features::SwitchActivated>()
             .add_message::<ambition_combat::GameplaySfxRequested>()
             .add_message::<ambition_combat::HitEvent>()
+            // ⭐⭐ AND THE HIT'S RESULT, beside the hit itself. `HitEvent` and
+            // `LandedBodyHit` are geometry; this is what the resolver DECIDED,
+            // and the match freeze reads it. ⛔ REGISTERED HERE and not in a
+            // schedule plugin: its writers are on the PLAYER road and the ACTOR
+            // road, which different compositions install separately — a message
+            // registered beside one of them panics the other, which is a crash
+            // this repository has already shipped once.
+            .add_message::<ambition_combat::hitbox::ResolvedBodyHit>()
             // S4: the stocks loop. A KO of a body whose death a RULESET owns,
             // and the count that was spent for it.
             .add_message::<ambition_combat::stocks::BodyKnockedOut>()

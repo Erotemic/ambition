@@ -243,6 +243,12 @@ where
         OWNER,
         "message.landed_body_hit",
     );
+    // The hit's RESULT, beside the overlap that produced it and cleared for the
+    // same reason: a reader's cursor is `Local` state GGRS never rewinds.
+    registrar.clear_message_on_rollback::<crate::hitbox::ResolvedBodyHit>(
+        OWNER,
+        "message.resolved_body_hit",
+    );
     registrar.clear_message_on_rollback::<crate::events::HitEvent>(OWNER, "message.hit_event");
     registrar.clear_message_on_rollback::<crate::stocks::BodyKnockedOut>(
         OWNER,

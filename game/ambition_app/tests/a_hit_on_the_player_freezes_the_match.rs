@@ -38,20 +38,25 @@ struct Bout {
     frozen_frames: u32,
 }
 
-/// ⛔⛔ IGNORED, AND THE REASON IS THE HANDOFF. The fix was BUILT and it works —
-/// a `ResolvedBodyHit` message carrying the resolver's own hitlag, published by
-/// both damage roads and read by the freeze in place of the victim's timer. This
-/// test went green with it. It was reverted because landing it exposed a
-/// SECOND, PRE-EXISTING defect that turns the repaired freeze into a 50% duty
-/// cycle: measured on `smash_in_the_host`, one strike RESOLVES SEVENTEEN TIMES
-/// across twenty-three ticks on the actor road, so a freeze re-armed by every
-/// resolution alternates frozen/moving forever and a fixture that budgets frames
-/// never reaches the run gait. Refusing to arm while already frozen halves it
-/// and no more.
+/// ⛔⛔ IGNORED, AND THE REASON IS THE HANDOFF — THE VENUE IS WRONG, NOT THE BUG.
 ///
-/// ⇒ the repeat is the item to fix first; the freeze channel is correct and
-/// waiting. See the D237 (4)/(5) rows.
-#[ignore = "the fix is built and reverted: a pre-existing 17x repeat resolution makes the repaired freeze a 50% duty cycle — see the note above and D237 (4)/(5)"]
+/// The channel this needs now exists and is landed: `ResolvedBodyHit` carries
+/// the resolver's own hitlag and its source, both damage roads publish it beside
+/// the REACTION, and `request_impact_hitstop_on_resolved_hits` reads it. The
+/// ordering defect is structural and unchanged — a player victim's
+/// `hitstop_timer` is written a frame late, so the old reading could never see
+/// it.
+///
+/// ⛔ WHAT THIS FIXTURE CANNOT DO IS LAND A STRIKE ON THE PLAYER. Measured over
+/// 900 frames with a hostile automaton standing on top of the player: FIVE hits,
+/// every one of them `HitSource::Contact` for one damage. Contact is attrition —
+/// it fires once per overlapping tick — and a freeze armed by it alternates
+/// frozen and moving forever, which is why the freeze now refuses it. So this
+/// bout is asserting on the one source that correctly does not freeze.
+///
+/// ⇒ the melee-on-the-player proof wants the SMASH HOST, where two fighters
+/// genuinely trade strikes and one of them holds the local seat. See D237 (5).
+#[ignore = "the venue is wrong, not the bug: this bout only ever produces HitSource::Contact, which correctly does not freeze — see the note above and D237 (5)"]
 #[test]
 fn a_hit_that_lands_on_the_player_freezes_the_match() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())

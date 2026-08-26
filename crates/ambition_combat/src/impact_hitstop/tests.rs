@@ -1,42 +1,36 @@
 use super::*;
 use crate::feel::Platformer2dFeelTuningMonolith;
-use crate::hitbox::LandedBodyHit;
+use crate::hitbox::ResolvedBodyHit;
 use ambition_time::SimTick;
 
 fn app() -> App {
     let mut app = App::new();
-    app.add_message::<LandedBodyHit>();
+    app.add_message::<ResolvedBodyHit>();
     app.init_resource::<ImpactHitstop>();
     app.init_resource::<SimTick>();
     app.insert_resource(Platformer2dFeelTuningMonolith::default());
-    app.add_systems(Update, request_impact_hitstop_on_landed_hits);
+    app.add_systems(Update, request_impact_hitstop_on_resolved_hits);
     app
 }
 
-fn a_volume() -> ambition_platformer2d_core::CombatVolume {
-    ambition_platformer2d_core::CombatVolume::Aabb(
-        ambition_platformer2d_core::CenteredAabb::new(
-            ambition_platformer2d_core::Vec2::ZERO,
-            ambition_platformer2d_core::Vec2::new(8.0, 8.0),
-        )
-        .aabb(),
-    )
+/// ⛔⛔ AND NOTHING HERE INJECTS A VICTIM'S TIMER ANY MORE, which is what every
+/// arm in this file used to do: spawn a `BodyCombat`, set `hitstop_timer` on it
+/// by hand, and fire a `LandedBodyHit` naming it. That fixture could not see the
+/// bug the whole channel exists for — the timer is written on a DIFFERENT FRAME
+/// for a player victim, and a test that writes it first has already answered the
+/// question. The hitlag is the message's now, so these arms state it and the
+/// production ordering is pinned where it lives, in
+/// `ambition_app/tests/a_hit_on_the_player_freezes_the_match.rs`.
+fn land_a_hit(app: &mut App, hitlag: f32) {
+    land_a(app, hitlag, crate::HitSource::Melee);
 }
 
-fn land_a_hit(app: &mut App, hitlag: f32) {
-    let e = app
-        .world_mut()
-        .spawn(ambition_characters::actor::BodyCombat {
-            hitstop_timer: hitlag,
-            ..Default::default()
-        })
-        .id();
-    app.world_mut().write_message(LandedBodyHit {
-        hitbox: e,
-        attacker: e,
-        victim: e,
-        volume: a_volume(),
-        contact: ambition_platformer2d_core::Vec2::ZERO,
+fn land_a(app: &mut App, hitlag: f32, source: crate::HitSource) {
+    let victim = app.world_mut().spawn_empty().id();
+    app.world_mut().write_message(ResolvedBodyHit {
+        victim,
+        hitlag_seconds: hitlag,
+        source,
     });
 }
 
@@ -60,7 +54,9 @@ fn two_cpus_trading_hits_freeze_the_world_with_no_player_in_it() {
     land_a_hit(&mut app, hitlag);
     app.update();
     assert!(
-        app.world().resource::<ImpactHitstop>().is_freezing(now(&app)),
+        app.world()
+            .resource::<ImpactHitstop>()
+            .is_freezing(now(&app)),
         "two CPUs connected and the world did not freeze — the beat is still \
          scoped to a seat"
     );
@@ -83,14 +79,18 @@ fn a_freeze_expires_against_a_tick_that_keeps_advancing() {
     advance(&mut app, bound - 1);
     app.update();
     assert!(
-        app.world().resource::<ImpactHitstop>().is_freezing(now(&app)),
+        app.world()
+            .resource::<ImpactHitstop>()
+            .is_freezing(now(&app)),
         "the freeze ended early, before its authored length"
     );
     // ...and on the expiry tick it is over, with nothing handing the clock back.
     advance(&mut app, 1);
     app.update();
     assert!(
-        !app.world().resource::<ImpactHitstop>().is_freezing(now(&app)),
+        !app.world()
+            .resource::<ImpactHitstop>()
+            .is_freezing(now(&app)),
         "the freeze outlived its bound — the world is stopped and nothing will \
          start it again"
     );
@@ -152,4 +152,48 @@ fn the_freeze_is_proportional_to_the_hit_and_bounded_above() {
         read(hard),
         "an over-long authored hitlag escaped the bound"
     );
+}
+
+/// ⛔⛔ STANDING IN LAVA IS NOT A HIT CONNECTING.
+///
+/// `ResolvedBodyHit` comes off the RESOLVER, which serves contact attrition,
+/// hazards and the blast zone as well as strikes — a broader channel than the
+/// `LandedBodyHit` this used to read, which was strikes by construction.
+/// Measured 2026-08-25: a fighter leaning on another produced SEVENTEEN
+/// `Contact` resolutions in twenty-three ticks, and a freeze armed by those
+/// alternated frozen and moving until three smash fixtures timed out waiting for
+/// a gait no gameplay time was reaching.
+///
+/// ⭐ THE ARMS STRADDLE THE FILTER: the same hitlag, the same everything, one
+/// source that is a connect and three that are not.
+#[test]
+fn attrition_and_the_blast_zone_do_not_stop_the_world() {
+    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let froze = |source: crate::HitSource| {
+        let mut app = app();
+        land_a(&mut app, hitlag, source);
+        app.update();
+        app.world().resource::<ImpactHitstop>().until_tick.is_some()
+    };
+
+    assert!(
+        froze(crate::HitSource::Melee),
+        "a swing connecting did not stop the world, so the refusals below are \
+         a system that never freezes rather than one that is choosing"
+    );
+    assert!(
+        froze(crate::HitSource::Projectile),
+        "a shot connecting is a connect too"
+    );
+    for attrition in [
+        crate::HitSource::Contact,
+        crate::HitSource::Hazard,
+        crate::HitSource::LeftTheWorld,
+    ] {
+        assert!(
+            !froze(attrition.clone()),
+            "{attrition:?} stopped the world — it fires once per overlapping \
+             TICK, so a freeze armed by it never lets go"
+        );
+    }
 }

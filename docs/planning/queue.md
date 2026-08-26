@@ -10384,22 +10384,31 @@ because the reaction is what charges the hitlag, and that was measured too.
 `request_impact_hitstop_on_resolved_hits` then reads the resolver's own answer
 and has no opinion about which road resolved the hit or on which frame.
 
-⛔⛔ **AND LANDING IT EXPOSED THE REAL BLOCKER: ONE STRIKE RESOLVES SEVENTEEN
-TIMES.** Measured on `smash_in_the_host`, actor road, one victim, seventeen
-consecutive resolutions across twenty-three ticks with an IDENTICAL hitlag —
-`hitstop_timer` at its `max`, re-set every tick. With the freeze reading them the
-world alternates frozen/moving forever (`until_tick` tracking `tick + 2` for 180
-ticks) and three smash fixtures never reach the gait they wait for. Refusing to
-arm while ALREADY frozen — a rule the module needs anyway, since the freeze stops
-the clock that would have ended the overlap — halves it and no more.
+⛔⛔ **AND THE FIRST ATTEMPT FROZE THE WORLD FOREVER — THE DIAGNOSIS IS WORTH
+MORE THAN THE FIX.** Measured on `smash_in_the_host`: one victim, SEVENTEEN
+consecutive resolutions across twenty-three ticks, identical hitlag, the world
+alternating frozen/moving with `until_tick` tracking `tick + 2` for 180 ticks,
+and three smash fixtures never reaching the gait they wait for. Probing the
+SOURCE settled it: every one of them was **`HitSource::Contact`** — one fighter
+leaning on another, one damage a tick.
 
-⇒ **THE REPEAT IS THE ITEM TO FIX FIRST**, and it is (4) restated with evidence:
-a channel that means OVERLAP fires once per overlapping TICK, and every consumer
-that wants CONNECT has been quietly living with that. The old freeze survived
-only because for a player victim it never armed at all.
+⇒ **`ResolvedBodyHit` IS A BROADER CHANNEL THAN `LandedBodyHit`, and that is
+its price.** `LandedBodyHit` comes off the hitbox sweep, so it is strikes and
+shots BY CONSTRUCTION; this comes off the RESOLVER, which also serves contact
+attrition, hazards and the blast zone. A consumer that wants a CONNECT must now
+say so — the message carries `source`, and the freeze arms on
+`Melee | Projectile | Pogo` only. Standing in lava is not a hit connecting.
 
-⇒ ⚠ AND IT IS NOT A FREEZE KNOB. Do not answer it with a refractory period or a
-duty-cycle cap; those encode the repeat rather than removing it.
+⛔ A REFRACTORY PERIOD WAS TRIED AND DROPPED. "Refuse to arm while already
+frozen" halves the duty cycle and no more, and it contradicts a documented
+mechanic the module's own test states (overlapping connects extend). The source
+filter removes the cause instead.
+
+▢ **STILL OPEN — (5) IS NOT PROVEN END TO END, AND THE VENUE IS WHY.** The
+committed fixture cannot land a STRIKE on the player: 900 frames with a hostile
+automaton standing on top of it produced five hits, every one `Contact`. It is
+ignored with that written on it. ⇒ the melee-on-the-player proof wants the SMASH
+HOST, where two fighters genuinely trade strikes and one holds the local seat.
 
 ▢ STILL OPEN: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved

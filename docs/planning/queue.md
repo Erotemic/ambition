@@ -4948,7 +4948,46 @@ Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decompositi
 Choose carves from current dependency and authority measurements, not an old LOC
 target.
 
-⭐⭐ **THE DEPENDENCY MEASUREMENT THIS ROW ASKS FOR — RUN 2026-08-21.** The row
+⛔⛔ **RE-MEASURED 2026-08-26, AND BOTH INSTRUMENTS ARE EXHAUSTED. THE EASY
+CARVES ARE DONE.**
+
+```text
+module            lines   →out   in←   coupling/1k
+time                805      1     1      2.5   ⛔ placement-REFUSED (below)
+dev                1974     10     0      5.1   ⛔ placement-REFUSED
+body_mode           827      6     1      8.5
+gravity             561     13     0     23.2   ⛔ placement-REFUSED
+…
+character_runtime 12970     80   300     29.3
+features          44265    368   419     17.8
+enemy_projectile   1199    108     5     94.2   ⛔ worst — do not start here
+```
+
+⇒ **EVERY LOW-COUPLING MODULE IS LOW-COUPLED BECAUSE IT IS CORRECTLY PLACED, and
+each refusal is written in the CODE rather than inferred:**
+
+* `dev/trace` — `ambition_dev_tools`' own *"What stays elsewhere"* names it: the
+  recorder samples live sim state and stays sim-side.
+* `gravity` — `physics.rs` says the gravity MECHANIC (`GravityFlipSwitch`, the
+  room-reset, the plugin, the visuals) *"stays sandbox-side"*; the frame math
+  already left, to `ambition_platformer2d_shared_tangle::gravity`.
+* `time` — its own header: *"Clock arbitration lives in
+  `ambition_time::time_control`; this module emits GAME-POLICY requests"*. 313
+  lines of production code and 492 of tests.
+
+⇒ ⭐ **AND THE DELETION CENSUS — the instrument `affordances` taught this row to
+prefer — FINDS NOTHING AT SCALE.** Every public type in the monolith, counted by
+references across the whole tree: **three** are named only where they are
+declared, and all three are `SystemParam` bundles or a `Local` used once in their
+own file. There is no second `affordances`.
+
+⇒ ⛔⛔ **SO A FUTURE CARVE IS DESIGN WORK, NOT A MEASUREMENT RESULT.** The
+remaining mass is `features` (44k) and `character_runtime` (13k / 300 inbound),
+and neither yields to a coupling number. Whoever takes this next needs a stated
+OWNERSHIP boundary first — the row's own words — and should not expect the table
+to nominate one.
+
+⭐⭐ **THE PREVIOUS MEASUREMENT — RUN 2026-08-21.** The row
 says *"choose carves from current dependency and authority measurements, not an
 old LOC target"*, so: every top-level module of the monolith, by `crate::<module>`
 references made OUT of it and made TO it from its siblings.

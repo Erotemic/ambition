@@ -211,7 +211,42 @@ pugnacious_polygon                        0.81
 ```
 
   ⇒ **the mechanism**: `noether` and `perfect_cellular_automaton` saturate the 4096 texture cap, so the "half" tier packs to the SAME cap and is a differently-packed sheet rather than a scaled one. A body drawn from that tier reads different frame rects than one drawn from the canonical — which is what "the new sprite on select, the old one in the match" looks like. ⚠ the causal link is a strong inference, not yet a capture; the falsifier is to force full quality and see her change in the match.
-  ⛔ **and it is invisible to the incremental regen**: canonical mtime 2026-08-19 21:14 is OLDER than the tier's 2026-08-20 11:37, so an mtime check calls the tier fresh and skips it. That is also why the goal's art-tier check keeps going stale and why regenerating did not fix this.                           
+  ⛔ **and it is invisible to the incremental regen**: canonical mtime 2026-08-19 21:14 is OLDER than the tier's 2026-08-20 11:37, so an mtime check calls the tier fresh and skips it. That is also why the goal's art-tier check keeps going stale and why regenerating did not fix this.
+
+  ⛔⛔ **THAT MECHANISM IS WRONG, AND THE MEASUREMENT THAT PRODUCED IT COMPARED
+  ONE PAGE OF A SEVEN-PAGE ATLAS. Re-measured 2026-08-26.** The census above read
+  the width of `noether_spritesheet.png` — page ZERO — and found 4096 on both
+  sides. Noether's canonical atlas is **seven pages**; her 0.5x tier is **two**.
+  Comparing total atlas pixels instead:
+
+```text
+                              pages  total px      ratio
+noether        sprites            7  115,581,204   1.000
+               sprites_0_5x       2   29,147,136   0.252
+               sprites_0_25x      1    7,468,032   0.065
+perfect_cellular_automaton
+               sprites            7  106,171,584   1.000
+               sprites_0_5x       2   26,841,903   0.253
+goblin (control, 1 page)          1    2,185,530   1.000
+               sprites_0_5x       1      613,760   0.281
+```
+
+  ⇒ **every tier is exactly the reduction it claims**, and the two "offenders"
+  were precisely the two sheets with seven pages — which is what a single-page
+  comparison is guaranteed to get wrong. The frame rects agree: noether's first
+  frame is `w: 148, h: 331` canonical and `w: 74, h: 166` at 0.5x.
+
+  ⛔ **so the "invisible to the incremental regen" corollary is moot too** — it
+  was reasoning about why a defect that does not exist had not been fixed.
+
+  ⊙ **WHICH LEAVES THE REPORT OPEN WITH A CLEAN SLATE, and three causes now
+  eliminated rather than one added**: (1) the tiers are real reductions; (2) the
+  three asset roots agree byte-for-byte — `crates/…/assets`,
+  `game/ambition_content/assets` and the web root are one file by symlink
+  (`md5 22db3461dfa5`); (3) select and match resolve the same catalog id. ⇒ the
+  next hypothesis has to be about WHICH TIER each road asks for at the moment it
+  draws, not about what the tiers contain. The falsifier Jon can run is still the
+  cheapest one: force full quality and see whether she changes in the match.                           
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: `sprite-residency-and-live-quality.md`.

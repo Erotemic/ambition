@@ -191,6 +191,14 @@ impl MatchReport {
 
 /// The one seating path in this file. Two CPUs at the same rung, through the
 /// demo shell, watched for `ticks` frames after the countdown.
+/// Enough stocks that neither CPU is eliminated inside a patience budget.
+///
+/// The mirror spends about five knockouts per 1900 ticks, so a 3600-tick window
+/// costs each seat roughly ten. Twenty-five clears that with room for a lopsided
+/// run — and if a match decides anyway the guard in `watch_a_match` FAILS rather
+/// than quietly measuring a finished one.
+const STOCKS_THAT_OUTLAST_THE_WINDOW: u32 = 25;
+
 fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     let mut app = build_demo_app();
     for _ in 0..30 {
@@ -200,7 +208,19 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     // that seats every slot as a CPU; the sibling test in `the_stage_kills` has
     // the scar from using the one that makes seat 0 a human with no controller,
     // which measures one fighter pacing around a statue.
-    let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    // ⛔⛔ THE WINDOW MUST BE A WINDOW OF FIGHTING, not of wall clock. These tests
+    // are a PATIENCE BUDGET for a CPU to find itself offstage and throw its
+    // authored route home; a match that ENDS inside the budget spends the rest of
+    // it with nothing happening, and the claim then fails for want of OPPORTUNITY
+    // rather than for want of the route.
+    //
+    // Not hypothetical: with D192's respawn beat this mirror decides at ~1917 of
+    // these 3600 ticks — measured, and without the beat the same mirror runs to
+    // 3776 undecided — so about half the budget was dead. `STARTING_STOCKS` is the
+    // shipped economy; this raises it for the INSTRUMENT only, because what is
+    // under test is which move a CPU throws, not how long three stocks last.
+    roster.fighter_stocks = Some(STOCKS_THAT_OUTLAST_THE_WINDOW);
     // Seat → character taken from the roster handed IN. What this cannot prove —
     // that two different fighters were seated — is proved from the world instead,
     // by the two tables differing.
@@ -254,6 +274,33 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
         app.update();
         ledger.sample(&mut app);
     }
+
+    // ⛔⛔ THE PREMISE, CHECKED. Everything below is a claim about what a CPU
+    // chose to throw, and that is only readable while there is a fight to throw
+    // it in. A match that ended part-way through the budget makes "it never threw
+    // its route" true for want of opportunity — which is exactly how D192's
+    // respawn beat turned two green tests red without either CPU changing its
+    // mind about anything. Fail here, loudly, rather than let a finished match be
+    // read as a measured one.
+    // ⛔ COUNT THE SEATS THAT REMAIN, do not look for `FighterEliminated`.
+    // `take_eliminated_fighters_out_of_play` DESPAWNS the loser, so a query for
+    // the marker finds nothing whether nobody was eliminated or somebody was and
+    // is gone — an absence test that agrees with the failure it is meant to
+    // catch. Probed: at three stocks it found zero eliminated seats while the
+    // match had plainly ended.
+    {
+        let world = app.world_mut();
+        let mut seats = world.query::<&MatchSeat>();
+        let still_seated = seats.iter(world).count();
+        assert_eq!(
+            still_seated, 2,
+            "only {still_seated} seat(s) were still on the stage after {ticks} \
+             ticks, so the match ENDED inside the window and part of it was a \
+             finished match — nothing below is a measurement of a duel. Raise \
+             STOCKS_THAT_OUTLAST_THE_WINDOW"
+        );
+    }
+
     let report = MatchReport {
         ledger,
         tables,

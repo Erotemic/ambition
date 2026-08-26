@@ -11757,6 +11757,20 @@ the doc: the registry exists (`SemanticActionId`, `ActionRegistry`,
 physical input map / cue / touch path still bottoms out in the finite built-in
 platformer action enum. That enum is the deletion gate.
 
+⭐⭐ **AND IT NOW HAS A COMPILED CANDIDATE, which it never had. 2026-08-26.**
+`InputMap<A: Actionlike>` is already generic, so a composition can install a
+SECOND map keyed by a type a provider MINTS, and a registry-minted key satisfies
+the whole `Actionlike` bound —
+`a_registry_minted_key_satisfies_leafwing_without_erasure` binds one and reads it
+back, and poisoning it reports *"a provider-minted key bound nothing"*. ⛔ no
+`Any`, no `TypeId`, no service locator, and no edit to the 35-variant enum, which
+is the combination every refused answer failed. ⚠ running it also found the price
+the reasoning missed: neither the registry's `ActionControlKind` nor leafwing's
+`InputControlKind` can be a field of a hashed, reflected key, so the kind gets a
+small three-variant mirror. ⇒ **still a carve — two maps means two reader paths
+and a rule for which wins — but the question is now "how" rather than
+"whether".**
+
 - ▢ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
   THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. (opened 2026-08-25)**
 

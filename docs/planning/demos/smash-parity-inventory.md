@@ -15,6 +15,32 @@ that caught each of them was
 test. ⇒ before marking a row shipped, make it appear in that report or say in the
 row why it cannot.
 
+⛔⛔ **RE-RUN 2026-08-26 (`30 --runs 3`, George vs George on the demo shell) AND
+FOUR MORE SHIPPED MECHANICS ARE INVISIBLE IN A MATCH:**
+
+```text
+shielding    0–2–5      the CPU essentially never raises a guard
+parries      0–0–0      so the perfect shield never fires
+held         0–0–0      no grab was ever held — the whole capture kit, unseen
+downed       0–0–0      tumbling was constant (121–203–401) and NOBODY landed
+                        while helpless: a tumbling CPU jumps or attacks out the
+                        moment the helpless window ends
+```
+
+⭐ **AND THE COMMON CAUSE IS PROBABLY ONE THING, not four: the fighter brain
+never presses shield.** Shield, parry and shield-grab all hang off that press,
+and the capture kit's other road (the grab button) is equally unpressed. ⇒ **this
+is a BRAIN gap, not four mechanic gaps** — check `brain/smash`'s shield policy
+before touching any of these rows.
+
+⚠ **`downed` is the one that might be correct.** A CPU with perfect reactions
+acts out of tumble as soon as it may; a human eating a spike does not. Worth one
+playtest before anybody tunes the knockdown window.
+
+⭐ **what the same run confirms IS live**: tumble (121–401 ticks), launches
+(8–11–14), KOs (2–3–4), peak launch 1086–2591 px/s, hitstun 475–694, evading
+82–159, and the charge reaching full at least once (`best charge` max 1.00).
+
 **Authority:** this file is the one current Smash feature backlog. Product intent
 lives in [`super-smash-siblings.md`](super-smash-siblings.md); execution order
 for the active push lives in

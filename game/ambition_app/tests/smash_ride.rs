@@ -316,3 +316,160 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
          held for one rider accepted another"
     );
 }
+
+/// ⭐⭐ THE ROAD A PLAYER ACTUALLY TRAVELS: the character-select grid.
+///
+/// ⛔⛔ EVERY OTHER TEST IN THIS FILE TAKES A SHORTCUT. They insert a
+/// `MatchParticipantRoster` built by `smash_roster` and jump straight to the
+/// gameplay route. A human picks fighters on the select screen, which builds its
+/// participants from scratch in `SmashSelect::roster_seeded` — and that road is
+/// where the up-B shipped broken twice. The first time it was the pilot licence,
+/// which `smash_roster` granted and the screen did not. Jon then reported the
+/// same failure against two builds carrying the repair, while these tests stayed
+/// green — which is exactly what a test that never travels the real road looks
+/// like.
+///
+/// ⭐ IT SEATS THE SAME FIGHTER TWICE for the same reason the shortcut test
+/// does: seat 0 is the human this test drives and seat 1 only has to exist.
+#[test]
+fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
+    use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    // ── ONTO THE SELECT SCREEN, the way the title screen sends you. ──
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_SELECT_ROUTE,
+        )));
+    for _ in 0..120 {
+        app.update();
+    }
+
+    // ⛔ THE PREMISE: the grid offers the admiral. Without this the picks below
+    // would seat whoever happens to sit at index 0 and prove nothing.
+    let admiral_index = {
+        let grid = app
+            .world()
+            .get_resource::<SmashRoster>()
+            .expect("the select screen assembled its grid");
+        grid.0
+            .iter()
+            .position(|id| id == ambition_demo_smash::SMASH_SHARK_RIDER)
+            .unwrap_or_else(|| {
+                panic!(
+                    "the shark rider is not on the grid, so this test cannot pick it: {:?}",
+                    grid.0
+                )
+            })
+    };
+
+    {
+        let mut select = app
+            .world_mut()
+            .get_resource_mut::<SmashSelect>()
+            .expect("the select screen has its state");
+        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_pick(0, admiral_index);
+        select.set_occupant(1, SlotOccupant::Cpu);
+        select.set_pick(1, admiral_index);
+        assert!(
+            select.ready(),
+            "two decided seats did not make a startable match"
+        );
+    }
+    // ── AND PRESS START, through the screen's own request. ──
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
+    for _ in 0..300 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the select screen started a match that seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+    // ⛔⛔ THE ASSERTION THAT WOULD HAVE CAUGHT THE ORIGINAL BUG. The licence now
+    // comes from the character, so it should be here on every road — but that is
+    // the claim under test, not an assumption this test may make.
+    let can = app
+        .world()
+        .get::<ambition_platformer2d::mount::CanPilot>(seat0)
+        .cloned();
+    assert!(
+        can.as_ref().is_some_and(|c| c.can_pilot(
+            &ambition_platformer2d::mount::MountClass(
+                ambition_platformer2d::characters::smash_ride::SHARK_CLASS.to_string()
+            )
+        )),
+        "an admiral seated FROM THE GRID cannot pilot a shark: {can:?}"
+    );
+
+    let sharks = |app: &mut App| -> usize {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    // ⛔⛔ THE CPU ADMIRAL ACTS FIRST, and pinning a count here is what made the
+    // first version of this test fail for the wrong reason. Seat 1 is an admiral
+    // too: by the time the match settles it has already summoned, BOARDED one
+    // shark and sent a second away. That is the feature working, measured on
+    // this very road — so what this test owes is that the HUMAN's press mounts
+    // the HUMAN, not that the stage is empty.
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "seat 0 is already riding before it pressed anything"
+    );
+    let before = sharks(&mut app);
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+
+    assert!(
+        sharks(&mut app) > before,
+        "the up-B summoned no shark on the grid road ({before} before, {} after)",
+        sharks(&mut app)
+    );
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "a shark exists and the admiral picked off the GRID is not on it"
+    );
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "a shark exists and the admiral picked off the GRID is not on it — which \
+         is exactly what Jon reported in play while the shortcut tests stayed green"
+    );
+}

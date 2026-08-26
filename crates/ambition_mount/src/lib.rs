@@ -492,6 +492,21 @@ pub struct MountReservedFor {
     /// mount that flies in from off-screen take the same road. The first simply
     /// satisfies it on the tick it appears.
     pub board_within: f32,
+    /// Seconds this reservation will wait to be reached before giving up.
+    ///
+    /// ⛔⛔ WITHOUT IT AN UNREACHED RESERVATION LIVES FOREVER, and that is not a
+    /// hypothetical — it shipped. The first version had two outcomes, boarded and
+    /// refused, and silently a third: a rider further away than
+    /// [`Self::board_within`] was neither boarded NOR refused, so the mount stood
+    /// there unclaimed, no [`RideRefused`] was ever written, and the ruleset that
+    /// asked for it was never told. A summoner who never becomes a rider never
+    /// becomes "held" either, so whatever gate the ruleset hangs on being mounted
+    /// stays open and the next summon lands beside the last one.
+    ///
+    /// ⭐ SO NOT-ARRIVING IS AN OUTCOME, not the absence of one. It ends the same
+    /// way a refusal does, which is what makes the doc line above — *"retires the
+    /// reservation either way"* — true instead of aspirational.
+    pub expires_in: f32,
 }
 
 /// Board every reserved mount whose rider is in reach, and retire the
@@ -504,24 +519,61 @@ pub struct MountReservedFor {
 /// wants to be able to answer.
 pub fn board_reserved_mounts(
     mut commands: bevy::prelude::Commands,
-    reserved: Query<(
+    time: bevy::prelude::Res<ambition_time::WorldTime>,
+    mut reserved: Query<(
         Entity,
-        &MountReservedFor,
+        &mut MountReservedFor,
         &ambition_platformer2d_core::BodyKinematics,
     )>,
     riders: Query<&ambition_platformer2d_core::BodyKinematics>,
     mut refused: MessageWriter<RideRefused>,
 ) {
+    let dt = time.sim_dt();
+    // ⛔ THE CLOCK RUNS ON EVERY RESERVATION, before any of the arms below. A
+    // countdown that only advanced for reservations that were ALSO in range
+    // would never expire the one case it exists for.
+    let mut timed_out: Vec<(Entity, Entity)> = Vec::new();
+    for (mount, mut reservation, _) in &mut reserved {
+        reservation.expires_in -= dt;
+        if reservation.expires_in <= 0.0 {
+            timed_out.push((mount, reservation.rider));
+        }
+    }
+    timed_out.sort();
+    for (mount, rider) in timed_out {
+        bevy::log::warn!(
+            target: "ambition::mount",
+            "reservation EXPIRED unreached: mount={mount:?} rider={rider:?} — \
+             the rider never came within boarding range",
+        );
+        commands.entity(mount).remove::<MountReservedFor>();
+        refused.write(RideRefused { rider, mount });
+    }
+    let reserved = reserved.as_readonly();
     // Sorted: two mounts arriving on one tick must be decided in a stable order,
     // and `Query` iteration order is not guaranteed.
     let mut arrivals: Vec<(Entity, MountReservedFor)> = reserved
         .iter()
         .filter_map(|(mount, reservation, kin)| {
             let rider_kin = riders.get(reservation.rider).ok()?;
-            // A rider that no longer has a body has not arrived and never will.
-            // The reservation is retired below by the same road as a refusal.
-            (kin.pos.distance(rider_kin.pos) <= reservation.board_within)
-                .then_some((mount, *reservation))
+            let gap = kin.pos.distance(rider_kin.pos);
+            // ⭐ THE WAITING STATE SAYS ITSELF. A reservation that is simply not
+            // reached yet used to be invisible — no line, no message, nothing —
+            // so "the mount never boarded" and "the mount was refused" produced
+            // identical evidence, which is none. `debug!` rather than `info!`
+            // because this repeats every tick of an approach.
+            if gap > reservation.board_within {
+                bevy::log::debug!(
+                    target: "ambition::mount",
+                    "reservation waiting: mount={mount:?} rider={:?} gap={gap:.1} \
+                     board_within={:.1} expires_in={:.2}s",
+                    reservation.rider,
+                    reservation.board_within,
+                    reservation.expires_in,
+                );
+                return None;
+            }
+            Some((mount, *reservation))
         })
         .collect();
     arrivals.sort_by_key(|(mount, _)| *mount);

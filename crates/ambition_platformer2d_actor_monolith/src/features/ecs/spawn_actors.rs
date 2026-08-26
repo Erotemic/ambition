@@ -2243,6 +2243,7 @@ pub fn apply_summon_effects(
                             rider,
                             lease_seconds: ride.seconds,
                             board_within: ride.board_within,
+                            expires_in: ride.board_deadline_s,
                         });
                 }
                 None => bevy::log::warn!(

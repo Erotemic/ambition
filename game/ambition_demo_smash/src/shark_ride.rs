@@ -59,6 +59,9 @@ pub struct Departing {
 /// (D246) is the same mechanism with a longer approach.
 const SUMMON_BOARD_RADIUS: f32 = 96.0;
 
+/// How long a summoned shark waits for its summoner before it gives up.
+const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
+
 /// How fast a dismissed shark leaves.
 const DEPART_SPEED: f32 = 1_400.0;
 
@@ -147,6 +150,13 @@ pub fn translate_shark_summons(
                         // few pixels in the tick between the summon and the
                         // board still boards.
                         board_within: SUMMON_BOARD_RADIUS,
+                        // ⭐ SHORT, BECAUSE THE SHARK APPEARS UNDERFOOT. If the
+                        // admiral is not aboard within this, something is wrong
+                        // rather than slow, and the ruleset would rather hear
+                        // about it than watch an unclaimed shark hover forever.
+                        // D246's fly-in will want a longer one — it is the
+                        // approach budget then, not an error budget.
+                        board_deadline_s: SUMMON_BOARD_DEADLINE_S,
                     }),
                 },
             ),

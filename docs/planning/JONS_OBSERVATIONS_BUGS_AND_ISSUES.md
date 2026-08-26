@@ -291,6 +291,27 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
+## 2026-08-25 — Jon's session: hitbox, menus, touch, naming, respawn
+
+Recorded verbatim from Jon while he played; none of these are triaged yet.
+
+* Sanic's hitbox is always UNDER the surface. Happens in smash and in his own game.
+* Menu up/down select (the control text) OVERLAPS the buttons in many menus.
+* Smash "quit to title" quits to a DIFFERENT GAME — often Ambition itself. From there
+  a second quit does reach the real title screen.
+* Opening the menu on the TITLE SCREEN puts the settings menu BEHIND the select-game
+  menu, which makes it unusable; same in loading screens. Jon: *"Typically the pause
+  menu should supercede whatever is behind it unless it is a live online game -
+  which we don't have yet."*
+* Touch: using the on-screen JOYSTICK should override the screen's own touch controls,
+  so the joystick can manipulate a token.
+* The character select grid should favour MORE COLUMNS THAN ROWS.
+* "Mary-O (Tall)" should just be **"Mary-O"**. Jon: *"the characters should not be
+  required to have a unique presentation name. Or maybe they have an optional
+  distinguished presentation name if we really need it."*
+* Smash respawn: jumping while respawning RAISES THE CHARACTER UP ON THE PLATFORM.
+  ⚠ adjacent to D192 — a returning fighter should not be able to act before it lands.
+
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 
 Jon: *"Another issue is that shield rolls have too much motion to them. They

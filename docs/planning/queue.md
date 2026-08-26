@@ -11171,8 +11171,16 @@ screen earlier, caught by the EXISTING forward test in a minute. And the two-pad
 arm overclaimed: a poison on the no-plan branch PASSED, because in an all-pad
 match every channel IS named, so that branch is dead along this fixture's path.
 
-- ▢ **D237 — THE 24-HOUR DEEP REVIEW (GPT 5.6, snapshot `cab773ccf`): SEVEN
-  CLOSED THE SAME DAY, SIX OPEN, ONE REFUSED AS A HALF-FIX. (opened 2026-08-25)**
+- ✔ **D237 — CLOSED 2026-08-26. THE 24-HOUR DEEP REVIEW (GPT 5.6, snapshot
+  `cab773ccf`) IS FULLY CONSUMED.** ⚠ its old headline — *"seven closed, six
+  open, one refused"* — was the count from the day it opened and had been stale
+  for a day: the body now records every finding closed, the refusal OVERTURNED
+  (13), one item (12) PARKED with a named reopen condition, and one (16) that was
+  always guidance rather than work. ⛔ **the two that still read as open were
+  both shipped under D241 and never marked here** — (7)'s input-order recogniser
+  and the wavebounce half — which is the four-session failure mode this file
+  warns about, caught by re-reading rather than by trusting the header.
+  (opened 2026-08-25; closed 2026-08-26)**
 
 ⭐ CLOSED 2026-08-25, each measured → built → poisoned → verified: (1) match input
 device authority [D236]; (2) roll ownership + the evade timer split [D235]; (3)
@@ -11255,10 +11263,17 @@ undeclarable. Ungated, one rule now yields four outcomes: ordinary special /
 turnaround-B / B-reverse / **WAVEBOUNCE** (momentum turns, facing does not). ⛔ an
 existing arm asserted the drift knob alone "does nothing, because there is no
 turn to strengthen" — that sentence WAS the assumption, so it was updated, not
-worked around. ⚠ THE RECOGNISER IS THE REMAINING HALF and is honestly absent: the
-genre distinguishes these by the ORDER of stick and button, and this seam is
-handed one already-resolved direction. A game DECLARES which technique its
-Back+Special performs. Reopen when a customer needs per-press choice.
+worked around. ⚠ THE RECOGNISER WAS THE REMAINING HALF and read as *"honestly absent"* here.
+
+✔✔ **IT SHIPPED THE SAME DAY AND THIS PARAGRAPH WENT STALE — verified at HEAD
+2026-08-26.** `AttackGestureState::special_turn_window` and
+`apply_special_turn_flicks` are live in `ambition_combat::moveset`; the four
+outcomes fall out of two toggles (a back BEFORE the press flips facing; a back
+flick AFTER it also reverses drift; both = wavebounce), and the window is the
+ruleset's own `flick_window_ticks` rather than a new knob. Wire v111. See
+**D241**, which records it. ⇒ nothing here is open; the sentence above is kept
+because *"a game DECLARES which technique"* was the framing the recogniser
+replaced, and knowing that it was replaced is the useful part.
 
 ◐ **(4)/(5) — BUILT, MEASURED, REVERTED, AND THE REVERT IS THE FINDING.
 2026-08-25.**
@@ -11345,8 +11360,16 @@ before firing the message — so none of them can see the ordering at all.
 comment saying it is at Bevy's param ceiling, twice, and enlarging it is exactly
 what (16) warns against. ⇒ the resolver should PUBLISH a resolved hit carrying
 its hitlag, and a small system turns that into the freeze — which is (4)'s split
-arriving through its first real customer rather than as a refactor. **(7) the INPUT-ORDER recogniser** — the four techniques are declarable now, but
-which one a PLAYER asked for still cannot be read from stick-then-button order; ✔ **(11) CLOSED — re-verified at HEAD 2026-08-26: both sides of that comparison
+arriving through its first real customer rather than as a refactor. ✔✔ **(7) THE INPUT-ORDER RECOGNISER — CLOSED, and this paragraph was the stale
+one.** It read *"the four techniques are declarable now, but which one a PLAYER
+asked for still cannot be read from stick-then-button order"*. It can:
+`AttackGestureState::special_turn_window` is armed where the press is ACCEPTED
+and `apply_special_turn_flicks` spends it on a later flick, so the ORDER is what
+selects the outcome — and it reads `ActorControlFrame::steer_axis()`, the stick
+the player is holding, rather than the damped locomotion a rooted move zeroes.
+Recorded under **D241**; verified at HEAD 2026-08-26.
+
+✔ **(11) CLOSED — re-verified at HEAD 2026-08-26: both sides of that comparison
 read ONE threshold now.** The dash writes `prev_steer_dir` through a
 `deadzoned()` helper keyed on `STEER_DEADZONE` (`integration.rs:615`) and the
 turnaround reads `steer_stick.x.abs() > integration::STEER_DEADZONE`

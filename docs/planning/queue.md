@@ -10305,14 +10305,22 @@ built identities for one fighter agree and a different fighter still differs.
 Plus the parity row PIVOT SMASH, which was already true — the pivot went in
 where facing is resolved, so every attack family inherited it.
 
-⛔⛔ **(13) LEDGE-TRUMP POP: REFUSED AS A HALF-FIX, AND THIS IS THE INTERESTING
-ONE.** The review is right that `kin.vel.x = outward.signum() * pop` is world X.
-But its INPUT, `LedgeContact::wall_normal_x`, is a world-X SCALAR — the whole
-ledge contact representation is world-X — so projecting only the consumer onto
-`body_frame.side` would move the inconsistency rather than remove it. ⇒ the real
-item is **give the ledge contact a frame-relative normal**, and that is a design
-change, not a line. ⚠ contrast the WAVEBOUNCE, which WAS a line: there the input
-was already a vector and the frame was already in scope.
+⭐⭐ **(13) CLOSED 2026-08-25 — AND THE REFUSAL BELOW WAS WRONG, WHICH IS THE
+INTERESTING PART.** The review was right that `kin.vel.x = outward.signum() * pop`
+is world X. It was refused on the claim that its INPUT was world-X too — and that
+claim was read off the NAME. `LedgeContact::wall_normal_x` is a body-LOCAL side
+sign: the producer computes `world_normal.dot(frame.side).signum()`, and
+`probe_ledge_grab_in_frame`'s own doc says *"`wall_normal_x` is historical naming:
+it is now the side-face normal expressed in the controlled body's local side
+axis"*. ⇒ it WAS the one-line projection the review proposed, and the refusal cost
+the fix a day.
+
+⛔⛔ **THE LESSON IS THE FIELD NAME.** A stale NAME is a claim about behaviour
+exactly like a stale comment, and it is worse: a comment is read sceptically and a
+type signature is believed. Two greps — the producer and the doc — would have
+settled it. ⇒ on any "the input is in the wrong space" refusal, READ THE PRODUCER.
+
+⚠ THE ORIGINAL REFUSAL, kept as the record of how it read at the time:
 
 ⚠ **AND (11) COST A FIXTURE, WHICH IS THE MOST USEFUL THING IN THIS ROW.**
 Unifying the threshold changed exactly FOUR arming decisions across a 3600-tick
@@ -10733,13 +10741,28 @@ attack stops clanking when its owner walks off a ledge and an aerial starts when
 its owner lands — "grounded attack" is a CLASSIFICATION, not a foot contact; latch
 it on the strike volume when the move is accepted.
 
-⛔ **I MADE THE (26) CHANGE AND REVERTED IT UNVERIFIED.** No test exercises
-`arbitrate_attack_clanks` at all — the only clank test covers the pure
-`clank_verdict`. The fixture needs three owners with kinematics, ground state,
-opposed factions and playbacks, plus three overlapping strike volumes; that is
-real work, and shipping a behavioural change to arbitration without it is exactly
-what I have refused all day. ⚠ LATENT: Smash declares `clank_damage_window = 0`,
-so nothing is at risk while it waits. **(28) pivot selection and move-facing DISAGREE** —
+⭐⭐ **(26) CLOSED 2026-08-25 — THE FIXTURE GOT BUILT AND IT REPRODUCED THE
+DEFECT EXACTLY.** Three fighters on one spot, one equal strike volume each, ids
+stated so the sweep's order is the fixture's: **one of three survived**, which is
+what the finding predicted. The fix is the one line — `resolved` is the dedup and
+`ended` is a COMMIT LEDGER applied after the sweep, exactly as its own comment
+says; reading it as an eligibility gate made it a third thing.
+
+⛔ THE PREVIOUS ENTRY, kept because the discipline was right: *I MADE THE (26)
+CHANGE AND REVERTED IT UNVERIFIED.* No test exercised `arbitrate_attack_clanks`
+at all — the only clank arm covered the pure `clank_verdict` — and shipping a
+behavioural change to arbitration without one is what this run refuses. Building
+the fixture was the work; the line was never the work. ⚠ LATENT EITHER WAY: Smash
+declares `clank_damage_window = 0`.
+
+⭐⭐ **(27) CLOSED 2026-08-26 — AND NOT ON THE STRIKE VOLUME.** The finding said
+*"latch it on the strike volume"*, and the first implementation did exactly that:
+a `grounded` bool on every rectangle a move opens. ⛔ THE STANCE IS A FACT ABOUT
+THE MOVE, and a move opens many volumes — so it belongs on `MovePlayback`
+(`started_grounded`), populated with the SAME `grounded` the selector used to
+choose the variant. ⭐ AND THE CLANK ALREADY HELD THE PLAYBACK: it queries
+`&mut MovePlayback` to cancel the loser. No new channel, no per-rectangle
+duplicate, one fewer query on `advance_move_playback`. **(28) pivot selection and move-facing DISAGREE** —
 the gesture picks the forward move using the turnaround facing, `start_move` then
 snapshots the OLD `kin.facing`, so the move is selected forward and its geometry
 mirrors the old way; **(30) `MatchParticipantRoster` is accumulating match RULES**
@@ -11136,6 +11159,15 @@ both                               flip twice (= no flip)
 
 ⇒ the fourth outcome falls out of the other two rather than needing its own
 recognition, which is why this is small.
+
+⛔⛔ **AND THE FLICK MUST BE READ OFF THE HELD STICK, WHICH THE FIRST VERSION
+GOT WRONG.** `update.rs` publishes the POST-INTEGRATION frame back onto
+`ActorControl`, so an actor's `locomotion` reads ZERO for the whole of a rooted
+move — and `motion_scale: 0.0` is how this repository authors a commitment. A
+B-reverse would have been impossible on exactly the specials that most want it.
+⇒ `ActorControlFrame::steer_axis()`, the twin of `InputState::steer_axis()` added
+the same day for the same reason on the other side of the seam. The fixtures
+deliver a DAMPED frame now, so the arm cannot pass by accident.
 
 ⭐ WHAT IT COST, as designed: `special_turn_window` + `prev_lateral_sign` on
 `AttackGestureState` (already per-body rollback state, already the gesture-history

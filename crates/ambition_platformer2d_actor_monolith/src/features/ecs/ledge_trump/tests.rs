@@ -219,6 +219,60 @@ mod outward_pop {
         // The fixture hangs with the wall pushing toward +x.
         assert_eq!(velocity_after_trump(Some(420.0)), 420.0);
     }
+
+    /// ⛔⛔ AND OUTWARD IS THE BODY'S OWN SIDE, NOT WORLD X.
+    ///
+    /// `wall_normal_x` is a body-LOCAL side sign despite its name — its producer
+    /// computes `world_normal.dot(frame.side).signum()`, and
+    /// `probe_ledge_grab_in_frame` says so in as many words. The pop wrote
+    /// `kin.vel.x`, so under sideways gravity it threw the loser along the axis
+    /// it FALLS on and left its outward drift untouched.
+    ///
+    /// ⚠ A 2026-08-25 review reported exactly this and it was REFUSED, on the
+    /// reading that the input was world-X too — taken from the NAME. The name
+    /// was the stale thing.
+    #[test]
+    fn the_pop_leaves_along_the_bodys_own_side_under_rotated_gravity() {
+        let mut app = app();
+        app.world_mut()
+            .insert_resource(crate::combat::rules::ResolvedCombatTuning {
+                ledge_trump_pop: 420.0,
+                ..Default::default()
+            });
+        let edge = ae::Vec2::new(100.0, 100.0);
+        let loser = hanging_body_at(&mut app, "loser", edge, 0.5);
+        let _winner = hanging_body_at(&mut app, "winner", edge, 0.1);
+
+        // GRAVITY PULLS ALONG +X, so the body's side axis is world Y.
+        let mut resolved =
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        resolved.publish_resolved_frame(ae::MotionFrame::from_direction(
+            ae::Vec2::new(1.0, 0.0),
+            900.0,
+        ));
+        app.world_mut().entity_mut(loser).insert(resolved);
+
+        app.update();
+        assert!(
+            !still_hanging(&app, loser),
+            "the fixture never trumped anybody, so there is no pop to observe"
+        );
+        let vel = app
+            .world()
+            .get::<ae::BodyKinematics>(loser)
+            .expect("the loser kept its kinematics")
+            .vel;
+        assert!(
+            vel.y.abs() > 400.0,
+            "the pop left {vel:?} — outward under this gravity is world Y, and \
+             nothing went that way"
+        );
+        assert!(
+            vel.x.abs() < 1.0,
+            "the pop pushed {vel:?} along the axis this body FALLS on — it is \
+             writing world X and calling it outward"
+        );
+    }
 }
 
 /// UNDER THE HOG RULE THE SAME CONTEST RESOLVES THE OTHER WAY.

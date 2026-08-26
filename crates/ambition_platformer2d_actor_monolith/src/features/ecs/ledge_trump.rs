@@ -30,6 +30,10 @@ pub fn resolve_ledge_trumps(
         // tests went red with "two bodies shared one edge". Trumping is about
         // the EDGE; the pop is a bonus a body with a velocity can receive.
         Option<&mut ae::BodyKinematics>,
+        // THE BODY'S OWN FRAME, for the pop's axis. `Option` for the same reason
+        // the kinematics above are: a body without a resolved frame still loses
+        // the edge, it simply falls under screen-down like it always did.
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
     // The match's own answer to *what does losing the edge cost*. Optional
     // because a world that declares no combat rules still trumps — it simply
@@ -38,7 +42,7 @@ pub fn resolve_ledge_trumps(
 ) {
     // (anchor, elapsed, id, entity) for every body currently hanging.
     let mut holders: Vec<(ae::Vec2, f32, SimId, Entity)> = Vec::new();
-    for (entity, id, model, _, _) in bodies.iter() {
+    for (entity, id, model, _, _, _) in bodies.iter() {
         let ae::MotionModel::AxisSwept(axis) = &*model else {
             continue;
         };
@@ -91,13 +95,25 @@ pub fn resolve_ledge_trumps(
 
     let pop = rules.map_or(0.0, |rules| rules.ledge_trump_pop);
     for entity in trumped {
-        let Ok((_, _, mut model, mut ledge, mut kin)) = bodies.get_mut(entity) else {
+        let Ok((_, _, mut model, mut ledge, mut kin, frame)) = bodies.get_mut(entity) else {
             continue;
         };
+        let body_frame = frame
+            .map(|frame| frame.basis())
+            .unwrap_or_else(|| ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
         // ⭐ THE OUTWARD DIRECTION IS THE HANG'S, read BEFORE the knock-off
         // clears it. `wall_normal_x` is the way the wall pushes, so it already
         // points away from the stage — and it is right for a body hanging
         // FACING OUT, which a reading off `kin.facing` would get backwards.
+        //
+        // ⛔⛔ AND IT IS A BODY-LOCAL SIDE SIGN DESPITE ITS NAME. `_x` is
+        // historical: `probe_ledge_grab_in_frame` says in as many words that it
+        // is *"the side-face normal expressed in the controlled body's local
+        // side axis"*, and the producer computes it as
+        // `world_normal.dot(frame.side).signum()`. A 2026-08-25 review reported
+        // the pop below as a world-axis bug and the finding was REFUSED on the
+        // reading that its input was world-X too — from the NAME. The name was
+        // the stale thing; the consumer was the bug.
         let outward = if let ae::MotionModel::AxisSwept(axis) = &*model {
             axis.state
                 .ledge_grab
@@ -114,7 +130,12 @@ pub fn resolve_ledge_trumps(
                 if let (Some(outward), Some(kin)) =
                     (outward.filter(|n| n.abs() > 0.0), kin.as_mut())
                 {
-                    kin.vel.x = outward.signum() * pop;
+                    // The body's OWN side axis. Under sideways gravity a
+                    // fighter's outward IS world Y, and `vel.x` popped it along
+                    // the axis it falls on instead.
+                    let side = body_frame.side;
+                    let along = kin.vel.dot(side);
+                    kin.vel += (outward.signum() * pop - along) * side;
                 }
             }
             // the window goes with the edge. It was bought with airtime this

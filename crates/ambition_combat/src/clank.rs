@@ -116,7 +116,6 @@ pub fn arbitrate_attack_clanks(
     // `every_live_fighter_stays_inside_the_frame` reported ZERO body-frames
     // outside the stage in a whole match — nobody was ever launched, because
     // nearly every exchange in the air ended in a refusal.
-    grounded: Query<&ae::BodyGroundState>,
     factions: Query<&crate::components::ActorFaction>,
     teams: Query<&crate::targeting::MatchTeam>,
     mut playing: Query<&mut crate::moveset::MovePlayback>,
@@ -170,22 +169,40 @@ pub fn arbitrate_attack_clanks(
             } else {
                 (*b_owner, *a_owner)
             };
-            if resolved.contains(&pair) || ended.contains(a_owner) || ended.contains(b_owner) {
+            // ⛔⛔ `resolved` IS THE DEDUP; `ended` IS NOT AN ELIGIBILITY GATE.
+            // Skipping a pair because either owner was already ended let an
+            // EARLIER pair's outcome decide whether a LATER pair was CONSIDERED
+            // at all — measured with three equal attacks on one tick: A/B
+            // resolves first by `SimId`, both end, A/C and B/C are skipped, and
+            // C survives BECAUSE OF ID ORDER. Deterministic, and not
+            // simultaneous.
+            //
+            // ⭐ `ended` is a COMMIT LEDGER, applied after the sweep, exactly as
+            // its own comment below says: a body that loses to two attackers on
+            // one tick is ended once. Reading it here made it a third thing.
+            if resolved.contains(&pair) {
                 continue;
             }
             if !opposed(*a_owner, *b_owner, &factions, &teams, rules) {
                 continue;
             }
-            // Both feet down, or no contest. A body with no ground state is a
-            // bare fixture and is treated as grounded, the same default the move
-            // selector takes.
-            let on_floor = |owner: Entity| {
-                grounded
+            // ⛔⛔ BOTH WERE GROUND ATTACKS WHEN THEY CAME OUT, asked of the
+            // MOVE this system already holds. Asking `BodyGroundState` at
+            // COLLISION time meant a ground attack stopped clanking the moment
+            // its owner walked off a ledge mid-swing, and an aerial started
+            // clanking when its owner landed. "Grounded attack" is a
+            // CLASSIFICATION and it is settled when the swing comes out.
+            //
+            // ⭐ NO NEW CHANNEL: `MovePlayback::started_grounded` is the same
+            // stance the SELECTOR used to choose this variant, and the loser's
+            // playback is already in this system's hand to be cancelled.
+            let swung_from_the_floor = |owner: Entity| {
+                playing
                     .get(owner)
-                    .map(|ground| ground.on_ground)
+                    .map(|playback| playback.started_grounded)
                     .unwrap_or(true)
             };
-            if !on_floor(*a_owner) || !on_floor(*b_owner) {
+            if !swung_from_the_floor(*a_owner) || !swung_from_the_floor(*b_owner) {
                 continue;
             }
             let (Ok(a_kin), Ok(b_kin)) = (owner_pos.get(*a_owner), owner_pos.get(*b_owner)) else {
@@ -346,5 +363,212 @@ mod tests {
         // accident.
         assert_eq!(clank_verdict(10, 10, 0.0), None);
         assert_eq!(clank_verdict(4, 99, 0.0), None);
+    }
+
+    /// ⛔⛔ THREE EQUAL ATTACKS MEETING ON ONE TICK: ALL THREE TRADE.
+    ///
+    /// The sweep skipped a pair when either owner was already in `ended`, so an
+    /// EARLIER pair's outcome decided whether a LATER pair was CONSIDERED at
+    /// all. With A/B/C overlapping and equal: A/B resolves first by `SimId`,
+    /// both end, A/C and B/C are skipped — and **C survives because of `SimId`
+    /// order**. Deterministic, and not simultaneous.
+    ///
+    /// ⭐ `resolved` IS THE DEDUP; `ended` IS A COMMIT LEDGER, applied after the
+    /// sweep, exactly as its own comment says. Reading it as an eligibility gate
+    /// was the bug.
+    ///
+    /// ⛔ NO TEST EXERCISED `arbitrate_attack_clanks` AT ALL before this — the
+    /// only clank arm covered the pure `clank_verdict` — which is why a one-line
+    /// change to shipped arbitration was written and reverted unverified on
+    /// 2026-08-25 rather than shipped blind.
+    /// One equal swing, long enough to still be playing after the sweep.
+    fn a_swing(team: &str) -> ambition_entity_catalog::MoveSpec {
+        ambition_entity_catalog::MoveSpec {
+            display_name: None,
+            id: format!("swing_{team}"),
+            clip: ambition_entity_catalog::ClipBinding {
+                clip: "attack".to_string(),
+                fallbacks: vec![],
+            },
+            duration_s: 0.4,
+            windows: vec![],
+            events: vec![],
+            gates: Default::default(),
+            start_impulse: None,
+            smash_charge_mult: 1.0,
+            smash_charge: None,
+            charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+            repeat: None,
+            landing_lag_s: None,
+            autocancel_after_s: None,
+            sprite_spin_hz: None,
+        }
+    }
+
+    #[test]
+    fn three_attacks_meeting_at_once_all_trade() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_message::<AttacksClanked>();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            clank_damage_window: 9.0,
+            ..Default::default()
+        });
+        app.add_systems(Update, arbitrate_attack_clanks);
+
+        // Three fighters standing on one spot, each mid-move, each on a
+        // different side so every pair is opposed.
+        let mut fighter = |team: &str| -> Entity {
+            app.world_mut()
+                .spawn((
+                    ae::BodyKinematics {
+                        pos: ae::Vec2::ZERO,
+                        vel: ae::Vec2::ZERO,
+                        size: ae::Vec2::new(16.0, 32.0),
+                        facing: 1.0,
+                    },
+                    ae::BodyGroundState {
+                        on_ground: true,
+                        ..Default::default()
+                    },
+                    crate::targeting::MatchTeam::new(team.to_string()),
+                    crate::moveset::MovePlayback::new(a_swing(team), 1.0),
+                ))
+                .id()
+        };
+        let a = fighter("a");
+        let b = fighter("b");
+        let c = fighter("c");
+
+        // One equal strike volume each, all overlapping at the origin. The ids
+        // are stated so the sweep's order is the fixture's, not the allocator's.
+        for (owner, id) in [(a, "vol_a"), (b, "vol_b"), (c, "vol_c")] {
+            app.world_mut().spawn((
+                Hitbox {
+                    strike_sfx: None,
+                    owner,
+                    source: crate::strike::HitSide::Enemy,
+                    anchor: crate::strike::HitboxAnchor::FollowOwner {
+                        local_offset: ae::Vec2::ZERO,
+                    },
+                    half_extent: ae::Vec2::new(20.0, 20.0),
+                    shape: None,
+                    facing: 1.0,
+                    damage: 10,
+                    knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
+                    launch_dir: None,
+                    frame_down: ae::Vec2::new(0.0, 1.0),
+                    autolink: None,
+                    windbox: None,
+                },
+                crate::moveset::StrikeVolume { owner, window: 0 },
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+            ));
+        }
+
+        app.update();
+
+        let still_swinging: Vec<Entity> = [a, b, c]
+            .into_iter()
+            .filter(|e| {
+                app.world()
+                    .get::<crate::moveset::MovePlayback>(*e)
+                    .is_some()
+            })
+            .collect();
+        assert!(
+            still_swinging.is_empty(),
+            "{} of three equal attacks survived a simultaneous clank — an \
+             earlier pair's outcome is deciding whether a later pair is \
+             CONSIDERED, so the last id standing wins by allocator-independent \
+             luck rather than by the contest",
+            still_swinging.len()
+        );
+    }
+
+    /// ⛔⛔ A GROUND SWING STAYS A GROUND SWING WHEN ITS OWNER LEAVES THE FLOOR.
+    ///
+    /// Eligibility asked `BodyGroundState::on_ground` AT COLLISION TIME, so a
+    /// ground attack stopped clanking the moment its owner walked off a ledge
+    /// mid-swing — and an aerial started clanking when its owner landed.
+    /// "Grounded attack" is a CLASSIFICATION and it is settled when the swing
+    /// comes out — `MovePlayback::started_grounded` is the stance the SELECTOR
+    /// used, and the loser's playback is already in this system's hand.
+    ///
+    /// ⭐ THE ARMS STRADDLE THE LATCH with the FEET HELD WRONG in both: the
+    /// clanking pair is airborne right now, and the refused pair is standing.
+    #[test]
+    fn the_clank_reads_the_swings_stance_not_the_owners_feet() {
+        use bevy::prelude::*;
+
+        let traded = |latched_grounded: bool, feet_on_floor: bool| -> bool {
+            let mut app = App::new();
+            app.add_message::<AttacksClanked>();
+            app.insert_resource(crate::rules::ResolvedCombatTuning {
+                clank_damage_window: 9.0,
+                ..Default::default()
+            });
+            app.add_systems(Update, arbitrate_attack_clanks);
+
+            let mut fighter = |team: &str| -> Entity {
+                app.world_mut()
+                    .spawn((
+                        ae::BodyKinematics {
+                            pos: ae::Vec2::ZERO,
+                            vel: ae::Vec2::ZERO,
+                            size: ae::Vec2::new(16.0, 32.0),
+                            facing: 1.0,
+                        },
+                        ae::BodyGroundState {
+                            on_ground: feet_on_floor,
+                            ..Default::default()
+                        },
+                        crate::targeting::MatchTeam::new(team.to_string()),
+                        crate::moveset::MovePlayback::new(a_swing(team), 1.0)
+                            .started_in_stance(latched_grounded),
+                    ))
+                    .id()
+            };
+            let a = fighter("a");
+            let b = fighter("b");
+            for (owner, id) in [(a, "vol_a"), (b, "vol_b")] {
+                app.world_mut().spawn((
+                    Hitbox {
+                        strike_sfx: None,
+                        owner,
+                        source: crate::strike::HitSide::Enemy,
+                        anchor: crate::strike::HitboxAnchor::FollowOwner {
+                            local_offset: ae::Vec2::ZERO,
+                        },
+                        half_extent: ae::Vec2::new(20.0, 20.0),
+                        shape: None,
+                        facing: 1.0,
+                        damage: 10,
+                        knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
+                        launch_dir: None,
+                        frame_down: ae::Vec2::new(0.0, 1.0),
+                        autolink: None,
+                        windbox: None,
+                    },
+                    crate::moveset::StrikeVolume { owner, window: 0 },
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement(id),
+                ));
+            }
+            app.update();
+            app.world().get::<crate::moveset::MovePlayback>(a).is_none()
+        };
+
+        assert!(
+            traded(true, false),
+            "two GROUND swings did not trade because their owners had left the \
+             floor since — walking off a ledge mid-swing turned the attack into \
+             something else"
+        );
+        assert!(
+            !traded(false, true),
+            "two AERIALS traded because their owners had landed since — the air \
+             stopped being a place where committing costs you"
+        );
     }
 }

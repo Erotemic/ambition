@@ -162,7 +162,11 @@ pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,
     publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
 };
-pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
+// ⛔ `MotionModel`, `AxisSweptMotion` and `MomentumMotion` LEFT THIS FACADE,
+// 2026-08-26. All three are `ambition_platformer2d_core::movement`'s, re-exported
+// twice through this crate — and `MomentumMotion` also RENAMED
+// `SurfaceMomentumMotion` on the way, so a caller could not grep the real type.
+// Callers name `_core`; the SDK keeps its own one-hop alias.
 pub use enemies::{ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
     ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,

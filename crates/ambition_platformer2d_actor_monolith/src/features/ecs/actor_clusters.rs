@@ -1001,7 +1001,7 @@ impl ActorClusterSeed {
         dt: f32,
         is_mounted: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
-        motion_model: &mut crate::features::MotionModel,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         motion_frame: ae::MotionFrame,
     ) -> ambition_characters::actor::control::ActorControlFrame {
         self.as_actor_mut()

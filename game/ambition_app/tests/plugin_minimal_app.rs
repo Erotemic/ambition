@@ -26,7 +26,7 @@ use ambition_platformer2d::actors::avatar::PlayerIdentityBundle;
 use ambition_platformer2d::actors::body_mode::BodyModeCapabilities;
 use ambition_platformer2d::actors::control::{LocalPlayer, PlayerSlot};
 use ambition_platformer2d::world::rooms::RoomSet;
-use ambition_platformer2d::actors::RoomTransitionCooldown;
+use ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::ControlFrame;

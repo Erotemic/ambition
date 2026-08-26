@@ -405,7 +405,7 @@ fn player_purse(app: &mut App) -> i32 {
 fn place_player(app: &mut App, pos: Vec2) {
     let mut query = app.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query

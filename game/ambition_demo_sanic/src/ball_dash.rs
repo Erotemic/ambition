@@ -92,7 +92,7 @@ pub fn capture_ball_dash_input(
             Entity,
             &ambition_platformer2d::characters::control::ActorControl,
             &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
-            &ambition_platformer2d::actors::features::MotionModel,
+            &ambition_platformer2d::actor::MotionModel,
             &ambition_platformer2d::actors::actor::BodyGroundState,
             &mut BallDashInput,
         ),
@@ -105,7 +105,7 @@ pub fn capture_ball_dash_input(
             let grounded_at_capture = ground.on_ground
                 || matches!(
                     motion,
-                    ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(momentum)
+                    ambition_platformer2d::actor::MotionModel::SurfaceMomentum(momentum)
                         if matches!(momentum.state, ae::SurfaceMotion::Riding { .. })
                 );
             let crouch_held = control.0.locomotion.y >= tuning.crouch_threshold;
@@ -220,7 +220,7 @@ pub fn tick_ball_dash(
         // The body's per-tick resolved frame (ADR 0024): the airborne launch
         // direction is the SAME frame the momentum kernel integrates under.
         &ambition_platformer2d::world::ResolvedMotionFrame,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
         &mut ae::BodyKinematics,
         &mut BallDash,
         Option<&Rolling>,
@@ -231,7 +231,7 @@ pub fn tick_ball_dash(
         &mut bodies
     {
         let frame = resolved_frame.basis();
-        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion
+        let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = &mut *motion
         else {
             // A Sanic on the AABB path is a Sanic in a different demo. Nothing
             // here reaches for `MotionModel::AxisSwept`, on purpose: the verb is
@@ -318,14 +318,14 @@ pub fn tick_rolling(
     mut commands: Commands,
     mut bodies: Query<(
         Entity,
-        &ambition_platformer2d::actors::features::MotionModel,
+        &ambition_platformer2d::actor::MotionModel,
         &mut ae::BodyKinematics,
         &Rolling,
     )>,
     tuning: Res<BallDashTuning>,
 ) {
     for (entity, motion, mut kin, rolling) in &mut bodies {
-        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = motion
+        let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion
         else {
             continue;
         };

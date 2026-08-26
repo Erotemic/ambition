@@ -349,7 +349,7 @@ pub fn project_prepared_character_definitions(
             With<ambition_combat::moveset::ActorMoveset>,
             With<ambition_characters::brain::action_set::IdentityKit>,
             With<crate::actor::BodyAbilities>,
-            With<crate::features::MotionModel>,
+            With<ambition_platformer2d_core::movement::MotionModel>,
         ),
     >,
     // walked ONLY on the tick the registry changes, which is startup and hot
@@ -571,7 +571,7 @@ pub fn grant_prepared_character_body(
         {
             let spec = prepared.motion_model;
             commands.queue(move |world: &mut World| {
-                let Some(mut model) = world.get_mut::<crate::features::MotionModel>(entity) else {
+                let Some(mut model) = world.get_mut::<ambition_platformer2d_core::movement::MotionModel>(entity) else {
                     return;
                 };
                 ambition_platformer2d_core::switch_motion_model(&mut model, spec);

@@ -5542,11 +5542,21 @@ OUTWARD ITEMS TO TWO.** The safe-position memory went to
 `ambition_combat::death_rules`. What is left:
 
 ```text
-crate::avatar::PlayerBodyFrameOutput               real
-crate::world::overlay::FeatureWorldOverlaySet      real — a SCHEDULE SET, not data
-crate::features::MotionModel                       a sibling; travels with any carve
+crate::avatar::PlayerBodyFrameOutput               THE ONE REAL EDGE — one query
+crate::world::overlay::FeatureWorldOverlaySet      a DOC LINK; not code at all
 crate::actor::{PrimaryPlayerOnly, BodyAnimFacts}   not edges
 ```
+
+⛔⛔ **AND `crate::features::MotionModel` WAS A THIRD FACADE — 125 SITES.** It is
+`ambition_platformer2d_core::movement`'s type, re-exported TWICE through the
+monolith (`features` → `features::ecs::actors::motion` → `_core`), and
+`MomentumMotion` was the same thing RENAMED from `SurfaceMomentumMotion` on the
+way, so a caller could not grep the real type. ⭐ `damage_apply` spelled the SAME
+type both ways in one file — `ae::MotionModel` twice and
+`crate::features::MotionModel` twice — which is the tell a facade leaves.
+
+⇒ **`damage_apply` has ONE real outward edge left: `avatar::PlayerBodyFrameOutput`,
+in one query.** That is a smaller boundary than the mount pair had.
 
 ⛔⛔ **AND THE SECOND MOVE COULD NOT GO WHERE THE FIRST ONE DID, which is the
 lesson worth more than either move.** The reflex after a successful move is to

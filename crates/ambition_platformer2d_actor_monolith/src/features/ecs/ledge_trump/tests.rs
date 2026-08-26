@@ -11,7 +11,7 @@ use ae::ledge_grab::{LedgeContact, LedgeGrabState};
 
 fn hanging_at(app: &mut App, id: &str, anchor: ae::Vec2, elapsed: f32) -> Entity {
     let mut model =
-        crate::features::MotionModel::axis_swept(ae::DEFAULT_TUNING.axis_swept_params());
+        ambition_platformer2d_core::movement::MotionModel::axis_swept(ae::DEFAULT_TUNING.axis_swept_params());
     let ae::MotionModel::AxisSwept(axis) = &mut model else {
         unreachable!("axis_swept built an axis model")
     };
@@ -33,7 +33,7 @@ fn hanging_at(app: &mut App, id: &str, anchor: ae::Vec2, elapsed: f32) -> Entity
 fn still_hanging(app: &App, entity: Entity) -> bool {
     match app
         .world()
-        .get::<crate::features::MotionModel>(entity)
+        .get::<ambition_platformer2d_core::movement::MotionModel>(entity)
         .expect("the body kept its motion model")
     {
         ae::MotionModel::AxisSwept(axis) => axis.state.ledge_grab.is_some(),
@@ -44,7 +44,7 @@ fn still_hanging(app: &App, entity: Entity) -> bool {
 fn invuln(app: &App, entity: Entity) -> f32 {
     match app
         .world()
-        .get::<crate::features::MotionModel>(entity)
+        .get::<ambition_platformer2d_core::movement::MotionModel>(entity)
         .expect("the body kept its motion model")
     {
         ae::MotionModel::AxisSwept(axis) => axis.state.ledge_invuln_timer,
@@ -142,7 +142,7 @@ fn a_body_mid_getup_is_neither_trumper_nor_trumped() {
     let hanging = hanging_at(&mut app, "hanging", anchor, 1.4);
     let mut model = app
         .world_mut()
-        .get_mut::<crate::features::MotionModel>(climbing)
+        .get_mut::<ambition_platformer2d_core::movement::MotionModel>(climbing)
         .expect("the body kept its motion model");
     let ae::MotionModel::AxisSwept(axis) = &mut *model else {
         unreachable!()

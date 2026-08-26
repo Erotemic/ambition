@@ -78,7 +78,7 @@ const DEATH_MUSIC_OWNER: &str = "mary_o_death";
 /// nothing plays a cue for it. The music the beat runs over is
 /// [`play_death_music`] above.
 pub fn voice_her_death(
-    mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
+    mut deaths: MessageReader<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
     subject: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
     >,

@@ -52,7 +52,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
     );
     seed.body.0.ground.on_ground = true;
     let start_x = seed.kin.pos.x;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
@@ -123,7 +123,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
         // Spawn-pinned to screen-down — the exact stale state B2 fixes.
         seed.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         seed.kin.pos = ae::Vec2::new(0.0, 40.0);
-        let mut model = crate::features::MotionModel::default();
+        let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         let mut em = seed.as_actor_mut();
         em.update(
             &world,
@@ -175,7 +175,7 @@ fn walk_run_staggered(mut combat: ambition_characters::actor::BodyCombat, ticks:
     seed.surface.gravity_scale = 1.0;
     seed.body.0.ground.on_ground = true;
     let start_x = seed.kin.pos.x;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
@@ -276,7 +276,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     seed.surface.gravity_scale = 1.0;
     seed.body = ActorBody::from_kit(ae::AbilitySet::NONE, false, seed.kin.size);
     seed.body.0.ground.on_ground = true;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
@@ -301,7 +301,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         false,
         ae::BodyContactField::NONE,
     );
-    let crate::features::MotionModel::AxisSwept(axis) = &model else {
+    let ambition_platformer2d_core::movement::MotionModel::AxisSwept(axis) = &model else {
         panic!("test body is not axis-swept");
     };
     assert!(
@@ -332,7 +332,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     // Aerial body: is_aerial forces the fly ability + fly_enabled from spawn.
     seed.body = ActorBody::from_kit(ae::AbilitySet::NONE, true, seed.kin.size);
     let start = seed.kin.pos;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     // Command a pure +x world velocity (the free-mover modality).
@@ -413,7 +413,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
     );
     seed.body.0.ground.on_ground = true;
     let start_y = seed.kin.pos.y;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let dt = 1.0 / 60.0;
     for tick in 0..ticks {

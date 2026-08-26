@@ -106,7 +106,7 @@ pub(crate) fn observe_actor_decision_inputs(
             With<CenteredAabb>,
             With<ActorIdentity>,
             With<BodyCombat>,
-            With<crate::features::MotionModel>,
+            With<ambition_platformer2d_core::movement::MotionModel>,
             Without<crate::actor::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
             Without<crate::features::ecs::dormancy::Dormant>,
@@ -155,7 +155,7 @@ pub(crate) fn maintain_actor_pre_decision_state(
             With<ActorIdentity>,
             With<ActorDisposition>,
             With<super::super::super::components::ActorTarget>,
-            With<crate::features::MotionModel>,
+            With<ambition_platformer2d_core::movement::MotionModel>,
             Without<crate::actor::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
             Without<crate::features::ecs::dormancy::Dormant>,
@@ -337,7 +337,7 @@ pub fn tick_actor_brains(
                 // (`integrate_sim_bodies`) already takes `&mut MotionModel` non-optionally over
                 // the same archetype, so a body without one is not integrated at all and has no
                 // locomotion for a brain to reason about.
-                &crate::features::MotionModel,
+                &ambition_platformer2d_core::movement::MotionModel,
             ),
         ),
         // Exclude BOSSES too: they carry the shared actor read-models

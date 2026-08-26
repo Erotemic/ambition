@@ -49,7 +49,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             FeatureId::new("kernel_guide"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             enemy.into_components(),
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             // Production hostile actors receive this from `EnemyActorBundle`.
             // Keep the shared damage fixture structurally representative so
             // body-generic contact resolution can see it as a `StrikeVictim`.
@@ -510,7 +510,7 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
             aggression,
             crate::features::ecs::CombatKit::default(),
             seed.into_components(),
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             crate::features::ecs::ActorInteraction {
                 interactable,
                 talk_radius: crate::features::NPC_TALK_RADIUS,
@@ -741,9 +741,9 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         // spawn selector installs for `surface_walker` archetypes.
         let mut model = app
             .world_mut()
-            .get_mut::<crate::features::MotionModel>(actor)
+            .get_mut::<ambition_platformer2d_core::movement::MotionModel>(actor)
             .unwrap();
-        *model = crate::features::MotionModel::AdhesiveCrawler(ae::AdhesiveCrawlerMotion {
+        *model = ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(ae::AdhesiveCrawlerMotion {
             params: ae::CrawlerParams::default(),
             state: ae::CrawlerState::attached(ae::Vec2::new(1.0, 0.0)),
         });
@@ -1173,7 +1173,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
             FeatureId::new("guard"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             enemy.into_components(),
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             identity,
             disposition,
             combat,
@@ -1381,7 +1381,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
     {
         let mut model = app
             .world_mut()
-            .get_mut::<crate::features::MotionModel>(victim)
+            .get_mut::<ambition_platformer2d_core::movement::MotionModel>(victim)
             .expect("the actor carries a motion model");
         *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
         let ae::MotionModel::AxisSwept(axis) = &mut *model else {
@@ -1409,7 +1409,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
 
     let model = app
         .world()
-        .get::<crate::features::MotionModel>(victim)
+        .get::<ambition_platformer2d_core::movement::MotionModel>(victim)
         .expect("the actor carries a motion model");
     let ae::MotionModel::AxisSwept(axis) = model else {
         unreachable!("the fixture installed one")
@@ -1454,7 +1454,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
     {
         let mut model = app
             .world_mut()
-            .get_mut::<crate::features::MotionModel>(victim)
+            .get_mut::<ambition_platformer2d_core::movement::MotionModel>(victim)
             .expect("the actor carries a motion model");
         *model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
     }
@@ -1477,7 +1477,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
             .abilities
             .air_jump_count(
                 world
-                    .get::<crate::features::MotionModel>(victim)
+                    .get::<ambition_platformer2d_core::movement::MotionModel>(victim)
                     .expect("just written")
                     .air_jumps(),
             )
@@ -1791,7 +1791,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
                 facing: 1.0,
                 ..Default::default()
             },
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             ambition_platformer2d_core::CenteredAabb::from_center_size(
                 ae::Vec2::ZERO,
                 ae::Vec2::new(20.0, 40.0),

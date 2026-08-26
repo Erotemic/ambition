@@ -104,12 +104,12 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 
     let has_momentum = {
         let mut q = app.world_mut().query_filtered::<
-            &ambition_platformer2d::actors::features::MotionModel,
+            &ambition_platformer2d::actor::MotionModel,
             With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
         >();
         matches!(
             q.iter(app.world()).next(),
-            Some(ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(_))
+            Some(ambition_platformer2d::actor::MotionModel::SurfaceMomentum(_))
         )
     };
     assert!(

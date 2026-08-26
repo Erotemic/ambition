@@ -200,7 +200,7 @@ pub fn run_pipe_transits(
         (
             Entity,
             ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ambition_platformer2d::actor::MotionModel,
             &mut BodyCombat,
             &mut PipeTransit,
         ),

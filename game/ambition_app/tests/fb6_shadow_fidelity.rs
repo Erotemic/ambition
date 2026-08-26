@@ -185,7 +185,7 @@ fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32
     let mut query = app.world_mut().query::<(
         Entity,
         ae::BodyClusterQueryData,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
     )>();
     let world = app.world_mut();
     let mut placed = false;

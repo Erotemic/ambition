@@ -59,7 +59,7 @@ fn spawn_home(app: &mut App) -> Entity {
             },
             // The vacate-exit is a discrete transit through the home body's
             // full clusters + policy (ADR 0024 authority) — spawn the real set.
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             crate::actor::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     vec2(0.0, 0.0),

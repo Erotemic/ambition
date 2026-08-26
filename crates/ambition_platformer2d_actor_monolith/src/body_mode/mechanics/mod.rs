@@ -25,7 +25,7 @@ pub fn update_body_mode(
         &mut crate::actor::BodyModeState,
         &mut crate::actor::BodyJumpState,
         &crate::actor::BodyGroundState,
-        &crate::features::MotionModel,
+        &ambition_platformer2d_core::movement::MotionModel,
         &ae::BodyMotionFacts,
         &crate::actor::BodyEnvironmentContact,
         &ambition_characters::control::ActorControl,
@@ -95,7 +95,7 @@ pub fn update_body_mode(
         let on_ground = ground.on_ground
             || matches!(
                 motion,
-                crate::features::MotionModel::SurfaceMomentum(momentum)
+                ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(momentum)
                     if matches!(
                         momentum.state,
                         ae::SurfaceMotion::Riding { .. }

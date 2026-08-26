@@ -151,7 +151,7 @@ type FighterQuery<'w, 's> = Query<
         Option<&'static MatchTeam>,
         &'static mut BodyHealth,
         ae::BodyClusterQueryData,
-        &'static mut ambition_platformer2d::actors::features::MotionModel,
+        &'static mut ambition_platformer2d::actor::MotionModel,
         // The swing a fighter was mid-way through when the round ended. Carried
         // by VALUE because cancelling a move means despawning the strike boxes
         // it derived, and only the playback knows which entities those are.

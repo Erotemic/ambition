@@ -29,7 +29,7 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             // Ability systems read the per-tick resolved frame (ADR 0024) and
             // the FULL movement clusters (the transit authority reconciles
             // contacts/attachment through `BodyClusterQueryData`) — both live
@@ -74,7 +74,7 @@ pub(crate) fn spawn_primary_player_holding_at(
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             // Ability systems read the per-tick resolved frame (ADR 0024) and
             // the FULL movement clusters (the transit authority reconciles
             // contacts/attachment through `BodyClusterQueryData`) — both live

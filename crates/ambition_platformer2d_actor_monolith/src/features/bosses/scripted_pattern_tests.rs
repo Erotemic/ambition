@@ -622,7 +622,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
             &mut frame,
             &mut attack_intent,
         );
-        let mut model = crate::features::MotionModel::default();
+        let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         // Integrate through the shared flight limb (the boss's production path):
         // `flight_direct_velocity` takes `frame.velocity_target` verbatim, then
         // the pipeline collision-resolves against the wall.

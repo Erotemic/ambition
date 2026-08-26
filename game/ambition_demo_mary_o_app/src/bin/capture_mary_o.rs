@@ -237,7 +237,7 @@ fn place_before_the_shutter(
     mut bodies: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ambition_platformer2d::actor::MotionModel,
         ),
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,

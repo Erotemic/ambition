@@ -177,10 +177,10 @@ fn die(sim: &mut Platformer2dSimHarness) {
     let victim = body(sim);
     let (x, y) = body_pos(sim);
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::ActorDiedMessage {
+        .write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
             victim,
             pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
-            cause: ambition_platformer2d::actors::DeathCause {
+            cause: ambition_platformer2d::combat::death_rules::DeathCause {
                 source: ambition_platformer2d::combat::HitSource::Hazard,
                 attacker: None,
             },

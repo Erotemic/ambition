@@ -87,7 +87,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 facing: 1.0,
                 ..Default::default()
             },
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             BodyBaseSize {
                 base_size: Vec2::new(30.0, 48.0),
             },
@@ -122,7 +122,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
             facing: 1.0,
             ..Default::default()
         },
-        crate::features::MotionModel::default(),
+        ambition_platformer2d_core::movement::MotionModel::default(),
         BodyBaseSize {
             base_size: Vec2::new(30.0, 48.0),
         },
@@ -241,7 +241,7 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
         .get_mut::<BodyGroundState>(body)
         .unwrap()
         .on_ground = false;
-    let mut momentum = crate::features::MomentumMotion::new(Default::default());
+    let mut momentum = ambition_platformer2d_core::movement::SurfaceMomentumMotion::new(Default::default());
     momentum.state = ae::SurfaceMotion::Riding {
         on: ae::SurfaceRef::Block(0),
         s: 10.0,
@@ -249,7 +249,7 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
     };
     app.world_mut()
         .entity_mut(body)
-        .insert(crate::features::MotionModel::SurfaceMomentum(momentum));
+        .insert(ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(momentum));
     set_control(&mut app, body, |control| {
         control.locomotion = ambition_platformer2d_core::LocalAxes::new(0.0, 1.0)
     });

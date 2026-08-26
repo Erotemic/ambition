@@ -43,7 +43,7 @@ fn room_spawn(sim: &mut Platformer2dSimHarness) -> Vec2 {
 fn displace(sim: &mut Platformer2dSimHarness, to: Vec2) {
     let mut q = sim.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = sim.world_mut();
     let (mut cluster_item, mut motion_model) = q

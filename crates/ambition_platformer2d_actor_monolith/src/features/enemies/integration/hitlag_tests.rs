@@ -61,7 +61,7 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
     combat.hitstop_timer = hitstop;
 
     let start_x = seed.kin.pos.x;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);

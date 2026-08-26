@@ -133,7 +133,7 @@ pub fn apply_room_replay_request_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_platformer2d_actor_monolith::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
             &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,

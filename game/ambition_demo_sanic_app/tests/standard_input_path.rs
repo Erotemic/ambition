@@ -336,7 +336,7 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
 /// generic melee.
 #[test]
 fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
-    use ambition_platformer2d::actors::features::MotionModel;
+    use ambition_platformer2d::actor::MotionModel;
     use ambition_platformer2d::engine_core::BodyMode;
     use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
     use ambition_demo_sanic::ball_dash::{BallDash, BallDashTuning, Rolling};

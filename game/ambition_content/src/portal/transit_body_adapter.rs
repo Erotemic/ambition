@@ -200,7 +200,7 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
         ambition_platformer2d_core::BodyClusterQueryData,
-        &mut ambition_platformer2d_actor_monolith::features::MotionModel,
+        &mut ambition_platformer2d_core::movement::MotionModel,
     )>,
 ) {
     for ev in transited.read() {

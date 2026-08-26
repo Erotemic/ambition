@@ -2281,7 +2281,7 @@ fn take_the_controls_at_the_goal(
     act: bevy::prelude::Query<&SanicActState>,
     mut commands: bevy::prelude::Commands,
     mut dashes: bevy::prelude::Query<&mut ball_dash::BallDash>,
-    mut models: bevy::prelude::Query<&mut ambition_platformer2d::actors::features::MotionModel>,
+    mut models: bevy::prelude::Query<&mut ambition_platformer2d::actor::MotionModel>,
     mut kinematics: bevy::prelude::Query<&mut ae::BodyKinematics>,
     mut holds: bevy::prelude::Query<&mut ambition_platformer2d::characters::control::ControlHolds>,
 ) {

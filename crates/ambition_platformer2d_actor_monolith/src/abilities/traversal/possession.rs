@@ -141,7 +141,7 @@ pub fn possession_trigger_system(
         (
             Entity,
             ambition_platformer2d_core::BodyClusterQueryData,
-            &mut crate::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
@@ -275,7 +275,7 @@ fn release_possession(
         (
             Entity,
             ambition_platformer2d_core::BodyClusterQueryData,
-            &mut crate::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,

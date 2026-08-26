@@ -71,7 +71,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
     mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<world_rooms::RoomSet>,
     mut dev_state: ResMut<DeveloperRuntimeState>,
-    mut sim_state: ResMut<ambition_platformer2d::actors::RoomTransitionCooldown>,
+    mut sim_state: ResMut<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>,
     mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
     mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ldtk_world::LdtkRuntimeIndex,
@@ -95,9 +95,9 @@ pub(super) fn handle_ldtk_hot_reload(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ambition_platformer2d::actor::MotionModel,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
-            &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
+            &mut ambition_platformer2d::platformer::safe_position::PlayerSafetyState,
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
@@ -336,8 +336,8 @@ pub(super) fn reload_ldtk_world_from_disk(
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut DeveloperRuntimeState,
-    sim_state: &mut ambition_platformer2d::actors::RoomTransitionCooldown,
-    safety: &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
+    sim_state: &mut ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
+    safety: &mut ambition_platformer2d::platformer::safe_position::PlayerSafetyState,
     dialogue: &mut ambition_platformer2d::dialog::DialogState,
     combat: &mut ambition_platformer2d::characters::actor::BodyCombat,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,

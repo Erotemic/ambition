@@ -113,7 +113,7 @@ pub struct PlayerSimulationBundle {
     pub kinematics: BodyKinematics,
     /// Explicit swappable movement policy. Every integrated body owns one;
     /// absence is never interpreted as the axis-swept default.
-    pub motion_model: crate::features::MotionModel,
+    pub motion_model: ambition_platformer2d_core::movement::MotionModel,
     pub hurtbox: CenteredAabb,
     /// Body-generic strike/pogo publication state. The home body carries the
     /// same components as every actor, so changing controller kind never changes
@@ -198,7 +198,7 @@ impl PlayerSimulationBundle {
                 kinematics.facing,
             ),
             kinematics,
-            motion_model: crate::features::MotionModel::default(),
+            motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
             hurtbox,
             damageable_volumes: DamageableVolumes::default(),
             pogo_policy: PogoPolicy::FromDamageable,

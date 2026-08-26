@@ -200,7 +200,7 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             HeldItem::new(home_spec),
             // Every body carries the per-tick resolved frame + full clusters
             // (ADR 0024; the transit authority reconciles through them) — the
@@ -230,7 +230,7 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            crate::features::MotionModel::default(),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             HeldItem::new(actor_spec),
             crate::actor::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(

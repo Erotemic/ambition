@@ -139,7 +139,7 @@ fn spawn_victory_npc_entity(
                 faction: ambition_platformer2d_actor_monolith::features::ActorFaction::Npc,
                 target: ambition_platformer2d_actor_monolith::features::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
-                motion_model: ambition_platformer2d_actor_monolith::features::MotionModel::default(
+                motion_model: ambition_platformer2d_core::movement::MotionModel::default(
                 ),
                 combat_kit,
                 aggression:

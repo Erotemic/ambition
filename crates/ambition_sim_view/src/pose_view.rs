@@ -654,7 +654,23 @@ pub fn rebuild_launched_bodies_view(
         // authored. Read for that ONE value; the maneuver state behind it is
         // model-private (ADR 0024) and stays that way.
         Option<&ambition_platformer2d_actor_monolith::features::MotionModel>,
-    )>,
+    ),
+    // ⛔⛔ A BODY OUT OF PLAY IS NOT IN A FLIGHT, AND THIS IS THE KO COMPOSITION
+    // POLICY RATHER THAN AN AMPLITUDE TWEAK. The launch trail's own header says
+    // its blast and plume are *"a LAYER over the hit spark and camera shake"*,
+    // and the knockout beat then layers on top of that — three modules each
+    // locally correct, and nothing anywhere saying *"the flight has RESOLVED;
+    // the cues whose job was to predict danger are done"*. So an elimination
+    // drew the trail that was still predicting the launch underneath the beat
+    // that answered it.
+    //
+    // ⭐ THE SEAM WAS ALREADY HERE. This view is the sim's resolved "this motion
+    // is INVOLUNTARY" fact, and a body the world has its hands off is not moving
+    // involuntarily — it is not moving at all. Retiring the row is the whole
+    // policy: the predictive cue stops at the instant the thing it predicted
+    // happens, and the knockout owns the beat alone.
+    bevy::prelude::Without<ambition_combat::death_rules::OutOfPlay>,
+    >,
 ) {
     view.0.clear();
     view.0.extend(

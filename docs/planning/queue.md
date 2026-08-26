@@ -11577,6 +11577,16 @@ Android builds pass `--no-default-features` WITH the `android` composite, never
 bare. ⇒ the meaningful minimum is a PERSONA, and `visible,desktop_platform` is
 the only one a host can compile.
 
+✔ **AND THAT PERSONA IS CLEAN — measured 2026-08-26:
+`cargo check -p ambition_platformer2d_actor_monolith --no-default-features
+--features visible,desktop_platform` reports ZERO errors.** So the persona road
+is healthy where a host can see it, and `causal` was the one that had rotted.
+⇒ **the host-checkable half of this row is DONE.** What stays open is the half a
+host cannot answer: `android_platform`, `web_platform`, `visible_web`,
+`web_served` need their cross-compilation targets, and nothing in this repository
+builds them on a normal run — which is exactly the condition that let `causal`
+rot for weeks.
+
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is
 that whoever edits a type consulted by a gated module has to know the module

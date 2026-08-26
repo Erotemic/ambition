@@ -13,7 +13,7 @@ use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 /// Footprints of placement records of a given kind (families migrated to the
 /// single `placements` channel — fable audit F9.2).
 fn placement_aabbs(
-    room: &sb::rooms::RoomSpec,
+    room: &ambition_platformer2d::world::rooms::RoomSpec,
     label: &'static str,
     kind: ambition_platformer2d::entity_catalog::placements::PlacementKind,
 ) -> Vec<(&'static str, ae::Aabb)> {
@@ -24,7 +24,7 @@ fn placement_aabbs(
         .collect()
 }
 
-fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
+fn entity_aabbs(room: &ambition_platformer2d::world::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     use ambition_platformer2d::entity_catalog::placements::PlacementKind;
     let mut v: Vec<(&'static str, ae::Aabb)> = Vec::new();
     v.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));

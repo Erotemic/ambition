@@ -95,7 +95,7 @@ pub fn sync_authored_gated_lock_walls(world: &mut World) {
     // it just also asked LDtk what was in it.
     let (active_room_id, walls, rooms_changed) = {
         let mut rooms = world.query_filtered::<
-            bevy::prelude::Ref<crate::rooms::RoomSet>,
+            bevy::prelude::Ref<ambition_platformer2d_world::rooms::RoomSet>,
             bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
         >();
         let Some(set) = rooms.iter(world).next() else {

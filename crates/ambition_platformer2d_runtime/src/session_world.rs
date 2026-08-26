@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
-use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
+use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
 use ambition_platformer2d_core::RoomGeometry;
 #[cfg(feature = "ldtk")]
 use ambition_platformer2d_ldtk::LdtkRuntimeIndex;

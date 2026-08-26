@@ -99,7 +99,7 @@ pub fn spawn_symmetry_attunement(
 /// better than inventing a second one to hide it.
 pub fn drive_symmetry_attunement(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     encounters: Query<(&Encounter, &EncounterLifecycle)>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,

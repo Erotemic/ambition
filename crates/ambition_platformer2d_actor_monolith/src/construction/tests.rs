@@ -19,8 +19,8 @@ use ambition_platformer2d_core as ae;
 
 const REAL_HELD_ITEM: &str = "gun_sword";
 
-fn empty_room(id: &str) -> crate::rooms::RoomSpec {
-    crate::rooms::RoomSpec::new(
+fn empty_room(id: &str) -> ambition_platformer2d_world::rooms::RoomSpec {
+    ambition_platformer2d_world::rooms::RoomSpec::new(
         id,
         ae::World::new(id, ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()),
     )
@@ -95,8 +95,8 @@ fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistr
     })
 }
 
-fn ground_item(id: &str, held_item: &str) -> crate::rooms::GroundItemSpec {
-    crate::rooms::GroundItemSpec {
+fn ground_item(id: &str, held_item: &str) -> ambition_platformer2d_world::rooms::GroundItemSpec {
+    ambition_platformer2d_world::rooms::GroundItemSpec {
         id: id.to_string(),
         name: format!("{id} display"),
         held_item: held_item.to_string(),
@@ -125,7 +125,7 @@ fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest {
 /// A room with both planned authored + staged families, staged by a named
 /// provider so the resulting provenance is real rather than a placeholder.
 fn duelling_room() -> (
-    crate::rooms::RoomSpec,
+    ambition_platformer2d_world::rooms::RoomSpec,
     crate::features::RoomContentStagingRegistry,
 ) {
     let mut room = empty_room("hall");
@@ -144,7 +144,7 @@ fn duelling_room() -> (
 }
 
 fn prepare(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     staging: &crate::features::RoomContentStagingRegistry,
     recipes: &ActorConstructionRegistry,
 ) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
@@ -172,7 +172,7 @@ fn commit(plan: RoomFeatureConstructionPlan) -> App {
 /// As [`commit`], with `seed` run against the world FIRST
 fn commit_over(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut World)) -> App {
     let mut app = App::new();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     seed(app.world_mut());
     app.add_systems(Update, move |mut commands: Commands| {
         crate::world::rooms::transaction::open(&mut commands);
@@ -234,7 +234,7 @@ fn the_committed_roster_is_exactly_the_planned_roster() {
     let planned = plan.construction().planned_ids();
 
     let mut app = App::new();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let committed = std::sync::Arc::new(std::sync::Mutex::new(None));
     let sink = committed.clone();
     app.add_systems(Update, move |mut commands: Commands| {
@@ -454,7 +454,7 @@ fn a_rejected_plan_spawns_nothing() {
     room.ground_items.push(ground_item("bad", "no_such_item"));
 
     let mut app = App::new();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let result = prepare(&room, &Default::default(), &recipes);
     assert!(result.is_err(), "the room must not plan");
     app.update();
@@ -763,7 +763,7 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
 #[test]
 fn a_boss_the_construction_executor_built_can_summon() {
     let mut room = empty_room("hall");
-    room.boss_spawns.push(crate::rooms::Authored::new(
+    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "warden",
         "clockwork_warden",
         ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
@@ -914,7 +914,7 @@ fn rebuilding_one_duellist_rebuilds_its_grudge_partner_too() {
     let plan = prepare(&room, &staging, &recipes).expect("the room plans");
 
     let mut app = App::new();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
     let sink = outcome.clone();
     app.add_systems(Update, move |mut commands: Commands| {
@@ -954,7 +954,7 @@ fn a_relation_free_row_in_the_same_plan_still_rebuilds_alone() {
     let plan = prepare(&room, &staging, &recipes).expect("the room plans");
 
     let mut app = App::new();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     let outcome = std::sync::Arc::new(std::sync::Mutex::new(None));
     let sink = outcome.clone();
     app.add_systems(Update, move |mut commands: Commands| {
@@ -1295,7 +1295,7 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
 
 fn room_loaded_count(app: &mut App) -> usize {
     app.world_mut()
-        .resource_mut::<bevy::ecs::message::Messages<crate::rooms::RoomLoaded>>()
+        .resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d_world::rooms::RoomLoaded>>()
         .drain()
         .count()
 }
@@ -2025,13 +2025,13 @@ fn a_compatible_rider_and_mount_pass_preflight() {
 
 // ── Giant hands are explicit plan rows (Checkpoint B) ─────────────────────────
 
-fn giant_room() -> crate::rooms::RoomSpec {
+fn giant_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     let mut room = empty_room("arena");
-    room.enemy_spawns.push(crate::rooms::Authored::new(
+    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "boss_mount",
         "Giant GNU",
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
             "fixture_giant",
         ),
@@ -2046,12 +2046,12 @@ fn giant_room() -> crate::rooms::RoomSpec {
 #[test]
 fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
     let mut room = empty_room("arena");
-    let mut authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
-        crate::rooms::Authored::new(
+    let mut authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> =
+        ambition_platformer2d_world::rooms::Authored::new(
             "boss_mount",
             "Giant GNU",
             ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-            crate::rooms::EnemySpawnSpec::new(
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "no_such_archetype".into(),
                 ),
@@ -2646,22 +2646,22 @@ fn the_limb_and_mount_relations_reach_the_registry_dump() {
 
 /// A room with a shark mount and its pirate rider, linked the way LDtk's
 /// `mounted_on` entity-ref lowers: `RoomSpec.mount_links = [(rider, mount)]`.
-fn mounted_pair_room() -> crate::rooms::RoomSpec {
+fn mounted_pair_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     let mut room = empty_room("cove");
-    room.enemy_spawns.push(crate::rooms::Authored::new(
+    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "sky_shark",
         "Burning Flying Shark",
         ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
             "fixture_mount",
         ),
     ));
-    room.enemy_spawns.push(crate::rooms::Authored::new(
+    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "sky_rider",
         "Pirate Raider",
         ae::Aabb::new(ae::Vec2::new(200.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
             "pirate_raider",
         ),
@@ -2757,7 +2757,7 @@ fn a_committed_mount_pair_is_welded_both_ways_and_published() {
 #[test]
 fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
     let mut room = giant_room();
-    room.boss_spawns.push(crate::rooms::Authored::new(
+    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "the_rider",
         "gnu_ton_rider",
         ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
@@ -2856,11 +2856,11 @@ fn a_mount_link_naming_nobody_fails_the_room_while_it_is_whole() {
 #[test]
 fn two_riders_claiming_one_authored_mount_are_refused() {
     let mut room = mounted_pair_room();
-    room.enemy_spawns.push(crate::rooms::Authored::new(
+    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "second_rider",
         "Pirate Raider",
         ae::Aabb::new(ae::Vec2::new(260.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
             "pirate_raider",
         ),
@@ -2916,16 +2916,16 @@ fn the_mount_pair_reconstruction_closure_is_both_actors() {
 #[test]
 fn every_authored_enemy_and_boss_is_a_plan_row() {
     let mut room = giant_room();
-    room.enemy_spawns.push(crate::rooms::Authored::new(
+    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "walker",
         "Ordinary Walker",
         ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
             "combatant",
         ),
     ));
-    room.boss_spawns.push(crate::rooms::Authored::new(
+    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "warden",
         "clockwork warden",
         ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
@@ -2973,16 +2973,16 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
 #[test]
 fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
     let mut room = empty_room("field");
-    room.enemy_spawns.push(crate::rooms::Authored::new(
+    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "walker",
         "Ordinary Walker",
         ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
             "combatant",
         ),
     ));
-    room.boss_spawns.push(crate::rooms::Authored::new(
+    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "warden",
         "clockwork warden",
         ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
@@ -3022,7 +3022,7 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
 #[test]
 fn a_boss_respawns_through_the_planner() {
     let mut room = empty_room("lair");
-    room.boss_spawns.push(crate::rooms::Authored::new(
+    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
         "warden",
         "clockwork warden",
         ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
@@ -3088,7 +3088,7 @@ fn placement_registry() -> crate::world::placements::PlacementLoweringRegistry {
     registry
 }
 
-fn placement_room() -> crate::rooms::RoomSpec {
+fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     // `PickupKind` comes from the crate ROOT, not from `placements` — it is
     // public there and re-exported privately here, which `d3bd6e95a` exposed
     // when it deleted `PickupKindSpec`.
@@ -3121,7 +3121,7 @@ fn placement_room() -> crate::rooms::RoomSpec {
 }
 
 fn prepare_with_placements(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Result<RoomFeatureConstructionPlan, RoomFeatureConstructionError> {
     RoomFeatureConstructionPlan::prepare(
         room,
@@ -3225,13 +3225,13 @@ fn a_placement_respawns_through_the_planner() {
 #[test]
 fn shrines_and_gravity_zones_are_stamped_plan_rows() {
     let mut room = empty_room("garden");
-    room.shrines.push(crate::rooms::ShrineSpec {
+    room.shrines.push(ambition_platformer2d_world::rooms::ShrineSpec {
         id: "rest_1".into(),
         name: "Rest".into(),
         pos: ae::Vec2::new(64.0, 32.0),
         half_extent: ae::Vec2::splat(16.0),
     });
-    room.gravity_zones.push(crate::rooms::GravityZoneSpec {
+    room.gravity_zones.push(ambition_platformer2d_world::rooms::GravityZoneSpec {
         id: "flip_1".into(),
         name: "Flip".into(),
         center: ae::Vec2::new(160.0, 96.0),
@@ -3374,17 +3374,17 @@ fn a_plan_matching_the_live_binding_publishes() {
 fn prepare_hands_the_plan_what_the_room_could_not_bind() {
     let mut room = empty_room("hall");
     room.kinematic_paths
-        .push(crate::rooms::KinematicPathSpec::new(
+        .push(ambition_platformer2d_world::rooms::KinematicPathSpec::new(
             "ledge_patrol",
             "Ledge Patrol",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
             ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
         ));
-    let walker: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> = crate::rooms::Authored::new(
+    let walker: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> = ambition_platformer2d_world::rooms::Authored::new(
         "walker_authored",
         "Walker",
         ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
-        crate::rooms::EnemySpawnSpec::new(
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some("ledge_patrl".into()),
             },
@@ -3454,12 +3454,12 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
 fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     let room_naming = |character: &str| {
         let mut room = empty_room("hall");
-        let enemy: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
-            crate::rooms::Authored::new(
+        let enemy: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> =
+            ambition_platformer2d_world::rooms::Authored::new(
                 "walker_authored",
                 "Walker",
                 ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
-                crate::rooms::EnemySpawnSpec::new(
+                ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
                     ambition_entity_catalog::placements::CharacterBrain::Custom("wanderer".into()),
                     character,
                 ),
@@ -3467,7 +3467,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
         room.enemy_spawns.push(enemy);
         room
     };
-    let prepare_room = |room: &crate::rooms::RoomSpec| {
+    let prepare_room = |room: &ambition_platformer2d_world::rooms::RoomSpec| {
         prepare(
             room,
             &crate::features::RoomContentStagingRegistry::default(),

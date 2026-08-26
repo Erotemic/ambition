@@ -1842,7 +1842,7 @@ pub fn tick_npc_idle_barks(
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.

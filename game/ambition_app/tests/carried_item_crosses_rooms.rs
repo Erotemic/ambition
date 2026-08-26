@@ -103,7 +103,7 @@ fn door_to(
 ) -> ambition_platformer2d::world::rooms::LoadingZone {
     let before = sim.observation().active_room.clone();
     let world = sim.world_mut();
-    let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+    let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = query
         .iter(world)
         .next()
@@ -208,7 +208,7 @@ fn walk_through_a_door(sim: &mut Platformer2dSimHarness) -> String {
     let before = sim.observation().active_room.clone();
     let door = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
@@ -1274,7 +1274,7 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
     let before = sim.observation().active_room.clone();
     let door = {
         let world = sim.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let set = q.iter(world).next().expect("a room set");
         set.active_loading_zones()
             .iter()
@@ -1409,7 +1409,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
     let before = sim.observation().active_room.clone();
     let door = {
         let world = sim.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let set = q.iter(world).next().expect("a room set");
         set.active_loading_zones()
             .iter()
@@ -1590,7 +1590,7 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
         let before = sim.observation().active_room.clone();
         let door = {
             let world = sim.world_mut();
-            let mut q = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+            let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let set = q.iter(world).next().expect("a room set");
             set.active_loading_zones()
                 .iter()
@@ -1652,7 +1652,7 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
 /// rooms is correct rather than a collision. Every other authored kind lands in
 /// the ONE global `SimId::placement(..)` namespace.
 fn authored_id_owners(
-    set: &ambition_platformer2d::actors::rooms::RoomSet,
+    set: &ambition_platformer2d::world::rooms::RoomSet,
 ) -> std::collections::BTreeMap<String, Vec<String>> {
     let mut owners: std::collections::BTreeMap<String, Vec<String>> = Default::default();
     for room in &set.rooms {
@@ -1699,7 +1699,7 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
     }
     let (rooms, owners) = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let set = query
             .iter(world)
             .next()

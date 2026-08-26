@@ -120,7 +120,7 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.
-    pub use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
+    pub use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,
     };

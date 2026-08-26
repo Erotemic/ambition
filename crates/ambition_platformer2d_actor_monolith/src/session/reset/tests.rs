@@ -265,11 +265,11 @@ fn min_app() -> App {
     );
     // Construct a minimal RoomSet with one room so `start` and
     // `active` are both valid indices.
-    let room_spec = crate::rooms::RoomSpec {
+    let room_spec = ambition_platformer2d_world::rooms::RoomSpec {
         id: "test".into(),
         world: world.clone(),
         loading_zones: Vec::new(),
-        metadata: crate::rooms::RoomMetadata::default(),
+        metadata: ambition_platformer2d_world::rooms::RoomMetadata::default(),
         camera_zones: Vec::new(),
         kinematic_paths: Vec::new(),
         moving_platforms: Vec::new(),
@@ -289,7 +289,7 @@ fn min_app() -> App {
     };
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        crate::rooms::RoomSet::from_parts("test", vec![room_spec], Vec::new()),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts("test", vec![room_spec], Vec::new()),
     );
     app.insert_resource(EditableMovementTuning::default());
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
@@ -298,7 +298,7 @@ fn min_app() -> App {
     // headless test app can run the system. Restaging the start room also
     // emits the `RoomLoaded` staging fact (JD4).
     app.add_message::<crate::session::RespawnRoomVisualsRequested>();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_message::<ambition_time::time_control::ClockResetRequest>();
     app.add_message::<NewGameResetCommitted>();
     app.add_systems(Update, process_new_game_reset_request);
@@ -491,7 +491,7 @@ fn a_declined_reset_leaves_the_running_session_untouched() {
     {
         let mut rooms =
             ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<
-                crate::rooms::RoomSet,
+                ambition_platformer2d_world::rooms::RoomSet,
             >(app.world_mut())
             .expect("the fixture staged a room set");
         rooms.start = 999;

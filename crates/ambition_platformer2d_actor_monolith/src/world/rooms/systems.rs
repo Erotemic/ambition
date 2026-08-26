@@ -9,7 +9,7 @@
 
 use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut, Without};
 
-use super::{
+use ambition_platformer2d_world::rooms::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhases, GatePortalRegistry,
     LoadingZoneActivation, RoomMusicRequest, RoomSet, RoomSfxId,
 };

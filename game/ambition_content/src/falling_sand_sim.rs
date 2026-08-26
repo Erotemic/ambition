@@ -259,7 +259,7 @@ impl Plugin for FallingSandSimPlugin {
 
 pub fn sync_falling_sand_room_state(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut state: ResMut<FallingSandRoomState>,
@@ -287,7 +287,7 @@ pub fn sync_falling_sand_room_state(
 /// blocks the player collides with), clear it on exit.
 pub fn prepare_sand_world(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
     mut sand: ResMut<FallingSandWorld>,
@@ -443,7 +443,7 @@ pub fn project_settled_sand(
 
 pub fn capture_falling_sand_switch_interactions(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     mut state: ResMut<FallingSandRoomState>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
@@ -488,7 +488,7 @@ pub fn capture_falling_sand_switch_interactions(
 
 pub fn grant_room_swim_controls(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     mut state: ResMut<FallingSandRoomState>,
     mut players: Query<(

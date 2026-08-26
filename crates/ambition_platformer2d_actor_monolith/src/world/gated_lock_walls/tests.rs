@@ -156,7 +156,7 @@ fn world_with_one_gated_wall() -> App {
     );
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        crate::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
             "alice_relay",
             vec![room_with_one_wall(Some(FLAG), "alice_relay")],
             Vec::new(),
@@ -225,7 +225,7 @@ fn swapping_the_room_set_alone_invalidates_the_cached_walls() {
     // Same room id, same save, different authored content.
     {
         let mut rooms = app.world_mut().query_filtered::<
-            &mut crate::rooms::RoomSet,
+            &mut ambition_platformer2d_world::rooms::RoomSet,
             bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
         >();
         let mut set = rooms
@@ -272,7 +272,7 @@ fn a_wall_whose_question_cannot_be_prepared_yet_stands_and_is_retried() {
     app.init_resource::<ConditionCatalog>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        crate::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
             "alice_relay",
             vec![room_with_one_wall(Some(FLAG), "alice_relay")],
             Vec::new(),

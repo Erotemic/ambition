@@ -264,7 +264,7 @@ fn setup_particle_types(mut commands: Commands) {
 fn despawn_bfs_particles_when_the_room_changes(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     particles: Query<Entity, With<Particle>>,
     mut last_room_id: Local<Option<String>>,
@@ -281,7 +281,7 @@ fn despawn_bfs_particles_when_the_room_changes(
 
 fn seed_falling_sand_room_boundaries(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
@@ -416,7 +416,7 @@ fn emit_particle_rect(
 fn sync_falling_sand_switch_visuals(
     state: Res<FallingSandRoomState>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     mut switches: Query<(
         &ambition_platformer2d_actor_monolith::features::SwitchFeature,
@@ -443,7 +443,7 @@ fn sync_falling_sand_switch_visuals(
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
@@ -519,7 +519,7 @@ fn sync_falling_sand_spout_nozzles(
 /// One owner, two views of it.
 fn emit_falling_sand_spouts(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
@@ -710,7 +710,7 @@ fn tally_particles<'a>(
 fn project_particles_to_movement_world(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -922,7 +922,7 @@ fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     particles: Query<(&Particle, &GridPosition)>,
     // Component-presence query: every particle that has Particle should ALSO get
@@ -1194,7 +1194,7 @@ fn sync_material_visuals(
 fn sync_sand_grid_texture(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,

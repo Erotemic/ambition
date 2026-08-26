@@ -79,7 +79,7 @@ impl AuthoredSwitchCommands {
 /// dropped with a warning naming the switch — the alternative is a switch that
 /// silently does nothing, which is how an author spends an afternoon on a typo.
 pub fn prepare_authored_switch_commands(
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     catalog: Option<Res<CommandCatalog>>,
     mut prepared: ResMut<AuthoredSwitchCommands>,
 ) {

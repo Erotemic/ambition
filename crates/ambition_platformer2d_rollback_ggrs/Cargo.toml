@@ -14,6 +14,9 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 # being carried. `ambition_mount` owns the pair now (D33).
 ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["headless", "input"] }
+# The room vocabulary this crate queries (`RoomSet`) is the world crate's, not
+# the monolith's; it reached it through a re-export until 2026-08-26.
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }
 ambition_load = { path = "../ambition_load" }

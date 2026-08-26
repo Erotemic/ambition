@@ -163,7 +163,7 @@ pub fn record_frame_system(
 
     time: Res<Time>,
     rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     // The composed collision read-API. `platform_set` stays a separate param:

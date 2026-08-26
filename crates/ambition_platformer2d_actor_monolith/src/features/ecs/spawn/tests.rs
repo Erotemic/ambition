@@ -129,7 +129,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
         )
         .unwrap();
 
-    let mut room = crate::rooms::RoomSpec::new(
+    let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
         "test_room",
         ae::World::new("test_room", Vec2::splat(1000.0), Vec2::ZERO, Vec::new()),
     );
@@ -165,7 +165,7 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     .expect("the caller-supplied registry should prepare the room");
 
     let mut app = App::new();
-    app.add_message::<crate::rooms::RoomLoaded>();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_systems(Update, move |mut commands: Commands| {
         spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED);
     });
@@ -266,7 +266,7 @@ fn boss_spawn_attaches_brain_components() {
 use ambition_characters::control::{ActorControl};
     let mut app = App::new();
     app.add_systems(Update, |mut commands: Commands| {
-        let authored = crate::rooms::Authored {
+        let authored = ambition_platformer2d_world::rooms::Authored {
             id: "test_boss".to_string(),
             name: "Test Warden".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
@@ -524,7 +524,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
     let mut app = App::new();
     app.insert_resource(crate::character_roster::catalog());
 
-    let authored = crate::rooms::Authored::new(
+    let authored = ambition_platformer2d_world::rooms::Authored::new(
         "NpcSpawn-107741",
         // What the LDtk converter actually produces for every NpcSpawn.
         "NpcSpawn",
@@ -645,13 +645,13 @@ mod authored_enemy_reads_its_character {
     /// hand a later re-wear something wrong to retract to.
     #[test]
     fn construction_stamps_the_applied_template_so_nothing_reapplies_it() {
-        let spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
             "npc_busy_beaver",
         );
-        let authored = crate::rooms::Authored::new(
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-1",
             "Some Room Enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
@@ -720,14 +720,14 @@ mod authored_enemy_reads_its_character {
     /// body before its first controller tick.
     #[test]
     fn a_placement_sets_initial_body_facing_on_the_construction_frame() {
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+        let mut spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
             "npc_busy_beaver",
         );
-        spec.facing = crate::rooms::SpawnFacing::Left;
-        let authored = crate::rooms::Authored::new(
+        spec.facing = ambition_platformer2d_world::rooms::SpawnFacing::Left;
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-facing",
             "Left-facing beaver",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
@@ -844,14 +844,14 @@ mod authored_enemy_reads_its_character {
         policy: Option<&'static str>,
         profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     ) -> f32 {
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+        let mut spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
             "npc_busy_beaver",
         );
         spec.brain_profile = policy.map(ambition_entity_catalog::BrainProfileRef::new);
-        let authored = crate::rooms::Authored::new(
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-1",
             "Some Room Enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
@@ -989,13 +989,13 @@ mod authored_enemy_reads_its_character {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         registry.insert_prepared(finalized.prepared);
 
-        let spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
             "npc_raider",
         );
-        let authored = crate::rooms::Authored::new(
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-1",
             "Cove Raider",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
@@ -1128,14 +1128,14 @@ mod authored_enemy_reads_its_character {
     fn spawn_respawn(
         respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
     ) -> ambition_entity_catalog::placements::RespawnPolicy {
-        let mut spec = crate::rooms::EnemySpawnSpec::new(
+        let mut spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
             "npc_busy_beaver",
         );
         spec.respawn = respawn;
-        let authored = crate::rooms::Authored::new(
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-1",
             "Some Room Enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
@@ -1197,11 +1197,11 @@ mod authored_enemy_reads_its_character {
         character_id: &'static str,
         brain_key: &'static str,
     ) -> (i32, f32, i32) {
-        let spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
             character_id,
         );
-        let authored = crate::rooms::Authored::new(
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-1",
             "Some Room Enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
@@ -1250,13 +1250,13 @@ mod authored_enemy_reads_its_character {
     }
 
     fn spawn(name: &'static str, character_id: &'static str) -> (i32, Option<String>) {
-        let spec = crate::rooms::EnemySpawnSpec::new(
+        let spec = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "medium_striker".to_string(),
             ),
             character_id,
         );
-        let authored = crate::rooms::Authored::new(
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
             "EnemySpawn-1",
             name,
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),

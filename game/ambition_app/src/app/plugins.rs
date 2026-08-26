@@ -8,7 +8,8 @@
 // runtime. The two imports stand or fall together, and the warning above still applies to both —
 // gate the USES and the IMPORT as one pair, or neither.
 use ambition_platformer2d::actors::assets::loading;
-use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::world::rooms as world_rooms;
+
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics;
@@ -299,7 +300,7 @@ pub(crate) fn spawn_ldtk_world_roots_scoped(
     scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     asset_server: &AssetServer,
     ldtk_index: &ldtk_world::LdtkRuntimeIndex,
-    room_set: &rooms::RoomSet,
+    room_set: &world_rooms::RoomSet,
     world_assets: Option<&ldtk_world::LdtkWorldAssets>,
     sandbox_asset_collection: Option<&loading::Platformer2dStartupAssets>,
     manifest: &world_manifest::WorldManifest,

@@ -18,7 +18,7 @@ use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
 use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::items::{ItemMotionPlan, WorldItem, spawn_moving_world_item};
-use ambition_platformer2d::actors::rooms::RoomLoaded;
+use ambition_platformer2d::world::rooms::RoomLoaded;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};

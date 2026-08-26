@@ -1121,13 +1121,13 @@ pub fn stage_player_victim_hit_events(
 ///
 /// Two messages cover every boundary: [`ResetRoomFeaturesEvent`] is the
 /// same-room reset (player reset input, room replay), and
-/// [`crate::rooms::RoomLoaded`] is the staging fact fired whenever a room's
+/// [`ambition_platformer2d_world::rooms::RoomLoaded`] is the staging fact fired whenever a room's
 /// contents finish (re)spawning — transitions, session resets, and snapshot
 /// restores. Runs after `ResetProcessing` (the last boundary processor in the
 /// frame), before the next frame's drain.
 pub fn void_pending_player_hits_at_lifecycle_boundaries(
     mut room_resets: MessageReader<ambition_combat::ResetRoomFeaturesEvent>,
-    mut rooms_loaded: MessageReader<crate::rooms::RoomLoaded>,
+    mut rooms_loaded: MessageReader<ambition_platformer2d_world::rooms::RoomLoaded>,
     mut pending: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
 ) {
     let crossed = room_resets.read().count() > 0 || rooms_loaded.read().count() > 0;

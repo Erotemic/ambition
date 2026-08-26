@@ -154,7 +154,7 @@ impl CapabilityLanes {
     /// suppression set the actor lane was planned against.
     pub(crate) fn prepare(
         scope: &ConstructionScope,
-        room: &crate::rooms::RoomSpec,
+        room: &ambition_platformer2d_world::rooms::RoomSpec,
         outlook: &ambition_platformer2d_shared_tangle::lifecycle::RoomOccurrenceOutlook,
         suppressed: &BTreeSet<SimId>,
     ) -> Result<Self, ambition_platformer2d_shared_tangle::construction::ConstructionError> {

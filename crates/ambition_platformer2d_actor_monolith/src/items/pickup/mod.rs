@@ -585,7 +585,7 @@ pub fn restore_custody_to_checkpoint(
     // body can carry an object any distance before putting it down, so the room
     // holding the record is not reachable by adjacency.
     world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     // The checkpoint's own DESCRIPTIONS of what the simulation minted, for
     // the occurrences no record in any room can describe. See
@@ -906,7 +906,7 @@ pub fn restore_custody_to_checkpoint(
 /// that have one. Room transition still knows nothing about items.
 pub fn record_placed_ground_items(
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     items: Query<
         (

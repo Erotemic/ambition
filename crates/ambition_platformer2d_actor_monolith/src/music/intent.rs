@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::audio::RadioStationState;
-use crate::rooms::RoomMusicRequest;
+use ambition_platformer2d_world::rooms::RoomMusicRequest;
 use ambition_audio::selection::ActiveAudioSelection;
 use ambition_encounter::{
     Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
@@ -34,7 +34,7 @@ pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 /// Clear room-scoped narrative music when the active room changes.
 pub fn release_narrative_music_on_room_change(
     active_room: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        crate::rooms::ActiveRoomMetadata,
+        ambition_platformer2d_world::rooms::ActiveRoomMetadata,
     >,
     // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,

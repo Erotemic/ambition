@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bevy::ecs::resource::Resource;
 
 use super::super::spawn_actors::SpawnActorRequest;
-use crate::rooms::RoomSpec;
+use ambition_platformer2d_world::rooms::RoomSpec;
 
 /// A registered content stager: a pure function from the authored room to the
 /// actors content stages into it.

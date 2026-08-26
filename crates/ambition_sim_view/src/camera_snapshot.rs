@@ -12,9 +12,7 @@ use bevy_math::UVec2;
 
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
-use ambition_platformer2d_actor_monolith::rooms::{
-    apply_forward_only_x, CameraClampMode, CameraScrollPolicy, CameraZoneSpec,
-};
+use ambition_platformer2d_world::rooms::{apply_forward_only_x, CameraClampMode, CameraScrollPolicy, CameraZoneSpec};
 use ambition_platformer2d_shared_tangle::camera_ease::{CameraEaseState, CameraEaseTuning};
 use ambition_platformer2d_shared_tangle::gameplay_presentation::NormalizedScreenRegion;
 
@@ -1109,7 +1107,7 @@ fn frame_the_cast(
 pub fn resolve_camera_observation(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+        ambition_platformer2d_world::rooms::RoomSet,
     >,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,

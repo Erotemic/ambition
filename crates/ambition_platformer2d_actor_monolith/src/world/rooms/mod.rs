@@ -21,7 +21,10 @@ mod binding_tests;
 #[cfg(test)]
 mod tests;
 
-pub use ambition_platformer2d_world::rooms::*;
+// ⛔ NO GLOB FORWARD OF `ambition_platformer2d_world::rooms`. Callers name that
+// crate: a forward here would let this crate's own coupling census count the
+// world crate as monolith coupling, which is what it did until 2026-08-26.
+// What this module re-exports below is what it OWNS.
 pub use binding::RoomBindings;
 pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
@@ -35,6 +38,7 @@ pub use transaction::{ActiveContentBinding, LastConstructionVerification};
 #[cfg(test)]
 mod rooms_unit_tests {
     use super::*;
+    use ambition_platformer2d_world::rooms::*;
 
     fn zone(activation: LoadingZoneActivation) -> LoadingZone {
         LoadingZone {

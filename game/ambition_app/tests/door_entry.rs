@@ -18,7 +18,7 @@ fn active_room(sim: &mut Platformer2dSimHarness) -> String {
 fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
     let door = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(world).next()?;
         room_set
             .active_loading_zones()
@@ -143,7 +143,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     // Stand in an authored Door zone of the live session's room.
     let door = {
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let zone = rooms
             .iter(world)
             .next()
@@ -158,7 +158,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
         // find its subject is a test that reports green for the one reason it
         // exists to catch.
         let zone = zone.unwrap_or_else(|| {
-            let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+            let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let room = rooms
                 .iter(world)
                 .next()
@@ -180,7 +180,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
 
     let room_before = {
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         rooms
             .iter(world)
             .next()
@@ -194,7 +194,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     for _ in 0..40 {
         app.update();
         let world = app.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let now = rooms
             .iter(world)
             .next()
@@ -337,7 +337,7 @@ fn a_door_opens_under_a_rollback_host_and_not_only_a_fixed_tick_one() {
     // baseline, which is what folds the new position into history.
     let door = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use ambition_boss_encounter::sprites;
 use crate::character_sprites;
-use crate::rooms::RoomMetadata;
+use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;
 
 /// Build a fresh `GameAssets`, honoring `config` + the shared catalog resource.

@@ -5,7 +5,8 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
-use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::world::rooms as world_rooms;
+
 use ambition_platformer2d::actors::session::{data, setup};
 use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d::engine_core::RoomGeometry;
@@ -71,7 +72,7 @@ pub(crate) struct CharacterAuthorities<'w> {
 pub(super) fn setup_simulation_system(
     mut commands: Commands,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -326,7 +327,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     asset_config: Res<GameAssetConfig>,
     catalogs: PresentationCatalogs,
     asset_server: Res<AssetServer>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut game_assets: Option<ResMut<game_assets::GameAssets>>,
     mut last_scales: Local<Option<(TextureResolutionScale, TextureResolutionScale)>>,

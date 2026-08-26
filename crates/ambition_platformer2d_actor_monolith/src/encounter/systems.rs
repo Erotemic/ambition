@@ -51,7 +51,7 @@ pub fn populate_encounter_registry(
     // Optional because a composition may have no rooms installed — a headless
     // fixture, a shell at a non-gameplay route.
     rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     // the App's authored wave book. Optional for the same reason the project is: a composition
     // with no authored encounters is an empty set, not an error.
@@ -152,7 +152,7 @@ pub fn drive_wave_encounters(
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
     session_content: (
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         // The prepared cast: a wave names a character, and as of AC6 that is
         // the only thing it can name.

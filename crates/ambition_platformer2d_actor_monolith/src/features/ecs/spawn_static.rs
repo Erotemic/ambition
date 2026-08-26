@@ -10,7 +10,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSes
 use bevy::prelude::Name;
 
 fn damage_volume_from_authored(
-    authored: &crate::rooms::Authored<crate::rooms::HazardVolumeSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
 ) -> ambition_combat::DamageVolume {
     let mut damage = ambition_combat::Damage::new(
         authored.payload.damage,
@@ -33,30 +33,30 @@ fn damage_volume_from_authored(
     }
 }
 
-fn pickup_kind_from_spec(kind: &crate::rooms::PickupKind) -> ambition_interaction::PickupKind {
+fn pickup_kind_from_spec(kind: &ambition_platformer2d_world::rooms::PickupKind) -> ambition_interaction::PickupKind {
     match kind {
-        crate::rooms::PickupKind::Health { amount } => {
+        ambition_platformer2d_world::rooms::PickupKind::Health { amount } => {
             ambition_interaction::PickupKind::Health { amount: *amount }
         }
-        crate::rooms::PickupKind::Currency { amount } => {
+        ambition_platformer2d_world::rooms::PickupKind::Currency { amount } => {
             ambition_interaction::PickupKind::Currency { amount: *amount }
         }
-        crate::rooms::PickupKind::Ability { ability_id } => {
+        ambition_platformer2d_world::rooms::PickupKind::Ability { ability_id } => {
             ambition_interaction::PickupKind::Ability {
                 ability_id: ability_id.clone(),
             }
         }
-        crate::rooms::PickupKind::StoryFlag { flag } => {
+        ambition_platformer2d_world::rooms::PickupKind::StoryFlag { flag } => {
             ambition_interaction::PickupKind::StoryFlag { flag: flag.clone() }
         }
-        crate::rooms::PickupKind::Custom(value) => {
+        ambition_platformer2d_world::rooms::PickupKind::Custom(value) => {
             ambition_interaction::PickupKind::Custom(value.clone())
         }
     }
 }
 
 fn pickup_from_authored(
-    authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::PickupSpec>,
 ) -> ambition_interaction::Pickup {
     ambition_interaction::Pickup {
         id: authored.id.clone(),
@@ -66,16 +66,16 @@ fn pickup_from_authored(
     }
 }
 
-fn chest_state_from_spec(state: crate::rooms::ChestStateSpec) -> ambition_interaction::ChestState {
+fn chest_state_from_spec(state: ambition_platformer2d_world::rooms::ChestStateSpec) -> ambition_interaction::ChestState {
     match state {
-        crate::rooms::ChestStateSpec::Closed => ambition_interaction::ChestState::Closed,
-        crate::rooms::ChestStateSpec::Opening => ambition_interaction::ChestState::Opening,
-        crate::rooms::ChestStateSpec::Opened => ambition_interaction::ChestState::Opened,
+        ambition_platformer2d_world::rooms::ChestStateSpec::Closed => ambition_interaction::ChestState::Closed,
+        ambition_platformer2d_world::rooms::ChestStateSpec::Opening => ambition_interaction::ChestState::Opening,
+        ambition_platformer2d_world::rooms::ChestStateSpec::Opened => ambition_interaction::ChestState::Opened,
     }
 }
 
 fn chest_from_authored(
-    authored: &crate::rooms::Authored<crate::rooms::ChestSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::ChestSpec>,
 ) -> ambition_interaction::Chest {
     ambition_interaction::Chest {
         id: authored.id.clone(),
@@ -86,52 +86,52 @@ fn chest_from_authored(
 }
 
 fn breakable_collision_from_spec(
-    collision: crate::rooms::BreakableCollisionSpec,
+    collision: ambition_platformer2d_world::rooms::BreakableCollisionSpec,
 ) -> ambition_interaction::BreakableCollision {
     match collision {
-        crate::rooms::BreakableCollisionSpec::None => {
+        ambition_platformer2d_world::rooms::BreakableCollisionSpec::None => {
             ambition_interaction::BreakableCollision::None
         }
-        crate::rooms::BreakableCollisionSpec::Solid => {
+        ambition_platformer2d_world::rooms::BreakableCollisionSpec::Solid => {
             ambition_interaction::BreakableCollision::Solid
         }
-        crate::rooms::BreakableCollisionSpec::OneWayUp => {
+        ambition_platformer2d_world::rooms::BreakableCollisionSpec::OneWayUp => {
             ambition_interaction::BreakableCollision::OneWayUp
         }
     }
 }
 
 fn breakable_trigger_from_spec(
-    trigger: crate::rooms::BreakableTriggerSpec,
+    trigger: ambition_platformer2d_world::rooms::BreakableTriggerSpec,
 ) -> ambition_interaction::BreakableTrigger {
     match trigger {
-        crate::rooms::BreakableTriggerSpec::OnHit => ambition_interaction::BreakableTrigger::OnHit,
-        crate::rooms::BreakableTriggerSpec::OnStand => {
+        ambition_platformer2d_world::rooms::BreakableTriggerSpec::OnHit => ambition_interaction::BreakableTrigger::OnHit,
+        ambition_platformer2d_world::rooms::BreakableTriggerSpec::OnStand => {
             ambition_interaction::BreakableTrigger::OnStand
         }
-        crate::rooms::BreakableTriggerSpec::Either => {
+        ambition_platformer2d_world::rooms::BreakableTriggerSpec::Either => {
             ambition_interaction::BreakableTrigger::Either
         }
     }
 }
 
 fn breakable_state_from_spec(
-    state: crate::rooms::BreakableStateSpec,
+    state: ambition_platformer2d_world::rooms::BreakableStateSpec,
 ) -> ambition_interaction::BreakableState {
     match state {
-        crate::rooms::BreakableStateSpec::Intact => ambition_interaction::BreakableState::Intact,
-        crate::rooms::BreakableStateSpec::Cracking => {
+        ambition_platformer2d_world::rooms::BreakableStateSpec::Intact => ambition_interaction::BreakableState::Intact,
+        ambition_platformer2d_world::rooms::BreakableStateSpec::Cracking => {
             ambition_interaction::BreakableState::Cracking
         }
-        crate::rooms::BreakableStateSpec::Broken => ambition_interaction::BreakableState::Broken,
-        crate::rooms::BreakableStateSpec::Respawning => {
+        ambition_platformer2d_world::rooms::BreakableStateSpec::Broken => ambition_interaction::BreakableState::Broken,
+        ambition_platformer2d_world::rooms::BreakableStateSpec::Respawning => {
             ambition_interaction::BreakableState::Respawning
         }
     }
 }
 
 fn breakable_from_authored(
-    authored: &crate::rooms::Authored<crate::rooms::BreakableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::BreakableSpec>,
 ) -> ambition_interaction::Breakable {
     ambition_interaction::Breakable {
         id: authored.id.clone(),
@@ -150,15 +150,15 @@ fn breakable_from_authored(
 }
 
 fn interaction_kind_from_spec(
-    kind: &crate::rooms::InteractionKindSpec,
+    kind: &ambition_platformer2d_world::rooms::InteractionKindSpec,
 ) -> ambition_interaction::InteractionKind {
     match kind {
-        crate::rooms::InteractionKindSpec::Door { target } => {
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Door { target } => {
             ambition_interaction::InteractionKind::Door {
                 target: target.clone(),
             }
         }
-        crate::rooms::InteractionKindSpec::Npc {
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Npc {
             character_id,
             dialogue_id,
             patrol_radius,
@@ -171,19 +171,19 @@ fn interaction_kind_from_spec(
             patrol_path_id: patrol_path_id.clone(),
             brain_override: brain_override.clone(),
         },
-        crate::rooms::InteractionKindSpec::Chest => ambition_interaction::InteractionKind::Chest,
-        crate::rooms::InteractionKindSpec::Pickup => ambition_interaction::InteractionKind::Pickup,
-        crate::rooms::InteractionKindSpec::Breakable => {
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Chest => ambition_interaction::InteractionKind::Chest,
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Pickup => ambition_interaction::InteractionKind::Pickup,
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Breakable => {
             ambition_interaction::InteractionKind::Breakable
         }
-        crate::rooms::InteractionKindSpec::Custom(value) => {
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Custom(value) => {
             ambition_interaction::InteractionKind::Custom(value.clone())
         }
     }
 }
 
 pub(super) fn interactable_from_authored(
-    authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::InteractableSpec>,
 ) -> ambition_interaction::Interactable {
     ambition_interaction::Interactable {
         id: authored.id.clone(),
@@ -197,24 +197,24 @@ pub(super) fn interactable_from_authored(
 
 #[cfg(feature = "portal")]
 fn portal_color_from_spec(
-    color: crate::rooms::PortalChannelColorSpec,
+    color: ambition_platformer2d_world::rooms::PortalChannelColorSpec,
 ) -> ambition_portal2d::PortalChannelColor {
     match color {
-        crate::rooms::PortalChannelColorSpec::Purple => {
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Purple => {
             ambition_portal2d::PortalChannelColor::Purple
         }
-        crate::rooms::PortalChannelColorSpec::Yellow => {
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Yellow => {
             ambition_portal2d::PortalChannelColor::Yellow
         }
-        crate::rooms::PortalChannelColorSpec::Teal => ambition_portal2d::PortalChannelColor::Teal,
-        crate::rooms::PortalChannelColorSpec::Red => ambition_portal2d::PortalChannelColor::Red,
-        crate::rooms::PortalChannelColorSpec::Green => ambition_portal2d::PortalChannelColor::Green,
-        crate::rooms::PortalChannelColorSpec::Magenta => {
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Teal => ambition_portal2d::PortalChannelColor::Teal,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Red => ambition_portal2d::PortalChannelColor::Red,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Green => ambition_portal2d::PortalChannelColor::Green,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Magenta => {
             ambition_portal2d::PortalChannelColor::Magenta
         }
-        crate::rooms::PortalChannelColorSpec::Cyan => ambition_portal2d::PortalChannelColor::Cyan,
-        crate::rooms::PortalChannelColorSpec::Rose => ambition_portal2d::PortalChannelColor::Rose,
-        crate::rooms::PortalChannelColorSpec::Indexed(n) => {
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Cyan => ambition_portal2d::PortalChannelColor::Cyan,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Rose => ambition_portal2d::PortalChannelColor::Rose,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Indexed(n) => {
             ambition_portal2d::PortalChannelColor::Indexed(n)
         }
     }
@@ -226,7 +226,7 @@ pub(crate) fn spawn_hazard_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::HazardVolumeSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
 ) {
     let hazard = HazardRuntime::new_with_paths(
@@ -258,11 +258,11 @@ pub(crate) fn lower_hazard_placement(
     let PlacementSchema::Hazard(spec) = &record.schema else {
         return;
     };
-    let authored = crate::rooms::Authored {
+    let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
         aabb: record.aabb,
-        payload: crate::rooms::HazardVolumeSpec {
+        payload: ambition_platformer2d_world::rooms::HazardVolumeSpec {
             damage: spec.damage,
             knockback: spec.knockback,
             kind: spec.kind,
@@ -290,7 +290,7 @@ pub(crate) fn lower_interactable_placement(
     let PlacementSchema::Interactable(spec) = &record.schema else {
         return;
     };
-    let authored = crate::rooms::Authored {
+    let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
         aabb: record.aabb,
@@ -315,7 +315,7 @@ pub(crate) fn lower_pickup_placement(
     let PlacementSchema::Pickup(spec) = &record.schema else {
         return;
     };
-    let authored = crate::rooms::Authored {
+    let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
         aabb: record.aabb,
@@ -341,7 +341,7 @@ pub(crate) fn lower_pickup_placement(
 pub fn spawn_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
-    authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::PickupSpec>,
 ) -> bevy::ecs::entity::Entity {
     // `PickupBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
     // so insert through the session-only helper — `insert_room_in_session` would
@@ -356,7 +356,7 @@ pub(crate) fn spawn_pickup_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::PickupSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     commands.insert_session_scoped(
@@ -396,7 +396,7 @@ pub(crate) fn lower_portal_placement(
         (record.aabb.min.x + record.aabb.max.x) * 0.5,
         (record.aabb.min.y + record.aabb.max.y) * 0.5,
     );
-    let spec = crate::rooms::PortalSpec {
+    let spec = ambition_platformer2d_world::rooms::PortalSpec {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
         color: schema.color,
@@ -413,7 +413,7 @@ pub(crate) fn spawn_portal_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    spec: &crate::rooms::PortalSpec,
+    spec: &ambition_platformer2d_world::rooms::PortalSpec,
 ) {
     let half_extent = match spec.half_length {
         Some(h) => ambition_portal2d::portal_half_extent_with_length(spec.normal, h),
@@ -446,7 +446,7 @@ pub(crate) fn lower_chest_placement(
     let PlacementSchema::Chest(spec) = &record.schema else {
         return;
     };
-    let authored = crate::rooms::Authored {
+    let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
         aabb: record.aabb,
@@ -460,7 +460,7 @@ pub(crate) fn spawn_chest_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::ChestSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::ChestSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     // `ChestBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
@@ -487,7 +487,7 @@ pub(crate) fn lower_breakable_placement(
     let PlacementSchema::Breakable(spec) = &record.schema else {
         return;
     };
-    let authored = crate::rooms::Authored {
+    let authored = ambition_platformer2d_world::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
         aabb: record.aabb,
@@ -501,7 +501,7 @@ pub(crate) fn spawn_breakable_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::BreakableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::BreakableSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = breakable_from_authored(authored);

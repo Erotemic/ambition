@@ -41,9 +41,9 @@ pub(crate) use super::spawn_actors::{spawn_runtime_minion, spawn_runtime_minion_
 /// Lives spawn-side: `RoomSpec` is world-IR vocabulary the combat kit must not
 /// name (E2).
 pub(crate) fn room_spec_paths(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Vec<(String, ambition_platformer2d_core::KinematicPath)> {
-    crate::rooms::kinematic_path_lookup(&room.kinematic_paths)
+    ambition_platformer2d_world::rooms::kinematic_path_lookup(&room.kinematic_paths)
 }
 
 /// A mutation-free room feature construction failure.
@@ -87,7 +87,7 @@ impl std::error::Error for RoomFeatureConstructionError {}
 /// restore cannot drift into different room-construction behavior.
 #[derive(Clone)]
 pub struct RoomFeatureConstructionPlan {
-    room: crate::rooms::RoomSpec,
+    room: ambition_platformer2d_world::rooms::RoomSpec,
     content_requests: Vec<super::spawn_actors::SpawnActorRequest>,
     /// The primary actor-domain construction lane. Every actor-owned
     /// authoritative family is planned here; optional capabilities compose
@@ -138,7 +138,7 @@ pub struct OccurrenceContinuity<'a> {
     /// Every room's authored records — the world DEFINITIONS the ledger's rows
     /// refer to. A room being built reaches into these only for identities the
     /// ledger says are lying in it and that its own records do not produce.
-    pub world: &'a [crate::rooms::RoomSpec],
+    pub world: &'a [ambition_platformer2d_world::rooms::RoomSpec],
     /// THE SECOND DESCRIBER — how to rebuild what no record can.
     ///
     /// a RUNTIME-MINTED occurrence has no authored record in any room, so the reinstatement above
@@ -340,7 +340,7 @@ fn claim_lane_ids(
 impl RoomFeatureConstructionPlan {
     #[allow(clippy::too_many_arguments)]
     pub fn prepare(
-        room: &crate::rooms::RoomSpec,
+        room: &ambition_platformer2d_world::rooms::RoomSpec,
         registry: &crate::world::placements::PlacementLoweringRegistry,
         content_staging: &RoomContentStagingRegistry,
         catalog: &CharacterCatalog,
@@ -537,7 +537,7 @@ impl RoomFeatureConstructionPlan {
                                 origin: description.origin.clone(),
                                 parameters:
                                     crate::construction::ActorConstructionParams::GroundItem {
-                                        spec: crate::rooms::GroundItemSpec {
+                                        spec: ambition_platformer2d_world::rooms::GroundItemSpec {
                                             id: sim_id.as_str().to_string(),
                                             name: format!("Ground item: {}", description.held_item),
                                             held_item: description.held_item.clone(),
@@ -778,7 +778,7 @@ impl RoomFeatureConstructionPlan {
         violations
     }
 
-    pub fn room(&self) -> &crate::rooms::RoomSpec {
+    pub fn room(&self) -> &ambition_platformer2d_world::rooms::RoomSpec {
         &self.room
     }
 

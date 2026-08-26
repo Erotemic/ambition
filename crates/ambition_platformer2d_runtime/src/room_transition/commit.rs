@@ -7,6 +7,8 @@ use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
 use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomResident;
 use ambition_platformer2d_actor_monolith::rooms;
+use ambition_platformer2d_world::rooms as world_rooms;
+
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_time::time_control::ClockResetRequest;
 use ambition_platformer2d_actor_monolith::world::physics;
@@ -25,7 +27,7 @@ use ambition_vfx::{ParticleKind, VfxMessage};
 pub struct RoomTransitionEffects<'w> {
     pub sfx: SfxWriter<'w>,
     pub vfx: MessageWriter<'w, VfxMessage>,
-    pub respawn_room_visuals: MessageWriter<'w, rooms::RespawnRoomVisualsRequested>,
+    pub respawn_room_visuals: MessageWriter<'w, world_rooms::RespawnRoomVisualsRequested>,
 }
 
 /// Sim state plus the clock-reset channel, so a system already at the parameter
@@ -138,7 +140,7 @@ pub struct RoomTransitionApplication<'w, 's> {
     session: Query<
         'w,
         's,
-        (&'static mut RoomGeometry, &'static mut rooms::RoomSet),
+        (&'static mut RoomGeometry, &'static mut world_rooms::RoomSet),
         With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     >,
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
@@ -205,7 +207,7 @@ impl RoomTransitionApplication<'_, '_> {
     /// Read the room authority the transaction's staleness checks compare
     /// against. `None` when no session root carries it, which
     /// [`Self::apply`] refuses on for the same reason.
-    pub fn room_set(&self) -> Option<&rooms::RoomSet> {
+    pub fn room_set(&self) -> Option<&world_rooms::RoomSet> {
         self.session.iter().next().map(|(_, room_set)| room_set)
     }
 
@@ -406,7 +408,7 @@ impl RoomTransitionApplication<'_, '_> {
         // has no consumer and correctly skips the respawn.
         self.effects
             .respawn_room_visuals
-            .write(rooms::RespawnRoomVisualsRequested);
+            .write(world_rooms::RespawnRoomVisualsRequested);
         if edge_exit {
             // Edge exits should feel like contiguous room scrolling, not a
             // death-like teleport. Only an arrival puff in the new room, because
@@ -864,7 +866,7 @@ pub fn commit_ready_room_transition_system(
 /// world/overlay collision coverage and the support gap below the arriving body.
 fn log_room_transition_landing(
     target_room: usize,
-    room_set: &rooms::RoomSet,
+    room_set: &world_rooms::RoomSet,
     pos: ae::Vec2,
     size: ae::Vec2,
     gravity_dir: ae::Vec2,

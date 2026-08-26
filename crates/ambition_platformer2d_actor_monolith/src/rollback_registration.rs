@@ -36,7 +36,7 @@ where
         OWNER,
         "entity:transform_beat",
     );
-    registrar.require_rollback::<crate::rooms::RoomSet>(OWNER, "root:room_set");
+    registrar.require_rollback::<ambition_platformer2d_world::rooms::RoomSet>(OWNER, "root:room_set");
     registrar.require_rollback::<crate::items::pickup::GroundItem>(OWNER, "entity:ground_item");
     registrar.require_rollback::<crate::items::pickup::SettledItem>(OWNER, "entity:settled_item");
     // `RoomScopedEntity` governs lifetime, not rewindability; moving world
@@ -51,20 +51,20 @@ where
     // and never writes it — but the anchor is not about the shrine's data; it is
     // about whether GGRS reproduces the ENTITY on a resimulated timeline.
     registrar.require_rollback::<crate::shrine::HealShrine>(OWNER, "entity:heal_shrine");
-    registrar.rollback_component_clone_checksum::<crate::rooms::RoomSet>(
+    registrar.rollback_component_clone_checksum::<ambition_platformer2d_world::rooms::RoomSet>(
         OWNER,
         "root.room_set",
         "active/start room identity checksum",
         room_set_checksum,
     );
-    registrar.rollback_component_clone::<crate::rooms::ActiveRoomMetadata>(
+    registrar.rollback_component_clone::<ambition_platformer2d_world::rooms::ActiveRoomMetadata>(
         OWNER,
         "root.active_room_metadata",
     );
     // It is not an actor fact and not an every-game fact — it is an authoring format's. Its
     // declaration now lives in `ambition_platformer2d_ldtk`; the runtime's opt-in `LdtkWorldPlugin`
     // installs that domain offer only for LDtk games.
-    registrar.rollback_component_clone::<crate::rooms::RoomMusicRequest>(
+    registrar.rollback_component_clone::<ambition_platformer2d_world::rooms::RoomMusicRequest>(
         OWNER,
         "root.room_music_request",
     );
@@ -592,7 +592,7 @@ where
     );
 }
 
-fn room_set_checksum(rooms: &crate::rooms::RoomSet) -> u64 {
+fn room_set_checksum(rooms: &ambition_platformer2d_world::rooms::RoomSet) -> u64 {
     let mut bytes = Vec::new();
     put_u64(&mut bytes, rooms.active as u64);
     put_u64(&mut bytes, rooms.start as u64);

@@ -297,7 +297,7 @@ fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
     let before = sim.observation().active_room.clone();
     let zone = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()

@@ -288,7 +288,7 @@ fn ambition_activate_session_visuals(
     active_session: Res<ambition_platformer2d::game_shell::ActiveGameplaySession>,
     session_worlds: Query<(
         &ambition_platformer2d::engine_core::RoomGeometry,
-        &ambition_platformer2d::actors::rooms::RoomSet,
+        &ambition_platformer2d::world::rooms::RoomSet,
         &ambition_platformer2d::ldtk_map::LdtkRuntimeIndex,
     )>,
     game_assets: Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,

@@ -64,7 +64,7 @@ pub fn heal_save_shrine_system(
     // checkpoint — it is a pair of numbers that will one day be applied in the
     // wrong place. Optional so narrow fixtures without a room set still heal.
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     // THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.
@@ -165,7 +165,7 @@ pub fn heal_save_shrine_system(
 pub fn restore_checkpoint_on_session_start(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
@@ -302,7 +302,7 @@ pub fn resume_at_checkpoint_on_reset(
     >,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,

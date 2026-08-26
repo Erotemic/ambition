@@ -175,7 +175,7 @@ fn authorized_plan(
         .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
         .and_then(|scope| scope.current());
     let source_room = {
-        let mut rooms = world.query::<&ambition_platformer2d_actor_monolith::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
         rooms.iter(world).next().map(|set| set.active)
     };
     let Some(state) = world.get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
@@ -395,7 +395,7 @@ fn commit_transition(
     zone_sfx: Option<&str>,
 ) -> CommitOutcome {
     let Some(target_index) = ({
-        let mut rooms = world.query::<&ambition_platformer2d_actor_monolith::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d_world::rooms::RoomSet>();
         rooms
             .iter(world)
             .next()

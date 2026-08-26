@@ -185,7 +185,7 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
         .publish_command(ring_descriptor(), ring);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        crate::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
             "symmetry_room",
             vec![room_with_one_switch(on_activate, "symmetry_room")],
             Vec::new(),
@@ -325,7 +325,7 @@ fn swapping_the_room_set_alone_invalidates_the_prepared_calls() {
 
     {
         let mut rooms = app.world_mut().query_filtered::<
-            &mut crate::rooms::RoomSet,
+            &mut ambition_platformer2d_world::rooms::RoomSet,
             bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
         >();
         let mut set = rooms

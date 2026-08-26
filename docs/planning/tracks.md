@@ -302,6 +302,16 @@ L9  46.0 / cap 420  = 11.0%                     20
   is FLAT (19–21) across all nine rungs**: a level 9 fighter uses the same
   repertoire as a level 1, only faster. **Difficulty is a tempo knob and nothing
   else.**
+
+  ⭐ **AND THE GENRE HAS AN ANSWER TO THAT, so it is research rather than a
+  decision to escalate.** A high-level CPU in this genre is not a fast low-level
+  one: it uses MORE OF ITS KIT and reads the opponent better — spacing, shield
+  pressure, edgeguards, punishes it never attempts at low level. ⇒ the
+  calibration target is **repertoire breadth and read quality alongside
+  cadence**, and `distinct_frames` is already the instrument that would show it
+  moving. ⚠ that is a change to what a RUNG IS, not a number to retune, so it
+  wants its own slice — but *"calibrate the ladder"* now has a measurable
+  definition: `distinct_frames` should RISE with level, and today it does not.
   ⛔ **`ScenarioOutcome` carries no survival, damage or recovery field** —
   `scenario, level, apm, apm_cap, distinct_frames` — and **it should not**: a
   `Scenario` is a static `WorldView` + expected `Situation`, so `play()` never

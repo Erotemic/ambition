@@ -118,6 +118,14 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   `menu_repeat_initial_delay` / `menu_repeat_interval` settings — a repeat is an
   INPUT cadence, not a list-navigation rule.
 
+  ⛔⛔ **AND A FOURTH, IN THE CRATE AT THE CENTRE OF THIS DOC: `ambition_input`
+  runs 56 tests by default and 125 with `--all-features`.** Sixty-nine tests of
+  the participant / binding / menu machinery every item on this page is about,
+  and the plain per-crate command sees none of them. ⚠ they PASS — unlike the
+  shell's — so this one is a VISIBILITY hole rather than hidden red; but any item
+  here that gets worked and "verified" with `cargo test -p ambition_input` has
+  verified less than half of it.
+
   ✔ **AND THE REPAIR WAS ONE LINE, so 26 TESTS CAME BACK.** The fixture
   installed `ShellPauseMenuPlugin` alone and registered only `ShellCommand` — a
   composition that cannot exist, because `drive_shell_pause_menu` WRITES

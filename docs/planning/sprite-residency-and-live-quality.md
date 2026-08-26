@@ -229,11 +229,24 @@ what this plan's verification section already asks for.
 
 ## Three small fixes, deliberately kept separate
 
-Not part of this architecture and not allowed to shape it:
+Not part of this architecture and not allowed to shape it.
 
-1. suspend/resume `.take()` before its guard (`host/platform/android.rs`);
-2. the `player_robot_spritesheet` phantom in the regen postcondition;
-3. stale `SheetRegistry` manifests — *"the survivor will crop with the wrong
-   grid"*.
+✔✔ **ALL THREE ARE DONE — re-checked at HEAD 2026-08-26, and each was closed
+where it lived rather than here, which is why this list still read as open:**
+
+1. ✔ ~~suspend/resume `.take()` before its guard~~ — `decide_suspend` copies
+   (`else if let Some(prev) = *saved`) and clears ONLY on the restore path, with
+   the rule in its own comment: *"KEEP the saved mode rather than taking it"*.
+   Guarded by `a_refused_restore_keeps_the_saved_mode_for_the_next_edge` and
+   three siblings, and ⭐ **they RUN** — `pub mod android` is not `cfg`-gated and
+   `android.rs` imports no Android-only crate, so the host compiles and tests it
+   (`cargo test -p ambition_app --lib android`, 4 passed).
+2. ✔ ~~the `player_robot_spritesheet` phantom in the regen postcondition~~ — the
+   postcondition is DERIVED from the plan the run just executed, and the note
+   above it records the phantom as the reason: *"a list that names a file nothing
+   publishes can only ever fail"*.
+3. ✔ ~~stale `SheetRegistry` manifests~~ — `no_shipped_sheet_key_is_claimed_twice`
+   asserts `shadowed_targets()` is empty, with a premise guard on the table size
+   (`> 500`) so an empty registry cannot pass it silently.
 
 Related: [`dev/journals/android-what-an-agent-cannot-see-2026-08-08.md`](../../dev/journals/android-what-an-agent-cannot-see-2026-08-08.md)

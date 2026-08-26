@@ -118,8 +118,8 @@ pub(crate) fn observe_actor_decision_inputs(
         observation.note_controlled_liveness(entity, health.current() > 0);
     }
     for (entity, disposition, target, body, faction, in_a_fight) in &actors {
-        let fighting =
-            ambition_combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
+        let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
+            .takes_damage();
         observation.note_actor(
             entity,
             body.as_ref().is_some_and(|body| body.health.alive()),
@@ -698,6 +698,10 @@ pub(crate) fn integrate_actor_body(
     // derived here for the same reason `authored_tuning` below is: the fact
     // lives on the entity and this function takes clusters.
     tumbling: bool,
+    // Is this body's death window open (ADR 0033)? Threaded for the same reason
+    // `tumbling` is — the fact lives on the entity and this function takes
+    // clusters — and read on BOTH roads, which is the part that was missing.
+    out_of_play: bool,
     dt: f32,
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
     // This body's own movement feel, when its character authored one.
@@ -779,6 +783,7 @@ pub(crate) fn integrate_actor_body(
         authored_tuning,
         combat,
         tumbling,
+        out_of_play,
         contact_field,
     );
     if was_dead && em.health.alive() {
@@ -1013,6 +1018,20 @@ pub fn integrate_sim_bodies(
             // `presentation.rs` inserts it precisely so a seated fighter and a worn player move
             // alike, and the only consumer in the repository was the PLAYER loop below.
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
+            // Has this body's death window been opened (ADR 0033)? ⛔⛔ THIS WAS
+            // HARD-CODED `false` at the `step_body` call, under a comment
+            // stating as a FACT that `OutOfPlay` is only ever granted to a
+            // participant's body — true only while `open_death_interlude` was
+            // the sole opener. A Smash fighter is NOT a `PlayerEntity`, so when
+            // the stocks respawn beat began opening a window (D201) the body it
+            // was meant to hold still went on integrating: it kept the velocity
+            // that launched it and coasted through the wait, and a held jump
+            // still reached it.
+            //
+            // The player query below has always read this. Two roads, one
+            // question — see the `playing_a_move` note on `ActorMut::update`,
+            // which is the same defect on the same function.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         (
             With<FeatureSimEntity>,
@@ -1098,6 +1117,7 @@ pub fn integrate_sim_bodies(
         clusters,
         playback,
         authored_tuning,
+        out_of_play,
     ) in &mut actors
     {
         let Some(mut cq) = clusters else {
@@ -1128,6 +1148,7 @@ pub fn integrate_sim_bodies(
             // the projection below is written after the step, and a tech window
             // is many ticks long.
             motion_facts.tumbling,
+            out_of_play,
             dt,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
@@ -1610,7 +1631,7 @@ fn capture_candidate(
     use ambition_characters::brain::fighter::options::{
         AttackBinding, AttackCandidate, AttackVerb,
     };
-    use ambition_characters::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
+    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,

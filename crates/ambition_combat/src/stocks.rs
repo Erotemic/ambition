@@ -7,7 +7,8 @@
 //! completion remain ruleset responsibilities.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageReader, MessageWriter, On, Query, Res, Without,
+    Commands, Component, Entity, Message, MessageReader, MessageWriter, On, Query, Res, With,
+    Without,
 };
 
 use crate::components::FighterStocks;
@@ -129,26 +130,26 @@ pub struct FighterStockSpent {
 /// `KnockoutsView` still keeps a previous-frame cache because by the time
 /// presentation reads the entity, the body has already moved.
 ///
-/// ⛔ NOT "the stock was spent N ticks ago" in a stage-local table. The fighter
-/// is genuinely in a temporary lifecycle state — alive → knocked out, awaiting
-/// respawn → returned with grace — and combat eligibility, the camera cast, the
-/// HUD, placement and rollback all have to agree about it. One owner, so none of
-/// them reverse-engineers it.
+/// ⛔⛔ ONE BIT, AND IT CARRIES ONLY WHAT NOTHING ELSE DOES: *which* consequence
+/// this open window owes. D192 spelled the whole beat here — a countdown, its
+/// own authored duration, and a hand-removed `ActiveCombatant` stand-in for
+/// "the world's hands are off this body" — and every one of those already
+/// existed as [`DeathInterlude`](crate::death_rules::DeathInterlude) /
+/// [`OutOfPlay`](crate::death_rules::OutOfPlay) (ADR 0033). The window is now
+/// the engine's; this says the window ends in a RESPAWN rather than in a level
+/// replay, which is the one thing `DeathInterlude` deliberately does not know.
 ///
-/// Ticks, not seconds: the interval is authored against the fixed sim step, and
-/// a float that accumulates would make the beat a different length after a
-/// rewind.
+/// ⛔ it is NOT redundant with `DeathInterlude`: a Mary-O death opens one too,
+/// and re-placing that body would be a stocks rule reaching into a game that
+/// never asked for stocks.
 ///
-/// ⛔⛔ [`spend_fighter_stocks`] OPENS an episode and [`tick_pending_respawn`] is
-/// the only thing that CLOSES one. Register both or neither: a schedule with
-/// just the spend latches every fighter out of play after its first knockout,
-/// and the symptom is silent — a body that cannot spend a stock never loses
-/// another one.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PendingRespawn {
-    /// Sim ticks left before this body is placed. Zero means "this tick".
-    pub remaining_ticks: u32,
-}
+/// ⛔⛔ [`spend_fighter_stocks`] OPENS an episode and
+/// [`respawn_when_the_interlude_closes`] is the only thing that CLOSES one.
+/// Register both or neither: a schedule with just the spend latches every
+/// fighter out of play after its first knockout, and the symptom is silent — a
+/// body that cannot spend a stock never loses another one.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PendingRespawn;
 
 /// How long a returning fighter waits, authored by the RULESET.
 ///
@@ -156,9 +157,27 @@ pub struct PendingRespawn {
 /// body is placed on the tick the stock is spent. A mode that wants the beat
 /// inserts its own. ⛔ this is CONFIG, set once when the mode is built — it is
 /// not rollback state, and nothing in the sim writes it.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq, Default)]
+///
+/// ⭐ SECONDS, and the same seconds
+/// [`DeathRules::interlude`](crate::death_rules::DeathRules::interlude) counts.
+/// D192 authored ticks and argued determinism for it; the engine's own window
+/// has counted seconds against `WorldTime` since ADR 0033 and rewinds correctly,
+/// so the tick spelling was a deviation defended by a premise its neighbour
+/// already disproves. One clock, or the beat is a different length depending on
+/// which half of it you ask.
+///
+/// ⛔ NOT folded into `DeathRules` itself, and the reason is a SCOPE difference
+/// rather than a layering excuse: `DeathRules` is declared per ROOM and answers
+/// "what does a participant's death cost the level", resolved through the
+/// active room's mode — which this crate cannot see. `RespawnInterval` is
+/// declared per MATCH RULESET. No room in the shipped composition carries both:
+/// the Smash arena declares no death rules at all, so the two knobs have never
+/// once had to agree. If a mode ever wants both, that is the moment to make the
+/// resolved `DeathRules` reach this seam, not before.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Default)]
 pub struct RespawnInterval {
-    pub ticks: u32,
+    /// Seconds the window stays open before the body is placed.
+    pub seconds: f32,
 }
 
 /// The interval elapsed — the ruleset's cue to PLACE the body.
@@ -172,8 +191,8 @@ pub struct FighterRespawnDue {
     pub body: Entity,
 }
 
-/// The set [`tick_pending_respawn`] runs in — this tick's returns have been
-/// decided, and any [`FighterRespawnDue`] for it is written.
+/// The set [`respawn_when_the_interlude_closes`] runs in — this tick's returns
+/// have been decided, and any [`FighterRespawnDue`] for it is written.
 ///
 /// A ruleset orders its PLACEMENT after this. Ordering only against
 /// [`FighterStocksSpent`] is not enough: the spend and the return are now
@@ -182,32 +201,69 @@ pub struct FighterRespawnDue {
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FighterRespawnsDue;
 
-/// Count a pending fighter back in, and announce the ones that are due.
+/// The window closed on a fighter who still has stocks: announce the return.
 ///
-/// ⛔ THE DECREMENT AND THE ZERO CASE ARE ONE SYSTEM, deliberately. An interval
-/// of zero has to behave exactly as the old same-tick placement did, or every
-/// ruleset that never asked for a beat changes behaviour. Writing the message
-/// from the spend for zero and from here for everything else would be two code
-/// paths for one event, and the rarely-taken one is the one that rots.
-pub fn tick_pending_respawn(
+/// ⛔ THE COUNTDOWN IS NOT HERE, deliberately. `tick_death_interlude` advances
+/// every open window in the process on the sim clock, so a second ticker for
+/// this one would be a second answer to "how long has this body been dead" —
+/// and the two would disagree the first time a rewind landed between them. This
+/// reads the window and owns only the CONSEQUENCE.
+///
+/// ⛔ THE ZERO CASE STILL RESOLVES ON THE SPEND'S OWN TICK. A window opened with
+/// `remaining == 0.0` is closed the moment it exists, so a ruleset that
+/// authored no beat sees exactly the same frame it always did. That is why this
+/// is ordered after [`FighterStocksSpent`] rather than being a separate phase.
+pub fn respawn_when_the_interlude_closes(
     mut commands: Commands,
-    mut pending: Query<(Entity, &mut PendingRespawn)>,
+    mut pending: Query<
+        (
+            Entity,
+            &crate::death_rules::DeathInterlude,
+            Option<&mut ambition_characters::control::ControlHolds>,
+        ),
+        With<PendingRespawn>,
+    >,
     mut due: MessageWriter<FighterRespawnDue>,
 ) {
     // Collected and sorted: `Query` iteration order is not guaranteed, and the
     // message order here decides placement order for two fighters returning on
     // one tick — which is a seat-dependent position.
-    let mut ready: Vec<Entity> = Vec::new();
-    for (entity, mut pending) in &mut pending {
-        if pending.remaining_ticks > 0 {
-            pending.remaining_ticks -= 1;
-            continue;
-        }
-        ready.push(entity);
-    }
+    let mut ready: Vec<Entity> = pending
+        .iter()
+        .filter(|(_, window, _)| !window.open())
+        .map(|(entity, _, _)| entity)
+        .collect();
     ready.sort();
     for entity in ready {
-        commands.entity(entity).remove::<PendingRespawn>();
+        // ⭐ THE WHOLE RETURN, IN ONE PLACE. This says the fighter is back, so
+        // it hands back every fact the spend took — including the ones the
+        // ENGINE owns. Leaving `OutOfPlay` for `clear_out_of_play_on_restart`
+        // to pick up off `BodyRestarted` looks tidier and is wrong: a ruleset
+        // that hears the cue and does not place a body (a mode with no beat and
+        // no respawn platform, and every rules-only harness) would then hold a
+        // fighter out of play forever, and the symptom is the silent one — a
+        // body that cannot spend a stock never loses another.
+        //
+        // ⛔ "back in the fight" and "the world's hands are off this body" are
+        // contradictory states; whichever system asserts one must retract the
+        // other in the same breath.
+        let (_, _, holds) = pending.get_mut(entity).expect("just collected");
+        let holds = holds.map(|holds| holds.into_inner());
+        commands.entity(entity).remove::<(
+            PendingRespawn,
+            crate::death_rules::OutOfPlay,
+            crate::death_rules::DeathInterlude,
+        )>();
+        // RELEASE the bit this beat claimed, never `clear_control_holds`: a
+        // fighter can be knocked out while a conversation or an opening
+        // ceremony also holds it, and taking the whole set would hand control
+        // back to a body somebody else is still driving.
+        ambition_characters::control::release_control_hold(
+            &mut commands,
+            entity,
+            holds,
+            ambition_characters::control::ControlHold::Sequence,
+        );
         // Back IN the fight, which is the half that makes the body targetable
         // and gives it a place on the anti-clump board again.
         commands
@@ -262,12 +318,24 @@ pub fn spend_fighter_stocks(
     mut commands: Commands,
     mut knockouts: MessageReader<BodyKnockedOut>,
     mut spent: MessageWriter<FighterStockSpent>,
-    // ⛔⛔ AND `Without<PendingRespawn>`. A waiting body is NOT PLACED — it is
-    // still lying wherever it died, which for a ring-out is inside the blast
-    // zone. Same-tick placement hid this by moving the body out on the tick it
-    // died; with a beat, the zone would knock it out again every tick and spend
-    // every remaining stock during the wait.
-    mut fighters: Query<&mut FighterStocks, (Without<FighterEliminated>, Without<PendingRespawn>)>,
+    // ⛔⛔ AND `Without<OutOfPlay>`. A waiting body is NOT PLACED — it is still
+    // lying wherever it died, which for a ring-out is inside the blast zone.
+    // Same-tick placement hid this by moving the body out on the tick it died;
+    // with a beat, the zone would knock it out again every tick and spend every
+    // remaining stock during the wait.
+    //
+    // ⭐ `OutOfPlay` and not `PendingRespawn`, though both are on the body: the
+    // rule is "a body the world has its hands off cannot lose a stock", and
+    // that is true of every open death window, not only the ones that end in a
+    // respawn. Filtering on the narrower marker would have left the same hole
+    // open for any other game whose death path reaches this spend.
+    mut fighters: Query<
+        &mut FighterStocks,
+        (
+            Without<FighterEliminated>,
+            Without<crate::death_rules::OutOfPlay>,
+        ),
+    >,
     mut meters: Query<&mut ambition_characters::actor::BodyHealth>,
     interval: Option<Res<RespawnInterval>>,
 ) {
@@ -300,19 +368,56 @@ pub fn spend_fighter_stocks(
                 // shorter again, which is a difficulty ramp nobody authored.
                 health.reset();
             }
-            // D192: the body is OUT until its interval elapses. Both halves
-            // matter and neither is enough alone — the state says a return is
-            // coming, and dropping `ActiveCombatant` is what actually keeps the
-            // fighter from being targeted, captured or counted while it waits.
-            // ⛔ the same removal elimination does, for the same reason: a body
-            // that is not in the fight must not go on holding attack state and a
-            // place on the anti-clump board.
-            commands.entity(knockout.body).try_insert(PendingRespawn {
-                remaining_ticks: interval.ticks,
-            });
+            // The body is OUT until its window closes. FOUR facts, and the
+            // engine already owned three of them (ADR 0033):
+            //
+            // - `OutOfPlay` — the world's hands are off. `step_body` halts the
+            //   body and steps it with `dt == 0`, `damage_apply` drops it from
+            //   the victim query, and the room's exit sweep skips it. D192
+            //   approximated this by removing `ActiveCombatant`, which stops a
+            //   body being TARGETED but leaves it falling through the blast
+            //   zone that killed it.
+            // - `DeathInterlude` — the countdown, ticked by the engine's own
+            //   `tick_death_interlude` on the sim clock, and rollback-registered
+            //   since long before this beat existed. It also arms the death row
+            //   (`BodyAnimFacts::death_anim_timer`), so a KO finally LOOKS like
+            //   one without this ruleset knowing the animation exists.
+            // - `ControlHold::Sequence` — ⭐ THE PIECE D192 SKIPPED, and its
+            //   absence was a shipped bug: *"in smash when you are respawning,
+            //   if I make the character jump they raise up on the platform"*.
+            //   A dead body does not answer input, and the engine has said so
+            //   in one word since Mary-O's death beat stopped reinventing it.
+            //   Claimed as a bit rather than stamped, so the release that
+            //   follows is arithmetic — see `open_death_interlude`.
+            // - `ActiveCombatant` off, which elimination does too, for the same
+            //   reason: a body that is not in the fight must not go on holding
+            //   attack state and a place on the anti-clump board.
+            //
+            // `PendingRespawn` carries the fifth and only new one: this window
+            // ends in a RESPAWN.
+            commands.entity(knockout.body).try_insert((
+                PendingRespawn,
+                crate::death_rules::OutOfPlay,
+                crate::death_rules::DeathInterlude {
+                    remaining: interval.seconds,
+                    // ⛔ the LEVEL's consequence, which for a stocks match is
+                    // none. `close_death_interlude` spends this once the window
+                    // shuts and then asks the room's `LevelReset`; a versus
+                    // arena declares no death rules, so it answers `Never`. The
+                    // respawn is NOT hung off this debt — two consumers of one
+                    // flag is a race decided by whichever system the scheduler
+                    // happens to order first.
+                    consequence_pending: true,
+                },
+            ));
             commands
                 .entity(knockout.body)
                 .remove::<crate::components::ActiveCombatant>();
+            ambition_characters::control::claim_control_hold(
+                &mut commands,
+                knockout.body,
+                ambition_characters::control::ControlHold::Sequence,
+            );
         }
         spent.write(FighterStockSpent {
             body: knockout.body,
@@ -444,15 +549,19 @@ mod tests {
     use ambition_characters::actor::{BodyHealth, DeathPolicy, Health};
     use bevy::prelude::*;
 
-    /// ⛔⛔ BOTH SYSTEMS, ALWAYS. `spend_fighter_stocks` opens a pending-respawn
-    /// episode and `tick_pending_respawn` is the only thing that closes one, so a
-    /// harness wiring just the first latches every fighter out of play after its
-    /// first knockout — silently, because a body that cannot spend a stock simply
-    /// never loses another. This wired only the spend, and the "spends until
-    /// eliminated" test is what caught it.
+    /// ⛔⛔ ALL THREE SYSTEMS, ALWAYS. `spend_fighter_stocks` opens a window,
+    /// `tick_death_interlude` is the only thing that advances one and
+    /// `respawn_when_the_interlude_closes` is the only thing that spends one, so
+    /// a harness wiring just the first latches every fighter out of play after
+    /// its first knockout — silently, because a body that cannot spend a stock
+    /// simply never loses another. This wired only the spend, and the "spends
+    /// until eliminated" test is what caught it.
     fn stocks_app() -> App {
-        respawn_app(0)
+        respawn_app(0.0)
     }
+
+    /// One sim step, so a beat authored in seconds has a tick length here.
+    const TEST_DT: f32 = 1.0 / 60.0;
 
     fn fighter(app: &mut App, stocks: u32) -> Entity {
         app.world_mut()
@@ -479,18 +588,32 @@ mod tests {
         cursor.read(messages).last().copied()
     }
 
-    /// A stocks app that also runs D192's return beat.
-    fn respawn_app(interval_ticks: u32) -> App {
+    /// A stocks app that also runs the return beat.
+    ///
+    /// ⭐ THE REAL `tick_death_interlude`, not a stand-in. The countdown is the
+    /// part D201 handed back to the engine, so a harness that ticked the window
+    /// itself would be testing its own arithmetic and would go on passing if the
+    /// engine's ticker were removed entirely.
+    fn respawn_app(interval_seconds: f32) -> App {
         let mut app = App::new();
         app.add_message::<BodyKnockedOut>();
         app.add_message::<FighterStockSpent>();
         app.add_message::<FighterRespawnDue>();
         app.insert_resource(RespawnInterval {
-            ticks: interval_ticks,
+            seconds: interval_seconds,
+        });
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: TEST_DT,
+            scaled_dt: TEST_DT,
         });
         app.add_systems(
             Update,
-            (spend_fighter_stocks, tick_pending_respawn).chain(),
+            (
+                spend_fighter_stocks,
+                crate::death_rules::tick_death_interlude,
+                respawn_when_the_interlude_closes,
+            )
+                .chain(),
         );
         app
     }
@@ -534,7 +657,7 @@ mod tests {
         // stock was spent, so the KO cue played over a fighter who was already
         // standing on the platform and the camera had to frame a body that
         // teleported ~500 units with no travel.
-        let mut app = respawn_app(60);
+        let mut app = respawn_app(1.0);
         let body = settled_fighter(&mut app, 3);
         knock_out(&mut app, body);
         app.update();
@@ -560,12 +683,14 @@ mod tests {
         // crowding the anti-clump board while it waits. A state that said "a
         // return is coming" without this would leave a fighter fightable in a
         // place it is not standing.
-        let mut app = respawn_app(3);
+        let mut app = respawn_app(0.05);
         let body = settled_fighter(&mut app, 3);
         knock_out(&mut app, body);
         app.update();
         assert!(
-            app.world().get::<crate::components::ActiveCombatant>(body).is_none(),
+            app.world()
+                .get::<crate::components::ActiveCombatant>(body)
+                .is_none(),
             "a fighter awaiting respawn is NOT in the fight"
         );
 
@@ -573,12 +698,72 @@ mod tests {
             app.update();
         }
         assert!(
-            app.world().get::<crate::components::ActiveCombatant>(body).is_some(),
+            app.world()
+                .get::<crate::components::ActiveCombatant>(body)
+                .is_some(),
             "and it is back in the fight on the tick it returns"
         );
         assert!(
             app.world().get::<PendingRespawn>(body).is_none(),
             "the episode is over, not left latched"
+        );
+    }
+
+    #[test]
+    fn a_fighter_waiting_to_come_back_does_not_answer_input() {
+        // ⭐⭐ JON'S BUG, and the piece D192 skipped. *"in smash when you are
+        // respawning, if I make the character jump they raise up on the
+        // platform."* A body with no control hold is a body the input road
+        // still drives, and it was lying in the blast zone with a jump left.
+        //
+        // The hold is checked as a CLAIM and not as the derived marker: the
+        // marker means "`ControlHolds` is non-empty", so asserting it alone
+        // would pass for a beat that claimed somebody else's bit.
+        use ambition_characters::control::{ControlHold, ControlHolds, ScriptedControl};
+        let mut app = respawn_app(1.0);
+        let body = settled_fighter(&mut app, 3);
+        knock_out(&mut app, body);
+        app.update();
+
+        assert!(
+            app.world()
+                .get::<ControlHolds>(body)
+                .is_some_and(|holds| holds.holds(ControlHold::Sequence)),
+            "a fighter awaiting respawn must be holding `Sequence` — normal input \
+             does not reach a body that is waiting to come back"
+        );
+        assert!(
+            app.world().get::<ScriptedControl>(body).is_some(),
+            "and the derived marker agrees with the claim"
+        );
+        assert!(
+            app.world()
+                .get::<crate::death_rules::OutOfPlay>(body)
+                .is_some(),
+            "the world's hands are off it too (ADR 0033), so nothing steps or \
+             damages it where it fell"
+        );
+
+        // ⛔ AND IT GETS CONTROL BACK. A hold that is claimed and never released
+        // is the same bug pointed the other way, and it is the quieter one: a
+        // fighter that returns and cannot be driven looks like a dead pad.
+        for _ in 0..200 {
+            app.update();
+            if !returned_this_tick(&mut app).is_empty() {
+                break;
+            }
+        }
+        assert!(
+            app.world()
+                .get::<ControlHolds>(body)
+                .is_none_or(|holds| !holds.holds(ControlHold::Sequence)),
+            "the returning fighter is still holding `Sequence`"
+        );
+        assert!(
+            app.world()
+                .get::<crate::death_rules::OutOfPlay>(body)
+                .is_none(),
+            "and it is back in play"
         );
     }
 
@@ -589,7 +774,7 @@ mod tests {
         // schedule; that one interval outlasts a shorter one is a fact about the
         // rule, and it is what a knob being wired at all actually means. Two
         // arms that STRADDLE, so a countdown wired to a constant fails it.
-        fn ticks_until_due(interval: u32) -> usize {
+        fn ticks_until_due(interval: f32) -> usize {
             let mut app = respawn_app(interval);
             let body = settled_fighter(&mut app, 3);
             knock_out(&mut app, body);
@@ -599,14 +784,14 @@ mod tests {
                     return tick;
                 }
             }
-            panic!("a fighter with a {interval}-tick interval never came back");
+            panic!("a fighter with a {interval}s interval never came back");
         }
 
-        let short = ticks_until_due(2);
-        let long = ticks_until_due(40);
+        let short = ticks_until_due(0.05);
+        let long = ticks_until_due(0.7);
         assert!(
             long > short,
-            "a 40-tick beat must outlast a 2-tick one (got {long} vs {short})"
+            "a 0.7s beat must outlast a 0.05s one (got {long} vs {short} ticks)"
         );
         assert!(
             short > 0,
@@ -619,7 +804,7 @@ mod tests {
         // ⛔ THE COMPATIBILITY ARM, and it straddles the interesting boundary
         // with the test above. Every ruleset that never asked for a beat must
         // behave exactly as it did before D192 — placed on the spend tick.
-        let mut app = respawn_app(0);
+        let mut app = respawn_app(0.0);
         let body = settled_fighter(&mut app, 3);
         knock_out(&mut app, body);
         app.update();
@@ -638,7 +823,7 @@ mod tests {
         // ring-out leaves it lying in the blast zone that killed it. Without the
         // filter that zone knocks it out again every tick and the fighter loses
         // every stock it has during one respawn.
-        let mut app = respawn_app(60);
+        let mut app = respawn_app(1.0);
         let body = settled_fighter(&mut app, 3);
         knock_out(&mut app, body);
         app.update();
@@ -659,7 +844,7 @@ mod tests {
     fn an_eliminated_fighter_never_waits_to_come_back() {
         // It has no stock to return on. A pending episode here would be a body
         // scheduled to be placed for a knockout that ended its match.
-        let mut app = respawn_app(60);
+        let mut app = respawn_app(1.0);
         let body = settled_fighter(&mut app, 1);
         knock_out(&mut app, body);
         app.update();
@@ -682,7 +867,7 @@ mod tests {
     fn a_fighter_is_announced_due_exactly_once() {
         // A latch that re-fired would place the body every tick after the
         // interval, which reads as a fighter frozen on the respawn platform.
-        let mut app = respawn_app(2);
+        let mut app = respawn_app(0.05);
         let body = settled_fighter(&mut app, 3);
         knock_out(&mut app, body);
 

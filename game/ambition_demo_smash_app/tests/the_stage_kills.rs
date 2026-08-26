@@ -1994,3 +1994,185 @@ fn probe_when_the_mirror_breaks() {
         None => println!("the mirror never broke across {observed} observed ticks"),
     }
 }
+
+/// ⭐⭐ JON'S BUG: *"in smash when you are respawning, if I make the character
+/// jump they raise up on the platform."*
+///
+/// A fighter waiting out its respawn beat is a fighter the world has its hands
+/// off — ADR 0033's `OutOfPlay`, plus the `ControlHold::Sequence` claim that
+/// says normal input does not reach this body. D192 opened the beat and claimed
+/// neither, so the wait was a window in which a knocked-out body still answered
+/// the pad.
+///
+/// ⛔⛔ THE POSITIVE CONTROL IS THE TEST. "The body did not move" is true of a
+/// press that never arrived, of a harness that drove the wrong slot, and of a
+/// stage with no jump at all — every way this could measure nothing looks
+/// exactly like the fix working. So the SAME held jump is driven at the SAME
+/// body while it is alive, first, and that arm has to move it.
+///
+/// PROBED RED: with the `out_of_play` flag reverted to the hard-coded `false`
+/// the actor road used to pass — the state D201 found — the waiting body moves
+/// **174.7px in 60 frames**; with it read, **0.0px**. Both of the first two
+/// spellings of this test passed with the fix removed, and neither failure was
+/// visible from the assertion:
+///   - "did it rise above where the wait started" — an unfrozen body is FALLING
+///     out of the blast zone at ~1200px/s, so a jump cannot get it back above
+///     the line no matter what the pad does.
+///   - sampling after `app.update()` without re-checking the wait — the frame
+///     the wait ENDS is the frame the ruleset places the body on the respawn
+///     platform, ~580px up, and that placement read as the bug.
+#[test]
+fn a_fighter_waiting_out_its_respawn_beat_does_not_answer_the_jump_button() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    decide_a_two_player_match(&mut app);
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat_body = |app: &mut App, seat: usize| -> Option<Entity> {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &MatchSeat)>();
+        query
+            .iter(world)
+            .find(|(_, s)| s.0 == seat)
+            .map(|(entity, _)| entity)
+    };
+    let y_of = |app: &mut App, body: Entity| -> f32 {
+        app.world()
+            .get::<BodyKinematics>(body)
+            .map(|kin| kin.pos.y)
+            .expect("the seated body has kinematics")
+    };
+    // ⛔ `App::update()` IS A FRAME, NOT A SIM TICK, so a jump arc can begin and
+    // end between two samples. The reading is the PEAK over the whole hold, not
+    // the position at the end of it — measured the hard way on an earlier probe,
+    // where a 630px/s jump sampled as 0.4px of rise.
+    let hold_jump_and_peak = |app: &mut App, body: Entity, frames: usize| -> f32 {
+        let start = y_of(app, body);
+        let mut peak = 0.0f32;
+        for _ in 0..frames {
+            // ⭐ HELD, not tapped: a one-tick press assumes the body steps after
+            // the frame is committed inside one update, which a test has no
+            // business modelling. And `drive_control_frame` is the ONLY driver
+            // that lands — writing `ControlFrame` between updates is rewritten
+            // by the device systems every tick.
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    jump_pressed: true,
+                    jump_held: true,
+                    ..Default::default()
+                },
+            );
+            app.update();
+            // Feet are +gravity, so RISING is a DECREASE in y.
+            peak = peak.max(start - y_of(app, body));
+        }
+        peak
+    };
+
+    let seat0 = seat_body(&mut app, 0).expect("the match seats a first fighter");
+
+    // ── THE CONTROL ARM: alive, on the stage, holding jump. ──
+    let alive_rise = hold_jump_and_peak(&mut app, seat0, 40);
+    assert!(
+        alive_rise > 8.0,
+        "a LIVE fighter holding jump rose only {alive_rise:.1}px, so this harness \
+         is not delivering the press at all and the respawn arm below would pass \
+         for the wrong reason"
+    );
+
+    // ── LAUNCH IT OUT. Same shape as the blast-gate test above: hard enough
+    // that the margin is crossed rather than approached. ──
+    {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &mut BodyKinematics)>();
+        for (seat, mut kin) in query.iter_mut(world) {
+            if seat.0 == 0 {
+                kin.vel = ambition_platformer2d::engine_core::Vec2::new(2_400.0, -200.0);
+            }
+        }
+    }
+
+    let mut waiting = false;
+    for _ in 0..240 {
+        app.update();
+        if app
+            .world()
+            .get::<ambition_platformer2d::actor::PendingRespawn>(seat0)
+            .is_some()
+        {
+            waiting = true;
+            break;
+        }
+    }
+    // ⛔ THE PREMISE. Without this the loop below measures a fighter that is
+    // simply standing on the stage.
+    assert!(
+        waiting,
+        "seat 0 never entered a respawn wait after being launched at the blast \
+         line, so nothing here is about the respawn beat"
+    );
+
+
+    // ── THE ARM UNDER TEST: the same held jump, during the wait. ──
+    let mut held_frames = 0usize;
+    let start = y_of(&mut app, seat0);
+    let mut moved = 0.0f32;
+    while app
+        .world()
+        .get::<ambition_platformer2d::actor::PendingRespawn>(seat0)
+        .is_some()
+        && held_frames < 240
+    {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                jump_pressed: true,
+                jump_held: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+        // ⛔⛔ SAMPLE ONLY WHILE THE BODY IS STILL WAITING. The frame the wait
+        // ENDS is the frame the ruleset places the body on the respawn platform,
+        // which is ~580px above the blast line it was sitting at — and reading
+        // it here made "the respawn beat answers the jump button" out of the
+        // respawn itself. The `while` condition is re-checked one statement too
+        // late to protect this.
+        if app
+            .world()
+            .get::<ambition_platformer2d::actor::PendingRespawn>(seat0)
+            .is_none()
+        {
+            break;
+        }
+        held_frames += 1;
+        // ⛔⛔ THE MAGNITUDE, NOT THE RISE. Measured the hard way: an unfrozen
+        // body is FALLING out of the blast zone at ~1200px/s, so "did it get
+        // higher than where the wait started" is false no matter what the pad
+        // does — the arm meant to catch the bug passed with the fix removed. A
+        // fighter waiting out its beat does not move AT ALL, in either
+        // direction, which is a claim with somewhere to fail.
+        moved = moved.max((y_of(&mut app, seat0) - start).abs());
+    }
+    // ⛔ THE SECOND PREMISE: a wait that was over in two frames would make the
+    // assertion below true by having nowhere to fail.
+    assert!(
+        held_frames >= 20,
+        "the respawn wait lasted only {held_frames} frames, which is too short \
+         for a held jump to have had a chance to move the body"
+    );
+    assert!(
+        moved <= 1.0,
+        "a fighter waiting out its respawn MOVED {moved:.1}px over {held_frames} \
+         frames under a held jump — the same press moved the live body \
+         {alive_rise:.1}px, so the beat is still answering the pad"
+    );
+}

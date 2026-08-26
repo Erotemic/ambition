@@ -1276,7 +1276,23 @@ fn announce_the_opening_countdown(
     // and no constructor, so a unit fixture here can only build a system that
     // early-returns — a check that cannot fail. The follow-up is an integration
     // harness that runs a timed match to expiry.
+    // ⛔⛔ AND THE BANNER IS DERIVED FROM THE LATCH, NOT WRITTEN BY THE SIM.
+    // `open_the_sudden_death_round` used to set this slot itself, from inside the
+    // rollback simulation — and `HudReadouts` is presentation, so it is not
+    // rollback state and nothing retracts it. A rewind that unmade the timeout
+    // took back the damage, the stocks and the message, and left "SUDDEN DEATH"
+    // standing over a match that was no longer in it: a speculative simulation
+    // result surviving as a fact on screen.
+    //
+    // ⭐ REPUBLISHED EVERY FRAME FROM ROLLBACK-REGISTERED STATE, which is the
+    // shape presentation is supposed to have. `SuddenDeathEntered` IS rewound,
+    // so the banner appears and disappears with the round it names and no
+    // retraction has to be remembered anywhere.
     if sudden_death.is_some_and(|entered| entered.entered(&active)) {
+        readouts.set(
+            SMASH_ANNOUNCE_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare("SUDDEN DEATH".to_string()),
+        );
         return;
     }
     let total = u64::from(rules.opening_countdown_ticks);
@@ -2171,7 +2187,6 @@ fn open_the_sudden_death_round(
         ),
         bevy::prelude::Without<ambition_platformer2d::combat::stocks::FighterEliminated>,
     >,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     for round in began.read() {
         for (body, seat, team, mut health, mut stocks) in &mut fighters {
@@ -2207,10 +2222,6 @@ fn open_the_sudden_death_round(
                     .remove::<ambition_platformer2d::combat::components::ActiveCombatant>();
             }
         }
-        readouts.set(
-            SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare("SUDDEN DEATH".to_string()),
-        );
     }
 }
 

@@ -630,7 +630,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ ALREADY FIXED AT HEAD — `open_the_sudden_death_round` sets `stocks.remaining = 1` for every contender, with a comment naming this exact bug; the review is reading an older tree.
 
 * The same sudden-death sim system writes the persistent "SUDDEN DEATH" `HudReadouts` slot. A rollback before the timeout retracts `BodyHealth` and the message but not `HudReadouts`, so the banner can survive as speculative presentation. Belongs with confirmed-result presentation cleanup, not with the game rules.
-  * ▢
+  * ✔ the sim no longer writes the slot. The banner is DERIVED every frame from `SuddenDeathEntered`, the rollback-registered latch the card system already consulted — so it appears and disappears with the round it names and no retraction has to be remembered anywhere. ⭐ the same shape as the knockout beat above: a presentation fact written from inside the simulation cannot be rewound, because presentation is not rollback state.
 
 * Every `MoveEventKind::Ranged` passes through a hidden 1.1-second body refire cooldown at the effect consumer, while Projectile Polygon's authored Charge Shot is 0.58 seconds long. The move-start authority does not consult that cooldown.
   * ✔ ALREADY FIXED AT HEAD — `weapon_ready` refuses a firing move at ACCEPTANCE on `ranged_cooldown <= 0.0`, `start_move` spends the authored `RangedActionSpec::refire_s`, and `brain_effects.rs` applies the low-level refire rejection only to `RangedCommitment::Attempt`, never to a committed move. ⛔ THIS IS THE THIRD STALE ONE and I called that batch "two" — I checked the two I could reach by grepping a symbol and stopped, which is the partial-sweep error again.

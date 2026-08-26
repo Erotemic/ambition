@@ -44,8 +44,23 @@
   press/release-with-drag-cancel is already shared; backend-specific select
   consumption remains.
 
-- ▢ **Move directional repeat/focus/wrap behind `ambition_ui_nav`.** Preserve the
+- ◐ **Move directional repeat/focus/wrap behind `ambition_ui_nav`.** Preserve the
   existing navigation semantics while removing backend-specific duplication.
+  ⭐ **MEASURED 2026-08-26, and the vague half is now a NAMED DIFFERENCE.** The
+  crate exists and carries all three concepts: `MenuFocusState`,
+  `move_next_wrapping` / `move_previous_wrapping`. `ambition_dialog` adopts
+  `MenuFocusState` (runtime + systems). ⛔ `ambition_game_shell`'s pause menu does
+  NOT — it keeps its own cursor and CLAMPS it
+  (`menu.cursor = (menu.cursor + 1).min(rows.len() - 1)`, `pause_menu.rs:438`).
+  ⇒ **two menus in one game disagree about what happens at the end of a list**:
+  the dialogue picker is on the shared vocabulary and the pause menu stops dead.
+  ⚠ so this is not purely a refactor — adopting the crate's own verb makes the
+  pause cursor WRAP, which is a visible behaviour change and the reason it has
+  not simply been done. State the wrap rule first, then move the code to it.
+  ⚠ REPEAT is deliberately elsewhere and should probably stay: it lives in
+  `MenuInputState::step` in `ambition_input`, driven by the user's
+  `menu_repeat_initial_delay` / `menu_repeat_interval` settings — a repeat is an
+  INPUT cadence, not a list-navigation rule.
 
 - ▢ **Finish context migration.** Inventory/specialized menus beyond the current
   cue ownership, a `VEHICLE` context, and loading/retry input remain outside the

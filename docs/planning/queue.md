@@ -11775,8 +11775,12 @@ ranged consumer has no body-local MUZZLE, so charge presentation uses an
 anatomically wrong fallback and `gun_sword` already carries an ID special-case —
 add the anchor with the next ranged feature rather than a second exception.
 
-- ▢ **D239 — THE DEEP REVIEW, CHECKPOINT 3: SUDDEN DEATH WAS A THIRD
-  IMPLEMENTED. (opened 2026-08-25)**
+- ✔ **D239 — CLOSED 2026-08-26. THE DEEP REVIEW, CHECKPOINT 3: SUDDEN DEATH WAS
+  A THIRD IMPLEMENTED.** All five findings — (31) the charge shot that fired
+  nothing, (32) sudden death's missing stock, (33) the half-retired
+  non-contenders, (34) the clock, (35) the fold — are closed, (31) under Jon's
+  own relayed ruling and re-verified at HEAD. Nothing here is open.
+  (opened 2026-08-25; closed 2026-08-26)**
 
 ⭐⭐ **CLOSED 2026-08-25 — (32) SUDDEN DEATH NEVER GAVE ANYONE ONE STOCK.** The
 transition set the damage and nothing else; it did not query `FighterStocks` at

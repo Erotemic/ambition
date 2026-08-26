@@ -11566,6 +11566,17 @@ them either. ⇒ the honest next step is one host-buildable persona at a time
 `--all-features` sweep, which enables mutually exclusive platform features and
 fails for reasons that mean nothing.
 
+⛔ **AND DO NOT SPEND A BUILD ON BARE `--no-default-features`: it reports 8
+errors and they mean NOTHING.** Measured 2026-08-26 — every one is in
+`input_systems.rs` naming `ActionState`, `Platformer2dInputActionMonolith`,
+`SeatBurstTriggerState`, `input_suppressed_by_unfocus`,
+`read_menu_control_frame`, all of which live behind `feature = "input"`. That is
+the crate correctly refusing a configuration it never claimed to support:
+`visible` lists `"input"`, `android = ["visible", …]`, and the Cargo comment says
+Android builds pass `--no-default-features` WITH the `android` composite, never
+bare. ⇒ the meaningful minimum is a PERSONA, and `visible,desktop_platform` is
+the only one a host can compile.
+
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is
 that whoever edits a type consulted by a gated module has to know the module

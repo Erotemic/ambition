@@ -3333,15 +3333,25 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // The `--press touch:...` list in `capture_scene`'s header, in order.
     const ROLE_BUTTON_0: Vec2 = Vec2::new(167.0, 523.0);
     const ROLE_BUTTON_1: Vec2 = Vec2::new(482.0, 523.0);
-    // Those are grid cells 3 and 0 — Sanic, who has no authored repertoire at all, and Player Robot
-    // v3 — so the command this row points at to ask *"do the two AUTHORED kits read differently"*
-    // answered with a body that has no authored kit. The check below only asserted the two picks
-    // DIFFER, so it stayed green the whole time. Cell 1 is George Booul and cell 4 is the Pirate
-    // Admiral: the demo's own fighter against Ambition's, the pair the question is about.
+    // ⛔⛔ AND THE FIRST ONE HAD DRIFTED AGAIN — measured 2026-08-26, and the
+    // check below is why nobody saw it. `PORTRAIT_A` was landing on grid CELL 0
+    // (`player_robot_v3`), not cell 1, so the command this row exists to
+    // document answered *"do the two AUTHORED kits read differently"* with the
+    // wrong half of the pair. The assertion only said the two picks DIFFER, and
+    // two wrong fighters differ perfectly well.
     //
-    // Re-derived from `SelectLayout::portrait` centres, not by eye.
-    const PORTRAIT_A: Vec2 = Vec2::new(479.0, 121.0);
-    const PORTRAIT_B: Vec2 = Vec2::new(801.0, 121.0);
+    // ⭐ SO THE FIGHTERS ARE NAMED NOW, not just counted. A grid cell is a
+    // POSITION and the roster behind it grows — appending a fighter moves cell
+    // one — so a literal that is only checked for being ON the grid is a literal
+    // that goes quietly wrong every time the cast changes.
+    //
+    // Re-derived from `SelectLayout::portrait` centres, not by eye: cell 1 is
+    // (559.05, 105.25) and cell 4 is (801.9, 105.25).
+    const PORTRAIT_A: Vec2 = Vec2::new(559.0, 105.0);
+    const PORTRAIT_B: Vec2 = Vec2::new(802.0, 105.0);
+    /// The pair the documented capture is FOR: the demo's own authored fighter
+    /// against Ambition's own. Named, because a cell index is not a character.
+    const WANTED: [&str; 2] = ["smash_george_booul", "npc_pirate_admiral"];
     const START: Vec2 = Vec2::new(1191.0, 446.0);
 
     /// One tap of the glass, the way winit reports one: a `Started` and an
@@ -3413,11 +3423,38 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     let picks: Vec<Option<SlotPick>> = (0..2)
         .map(|slot| app.world().resource::<SmashSelect>().slot(slot).pick)
         .collect();
+
     assert!(
         matches!(picks[0], Some(SlotPick::Fighter(_)))
             && matches!(picks[1], Some(SlotPick::Fighter(_))),
         "a documented portrait tap chose no fighter: {picks:?} — a `Random` \
          here means the tap missed the grid and the token went home"
+    );
+    // ⭐⭐ WHICH fighters, not merely two of them. See `WANTED`.
+    let chosen: Vec<String> = {
+        let grid = app
+            .world()
+            .resource::<ambition_demo_smash::select::SmashRoster>();
+        picks
+            .iter()
+            .map(|pick| match pick {
+                Some(SlotPick::Fighter(cell)) => grid
+                    .ids()
+                    .nth(*cell)
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!("<cell {cell} is off the grid>")),
+                other => format!("{other:?}"),
+            })
+            .collect()
+    };
+    assert_eq!(
+        chosen,
+        WANTED.map(str::to_string).to_vec(),
+        "the documented taps seat {chosen:?}, and the capture they document is \
+         supposed to put the demo's authored fighter beside Ambition's. A grid \
+         cell is a POSITION: appending a fighter moves cell one, so these \
+         literals go wrong every time the cast changes and only naming the \
+         characters catches it"
     );
 
     tap(&mut app, START);

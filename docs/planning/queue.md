@@ -9501,9 +9501,18 @@ authored pair. ⛔⛔ **and the correct cell coordinates have moved AGAIN,
 since 2026-08-20** — George Booul is cell 1 (`touch:479x121`) and the Pirate
 Admiral cell 4 (`touch:801x121`) now that one appended fighter took the
 roster grid from 15 cells to 16 and re-flowed it to six columns. ⚠ quote the
-CELL, not the pixels. ▢ **the two literals in `capture_scene`'s header and
-in `the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters` still
-need updating to the current cells (~15 min)** — otherwise every future look
+CELL, not the pixels. ✔ **DONE 2026-08-26, and it was ONE literal, not two —
+`capture_scene`'s header no longer prints a recipe at all** (it says *"keep
+coordinate recipes covered by host tests because the UI layout can move"*), so
+only the test carried literals. `PORTRAIT_A` was landing on grid CELL 0
+(`player_robot_v3`) instead of cell 1 (`smash_george_booul`), which is exactly
+the drift this row predicted. ⛔⛔ **AND THE ASSERTION IS WHY NOBODY SAW IT: it
+said the two picks DIFFER, and two wrong fighters differ perfectly well.** The
+test names the pair now (`WANTED = [smash_george_booul, npc_pirate_admiral]`) and
+resolves the cells back through the live grid, so the next roster change reddens
+it instead of quietly re-aiming the documented capture. Poisoned by restoring the
+old literal: it reports `["player_robot_v3", …]`. ~~the two literals still
+need updating to the current cells (~15 min)~~ — otherwise every future look
 through the documented command answers the standing "do the kits behave
 differently" question with the wrong pair. That 2026-08-16 capture's own
 headline: the two authored kits DO read as different fighters, but every

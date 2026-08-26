@@ -79,10 +79,50 @@ there plus a parameter on the six systems that call it.
 
 ## Remaining construction work
 
-- ▢ **Prove real snapshot reconstruction (the old operation 5).** There is still
-  no production cross-room snapshot caller exercising source-snapshot selection,
+- ✔ **Prove real snapshot reconstruction (the old operation 5). CLOSED
+  2026-08-26 — and it closes as ANSWERED, not as built: the operation this item
+  wants proven is forbidden by the design, and the properties it lists are
+  either present under other names or vacuous here.** The item wanted a
+  production cross-room snapshot caller exercising source-snapshot selection,
   decode/compatibility rejection before mutation, rollback entity identity and
   remapping, restoration of non-room authoritative state, and atomic commit.
+
+  ⭐⭐ **A ROLLBACK CANNOT CROSS A ROOM BOUNDARY, ON PURPOSE, AND BOTH HALVES OF
+  THAT SAY SO IN THE CODE.** The sim-side commit is EAGER-HOST-ONLY
+  (`commit_ready_room_transition_system` reads `SimulationHost`: *"this system
+  would mutate the world inside the rewound schedule and the next restore would
+  put the old room back"*). The rollback host reaches the same change through
+  `commit_confirmed_lifecycle`, which fires only on a CONFIRMED frame
+  (`pending.confirmed(boundary.confirmed)`) and then REBASES: it installs a new
+  frame-zero baseline whose first `SaveWorld` overwrites every ring slot, *"so no
+  earlier frame can restore the pre-op room."* ⇒ no speculative frame ever
+  contains a room change, so there is no snapshot on either side of a boundary to
+  select, decode, or remap between.
+
+```text
+source-snapshot selection      vacuous — the rebase DISCARDS the ring; a room is
+                               rebuilt from spec + ledger, not from a snapshot
+decode/compat rejection        PRESENT, before any mutation: authorized_plan ->
+  before mutation              Wait, build_sync_test_session -> Err, and
+                               CommitOutcome::Retry all return with the world
+                               untouched and the intent still pending
+entity identity + remapping    vacuous — a new frame-zero baseline needs no old
+                               ids mapped into new ones; the ring is invalidated
+non-room authoritative state   already proven by the item BELOW (possession ->
+                               transition -> carried body, 2026-08-19)
+atomic commit                  PRESENT and stated: "From here NOTHING may fail",
+                               with the session pre-built so the install is
+                               infallible and the commit cannot half-complete
+```
+
+  ⚠ **the one real hole is the one already parked as netplay.** The rebase is
+  gated to `RollbackSessionOwnership::LocalSyncTest`; on an `External` session
+  `commit_confirmed_lifecycle` returns and — since the eager path is gated off
+  for a rollback host — a room change never commits at all. That is stated at the
+  module head (*"External / P2P requires a coordinated peer barrier … so this is
+  inert there"*) and it is the same peer-coordinated lifecycle commit the item
+  two below deliberately leaves ▢. ⛔ do not build a synthetic local ritual for
+  it.
 
   ⛔ **`RoomConstructionPlan::apply_to_world` DOES NOT EXIST — re-checked
   2026-08-24.** This item named it as the thing that does not prove the

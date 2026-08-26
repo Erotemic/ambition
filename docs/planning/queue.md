@@ -2058,11 +2058,19 @@ and is reachable from two ADRs, a concepts doc and a related-work doc, but from
 on 2026-08-14: designed frontier, structurally invisible to the execution
 authority. The work is already specified there; this row is the pointer.
 
-⛔ **the biggest one is the old operation 5**: there is still no production
-cross-room snapshot caller exercising source-snapshot selection, decode/
-compatibility rejection BEFORE mutation, rollback entity identity and remapping,
-restoration of non-room authoritative state, and atomic commit. Room-transition
-use of `RoomConstructionPlan::apply_to_world` does not prove it.
+✔ **THE BIGGEST ONE — the old operation 5 — CLOSED 2026-08-26 IN THE DOC, and
+it closed as ANSWERED rather than built.** It asked for a production cross-room
+snapshot caller exercising source-snapshot selection, decode/compatibility
+rejection BEFORE mutation, rollback entity identity and remapping, restoration of
+non-room authoritative state, and atomic commit. ⇒ **a rollback cannot cross a
+room boundary, deliberately**: the sim-side commit is eager-host-only, and the
+rollback host commits only on a CONFIRMED frame and then rebases onto a new
+frame-zero baseline whose first `SaveWorld` overwrites every ring slot. Two of
+the five properties are therefore vacuous, two are present under other names, and
+the fifth was proven by the item below it in 2026-08-19. ⚠ the one real hole is
+already parked as netplay: the rebase is `LocalSyncTest`-only, so an `External`
+session commits no room change at all — stated at the module head, and the same
+peer barrier the corrected-input item leaves ▢. The doc carries the mapping.
 
 ⚠ two of the six are deliberately NOT actionable yet and should stay ▢ rather
 than be worked: corrected-input cancellation and peer-coordinated lifecycle

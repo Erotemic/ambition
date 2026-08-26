@@ -37,6 +37,30 @@ ambition_game_shell         45 by default, 72 with `--features basic_presentatio
 ⇒ when you poison something and it stays green, check the feature set before you
 believe the poison.
 
+⛔⛔ **AND THE SWEEP THAT FOLLOWED FOUND A FEATURE THAT DID NOT COMPILE AT ALL.**
+`--features causal` had been broken across `ambition_combat`: three references to
+`StocksMatchDecided.winner` after that message became `outcome: MatchVerdict`, a
+`BodyReaction` construction missing a field, two fixtures on the old field, and
+an expectation spelling a `HitSource` variant that no longer exists. ⭐ and the
+repair was not mechanical — the instrument was still asking
+`winner: Option<String>` with `None` meaning DRAW, which is exactly the
+conflation `MatchVerdict` exists to remove, so an ABANDONED match had nowhere to
+go but to impersonate a draw.
+
+```text
+ambition_input      56 default / 125 all-features   (pass — a visibility hole)
+ambition_dialog     30 / 42
+ambition_items      27 / 39
+ambition_encounter  34 / 41
+ambition_sfx         8 /  8                          (the only one with none)
+ambition_combat    327 / 332 with `causal`           (DID NOT COMPILE)
+monolith          1194 / 1202 with `causal`
+```
+
+⇒ **a non-default feature is where code goes to rot.** Anything gated is
+compiled by nothing in the standing gate, so it drifts silently until somebody
+turns it on.
+
 ⭐⭐ **AND THE OTHER HALF OF THE DAY WAS THE LEDGER DISAGREEING WITH HEAD.** Rows
 were carrying `▢` over landed work, and one row's own proposed FIX could not have
 repaired the defect it named:

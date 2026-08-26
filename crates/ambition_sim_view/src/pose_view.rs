@@ -653,7 +653,7 @@ pub fn rebuild_launched_bodies_view(
         // The body's own motion policy, which is where its launch threshold is
         // authored. Read for that ONE value; the maneuver state behind it is
         // model-private (ADR 0024) and stays that way.
-        Option<&ambition_platformer2d_actor_monolith::features::MotionModel>,
+        Option<&ambition_platformer2d_core::movement::MotionModel>,
     ),
     // ⛔⛔ A BODY OUT OF PLAY IS NOT IN A FLIGHT, AND THIS IS THE KO COMPOSITION
     // POLICY RATHER THAN AN AMPLITUDE TWEAK. The launch trail's own header says

@@ -529,7 +529,7 @@ fn sample(
         Option<&MovePlayback>,
         Option<&ae::BodyMotionFacts>,
         Option<&ae::BodyShieldState>,
-        Option<&ambition_platformer2d::actors::features::MotionModel>,
+        Option<&ambition_platformer2d::actor::MotionModel>,
         Option<&ambition_platformer2d::combat::capture::CapturedBy>,
     )>();
     let rows: Vec<_> = q

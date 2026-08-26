@@ -416,7 +416,7 @@ pub fn apply_feature_hit_events(
             Option<&ambition_characters::control::ActorControl>,
             // The body's explicit movement policy — required (absence is never
             // a policy). The crawler's typed cling-break detach goes through it.
-            &'static mut crate::features::MotionModel,
+            &'static mut ambition_platformer2d_core::movement::MotionModel,
             Option<(
                 &'static mut ambition_characters::actor::BodyWallet,
                 &'static ambition_characters::actor::BodyWalletShield,

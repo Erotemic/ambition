@@ -583,7 +583,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         {
             let mut q = app
                 .world_mut()
-                .query_filtered::<&ambition_platformer2d::actors::features::MotionModel, With<PrimaryPlayer>>();
+                .query_filtered::<&ambition_platformer2d::actor::MotionModel, With<PrimaryPlayer>>();
             let model = q.iter(app.world()).next().map(|m| format!("{m:?}"));
             let shown: String = model.unwrap_or_else(|| "<none>".to_string());
             eprintln!("motion model: {}", &shown[..shown.len().min(600)]);

@@ -469,7 +469,7 @@ pub struct TransitBodies<'w, 's> {
     /// The transiting body's movement policy — a room transition is a discrete
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
     motion_models:
-        Query<'w, 's, &'static mut ambition_platformer2d_actor_monolith::features::MotionModel>,
+        Query<'w, 's, &'static mut ambition_platformer2d_core::movement::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition_characters::actor::BodyCombat>,
     /// The transiting body's resolved gravity frame — read (before the mutable
     /// cluster borrow) so the landing diagnostic probes along the body's own

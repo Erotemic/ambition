@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use crate::actor::PlayerEntity;
 use ambition_combat::moveset::ActorMoveset;
-use crate::features::{MomentumMotion, MotionModel};
+use ambition_platformer2d_core::movement::{MotionModel, SurfaceMomentumMotion as MomentumMotion};
 
 #[derive(Resource, Default)]
 struct AbilityChangeObservations(u32);

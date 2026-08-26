@@ -1339,7 +1339,7 @@ fn place_respawning_fighters(
     mut due: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterRespawnDue>,
     mut bodies: bevy::prelude::Query<(
         ambition_platformer2d::actor::BodyClusterQueryData,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
         // the SEAT, so two fighters returning on one frame do not land inside
         // each other. `Option` because a body without one is not a seated
         // fighter, and this system must not stop placing it.

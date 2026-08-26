@@ -332,8 +332,15 @@ pub mod actor {
 
     /// What a game spawns and configures.
     pub use ambition_platformer2d_actor_monolith::features::{
-        ActorConfig, ActorFaction, MotionModel, SpawnActorKind, SpawnActorRequest,
+        ActorConfig, ActorFaction, SpawnActorKind, SpawnActorRequest,
     };
+    /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
+    /// movement kernel's own type; the monolith re-exported it twice
+    /// (`features` → `features::ecs::actors::motion` → `_core`), so 125 call
+    /// sites read as coupling to the actor crate for a type it does not own —
+    /// and `damage_apply` spelled the SAME type both ways in one file. A curated
+    /// SDK alias is fine; a domain crate laundering a foundation type is not.
+    pub use ambition_platformer2d_core::movement::MotionModel;
 
     /// What a room stages when it opens.
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;

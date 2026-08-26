@@ -1,5 +1,5 @@
 use super::*;
-use crate::features::{MomentumMotion, MotionModel};
+use ambition_platformer2d_core::movement::{MotionModel, SurfaceMomentumMotion as MomentumMotion};
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_platformer2d_core as ae;
 

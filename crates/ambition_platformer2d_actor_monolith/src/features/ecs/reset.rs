@@ -51,7 +51,7 @@ pub fn reset_ecs_room_features(
             &mut ActorDisposition,
             &mut ActorAggression,
             Option<&ActorInteraction>,
-            &mut crate::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
             super::actor_clusters::ActorClusterQueryData,
         ),
         // Bosses are reset by the disjoint `bosses` query below. Both this
@@ -77,7 +77,7 @@ pub fn reset_ecs_room_features(
             super::actor_clusters::ActorClusterQueryData,
             &mut ambition_boss_encounter::BossConfig,
             &mut ambition_boss_encounter::BossEncounter,
-            &mut crate::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,

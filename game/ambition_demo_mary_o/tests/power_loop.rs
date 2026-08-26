@@ -1251,7 +1251,7 @@ fn body_standing_at(app: &mut App, pos: ae::Vec2) -> Entity {
             ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::sandbox_all()),
             ),
-            ambition_platformer2d::actors::features::MotionModel::default(),
+            ambition_platformer2d::actor::MotionModel::default(),
             ambition_platformer2d::characters::actor::BodyCombat::default(),
             ActorControl::default(),
         ))

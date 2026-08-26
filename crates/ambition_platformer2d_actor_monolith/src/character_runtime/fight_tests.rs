@@ -424,7 +424,7 @@ fn spawn_fighter(
                 crate::features::FeatureId::new(character_id),
                 ambition_platformer2d_core::CenteredAabb::from_center_size(at, body),
                 seed.into_components(),
-                crate::features::MotionModel::default(),
+                ambition_platformer2d_core::movement::MotionModel::default(),
             ),
             (identity, disposition, combat, faction),
             // §7.6 → gameplay: the character's own authored moveset and silhouette are NOT inserted

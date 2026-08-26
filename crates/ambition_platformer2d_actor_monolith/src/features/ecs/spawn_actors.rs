@@ -802,7 +802,7 @@ fn boss_actor_cluster(
     super::super::enemies::ActorSurfaceState,
     super::super::components::BodyMelee,
     crate::actor::AncillaryMovementBundle,
-    crate::features::MotionModel,
+    ambition_platformer2d_core::movement::MotionModel,
     ambition_combat::CombatCapabilities,
     ambition_combat::CombatTuning,
 ) {
@@ -877,7 +877,7 @@ fn boss_actor_cluster(
         // Every integrated body carries an explicit policy from spawn — the
         // boss is axis-swept (its direct-velocity flight rides the per-tick
         // axis-parameter refresh in `integrate_body`).
-        crate::features::MotionModel::default(),
+        ambition_platformer2d_core::movement::MotionModel::default(),
         caps,
         // Project the boss's weight onto the combat-owned carrier at spawn
         // (E2 verdict b); default `1.0` here since bosses don't author weight.

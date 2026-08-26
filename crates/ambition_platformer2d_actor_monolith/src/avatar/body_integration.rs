@@ -86,7 +86,7 @@ pub fn integrate_home_body(
     out_of_play: bool,
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
-    motion_model: &mut crate::features::MotionModel,
+    motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
     motion_frame: ae::MotionFrame,
     axis_tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
@@ -192,7 +192,7 @@ pub fn integrate_home_body(
     // enemies publish their own surface pose through the feature view.
     (matches!(
         motion_model,
-        crate::features::MotionModel::SurfaceMomentum(_)
+        ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(_)
     ) && result.support.is_held())
     .then_some(result.surface_normal)
 }
@@ -204,14 +204,14 @@ pub fn integrate_home_body(
 /// `v_t += run * accel * dt`), so "against travel" is exactly a negative
 /// product. Published beside the ridden-surface fact after every movement step;
 /// axis walkers don't ride a tangent and stay non-skidding.
-pub fn surface_skidding(motion_model: &crate::features::MotionModel, run: f32) -> bool {
+pub fn surface_skidding(motion_model: &ambition_platformer2d_core::movement::MotionModel, run: f32) -> bool {
     /// Below this tangential speed a direction change is a step, not a skid.
     /// Sits just above the picker's run threshold so the pose only interrupts
     /// a genuine run.
     const SKID_MIN_SPEED: f32 = 240.0;
     /// Deadzone so an analog flutter around neutral can't flicker the fact.
     const SKID_MIN_INPUT: f32 = 0.25;
-    let crate::features::MotionModel::SurfaceMomentum(m) = motion_model else {
+    let ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(m) = motion_model else {
         return false;
     };
     let ae::SurfaceMotion::Riding { v_t, .. } = m.state else {

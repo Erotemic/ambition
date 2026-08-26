@@ -22,7 +22,7 @@ pub fn resolve_ledge_trumps(
     mut bodies: Query<(
         Entity,
         &SimId,
-        &mut crate::features::MotionModel,
+        &mut ambition_platformer2d_core::movement::MotionModel,
         &mut ae::BodyLedgeState,
         // ⛔⛔ OPTIONAL, AND THAT IS NOT TIDINESS. Adding this as a REQUIRED
         // column silently narrowed the population the rule sees: a hanging body

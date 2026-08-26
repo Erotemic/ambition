@@ -334,7 +334,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     // by changing to a different explicit policy and confirming the unchanged
     // derive system leaves it alone. Absence is never used as a policy sentinel.
     app.world_mut().entity_mut(e).insert(MotionModel::AxisSwept(
-        crate::features::AxisSweptMotion::default(),
+        ambition_platformer2d_core::movement::AxisSweptMotion::default(),
     ));
     app.update();
     assert!(

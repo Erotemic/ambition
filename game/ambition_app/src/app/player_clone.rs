@@ -138,12 +138,12 @@ pub fn spawn_requested_player_clone(
         // Every integrated body carries one explicit movement policy from
         // spawn, and every player body carries the movement→policy hand-off —
         // the unified integration phase requires both.
-        ambition_platformer2d::actors::features::MotionModel::default(),
+        ambition_platformer2d::actor::MotionModel::default(),
         ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput::default(),
         (
             ambition_platformer2d::actors::body_mode::BodyModeCapabilities::full(),
             ambition_platformer2d::actors::actor::BodyMelee::default(),
-            ambition_platformer2d::actors::avatar::PlayerSafetyState::default(),
+            ambition_platformer2d::platformer::safe_position::PlayerSafetyState::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),

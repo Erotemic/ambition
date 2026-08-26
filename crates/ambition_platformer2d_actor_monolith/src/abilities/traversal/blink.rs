@@ -101,7 +101,7 @@ pub fn blink_system(
         &HeldItem,
         &ActorControl,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
-        &mut crate::features::MotionModel,
+        &mut ambition_platformer2d_core::movement::MotionModel,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -125,7 +125,7 @@ pub fn blink_system(
     else {
         return;
     };
-    if !matches!(*motion_model, crate::features::MotionModel::AxisSwept(_)) {
+    if !matches!(*motion_model, ambition_platformer2d_core::movement::MotionModel::AxisSwept(_)) {
         return;
     }
     let c = control.0;

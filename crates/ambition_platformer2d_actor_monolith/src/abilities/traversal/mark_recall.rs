@@ -55,7 +55,7 @@ pub fn mark_recall_system(
         Entity,
         &ActorControl,
         ae::BodyClusterQueryData,
-        &mut crate::features::MotionModel,
+        &mut ambition_platformer2d_core::movement::MotionModel,
         &HeldItem,
         Option<&mut PlayerMark>,
     )>,

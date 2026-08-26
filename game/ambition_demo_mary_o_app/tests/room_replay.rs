@@ -35,7 +35,7 @@ struct DeathsSeen(Vec<(Entity, ambition_platformer2d::combat::HitSource)>);
 
 fn record_deaths(
     mut seen: ResMut<DeathsSeen>,
-    mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
+    mut deaths: MessageReader<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
 ) {
     seen.0.extend(
         deaths
@@ -96,7 +96,7 @@ fn settle_until_playable(app: &mut App) -> Vec2 {
 fn displace(app: &mut App, to: Vec2) {
     let mut query = app.world_mut().query_filtered::<(
         ae::BodyClusterQueryData,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
     ), With<PrimaryPlayer>>();
     let world = app.world_mut();
     let (mut cluster_item, mut motion_model) = query

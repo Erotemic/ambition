@@ -121,7 +121,7 @@ pub struct EnemyActorBundle {
     /// Explicit movement-policy identity and private runtime state. Every
     /// integrated actor carries exactly one policy from spawn; absence is not
     /// an axis-swept fallback.
-    pub motion_model: crate::features::MotionModel,
+    pub motion_model: ambition_platformer2d_core::movement::MotionModel,
     pub combat_kit: CombatKit,
     pub aggression: ActorAggression,
     // Health (`BodyHealth`) spawns with the actor CLUSTER (`into_components`), the
@@ -162,7 +162,7 @@ impl EnemyActorBundle {
             faction,
             target: ActorTarget::default(),
             pose,
-            motion_model: crate::features::MotionModel::default(),
+            motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
             combat_kit,
             aggression,
             combat,
@@ -176,7 +176,7 @@ impl EnemyActorBundle {
     /// Select the body's explicit movement policy at spawn (crawler archetypes
     /// carry `MotionModel::AdhesiveCrawler` from tick one; absence is never a
     /// policy).
-    pub fn with_motion_model(mut self, motion_model: crate::features::MotionModel) -> Self {
+    pub fn with_motion_model(mut self, motion_model: ambition_platformer2d_core::movement::MotionModel) -> Self {
         self.motion_model = motion_model;
         self
     }

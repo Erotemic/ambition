@@ -184,7 +184,7 @@ pub fn process_new_game_reset_request(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut crate::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,

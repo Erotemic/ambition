@@ -103,16 +103,16 @@ impl ActorTuning {
     /// with their patrol speed as the crawl speed; everything else starts
     /// axis-swept with its authored body tuning (integration refreshes those
     /// parameters live each tick).
-    pub fn motion_model(&self) -> crate::features::MotionModel {
+    pub fn motion_model(&self) -> ambition_platformer2d_core::movement::MotionModel {
         if self.surface_walker {
-            crate::features::MotionModel::adhesive_crawler(
+            ambition_platformer2d_core::movement::MotionModel::adhesive_crawler(
                 ambition_platformer2d_core::CrawlerParams {
                     crawl_speed: self.patrol_speed,
                     max_fall_speed: self.movement.max_fall_speed,
                 },
             )
         } else {
-            crate::features::MotionModel::axis_swept(
+            ambition_platformer2d_core::movement::MotionModel::axis_swept(
                 self.movement
                     .body_tuning(self.max_run_speed)
                     .axis_swept_params(),

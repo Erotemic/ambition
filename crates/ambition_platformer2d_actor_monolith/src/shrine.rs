@@ -171,7 +171,7 @@ pub fn restore_checkpoint_on_session_start(
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut bodies: Query<
-        (ae::BodyClusterQueryData, &mut crate::features::MotionModel),
+        (ae::BodyClusterQueryData, &mut ambition_platformer2d_core::movement::MotionModel),
         crate::actor::PrimaryPlayerOnly,
     >,
     // The body being RESUMED, by stable identity. A transition names the body it moves: the

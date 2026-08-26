@@ -1010,11 +1010,11 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
-    let mut seated = world.query::<(&MatchSeat, &crate::features::MotionModel)>();
+    let mut seated = world.query::<(&MatchSeat, &ambition_platformer2d_core::movement::MotionModel)>();
     let models: Vec<_> = seated.iter(world).map(|(_, model)| model.clone()).collect();
     assert_eq!(models.len(), 1, "the roster seated no fighter");
     assert!(
-        matches!(models[0], crate::features::MotionModel::SurfaceMomentum(_)),
+        matches!(models[0], ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(_)),
         "the seated fighter kept the catalog's swept-axis model instead of the \
          momentum one its definition authored: {:?}",
         models[0]
@@ -2011,7 +2011,7 @@ fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
         let mut q = world.query_filtered::<(
             Option<&crate::avatar::PersonaBaseline>,
             Option<&crate::character_runtime::presentation::ProjectedCharacterKit>,
-            Option<&crate::features::MotionModel>,
+            Option<&ambition_platformer2d_core::movement::MotionModel>,
         ), With<MatchSeat>>();
         let rows: Vec<_> = q
             .iter(world)
@@ -2638,7 +2638,7 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
         With<ambition_combat::moveset::ActorMoveset>,
         With<ambition_characters::brain::action_set::IdentityKit>,
         With<crate::actor::BodyAbilities>,
-        With<crate::features::MotionModel>,
+        With<ambition_platformer2d_core::movement::MotionModel>,
     )>();
     assert_eq!(
         visible_to_the_derive.iter(world).count(),

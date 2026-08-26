@@ -708,7 +708,7 @@ pub fn integrate_boss_bodies(
             &mut ambition_characters::actor::BodyCombat,
             // The body's explicit movement policy — a boss carries one from
             // spawn like every integrated body (absence is never a policy).
-            &'static mut crate::features::MotionModel,
+            &'static mut ambition_platformer2d_core::movement::MotionModel,
             // The per-tick resolved frame published by the frame resolution
             // phase — the SAME artifact every other body integrates under.
             &'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,

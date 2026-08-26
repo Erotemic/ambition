@@ -839,7 +839,7 @@ fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
 /// One match under one execution-noise stream: the best charge fraction any seat
 /// reached, ticks with a tech armed, and ticks spent tumbling.
 fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
-    use ambition_platformer2d::actors::features::MotionModel;
+    use ambition_platformer2d::actor::MotionModel;
     use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 
     let mut app = build_demo_app();

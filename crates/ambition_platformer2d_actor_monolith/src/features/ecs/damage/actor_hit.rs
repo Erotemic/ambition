@@ -95,7 +95,7 @@ pub(crate) fn apply_actor_hit(
     em: &mut super::super::actor_clusters::ActorMut<'_>,
     // The body's explicit movement policy, for typed policy operations (the
     // crawler cling-break detach).
-    motion_model: &mut crate::features::MotionModel,
+    motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
     // The body's combat state — the ONE post-hit i-frame authority for every
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
@@ -527,7 +527,7 @@ pub(crate) fn apply_actor_hit(
         // its own contact rule re-attaches it. Archetypes authored with
         // `cling_breaks_on_hit: false` hold on when hit.
         if !killed && em.config.tuning.cling_breaks_on_hit {
-            if let crate::features::MotionModel::AdhesiveCrawler(crawler) = motion_model {
+            if let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) = motion_model {
                 let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
                 crawler.detach();
                 em.ground.on_ground = false;

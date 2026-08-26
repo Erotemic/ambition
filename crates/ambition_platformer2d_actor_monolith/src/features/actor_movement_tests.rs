@@ -138,7 +138,7 @@ fn tick_peaceful(
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     brain.tick(&snapshot, &mut frame);
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     seed.update_for_test(
         world,
         target,
@@ -321,7 +321,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     frame.velocity_target = ae::WorldVec2::new(enemy.config.tuning.chase_speed, 0.0);
     for _ in 0..120 {
-        let mut model = crate::features::MotionModel::default();
+        let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
             &world,
             player_pos,
@@ -388,7 +388,7 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
     // Full-throttle rightward run intent; the enemy's tuning owns the px/s scale.
     frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
     for _ in 0..120 {
-        let mut model = crate::features::MotionModel::default();
+        let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
             &world,
             player_pos_far,
@@ -523,7 +523,7 @@ fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
     enemy.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
     let x0 = enemy.kin.pos.x;
     let mut model = enemy.config.tuning.motion_model();
-    let crate::features::MotionModel::AdhesiveCrawler(crawler) = &mut model else {
+    let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) = &mut model else {
         panic!("a surface_walker archetype must select the crawler policy at spawn");
     };
     crawler.state = ae::CrawlerState::attached(ae::Vec2::new(0.0, -1.0));
@@ -582,7 +582,7 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
             &[],
         );
         // Spawn constant is (0,-1); the update must overwrite it with the
-        let mut model = crate::features::MotionModel::default();
+        let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         // live frame for every cardinal.
         enemy.update_for_test(
             &world,

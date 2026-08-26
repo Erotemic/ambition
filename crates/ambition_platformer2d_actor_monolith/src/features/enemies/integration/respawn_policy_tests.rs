@@ -18,7 +18,7 @@ fn revived_by_room_reset(respawn: RespawnPolicy) -> bool {
         &[],
     );
     seed.config.tuning.respawn = respawn;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     // Kill it the way combat does: drain the damage meter to zero HP.
     let pool = em.health.max();
@@ -70,7 +70,7 @@ fn a_room_reset_restores_a_live_actor_to_full_health_regardless_of_policy() {
     );
     seed.config.tuning.respawn = RespawnPolicy::DeadStaysDead;
     let max = seed.health.max();
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     em.health.damage(1);
     assert!(em.health.alive(), "fixture must still be alive");
@@ -96,7 +96,7 @@ fn a_respawn_announces_a_restart_and_keeps_the_bodys_own_size() {
         &[],
     );
     seed.config.tuning.respawn = RespawnPolicy::OnRoomReenter;
-    let mut model = crate::features::MotionModel::default();
+    let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let spawn_size = em.spawn.size;
     assert!(!em.lifetime.restart_pending);

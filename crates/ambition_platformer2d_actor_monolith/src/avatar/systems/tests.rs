@@ -441,7 +441,7 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
         .id();
     app.world_mut()
         .entity_mut(body)
-        .insert(crate::features::MotionModel::axis_swept(params));
+        .insert(ambition_platformer2d_core::movement::MotionModel::axis_swept(params));
 
     {
         let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();

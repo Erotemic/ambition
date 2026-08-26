@@ -26,7 +26,7 @@ use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 
 use ambition_combat::moveset::{build_actor_moveset, ActorMoveset};
-use crate::features::MotionModel;
+use ambition_platformer2d_core::movement::MotionModel;
 
 /// The catalog `character_id` the local player spawns as.
 ///

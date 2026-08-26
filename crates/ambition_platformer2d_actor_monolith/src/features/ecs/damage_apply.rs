@@ -910,7 +910,7 @@ pub(crate) fn apply_player_knockback(
     // The body's movement policy, for the hang a hit takes. Threaded rather
     // than resolved here: the two `HitMode::Knockback` arms above used to call
     // `knock_off_ledge` themselves, which is the duplication D203 names.
-    motion_model: &mut crate::features::MotionModel,
+    motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
     vfx: &mut MessageWriter<VfxMessage>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -1240,7 +1240,7 @@ pub fn apply_player_hit_events(
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             // The body's movement policy: a death/safe respawn is a discrete
             // TRANSIT and must reconcile model-private attachment.
-            &mut crate::features::MotionModel,
+            &mut ambition_platformer2d_core::movement::MotionModel,
             // The published maneuver projection (dodge i-frames, blink grace).
             &ae::BodyMotionFacts,
         ),

@@ -129,7 +129,7 @@ impl<'a> ActorMut<'a> {
         dt: f32,
         _is_mounted: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
-        motion_model: &mut crate::features::MotionModel,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         // The body's current acceleration/reference frame, resolved ONCE by the
         // environment (the driver) for this body tick. Input projection, the
         // active policy, and every frame-relative limb consume this same value.
@@ -272,7 +272,7 @@ impl<'a> ActorMut<'a> {
         &mut self,
         world: &ae::World,
         frame: &ambition_characters::actor::control::ActorControlFrame,
-        motion_model: &mut crate::features::MotionModel,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         dt: f32,
         motion_frame: ae::MotionFrame,
         // Threaded to `update`'s helpless derivation. See its parameter.
@@ -522,7 +522,7 @@ impl<'a> ActorMut<'a> {
     /// `sync_ecs_actors_with_save` (Progression) re-zeroed the HP a moment later, so the
     /// end-of-frame state looked right — but the actor was ALIVE for the remainder of that
     /// frame: drawable, targetable, and able to act.
-    pub fn reset_to_spawn(&mut self, motion_model: &mut crate::features::MotionModel) {
+    pub fn reset_to_spawn(&mut self, motion_model: &mut ambition_platformer2d_core::movement::MotionModel) {
         // Restore the authored spatial baseline. `tuning` / `brain_profile`
         // are projected once at spawn and never mutate at runtime (no
         // entity morphs its archetype in place), so they already hold the

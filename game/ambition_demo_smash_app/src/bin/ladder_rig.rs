@@ -386,7 +386,7 @@ fn place_at(app: &mut bevy::app::App, me: ae::Vec2, foe: ae::Vec2) -> bool {
     let mut q = world.query::<(
         &MatchSeat,
         BodyClusterQueryData,
-        &mut ambition_platformer2d::actors::features::MotionModel,
+        &mut ambition_platformer2d::actor::MotionModel,
     )>();
     let seats: Vec<usize> = q.iter(world).map(|(seat, ..)| seat.0).collect();
     if !seats.contains(&0) || !seats.contains(&1) {

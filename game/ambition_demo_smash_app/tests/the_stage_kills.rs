@@ -223,6 +223,28 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
          is moving on its own and this test proves nothing about the blast gate"
     );
 
+    // ⭐ D192: THE RESTART IS RAISED WHEN THE BODY IS PLACED, and placement now
+    // waits out the authored beat. `reset_body_clusters` is what sets
+    // `restart_pending`, so before the beat elapses there is no restart to see —
+    // the twelve frames above are the blast gate's window, not the respawn's.
+    for _ in 0..240 {
+        if app
+            .world()
+            .get::<ambition_platformer2d::actor::PendingRespawn>(launched)
+            .is_none()
+        {
+            break;
+        }
+        app.update();
+    }
+    // ⛔ AND THEN LET THE FRAME FINISH, for the same reason the twelve above
+    // exist: `reset_body_clusters` raises `restart_pending` and
+    // `announce_body_restarts` turns that into `BodyRestarted` in a later phase,
+    // so breaking out on the placement tick samples the gap between them.
+    for _ in 0..12 {
+        app.update();
+    }
+
     {
         let untouched = {
             let world = app.world_mut();

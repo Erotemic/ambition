@@ -34,8 +34,17 @@ impl MoveLedger {
     fn sample(&mut self, app: &mut App) {
         let stage = ambition_demo_smash::smash_stage().world.size;
         let world = app.world_mut();
-        let mut positions =
-            world.query::<(&MatchSeat, &ambition_platformer2d::actor::BodyKinematics)>();
+        // ⛔⛔ POSITION IS A PROXY, and D192 widened what it covers. This counts
+        // "off the stage" to mean "knocked out toward the blast zone and trying
+        // to get home", which is the situation a recovery route answers. A
+        // fighter WAITING to respawn is also outside the stage bounds — it is
+        // left lying where it died until its beat elapses — but it cannot press
+        // anything, so counting those ticks makes "spent N ticks offstage and
+        // pressed nothing" true of a body that was never able to.
+        let mut positions = world.query_filtered::<
+            (&MatchSeat, &ambition_platformer2d::actor::BodyKinematics),
+            bevy::prelude::Without<ambition_platformer2d::actor::PendingRespawn>,
+        >();
         let offstage: Vec<usize> = positions
             .iter(world)
             .filter(|(_, kin)| kin.pos.x < 0.0 || kin.pos.x > stage.x || kin.pos.y > stage.y)

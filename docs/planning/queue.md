@@ -11601,8 +11601,28 @@ for it — but *"nothing builds them on a normal run"* was the condition that le
 
 ✔ **THE WEB PERSONA IS CLEAN — run 2026-08-26, zero errors.**
 `--target wasm32-unknown-unknown --no-default-features --features web` compiles.
-⇒ so the browser build Jon ran by hand is not silently rotting between his runs,
-and the persona road holds on two of the three targets a host can reach.
+⇒ so the browser build Jon ran by hand is not silently rotting between his runs.
+
+⛔⛔ **AND THE ANDROID ONE IS NOT AUDITABLE HERE, WHICH CORRECTS THE PARAGRAPH
+ABOVE: A RUSTUP TARGET IS NOT A TOOLCHAIN.** The `aarch64-linux-android` target
+is installed and the build still fails — in `android-activity`'s BUILD SCRIPT,
+not in our code:
+
+```text
+warning: Compiler family detection failed: ToolNotFound:
+         failed to find tool "aarch64-linux-android-clang++"
+error:   failed to run custom build command for `android-activity v0.6.1`
+```
+
+⚠ **and the environment LOOKS ready, which is the trap**: `ANDROID_NDK_HOME` is
+set to `/home/agent/Android/Sdk/ndk/27.2.12479018` and **that directory does not
+exist** (`ls` on it is empty). A set variable pointing at nothing reads as
+configured. ⇒ `wasm32` needs nothing beyond the rustup target because it is pure
+Rust; `aarch64-linux-android` needs the NDK's clang, and
+`scripts/setup_android_prereqs.sh` is what installs it (a large download).
+▢ **so the android persona stays unaudited, and the blocker is a PREREQ RUN
+rather than a code question** — say that rather than reporting our own code as
+broken on Android.
 
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is

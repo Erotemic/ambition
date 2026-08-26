@@ -81,7 +81,7 @@ pub use movement::{
     ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion, ArrivalMomentum,
     AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisManeuverState, AxisSweptMotion,
     AxisSweptParams, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, BlinkEvent,
-    BodyContactBlocker, BodyContactField, BodyMotionFacts, BurstManeuver, COYOTE_TIME, ComboMark,
+    BodyContactBlocker, BodyContactField, BodyMotionFacts, BurstManeuver, PoseOwnedExternally, COYOTE_TIME, ComboMark,
     CrawlAttachment, CrawlerParams, CrawlerState, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED,
     DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_PLAYER_BODY_HEIGHT,
     DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_ENDLAG,

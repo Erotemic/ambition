@@ -64,5 +64,15 @@ pub fn author_summon_ride(mut spec: MoveSpec, at_s: f32, params: SummonRideParam
     // so this move is `RecoveryUse::SpendWithoutFreefall`, which is now ONE
     // value that cannot half-disagree with itself. The pirate says it where
     // every other fighter says its up-B's cost: `UpSpecial::NoFreefall`.
+    // ⛔⛔ REFUSED FROM THE SADDLE, AT ACCEPTANCE. Jon: *"No you cannot cast it
+    // from the saddle."* This used to be enforced downstream, where the summon
+    // effect was translated — so a mounted pirate who got flinched (which
+    // refunds the recovery) could press up-B, start the move, spend the use,
+    // play the startup, and get nothing.
+    //
+    // ⭐ NOT AN ARM OF `RecoveryUse`, and deliberately beside it: what a move
+    // COSTS and whether it may BEGIN are different questions. See
+    // `MoveGates::forbidden_while_held`.
+    spec.gates.forbidden_while_held = true;
     spec
 }

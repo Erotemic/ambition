@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v120
+ggrs-rollback-schema-v122
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -256,6 +256,7 @@ map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference r
 map.item_custody	entity-mapping	ItemCustody	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_member	entity-mapping	Limb	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_rig	entity-mapping	LimbRig	bevy_ggrs LoadWorld entity-reference remapping
+map.mount_reserved_for	entity-mapping	MountReservedFor	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
 map.pending_challenge	entity-mapping	PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
@@ -333,6 +334,7 @@ message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.ride_refused	message-clear	RideRefused	clear abandoned-future message buffer in LoadWorld::Mapping
 message.rider_dismounted	message-clear	RiderDismounted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -356,6 +358,8 @@ mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; state checksu
 mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.pose_owned_externally	component-clone	PoseOwnedExternally	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.reserved_for	component-clone	MountReservedFor	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.ride_lease	component-clone	RideLease	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities

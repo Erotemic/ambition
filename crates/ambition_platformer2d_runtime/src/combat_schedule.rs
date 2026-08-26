@@ -320,6 +320,10 @@ impl Plugin for CombatSchedulePlugin {
         // that happens to hold.
         app.add_message::<ambition_mount::DismountRequested>();
         app.add_message::<ambition_mount::RiderDismounted>();
+        // A summon that asked to be ridden and was refused. Written by the
+        // construction road inside its exclusive command, read by whichever
+        // ruleset decides what an unclaimed mount is for.
+        app.add_message::<ambition_mount::RideRefused>();
         app.add_systems(
             sim,
             (
@@ -351,6 +355,20 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_mount::apply_dismount_requests,
             )
                 .chain()
+                .after(ambition_mount::MountRiderLinkEnforced)
+                .in_set(CombatSet::Settle),
+        );
+        // GETTING ON — the counterpart to the two systems above, and the half a
+        // summon no longer does for itself.
+        //
+        // ⛔ BEFORE the lease tick, not after. A ride that boards on this tick
+        // gets its full lease: the alternative spends a frame of a five-second
+        // clock before the rider is even welded, which is invisible and wrong in
+        // exactly the way clocks usually are.
+        app.add_systems(
+            sim,
+            ambition_mount::board_reserved_mounts
+                .before(ambition_mount::tick_ride_leases)
                 .after(ambition_mount::MountRiderLinkEnforced)
                 .in_set(CombatSet::Settle),
         );

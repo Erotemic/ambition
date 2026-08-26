@@ -91,6 +91,11 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
             // Not a recovery: the duel arena authors no up-B slot, so nothing
             // here spends the once-per-airtime budget.
             recovery: RecoveryUse::None,
+            // A posture says nothing about being HELD. Whether a move refuses to
+            // start from a saddle is that move's own statement -- `call_the_shark`
+            // makes it -- and a stance default answering for every move would be
+            // this file deciding a question it cannot see.
+            forbidden_while_held: false,
         };
         verbs.insert(verb.to_string(), id.to_string());
         moves.push(spec);

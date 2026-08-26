@@ -916,6 +916,28 @@ pub struct MoveGates {
     /// before this existed still means what it meant.
     #[serde(default)]
     pub recovery: RecoveryUse,
+    /// This move REFUSES TO START while something else owns the body's pose —
+    /// a saddle, a lift, a grab.
+    ///
+    /// ⛔⛔ IT IS A START CONDITION, NOT A LATE VETO, AND THAT DISTINCTION IS THE
+    /// WHOLE REASON IT EXISTS. The pirate's shark up-B first enforced "no recast
+    /// from the saddle" downstream, where the summon effect was translated: by
+    /// then the move had been accepted, the recovery use spent, and the startup
+    /// cues played, and all that happened was that no shark appeared. A mounted
+    /// pirate who got flinched — which refunds the recovery — could press up-B
+    /// and simply lose the use to nothing.
+    ///
+    /// ⭐ ONCE A MOVE STARTS, ITS AUTHORED EVENTS ARE OWED. Anything that can
+    /// refuse the move has to say so before `start_move` spends what starting it
+    /// costs; a rule enforced after acceptance is not a rule, it is a silent
+    /// failure with a comment.
+    ///
+    /// ⚠ NOT A [`RecoveryUse`] ARM. What a move costs and whether it may begin
+    /// are different questions: this one is asked of moves that are not
+    /// recoveries at all, and a recovery can be perfectly castable from a
+    /// saddle if its author says so.
+    #[serde(default)]
+    pub forbidden_while_held: bool,
     /// While this move plays, its owner has NO STEERING AUTHORITY: the
     /// controller's locomotion intent is zeroed and the body keeps only the
     /// motion the move itself gives it.

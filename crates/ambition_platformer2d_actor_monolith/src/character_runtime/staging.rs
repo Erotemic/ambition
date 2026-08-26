@@ -79,27 +79,6 @@ pub struct MatchParticipant {
     /// exists so this type is usable as the real roster rather than a stub that
     /// gets replaced.
     pub team: Option<String>,
-    /// Mount classes THIS SEAT may pilot, on top of whatever the character
-    /// authors.
-    ///
-    /// ⭐⭐ A SEAT-LOCAL CAPABILITY, and the reason it is not on the character
-    /// is a recorded design decision. Jon, D207: the pirate admiral's
-    /// shark-summoning up-B is Smash-only and *"the pirate does NOT get this
-    /// ability in Ambition"*. Piloting a shark is half of that ability, so
-    /// putting `"shark"` on `npc_pirate_admiral`'s `CharacterMount` would hand
-    /// it to him in the metroidvania too.
-    ///
-    /// ⛔ AND NOT A RULESET SWEEP EITHER. The first version of the shark up-B
-    /// granted shark-piloting to every fighter on the Smash route from an
-    /// ordinary `Update` system — a match manufacturing a capability for the
-    /// whole cast, from a schedule that does not replay under rollback. A seat
-    /// is the narrowest thing that can hold "this incarnation of this character
-    /// may ride one".
-    ///
-    /// Empty for every seat that says nothing, which is every seat but one.
-    /// UNIONED with the character's own `pilotable_classes` at realization — a
-    /// pirate raider seated in a match keeps the shark its character authors.
-    pub pilots: Vec<String>,
     /// The kit this MATCH gives this fighter, outranking the character's own
     /// catalog row.
     ///
@@ -131,20 +110,9 @@ pub struct MatchParticipant {
 }
 
 impl MatchParticipant {
-    /// This seat may pilot these mount classes, whatever its character says.
-    ///
-    /// See the field's own note: a Smash-only capability that must not reach the
-    /// character in the other game.
-    pub fn piloting(mut self, classes: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.pilots = classes.into_iter().map(Into::into).collect();
-        self
-    }
-
     pub fn new(character: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
         Self {
             character: character.into(),
-            // A seat pilots what its CHARACTER pilots unless it says otherwise.
-            pilots: Vec::new(),
             // the first PAD, not "seat zero". A roster that seats two of
             // these without saying otherwise is two people on one controller,
             // and preparation refuses it by name — which is the honest outcome:

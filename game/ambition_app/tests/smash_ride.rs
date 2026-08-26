@@ -180,3 +180,139 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
          `DepartsWhenRiderless` exists to prevent"
     );
 }
+
+/// ⭐⭐ A SUMMONED SHARK BELONGS TO WHOEVER CALLED IT.
+///
+/// ⛔⛔ THE MIRROR MATCH IS THE CASE THAT MAKES THIS A RULE. Jon: *"in a mirror
+/// match, with two admirals, if one summons a shark, the other should not be
+/// able to ride it."* A class licence cannot express that and should not try —
+/// `CanPilot` says *"I can ride sharks"*, which is true of BOTH admirals and has
+/// to stay true, because the admiral rides sharks in Ambition as well. What
+/// stops the theft is that this particular shark is spoken for.
+///
+/// ⭐ AND THE RESERVATION IS ALSO THE SPLIT. Construction no longer boards; it
+/// hands over a `MountReservedFor` and `board_reserved_mounts` decides on
+/// arrival. Today the shark arrives instantly because it is summoned underfoot,
+/// which is why this test can still assert a ride one moment later.
+#[test]
+fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{MountReservedFor, Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat = |app: &mut App, want: usize| -> Entity {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == want)
+            .map(|(entity, _)| entity)
+            .expect("the match seats this fighter")
+    };
+    let summoner = seat(&mut app, 0);
+    let rival = seat(&mut app, 1);
+    assert!(
+        app.world().get::<DrivingParticipant>(summoner).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+    // ⛔ THE PREMISE: BOTH admirals can pilot sharks. If only one could, the
+    // refusal below would prove nothing — it would be the licence talking.
+    for (who, name) in [(summoner, "the summoner"), (rival, "the rival")] {
+        let can = app
+            .world()
+            .get::<ambition_platformer2d::mount::CanPilot>(who)
+            .expect("an admiral states what it can board");
+        assert!(
+            can.can_pilot(&ambition_platformer2d::mount::MountClass(
+                ambition_platformer2d::characters::smash_ride::SHARK_CLASS.to_string()
+            )),
+            "{name} cannot pilot a shark at all, so this test cannot tell a \
+             reservation from a missing licence"
+        );
+    }
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    // ⭐ ONE TICK ONLY, so the reservation is caught BEFORE `board_reserved_mounts`
+    // spends it. The reservation is the thing under test; the ride it becomes is
+    // the subject of the test above.
+    app.update();
+
+    let shark = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        let all: Vec<Entity> = q.iter(world).collect();
+        assert_eq!(
+            all.len(),
+            1,
+            "the up-B summoned {} sharks, so nothing below is about one of them",
+            all.len()
+        );
+        all[0]
+    };
+
+    // ⭐ THE RESERVATION NAMES ITS SUMMONER. Either it is still held — the board
+    // has not happened yet — or it has already become that admiral's ride.
+    // Both are correct; what must never be true is the rival on the shark.
+    let reserved_for = app
+        .world()
+        .get::<MountReservedFor>(shark)
+        .map(|held| held.rider);
+    let boarded = app
+        .world()
+        .get::<RidingOn>(summoner)
+        .map(|riding| riding.mount);
+    assert!(
+        reserved_for == Some(summoner) || boarded == Some(shark),
+        "the summoned shark is neither held for the admiral that called it nor \
+         already carrying them: reserved_for={reserved_for:?} boarded={boarded:?}"
+    );
+    assert!(
+        app.world().get::<RidingOn>(rival).is_none(),
+        "the rival admiral is riding a shark it did not summon"
+    );
+
+    // ── AND THE RIVAL IS REFUSED IF IT ASKS. ──
+    let stolen = {
+        let world = app.world_mut();
+        ambition_platformer2d::mount::board(world, rival, shark)
+    };
+    assert!(
+        !stolen,
+        "the second admiral boarded the first one's summoned shark — a mount \
+         held for one rider accepted another"
+    );
+}

@@ -33,6 +33,11 @@ pub(crate) fn grounded_only() -> MoveGates {
         // Not a recovery: these helpers describe a POSTURE, and a posture
         // cannot know whether a move is somebody's up-B.
         recovery: RecoveryUse::None,
+        // A posture says nothing about being HELD. Whether a move refuses to
+        // start from a saddle is that move's own statement -- `call_the_shark`
+        // makes it -- and a stance default answering for every move would be
+        // this file deciding a question it cannot see.
+        forbidden_while_held: false,
     }
 }
 
@@ -49,6 +54,11 @@ pub(crate) fn airborne_only() -> MoveGates {
         // Not a recovery: these helpers describe a POSTURE, and a posture
         // cannot know whether a move is somebody's up-B.
         recovery: RecoveryUse::None,
+        // A posture says nothing about being HELD. Whether a move refuses to
+        // start from a saddle is that move's own statement -- `call_the_shark`
+        // makes it -- and a stance default answering for every move would be
+        // this file deciding a question it cannot see.
+        forbidden_while_held: false,
     }
 }
 

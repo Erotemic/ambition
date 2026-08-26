@@ -24,6 +24,28 @@ pub struct LedgeFacts {
     pub getup_kind: LedgeGetupKind,
 }
 
+/// SOMETHING ELSE OWNS THIS BODY'S POSE.
+///
+/// ⭐⭐ THE ONE FACT A CONSTRAINED BODY OWES EVERY OTHER DOMAIN. A body welded
+/// into a saddle, carried by a lift, held by a grab or posed by a capture is not
+/// deciding where it is — and the systems that need to know that are scattered
+/// across crates which cannot see each other: the movement kernel (do not
+/// integrate its locomotion), combat (a move may forbid itself while the body is
+/// held), presentation, brains. Every one of those asking its own domain-shaped
+/// question is how a body ends up with two authorities that disagree.
+///
+/// ⛔⛔ IT LIVES IN `_core` BECAUSE OF THE DEPENDENCY GRAPH, and that is not an
+/// accident of convenience. `ambition_mount` knows what a saddle is and
+/// `ambition_combat` knows what a move is, and NEITHER depends on the other, so
+/// there is no crate among them that could hold this. Both depend on this one.
+/// A marker here is the only shape in which "held" is sayable to both.
+///
+/// ⚠ IT SAYS NOTHING ABOUT WHO. Deliberately: a consumer that needed the holder
+/// would be reaching into a domain it does not depend on, which is the coupling
+/// this marker exists to avoid. Ask the domain that owns the relationship.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PoseOwnedExternally;
+
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyMotionFacts {
     /// An active dash is in flight.

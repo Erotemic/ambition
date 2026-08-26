@@ -878,6 +878,48 @@ mod tests {
         );
     }
 
+    /// THE ADMIRAL SAYS IT CAN RIDE A SHARK, AND SAYS IT HERE.
+    ///
+    /// ⛔⛔ THIS IS THE FACT THE SMASH UP-B SHIPPED WITHOUT. The capability was
+    /// manufactured by the match instead — granted per seat by `smash_roster`,
+    /// and NOT by `SmashSelect::roster_seeded`, which is the road a player
+    /// travels from the character-select grid. So the admiral reached a real
+    /// match unable to board the shark its own up-B summons, and the shark just
+    /// stood there. Jon found it by playing.
+    ///
+    /// ⭐ A CHARACTER FACT IS INHERITED BY EVERY ROAD. `prepared_match` unions
+    /// `pilotable_classes` into `CanPilot` wherever a body is realized, so there
+    /// is no second list for a future roster builder to forget. Jon settled the
+    /// premise this rests on: *"Yes the admiral could fly on a shark in
+    /// ambition"* — the up-B is Smash-only, the PILOTING is not.
+    #[test]
+    fn the_pirate_admiral_can_pilot_a_shark_because_it_is_a_pirate_admiral() {
+        let definition = authored_intrinsics(
+            "npc_pirate_admiral",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "npc_pirate_admiral",
+                "Pirate Admiral",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        let mount = definition
+            .mount
+            .as_ref()
+            .expect("an admiral states what it can board");
+        assert_eq!(
+            mount.pilotable_classes,
+            vec!["shark".to_string()],
+            "the admiral cannot pilot a shark, so its up-B summons a mount it \
+             may not board"
+        );
+        // ⭐ AND IT IS NOT ITSELF RIDEABLE, which is the other half of the same
+        // sentence — `npc_pirate_raider` states the identical pair.
+        assert!(
+            mount.class.is_none(),
+            "an admiral became something you can ride"
+        );
+    }
+
     /// Every character the provocation name-matcher answers states its own
     /// provoked policy.
     ///

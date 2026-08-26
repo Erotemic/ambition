@@ -116,7 +116,12 @@ These cards are capability fronts, not a serial mega-campaign.
   composition correct. Use
   [`engine/camera-reference-frame-policy.md`](engine/camera-reference-frame-policy.md).
 
-- ▢ **Simulation authority and deterministic phase structure.** Decompose
+- ◐ **Simulation authority and deterministic phase structure — ITS ROLLBACK HALF
+  IS NOW LEDGER ROW D245 (promoted 2026-08-26); the PHASE half is still here.**
+  ⚠ do not promote the rollback half again: 16 crates already own their
+  declarations, the clock's two-owner split is fixed, and what remains is
+  `ambition_platformer2d_core` declaring nothing while the runtime declares 18 of
+  its body-cluster components. Card: Decompose
   parameter-ceiling systems such as actor-brain ticks by semantic phase and
   ownership; invert rollback declaration ownership so the generic runtime is not
   a census of every gameplay domain. Use

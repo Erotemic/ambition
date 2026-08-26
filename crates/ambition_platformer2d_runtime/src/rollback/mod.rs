@@ -78,10 +78,15 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     );
 
     // Global authoritative resources.
-    registrar.rollback_resource_canonical::<ambition_time::SimTick>(ENGINE, "resource.sim_tick")
-        // Match activation is rollback state. Rewinding before activation must restore the
-        // resource's absence so seating can reconstruct the roster from authored inputs.
-        .rollback_resource_canonical::<ambition_time::WorldTime>(ENGINE, "resource.world_time")
+    // ⭐ THE CLOCK'S OWN STATE IS NOT HERE ANY MORE. `SimTick`, `WorldTime`,
+    // `ClockState` and `ProperTimeScale` are declared by `ambition_time`, which
+    // was already declaring four other resources of its own from
+    // `register_rollback_state` at the top of this function — so the same crate's
+    // state had two owners. Stable names unchanged; the wire did not move.
+    //
+    // Match activation is rollback state. Rewinding before activation must restore the
+    // resource's absence so seating can reconstruct the roster from authored inputs.
+    registrar
         .rollback_resource_canonical::<ambition_platformer2d_world::collision::MovingPlatformSet>(
             ENGINE,
             "resource.moving_platform_set",
@@ -97,7 +102,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "resource.input_stream_recorder",
         )
-        .rollback_resource_canonical::<ambition_time::ClockState>(ENGINE, "resource.clock_state")
         .rollback_resource_clone::<ambition_persistence::save::AmbitionGameSave>(
             ENGINE,
             "resource.sandbox_save",
@@ -105,8 +109,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         .rollback_resource_clone::<ambition_persistence::quest::registry::QuestRegistry>(
             ENGINE,
             "resource.quest_registry",
-        )
-;
+        );
 
     // Core body state.
     registrar
@@ -156,11 +159,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
             ENGINE,
             "actor.motion_model",
         )
-        .rollback_component_canonical::<bc::BodyComboTrace>(ENGINE, "actor.combo_trace")
-        .rollback_component_canonical::<ambition_time::ProperTimeScale>(
-            ENGINE,
-            "actor.proper_time_scale",
-        );
+        .rollback_component_canonical::<bc::BodyComboTrace>(ENGINE, "actor.combo_trace");
 
     // Register values a recreated rollback entity cannot safely reconstruct from another
     // authoritative source. This includes identity/projection memos, rig/custody maps, authored

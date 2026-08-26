@@ -2054,6 +2054,52 @@ he has dropped since arrives through his MESSAGES and lands in
 `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, which is role (4) — so that file, not an
 mtime scan, is where recent maintainer work actually shows up.
 
+- ▢ **D245 — THE ROLLBACK DECLARATION FEDERATION IS 16 CRATES DONE AND TWO
+  INSTANCES SHORT. PROMOTED FROM `tracks.md` 2026-08-26.**
+
+⭐ **PROMOTED BECAUSE THE INSTANCES ARGUED IT, NOT THE CARD.** The reservoir card
+*"Simulation authority and deterministic phase structure"* asks to *"invert
+rollback declaration ownership so the generic runtime is not a census of every
+gameplay domain"*, and was reachable from `tracks.md` and NO ledger row. It is
+mostly DONE and nobody had written that down:
+
+```text
+crates with their own rollback_registration.rs      16
+what the runtime still declares (285 lines)          engine-floor state only
+```
+
+⛔⛔ **BUT TWO CRATES' STATE HAD TWO OWNERS, WHICH IS THE SPLIT THE FEDERATION
+EXISTS TO END.**
+
+✔ **(a) THE CLOCK — FIXED 2026-08-26 and it is the sharpest case, because the
+domain-owned half was RIGHT THERE.** `rollback/mod.rs` called
+`ambition_time::register_rollback_state(registrar)` at line 45 **and then
+declared four more `ambition_time::` types itself** under `ENGINE` —
+`SimTick`, `WorldTime`, `ClockState`, `ProperTimeScale`. They are declared by
+`ambition_time` now. ⭐ **the STABLE NAMES did not change**, so the wire did not
+move: `rollback-wire-format-changes-are-declared` still reports 375 names / 123
+encoded types across 11 crates. Only the OWNER string moved, from the composition
+to the crate that defines the types.
+
+▢ **(b) `ambition_platformer2d_core` DEFINES `RollbackRegistrar` AND DECLARES
+NOTHING.** The trait is at `core/src/snapshot.rs:338`, so the floor crate can
+absolutely own its declarations — `ambition_time` proves it — yet `_core` has no
+`rollback_registration.rs` and the runtime declares **18** of its `bc::`
+body-cluster components (`BodyAbilities`, `BodyGroundState`, `BodyWallState`,
+`BodyJumpState`, `BodyDashState`, `BodyFlightState`, `BodyBlinkState`,
+`BodyDodgeState`, `BodyShieldState`, `BodyOffense`, `BodyLifetime`,
+`BodyActionBuffer`, `BodyComboTrace`, …) on its behalf. ⇒ **that is the remaining
+census**, it is one crate, and the clock move is its worked example.
+
+⚠ **`ambition_persistence` and `ambition_sfx` are the same shape at smaller
+scale** (2 and 3 declarations from the runtime, no file of their own) — check
+whether either can see the trait before assuming they can.
+
+⛔ **THE OTHER HALF OF THE CARD — "decompose parameter-ceiling systems by
+semantic phase" — IS NOT THIS.** Do not bundle them; see
+[`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+and [`triage/bevy-system-parameter-architecture.md`](triage/bevy-system-parameter-architecture.md).
+
 - ▢ **D170 — IMMUTABLE CONTENT / TRANSACTIONAL CONSTRUCTION HAS SIX OPEN ITEMS
   AND NO LEDGER ROW.** (promoted 2026-08-20)
 

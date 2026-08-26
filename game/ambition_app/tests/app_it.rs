@@ -17,10 +17,11 @@ mod common;
 mod app_it_sync;
 
 mod a_dropped_item_falls;
-mod a_hit_on_the_player_freezes_the_match;
 mod a_game_governs_only_its_own_rooms;
+mod a_hit_on_the_player_freezes_the_match;
 mod a_ron_game_installs_no_ldtk_world;
 mod a_save_remembers_where_you_left_things;
+mod a_teleported_subject_does_not_get_chased;
 mod actor_phase_split;
 mod app_local_catalog_composition;
 mod asset_id_platform_parity;

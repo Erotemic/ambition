@@ -1135,6 +1135,17 @@ pub fn resolve_camera_observation(
         bevy::prelude::With<crate::local_view::LocalView>,
     >,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
+    // WHERE THE FOLLOWED SUBJECT WAS on the previous resolve, so a body that
+    // was PUT somewhere can be told from one that travelled there.
+    //
+    // ⭐⭐ THE CAST CAMERA ALREADY HAD THIS TERM and the single-subject FOLLOW
+    // had none — `snap_camera` was `blink || room_changed`, so a teleport
+    // INSIDE one room was chased at the ease rate. Measured by Jon: a synthetic
+    // teleport panned the view 440px over about 40 ticks.
+    //
+    // A `Local` for the same reason `last_camera_room` is one: it is this
+    // system's own record of what it last presented, not simulation state.
+    mut last_subject_placement: bevy::prelude::Local<Option<(bevy::prelude::Entity, ae::Vec2)>>,
     // THE CAST FRAMING'S PRESENTED STATE, as one param.
     //
     //  `Local`s rather than fields on `CameraEaseState`, and for the same
@@ -1368,6 +1379,9 @@ pub fn resolve_camera_observation(
     // presented position throws that centre away and points the camera at seat 0. A framing
     // centre is rigidly attached to the cast exactly as a hitbox is to its owner, and both are
     // carried on the frame clock the same way.
+    // The SIM position, kept before the presented offset is folded in — the
+    // teleport predicate below is about where the BODY went.
+    let subject_sim_pos = player_body.pos;
     if let Ok(presented) = presented.get(followed) {
         player_body.pos += presented.delta();
     }
@@ -1377,6 +1391,33 @@ pub fn resolve_camera_observation(
     if room_changed {
         *last_camera_room = Some(active_spec.id.clone());
     }
+    // ⭐⭐ AND THE SUBJECT WAS PUT THERE RATHER THAN TRAVELLING — the term the
+    // FOLLOW path was missing. The cast camera has had it since the respawn
+    // lurch (`CastFraming::teleported`); a single-subject view chased a teleport
+    // inside one room at the ease rate, which Jon measured as a 440px pan over
+    // about 40 ticks.
+    //
+    // ⭐ THE PREDICATE IS `presented_pose`'s, exactly as the cast path uses it.
+    // That module already refuses to EXTRAPOLATE across a teleport and this
+    // refuses to CHASE one; a second implementation here would be a second
+    // opinion that drifts.
+    //
+    // ⛔ THE SIM POSITION, taken before the presented delta above is folded in:
+    // the predicate is about where the BODY went, and the presented sample is a
+    // sub-tick offset that would read as travel the velocity cannot explain.
+    let subject_placed = match *last_subject_placement {
+        // A DIFFERENT subject is not a teleport — possession and view changes
+        // hand the camera a new body, and the room/blink terms cover the rest.
+        Some((was, _)) if was != followed => false,
+        Some((_, was_at)) => !crate::presented_pose::travelled_under_own_power(
+            was_at,
+            subject_sim_pos,
+            player_body.vel,
+            1,
+        ),
+        None => false,
+    };
+    *last_subject_placement = Some((followed, subject_sim_pos));
     let snap_camera = blink_cam.camera_snap_timer > 0.0 || room_changed;
 
     let focus = CameraFocus2d {
@@ -1464,6 +1505,22 @@ pub fn resolve_camera_observation(
             // eases toward its own target.
             camera_state.target_initialized = false;
         }
+        // ⛔⛔ A TELEPORT A PORTAL IS ALREADY PRESENTING IS NOT OURS TO SNAP.
+        // Portal continuity translates the body and holds it at the SAME SCREEN
+        // POSITION by offsetting the view; snapping to the body on top of that
+        // is two policies answering one discontinuity, and it showed up as a
+        // 178px visible step through a floor-ceiling transit.
+        //
+        // ⭐ THE PORTAL'S OWN INPUTS SAY SO — written pre-resolve by the
+        // presentation adapter, and already read three lines down for the
+        // chart roll. No new channel, and no dependency on the portal crate
+        // from here.
+        //
+        // ⛔ ONLY THE TELEPORT TERM IS SUPPRESSED: a room change or a blink
+        // during a transit still snaps, exactly as before.
+        let portal_presents_this_translation =
+            presentation.extra_clamp_center_world.is_some() || presentation.chart_transit.is_some();
+        let snap_camera = snap_camera || (subject_placed && !portal_presents_this_translation);
         let snapshot = resolve_follow_camera_snapshot(
             CameraSnapshotResolveInput {
                 world: &world.0,

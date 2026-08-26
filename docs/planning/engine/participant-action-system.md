@@ -197,6 +197,41 @@ Platformer2dInputActionMonolith variants                 35
   path can key on `SemanticActionId` while the leafwing map stays closed —
   presentable and consumable may be reachable well before bindable is.
 
+  ⭐⭐ **AND THERE IS A CANDIDATE THAT NEEDS NO ERASURE, checked against the
+  vendored trait 2026-08-26. A SECOND MAP, NOT A WIDER ENUM.** `InputMap` is
+  already generic — `InputMap<A: Actionlike>` — so nothing stops a composition
+  installing a second one beside the engine's, keyed by a type a provider can
+  mint. The bound is satisfiable by a plain newtype:
+
+```text
+Actionlike: Debug + Eq + Hash + Send + Sync + Clone
+          + Reflect + Typed + TypePath + FromReflect + 'static
+          + fn input_control_kind(&self) -> InputControlKind
+                          (leafwing-input-manager 0.20.0, lib.rs:101)
+```
+
+  A `String`-backed id derives every one of those. The only non-derivable member
+  is `input_control_kind`, which takes `&self` — so the key must CARRY its kind
+  rather than look it up:
+
+```text
+struct ProviderAction { id: SemanticActionId, kind: ActionControlKind }
+```
+
+  ⭐ and `SemanticActionDef` already holds exactly that `kind`, so the registry
+  mints the key and the registry's own uniqueness rule keeps `Hash`/`Eq`
+  consistent — one kind per id, so two keys can never disagree about the same
+  action.
+
+  ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
+  service locator, and NO edit to the 35-variant enum**, which is the combination
+  every previous attempt failed. ⛔ it is still a carve — two maps means two
+  reader paths and a decision about which wins a conflict — but it is a candidate
+  where this item had none, and it is worth checking against D168's
+  `StateMachineCfg`, which is the same closed-enum shape with an extra
+  obligation: that one is WIRE-ENCODED, so a second keyspace there also needs a
+  codec story.
+
 - ▢ **Author input schemas/assets where it improves tooling.** Do this through
   the same registry/binding model rather than adding another settings authority.
   ⛔ **GATED BY THE ITEM ABOVE, not by effort — 2026-08-26.** *"The same

@@ -64,6 +64,18 @@ grab is priced almost entirely as a guard-beater, while in the genre it is also
 the combo STARTER at 0% — which is exactly the term that would break the
 stalemate without touching shield at all.
 
+⛔⛔ **AND THAT TERM'S ABSENCE IS DELIBERATE — the constant says so, so do not
+"fix" it as an oversight.** `THROW_CONVERSION`'s own doc: *"Kept well under
+`GRAB_BEATS_GUARD` so that percent alone never makes a grab the answer to a
+neutral opponent standing out of reach."* ⇒ somebody already considered grabbing
+a neutral opponent and priced it down ON PURPOSE.
+
+⚠ what is NEW is the evidence, not the idea: **zero grabs in ninety seconds of
+play**, and a shield leg too rare to ever justify the guard term. ⇒ this is
+"overrule a documented tuning decision on evidence it did not have", which is
+Jon's call rather than a refactor — and if it is taken, note that the doc's stated
+worry was reach, and reach is already `reach_fit`'s job, not this function's.
+
 ⚠ **`downed` is the one that might be correct.** A CPU with perfect reactions
 acts out of tumble as soon as it may; a human eating a spike does not. Worth one
 playtest before anybody tunes the knockdown window.

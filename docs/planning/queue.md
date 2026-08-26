@@ -10601,11 +10601,21 @@ body has been hit by definition. A fighter that spent recovery, went helpless an
 was then launched into a wall lost its tech — punished twice for one decision, and
 specifically for having already spent recovery. Poisoned.
 
-▢ **THE REMAINING HALF NEEDS AN EPISODE AND A WIRE BUMP.** `body_is_helpless` is
-`recovery_charges == 0 && !grounded && !still_recovering` — pure resource state —
-so an accepted hit that deliberately refunds the AIR DODGE (*"a launched fighter
-that could not dodge would have no answer to the follow-up"*) cannot lift the
-helplessness, and the refreshed dodge is unusable. ⇒ model the EPISODE:
+⭐⭐ **THE REMAINING HALF CLOSED 2026-08-25 — THE EPISODE IS BUILT.**
+`BodyJumpState::post_recovery_helpless` is armed by the SPEND that takes the last
+charge (only the spend knows it was the last), suppressed while the recovery move
+plays, cleared by an accepted hit, and cleared with the ordinary landing-shaped
+refresh. `body_is_helpless` reads the EPISODE, not the count. ⛔ CLEARING IT
+REFUNDS NOTHING — the charge stays spent and so does the double jump, pinned by
+its own assertion. Wire v107.
+
+⛔⛔ **AND THE FIXTURE HAD TO BE REPAIRED, NOT THE RULE.** The existing arm set
+`recovery_charges: 0` and called that helpless — which is the resource reading
+the change is about. A body with no charges that never spent one THIS AIRTIME is
+not helpless, and there is now an arm saying so; without it the gate could quietly
+go back to reading the count.
+
+The table it was built from:
 
 ```text
 spend last recovery      arm post_recovery_helpless

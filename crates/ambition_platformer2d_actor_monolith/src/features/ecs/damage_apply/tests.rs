@@ -1,7 +1,7 @@
 use super::*;
 // The parent module imports only the handful of Bevy items its systems need,
 // so the App-level tests below bring in their own.
-use bevy::prelude::{App, Messages, Update, default};
+use bevy::prelude::{default, App, Messages, Update};
 
 /// A guard that is UP, with a shield that is not a spendable resource — the
 /// shape every body in this file has. `resolve_body_hit` takes the guard itself
@@ -1016,8 +1016,8 @@ fn incoming_multiplier_ignores_the_outgoing_damage_slider() {
 /// `resolve_body_hit`'s documented contract.
 #[test]
 fn incoming_multiplier_is_difficulty_times_assist() {
-    use ambition_persistence::settings::GameplaySettings;
     use ambition_persistence::settings::gameplay::AssistMode;
+    use ambition_persistence::settings::GameplaySettings;
     let mut g = GameplaySettings::default();
     g.difficulty = ambition_persistence::settings::gameplay::Difficulty::Hard;
     g.assist = AssistMode::Off;
@@ -1600,6 +1600,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         // No budget and no ledge: this fixture measures the launch.
         None,
         None,
+        None,
         feel,
     );
 
@@ -1660,6 +1661,7 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
             HIT_DAMAGE,
             ae::Vec2::ZERO,
             Default::default(),
+            None,
             None,
             None,
             Platformer2dFeelTuningMonolith::default(),
@@ -1742,6 +1744,7 @@ fn a_hit_with_no_knockback_publishes_no_launch_and_keeps_the_ride() {
         HIT_DAMAGE,
         ae::Vec2::ZERO,
         Default::default(),
+        None,
         None,
         None,
         Platformer2dFeelTuningMonolith::default(),
@@ -2001,6 +2004,7 @@ fn meteor_reaction(
         },
         None,
         None,
+        None,
         feel,
     );
     combat.recoil_lock_timer
@@ -2047,6 +2051,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
                 grounded: true,
                 crouching,
             },
+            None,
             None,
             None,
             feel,

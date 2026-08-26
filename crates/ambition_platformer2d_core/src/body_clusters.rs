@@ -5,11 +5,11 @@
 //! [`BodyClustersMut`] collects mutable cluster references for movement entry
 //! points, while [`BodyClusterScratch`] provides the same shape for tests.
 
-use crate::Vec2;
 use crate::abilities::AbilitySet;
 use crate::movement::ComboMark;
 use crate::player_state::{BodyMode, ResourceMeter};
 use crate::world::{ClimbableContact, WaterContact};
+use crate::Vec2;
 
 /// Mutable body-cluster view consumed by movement entry points.
 pub struct BodyClustersMut<'a> {
@@ -346,6 +346,29 @@ pub struct BodyJumpState {
     /// winged fighter authoring two is an ordinary tuning statement rather than a
     /// second mechanic — see `AxisLocomotion::recovery_charges`.
     pub recovery_charges: u8,
+    /// THIS BODY SPENT ITS LAST RECOVERY AND HAS NOT ANSWERED FOR IT YET — the
+    /// helpless EPISODE, as opposed to the resource that opened it.
+    ///
+    /// ⭐⭐ HELPLESSNESS IS AN EPISODE, NOT A COUNT. It was derived as
+    /// `recovery_charges == 0`, which cannot be ENDED by anything short of a
+    /// refresh — and a refresh is landing-shaped, which being hit deliberately is
+    /// not. So an accepted hit that hands the air dodge back (*"a launched
+    /// fighter that could not dodge would have no answer to the follow-up"*) gave
+    /// a fighter a dodge it was still forbidden to use.
+    ///
+    /// ```text
+    /// spend the last recovery    arm this
+    /// recovery move playing      episode suppressed (the move is the answer)
+    /// move ends airborne         helpless becomes effective
+    /// accepted hit               CLEARED — and the CHARGE STAYS SPENT
+    /// land / ledge / respawn     cleared with the ordinary refresh
+    /// ```
+    ///
+    /// ⛔ CLEARING THIS IS NOT REFUNDING THE RECOVERY. A hit ends the episode
+    /// and gives nothing back: the fighter may act again, and it still has no
+    /// recovery to spend. Restoring the charge — or the spent double jump — is a
+    /// different rule and a deliberate one this must not undo.
+    pub post_recovery_helpless: bool,
     /// A head is under this body's feet, and the next jump press belongs to
     /// it. Written by the pair pass BEFORE the kernel runs and consumed by
     /// [`crate::movement`]'s jump chain AHEAD of the air jump, so one press has
@@ -812,6 +835,10 @@ pub fn refresh_movement_resources_clusters(
     dash.charges_available = abilities.abilities.dash_charge_count();
     jump.air_jumps_available = abilities.abilities.air_jump_count(base_air_jumps);
     jump.recovery_charges = DEFAULT_RECOVERY_CHARGES;
+    // The episode ends with the resource that opened it — this helper is the
+    // landing-shaped refresh, and being re-seated is exactly what answers for a
+    // spent recovery.
+    jump.post_recovery_helpless = false;
     dodge.air_dodge_spent = false;
 }
 
@@ -849,6 +876,7 @@ impl BodyJumpState {
         Self {
             air_jumps_available,
             recovery_charges: DEFAULT_RECOVERY_CHARGES,
+            post_recovery_helpless: false,
             footstool_claimed: false,
             ladder_jump_boost: 0.0,
             ladder_drop_through_timer: 0.0,
@@ -1042,7 +1070,7 @@ impl BodyClusterScratch {
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
     pub fn new_with_abilities(spawn: Vec2, abilities: crate::abilities::AbilitySet) -> Self {
-        use crate::movement::{DEFAULT_TUNING, default_player_body_size};
+        use crate::movement::{default_player_body_size, DEFAULT_TUNING};
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
@@ -1301,8 +1329,8 @@ mod reset_tests {
     #[test]
     fn a_pending_restart_is_announced_once() {
         use bevy_ecs::prelude::*;
-        use std::sync::Arc;
         use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
 
         let mut world = World::new();
         let seen = Arc::new(AtomicUsize::new(0));

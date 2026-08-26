@@ -947,6 +947,9 @@ pub(crate) fn apply_player_knockback(
         // was this road's own overreach: the double jump and the traversal dash
         // do NOT come back from an ordinary hit.
         Some(&mut clusters.dodge),
+        // …and the helpless EPISODE the hit ends. Not a resource: the spent
+        // recovery charge stays spent, and so does the double jump.
+        Some(&mut clusters.jump),
         // The hang, taken by the same rule. It used to be two calls in the two
         // `HitMode::Knockback` arms above this one.
         Some((motion_model, &mut clusters.ledge)),

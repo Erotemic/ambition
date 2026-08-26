@@ -70,6 +70,16 @@ pub fn apply_body_hit_reaction(
     // ⇒ the parameter is the resource the rule actually names. `None` for a body
     // with no dodge state to hand over.
     dodge: Option<&mut ae::BodyDodgeState>,
+    // ⭐⭐ AND THE HELPLESS EPISODE THIS HIT ENDS — which is NOT a resource, and
+    // that distinction is the whole reason it is a separate parameter beside the
+    // dodge rather than folded into it.
+    //
+    // A fighter that spent its last recovery is helpless until something answers
+    // for it. Being hit answers for it: the hit above hands the air dodge back
+    // precisely so a launched fighter has an answer to the follow-up, and a body
+    // still forbidden to act cannot use it. ⛔ CLEARING THE EPISODE REFUNDS
+    // NOTHING — `recovery_charges` stays spent, and so does the double jump.
+    jump: Option<&mut ae::BodyJumpState>,
     // ⭐ THE LEDGE HANG A HIT TAKES, for the same reason the budget is here: it
     // is a fact about being HIT, not about which road resolved the hit. It was
     // the player road's alone until `c3d7cdba7` and the actor road's separately
@@ -100,6 +110,11 @@ pub fn apply_body_hit_reaction(
     // no-op for one.
     if let Some(dodge) = dodge {
         dodge.air_dodge_spent = false;
+    }
+    // …and the fighter is allowed to use it. See the parameter's own note for
+    // why this gives back no charge.
+    if let Some(jump) = jump {
+        jump.post_recovery_helpless = false;
     }
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
@@ -374,6 +389,7 @@ mod super_armor_tests {
             // the stagger.
             None,
             None,
+            None,
             feel(),
         );
         (vel, flight, combat)
@@ -445,6 +461,7 @@ mod super_armor_tests {
             VictimStance::default(),
             None,
             None,
+            None,
             feel(),
         );
 
@@ -491,6 +508,7 @@ mod super_armor_tests {
             0,
             ae::Vec2::ZERO,
             VictimStance::default(),
+            None,
             None,
             None,
             feel(),
@@ -541,6 +559,7 @@ mod super_armor_tests {
                 VictimStance::default(),
                 None,
                 None,
+                None,
                 feel(),
             );
             combat
@@ -567,6 +586,67 @@ mod super_armor_tests {
             "a windbox CLEARED a lock the body was already owed — declining to \
              charge is not the same as discharging, and this direction would make \
              a gust the best combo breaker in the game"
+        );
+    }
+
+    /// ⭐⭐ A HIT ENDS THE HELPLESS EPISODE AND REFUNDS NOTHING.
+    ///
+    /// The reaction already hands the air dodge back — *"a launched fighter that
+    /// could not dodge would have no answer to the follow-up"* — and until
+    /// 2026-08-25 helplessness was `recovery_charges == 0`, a resource reading
+    /// nothing but a landing-shaped refresh could end. So the dodge came back to
+    /// a fighter still forbidden to use it.
+    ///
+    /// ⛔ THE SECOND ASSERTION IS THE LOAD-BEARING ONE. Ending the episode must
+    /// not restore the CHARGE — a spent recovery stays spent through an
+    /// edge-guard hit, exactly as the spent double jump does, and that is a
+    /// deliberate correction this must not undo.
+    #[test]
+    fn a_hit_ends_the_helpless_episode_without_giving_the_recovery_back() {
+        let mut vel = ae::Vec2::new(120.0, 0.0);
+        let mut flight = ae::BodyFlightState::default();
+        let mut combat = BodyCombat::default();
+        let mut dodge = ae::BodyDodgeState {
+            air_dodge_spent: true,
+            ..Default::default()
+        };
+        let mut jump = ae::BodyJumpState {
+            recovery_charges: 0,
+            post_recovery_helpless: true,
+            ..Default::default()
+        };
+        apply_body_hit_reaction(
+            &mut vel,
+            &mut flight,
+            &mut combat,
+            ae::Vec2::new(20.0, 0.0),
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+            false,
+            Some(&hard_knockback()),
+            12,
+            ae::Vec2::ZERO,
+            VictimStance::default(),
+            Some(&mut dodge),
+            Some(&mut jump),
+            None,
+            feel(),
+        );
+
+        assert!(
+            !dodge.air_dodge_spent,
+            "the hit did not hand the air dodge back, so the fixture is not the \
+             one the rule is about"
+        );
+        assert!(
+            !jump.post_recovery_helpless,
+            "the fighter kept its helpless episode through an accepted hit, so \
+             the dodge it was just handed is one it may not use"
+        );
+        assert_eq!(
+            jump.recovery_charges, 0,
+            "the hit gave the RECOVERY back — a spent recovery stays spent \
+             through an edge-guard hit, exactly as the double jump does"
         );
     }
 }

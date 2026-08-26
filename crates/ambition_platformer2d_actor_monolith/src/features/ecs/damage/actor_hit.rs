@@ -487,6 +487,9 @@ pub(crate) fn apply_actor_hit(
                 // jump: a spent second jump stays spent through an ordinary
                 // edge-guard hit, which is what makes taking one worth doing.
                 Some(&mut *em.dodge),
+                // …and the helpless EPISODE the hit ends. Not a resource: the
+                // spent recovery charge stays spent.
+                Some(&mut *em.jump),
                 Some((motion_model, em.ledge)),
                 feel,
             );

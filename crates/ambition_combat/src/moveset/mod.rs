@@ -1917,6 +1917,11 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     if spec.gates.spends_recovery {
         if let Some(mut jump) = jump {
             jump.recovery_charges = jump.recovery_charges.saturating_sub(1);
+            // ⭐ THE EPISODE OPENS WITH THE LAST CHARGE, and it is armed here
+            // rather than derived later because only the SPEND knows this was
+            // the last one. While the recovery move plays, `body_is_helpless`
+            // suppresses it — the move is the answer the fighter is giving.
+            jump.post_recovery_helpless = jump.recovery_charges == 0;
         }
     }
     commands.entity(entity).insert(
@@ -2022,7 +2027,14 @@ pub fn body_is_helpless(
     playing: Option<&MovePlayback>,
 ) -> bool {
     let still_recovering = playing.is_some_and(|pb| pb.spec.gates.spends_recovery);
-    jump.recovery_charges == 0 && !grounded && !still_recovering
+    // ⛔⛔ THE EPISODE, NOT THE COUNT. `recovery_charges == 0` is a resource
+    // reading, and a resource reading cannot be ENDED by anything short of a
+    // refresh — refreshes are landing-shaped, which being hit deliberately is
+    // not. So an accepted hit that hands the air dodge back gave a fighter a
+    // dodge it was still forbidden to use. `post_recovery_helpless` is cleared
+    // by the hit and the charge stays spent, which is the rule both halves
+    // wanted.
+    jump.post_recovery_helpless && !grounded && !still_recovering
 }
 
 pub fn trigger_moveset_moves(

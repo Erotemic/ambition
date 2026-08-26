@@ -10939,6 +10939,33 @@ SHIPPED BODY AUTHORS.** `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the only
 DORMANT mechanic. Waking it is the real fix and it re-tunes knockback for the
 whole cast — **that** is the decision #20 is blocked on, not a number.
 
+⭐⭐ **CLOSED — #28, THE PIVOT MIRRORED THE MOVE THE OLD WAY.**
+`resolve_attack_gestures` resolves the attack DIRECTION against `-kin.facing`
+while the body is turning — that is what makes a pivot grab need no move of its
+own — but the body still HOLDS the old facing and `start_move` snapshots it into
+the playback, which is what every hit volume is mirrored by and every
+`start_impulse` multiplied by. The right move came out pointing backwards. ⛔ THE
+EXISTING ARM COULD NOT SEE IT: it asserts which move STARTED, which was always
+right. Committed where the move starts, so a refused press turns nobody.
+
+⭐⭐ **CLOSED — #19, A ROOTED MOVE HANDED BACK A FREE DASH.** The initial dash
+remembers direction by comparing this tick's stick with last tick's; a
+`motion_scale: 0.0` window scales the stick to zero, so a player who simply HELD
+a direction through an attack was recorded as neutral for its whole duration and
+the frame it ended read as *"pressed from nothing"* — the exact edge that arms a
+full-speed dash. `InputState` carries `undamped_axes` now: the dash still ARMS on
+what the body may act on (a rooted body cannot dash out of its own recovery) and
+REMEMBERS what the player was holding. Recorded in `damped_by_move_motion`, the
+one function that knows the value is about to be lost, so a third road that
+forgets carries `None` — which is correct. Not on the wire.
+
+⇒ **THE RULE THE LAST FOUR FIXES SHARE, and it is worth more than any of them:**
+
+```text
+proposing an action must not mutate simulation state
+forbidding an action must not erase the state that reads the next input
+```
+
 ◐ **STATUS ADJUSTMENTS GPT ASKED FOR, recorded rather than reopened:**
 
 ```text

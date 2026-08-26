@@ -3453,6 +3453,21 @@ demo's APP target and its LIB target are different test binaries; moving a
 reader's authority reddens the fixtures next to the reader, which live in the
 lib.
 
+✔ **SWEPT 2026-08-26 — every game-side LIB the gate does not build is GREEN
+today**, so the two stale fixtures were the only ones hiding there:
+
+```text
+ambition_demo_smash --lib     112 passed
+ambition_demo_mary_o --lib    151 passed (1 ignored)
+ambition_demo_sanic --lib      77 passed
+ambition_demo_twintrack --lib  24 passed
+ambition_demo_pocket --lib      1 passed
+```
+
+⇒ **run these when you move a reader's authority.** They are the Rust half of the
+same lesson the four PYTHON suites taught under D243: a road nobody runs goes red
+quietly, and the count of what the gate covers is not the count of what exists.
+
 ⛔ **AND THE CENSUS HAD TO LEARN THE SECOND AUTHORITY THE SAME DAY IT GAINED
 ONE.** Its first version asked `PreparedCharacter::movement_tuning.is_some()` —
 the definition. A facet body reaches the SEAT and never touches the definition,

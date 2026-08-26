@@ -134,16 +134,38 @@ scale`, so declaring a height changes that character's HURTBOX as well as its
 render. That is the height contract working as designed, and it is a feel change
 on shipped content.
 
-**The shape of an answer that unblocks everything**, any one of these:
-  - a number for "an adult human in this cast" and one for "a heavy/brute", with
-    48 staying the protagonist's; or
-  - a ratio to the protagonist (e.g. *adults are 1.25×*) and permission to apply
-    it by fiction; or
-  - *"leave the cast at 48 and only author the ones I name."*
+⛔⛔ **AND THE ANSWER-SHAPE THIS SECTION ORIGINALLY OFFERED IS SUPERSEDED BY
+DECISION 32 (2026-08-24), which is recorded below.** It asked for *"a number for
+an adult human in this cast"* or *"a ratio to the protagonist, applied by
+fiction"* — and decision 32 rejected exactly that shape: *"There is no standard
+adult height. Do not introduce `ADULT_HEIGHT` or normalize humanoids to one
+number… Give characters intentional relative stature; leave ambiguous characters
+unchanged until visually reviewed."*
+
+⇒ **SO WHAT IS STILL OPEN IS MUCH NARROWER: SIX NAMED CHARACTERS.**
+`npc_pirate_admiral`, `cutlass_viper`, `lookout`, `navigator`, `quartermaster`,
+`raider` — the cove pirates that read exactly as tall as the chibi protagonist.
+Authoring one `standing_height` each is per-character stature, which is what
+decision 32 asks for; it is not a cast sweep.
+
+⭐ **AND YOUR OWN REPORT ALREADY CARRIES A NUMBER — it is the confirmation that
+is missing, not the number.** *"the other pirates need to probably scale up 2x"*
+⇒ 96 against the robot's 48. Say the word and it is six one-line content edits.
+
+⚠ **IT IS NOT FREE, and that is the whole reason it waits.** `collision = body ×
+scale`, so a declared height moves the HURTBOX as well as the render — six
+pirates twice as tall are six pirates twice as easy to hit. That is the height
+contract working as designed, and it is a feel change on shipped content.
 
 ⚠ **acceptance is your three reports** — the snake and AI slop, Sanic in his own
 game, the cove pirates against the robot — not a number in a table. Tracked by
 D165, whose measurement section carries the same data.
+
+▢ **AND ONE QUESTION DECISION 32 DID NOT REACH:** 17 catalog rows author no
+`body_kind` at all, and `Wide`/`Floating`/`Crawler` (27 rows) have no shared unit
+BY DESIGN. Should they get one, or does a sprawled quadruped legitimately have no
+"standing height"? Nothing is blocked on this; it decides whether the shared unit
+is the cast's road or the humanoids'.
 
 
 

@@ -2210,7 +2210,7 @@ pub fn trigger_moveset_moves(
         // seed and the comparison cannot drift.
         let press_lateral_sign = gesture_tuning
             .map(|tuning| {
-                ambition_characters::actor::attack_gesture::lateral_flick_sign(control, tuning)
+                ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning)
             })
             .unwrap_or(0.0);
         // ⛔⛔ A HELPLESS FIGHTER STARTS NOTHING, and this is the authority that
@@ -2461,8 +2461,15 @@ pub fn trigger_moveset_moves(
                 // a hardcoded 60.0 into seconds that were then aged on the
                 // SCALED clock, so the same authored number bought a different
                 // number of input opportunities at every time scale.
+                // ⭐ ITS OWN WINDOW, AND `+ 1` BECAUSE THE KNOB COUNTS
+                // SUBSEQUENT TICKS. The recognizer runs later THIS tick (it is
+                // in `CombatSet::Playback`) and spends one there; without the
+                // extra, an authored `4` bought three chances while the ordinary
+                // attack flick's `4` buys four (`age_ticks <= 4`). One word in
+                // two mechanics' mouths meaning two different counts is what
+                // this whole split is about.
                 special_turn_ticks = gesture_tuning
-                    .map(|tuning| tuning.flick_window_ticks)
+                    .map(|tuning| tuning.special_turn_window_ticks.saturating_add(1))
                     .unwrap_or(0);
             }
             // ⛔⛔ NOT GATED ON THE TURN. The two halves are INDEPENDENT
@@ -2966,7 +2973,7 @@ pub fn apply_special_turn_flicks(
         .as_ref()
         .is_some_and(|rules| rules.special_turn_reverses_drift);
     for (mut gesture, control, tuning, mut kin, frame) in &mut bodies {
-        let sign = ambition_characters::actor::attack_gesture::lateral_flick_sign(control, tuning);
+        let sign = ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning);
         let flicked = sign != 0.0 && sign != gesture.prev_lateral_sign;
         gesture.prev_lateral_sign = sign;
         if gesture.special_turn_ticks == 0 {

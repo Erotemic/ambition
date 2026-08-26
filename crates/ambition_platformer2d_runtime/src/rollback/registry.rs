@@ -17,7 +17,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Bump when the registered state set, wire type identity, encoded payload, or
 /// checksum projection changes incompatibly. Peers with different versions must
 /// not treat their snapshots as compatible.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 117;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 118;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

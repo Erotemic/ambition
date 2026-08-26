@@ -124,6 +124,37 @@ pub struct AttackGestureTuning {
     /// `0.0` disables buffering: a press is spendable only on the tick it
     /// arrives, which is the behaviour every body had before this existed.
     pub action_buffer_s: f32,
+    /// How far the stick must lean, sideways, for the SPECIAL TURN to read a
+    /// direction — the B-reverse edge.
+    ///
+    /// ⛔⛔ ITS OWN KNOB BECAUSE IT IS ITS OWN MECHANIC, and sharing the attack
+    /// flick's was a quiet contradiction. The special turn reads a direction
+    /// past this; the ordinary attack flick needs
+    /// [`Self::flick_threshold`] (0.8) after re-arming below
+    /// [`Self::rearm_threshold`] (0.35). So a 0.65 deflection — which
+    /// [`TILT_DEFLECTION`] deliberately picks because it is a TILT and not a
+    /// flick — was simultaneously "not a flick" to the attack gesture and "a
+    /// flick" to the B-reverse recognizer, off one authored number.
+    ///
+    /// ⭐ AND THE SOFTER READING IS THE RIGHT ONE, which is why this is a second
+    /// knob rather than a correction to one. The genre's B-reverse is a stick
+    /// TAP backward during a special, not a smash-strength input: requiring a
+    /// full flick would make the technique harder than the games it comes from.
+    /// Default `0.5` is what the recognizer already used (it borrowed
+    /// [`Self::directional_deadzone`]), so this names existing behaviour rather
+    /// than changing it.
+    pub special_turn_deflection: f32,
+    /// SUBSEQUENT simulation ticks in which a lateral edge still turns the
+    /// special this body just started.
+    ///
+    /// ⭐ SUBSEQUENT, and that word is the other half of the same
+    /// contradiction. The ordinary attack flick keeps a recorded flick while
+    /// `age_ticks <= flick_window_ticks`, counting ticks AFTER the flick; the
+    /// special turn borrowed the same number and then spent one of it on the
+    /// press tick itself, so `4` meant four for one mechanic and three for the
+    /// other. Here it means four ticks after the press, and the acceptance tick
+    /// is free — see `start_move`.
+    pub special_turn_window_ticks: u8,
 }
 
 impl Default for AttackGestureTuning {
@@ -137,6 +168,11 @@ impl Default for AttackGestureTuning {
             // not a measurement: tune it against play, do not scatter
             // per-move grace timers beside it.
             action_buffer_s: 0.1,
+            // Both defaults preserve exactly what the recognizer did before it
+            // had knobs of its own: it read `directional_deadzone` and spent
+            // `flick_window_ticks`.
+            special_turn_deflection: 0.5,
+            special_turn_window_ticks: 4,
         }
     }
 }
@@ -157,7 +193,7 @@ impl Default for AttackGestureTuning {
 /// same partial-deflection-means-tilt convention is what a human's stick obeys.
 pub const TILT_DEFLECTION: f32 = 0.65;
 
-/// The lateral stick sign the B-reverse recognizer reads, reduced to -1, 0 or 1.
+/// The lateral stick sign the SPECIAL TURN reads, reduced to -1, 0 or 1.
 ///
 /// ⛔⛔ THE STICK THE PLAYER IS HOLDING, NOT THE ONE THE BODY MAY MOVE BY. The
 /// actor update publishes the DAMPED frame back onto the component after
@@ -171,12 +207,21 @@ pub const TILT_DEFLECTION: f32 = 0.65;
 /// post-press recognizer compares against it. A second hand-written copy of this
 /// expression is how a seed and a comparison drift into disagreeing about what
 /// the player was holding.
-pub fn lateral_flick_sign(
+///
+/// ⛔⛔ IT WAS CALLED `lateral_flick_sign` AND READ `directional_deadzone`, AND
+/// BOTH WERE WRONG IN THE SAME WAY. "Flick" is the attack gesture's word for a
+/// deflection past `flick_threshold` (0.8) after re-arming under 0.35; this
+/// reads a much softer lean and always did. One authored number therefore
+/// answered two different questions, and a 0.65 deflection — the exact value
+/// [`TILT_DEFLECTION`] picks BECAUSE it is a tilt — was a tilt to one consumer
+/// and a flick to the other. The soft reading is correct for a B-reverse; what
+/// was wrong was calling it the same mechanic.
+pub fn special_turn_stick_sign(
     control: &crate::control::ActorControl,
     tuning: &AttackGestureTuning,
 ) -> f32 {
     let lateral = control.0.steer_axis().vec().x;
-    if lateral.abs() > tuning.directional_deadzone {
+    if lateral.abs() > tuning.special_turn_deflection {
         lateral.signum()
     } else {
         0.0
@@ -572,5 +617,89 @@ mod tests {
         assert!(out.pressed.is_some());
         assert!(out.released.is_some());
         assert!(state.active.is_none());
+    }
+}
+
+#[cfg(test)]
+mod special_turn_edge_tests {
+    use super::*;
+    use crate::actor::control::ActorControlFrame;
+    use crate::control::ActorControl;
+
+    fn holding(lateral: f32) -> ActorControl {
+        let mut frame = ActorControlFrame::neutral();
+        frame.locomotion = ae::LocalAxes::new(lateral, 0.0);
+        ActorControl(frame)
+    }
+
+    /// ⛔⛔ ONE DEFLECTION, TWO MECHANICS, TWO ANSWERS — ON PURPOSE NOW.
+    ///
+    /// [`TILT_DEFLECTION`] is 0.65 and its own doc says why: above
+    /// `directional_deadzone` (0.5) so the direction registers, below
+    /// `flick_threshold` (0.8) so the press is a TILT and not a smash. The
+    /// special turn reads a much softer lean than the attack flick — a
+    /// B-reverse in this genre is a stick tap, not a smash input — so 0.65
+    /// genuinely is an edge to one and not to the other.
+    ///
+    /// ⛔ WHAT WAS WRONG WAS THAT ONE NUMBER SAID BOTH. The recognizer borrowed
+    /// `directional_deadzone` and the window borrowed `flick_window_ticks`, so
+    /// this difference existed with nothing naming it — a knob tuned for the
+    /// attack gesture silently moved the B-reverse, in the opposite direction to
+    /// what its name suggested. The behaviour is unchanged; what is new is that
+    /// the split is authored.
+    ///
+    /// ⭐ THE ARMS ARE A TABLE, not a single assertion: 0.65 must be an edge to
+    /// the special turn AND not a flick to the attack gesture, and 0.85 must be
+    /// both. Either half alone is satisfied by a threshold that swallowed the
+    /// other mechanic entirely.
+    #[test]
+    fn a_tilt_strength_lean_turns_a_special_and_is_not_an_attack_flick() {
+        let tuning = AttackGestureTuning::default();
+
+        assert_eq!(
+            special_turn_stick_sign(&holding(TILT_DEFLECTION), &tuning),
+            1.0,
+            "a tilt-strength lean did not register for the special turn, which \
+             makes the B-reverse a smash-strength input the genre does not ask for"
+        );
+        let mut state = AttackGestureState::default();
+        resolve_attack_gesture(
+            &mut state,
+            tuning,
+            ae::LocalAxes::new(TILT_DEFLECTION, 0.0),
+            1.0,
+            true,
+            false,
+            false,
+            false,
+            false,
+        );
+        assert!(
+            state.recent_flick.is_none(),
+            "the attack gesture recorded a FLICK at tilt strength, so \
+             `TILT_DEFLECTION`'s whole reason for sitting below \
+             `flick_threshold` is gone"
+        );
+
+        // …and a real flick is both.
+        let hard = 0.85;
+        assert_eq!(special_turn_stick_sign(&holding(hard), &tuning), 1.0);
+        let mut state = AttackGestureState::default();
+        resolve_attack_gesture(
+            &mut state,
+            tuning,
+            ae::LocalAxes::new(hard, 0.0),
+            1.0,
+            true,
+            false,
+            false,
+            false,
+            false,
+        );
+        assert!(
+            state.recent_flick.is_some(),
+            "a deflection past `flick_threshold` was not a flick, so the arm \
+             above proves nothing about the two mechanics differing"
+        );
     }
 }

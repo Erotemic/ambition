@@ -5237,6 +5237,46 @@ failure mode this repository has already named twice.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
+⭐⭐ **A COSTED CARVE CANDIDATE, MEASURED 2026-08-26 — and this row asked for
+exactly this: design work backed by measurement rather than another coupling
+table.** The remaining mass is `features` (44k), and 34k of it is `features/ecs`.
+Its subtrees:
+
+```text
+ecs/damage        4400      ecs/mount        1871
+ecs/actors        3601      ecs/bosses       1852
+ecs/spawn         3352      ecs/perception    765
+ecs/damage_apply  2253      ecs/aggression    646
+```
+
+⇒ **`ecs/mount` is the one with a real boundary**, and it is the only subtree
+whose dependence on the rest of the monolith is countable on one hand:
+
+```text
+what mount IMPORTS from the monolith    TWO items — `CenteredAabb` (a geometry
+                                        re-export) and `brain_builders::
+                                        dismounted_rider_brain_and_action_set`
+`crate::` references inside mount        4
+module-path references TO mount          3 (2 in `ecs/mod.rs`, 1 in a test)
+everything else it uses                  already in OTHER crates —
+                                         `ambition_characters`, `_core`,
+                                         `shared_tangle`, `ambition_boss_encounter`
+```
+
+⛔⛔ **AND THE FIRST THING A MOUNT CARVE MUST RESOLVE IS THAT `Mass` LIVES
+THERE.** `pub struct Mass(pub f32)` is defined in `mount/mod.rs` with **27
+external users** — a generic physics fact parked inside one mechanic. A carve
+either drags it out or exports it from a mount crate, and the second is wrong.
+⇒ move `Mass` first, on its own, and the carve gets smaller and honest.
+
+⚠ **AND THE COUPLING IS NOT ONLY WHAT THE MODULE IMPORTS — the ledger names it
+too.** `rollback_registration.rs` registers EIGHT mount types by
+`crate::features::…` path (`can_pilot`, `mass`, `mount_slot` + its entity map,
+`mountable`, `mounted`, `riding_on` + its map, `brain_cache`), so a carve moves
+path-keyed rows in a registration ledger as well as code — the same three-ledger
+cost a moved registered type always pays. ⇒ **that is the real price, and it is
+still the smallest one on offer inside `features`.**
+
 Use [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 Choose carves from current dependency and authority measurements, not an old LOC
 target.

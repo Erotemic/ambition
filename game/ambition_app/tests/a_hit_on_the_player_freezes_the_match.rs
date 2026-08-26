@@ -1,7 +1,7 @@
 #![cfg(feature = "rl_sim")]
 //! ⛔⛔ THE MATCH FREEZE WORKS WHEN A CPU IS HIT AND NOT WHEN THE HUMAN IS.
 //!
-//! `request_impact_hitstop_on_landed_hits` runs in `CombatSet::Settle` and reads
+//! `request_impact_hitstop_on_landed_hits` used to run in `CombatSet::Settle` and read
 //! `BodyCombat::hitstop_timer` off the victim. Player-victim hits are staged into
 //! a rollback-registered FIFO that the player resolver drains in NEXT frame's
 //! `PlayerSimulation`, so on the frame the freeze is decided that timer is still
@@ -9,10 +9,15 @@
 //! person holding the controller — a feel difference a player notices without
 //! knowing why.
 //!
-//! ⛔ EVERY EXISTING ARM IS BLIND TO THIS. The unit tests inject `hitstop_timer`
-//! on the victim before firing the message, and the app-level duel
-//! (`hit_shakes_the_camera`) deliberately REMOVES the home avatar. Only a real
-//! schedule, with a real enemy hitting the real player, can see the ordering.
+//! ⛔ EVERY EXISTING ARM WAS BLIND TO THIS. The unit tests inject `hitstop_timer`
+//! on the victim before firing the message — which answers the question before
+//! asking it — and the app-level duel (`hit_shakes_the_camera`) deliberately
+//! REMOVES the home avatar. Only a real schedule, with a real enemy hitting the
+//! real player, can see the ordering, which is why this fixture exists at all.
+//!
+//! ⭐ FIXED by `ResolvedBodyHit`: the resolver publishes its OWN hitlag beside
+//! the reaction, so the freeze never has to know which road resolved the hit or
+//! on which frame.
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
@@ -28,6 +33,11 @@ fn player_pos(world: &mut World) -> ambition_platformer2d::engine_core::Vec2 {
     q.single(world).expect("primary player").pos
 }
 
+/// ⭐ THE ENEMY STANDS ALMOST ON TOP OF THE PLAYER, and that number is load
+/// bearing. At 60px the automaton's contact footprint shoves the player away
+/// before anything it AIMS can reach — measured over 900 frames at that spacing:
+/// five hits, every one `HitSource::Contact`, which is attrition and correctly
+/// freezes nothing. Close enough to be shot, and its glider connects.
 #[derive(Debug, Default)]
 struct Bout {
     /// The hardest hitlag the PLAYER served — proof the player was hit at all.
@@ -38,25 +48,6 @@ struct Bout {
     frozen_frames: u32,
 }
 
-/// ⛔⛔ IGNORED, AND THE REASON IS THE HANDOFF — THE VENUE IS WRONG, NOT THE BUG.
-///
-/// The channel this needs now exists and is landed: `ResolvedBodyHit` carries
-/// the resolver's own hitlag and its source, both damage roads publish it beside
-/// the REACTION, and `request_impact_hitstop_on_resolved_hits` reads it. The
-/// ordering defect is structural and unchanged — a player victim's
-/// `hitstop_timer` is written a frame late, so the old reading could never see
-/// it.
-///
-/// ⛔ WHAT THIS FIXTURE CANNOT DO IS LAND A STRIKE ON THE PLAYER. Measured over
-/// 900 frames with a hostile automaton standing on top of the player: FIVE hits,
-/// every one of them `HitSource::Contact` for one damage. Contact is attrition —
-/// it fires once per overlapping tick — and a freeze armed by it alternates
-/// frozen and moving forever, which is why the freeze now refuses it. So this
-/// bout is asserting on the one source that correctly does not freeze.
-///
-/// ⇒ the melee-on-the-player proof wants the SMASH HOST, where two fighters
-/// genuinely trade strikes and one of them holds the local seat. See D237 (5).
-#[ignore = "the venue is wrong, not the bug: this bout only ever produces HitSource::Contact, which correctly does not freeze — see the note above and D237 (5)"]
 #[test]
 fn a_hit_that_lands_on_the_player_freezes_the_match() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
@@ -66,7 +57,7 @@ fn a_hit_that_lands_on_the_player_freezes_the_match() {
     sim.spawn_enemy_character_at(
         ENEMY_ID,
         "Perfect Cellular Automaton",
-        (p.x + 60.0, p.y),
+        (p.x + 26.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
         "perfect_cellular_automaton",
@@ -75,7 +66,7 @@ fn a_hit_that_lands_on_the_player_freezes_the_match() {
     let mut bout = Bout::default();
     // Stand still and be hit. The player never presses anything, so it is the
     // only victim in the room and the freeze cannot be somebody else's.
-    for _ in 0..300 {
+    for _ in 0..900 {
         sim.step(AgentAction::default());
         let world = sim.world_mut();
         let player_stop = {
@@ -103,12 +94,17 @@ fn a_hit_that_lands_on_the_player_freezes_the_match() {
         "the enemy never landed a hit on the player, so this fixture measures \
          nothing: {bout:#?}"
     );
+    // ⭐⭐ THE WHOLE CLAIM IN ONE LINE, and it is stronger than it looks: a
+    // freeze can only have come from a CONNECT, because contact attrition — the
+    // other thing hitting this player — arms nothing.
     assert!(
         bout.frozen_frames > 0,
         "the player was hit hard enough to serve {:.3}s of its own hitlag and \
-         the MATCH never froze — the freeze is decided in Settle from the \
-         victim's timer, and a player victim's timer is not written until the \
-         next frame: {bout:#?}",
+         the MATCH never froze. The freeze used to be decided in Settle from the \
+         victim's own timer, and a PLAYER victim's timer is not written until \
+         the next frame — the player-victim hits are staged into a rollback FIFO \
+         the resolver drains in PlayerSimulation. So the connect that stops the \
+         world for a CPU never stopped it for the human: {bout:#?}",
         bout.player_hitstop
     );
 }

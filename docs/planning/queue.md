@@ -10404,11 +10404,16 @@ frozen" halves the duty cycle and no more, and it contradicts a documented
 mechanic the module's own test states (overlapping connects extend). The source
 filter removes the cause instead.
 
-▢ **STILL OPEN — (5) IS NOT PROVEN END TO END, AND THE VENUE IS WHY.** The
-committed fixture cannot land a STRIKE on the player: 900 frames with a hostile
-automaton standing on top of it produced five hits, every one `Contact`. It is
-ignored with that written on it. ⇒ the melee-on-the-player proof wants the SMASH
-HOST, where two fighters genuinely trade strikes and one holds the local seat.
+⭐⭐ **AND (5) IS PROVEN END TO END — THE SPACING WAS THE FIXTURE'S BUG.** At 60px
+the automaton's contact footprint SHOVES the player away before anything it aims
+can reach: 900 frames produced five hits, every one `Contact`. At **26px** its
+glider connects, and a `Projectile` IS a connect — so the bout freezes, and it
+can only have frozen from a connect, because the contact attrition hitting the
+same player arms nothing. Poisoning the PLAYER ROAD's publish reddens it. The
+fixture is live (`a_hit_on_the_player_freezes_the_match`), not ignored.
+
+⇒ ⚠ **A FIXTURE'S SPACING IS A PARAMETER, and "the enemy never lands one" was a
+conclusion about the number rather than about the game.**
 
 ▢ STILL OPEN: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved

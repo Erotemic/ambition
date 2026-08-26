@@ -1958,7 +1958,14 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
             // rather than derived later because only the SPEND knows this was
             // the last one. While the recovery move plays, `body_is_helpless`
             // suppresses it — the move is the answer the fighter is giving.
-            jump.post_recovery_helpless = jump.recovery_charges == 0;
+            //
+            // ⭐ …UNLESS THE MOVE DECLINES IT. A recovery that hands its owner a
+            // vehicle has already given the height and the control together, so
+            // the budget is the whole price — see
+            // `MoveGates::recovery_without_freefall`. The CHARGE is spent either
+            // way, one line up: this is the punishment, not the cost.
+            jump.post_recovery_helpless =
+                jump.recovery_charges == 0 && !spec.gates.recovery_without_freefall;
         }
     }
     commands.entity(entity).insert(
@@ -2085,8 +2092,10 @@ pub fn body_is_helpless(
     // refresh — refreshes are landing-shaped, which being hit deliberately is
     // not. So an accepted hit that hands the air dodge back gave a fighter a
     // dodge it was still forbidden to use. `post_recovery_helpless` is cleared
-    // by the hit and the charge stays spent, which is the rule both halves
-    // wanted.
+    // by the hit, AND SO IS THE CHARGE: freefall is the punishment for having
+    // spent the recovery, and the genre lifts both together (see
+    // `apply_body_hit_reaction`). The dodge half of the original reasoning
+    // stands unchanged.
     jump.post_recovery_helpless && !grounded && !still_recovering
 }
 

@@ -84,8 +84,13 @@ pub fn apply_body_hit_reaction(
     // A fighter that spent its last recovery is helpless until something answers
     // for it. Being hit answers for it: the hit above hands the air dodge back
     // precisely so a launched fighter has an answer to the follow-up, and a body
-    // still forbidden to act cannot use it. ⛔ CLEARING THE EPISODE REFUNDS
-    // NOTHING — `recovery_charges` stays spent, and so does the double jump.
+    // still forbidden to act cannot use it.
+    //
+    // ⭐ AND THE RECOVERY COMES BACK WITH THE EPISODE — see the call site. The
+    // DOUBLE JUMP still does not, which is the distinction the two rules turn
+    // on: a spent midair jump is a resource an edge-guard took from you, and
+    // freefall is a punishment for having spent the recovery. Lifting the
+    // punishment without returning the thing is neither rule.
     jump: Option<&mut ae::BodyJumpState>,
     // ⭐ THE LEDGE HANG A HIT TAKES, for the same reason the budget is here: it
     // is a fact about being HIT, not about which road resolved the hit. It was
@@ -137,11 +142,32 @@ pub fn apply_body_hit_reaction(
             dodge.air_dodge_spent = false;
         }
     }
-    // …and the fighter is allowed to use it. See the parameter's own note for
-    // why this gives back no charge.
+    // …and the fighter is allowed to use it, AND IT GETS THE RECOVERY BACK.
+    //
+    // ⛔⛔ THIS USED TO GIVE BACK NO CHARGE, under a comment saying so was
+    // deliberate and must not be undone. It was wrong, and Jon named the rule it
+    // was wrong about (2026-08-26): *"In Smash Ultimate, the normal rule is that
+    // if you have used an up-B that puts you into special fall / helplessness,
+    // then an opponent hits you hard enough to cause flinch, that hit clears
+    // helplessness. Once hitstun ends, you can act again, INCLUDING using your
+    // up-B again."*
+    //
+    // ⭐ THE OLD COMMENT WAS RIGHT ABOUT THE DOUBLE JUMP AND GENERALISED FROM
+    // IT. A spent midair jump genuinely does stay spent through an edge-guard
+    // hit — that is what makes taking somebody's second jump worth doing, and it
+    // is still true two lines up. The recovery is the opposite case: freefall is
+    // a PUNISHMENT for having spent it, and a hit that lifts the punishment
+    // while withholding the thing punished for leaves a fighter free to act with
+    // nothing to act with. The genre gives both back together or neither.
+    //
+    // ⭐ AND THE EPISODE FLAG IS NOW REDUNDANT HERE RATHER THAN LOAD-BEARING —
+    // cleared anyway, because a body whose charge came back must not be reading
+    // as helpless for even one tick, and because the flag is what
+    // `body_is_helpless` actually asks.
     if let Some(jump) = jump {
         if !gust {
             jump.post_recovery_helpless = false;
+            jump.recovery_charges = ae::DEFAULT_RECOVERY_CHARGES;
         }
     }
     // ONE tuning row for the whole reaction, so the launch and the hitstun
@@ -736,20 +762,27 @@ mod super_armor_tests {
         );
     }
 
-    /// ⭐⭐ A HIT ENDS THE HELPLESS EPISODE AND REFUNDS NOTHING.
+    /// ⭐⭐ A FLINCHING HIT ENDS THE HELPLESS EPISODE **AND GIVES THE RECOVERY
+    /// BACK** — BUT NOT THE DOUBLE JUMP.
     ///
-    /// The reaction already hands the air dodge back — *"a launched fighter that
-    /// could not dodge would have no answer to the follow-up"* — and until
-    /// 2026-08-25 helplessness was `recovery_charges == 0`, a resource reading
-    /// nothing but a landing-shaped refresh could end. So the dodge came back to
-    /// a fighter still forbidden to use it.
+    /// ⛔⛔ THIS TEST USED TO ASSERT THE OPPOSITE, by name, calling it *"a
+    /// deliberate correction this must not undo"*. It was the wrong rule, and it
+    /// is worth recording that the wrongness was invisible from inside: the
+    /// reasoning — a spent resource stays spent through an edge-guard — is
+    /// exactly right about the double jump and was generalised one resource too
+    /// far. Jon named the genre rule, 2026-08-26: *"if you have used an up-B
+    /// that puts you into special fall / helplessness, then an opponent hits you
+    /// hard enough to cause flinch, that hit clears helplessness. Once hitstun
+    /// ends, you can act again, INCLUDING using your up-B again."*
     ///
-    /// ⛔ THE SECOND ASSERTION IS THE LOAD-BEARING ONE. Ending the episode must
-    /// not restore the CHARGE — a spent recovery stays spent through an
-    /// edge-guard hit, exactly as the spent double jump does, and that is a
-    /// deliberate correction this must not undo.
+    /// ⭐ THE THREE ASSERTIONS ARE THREE DIFFERENT RESOURCES AND ALL THREE ARE
+    /// LOAD-BEARING, because the failure this replaces was one rule swallowing
+    /// its neighbour. Freefall is a PUNISHMENT for spending the recovery, so
+    /// lifting it while withholding the recovery leaves a fighter free to act
+    /// with nothing to act with; a midair jump is not a punishment for anything
+    /// and taking somebody's second jump has to stay worth doing.
     #[test]
-    fn a_hit_ends_the_helpless_episode_without_giving_the_recovery_back() {
+    fn a_flinching_hit_gives_the_recovery_back_but_not_the_double_jump() {
         let mut vel = ae::Vec2::new(120.0, 0.0);
         let mut flight = ae::BodyFlightState::default();
         let mut combat = BodyCombat::default();
@@ -759,6 +792,10 @@ mod super_armor_tests {
         };
         let mut jump = ae::BodyJumpState {
             recovery_charges: 0,
+            // SPENT, so the assertion below has somewhere to fail: a fixture
+            // that arrived with a jump left could not tell "the hit kept its
+            // hands off it" from "the hit handed one back".
+            air_jumps_available: 0,
             post_recovery_helpless: true,
             ..Default::default()
         };
@@ -791,9 +828,15 @@ mod super_armor_tests {
              the dodge it was just handed is one it may not use"
         );
         assert_eq!(
-            jump.recovery_charges, 0,
-            "the hit gave the RECOVERY back — a spent recovery stays spent \
-             through an edge-guard hit, exactly as the double jump does"
+            jump.recovery_charges,
+            ae::DEFAULT_RECOVERY_CHARGES,
+            "the flinching hit did NOT give the recovery back, so the fighter is \
+             out of freefall and still has nothing to recover with"
+        );
+        assert_eq!(
+            jump.air_jumps_available, 0,
+            "the hit handed back a spent DOUBLE JUMP — taking somebody's second \
+             jump has to stay worth doing, and that half of the old rule was right"
         );
     }
 }

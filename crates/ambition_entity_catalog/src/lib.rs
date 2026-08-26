@@ -864,6 +864,28 @@ pub struct MoveGates {
     /// statements this way and neither is a special case in input code.
     #[serde(default)]
     pub spends_recovery: bool,
+    /// This move spends a recovery use WITHOUT leaving its owner in freefall.
+    ///
+    /// Ignored unless [`Self::spends_recovery`] is set — the two are a pair, and
+    /// a move that costs nothing has nothing to be exempt from.
+    ///
+    /// ⭐ THE GENRE HAS BOTH, and the difference is what a recovery BUYS. The
+    /// ordinary up-special trades your ability to act for height, which is why
+    /// freefall is its price. A recovery that hands you a VEHICLE has already
+    /// given you the height and the control together, so the price is the
+    /// once-per-airtime budget alone — the pirate is aboard a shark and can
+    /// still swing from the saddle, and it would be incoherent for the same move
+    /// to also say it cannot act.
+    ///
+    /// ⛔ NOT "this move is free". The charge is still spent and still refreshes
+    /// only on a re-seating cause or a flinching hit, so the fighter gets ONE of
+    /// these per airtime exactly like everybody else. What it declines is the
+    /// helpless EPISODE, not the budget — see `BodyJumpState::post_recovery_helpless`,
+    /// whose whole point is that those are different things.
+    ///
+    /// Default FALSE, so every move authored before this existed is unchanged.
+    #[serde(default)]
+    pub recovery_without_freefall: bool,
     /// While this move plays, its owner has NO STEERING AUTHORITY: the
     /// controller's locomotion intent is zeroed and the body keeps only the
     /// motion the move itself gives it.

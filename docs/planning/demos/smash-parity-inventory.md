@@ -260,7 +260,7 @@ fighter rather than building an unused framework.
 | Returning/boomerang projectile | ▢ | M | E1 | Projectile motion policy with owner-relative return target. |
 | Homing projectile | ▢ | M | E1 | Projectile owns deterministic steering toward a semantic target; AI/perception may choose target but does not move the projectile. |
 | Pogo/bounce-on-hit attack | ✔ | — | — | Existing on-hit pogo effect; author content instead of another mechanic. |
-| Self-damage/recoil move | ▢ | S | E1 | Owner-side on-hit/on-use effect through existing effect/event seam. |
+| Self-damage/recoil move | ▢ | S | E1 | Owner-side on-hit/on-use effect through existing effect/event seam. ⚠ **AND IT WANTS A CUSTOMER, measured 2026-08-26.** The seam is one string key per volume (`MoveSpec` volumes carry `on_hit: Option<EffectRef>`), and the tree currently holds exactly ONE key — `technique::POGO_BOUNCE_KEY`. So this is a second key plus its consumer, which is small; what is absent is a fighter that wants to hurt itself. Build it beside the move that needs it, not before. |
 | Heal/lifesteal on hit | ▢ | S/M | E1 | Resolved hit effect targeting owner resource/health. |
 | Fighter resource meter | ▢ | M/C | E1 | Character-owned rollback state plus authored spend/gain effects. Build for one fighter; do not create a global fighter-meter manager. |
 | Transformation/stance | ▢ | C | WAIT | Wait for a concrete fighter to define what changes: moveset, body tuning, art, hurtboxes, resource, or all of them. Do not prebuild a universal stance framework. |

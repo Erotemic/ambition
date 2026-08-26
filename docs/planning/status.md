@@ -1,6 +1,6 @@
 # HEAD orientation
 
-**Snapshot:** `HEAD` (see `git log -1`) (2026-08-25 local project date).
+**Snapshot:** `HEAD` (see `git log -1`) (2026-08-26 local project date).
 
 ⚠ **this SHA goes stale within hours during an active run** — it names the tree
 these paragraphs were measured against, not the tree you have. ⭐ **if it
@@ -15,7 +15,78 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
-## 2026-08-25, LATEST — four review checkpoints, seventeen closed, five scoped
+## 2026-08-26, LATEST — a fortnight of stale markers, and three feature-gate holes
+
+⭐⭐⭐ **THE ONE SENTENCE WORTH CARRYING FORWARD: A GREEN PER-CRATE `cargo test`
+IS EVIDENCE ABOUT A FEATURE SET, NOT ABOUT A CRATE.** Three holes found in one
+day, and each hid REAL red:
+
+```text
+ambition_demo_smash --lib   2 fixtures red since the winner-card fix; the
+                            standing gate runs `-p ambition_demo_smash_app`,
+                            which is a DIFFERENT test target
+ambition_conversation       25 tests by default, 35 with `--features ui` — the
+                            whole authored-command road is behind it, and a
+                            DELIBERATELY BROKEN `Truth` arm came back GREEN
+ambition_game_shell         45 by default, 72 with `--features basic_presentation`
+                            — `mod pause_menu` is gated, so its ten tests never
+                            ran AND could not pass: the fixture omitted a
+                            message the shell plugin owns
+```
+
+⇒ when you poison something and it stays green, check the feature set before you
+believe the poison.
+
+⭐⭐ **AND THE OTHER HALF OF THE DAY WAS THE LEDGER DISAGREEING WITH HEAD.** Rows
+were carrying `▢` over landed work, and one row's own proposed FIX could not have
+repaired the defect it named:
+
+* **D179(a)** parked as unreachable on a measurement that actually proved the
+  proposed gate (`knockdown::owns_control`) is FALSE exactly when the defect
+  fires — the three lines would have been dead code.
+* **D170's biggest item** wanted a cross-room rollback snapshot; a rollback
+  cannot cross a room boundary BY DESIGN (the commit rebases onto a new
+  frame-zero baseline whose first `SaveWorld` overwrites every ring slot).
+* **D125** said `MatchAbilities::apply` never receives the body's kit. It does.
+* **D165's shield row one**, **items 4/5/11/31/36/39** and **29c**: all landed,
+  all still marked open.
+* **D72's own next-up table** disagreed with the inventory it calls canonical —
+  Z-drop shipped on the very day the table was "re-read against" it.
+
+⇒ **grep for the thing a row says is missing before working it.** It paid every
+single time today.
+
+⭐⭐ **WHAT LANDED, and the through-line is that a fact had no seam to live on:**
+
+* **`MatchParticipant::body`** — a seat can state a body now, the movement twin
+  of `action_set`. A catalog row's feel is that character's feel EVERYWHERE, and
+  all 17 affected fighters are `tier: MainHall`, so a fighter self needed its own
+  place to differ. `SmashFighterFacet` grew a matching `body` patch and
+  `smash_roster` fills the seat from it.
+* **17 of 19 grid fighters move on the wandering enemy's body** — measured on the
+  shipped host, and the headline is not gravity: they build ground speed at an
+  EIGHTH of the player's rate and cap their fall at 40%.
+* **The select cursor could never snap to a portrait, on any device** — Jon's
+  *"very hard to use with a gamepad"* was not a feel report. `nav` folds the held
+  d-pad and held arrow keys, so it was non-zero on every frame an edge could
+  fire, and the roam branch always won.
+* **Two authorities on what `true` means** — authored dialogue had a
+  byte-identical copy of the shared arg conversion, comment included.
+* **The lock wall holds a `PreparedCondition`** instead of re-minting arguments
+  every frame; the road was built for it (`ConditionCatalog::prepare`'s doc names
+  it) and never adopted.
+* **The pause menu is on `ListCursor`** — two menus in one game had disagreed
+  about the end of a list.
+* **D242 promoted**: nine participant/action items were reachable from
+  `tracks.md` and from NO ledger row, and all nine now carry a measurement.
+
+⚠ **WHAT IS BLOCKED AND ON WHOM**: #20 (dash/brake ownership) on waking `tumble`,
+which no shipped body authors and which re-tunes knockback for the whole cast;
+the recharge presentation (decision 33) and the six pirates' `standing_height` on
+Jon; the 17 fighters' actual movement numbers on a session that runs the
+repertoire probes before and after.
+
+## 2026-08-25 — four review checkpoints, seventeen closed, five scoped
 
 ⭐⭐⭐ **THE ONE SENTENCE WORTH CARRYING FORWARD**, from the reviewer and
 confirmed independently a dozen times today: *recent mechanics are locally tested

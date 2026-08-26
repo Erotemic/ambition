@@ -237,6 +237,22 @@ These cards are capability fronts, not a serial mega-campaign.
 - ▢ **Remaining named-content evictions.** When reusable engine crates still own
   a closed Ambition-specific family, migrate one structurally complete family at
   a time after verifying it is still present.
+  ⭐ **VERIFIED 2026-08-26 AND THERE IS ESSENTIALLY ONE LEFT — the rest is prose
+  and test data.** Searching engine crates for DEFINITIONS named after Ambition
+  content (not mentions) finds: `ambition_combat::moveset::player_robot_slash`
+  (57 lines, three cue consts + one overlay fn, ONE production caller —
+  `avatar/starting_character.rs:275`) and the `PLAYER_ROBOT_SLASH_*` ids it is
+  compile-time pinned to in `ambition_sfx::ids`. Everything else that greps
+  (`pirate`, `goblin`, `sanic`, `mary_o`) is comments or test fixtures.
+  ⛔ **AND IT IS NOT A FAMILY THAT CAN MOVE ALONE, which is why it is still
+  here.** The overlay's whole point is a `const _: () = assert!` pinning each cue
+  string to an `ambition_sfx::ids` entry, and that id table is a SHARED
+  VOCABULARY of 165 ids (`player` 45, `world` 37, `ui` 25, `portal` 10, `hazard`
+  9, `dialogue` 8, `vfx` 5) that the audio pipeline generates against. Evicting
+  the robot family means moving the ids, the pin AND keeping the generated
+  registry's keys — three coupled things for a purity gain. ⇒ **price it as an
+  AUDIO-VOCABULARY question, not a moveset one**, and do not start it as a
+  five-minute file move.
 
 - ▢ **Editable SVG/component character authoring.** Continue the procedural
   sprite workflow toward editable component/paper-doll authoring where it

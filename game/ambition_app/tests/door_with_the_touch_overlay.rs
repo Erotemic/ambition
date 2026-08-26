@@ -34,7 +34,7 @@ use leafwing_input_manager::prelude::InputMap;
 fn active_room(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
-        .query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        .query::<&ambition_platformer2d::world::rooms::RoomSet>();
     q.iter(app.world())
         .next()
         .map(|set| set.active_spec().id.clone())
@@ -96,7 +96,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
     let before = {
         let door = {
             let world = app.world_mut();
-            let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+            let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let zone = rooms
                 .iter(world)
                 .next()

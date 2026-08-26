@@ -18,7 +18,7 @@ use bevy::prelude::{Message, Name};
 /// actor into a live sim at an arbitrary position WITHOUT authoring an LDtk room.
 ///
 /// Room load is the only other way an actor reaches the world, and it needs a
-/// fully-built [`crate::rooms::RoomSpec`] — too heavy for scenario tests and
+/// fully-built [`ambition_platformer2d_world::rooms::RoomSpec`] — too heavy for scenario tests and
 /// RL/agent scene setup, which both want "put this boss here, step, observe".
 /// Writers emit this as a Bevy message; [`apply_spawn_actor_requests`] drains it
 /// each frame and materializes the entity through the SAME `spawn_boss` /
@@ -232,7 +232,7 @@ pub(crate) fn spawn_staged_actor_into(
     match &req.kind {
         SpawnActorKind::Boss { brain, overrides } => {
             let authored =
-                crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
+                ambition_platformer2d_world::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
             spawn_boss_with_overrides_into(
                 commands,
                 boss_catalog,
@@ -258,9 +258,9 @@ pub(crate) fn spawn_staged_actor_into(
             ) {
                 return;
             }
-            let payload = crate::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
+            let payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
             let authored =
-                crate::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, payload);
+                ambition_platformer2d_world::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, payload);
             // Staged outside the authored RoomSpec lists: mark it so the
             // renderer's runtime-visual discovery gives it a sprite, the same as
             // any authored enemy.
@@ -900,7 +900,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     overrides: &BossOverrides,
 ) {
     let mut boss = BossClusterScratch::new(
@@ -1274,7 +1274,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     faction: super::ActorFaction,
 ) {
@@ -1639,7 +1639,7 @@ pub(super) fn spawn_solo_enemy_into(
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
     enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
     faction: super::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -1710,7 +1710,7 @@ pub(crate) fn spawn_interactable_into(
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::InteractableSpec>,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -1772,7 +1772,7 @@ pub(crate) fn spawn_interactable_into(
 /// One encounter wave mob, as the wave director describes it.
 ///
 ///  the three questions a body's identity answers, and they are separate.
-/// The vocabulary is deliberately [`crate::rooms::EnemySpawnSpec`]'s, the
+/// The vocabulary is deliberately [`ambition_platformer2d_world::rooms::EnemySpawnSpec`]'s, the
 /// neighbouring spawn path, so the two structs read against each other:
 ///
 /// | question | here | `EnemySpawnSpec` |
@@ -1792,7 +1792,7 @@ pub struct EncounterMobSeed<'a> {
     /// up by.  never the character: two goblins in one wave are two bodies.
     pub id: String,
     /// WHAT IT LOOKS LIKE. A catalog character id — art only, exactly as far
-    /// as [`crate::rooms::EnemySpawnSpec::character_id`] reaches: the sheet, the
+    /// as [`ambition_platformer2d_world::rooms::EnemySpawnSpec::character_id`] reaches: the sheet, the
     /// sprite-derived collision box, hurt feedback, and the display label its
     /// banners and barks are keyed by.  it does NOT select the catalog's
     /// `default_brain` or `default_action_set` — `brain` below does that, and

@@ -11,7 +11,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
+use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core::config::world_to_bevy;

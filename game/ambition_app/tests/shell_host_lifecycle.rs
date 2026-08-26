@@ -28,7 +28,7 @@ use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
 use ambition_platformer2d::actors::actor::PrimaryPlayer;
-use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_platformer2d::audio::selection::ActiveAudioSelection;
 use ambition_platformer2d::game_shell::{
     ActiveGameplaySession, ShellCommand, ShellLauncherCommand, ShellRouter,
@@ -628,7 +628,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .run_system_once(
             move |mut room_set: SessionWorldMut<RoomSet>,
                   mut geometry: SessionWorldMut<ambition_platformer2d::engine_core::RoomGeometry>,
-                  mut active_room: SessionWorldMut<ambition_platformer2d::actors::rooms::ActiveRoomMetadata>| {
+                  mut active_room: SessionWorldMut<ambition_platformer2d::world::rooms::ActiveRoomMetadata>| {
                 let index = room_set
                     .room_index_by_id(&alternate_room_for_edit)
                     .expect("alternate authored room exists");

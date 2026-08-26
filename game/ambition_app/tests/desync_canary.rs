@@ -226,7 +226,7 @@ fn authoritative_entity_families_are_ggrs_anchors() {
     assert_family_anchored::<(), _>(world, "ProjectileGameplay", &mut projectiles);
 
     let mut roots =
-        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::actors::rooms::RoomSet>>();
+        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::world::rooms::RoomSet>>();
     assert_family_anchored::<(), _>(world, "RoomSet", &mut roots);
 }
 

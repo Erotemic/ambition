@@ -620,7 +620,7 @@ pub fn step_projectiles(
                     mode: HitMode::Knockback,
                     knockback: Some(HitKnockback {
                         // An ordinary hit: it stuns.
-                        flinchless: false,
+                        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                         dir: knock_dir,
                         magnitude: HitKnockbackMagnitude::FeelScale(0.85),
                         source_pos: kin.pos,

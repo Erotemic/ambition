@@ -83,7 +83,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     let (target_room, arrival) = {
         let mut query = app
             .world_mut()
-            .query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query.iter(app.world()).next().expect("a session room set");
         let zone = room_set
             .active_loading_zones()

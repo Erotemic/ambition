@@ -129,7 +129,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         insert_session_world_component, ActiveSessionScope,
     };
 
-    fn room_set(room_id: &str) -> crate::rooms::RoomSet {
+    fn room_set(room_id: &str) -> ambition_platformer2d_world::rooms::RoomSet {
         let world = ambition_platformer2d_core::World::new(
             "Shrine Room",
             Vec2::new(640.0, 480.0),
@@ -140,9 +140,9 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
                 Vec2::new(640.0, 40.0),
             )],
         );
-        crate::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
             room_id,
-            vec![crate::rooms::RoomSpec::new(room_id, world)],
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(room_id, world)],
             Vec::new(),
         )
     }
@@ -269,9 +269,9 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     );
     insert_session_world_component(
         app.world_mut(),
-        crate::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
             "here",
-            vec![crate::rooms::RoomSpec::new("here", world)],
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new("here", world)],
             Vec::new(),
         ),
     );
@@ -323,7 +323,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     app.world_mut().resource_mut::<ActiveSessionScope>().begin();
 
     let room = |name: &str| {
-        crate::rooms::RoomSpec::new(
+        ambition_platformer2d_world::rooms::RoomSpec::new(
             name,
             ambition_platformer2d_core::World::new(
                 name,
@@ -336,7 +336,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     insert_session_world_component(
         app.world_mut(),
         // Opens in `entry`; the player rested in `rest_room`.
-        crate::rooms::RoomSet::from_parts(
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
             "entry",
             vec![room("entry"), room("rest_room")],
             Vec::new(),

@@ -7,7 +7,7 @@ use ambition_entity_catalog::placements::{
 use ambition_platformer2d_core as ae;
 
 use super::binding::RoomBindings;
-use crate::rooms::{Authored, EnemySpawnSpec, GroundItemSpec, KinematicPathSpec, RoomSpec};
+use ambition_platformer2d_world::rooms::{Authored, EnemySpawnSpec, GroundItemSpec, KinematicPathSpec, RoomSpec};
 use crate::world::placements::PlacementRecord;
 
 fn aabb(x: f32, y: f32) -> ae::Aabb {

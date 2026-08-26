@@ -531,10 +531,21 @@ pub fn apply_hitbox_damage(
                 let knockback = Some(HitKnockback {
                     // ⭐ A GUST IS THROWN THE SAME WAY A PUNCH IS — the strength
                     // and direction above are the volume's ordinary authoring —
-                    // and the only thing it declines to do is stun. That is why
-                    // this is one bool here rather than a second push vector on
-                    // the authored volume.
-                    flinchless: hitbox.windbox().is_some(),
+                    // and what it declines is the INJURY, not the physics. So
+                    // the authored KIND is carried through rather than a second
+                    // push vector on the volume…
+                    //
+                    // ⛔⛔ …AND IT IS THE KIND, NOT A BOOL. This lowered to
+                    // `flinchless: bool`, which named ONE of the four things a
+                    // windbox declines; the other three (the air-dodge refund,
+                    // the helplessness clear, the hitlag) went on happening
+                    // because nothing downstream could still tell a gust from a
+                    // weak punch. See `HitReaction`.
+                    reaction: if hitbox.windbox().is_some() {
+                        ae::hit_response::HitReaction::Windbox
+                    } else {
+                        ae::hit_response::HitReaction::Strike
+                    },
                     dir,
                     magnitude,
                     source_pos: owner_pos,

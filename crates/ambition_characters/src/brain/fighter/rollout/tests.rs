@@ -176,7 +176,7 @@ fn the_hit_response_is_the_authoritative_kernel_not_an_imitation() {
 
     let kb = HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: me_before.facing,
         magnitude: HitKnockbackMagnitude::LaunchSpeed(500.0),
         source_pos: me_before.pos,

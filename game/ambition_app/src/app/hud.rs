@@ -2,7 +2,8 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::world::rooms as world_rooms;
+
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
@@ -62,7 +63,7 @@ pub(super) fn update_hud(
     dev_state: Res<DeveloperRuntimeState>,
     mode: Res<State<GameMode>>,
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
     camera_params: HudCameraParams,

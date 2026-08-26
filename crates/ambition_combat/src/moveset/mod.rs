@@ -1910,10 +1910,15 @@ struct StartingMove<'a, 'cw, 'cs> {
     shield: Option<bevy::prelude::Mut<'a, ae::BodyShieldState>>,
     oos_policy: Option<ae::OutOfShield>,
     jump: Option<bevy::prelude::Mut<'a, ae::BodyJumpState>>,
-    /// The B-REVERSE WINDOW this accepted move opens, and the gesture history it
-    /// opens on. `None` when the move is not a special, or the match declares no
-    /// special turn — see `AttackGestureState::special_turn_window`.
-    gesture_window: Option<(&'a mut AttackGestureState, f32)>,
+    /// The B-REVERSE WINDOW this accepted move opens, the gesture history it
+    /// opens on, and THE LATERAL SIGN THAT BOUGHT THE PRESS. `None` when the
+    /// move is not a special, or the match declares no special turn — see
+    /// `AttackGestureState::special_turn_ticks`.
+    ///
+    /// ⛔⛔ THE SIGN IS NOT OPTIONAL BOOKKEEPING. Without it the same tick's
+    /// stick is read a second time in `CombatSet::Playback` as a fresh
+    /// post-press flick, and a plain fresh Back+Special comes out a wavebounce.
+    gesture_window: Option<(&'a mut AttackGestureState, u8, f32)>,
     /// The body's weapon and the recharge its ranged action authors — spent
     /// here when the accepted move is one that fires. `None` for a body with no
     /// melee cluster or no ranged action, which is every move that fires
@@ -1980,8 +1985,18 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     // only thing a fire may do to this clock is push it out.
     // ⭐ THE B-REVERSE WINDOW OPENS WHERE THE MOVE IS ACCEPTED, never where the
     // press is resolved: a press that starts nothing turns nobody.
-    if let Some((gesture, window)) = gesture_window {
-        gesture.special_turn_window = window;
+    if let Some((gesture, ticks, press_sign)) = gesture_window {
+        gesture.special_turn_ticks = ticks;
+        // ⛔⛔ AND THE PRESS OWNS ITS OWN EDGE. `apply_special_turn_flicks` runs
+        // LATER THIS TICK (`CombatSet::Playback`, ordered after
+        // `CombatSet::Trigger`) and calls a lateral sign a flick when it differs
+        // from the remembered one. Leaving the memory at whatever it held before
+        // the press made the press itself qualify: the fresh Back that chose a
+        // turnaround-B was counted again as the post-press flick, flipping the
+        // facing twice and reversing the drift. Seeding it here is what makes
+        // the Playback comment — *"a flick on the same tick as the press IS the
+        // press, not a B-reverse"* — true of the code as well as of the intent.
+        gesture.prev_lateral_sign = press_sign;
     }
     if let Some((melee, refire_s)) = weapon {
         if fires_ranged {
@@ -2190,6 +2205,14 @@ pub fn trigger_moveset_moves(
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
+        // The stick sign an accepted special will seed its flick memory with —
+        // read through the SAME function the post-press recognizer uses, so the
+        // seed and the comparison cannot drift.
+        let press_lateral_sign = gesture_tuning
+            .map(|tuning| {
+                ambition_characters::actor::attack_gesture::lateral_flick_sign(control, tuning)
+            })
+            .unwrap_or(0.0);
         // ⛔⛔ A HELPLESS FIGHTER STARTS NOTHING, and this is the authority that
         // decides it — not the movement kernel's `InputState`, which this system
         // never reads. The gate lived only there, so a fighter that had spent its
@@ -2319,9 +2342,9 @@ pub fn trigger_moveset_moves(
         // playback, which is the value every hit volume is mirrored by and every
         // `start_impulse` multiplied by. So the correct move came out pointing
         // backwards: the right name, the wrong geometry.
-        // Seconds of B-reverse window this press would open. `0.0` = none —
-        // not a special, or a match that declares no special turn.
-        let mut special_turn_window = 0.0f32;
+        // Ticks of B-reverse window this press would open. `0` = none — not a
+        // special, or a match that declares no special turn.
+        let mut special_turn_ticks = 0u8;
         let mut pivot_turn = false;
         // The direction the resolved gesture asked for, carried onto the
         // accepted playback. `Forward` for a move no directional gesture
@@ -2434,9 +2457,13 @@ pub fn trigger_moveset_moves(
             // `flick_window_ticks` is already how long a flick and a press count
             // as the same intent.
             if combat_rules.as_ref().is_some_and(|r| r.special_turn) {
-                special_turn_window = gesture_tuning
-                    .map(|tuning| f32::from(tuning.flick_window_ticks) / 60.0)
-                    .unwrap_or(0.0);
+                // ⛔ THE AUTHORED TICKS, SPENT AS TICKS. This used to divide by
+                // a hardcoded 60.0 into seconds that were then aged on the
+                // SCALED clock, so the same authored number bought a different
+                // number of input opportunities at every time scale.
+                special_turn_ticks = gesture_tuning
+                    .map(|tuning| tuning.flick_window_ticks)
+                    .unwrap_or(0);
             }
             // ⛔⛔ NOT GATED ON THE TURN. The two halves are INDEPENDENT
             // outcomes, and gating this one behind `special_turn` made the
@@ -2800,11 +2827,11 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 weapon: melee.as_deref_mut().zip(refire_s),
-                gesture_window: (special_turn_window > 0.0)
+                gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state
                             .as_deref_mut()
-                            .map(|g| (g, special_turn_window))
+                            .map(|g| (g, special_turn_ticks, press_lateral_sign))
                     })
                     .flatten(),
             });
@@ -2888,11 +2915,11 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 weapon: melee.as_deref_mut().zip(refire_s),
-                gesture_window: (special_turn_window > 0.0)
+                gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state
                             .as_deref_mut()
-                            .map(|g| (g, special_turn_window))
+                            .map(|g| (g, special_turn_ticks, press_lateral_sign))
                     })
                     .flatten(),
             });
@@ -2926,7 +2953,6 @@ pub fn trigger_moveset_moves(
 /// ⛔ ONCE. The window closes on the flick that spends it, so a stick waggled
 /// through a long special turns the fighter one time.
 pub fn apply_special_turn_flicks(
-    time: Option<bevy::prelude::Res<WorldTime>>,
     combat_rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
     mut bodies: bevy::prelude::Query<(
         &mut AttackGestureState,
@@ -2936,33 +2962,26 @@ pub fn apply_special_turn_flicks(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
-    let dt = time.map(|time| time.sim_dt()).unwrap_or(0.0);
     let reverses_drift = combat_rules
         .as_ref()
         .is_some_and(|rules| rules.special_turn_reverses_drift);
     for (mut gesture, control, tuning, mut kin, frame) in &mut bodies {
-        // ⛔⛔ THE STICK THE PLAYER IS HOLDING, NOT THE ONE THE BODY MAY MOVE BY.
-        // `update.rs` publishes the DAMPED frame back onto the component after
-        // integration, so `locomotion` reads zero for the whole of a rooted
-        // move — and a special with a `motion_scale: 0.0` tail is how this
-        // repository authors a commitment. Reading it would have made the
-        // B-reverse impossible on exactly the moves that most want it.
-        let lateral = control.0.steer_axis().vec().x;
-        let sign = if lateral.abs() > tuning.directional_deadzone {
-            lateral.signum()
-        } else {
-            0.0
-        };
+        let sign = ambition_characters::actor::attack_gesture::lateral_flick_sign(control, tuning);
         let flicked = sign != 0.0 && sign != gesture.prev_lateral_sign;
         gesture.prev_lateral_sign = sign;
-        if gesture.special_turn_window <= 0.0 {
+        if gesture.special_turn_ticks == 0 {
             continue;
         }
-        gesture.special_turn_window = (gesture.special_turn_window - dt).max(0.0);
+        // ⛔ ONE TICK PER TICK. This window is authored in
+        // `AttackGestureTuning::flick_window_ticks` and is now spent in the same
+        // unit; it used to age on `WorldTime::sim_dt()`, which hitstop, pause
+        // and bullet time all scale, so the player got more chances at the
+        // B-reverse the slower the match ran.
+        gesture.special_turn_ticks -= 1;
         if !flicked {
             continue;
         }
-        gesture.special_turn_window = 0.0;
+        gesture.special_turn_ticks = 0;
         kin.facing = -kin.facing;
         if reverses_drift {
             let body_frame = frame

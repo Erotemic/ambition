@@ -34,7 +34,7 @@ fn repro_sim() -> Platformer2dSimHarness {
 fn active_room(sim: &Platformer2dSimHarness) -> String {
     // RoomSet is a session-world component, read via the same accessor the
     // harness observation uses.
-    ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::rooms::RoomSet>(
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(
         sim.world(),
     )
     .map(|set| set.active_spec().id.clone())

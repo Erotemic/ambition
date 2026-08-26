@@ -68,7 +68,7 @@ fn census(rollback: bool, frames: usize) -> Census {
 
     let door = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()
@@ -277,7 +277,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
 
     let (target_room, arrival) = {
         let world = sim.world_mut();
-        let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let room_set = query
             .iter(world)
             .next()

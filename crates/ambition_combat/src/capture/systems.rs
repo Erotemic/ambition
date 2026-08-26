@@ -2447,7 +2447,7 @@ pub fn apply_capture_throws(
         );
         let knockback = ae::hit_response::HitKnockback {
             // A throw is a hit: it stuns.
-            flinchless: false,
+            reaction: ae::hit_response::HitReaction::Strike,
             // The captor's facing decides which way "forward" points, exactly as
             // it does for the hold anchor — a throw follows the hands.
             dir: captor_kin.facing,

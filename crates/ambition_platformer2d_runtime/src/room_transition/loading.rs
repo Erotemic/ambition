@@ -17,6 +17,8 @@ use ambition_load::{
     LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
 use ambition_platformer2d_actor_monolith::rooms;
+use ambition_platformer2d_world::rooms as world_rooms;
+
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent;
 use ambition_time::SimTick;
 
@@ -98,7 +100,7 @@ impl RoomTransitionContentEpoch {
 /// last had: a restore reproduces them exactly and bumps nothing, while a
 /// hot-reload that changes the world's rooms still bumps.
 pub fn advance_room_transition_content_epoch_system(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     placement_lowering: Res<
         ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry,
     >,
@@ -492,7 +494,7 @@ pub fn begin_room_transition_load_system(
     mut state: ResMut<RoomTransitionLoadState>,
     content_epoch: Res<RoomTransitionContentEpoch>,
     active_binding: Option<Res<ambition_platformer2d_actor_monolith::rooms::ActiveContentBinding>>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<rooms::RoomSet>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     construction_services: (
         Res<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,

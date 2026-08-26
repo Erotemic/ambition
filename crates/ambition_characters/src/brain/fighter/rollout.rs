@@ -475,7 +475,7 @@ pub fn shadow_step(
         let kb = HitKnockback {
             // The brain's shadow model of being hit. A gust is not a threat it
             // plans against, so the pulse it imagines is an ordinary one.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: s.foe.facing,
             magnitude: HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: s.foe.pos,
@@ -828,7 +828,7 @@ fn my_knockback(me: &ShadowFighter, foe: &ShadowFighter) -> Option<HitKnockback>
     };
     (frames.max_knockback > 0.0).then(|| HitKnockback {
         // Same shadow model, attacker side.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: me.facing,
         magnitude: HitKnockbackMagnitude::LaunchSpeed(frames.max_knockback),
         source_pos: me.pos,

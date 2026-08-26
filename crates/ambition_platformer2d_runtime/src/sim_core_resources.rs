@@ -70,7 +70,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_combat::GameplayBannerRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>()
             // Staging fact: a room's contents finished spawning (JD4).
-            .add_message::<ambition_platformer2d_actor_monolith::rooms::RoomLoaded>()
+            .add_message::<ambition_platformer2d_world::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes
             // time-control messages instead of mutating time_scale directly.
             .add_message::<ambition_time::time_control::ClockScaleRequest>()
@@ -142,11 +142,11 @@ impl Plugin for SimCoreResourcesPlugin {
             // Neutral runtime mirror of `WorldTime::sim_dt()`.
             .init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>()
             // Portal registry — the AUTHORED per-portal configuration.
-            .init_resource::<ambition_platformer2d_actor_monolith::rooms::GatePortalRegistry>()
+            .init_resource::<ambition_platformer2d_world::rooms::GatePortalRegistry>()
             // …and the live phase it drives, which is rollback state (registered
             // as `resource.gate_portal_phases`). Two resources because only one
             // of them rewinds.
-            .init_resource::<ambition_platformer2d_actor_monolith::rooms::GatePortalPhases>()
+            .init_resource::<ambition_platformer2d_world::rooms::GatePortalPhases>()
             // `CameraEaseState` is NOT here any more: it is per-VIEW state and
             // lives on the local view entity, spawned by `CameraObservationPlugin`.
             // The tuning below stays global — it is authored feel, one game-wide

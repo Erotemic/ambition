@@ -16,7 +16,7 @@ use std::fmt;
 use bevy::prelude::*;
 
 use ambition_platformer2d::ldtk_map as ldtk_world;
-use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Summary of a `run_headless` call. Used by tests, the headless binary, and
 /// future RL drivers to verify the simulation actually progressed instead of

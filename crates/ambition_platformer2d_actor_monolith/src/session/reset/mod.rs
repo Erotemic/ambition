@@ -59,7 +59,7 @@ pub struct RoomReplayRequested;
 pub struct NewGameResetCommitted;
 
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use crate::rooms::RoomSet;
+use ambition_platformer2d_world::rooms::RoomSet;
 use crate::world::physics;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};

@@ -351,7 +351,7 @@ fn a_possessed_body_is_carried_through_a_room_transition() {
     // whole distinction.
     let door_centre = {
         let world = sim.world_mut();
-        let mut rooms = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+        let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
         let Some(zone) = rooms.iter(world).next().and_then(|set| {
             set.active_loading_zones()
                 .iter()

@@ -17,7 +17,8 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::query::With;
 use bevy::prelude::{Commands, Resource};
 
-use super::{transaction, RespawnRoomVisualsRequested, RoomSet, RoomSpec};
+use ambition_platformer2d_world::rooms::{RespawnRoomVisualsRequested, RoomSet, RoomSpec};
+use super::transaction;
 use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
@@ -455,7 +456,7 @@ mod tests {
     #[test]
     fn portal_gun_is_a_capability_owned_construction_lane() {
         let mut spec = empty_spec("portal-lane");
-        spec.portal_gun_spawns.push(crate::rooms::PortalGunSpawnSpec {
+        spec.portal_gun_spawns.push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
             id: "gun".to_string(),
             name: "Aperture Device".to_string(),
             pos: ae::Vec2::new(120.0, 80.0),
@@ -478,7 +479,7 @@ mod tests {
         );
 
         let mut app = bevy::prelude::App::new();
-        app.add_message::<crate::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);
@@ -559,11 +560,11 @@ mod tests {
 
     fn giant_spec_sized(id: &str, half: f32) -> RoomSpec {
         let mut spec = empty_spec(id);
-        let payload = crate::rooms::EnemySpawnSpec::new(
+        let payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
             "giant_gnu",
         );
-        spec.enemy_spawns.push(crate::rooms::Authored::new(
+        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
             "gnu",
             "Giant GNU",
             ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(half)),
@@ -697,7 +698,7 @@ mod tests {
 
         let expected_plan_id = plan.id().clone();
         let mut app = bevy::prelude::App::new();
-        app.add_message::<crate::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         {
             let mut commands = app.world_mut().commands();
             plan.spawn_contents(&mut commands);
@@ -730,20 +731,20 @@ mod tests {
     fn duplicate_authoritative_roots_fail_before_commit() {
         let mut spec = empty_spec("duplicate");
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0));
-        spec.enemy_spawns.push(crate::rooms::Authored::new(
+        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
             "same-id",
             "first",
             aabb,
-            crate::rooms::EnemySpawnSpec::new(
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
                 "combatant",
             ),
         ));
-        spec.enemy_spawns.push(crate::rooms::Authored::new(
+        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
             "same-id",
             "second",
             aabb,
-            crate::rooms::EnemySpawnSpec::new(
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
                 "combatant",
             ),
@@ -812,14 +813,14 @@ mod tests {
         .expect("plan");
 
         let mut app = bevy::prelude::App::new();
-        app.add_message::<crate::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         app.add_message::<features::SpawnActorRequest>();
 
         let observed = std::sync::Arc::new(std::sync::Mutex::new(None));
         let sink = observed.clone();
         app.add_systems(
             bevy::prelude::Update,
-            move |mut reader: bevy::ecs::message::MessageReader<crate::rooms::RoomLoaded>,
+            move |mut reader: bevy::ecs::message::MessageReader<ambition_platformer2d_world::rooms::RoomLoaded>,
                   commit: Option<bevy::prelude::Res<LastRoomConstructionCommit>>,
                   ids: bevy::prelude::Query<
                 &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -859,11 +860,11 @@ mod tests {
     #[test]
     fn commit_receipt_matches_the_prepared_root_roster() {
         let mut spec = empty_spec("receipt");
-        spec.enemy_spawns.push(crate::rooms::Authored::new(
+        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
             "enemy-1",
             "enemy",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
-            crate::rooms::EnemySpawnSpec::new(
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
                 ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
                 "combatant",
             ),
@@ -873,7 +874,7 @@ mod tests {
         let expected_id = plan.id().clone();
 
         let mut app = bevy::prelude::App::new();
-        app.add_message::<crate::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         app.add_message::<features::SpawnActorRequest>();
         {
             let mut commands = app.world_mut().commands();
@@ -977,7 +978,7 @@ mod tests {
     #[test]
     fn a_room_reinstates_an_occurrence_whose_record_lives_next_door() {
         let mut home = empty_spec("blink_run");
-        home.ground_items.push(crate::rooms::GroundItemSpec {
+        home.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
             id: "axe".into(),
             name: "Axe".into(),
             held_item: "gun_sword".into(),

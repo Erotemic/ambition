@@ -2,6 +2,9 @@
 //! walk-zone tunneling.
 
 use super::*;
+// The room vocabulary these fixtures build is the world crate's. Named here
+// rather than forwarded from the parent module, which no longer globs it.
+use ambition_platformer2d_world::rooms::*;
 
 fn empty_world(name: &str) -> ae::World {
     ae::World::new(
@@ -822,7 +825,7 @@ fn loading_zone_hint_for_edge_exit_skips_prompt() {
 
 #[test]
 fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
-    use crate::world::rooms::KinematicPathSpec;
+    use ambition_platformer2d_world::rooms::KinematicPathSpec;
     use ambition_platformer2d_core::KinematicPath;
 
     // A spec whose id was NOT derived from its display name is still

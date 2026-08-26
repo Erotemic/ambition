@@ -30,7 +30,7 @@ use ambition_platformer2d_actor_monolith::features::{
     ActorPose, CenteredAabb, DamageableVolumes, EnemyActorBundle, FeatureBaseBundle, FeatureId,
     FeatureName, FeatureSimEntity, PogoPolicy, PogoTargetVolumes, PostBossNpc,
 };
-use ambition_platformer2d_actor_monolith::rooms::{PropSpec, RoomSet};
+use ambition_platformer2d::world::rooms::{PropSpec, RoomSet};
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;

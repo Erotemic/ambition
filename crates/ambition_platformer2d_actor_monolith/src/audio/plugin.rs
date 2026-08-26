@@ -201,7 +201,7 @@ struct AudioRequestState<'w, 's> {
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
             'w,
             's,
-            crate::rooms::RoomMusicRequest,
+            ambition_platformer2d_world::rooms::RoomMusicRequest,
         >,
     >,
     radio: Option<ResMut<'w, super::RadioStationState>>,

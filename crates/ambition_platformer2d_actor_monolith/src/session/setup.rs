@@ -13,7 +13,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use crate::platformer_runtime::lifecycle::PlayerVisual;
-use crate::rooms::RoomSet;
+use ambition_platformer2d_world::rooms::RoomSet;
 use ambition_dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::RoomGeometry;

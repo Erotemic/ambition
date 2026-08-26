@@ -264,7 +264,7 @@ goblin (control, 1 page)          1    2,185,530   1.000
   is the one to re-check the day anything starts calling it.
 
   ⇒ six causes eliminated, and every road that can be compared from a file
-  agrees. What is left needs a screen.                           
+  agrees. What is left needs a screen.
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: `sprite-residency-and-live-quality.md`.
@@ -614,3 +614,54 @@ huge regressions, not sure how we didn't have a test to catch these."*
   room CHANGED, never WHICH, which `Replay` satisfies. Both now have guards
   (`walking_into_a_loading_zone`, `level_lap`, `mary_o_lap_in_the_host`).
 
+
+## GPT review, relayed by Jon 2026-08-26 — Smash cross-boundary pass
+
+* Sudden death enters at 150% but does not reduce the contenders to one stock. `open_the_sudden_death_round` only changes `BodyHealth`, so a tied fighter with two or three stocks just spends one on the first KO and respawns fresh, with the clock disabled. The entry transaction should set each contender's remaining stock to one alongside the damage.
+  * ✔ ALREADY FIXED AT HEAD — `open_the_sudden_death_round` sets `stocks.remaining = 1` for every contender, with a comment naming this exact bug; the review is reading an older tree.
+
+* The same sudden-death sim system writes the persistent "SUDDEN DEATH" `HudReadouts` slot. A rollback before the timeout retracts `BodyHealth` and the message but not `HudReadouts`, so the banner can survive as speculative presentation. Belongs with confirmed-result presentation cleanup, not with the game rules.
+  * ▢
+
+* Every `MoveEventKind::Ranged` passes through a hidden 1.1-second body refire cooldown at the effect consumer, while Projectile Polygon's authored Charge Shot is 0.58 seconds long. The move-start authority does not consult that cooldown.
+  * ▢
+
+* `emit_knockout_beat` asks for one or two `VfxMessage::Impact`s and calls them "expanding rings", but `Impact` is the ordinary hit-marker API. Asset-backed, it resolves to the shipped generic hit effect, so an elimination draws the normal damage-impact art twice at the blast line. Semantic misuse of the VFX vocabulary.
+  * ▢
+
+* Stock-loss presentation has no composition policy. The launch-trail module says its flare/plume sit "on top of the hit spark and camera shake", and knockout adds another layer on top of that. Nothing at the stock-spend boundary retires or attenuates the cues whose job was to PREDICT danger, so all three modules can be locally correct and still over-signal.
+  * ▢
+
+* `KnockoutsView` is a rebuilt read-model used as a one-tick event queue: cleared on every simulation advance but rendered once per frame. Catch-up resimulation can erase an intermediate KO before presentation samples it, and a KO on the latest speculative advance renders immediately, bypassing the confirmed-effect quarantine.
+  * ▢
+
+* `KnockoutsView`'s `LastSeenBodies` history is a non-rollback `Local`, so after a rewind the "where did the body leave play?" lookup can come from the abandoned future branch. This transient event belongs on the confirmed/journaled presentation-event path used by SFX/VFX/camera shake.
+  * ▢
+
+* `guard_covers_hit` shifts the full-width coverage band by `shield_tilt` even though the code promises a full shield can never be poked. At max tilt (0.34 half-heights) a 100% shield covers about -0.66 to +1.34, exposing the opposite outer third; the test misses it because its full-shield control samples only -0.3. Bound the tilt by the amount already exposed — at full coverage the allowed shift is zero.
+  * ✔ ALREADY FIXED AT HEAD — `guard_covers_hit` returns `true` on `coverage >= 1.0` before tilt is read, and its doc states that contract; the review is reading an older tree.
+
+* Negative result, same pass: camera reset, crouch scheduling, Z-drop, recovery edge-cancel, defense-policy composition and the deterministic item RNG produced no additional defects under the cross-boundary checks.
+
+## Full review of HEAD `f56b5ea`, relayed by Jon 2026-08-26 — worked in the order Jon gave
+
+* **1. Same-frame Back+Special is double-counted as both halves of wavebounce.** Production orders `CombatSet::Trigger` → `CombatSet::Playback`; the accepted Special opens `special_turn_window` but never records the stick sign that belonged to that press, so `apply_special_turn_flicks` in Playback sees `prev_lateral_sign == 0` and calls the SAME tick's Back a fresh post-press flick — facing flips twice and drift reverses. Holding Back a frame first hides it. The accepted Special must set a baseline sign. Also: `flick_window_ticks` is aged in scaled `sim_dt()` seconds here and in integer ticks for ordinary attack flicks — one authored knob, two clock semantics. The regression must run the real Trigger→Playback graph; the existing arm installs the two halves into bare `Update`.
+  * ▢
+
+* **2. Windbox loses its identity before hit resolution.** Lowering reduces it to `HitKnockback { flinchless: true }`, so `apply_body_hit_reaction` still knocks the body off its ledge, refunds `air_dodge_spent`, clears `post_recovery_helpless` and charges `hitstop_timer` before the flinchless branch. `ResolvedBodyHit` carries no reaction kind, so `impact_hitstop::is_a_connect()` sees `HitSource::Melee` and a windbox can freeze the whole match. Carry the reaction kind through resolution and define the windbox policy once; the ledge question needs an explicit rule rather than inherited injury handling.
+  * ▢
+
+* **3. D192 canonicalizes simultaneous respawns with `Entity`.** `tick_pending_respawn` sorts a `Vec<Entity>` under a comment saying query order is not guaranteed and message order decides placement — but `Entity` is allocator identity. The clank work in the same window moved to `SimId` for exactly this reason. Sort on `MatchSeat` (or `SimId`), or remove the sort and correct the comment; a fake canonicalization is worse than none.
+  * ▢
+
+* **4. The mount carve moved implementation but not rollback ownership.** `actor_monolith/rollback_registration.rs` still registers the seven `ambition_mount::` components and their `MapEntities`, while `runtime/rollback/mod.rs` says domains own their own declarations and composes six `register_rollback_state` calls with no mount one. Give `ambition_mount` its own `register_rollback_state`, preserve the wire names, and watch the registrar's owner string.
+  * ▢
+
+* **5. The saddle COG mixes mount-local and world vectors.** `ambition_mount/src/lib.rs` adds `cog_local` (local) to `frame.to_world(rider_offset - cog_local)` (world). Default gravity hides it; rotated gravity with unequal masses and a nonzero saddle offset pins the COG term to screen axes. Predates this window (5c9b11a, 2026-08-24). Either the invariant is just `mount_kin.pos + frame.to_world(rider_offset)`, or a true rigid pair must rotate BOTH bodies about one world COG.
+  * ▢
+
+* **6. Three-way clank applies rebound more than once per fighter.** Arbitration emits `AttacksClanked` per qualifying pair (AB, AC, BC) and `rebound_from_clanks` adds a full impulse per message. The new three-way arm cannot see it: all three bodies sit at `Vec2::ZERO`, where the rebound axis is deliberately zero. Decide the rule — summed pairwise or one bounded recoil per participant — before clanking is enabled (`clank_damage_window` is 0.0 in Smash today).
+  * ▢
+
+* Hygiene, same window: trailing whitespace in this file and a new blank line at EOF in `game/ambition_app/tests/duel_arena.rs`.
+  * ▢

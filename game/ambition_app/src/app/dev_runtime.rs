@@ -2,6 +2,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::platformer_runtime::lifecycle::RoomResident;
 use ambition_platformer2d::actors::rooms;
+use ambition_platformer2d::world::rooms as world_rooms;
+
 use ambition_platformer2d::actors::world::physics;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
@@ -67,7 +69,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
     mut hotkey_actions: MessageReader<DeveloperAction>,
     mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
-    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<rooms::RoomSet>,
+    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<world_rooms::RoomSet>,
     mut dev_state: ResMut<DeveloperRuntimeState>,
     mut sim_state: ResMut<ambition_platformer2d::actors::RoomTransitionCooldown>,
     mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
@@ -272,8 +274,8 @@ pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
 
 pub(super) struct LdtkReloadTransaction {
     project: ldtk_world::LdtkProject,
-    next_room_set: rooms::RoomSet,
-    next_spec: rooms::RoomSpec,
+    next_room_set: world_rooms::RoomSet,
+    next_spec: world_rooms::RoomSpec,
     safe_player_pos: ae::Vec2,
 }
 
@@ -318,7 +320,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
         return Err(hard_errors);
     }
 
-    let safe_player_pos = rooms::validated_spawn(&next_spec.world, preserved_pos, player_size);
+    let safe_player_pos = world_rooms::validated_spawn(&next_spec.world, preserved_pos, player_size);
     Ok(LdtkReloadTransaction {
         project,
         next_room_set,
@@ -330,7 +332,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
 pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     world: &mut RoomGeometry,
-    room_set: &mut rooms::RoomSet,
+    room_set: &mut world_rooms::RoomSet,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut DeveloperRuntimeState,
@@ -384,7 +386,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         .with_world(
             transaction.next_room_set.clone(),
             RoomGeometry(transaction.next_spec.world.clone()),
-            rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
+            world_rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
         )
         // `with_world` carries the OLD index forward on purpose, so the road
         // that reloaded an LDtk project has to state its replacement. This is

@@ -53,7 +53,7 @@ fn body_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_c
 /// be inventing a second mapping that could disagree with the real one.
 fn the_named_door(sim: &mut Platformer2dSimHarness) -> Option<(LoadingZone, Vec<String>)> {
     let world = sim.world_mut();
-    let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+    let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = query.iter(world).next()?;
     let mut offered = Vec::new();
     let mut found = None;

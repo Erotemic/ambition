@@ -134,7 +134,7 @@ pub enum ActorRelation {
 #[derive(Clone, Debug)]
 pub enum ActorConstructionParams {
     GroundItem {
-        spec: crate::rooms::GroundItemSpec,
+        spec: ambition_platformer2d_world::rooms::GroundItemSpec,
         held: ambition_characters::brain::HeldItemSpec,
     },
     StagedActor(SpawnActorRequest),
@@ -142,25 +142,25 @@ pub enum ActorConstructionParams {
     /// A `"giant"`-class limbed host: an ordinary authored enemy body plus the host-side rig state
     /// its hands' limb relations attach to.
     GiantHost {
-        authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
+        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
         faction: crate::features::ActorFaction,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
     /// One hand of a giant host. The body is built here; its `Limb` component and
     /// the host's rig entry are installed by the `ambition.limb` relation.
     GiantHand {
-        authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
+        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
     },
     /// An ordinary authored enemy. Every authored enemy is a plan row, built by
     /// the same populate function the former family loop used.
     AuthoredEnemy {
-        authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
+        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
     /// An authored boss. Every authored boss is a plan row, built by the same
     /// populate function the former boss loop used, with default overrides.
     AuthoredBoss {
-        authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+        authored: ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     },
     /// One authored placement record beside its ALREADY-RESOLVED interpreter —
     /// the exact `(record, fn)` pair `PlacementLoweringPlan` froze at
@@ -177,7 +177,7 @@ pub enum ActorConstructionParams {
     },
     /// Now it is a plan row like everything else in the room.
     Shrine {
-        spec: crate::rooms::ShrineSpec,
+        spec: ambition_platformer2d_world::rooms::ShrineSpec,
     },
 }
 
@@ -1484,11 +1484,11 @@ pub fn relocate_request(
 /// and [`relocate_request`] can rebuild that request there. The exhaustive
 /// `RoomSpec` destructure forces new authored families to be classified.
 pub fn reinstatable_authored_requests(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {
     // Exhaustive so every new authored family must be classified as
     // reinstatable or fixed to its source room.
-    let crate::rooms::RoomSpec {
+    let ambition_platformer2d_world::rooms::RoomSpec {
         // ── the family this function offers ──────────────────────────────
         ground_items: _,
 
@@ -1526,7 +1526,7 @@ pub fn reinstatable_authored_requests(
 /// skips rooms whose authored records cannot resolve, and returns `None` when
 /// the source record no longer exists.
 pub fn authored_occurrence_request(
-    world: &[crate::rooms::RoomSpec],
+    world: &[ambition_platformer2d_world::rooms::RoomSpec],
     occurrence: &SimId,
 ) -> Option<ActorConstructionRequest> {
     for room in world {
@@ -1555,7 +1555,7 @@ pub fn authored_occurrence_request(
 /// Turn a room's authored ground items into construction requests, resolving
 /// each held item while nothing has been mutated.
 pub fn authored_ground_item_requests(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> Result<Vec<ActorConstructionRequest>, ActorConstructionError> {
     // Built once for the room, and only when it has ground items at all: this is
     // the registry the refusal below is measured against, and the list it names
@@ -1634,8 +1634,8 @@ pub fn staged_actor_requests(
                 // Invisible while an archetype row could answer for the brain key; a refusal the
                 // moment they went (AC6).
                 let host_payload =
-                    crate::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
-                let host_authored = crate::rooms::Authored::new(
+                    ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
+                let host_authored = ambition_platformer2d_world::rooms::Authored::new(
                     request.id.clone(),
                     request.name.clone(),
                     aabb,
@@ -1696,7 +1696,7 @@ pub fn staged_actor_requests(
 /// root, stamps identity/provenance/ownership, and wires/verifies relations — not what the actor
 /// is.
 pub fn authored_actor_requests(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     // See [`staged_actor_requests`].
     prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
@@ -1774,7 +1774,7 @@ pub fn authored_actor_requests(
 #[allow(clippy::too_many_arguments)]
 fn giant_cluster_rows(
     host_sim: SimId,
-    host_authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
+    host_authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
     faction: crate::features::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     hands: Vec<crate::features::GiantHandPlan>,
@@ -1797,12 +1797,12 @@ fn giant_cluster_rows(
             origin: hand_origin(hand),
             parameters: ActorConstructionParams::GiantHand {
                 authored: {
-                    let mut authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
-                        crate::rooms::Authored::new(
+                    let mut authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> =
+                        ambition_platformer2d_world::rooms::Authored::new(
                             hand.feature_id.clone(),
                             "Giant GNU Hand",
                             hand.aabb,
-                            crate::rooms::EnemySpawnSpec::new(
+                            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
                                 ambition_entity_catalog::placements::CharacterBrain::Custom(
                                     "giant_gnu_hands".into(),
                                 ),
@@ -1902,7 +1902,7 @@ pub fn placement_requests(
 
 /// Their specs always carried stable authored ids; the entities now wear them. Capability-owned
 /// families compose their own typed construction lanes beside this actor lane.
-pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConstructionRequest> {
+pub fn authored_static_requests(room: &ambition_platformer2d_world::rooms::RoomSpec) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for shrine in &room.shrines {
         requests.push(ActorConstructionRequest {
@@ -1923,7 +1923,7 @@ pub fn authored_static_requests(room: &crate::rooms::RoomSpec) -> Vec<ActorConst
 /// Fold the room's authored mount links into the request batch as planned
 /// `ambition.mount` relations.
 pub fn attach_authored_mount_links(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     requests: &mut Vec<ActorConstructionRequest>,
 ) -> Result<(), ActorConstructionError> {
     for (rider_id, mount_id) in &room.mount_links {

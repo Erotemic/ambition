@@ -154,7 +154,7 @@ pub fn update_ecs_hazards(
                 mode: hazard.mode,
                 knockback: Some(HitKnockback {
                     // A hazard is a hit: it stuns.
-                    flinchless: false,
+                    reaction: ae::hit_response::HitReaction::Strike,
                     dir: knockback_dir,
                     magnitude: HitKnockbackMagnitude::FeelScale(1.0),
                     source_pos: hazard.pos,

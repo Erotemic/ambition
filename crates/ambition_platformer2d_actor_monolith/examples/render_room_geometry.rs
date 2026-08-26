@@ -27,7 +27,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 /// `placements` channel (fable audit F9.2 — these families no longer have a
 /// typed `RoomSpec` list).
 fn placement_aabbs(
-    room: &sb::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     kind: ambition_entity_catalog::placements::PlacementKind,
 ) -> Vec<ae::Aabb> {
     room.placements
@@ -269,7 +269,7 @@ fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: R
 
 fn render_room(
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    room: &sb::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
 ) -> RgbaImage {
     let world = &room.world;
     let (proj, w, h) = Projection::new(world.size);
@@ -278,7 +278,7 @@ fn render_room(
 
 fn render_room_snapshot(
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    room: &sb::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     snapshot: &CameraSnapshot2d,
     image_size: (u32, u32),
 ) -> RgbaImage {
@@ -288,7 +288,7 @@ fn render_room_snapshot(
 
 fn render_room_projected(
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    room: &sb::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     proj: &Projection,
     w: u32,
     h: u32,
@@ -408,7 +408,7 @@ fn parse_image_size(text: &str) -> Option<(u32, u32)> {
 }
 
 fn resolve_headless_snapshot(
-    room: &sb::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     focus_world: ae::Vec2,
     image_size: (u32, u32),
 ) -> CameraSnapshot2d {
@@ -454,7 +454,7 @@ fn resolve_headless_snapshot(
 /// the room bounds (it would fall/float forever), or a player spawn
 /// embedded inside a Solid collision block (the player loads stuck).
 /// These are projection-level checks the LDtk validator does not run.
-fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
+fn run_anomaly_report(room_set: &ambition_platformer2d_world::rooms::RoomSet) {
     let mut total = 0usize;
     for room in &room_set.rooms {
         let world = &room.world;

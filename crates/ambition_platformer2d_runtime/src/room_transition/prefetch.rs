@@ -16,7 +16,8 @@ use std::sync::Arc;
 
 use bevy::prelude::Resource;
 
-use ambition_platformer2d_actor_monolith::rooms::{RoomConstructionPlan, RoomSpec};
+use ambition_platformer2d_actor_monolith::rooms::RoomConstructionPlan;
+use ambition_platformer2d_world::rooms::RoomSpec;
 use ambition_platformer2d_shared_tangle::lifecycle::{RoomOccurrenceOutlook, SessionScopeId};
 
 /// Prepared construction plans for the rooms adjacent to the one in play.

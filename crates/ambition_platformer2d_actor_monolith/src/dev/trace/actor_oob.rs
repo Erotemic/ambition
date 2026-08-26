@@ -72,7 +72,7 @@ pub fn record_actor_oob_frame_system(
     // trace must see exactly the world the simulation collided against.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     >,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     bodies_q: Query<(

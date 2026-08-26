@@ -10,7 +10,7 @@ use ambition_platformer2d_shared_tangle::binding::{
     BindingLedger, BindingReport, Namespace, Ref, Resolver,
 };
 
-use crate::rooms::RoomSpec;
+use ambition_platformer2d_world::rooms::RoomSpec;
 
 /// The kinematic paths a room declares. Room-scoped: `patrol_a` in one room has
 /// nothing to do with `patrol_a` in another.

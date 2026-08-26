@@ -152,7 +152,7 @@ fn door_to(
 ) -> ambition_platformer2d::world::rooms::LoadingZone {
     let before = sim.observation().active_room.clone();
     let world = sim.world_mut();
-    let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+    let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let room_set = query
         .iter(world)
         .next()

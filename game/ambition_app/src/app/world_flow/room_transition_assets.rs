@@ -19,7 +19,7 @@ use bevy::prelude::{
 use bevy::time::Real;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
-use ambition_platformer2d::actors::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
+use ambition_platformer2d::world::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 use ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog;
 use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d::load::{

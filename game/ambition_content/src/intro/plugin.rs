@@ -26,7 +26,7 @@ use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_platformer2d_actor_monolith::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
-use ambition_platformer2d_actor_monolith::rooms::GatePortalRegistry;
+use ambition_platformer2d::world::rooms::GatePortalRegistry;
 use ambition_render::quality::ResolvedVisualQuality;
 use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 

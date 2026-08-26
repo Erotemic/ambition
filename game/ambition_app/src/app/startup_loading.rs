@@ -14,7 +14,7 @@ use bevy::window::PrimaryWindow;
 
 use ambition_platformer2d::actors::features::RoomContentStagingRegistry;
 use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
-use ambition_platformer2d::actors::rooms::RoomSet;
+use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;

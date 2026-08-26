@@ -1198,7 +1198,7 @@ fn shield_test_app() -> App {
 fn slash_knockback(center: ae::Vec2, dir: f32) -> crate::features::HitKnockback {
     crate::features::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir,
         magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
         source_pos: center,
@@ -1299,7 +1299,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         mode: HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
@@ -1356,7 +1356,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
     for knockback in [
         Some(crate::features::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
@@ -1520,7 +1520,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
         mode: HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
             magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),

@@ -39,7 +39,7 @@ fn zones_by_distance(
 ) -> Vec<LoadingZone> {
     let from = body_pos(sim);
     let world = sim.world_mut();
-    let mut query = world.query::<&ambition_platformer2d::actors::rooms::RoomSet>();
+    let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let Some(room_set) = query.iter(world).next() else {
         return Vec::new();
     };

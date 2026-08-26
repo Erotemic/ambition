@@ -11,7 +11,7 @@ use bevy::prelude::*;
 /// Push a `RoomEntered` quest event whenever the active room changes.
 /// Idempotent: only fires the frame the room id flips.
 pub fn push_room_entered_quest_events(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
     mut registry: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut last_room: Local<Option<String>>,
 ) {

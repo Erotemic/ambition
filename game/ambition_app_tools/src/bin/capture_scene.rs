@@ -908,7 +908,7 @@ fn apply_capture_snapshot(
         ambition_platformer2d::engine_core::RoomGeometry,
     >,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::actors::rooms::RoomSet,
+        ambition_platformer2d::world::rooms::RoomSet,
     >,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,

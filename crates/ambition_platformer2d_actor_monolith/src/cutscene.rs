@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        crate::rooms::RoomSet,
+        ambition_platformer2d_world::rooms::RoomSet,
     >,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_room: ResMut<ambition_cutscene::LastCutsceneRoom>,

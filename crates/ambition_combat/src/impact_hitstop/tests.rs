@@ -197,3 +197,42 @@ fn attrition_and_the_blast_zone_do_not_stop_the_world() {
         );
     }
 }
+
+/// ⛔⛔ A GUST STOPS THE WORLD FOR NOBODY, AND IT IS THE HITLAG THAT SAYS SO.
+///
+/// A windbox is authored as "pushes its victim and does nothing else", and a
+/// melee windbox is still `HitSource::Melee` — so `is_a_connect` cannot tell it
+/// from a punch and was never meant to. What separates them is the BEAT: a gust
+/// owes its victim no hitlag (`apply_body_hit_reaction` declines to charge it
+/// for the windbox reaction kind), and this system returns early when the
+/// resolved hitlag is zero.
+///
+/// ⭐ SO THE FREEZE NEEDED NO RULE ABOUT WIND. That is why this arm exists
+/// rather than a `ResolvedReactionKind` on the message: one fact — did this hit
+/// earn a beat — answers both the victim's freeze and the match's, and a second
+/// classification carried alongside it could disagree with the first.
+///
+/// ⭐ THE STRIKE ARM IS THE PREMISE GUARD: without it this passes against a
+/// system that has stopped arming for anybody.
+#[test]
+fn a_connect_that_earned_no_hitlag_arms_no_match_freeze() {
+    let mut gust = app();
+    land_a_hit(&mut gust, 0.0);
+    gust.update();
+    assert_eq!(
+        gust.world().resource::<ImpactHitstop>().until_tick,
+        None,
+        "a melee pulse that earned its victim no hitlag froze the whole match \
+         anyway — which is what a windbox did, because the source alone says \
+         `Melee` for a gust and a punch alike"
+    );
+
+    let mut blow = app();
+    land_a_hit(&mut blow, 0.05);
+    blow.update();
+    assert!(
+        blow.world().resource::<ImpactHitstop>().until_tick.is_some(),
+        "an ordinary connect stopped arming the freeze, so the arm above proves \
+         nothing about gusts"
+    );
+}

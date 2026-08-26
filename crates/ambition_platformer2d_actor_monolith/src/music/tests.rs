@@ -205,7 +205,7 @@ fn resolver_iterates_multiple_bindings() {
 use super::intent::simple_track_candidates;
 use ambition_audio::selection::ActiveAudioSelection;
 use ambition_encounter::EncounterMusicRequest;
-use crate::rooms::RoomMusicRequest;
+use ambition_platformer2d_world::rooms::RoomMusicRequest;
 
 fn narrative(track: &str) -> ambition_conversation::NarrativeMusicRequest {
     let mut request = ambition_conversation::NarrativeMusicRequest::default();

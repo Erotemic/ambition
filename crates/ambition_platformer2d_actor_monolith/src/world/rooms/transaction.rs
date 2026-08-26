@@ -162,7 +162,7 @@ fn verify_and_publish(
         ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
             "room-loaded {room_id}"
         ));
-        world.write_message(crate::rooms::RoomLoaded {
+        world.write_message(ambition_platformer2d_world::rooms::RoomLoaded {
             room_id: room_id.clone(),
         });
     } else {

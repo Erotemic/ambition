@@ -157,6 +157,32 @@ impl Default for AttackGestureTuning {
 /// same partial-deflection-means-tilt convention is what a human's stick obeys.
 pub const TILT_DEFLECTION: f32 = 0.65;
 
+/// The lateral stick sign the B-reverse recognizer reads, reduced to -1, 0 or 1.
+///
+/// ⛔⛔ THE STICK THE PLAYER IS HOLDING, NOT THE ONE THE BODY MAY MOVE BY. The
+/// actor update publishes the DAMPED frame back onto the component after
+/// integration, so locomotion reads zero for the whole of a rooted move — and a
+/// special with a `motion_scale: 0.0` tail is how this repository authors a
+/// commitment. Reading that would make the B-reverse impossible on exactly the
+/// moves that most want it.
+///
+/// ⭐ ONE function because TWO sites need the identical answer: the accepted
+/// special seeds `AttackGestureState::prev_lateral_sign` with it, and the
+/// post-press recognizer compares against it. A second hand-written copy of this
+/// expression is how a seed and a comparison drift into disagreeing about what
+/// the player was holding.
+pub fn lateral_flick_sign(
+    control: &crate::control::ActorControl,
+    tuning: &AttackGestureTuning,
+) -> f32 {
+    let lateral = control.0.steer_axis().vec().x;
+    if lateral.abs() > tuning.directional_deadzone {
+        lateral.signum()
+    } else {
+        0.0
+    }
+}
+
 /// A recently detected directional flick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RecentAttackFlick {
@@ -190,8 +216,17 @@ pub struct AttackGestureState {
     /// clock — see [`SpecialGestureIntent`] for why a timer alone was not
     /// enough.
     pub buffered_special: Option<SpecialGestureIntent>,
-    /// Seconds left in which a lateral FLICK still turns the special this body
-    /// just started — the B-reverse window.
+    /// Simulation ticks left in which a lateral FLICK still turns the special
+    /// this body just started — the B-reverse window.
+    ///
+    /// ⛔⛔ TICKS, NOT SECONDS, and that was a real defect rather than a style
+    /// choice. It was `f32` seconds aged by `WorldTime::sim_dt()`, which is
+    /// SCALED by pause, hitstop and bullet time — while the ordinary attack
+    /// flick this window is authored from ([`AttackGestureTuning::flick_window_ticks`],
+    /// and [`RecentAttackFlick::age_ticks`] beside it) counts integer ticks. One
+    /// authored knob had two clock semantics, so a match at half time scale gave
+    /// the player twice as many ticks of B-reverse opportunity as an ordinary
+    /// smash-flick window from the same number.
     ///
     /// ⭐⭐ THE TECHNIQUES ARE TWO TOGGLES, NOT THREE NAMES. Each qualifying
     /// input flips the facing, and a flick AFTER the press also reverses the
@@ -212,10 +247,24 @@ pub struct AttackGestureState {
     ///
     /// ⛔ ARMED WHERE THE MOVE IS ACCEPTED, never where the press is resolved: a
     /// press that starts nothing turns nobody.
-    pub special_turn_window: f32,
+    pub special_turn_ticks: u8,
     /// The lateral stick sign this body was holding last tick, for the flick
     /// edge above. Same shape and the same reason as the movement kernel's
     /// `prev_steer_dir`: a flick is an EDGE, and an edge needs a memory.
+    ///
+    /// ⛔⛔ AND THE ACCEPTED SPECIAL SEEDS IT, which is the whole of the
+    /// same-frame bug. Production runs `CombatSet::Trigger` before
+    /// `CombatSet::Playback`; a fresh Back+Special on one tick was accepted in
+    /// Trigger — flipping the facing once as a turnaround-B — and then read
+    /// again in Playback against a memory of NEUTRAL, so the very stick that
+    /// bought the press counted a second time as a post-press flick. The facing
+    /// flipped twice and the drift reversed: a wavebounce out of an ordinary
+    /// fresh turnaround. Holding Back for one frame first hid it, because by
+    /// then this field already said Back.
+    ///
+    /// ⇒ seeded at ACCEPTANCE from [`lateral_flick_sign`] — the same reading the
+    /// recognizer makes — rather than carrying a second baseline field beside
+    /// this one. There is only ever one memory, so the two cannot disagree.
     pub prev_lateral_sign: f32,
 }
 
@@ -227,7 +276,7 @@ impl Default for AttackGestureState {
             active: None,
             buffered_press: None,
             buffered_special: None,
-            special_turn_window: 0.0,
+            special_turn_ticks: 0,
             prev_lateral_sign: 0.0,
         }
     }

@@ -1135,7 +1135,7 @@ impl Plugin for SanicRulesPlugin {
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
-        app.add_message::<ambition_platformer2d::actors::rooms::RoomLoaded>();
+        app.add_message::<ambition_platformer2d::world::rooms::RoomLoaded>();
         // The act cycle restarts the room on a clear, exactly as Mary-O's level
         // cycle does. The engine registers this in a full app; a thin
         // rules-only harness may not, and `add_message` is idempotent.
@@ -2051,7 +2051,7 @@ pub fn scatter_rings_on_hit(
             let size = ae::Vec2::splat(18.0);
             let seq = counter.next();
             let ring_id = ambition_platformer2d::platformer::sim_id::SimId::spawned(player_id, seq);
-            let authored = ambition_platformer2d::actors::rooms::Authored {
+            let authored = ambition_platformer2d::world::rooms::Authored {
                 id: ring_id.as_str().to_string(),
                 name: "ring".to_string(),
                 aabb: ae::Aabb::new(event.pos, size * 0.5),

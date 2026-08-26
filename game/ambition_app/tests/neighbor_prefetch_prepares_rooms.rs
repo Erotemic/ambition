@@ -37,7 +37,7 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
 
     let (source, neighbours) = {
         let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::actors::rooms::RoomSet,
+            ambition_platformer2d::world::rooms::RoomSet,
         >(app.world())
         .expect("a direct-gameplay session installs one live room set");
         let source = room_set

@@ -24,7 +24,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// authored position remains authoritative and the mismatch is loud rather than
 /// silently fabricating relocation support.
 pub(super) fn authored_requests(
-    room: &crate::rooms::RoomSpec,
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     outlook: &RoomOccurrenceOutlook,
 ) -> Vec<GravityZoneConstructionRequest> {
     room.gravity_zones

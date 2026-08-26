@@ -5668,6 +5668,30 @@ because the old query view demanded all twenty-six columns. Mount now reads
 fixture is those spawned directly, and none of them is a monolith type. ⇒ the
 fixtures CAN be rewritten rather than relocated.
 
+⭐ **AND THE 15 ARMS IN `mount/tests.rs` CLASSIFY CLEANLY — done 2026-08-26, so
+the move is a sorting job rather than a judgement call:**
+
+```text
+TRAVEL (mount RULES, expressible in components)     9
+  sync_riders_to_mounts_snaps_rider_to_mount_offset · dead_mount_dissolves_link_
+  keeping_records · can_pilot_matches_authored_classes · mountable_defaults_are_
+  total_control_and_clean_dismount · nonlethal_mount_death_splash_damages_the_
+  rider_then_dismounts · lethal_mount_death_splash_kills_the_rider ·
+  dismount_impact_leaves_rider_hp_intact · reviving_mount_re_arms_rider_to_
+  mounted_brain · dead_rider_does_not_disturb_mount_records
+
+STAY (cross-domain, and the monolith is where the other domain is)   6
+  boss_rider_keeps_its_brain_… (BossConfig) · total_grant_routes_rider_
+  locomotion_to_mount_but_not_fire and a_player_controlled_rider_pilots_the_mount_
+  agnostically (the control seam) · the three gnu_ton arms (limbs, possession,
+  the whole bridge)
+```
+
+⛔ **DO NOT WRITE THE NINE COMPONENT-LEVEL FIXTURES AHEAD OF THE MOVE.** They
+would duplicate coverage that is green today, and a duplicate arm is a second
+thing to keep in step. Write them AS the crate moves, where the compiler is
+already forcing every line to be revisited.
+
 ⚠ **BUT CHEAPER IS NOT AUTOMATICALLY RIGHT, and this is the call to make
 deliberately.** Today those arms build riders through the REAL construction road,
 so they also prove a real pirate raider ends up mountable. A hand-spawned

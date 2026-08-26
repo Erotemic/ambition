@@ -104,6 +104,14 @@ where
     // the fighter acted would hand back a grant it had already spent.
     registrar
         .rollback_component_canonical::<crate::stocks::RespawnGrace>(OWNER, "entity:respawn_grace");
+    // D192's return beat. Registered for the same reason the grace is: the
+    // interval decides WHEN a body is placed, so a rewind that dropped it would
+    // resimulate a fighter returning on the wrong tick — and a placement tick is
+    // a position on the stage.
+    registrar.rollback_component_canonical::<crate::stocks::PendingRespawn>(
+        OWNER,
+        "entity:pending_respawn",
+    );
     registrar.rollback_component_canonical::<crate::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",
@@ -257,6 +265,24 @@ where
     registrar.clear_message_on_rollback::<crate::stocks::FighterStockSpent>(
         OWNER,
         "message.fighter_stock_spent",
+    );
+    // ⛔ D192's return cue. A reader's cursor is `Local` state GGRS never rewinds,
+    // so an abandoned future's cursor would either re-read a consumed
+    // `FighterRespawnDue` — placing a body twice — or skip an unread one, leaving
+    // a fighter waiting forever on a beat that already elapsed. Both are
+    // positions on the stage, which is the loudest kind of desync.
+    //
+    // ⭐ AND CLEARING IS RIGHT HERE, WHICH IS NOT TRUE OF EVERY CHANNEL. The
+    // backend `.clear()`s the buffer rather than restoring a cursor, so a
+    // request MADE OUTSIDE THE SIMULATION is simply lost by a rewind — that is
+    // why `MatchAbandoned` had to become a latch instead. This cue is the
+    // opposite: `tick_pending_respawn` DERIVES it every tick from
+    // `PendingRespawn`, which is rollback-registered, so a resim re-emits it on
+    // the same tick it emitted it before. Losing the buffered copy is exactly
+    // what should happen to a message the simulation will say again.
+    registrar.clear_message_on_rollback::<crate::stocks::FighterRespawnDue>(
+        OWNER,
+        "message.fighter_respawn_due",
     );
     registrar.clear_message_on_rollback::<crate::stocks::StocksMatchDecided>(
         OWNER,

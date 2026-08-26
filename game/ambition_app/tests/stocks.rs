@@ -82,6 +82,26 @@ fn fighter(app: &mut App, seat: usize, team: &str, stocks: u32) -> Entity {
 }
 
 fn knock_out(app: &mut App, body: Entity) {
+    // ⛔⛔ WAIT FOR THE PREVIOUS RESPAWN FIRST. D192 made a knocked-out fighter
+    // wait out an authored beat, and `spend_fighter_stocks` refuses a body that
+    // is still `PendingRespawn` — deliberately, because a body is not placed
+    // while it waits, so for a ring-out it is lying in the blast zone that killed
+    // it and would otherwise spend EVERY remaining stock during one respawn.
+    //
+    // ⇒ two knockouts back to back used to be two spent stocks and are now one.
+    // That is the rule working; what it breaks is a harness that assumed instant
+    // placement. Settling here keeps every caller's "knock it out again" honest
+    // rather than each of them growing its own loop.
+    for _ in 0..240 {
+        if app
+            .world()
+            .get::<ambition_platformer2d::actor::PendingRespawn>(body)
+            .is_none()
+        {
+            break;
+        }
+        app.update();
+    }
     app.world_mut()
         .resource_mut::<Messages<BodyKnockedOut>>()
         .write(BodyKnockedOut {

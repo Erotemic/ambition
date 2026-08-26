@@ -118,6 +118,105 @@ pub struct FighterStockSpent {
     pub eliminated: bool,
 }
 
+/// A fighter that lost a stock and has not come back yet.
+///
+/// ⭐ THE MATCH LIFECYCLE STATE D192 WAS MISSING. A knocked-out fighter used to
+/// go straight from "alive" to "standing on the respawn platform" on ONE tick,
+/// so there was no state in which it was out of the match but still returning —
+/// and every consumer that needed that beat invented its own answer. The KO cue
+/// played over a fighter who was already back; the camera was required to frame a
+/// live body that had appeared 500 units away with no travel; and
+/// `KnockoutsView` still keeps a previous-frame cache because by the time
+/// presentation reads the entity, the body has already moved.
+///
+/// ⛔ NOT "the stock was spent N ticks ago" in a stage-local table. The fighter
+/// is genuinely in a temporary lifecycle state — alive → knocked out, awaiting
+/// respawn → returned with grace — and combat eligibility, the camera cast, the
+/// HUD, placement and rollback all have to agree about it. One owner, so none of
+/// them reverse-engineers it.
+///
+/// Ticks, not seconds: the interval is authored against the fixed sim step, and
+/// a float that accumulates would make the beat a different length after a
+/// rewind.
+///
+/// ⛔⛔ [`spend_fighter_stocks`] OPENS an episode and [`tick_pending_respawn`] is
+/// the only thing that CLOSES one. Register both or neither: a schedule with
+/// just the spend latches every fighter out of play after its first knockout,
+/// and the symptom is silent — a body that cannot spend a stock never loses
+/// another one.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PendingRespawn {
+    /// Sim ticks left before this body is placed. Zero means "this tick".
+    pub remaining_ticks: u32,
+}
+
+/// How long a returning fighter waits, authored by the RULESET.
+///
+/// Default zero, which is the behaviour every existing ruleset already had: the
+/// body is placed on the tick the stock is spent. A mode that wants the beat
+/// inserts its own. ⛔ this is CONFIG, set once when the mode is built — it is
+/// not rollback state, and nothing in the sim writes it.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct RespawnInterval {
+    pub ticks: u32,
+}
+
+/// The interval elapsed — the ruleset's cue to PLACE the body.
+///
+/// ⭐ THE SEAM. The engine owns *when* a fighter comes back; a ruleset owns
+/// *where* and *how*. Placement used to read [`FighterStockSpent`] directly,
+/// which is why the beat could not exist: the only cue available was the one
+/// that fires on the knockout tick.
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
+pub struct FighterRespawnDue {
+    pub body: Entity,
+}
+
+/// The set [`tick_pending_respawn`] runs in — this tick's returns have been
+/// decided, and any [`FighterRespawnDue`] for it is written.
+///
+/// A ruleset orders its PLACEMENT after this. Ordering only against
+/// [`FighterStocksSpent`] is not enough: the spend and the return are now
+/// different ticks, and a placement racing the tick-down would read an empty
+/// message queue on the tick the fighter was actually due.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FighterRespawnsDue;
+
+/// Count a pending fighter back in, and announce the ones that are due.
+///
+/// ⛔ THE DECREMENT AND THE ZERO CASE ARE ONE SYSTEM, deliberately. An interval
+/// of zero has to behave exactly as the old same-tick placement did, or every
+/// ruleset that never asked for a beat changes behaviour. Writing the message
+/// from the spend for zero and from here for everything else would be two code
+/// paths for one event, and the rarely-taken one is the one that rots.
+pub fn tick_pending_respawn(
+    mut commands: Commands,
+    mut pending: Query<(Entity, &mut PendingRespawn)>,
+    mut due: MessageWriter<FighterRespawnDue>,
+) {
+    // Collected and sorted: `Query` iteration order is not guaranteed, and the
+    // message order here decides placement order for two fighters returning on
+    // one tick — which is a seat-dependent position.
+    let mut ready: Vec<Entity> = Vec::new();
+    for (entity, mut pending) in &mut pending {
+        if pending.remaining_ticks > 0 {
+            pending.remaining_ticks -= 1;
+            continue;
+        }
+        ready.push(entity);
+    }
+    ready.sort();
+    for entity in ready {
+        commands.entity(entity).remove::<PendingRespawn>();
+        // Back IN the fight, which is the half that makes the body targetable
+        // and gives it a place on the anti-clump board again.
+        commands
+            .entity(entity)
+            .try_insert(crate::components::ActiveCombatant);
+        due.write(FighterRespawnDue { body: entity });
+    }
+}
+
 /// The set [`spend_fighter_stocks`] runs in — this tick's stock spend lands.
 ///
 /// ONE member. `decide_stocks_match` is chained after and CONSUMES the spend;
@@ -163,9 +262,18 @@ pub fn spend_fighter_stocks(
     mut commands: Commands,
     mut knockouts: MessageReader<BodyKnockedOut>,
     mut spent: MessageWriter<FighterStockSpent>,
-    mut fighters: Query<&mut FighterStocks, Without<FighterEliminated>>,
+    // ⛔⛔ AND `Without<PendingRespawn>`. A waiting body is NOT PLACED — it is
+    // still lying wherever it died, which for a ring-out is inside the blast
+    // zone. Same-tick placement hid this by moving the body out on the tick it
+    // died; with a beat, the zone would knock it out again every tick and spend
+    // every remaining stock during the wait.
+    mut fighters: Query<&mut FighterStocks, (Without<FighterEliminated>, Without<PendingRespawn>)>,
     mut meters: Query<&mut ambition_characters::actor::BodyHealth>,
+    interval: Option<Res<RespawnInterval>>,
 ) {
+    // Absent resource == zero == the same-tick placement every ruleset had
+    // before D192. A missing knob must not change anybody's behaviour.
+    let interval = interval.map(|i| *i).unwrap_or_default();
     // Message order is write order, which is deterministic; nothing here sorts
     // or iterates a query, so there is no hash-order hazard to guard against.
     for knockout in knockouts.read() {
@@ -184,12 +292,27 @@ pub fn spend_fighter_stocks(
             commands
                 .entity(knockout.body)
                 .remove::<crate::components::ActiveCombatant>();
-        } else if let Ok(mut health) = meters.get_mut(knockout.body) {
-            // A fighter coming back comes back FRESH. The meter is the reason
-            // it was knocked off the stage; carrying it into the next stock
-            // would make the second one shorter than the first and the third
-            // shorter again, which is a difficulty ramp nobody authored.
-            health.reset();
+        } else {
+            if let Ok(mut health) = meters.get_mut(knockout.body) {
+                // A fighter coming back comes back FRESH. The meter is the reason
+                // it was knocked off the stage; carrying it into the next stock
+                // would make the second one shorter than the first and the third
+                // shorter again, which is a difficulty ramp nobody authored.
+                health.reset();
+            }
+            // D192: the body is OUT until its interval elapses. Both halves
+            // matter and neither is enough alone — the state says a return is
+            // coming, and dropping `ActiveCombatant` is what actually keeps the
+            // fighter from being targeted, captured or counted while it waits.
+            // ⛔ the same removal elimination does, for the same reason: a body
+            // that is not in the fight must not go on holding attack state and a
+            // place on the anti-clump board.
+            commands.entity(knockout.body).try_insert(PendingRespawn {
+                remaining_ticks: interval.ticks,
+            });
+            commands
+                .entity(knockout.body)
+                .remove::<crate::components::ActiveCombatant>();
         }
         spent.write(FighterStockSpent {
             body: knockout.body,
@@ -321,12 +444,14 @@ mod tests {
     use ambition_characters::actor::{BodyHealth, DeathPolicy, Health};
     use bevy::prelude::*;
 
+    /// ⛔⛔ BOTH SYSTEMS, ALWAYS. `spend_fighter_stocks` opens a pending-respawn
+    /// episode and `tick_pending_respawn` is the only thing that closes one, so a
+    /// harness wiring just the first latches every fighter out of play after its
+    /// first knockout — silently, because a body that cannot spend a stock simply
+    /// never loses another. This wired only the spend, and the "spends until
+    /// eliminated" test is what caught it.
     fn stocks_app() -> App {
-        let mut app = App::new();
-        app.add_message::<BodyKnockedOut>();
-        app.add_message::<FighterStockSpent>();
-        app.add_systems(Update, spend_fighter_stocks);
-        app
+        respawn_app(0)
     }
 
     fn fighter(app: &mut App, stocks: u32) -> Entity {
@@ -352,6 +477,221 @@ mod tests {
         let messages = app.world().resource::<Messages<FighterStockSpent>>();
         let mut cursor = messages.get_cursor();
         cursor.read(messages).last().copied()
+    }
+
+    /// A stocks app that also runs D192's return beat.
+    fn respawn_app(interval_ticks: u32) -> App {
+        let mut app = App::new();
+        app.add_message::<BodyKnockedOut>();
+        app.add_message::<FighterStockSpent>();
+        app.add_message::<FighterRespawnDue>();
+        app.insert_resource(RespawnInterval {
+            ticks: interval_ticks,
+        });
+        app.add_systems(
+            Update,
+            (spend_fighter_stocks, tick_pending_respawn).chain(),
+        );
+        app
+    }
+
+    /// ⛔ DRAIN, never a fresh cursor. Bevy keeps a message readable for a
+    /// second frame, so a helper that made a new cursor each call counted one
+    /// return twice and made "exactly once" unprovable.
+    fn returned_this_tick(app: &mut App) -> Vec<Entity> {
+        app.world_mut()
+            .resource_mut::<Messages<FighterRespawnDue>>()
+            .drain()
+            .map(|due| due.body)
+            .collect()
+    }
+
+    /// Spawn a fighter and let the harness settle.
+    ///
+    /// ⛔⛔ THE SETTLE IS LOAD-BEARING. A bare `App`'s FIRST `update()` runs the
+    /// `Update` schedule TWICE, which silently spent two ticks of the interval
+    /// and made every count here off by one. Measured, not assumed.
+    fn settled_fighter(app: &mut App, stocks: u32) -> Entity {
+        let body = combat_fighter(app, stocks);
+        app.update();
+        let _ = returned_this_tick(app);
+        body
+    }
+
+    fn combat_fighter(app: &mut App, stocks: u32) -> Entity {
+        app.world_mut()
+            .spawn((
+                FighterStocks::new(stocks),
+                BodyHealth::new(Health::new(50)).with_policy(DeathPolicy::Unbounded),
+                crate::components::ActiveCombatant,
+            ))
+            .id()
+    }
+
+    #[test]
+    fn a_knocked_out_fighter_is_not_due_back_on_the_tick_it_lost_the_stock() {
+        // ⛔⛔ D192 ITSELF. The body used to be placed inside the same tick the
+        // stock was spent, so the KO cue played over a fighter who was already
+        // standing on the platform and the camera had to frame a body that
+        // teleported ~500 units with no travel.
+        let mut app = respawn_app(60);
+        let body = settled_fighter(&mut app, 3);
+        knock_out(&mut app, body);
+        app.update();
+
+        assert!(
+            returned_this_tick(&mut app).is_empty(),
+            "the fighter must NOT be due back on the knockout tick"
+        );
+        // ⛔ the COUNT is deliberately not asserted here. This harness is a bare
+        // `App`, whose schedule is not the game's — measured, its `Update` runs
+        // twice on the first pass — so an exact remaining-ticks number would pin
+        // the harness rather than the rule. The wall-clock length of the beat is
+        // proven where the real schedule runs.
+        assert!(
+            app.world().get::<PendingRespawn>(body).is_some(),
+            "it is waiting to come back"
+        );
+    }
+
+    #[test]
+    fn a_waiting_fighter_is_out_of_the_fight_and_is_counted_back_in_when_it_returns() {
+        // The half that actually keeps the body from being targeted, captured or
+        // crowding the anti-clump board while it waits. A state that said "a
+        // return is coming" without this would leave a fighter fightable in a
+        // place it is not standing.
+        let mut app = respawn_app(3);
+        let body = settled_fighter(&mut app, 3);
+        knock_out(&mut app, body);
+        app.update();
+        assert!(
+            app.world().get::<crate::components::ActiveCombatant>(body).is_none(),
+            "a fighter awaiting respawn is NOT in the fight"
+        );
+
+        for _ in 0..3 {
+            app.update();
+        }
+        assert!(
+            app.world().get::<crate::components::ActiveCombatant>(body).is_some(),
+            "and it is back in the fight on the tick it returns"
+        );
+        assert!(
+            app.world().get::<PendingRespawn>(body).is_none(),
+            "the episode is over, not left latched"
+        );
+    }
+
+    #[test]
+    fn a_longer_authored_interval_waits_strictly_longer() {
+        // ⭐ A COMPARATIVE, because it is the part that survives the harness.
+        // The absolute tick count here would be measuring a bare `App`'s
+        // schedule; that one interval outlasts a shorter one is a fact about the
+        // rule, and it is what a knob being wired at all actually means. Two
+        // arms that STRADDLE, so a countdown wired to a constant fails it.
+        fn ticks_until_due(interval: u32) -> usize {
+            let mut app = respawn_app(interval);
+            let body = settled_fighter(&mut app, 3);
+            knock_out(&mut app, body);
+            for tick in 0..500 {
+                app.update();
+                if !returned_this_tick(&mut app).is_empty() {
+                    return tick;
+                }
+            }
+            panic!("a fighter with a {interval}-tick interval never came back");
+        }
+
+        let short = ticks_until_due(2);
+        let long = ticks_until_due(40);
+        assert!(
+            long > short,
+            "a 40-tick beat must outlast a 2-tick one (got {long} vs {short})"
+        );
+        assert!(
+            short > 0,
+            "and even a short beat is not the knockout tick itself"
+        );
+    }
+
+    #[test]
+    fn a_zero_interval_returns_on_the_knockout_tick() {
+        // ⛔ THE COMPATIBILITY ARM, and it straddles the interesting boundary
+        // with the test above. Every ruleset that never asked for a beat must
+        // behave exactly as it did before D192 — placed on the spend tick.
+        let mut app = respawn_app(0);
+        let body = settled_fighter(&mut app, 3);
+        knock_out(&mut app, body);
+        app.update();
+
+        assert_eq!(
+            returned_this_tick(&mut app),
+            vec![body],
+            "with no authored beat the fighter is due back immediately"
+        );
+        assert!(app.world().get::<PendingRespawn>(body).is_none());
+    }
+
+    #[test]
+    fn a_body_waiting_to_respawn_cannot_spend_another_stock() {
+        // ⛔⛔ THE BEAT'S OWN HAZARD. The body is not placed while it waits, so a
+        // ring-out leaves it lying in the blast zone that killed it. Without the
+        // filter that zone knocks it out again every tick and the fighter loses
+        // every stock it has during one respawn.
+        let mut app = respawn_app(60);
+        let body = settled_fighter(&mut app, 3);
+        knock_out(&mut app, body);
+        app.update();
+        assert_eq!(app.world().get::<FighterStocks>(body).unwrap().remaining, 2);
+
+        for _ in 0..10 {
+            knock_out(&mut app, body);
+            app.update();
+        }
+        assert_eq!(
+            app.world().get::<FighterStocks>(body).unwrap().remaining,
+            2,
+            "a waiting fighter spends NO further stocks"
+        );
+    }
+
+    #[test]
+    fn an_eliminated_fighter_never_waits_to_come_back() {
+        // It has no stock to return on. A pending episode here would be a body
+        // scheduled to be placed for a knockout that ended its match.
+        let mut app = respawn_app(60);
+        let body = settled_fighter(&mut app, 1);
+        knock_out(&mut app, body);
+        app.update();
+
+        assert!(app.world().get::<FighterEliminated>(body).is_some());
+        assert!(
+            app.world().get::<PendingRespawn>(body).is_none(),
+            "an eliminated fighter is not coming back"
+        );
+        for _ in 0..70 {
+            app.update();
+            assert!(
+                returned_this_tick(&mut app).is_empty(),
+                "and it is never announced as due"
+            );
+        }
+    }
+
+    #[test]
+    fn a_fighter_is_announced_due_exactly_once() {
+        // A latch that re-fired would place the body every tick after the
+        // interval, which reads as a fighter frozen on the respawn platform.
+        let mut app = respawn_app(2);
+        let body = settled_fighter(&mut app, 3);
+        knock_out(&mut app, body);
+
+        let mut announcements = 0;
+        for _ in 0..12 {
+            app.update();
+            announcements += returned_this_tick(&mut app).len();
+        }
+        assert_eq!(announcements, 1, "one knockout, one return");
     }
 
     /// The whole loop, in the order a match runs it.

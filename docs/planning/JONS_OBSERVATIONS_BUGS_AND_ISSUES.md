@@ -291,6 +291,53 @@ permanently. ⛔ if a robot v3 body is ever published this way, it would hold it
 old realization across a quality change while a declared sibling moved — which
 is the shape to test first when the live capture happens.
 
+## 2026-08-25 — Jon's session: hitbox, menus, touch, naming, respawn
+
+Recorded verbatim from Jon while he played; none of these are triaged yet.
+
+* Sanic's hitbox is always UNDER the surface. Happens in smash and in his own game.
+* Menu up/down select (the control text) OVERLAPS the buttons in many menus.
+* Smash "quit to title" quits to a DIFFERENT GAME — often Ambition itself. From there
+  a second quit does reach the real title screen.
+* Opening the menu on the TITLE SCREEN puts the settings menu BEHIND the select-game
+  menu, which makes it unusable; same in loading screens. Jon: *"Typically the pause
+  menu should supercede whatever is behind it unless it is a live online game -
+  which we don't have yet."*
+* Touch: using the on-screen JOYSTICK should override the screen's own touch controls,
+  so the joystick can manipulate a token.
+* The character select grid should favour MORE COLUMNS THAN ROWS.
+* "Mary-O (Tall)" should just be **"Mary-O"**. Jon: *"the characters should not be
+  required to have a unique presentation name. Or maybe they have an optional
+  distinguished presentation name if we really need it."*
+* Smash respawn: jumping while respawning RAISES THE CHARACTER UP ON THE PLATFORM.
+  ⚠ adjacent to D192 — a returning fighter should not be able to act before it lands.
+* HITBOXES ARE AUTHORED TOO SMALL, and ⛔ Jon does NOT want them magically scaled.
+  He wants a better way to AUTHOR them, so they make sense and so there are good
+  patterns for building new characters. Jon: *"Something that should be generally
+  true for a direction smash is that they should hit a fair bit of area in the
+  direction of the player hitbox, often at least as tall or wide as the character
+  dimension. e.g. forward smash should have a hit geometry such that everywhere in
+  front of the character gets hit and there aren't often holes a character can duck
+  under. similar for arcs of up airs and other attacks. the hitboxes are generally
+  too conservative. and note some attacks might be special and break those rules of
+  thumb. a we are going to give the cast unique and interesting moves."* ⇒ D203.
+
+* UP-B CAN OFTEN BE USED MORE THAN ONCE without going into freefall. Jon: *"only a
+  few should be exempt from that general rule."* ⇒ D204. ⚠ adjacent to main's
+  `Helplessness is an episode, not a count of charges` — the episode may be the
+  right home for the once-per-airtime rule rather than a charge count.
+
+* A TELEPORTING UP-B with player-controlled direction, like Mewtwo's in Smash.
+  Jon: *"the author should have this up b. and the robot might have a similar
+  teleport up b similar to its blink in the game."* ⇒ D205. ⭐ the engine already
+  has the mechanic — `blink_aiming` / `blink_aim_offset` / `blink_hold_active` /
+  `blink_hold_timer` in `movement/model.rs` is a hold-aim-release teleport — so
+  this is WIRING an existing verb as a recovery, not inventing one.
+
+* SFX NOISE in a Goblin vs `npc_pirate_admiral` fight — either side triggers far too
+  many sounds. Jon wants a test that stages that fight and COUNTS the triggers,
+  because the volume of them may be a symptom of a deeper bug, not a mix problem.
+
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 
 Jon: *"Another issue is that shield rolls have too much motion to them. They

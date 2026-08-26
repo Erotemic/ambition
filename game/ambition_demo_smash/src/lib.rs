@@ -623,7 +623,14 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // engine plugins; a rules-only harness may not, and `add_message` is
         // idempotent.
         app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
+        app.add_message::<ambition_platformer2d::actor::FighterRespawnDue>();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
+        // D192 — THIS STAGE AUTHORS THE BEAT. The engine defaults to zero, which
+        // is the same-tick placement every other ruleset already had; the beat is
+        // a smash-stage decision, so it is declared here and nowhere else.
+        app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
+            ticks: RESPAWN_INTERVAL_TICKS,
+        });
         // The stop-this-match channel, owned here for the same reason the two
         // above are: a rules-only harness may not have the engine plugins.
         // The capture request channels. The ADAPTER below writes them and the
@@ -727,7 +734,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-            .after(ambition_platformer2d::combat::stocks::FighterStocksSpent);
+            .after(ambition_platformer2d::combat::stocks::FighterStocksSpent)
+            // ⛔ AND after the RETURN is decided. Ordering only against the spend
+            // was enough while placement happened on the knockout tick; with an
+            // interval the two are different ticks, and a placement racing the
+            // tick-down reads an empty queue on the tick a fighter was due.
+            .after(ambition_platformer2d::combat::stocks::FighterRespawnsDue);
         // ⛔⛔ SUDDEN DEATH'S STAGE HALF IS A SIMULATION RULE, and it ran in
         // literal `Update` until a review caught it. It writes rollback-canonical
         // `BodyHealth` — putting every survivor on the authored damage — and a
@@ -1294,7 +1306,7 @@ fn announce_the_opening_countdown(
 /// and every PROVIDER hears about the respawn too.
 fn place_respawning_fighters(
     mut commands: bevy::prelude::Commands,
-    mut spent: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterStockSpent>,
+    mut due: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterRespawnDue>,
     mut bodies: bevy::prelude::Query<(
         ambition_platformer2d::actor::BodyClusterQueryData,
         &mut ambition_platformer2d::actors::features::MotionModel,
@@ -1309,13 +1321,11 @@ fn place_respawning_fighters(
         Option<&mut ambition_platformer2d::combat::moveset::MovePlayback>,
     )>,
 ) {
-    for event in spent.read() {
-        // An ELIMINATED fighter is not placed. It has no stock to come back on,
-        // and putting it back would make the last knockout the only one that did
-        // not count.
-        if event.eliminated {
-            continue;
-        }
+    // ⭐ D192: the cue is the INTERVAL ELAPSING, not the stock being spent. An
+    // eliminated fighter never opens a pending-respawn episode, so there is no
+    // `eliminated` arm to skip here any more — the engine decides who is coming
+    // back, and this decides where they land.
+    for event in due.read() {
         let Ok((clusters, mut model, seat, playback)) = bodies.get_mut(event.body) else {
             continue;
         };
@@ -1518,6 +1528,17 @@ const HUD_PUNCH_REFERENCE_HITLAG: f32 = 0.12;
 /// holds for about three seconds and releases on the first action; this is the
 /// no-platform version of the same idea.
 const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
+
+/// D192 — how long the stage waits before putting a knocked-out fighter back.
+///
+/// ⭐ THE BEAT THE KO HAD NOWHERE TO HAPPEN IN. At zero the body was placed on
+/// the same tick the stock was spent, so the KO cue played over a fighter who was
+/// already back and the camera had to frame a live body that appeared ~500 units
+/// away with no travel — measured as the three largest single-tick camera steps
+/// in a 5,400-tick match, against a p99 of 13.1.
+///
+/// 60 ticks is the genre's ~1s pause between the knockout and the reappearance.
+const RESPAWN_INTERVAL_TICKS: u32 = 60;
 
 /// Take an eliminated fighter OUT OF PLAY.
 ///

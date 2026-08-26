@@ -1846,6 +1846,31 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
             .invulnerable
             .holds(Invulnerability::RESPAWN)
     };
+
+    // ⭐ D192: THE STOCK TICK IS NO LONGER THE RETURN TICK. This asserted the
+    // grant two updates after the knockout, which was the same moment only while
+    // placement happened on the spend tick. Waiting for the beat is not a
+    // weakening — the property under test is "a returning fighter is protected",
+    // and it is now checked at the moment the fighter actually returns.
+    assert!(
+        !untouchable(&app),
+        "a fighter still WAITING to respawn must not already hold the grant — it \
+         has not come back yet, and a grant spent before the body exists on the \
+         stage is a beat the opponent can stand through"
+    );
+    let mut returned = false;
+    for _ in 0..240 {
+        app.update();
+        if app
+            .world()
+            .get::<ambition_platformer2d::actor::PendingRespawn>(victim)
+            .is_none()
+        {
+            returned = true;
+            break;
+        }
+    }
+    assert!(returned, "the fighter never came back within 240 ticks");
     assert!(
         untouchable(&app),
         "a fighter that just lost a stock came back with no protection at all, so \
@@ -2372,10 +2397,28 @@ fn a_respawned_fighter_can_recover_before_it_has_landed() {
             body: victim,
             cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
         });
-    // ⭐ ONE UPDATE. The respawn platform catches this fighter on the very next
-    // tick, so a test that settled first would be measuring the LANDING refresh
-    // — measured: airborne at t+0, on the platform from t+1.
-    app.update();
+    // ⭐ THE RETURN TICK, AND EXACTLY IT. The respawn platform catches this
+    // fighter on the very next tick, so a test that settled first would be
+    // measuring the LANDING refresh — measured: airborne at t+0, on the platform
+    // from t+1.
+    //
+    // D192 moved t+0. It used to be one update after the knockout; now the body
+    // waits out the authored beat first, and the update that CLEARS
+    // `PendingRespawn` is the one placement runs in — so breaking the loop there
+    // lands on t+0 exactly, not the tick after it.
+    let mut placed = false;
+    for _ in 0..240 {
+        app.update();
+        if app
+            .world()
+            .get::<ambition_platformer2d::actor::PendingRespawn>(victim)
+            .is_none()
+        {
+            placed = true;
+            break;
+        }
+    }
+    assert!(placed, "the fighter never came back within 240 ticks");
 
     let (charges, grounded) = {
         let world = app.world();

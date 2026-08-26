@@ -684,11 +684,18 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // stocks loop must have the channel or the system fails parameter
         // validation before it can run. Idempotent, so the host registering it
         // beside `StocksMatchDecided` costs nothing.
+        app.add_message::<ambition_combat::stocks::FighterRespawnDue>();
         app.add_systems(
             sim,
             (
                 ambition_combat::stocks::spend_fighter_stocks
                     .in_set(ambition_combat::stocks::FighterStocksSpent),
+                // D192: the return is decided AFTER the spend and BEFORE any
+                // ruleset places a body. An interval of zero still resolves on
+                // this tick, so a mode that authored no beat is unchanged.
+                ambition_combat::stocks::tick_pending_respawn
+                    .in_set(ambition_combat::stocks::FighterRespawnsDue)
+                    .after(ambition_combat::stocks::FighterStocksSpent),
                 crate::features::stocks_match::decide_stocks_match
                     .in_set(ambition_combat::stocks::MatchOutcomeDecided),
                 // Reading the latch on the frame BEFORE the one that sets it would let the

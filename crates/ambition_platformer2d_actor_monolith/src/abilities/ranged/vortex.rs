@@ -56,7 +56,7 @@ pub fn fire_vortex_system(
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
         &mut BodyMana,
         Option<&SessionScopedEntity>,
@@ -133,7 +133,7 @@ pub fn update_vortex_wells(
         for (mut kin, faction, health) in &mut actors {
             // Structural tangibility gate: a dead enemy is an
             // intangible corpse — the well does not drag it.
-            if *faction != ActorFaction::Enemy || crate::combat::util::body_is_corpse(health) {
+            if *faction != ActorFaction::Enemy || ambition_combat::util::body_is_corpse(health) {
                 continue;
             }
             if kin.pos.distance(well.center) <= VORTEX_RADIUS {

@@ -38,7 +38,7 @@ pub fn resolve_ledge_trumps(
     // The match's own answer to *what does losing the edge cost*. Optional
     // because a world that declares no combat rules still trumps — it simply
     // drops the loser, which is what every trump did before the knob.
-    rules: Option<bevy::prelude::Res<crate::combat::rules::ResolvedCombatTuning>>,
+    rules: Option<bevy::prelude::Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
     // (anchor, elapsed, id, entity) for every body currently hanging.
     let mut holders: Vec<(ae::Vec2, f32, SimId, Entity)> = Vec::new();
@@ -72,7 +72,7 @@ pub fn resolve_ledge_trumps(
     // a deterministic winner independent of query or archetype order.
     let hog = matches!(
         rules.as_ref().map(|r| r.ledge_occupancy),
-        Some(crate::combat::rules::LedgeOccupancy::Hog)
+        Some(ambition_combat::rules::LedgeOccupancy::Hog)
     );
     holders.sort_by(|a, b| {
         let by_time = a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal);

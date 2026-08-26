@@ -180,7 +180,7 @@ mod outward_pop {
         let mut app = app();
         if let Some(pop) = pop {
             app.world_mut()
-                .insert_resource(crate::combat::rules::ResolvedCombatTuning {
+                .insert_resource(ambition_combat::rules::ResolvedCombatTuning {
                     ledge_trump_pop: pop,
                     ..Default::default()
                 });
@@ -235,7 +235,7 @@ mod outward_pop {
     fn the_pop_leaves_along_the_bodys_own_side_under_rotated_gravity() {
         let mut app = app();
         app.world_mut()
-            .insert_resource(crate::combat::rules::ResolvedCombatTuning {
+            .insert_resource(ambition_combat::rules::ResolvedCombatTuning {
                 ledge_trump_pop: 420.0,
                 ..Default::default()
             });
@@ -284,10 +284,10 @@ mod outward_pop {
 /// test, which declares no rules at all.
 #[test]
 fn the_ledge_policy_decides_which_holder_survives() {
-    let contest = |occupancy: Option<crate::combat::rules::LedgeOccupancy>| -> (bool, bool) {
+    let contest = |occupancy: Option<ambition_combat::rules::LedgeOccupancy>| -> (bool, bool) {
         let mut app = app();
         if let Some(occupancy) = occupancy {
-            app.insert_resource(crate::combat::rules::ResolvedCombatTuning {
+            app.insert_resource(ambition_combat::rules::ResolvedCombatTuning {
                 ledge_occupancy: occupancy,
                 ..Default::default()
             });
@@ -302,14 +302,14 @@ fn the_ledge_policy_decides_which_holder_survives() {
     // TRUMP — declared explicitly, so this arm is about the RULE rather than
     // about a world that happens to declare nothing.
     assert_eq!(
-        contest(Some(crate::combat::rules::LedgeOccupancy::Trump)),
+        contest(Some(ambition_combat::rules::LedgeOccupancy::Trump)),
         (false, true),
         "under Trump the newcomer must take the edge and the camper must fall"
     );
 
     // HOG — the same contest, the other survivor.
     assert_eq!(
-        contest(Some(crate::combat::rules::LedgeOccupancy::Hog)),
+        contest(Some(ambition_combat::rules::LedgeOccupancy::Hog)),
         (true, false),
         "under Hog the body that got there first must keep the edge"
     );

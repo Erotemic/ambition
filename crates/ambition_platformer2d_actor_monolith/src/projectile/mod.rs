@@ -3,13 +3,12 @@
 //! The reusable projectile MODEL — shot vocabulary (`ProjectileKind` / the open
 //! `ProjectileVisualId` + content-owned visual catalog), the ECS components,
 //! `PlayerProjectileState`, the unified `ProjectileSpawnRequest` materialization
-//! seam, and pure portal transit — now lives in the
-//! [`ambition_projectiles`] crate (E2 carve) and is re-exported below so
-//! `crate::projectile::*` paths resolve unchanged for every sandbox consumer.
+//! seam, and pure portal transit — lives in the [`ambition_projectiles`] crate
+//! (E2 carve) and is NOT re-exported here: callers name that crate. A glob
+//! forward would let this module's own coupling census count the model crate as
+//! monolith coupling, which is exactly what it did until 2026-08-26.
 //!
-//! They CONSUME the model crate — the legal sim → model direction.
-
-pub use ambition_projectiles::*;
+//! What is left here CONSUMES the model crate — the legal sim → model direction.
 
 /// The shot's own combat side. Lives HERE rather than in the model crate because
 /// it is built from combat vocabulary (`ActorFaction` / `MatchTeam`) that

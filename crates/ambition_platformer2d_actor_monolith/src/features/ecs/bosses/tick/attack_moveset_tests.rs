@@ -73,7 +73,7 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
     app.update();
     let pb = app
         .world()
-        .get::<crate::combat::moveset::MovePlayback>(boss)
+        .get::<ambition_combat::moveset::MovePlayback>(boss)
         .expect("the active geometry profile started its moveset move");
     assert_eq!(pb.spec.id, "floor_slam");
     assert!(
@@ -104,20 +104,20 @@ fn telegraph_boss_app() -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
         wt.scaled_dt = 0.05;
         wt.raw_dt = 0.05;
     }
-    app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_systems(
         Update,
         (
             trigger_boss_attack_moves,
-            crate::combat::moveset::advance_move_playback,
+            ambition_combat::moveset::advance_move_playback,
             project_boss_attack_state_from_move,
         )
             .chain(),
@@ -135,7 +135,7 @@ fn telegraph_boss_app() -> (App, Entity) {
             intent,
             BossAttackState::default(),
             moveset,
-            crate::combat::components::ActorFaction::Boss,
+            ambition_combat::components::ActorFaction::Boss,
             crate::actor::BodyKinematics {
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
@@ -192,7 +192,7 @@ fn interrupted_windup_is_aborted_before_the_strike() {
     app.update();
     assert!(
         app.world()
-            .get::<crate::combat::moveset::MovePlayback>(boss)
+            .get::<ambition_combat::moveset::MovePlayback>(boss)
             .is_some(),
         "the telegraph started a move"
     );
@@ -205,7 +205,7 @@ fn interrupted_windup_is_aborted_before_the_strike() {
     app.update();
     assert!(
         app.world()
-            .get::<crate::combat::moveset::MovePlayback>(boss)
+            .get::<ambition_combat::moveset::MovePlayback>(boss)
             .is_none(),
         "an abandoned windup is aborted before it can strike"
     );

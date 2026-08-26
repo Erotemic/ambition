@@ -384,11 +384,11 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
     let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
-    let knockback = crate::combat::HitKnockback {
+    let knockback = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         flinchless: false,
         dir: 1.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+        magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: None,
@@ -423,7 +423,7 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
 #[test]
 fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
     let at = |magnitude| {
-        knockback_reaction_scale(Some(&crate::combat::HitKnockback {
+        knockback_reaction_scale(Some(&ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
             flinchless: false,
             dir: 1.0,
@@ -434,7 +434,7 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
             follow: None,
         }))
     };
-    use crate::combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
+    use ambition_combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
     use ae::hit_response::{MAX_HITSTUN_SCALE, STANDARD_LAUNCH_SPEED};
 
     // A reference-strength launch is the standard reaction, so the shipped feel
@@ -469,11 +469,11 @@ fn knockback_impulse_is_frame_equivalent() {
     ] {
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let source_pos = victim_pos - frame.side * 40.0;
-        let knockback = crate::combat::HitKnockback {
+        let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
             flinchless: false,
             dir: 0.0,
-            magnitude: crate::combat::HitKnockbackMagnitude::FeelScale(1.0),
+            magnitude: ambition_combat::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
@@ -540,11 +540,11 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
     ] {
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let source_pos = victim_pos - frame.side * 40.0;
-        let knockback = crate::combat::HitKnockback {
+        let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
             flinchless: false,
             dir: 0.0,
-            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(launch_speed),
+            magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(launch_speed),
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
@@ -578,11 +578,11 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     // A pure up-launcher authors (0, -1): local `y` is TOWARD THE FEET, so "away from the feet"
     // is negative — the same convention every authored volume in the tree writes (`+y =
     // gravity-down`, ).
-    let up = crate::combat::HitKnockback {
+    let up = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         flinchless: false,
         dir: 0.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
+        magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: Some(ae::Vec2::new(0.0, -1.0)),
@@ -608,11 +608,11 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
 
     // The lateral component mirrors to point AWAY from the source: hit
     // from the left  positive local x  world +x.
-    let diag = crate::combat::HitKnockback {
+    let diag = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         flinchless: false,
         dir: 0.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
+        magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: Some(ae::Vec2::new(1.0, -1.0)),
@@ -632,7 +632,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         "a (1,-1) launcher throws up-and-away from the source: {vel:?}"
     );
     // Mirrored source  mirrored lateral, same rise.
-    let mirrored = crate::combat::HitKnockback {
+    let mirrored = ambition_combat::HitKnockback {
         source_pos: victim_pos + ae::Vec2::new(40.0, 0.0),
         ..diag
     };
@@ -671,11 +671,11 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
     ] {
         let frame = ae::AccelerationFrame::new(gravity_dir);
         let source_pos = victim_pos - frame.side * 40.0;
-        let knockback = crate::combat::HitKnockback {
+        let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
             flinchless: false,
             dir: 0.0,
-            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(speed),
+            magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(speed),
             source_pos,
             impact_pos: victim_pos,
             launch_dir: Some(n),
@@ -706,17 +706,17 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
-    let base = crate::combat::HitKnockback {
+    let base = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         flinchless: false,
         dir: 0.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+        magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
         impact_pos: victim_pos,
         launch_dir: None,
         follow: None,
     };
-    let degenerate = crate::combat::HitKnockback {
+    let degenerate = ambition_combat::HitKnockback {
         launch_dir: Some(ae::Vec2::ZERO),
         ..base
     };
@@ -743,7 +743,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
 
 #[test]
 fn death_policy_gates_the_meter_kill() {
-    use crate::combat::DeathPolicy;
+    use ambition_combat::DeathPolicy;
     // HpDepleted (default) kills at the meter's max; Unbounded (smash
     // percent) never does — its death comes from the blast-zone gate.
     assert!(DeathPolicy::default().kills_at_max());
@@ -776,7 +776,7 @@ fn the_damage_meter_accumulates_past_the_pool_it_is_measured_against() {
 /// print `188%` cannot get it from there at any amount of damage.
 #[test]
 fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
-    let mut h = test_health(50).with_policy(crate::combat::DeathPolicy::Unbounded);
+    let mut h = test_health(50).with_policy(ambition_combat::DeathPolicy::Unbounded);
     h.damage(94);
     assert!(
         (h.damage_percent() - 1.88).abs() < 1e-6,
@@ -799,7 +799,7 @@ fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
 /// variant bought an immortal punching bag.
 #[test]
 fn an_unbounded_body_never_dies_to_the_meter_and_never_stops_feeling_it() {
-    let mut h = test_health(10).with_policy(crate::combat::DeathPolicy::Unbounded);
+    let mut h = test_health(10).with_policy(ambition_combat::DeathPolicy::Unbounded);
     for _ in 0..20 {
         assert!(
             !h.damage(10),
@@ -1082,7 +1082,7 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
 fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     let mut app = App::new();
     app.add_message::<FeatureHitEvent>();
-    app.init_resource::<crate::combat::events::PendingPlayerHitEvents>();
+    app.init_resource::<ambition_combat::events::PendingPlayerHitEvents>();
     app.add_systems(Update, stage_player_victim_hit_events);
 
     let victim = app
@@ -1097,10 +1097,10 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         strike_sfx: None,
         volume: volume.clone(),
         damage: 3,
-        source: crate::combat::HitSource::Melee,
+        source: ambition_combat::HitSource::Melee,
         attacker: None,
-        target: crate::combat::HitTarget::Body(victim),
-        mode: crate::combat::HitMode::Knockback,
+        target: ambition_combat::HitTarget::Body(victim),
+        mode: ambition_combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
     });
@@ -1108,10 +1108,10 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         strike_sfx: None,
         volume: volume.clone(),
         damage: 3,
-        source: crate::combat::HitSource::Melee,
+        source: ambition_combat::HitSource::Melee,
         attacker: None,
-        target: crate::combat::HitTarget::Volume,
-        mode: crate::combat::HitMode::Knockback,
+        target: ambition_combat::HitTarget::Volume,
+        mode: ambition_combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
     });
@@ -1119,10 +1119,10 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         strike_sfx: None,
         volume,
         damage: 3,
-        source: crate::combat::HitSource::Melee,
+        source: ambition_combat::HitSource::Melee,
         attacker: None,
-        target: crate::combat::HitTarget::Body(other_body),
-        mode: crate::combat::HitMode::Knockback,
+        target: ambition_combat::HitTarget::Body(other_body),
+        mode: ambition_combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
     });
@@ -1130,14 +1130,14 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     app.update();
     let pending = &app
         .world()
-        .resource::<crate::combat::events::PendingPlayerHitEvents>()
+        .resource::<ambition_combat::events::PendingPlayerHitEvents>()
         .0;
     assert_eq!(
         pending.len(),
         1,
         "only the hit resolved onto a body THIS resolver owns belongs in its FIFO"
     );
-    assert_eq!(pending[0].target, crate::combat::HitTarget::Body(victim));
+    assert_eq!(pending[0].target, ambition_combat::HitTarget::Body(victim));
 }
 
 /// A staged victim hit must not survive a room-lifecycle boundary: the void
@@ -1150,22 +1150,22 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
             strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into(),
             damage: 1,
-            source: crate::combat::HitSource::Melee,
+            source: ambition_combat::HitSource::Melee,
             attacker: None,
-            target: crate::combat::HitTarget::Volume,
-            mode: crate::combat::HitMode::Knockback,
+            target: ambition_combat::HitTarget::Volume,
+            mode: ambition_combat::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
         }
     }
     fn app_with_staged_hit() -> App {
         let mut app = App::new();
-        app.add_message::<crate::combat::ResetRoomFeaturesEvent>()
+        app.add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<crate::rooms::RoomLoaded>()
-            .init_resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .init_resource::<ambition_combat::events::PendingPlayerHitEvents>()
             .add_systems(Update, void_pending_player_hits_at_lifecycle_boundaries);
         app.world_mut()
-            .resource_mut::<crate::combat::events::PendingPlayerHitEvents>()
+            .resource_mut::<ambition_combat::events::PendingPlayerHitEvents>()
             .0
             .push(staged_hit());
         app
@@ -1177,7 +1177,7 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
     assert_eq!(
         quiet
             .world()
-            .resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .resource::<ambition_combat::events::PendingPlayerHitEvents>()
             .0
             .len(),
         1,
@@ -1188,12 +1188,12 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
     let mut reset = app_with_staged_hit();
     reset
         .world_mut()
-        .write_message(crate::combat::ResetRoomFeaturesEvent::default());
+        .write_message(ambition_combat::ResetRoomFeaturesEvent::default());
     reset.update();
     assert!(
         reset
             .world()
-            .resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .resource::<ambition_combat::events::PendingPlayerHitEvents>()
             .0
             .is_empty(),
         "ResetRoomFeaturesEvent must void hits staged by the pre-reset population"
@@ -1208,7 +1208,7 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
     assert!(
         loaded
             .world()
-            .resource::<crate::combat::events::PendingPlayerHitEvents>()
+            .resource::<ambition_combat::events::PendingPlayerHitEvents>()
             .0
             .is_empty(),
         "RoomLoaded must void hits staged by the outgoing room's population"
@@ -1573,11 +1573,11 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
     let mut flight = ae::BodyFlightState::default();
     let mut combat = BodyCombat::default();
     let victim_pos = ae::Vec2::new(100.0, 100.0);
-    let knockback = crate::combat::HitKnockback {
+    let knockback = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         flinchless: false,
         dir: 1.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+        magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos: victim_pos - ae::Vec2::new(40.0, 0.0),
         impact_pos: victim_pos,
         launch_dir: None,
@@ -1974,11 +1974,11 @@ fn meteor_reaction(
     feel: Platformer2dFeelTuningMonolith,
 ) -> f32 {
     let body = ae::Vec2::new(100.0, 150.0);
-    let knockback = crate::combat::HitKnockback {
+    let knockback = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         flinchless: false,
         dir: 1.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
+        magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
         source_pos: body,
         impact_pos: body,
         launch_dir: Some(launch_dir),
@@ -2021,11 +2021,11 @@ fn meteor_reaction(
 #[test]
 fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
     let launched = |crouching: bool, scale: f32| {
-        let knockback = crate::combat::HitKnockback {
+        let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
             flinchless: false,
             dir: 1.0,
-            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
+            magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
             source_pos: ae::Vec2::ZERO,
             impact_pos: ae::Vec2::ZERO,
             launch_dir: Some(ae::Vec2::new(1.0, 0.0)),
@@ -2210,11 +2210,11 @@ fn an_authored_zero_damage_windbox_takes_no_health() {
 /// case: a damage-only tick still meets a raised guard.
 #[test]
 fn a_windbox_offers_no_guard_and_a_strike_offers_one() {
-    fn knockback(flinchless: bool) -> crate::combat::HitKnockback {
-        crate::combat::HitKnockback {
+    fn knockback(flinchless: bool) -> ambition_combat::HitKnockback {
+        ambition_combat::HitKnockback {
             flinchless,
             dir: 1.0,
-            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+            magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
             source_pos: ae::Vec2::ZERO,
             impact_pos: ae::Vec2::new(10.0, 0.0),
             launch_dir: None,
@@ -2222,7 +2222,7 @@ fn a_windbox_offers_no_guard_and_a_strike_offers_one() {
         }
     }
 
-    let offered = |knockback: Option<crate::combat::HitKnockback>| {
+    let offered = |knockback: Option<ambition_combat::HitKnockback>| {
         let mut state = ae::BodyShieldState::default();
         let mut vel = ae::Vec2::ZERO;
         GuardUnderFire::offered_to(

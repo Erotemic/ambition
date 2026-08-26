@@ -423,7 +423,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([(
-            crate::combat::moveset::ATTACK_VERB.to_string(),
+            ambition_combat::moveset::ATTACK_VERB.to_string(),
             "swat".to_string(),
         )]),
         moves: vec![swat],
@@ -434,7 +434,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
 
     let actor = app
         .world_mut()
-        .spawn(crate::combat::CombatTuning {
+        .spawn(ambition_combat::CombatTuning {
             sprite_character_id: Some("badnik".to_string()),
             ..Default::default()
         })
@@ -443,7 +443,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
 
     assert!(
         app.world()
-            .get::<crate::combat::moveset::ActorMoveset>(actor)
+            .get::<ambition_combat::moveset::ActorMoveset>(actor)
             .is_some(),
         "a spawned actor is identified by its combat tuning's sprite character, so \
          the registry's authored moveset must reach it too — otherwise C3 covers \
@@ -451,7 +451,7 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
     );
     assert!(
         app.world()
-            .get::<crate::combat::moveset::MovesetMelee>(actor)
+            .get::<ambition_combat::moveset::MovesetMelee>(actor)
             .is_some(),
         "and the `attack` verb routes its melee through the move timeline, the same \
          marker `ActorClusterSeed` derives from an authored moveset"
@@ -468,7 +468,7 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
     let mut app = session_app();
     let actor = app
         .world_mut()
-        .spawn(crate::combat::CombatTuning {
+        .spawn(ambition_combat::CombatTuning {
             sprite_character_id: Some("somebody_elses_fighter".to_string()),
             ..Default::default()
         })
@@ -477,7 +477,7 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
 
     assert!(app
         .world()
-        .get::<crate::combat::moveset::ActorMoveset>(actor)
+        .get::<ambition_combat::moveset::ActorMoveset>(actor)
         .is_none());
 }
 
@@ -511,7 +511,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     app.register_character(
         CharacterDefinition::new("armed", "Armed", "demo").with_moveset(MovesetContract {
             verbs: std::collections::BTreeMap::from([(
-                crate::combat::moveset::ATTACK_VERB.to_string(),
+                ambition_combat::moveset::ATTACK_VERB.to_string(),
                 "swat".to_string(),
             )]),
             moves: vec![swat],
@@ -526,14 +526,14 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     settle(&mut app);
     assert!(
         app.world()
-            .get::<crate::combat::moveset::ActorMoveset>(body)
+            .get::<ambition_combat::moveset::ActorMoveset>(body)
             .is_some(),
         "the armed form projects its moveset"
     );
 
     assert!(
         app.world()
-            .get::<crate::combat::moveset::MovesetMelee>(body)
+            .get::<ambition_combat::moveset::MovesetMelee>(body)
             .is_some(),
         "a moveset authoring `attack` routes melee through the move timeline"
     );
@@ -558,7 +558,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     // `routing_markers_are_derived_from_whatever_wrote_the_moveset`.
     assert!(
         app.world()
-            .get::<crate::combat::moveset::ActorMoveset>(body)
+            .get::<ambition_combat::moveset::ActorMoveset>(body)
             .is_some(),
         "the component the persona derive requires must not be removed by a \
          projection; the persona derive is the writer that replaces its VALUE"
@@ -610,18 +610,18 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
     let mut app = App::new();
     app.add_systems(
         bevy::app::Update,
-        crate::combat::moveset::reconcile_moveset_routing_markers,
+        ambition_combat::moveset::reconcile_moveset_routing_markers,
     );
     let body = app
         .world_mut()
-        .spawn(crate::combat::moveset::ActorMoveset(contract(
-            crate::combat::moveset::ATTACK_VERB,
+        .spawn(ambition_combat::moveset::ActorMoveset(contract(
+            ambition_combat::moveset::ATTACK_VERB,
         )))
         .id();
     finalize_and_update(&mut app);
     assert!(app
         .world()
-        .get::<crate::combat::moveset::MovesetMelee>(body)
+        .get::<ambition_combat::moveset::MovesetMelee>(body)
         .is_some());
     assert!(app
         .world()
@@ -631,13 +631,13 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
     // A swap to a ranged-only moveset must move the routing with it — both ways
     // in one step, which is the case a one-directional "insert if present" misses.
     *app.world_mut()
-        .get_mut::<crate::combat::moveset::ActorMoveset>(body)
+        .get_mut::<ambition_combat::moveset::ActorMoveset>(body)
         .unwrap() =
-        crate::combat::moveset::ActorMoveset(contract(crate::combat::moveset::RANGED_VERB));
+        ambition_combat::moveset::ActorMoveset(contract(ambition_combat::moveset::RANGED_VERB));
     finalize_and_update(&mut app);
     assert!(
         app.world()
-            .get::<crate::combat::moveset::MovesetMelee>(body)
+            .get::<ambition_combat::moveset::MovesetMelee>(body)
             .is_none(),
         "melee routing outlived a moveset with no `attack` verb"
     );
@@ -667,7 +667,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
     fn one_move(id: &str) -> MovesetContract {
         MovesetContract {
             verbs: std::collections::BTreeMap::from([(
-                crate::combat::moveset::ATTACK_VERB.to_string(),
+                ambition_combat::moveset::ATTACK_VERB.to_string(),
                 id.to_string(),
             )]),
             moves: vec![MoveSpec {
@@ -695,7 +695,7 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
 
     fn projected_move(app: &App, body: Entity) -> Option<String> {
         app.world()
-            .get::<crate::combat::moveset::ActorMoveset>(body)
+            .get::<ambition_combat::moveset::ActorMoveset>(body)
             .and_then(|moveset| moveset.0.moves.first())
             .map(|spec| spec.id.clone())
     }

@@ -64,7 +64,7 @@ pub fn boss_attack_moveset(
         f32,
         Option<ambition_characters::brain::boss_pattern::TelegraphSpec>,
     )],
-) -> Option<crate::combat::moveset::ActorMoveset> {
+) -> Option<ambition_combat::moveset::ActorMoveset> {
     use ambition_entity_catalog::{
         ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
         MovesetContract, VolumeShape, WindowTag,
@@ -205,7 +205,7 @@ pub fn boss_attack_moveset(
         })
         .collect();
     (!moves.is_empty()).then(|| {
-        crate::combat::moveset::ActorMoveset(MovesetContract {
+        ambition_combat::moveset::ActorMoveset(MovesetContract {
             verbs: std::collections::BTreeMap::new(),
             moves,
         })

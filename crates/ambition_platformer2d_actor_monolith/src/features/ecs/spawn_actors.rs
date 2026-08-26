@@ -55,7 +55,7 @@ pub struct SpawnActorRequest {
     pub faction: super::ActorFaction,
     /// Feature id of another actor in the SAME spawn batch this body should hold a
     /// personal grudge against. Resolved post-spawn (once both entities exist) into
-    /// an [`ActorAggression::grudge`](crate::combat::components::ActorAggression),
+    /// an [`ActorAggression::grudge`](ambition_combat::components::ActorAggression),
     /// which drives relational targeting AND authorizes same-faction damage
     /// (`damage_lands`) — the mechanism behind two `Npc` duelists feuding without a
     /// hostile faction. `None`  no grudge (fights on faction lines only).
@@ -331,7 +331,7 @@ pub(super) struct EnemyActorSpawnPlan {
     aggression: super::ActorAggression,
     brain: ambition_characters::brain::Brain,
     action_set: ambition_characters::brain::ActionSet,
-    combat_kit: crate::combat::CombatKit,
+    combat_kit: ambition_combat::CombatKit,
     held_item: Option<ambition_characters::brain::HeldItemSpec>,
     /// The archetype's data-driven signature move repertoire, if any (§A1, Path B).
     moveset: Option<ambition_entity_catalog::MovesetContract>,
@@ -351,7 +351,7 @@ impl EnemyActorSpawnPlan {
         // `grant_prepared_character_body` moments later, so nothing at all is both the honest
         // answer and the only one.
         let action_set = ambition_characters::brain::ActionSet::peaceful();
-        let combat_kit = crate::combat::CombatKit::default();
+        let combat_kit = ambition_combat::CombatKit::default();
         let held_item = None;
         // A character's signature moves AND its basic melee/ranged fold into ONE
         // moveset — the melee subsumption (§A1 / §3a): a plain swing is an
@@ -363,7 +363,7 @@ impl EnemyActorSpawnPlan {
         // granted by a held weapon) MUST have a moveset `"attack"` move or it
         // could never swing; building from `action_set` closes that gap
         // definitionally, because capability and moveset share one source.
-        let moveset = crate::combat::moveset::build_actor_moveset(
+        let moveset = ambition_combat::moveset::build_actor_moveset(
             None,
             action_set.melee.as_ref(),
             action_set.ranged.as_ref(),
@@ -459,20 +459,20 @@ impl EnemyActorSpawnPlan {
             // `BodyMelee` read-model is projected from the live move.
             let has_attack = moveset
                 .verbs
-                .contains_key(crate::combat::moveset::ATTACK_VERB);
+                .contains_key(ambition_combat::moveset::ATTACK_VERB);
             // Likewise a body whose moveset carries the `"ranged"` verb has its shot
             // subsumed: mark it so the flat `frame.fire → Ranged` emission is skipped
             // (the move's fire event spawns the shot instead — no double-fire).
             let has_ranged = moveset
                 .verbs
-                .contains_key(crate::combat::moveset::RANGED_VERB);
+                .contains_key(ambition_combat::moveset::RANGED_VERB);
             commands
                 .entity(entity)
-                .insert(crate::combat::moveset::ActorMoveset(moveset));
+                .insert(ambition_combat::moveset::ActorMoveset(moveset));
             if has_attack {
                 commands
                     .entity(entity)
-                    .insert(crate::combat::moveset::MovesetMelee);
+                    .insert(ambition_combat::moveset::MovesetMelee);
             }
             if has_ranged {
                 commands
@@ -511,7 +511,7 @@ pub(super) struct NpcActorSpawnPlan {
         ambition_characters::actor::character_catalog::AuthoredBrainContext,
     )>,
     action_set: ambition_characters::brain::ActionSet,
-    combat_kit: crate::combat::CombatKit,
+    combat_kit: ambition_combat::CombatKit,
     aggression: super::ActorAggression,
 }
 
@@ -570,7 +570,7 @@ impl NpcActorSpawnPlan {
                 }
             },
         }
-        .map(crate::combat::components::CombatKit::from_action_set);
+        .map(ambition_combat::components::CombatKit::from_action_set);
         let combat_kit = match authored_kit {
             Some(kit) => kit,
             //  it is what a body that authored NO kit fights with once
@@ -680,7 +680,7 @@ impl NpcActorSpawnPlan {
         // kit's melee as body CAPABILITY (for possession / provocation), so fold it
         // into a moveset `"attack"` move like every hostile — a possessed peaceful
         // NPC's swing runs through the SAME moveset runtime, not the flat path.
-        let npc_moveset = crate::combat::moveset::build_actor_moveset(
+        let npc_moveset = ambition_combat::moveset::build_actor_moveset(
             None,
             self.action_set.melee.as_ref(),
             self.action_set.ranged.as_ref(),
@@ -752,13 +752,13 @@ impl NpcActorSpawnPlan {
         if let Some(moveset) = npc_moveset {
             let has_attack = moveset
                 .verbs
-                .contains_key(crate::combat::moveset::ATTACK_VERB);
+                .contains_key(ambition_combat::moveset::ATTACK_VERB);
             let has_ranged = moveset
                 .verbs
-                .contains_key(crate::combat::moveset::RANGED_VERB);
-            entity.insert(crate::combat::moveset::ActorMoveset(moveset));
+                .contains_key(ambition_combat::moveset::RANGED_VERB);
+            entity.insert(ambition_combat::moveset::ActorMoveset(moveset));
             if has_attack {
-                entity.insert(crate::combat::moveset::MovesetMelee);
+                entity.insert(ambition_combat::moveset::MovesetMelee);
             }
             if has_ranged {
                 entity.insert(ambition_characters::brain::MovesetRanged);
@@ -803,12 +803,12 @@ fn boss_actor_cluster(
     super::super::components::BodyMelee,
     crate::actor::AncillaryMovementBundle,
     crate::features::MotionModel,
-    crate::combat::CombatCapabilities,
-    crate::combat::CombatTuning,
+    ambition_combat::CombatCapabilities,
+    ambition_combat::CombatTuning,
 ) {
     // A boss floats: its movement kit grants flight, unioned into the body's
     // `AbilitySet` below. Death/weapon consequence traits stay default.
-    let caps = crate::combat::CombatCapabilities::default();
+    let caps = ambition_combat::CombatCapabilities::default();
     let movement_kit = ae::AbilitySet {
         fly: true,
         //  PERMANENT flight, and the toggle was a lie that cost a boss its
@@ -881,7 +881,7 @@ fn boss_actor_cluster(
         caps,
         // Project the boss's weight onto the combat-owned carrier at spawn
         // (E2 verdict b); default `1.0` here since bosses don't author weight.
-        crate::combat::CombatTuning {
+        ambition_combat::CombatTuning {
             weight,
             // Bosses pace strikes via their move scripts, and carry no sprite
             // catalog id (their strike volumes are frame-authored).
@@ -1015,7 +1015,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     // its health directly (§A1); handing it a copy of its own number was the duplicate this
     // slice removes.
     let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin);
-    let boss_render_envelope = crate::combat::BodyEnvelope(boss.as_ref().render_size());
+    let boss_render_envelope = ambition_combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();
     let mut entity = commands.insert_session_scoped(
         session_scope,
@@ -1383,7 +1383,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
             });
         // What this body DOES when it dies, and what it may do — both the
         // character's, both already resolved on the definition.
-        enemy.caps = crate::combat::CombatCapabilities::from(
+        enemy.caps = ambition_combat::CombatCapabilities::from(
             &definition.death_traits.clone().unwrap_or_default(),
         );
         let body_size = enemy.kin.size;
@@ -1894,7 +1894,7 @@ pub(super) fn spawn_encounter_mob(
                 brain,
                 &[],
             );
-            enemy.caps = crate::combat::CombatCapabilities::from(
+            enemy.caps = ambition_combat::CombatCapabilities::from(
                 &definition.death_traits.clone().unwrap_or_default(),
             );
             enemy
@@ -2070,7 +2070,7 @@ pub fn apply_summon_effects(
                 half_size: s.half_size,
                 character_id: s.character_id.clone(),
                 encounter_id: s.encounter_id.clone(),
-                faction: crate::combat::actor_faction_from_hit_side(s.faction),
+                faction: ambition_combat::actor_faction_from_hit_side(s.faction),
             },
         ));
     }

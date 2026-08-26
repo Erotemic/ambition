@@ -2,8 +2,8 @@
 //! resource-exhaustion gating. All of these exercise the projectile
 //! input pipeline via the shared `min_app()` fixture.
 
-use crate::projectile::MotionDirection;
-use crate::projectile::ProjectileKind;
+use ambition_projectiles::MotionDirection;
+use ambition_projectiles::ProjectileKind;
 
 use super::{
     advance_time, dummy_world, min_app, projectile_test_app, shape_primary, tap_projectile,
@@ -82,7 +82,7 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     );
     // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
     // → at least 16x12 — meaningfully bigger than tier 0.
-    let baseline = crate::projectile::ProjectileKind::Fireball.half_extent();
+    let baseline = ambition_projectiles::ProjectileKind::Fireball.half_extent();
     assert!(
         body.half_extent().x > baseline.x * 1.2,
         "charged fireball must be visibly larger; got {:?} vs baseline {:?}",
@@ -118,7 +118,7 @@ use ambition_characters::control::{ActorControl};
         .world_mut()
         .spawn((
             ChargesProjectiles,
-            crate::projectile::PlayerProjectileState::default(),
+            ambition_projectiles::PlayerProjectileState::default(),
             crate::actor::BodyKinematics {
                 pos: body_pos,
                 vel: ae::Vec2::ZERO,
@@ -127,7 +127,7 @@ use ambition_characters::control::{ActorControl};
             },
             ActorControl::default(),
             // The input driver reads the body's resolved frame (ADR 0024).
-            crate::physics::ResolvedMotionFrame::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
 
@@ -154,7 +154,7 @@ use ambition_characters::control::{ActorControl};
     let mut q = world
         .try_query::<(
             &crate::actor::BodyKinematics,
-            &crate::projectile::ProjectileOwner,
+            &ambition_projectiles::ProjectileOwner,
         )>()
         .unwrap();
     let shots: Vec<(ae::Vec2, bevy::prelude::Entity)> =
@@ -294,7 +294,7 @@ fn out_of_resource_blocks_fire() {
 fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     let player_pos = ambition_platformer2d_core::Vec2::new(300.0, 300.0);
     let mut app = projectile_test_app(dummy_world(), player_pos, 1.0);
-    app.insert_resource(crate::physics::GravityField {
+    app.insert_resource(ambition_platformer2d_shared_tangle::gravity::GravityField {
         dir: ambition_platformer2d_core::Vec2::new(1.0, 0.0),
     });
     // The input driver reads the body's per-tick resolved frame (ADR 0024); this
@@ -306,12 +306,12 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
             let mut q = world
                 .try_query::<(
                     bevy::prelude::Entity,
-                    &crate::projectile::PlayerProjectileState,
+                    &ambition_projectiles::PlayerProjectileState,
                 )>()
                 .unwrap();
             q.iter(world).next().unwrap().0
         };
-        let mut frame = crate::physics::ResolvedMotionFrame::default();
+        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
         frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
             ambition_platformer2d_core::Vec2::new(1.0, 0.0),
             900.0,

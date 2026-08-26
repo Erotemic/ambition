@@ -372,7 +372,7 @@ pub fn drive_wave_encounters(
         ));
         if activation.action.as_str() == "FlipGravity" {
             commands.queue(|world: &mut bevy::prelude::World| {
-                let mut base = world.resource_mut::<crate::physics::BaseGravity>();
+                let mut base = world.resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
                 base.dir = -base.dir;
             });
             let new_on = !save.data().switch(&activation.id);
@@ -381,7 +381,7 @@ pub fn drive_wave_encounters(
         }
         // Cardinal gravity switch (Noether Chamber kernel faces): a `Switch`
         // whose `action` is "SetGravityDown|Up|Left|Right" sets the room's
-        // ambient gravity ([`crate::physics::BaseGravity`]) to that direction so
+        // ambient gravity ([`ambition_platformer2d_shared_tangle::gravity::BaseGravity`]) to that direction so
         // that side becomes the new "down". NOTE: the action must NOT contain a
         // colon — `SwitchActivation::to_custom_payload`/`parse_custom` round-trip
         // through a `:`-delimited string, so a colon in the action is silently
@@ -395,7 +395,7 @@ pub fn drive_wave_encounters(
                 _ => bevy::prelude::Vec2::new(0.0, 1.0), // "Down" / fallback
             };
             commands.queue(move |world: &mut bevy::prelude::World| {
-                world.resource_mut::<crate::physics::BaseGravity>().dir = dir;
+                world.resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>().dir = dir;
             });
             save.data_mut().set_switch(&activation.id, true);
             continue;

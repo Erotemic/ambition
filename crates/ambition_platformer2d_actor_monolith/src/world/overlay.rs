@@ -10,7 +10,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::combat::*;
+use ambition_combat::*;
 
 pub use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 

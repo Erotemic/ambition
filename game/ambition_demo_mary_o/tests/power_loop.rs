@@ -657,7 +657,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     // stocks ruleset is listening. This fixture hand-picks its systems, so it
     // hand-registers their messages; `CombatSchedulePlugin` covers the apps that
     // install the whole schedule.
-    app.add_message::<ambition_platformer2d::actors::combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_platformer2d::combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

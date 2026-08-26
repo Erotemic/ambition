@@ -13,7 +13,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition_app::app::{build_visible_app, shell_host, VisibleRenderMode};
 use ambition_platformer2d::actors::actor::BodyKinematics;
-use ambition_platformer2d::actors::combat::components::ActorDisposition;
+use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::actors::rooms::RoomSet;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};

@@ -90,7 +90,7 @@ pub fn reset_ecs_room_features(
     // Every in-flight projectile belongs to the combat timeline being reset.
     // `Entity`-only fetch, so no aliasing with the actor/boss `&mut BodyKinematics`
     // queries above. Producer/presentation family is deliberately irrelevant.
-    live_projectiles: Query<Entity, With<crate::projectile::LiveProjectile>>,
+    live_projectiles: Query<Entity, With<ambition_projectiles::LiveProjectile>>,
     // R5 encounter orchestration from the previous attempt: the encounter entity
     // (+ its finished `EncounterScript`), in-flight falling hazards, and the lure
     // override on a boss. `Entity`-only fetches → no aliasing with the queries above.
@@ -334,10 +334,10 @@ mod reset_tests {
     #[test]
     fn reset_clears_every_live_projectile_regardless_of_presentation_family() {
         let mut app = app();
-        let open = app.world_mut().spawn(crate::projectile::LiveProjectile).id();
+        let open = app.world_mut().spawn(ambition_projectiles::LiveProjectile).id();
         let named = app
             .world_mut()
-            .spawn((crate::projectile::LiveProjectile, crate::projectile::ProjectileKind::Fireball))
+            .spawn((ambition_projectiles::LiveProjectile, ambition_projectiles::ProjectileKind::Fireball))
             .id();
 
         app.world_mut()

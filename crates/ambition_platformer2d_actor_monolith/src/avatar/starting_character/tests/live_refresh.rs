@@ -5,7 +5,7 @@ use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
 use crate::actor::PlayerEntity;
-use crate::combat::moveset::ActorMoveset;
+use ambition_combat::moveset::ActorMoveset;
 use crate::features::{MomentumMotion, MotionModel};
 
 #[derive(Resource, Default)]

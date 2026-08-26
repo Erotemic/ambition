@@ -59,15 +59,12 @@ pub mod enemy_projectile;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
-// TODO(compat-remove): migrate monolith callers to `ambition_combat`, then remove this crate alias.
-pub use ambition_combat as combat;
 pub mod gravity;
 pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab).
 /// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
 /// eventual split of "a person" from "a seat" is localized.
 pub mod participant_seat;
-pub mod physics;
 // The presentation layer was extracted to the `ambition_render` crate (the
 // sim/render seam is now a crate boundary). Consumers import `ambition_render::*`.
 pub mod projectile;
@@ -109,7 +106,7 @@ use bevy::prelude::{Message, Resource};
 /// death-replay tooling). `cause` carries the attribution — what dealt the
 /// killing blow — so causality exists for future death-replay / multiplayer
 /// kill-credit without a downstream consumer having to reconstruct it from the
-/// raw [`combat::HitEvent`] stream. Today the encounter system ignores both.
+/// raw [`ambition_combat::HitEvent`] stream. Today the encounter system ignores both.
 ///
 /// Replaces the previous `player_died_pending` bool — the Vec-collector →
 /// `MessageWriter` pattern matches the rest of the sim → presentation seam
@@ -137,7 +134,7 @@ pub struct ActorDiedMessage {
 
 /// Attribution for an actor death — what dealt the killing blow.
 ///
-/// Compact by design: the killing hit's [`combat::HitSource`] category plus the
+/// Compact by design: the killing hit's [`ambition_combat::HitSource`] category plus the
 /// attacker entity when the source carries one (player-side hits do; enemy /
 /// boss / hazard sources identify by category only today — threading their
 /// dealing entity is the deeper actor-attribution work). Reuses `HitSource`
@@ -145,7 +142,7 @@ pub struct ActorDiedMessage {
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeathCause {
     /// The killing hit's source category (melee / projectile / hazard / …).
-    pub source: combat::HitSource,
+    pub source: ambition_combat::HitSource,
     /// The entity that dealt the killing blow, when known.
     pub attacker: Option<bevy::prelude::Entity>,
 }

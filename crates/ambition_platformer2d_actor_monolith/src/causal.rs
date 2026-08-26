@@ -111,7 +111,7 @@ pub struct BodyMovementOps {
 pub fn record_movement_operations(
     log: Option<ResMut<CausalRecording>>,
     mut ops: bevy::prelude::MessageReader<BodyMovementOps>,
-    identities: Query<&crate::combat::components::ActorIdentity>,
+    identities: Query<&ambition_combat::components::ActorIdentity>,
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let Some(mut log) = log else {
@@ -150,7 +150,7 @@ pub fn record_body_control_frame(
         // `config.id` into it verbatim, so the join with the brain's fact holds
         // — and an observer reading the read-model instead of the authored
         // cluster is the same discipline the render side follows.
-        &crate::combat::components::ActorIdentity,
+        &ambition_combat::components::ActorIdentity,
         &BodyKinematics,
         &BodyGroundState,
         &ActorControl,
@@ -255,7 +255,7 @@ pub fn record_body_control_frame(
 /// later query; a world fact misleads every query forever.
 fn body_subject(
     drivers: &Query<&DrivingParticipant>,
-    identities: &Query<&crate::combat::components::ActorIdentity>,
+    identities: &Query<&ambition_combat::components::ActorIdentity>,
     body: Entity,
 ) -> (SubjectKey, Option<u8>) {
     if let Some(seat) = drivers.get(body).ok().map(|driver| driver.0 .0) {
@@ -282,7 +282,7 @@ pub fn record_hit_resolutions(
     log: Option<ResMut<CausalRecording>>,
     mut hits: MessageReader<BodyHitResolved>,
     bodies: Query<&DrivingParticipant>,
-    identities: Query<&crate::combat::components::ActorIdentity>,
+    identities: Query<&ambition_combat::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
         // Drain regardless — a backlog surfacing on the frame somebody enables
@@ -350,7 +350,7 @@ pub fn record_hit_reactions(
     log: Option<ResMut<CausalRecording>>,
     mut reactions: MessageReader<BodyReactionApplied>,
     bodies: Query<&DrivingParticipant>,
-    identities: Query<&crate::combat::components::ActorIdentity>,
+    identities: Query<&ambition_combat::components::ActorIdentity>,
 ) {
     let Some(mut log) = log else {
         reactions.clear();
@@ -511,7 +511,7 @@ use ambition_characters::control::{PlayerSlot};
         app.world_mut().write_message(BodyHitResolved {
             body,
             resolution,
-            source: crate::combat::HitSource::Projectile,
+            source: ambition_combat::HitSource::Projectile,
             raw_damage: raw,
         });
     }

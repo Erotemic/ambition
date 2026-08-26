@@ -8,7 +8,7 @@ use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
 use ambition_platformer2d_core as ae;
 
-fn dummy_attack_spec() -> crate::combat::AttackSpec {
+fn dummy_attack_spec() -> ambition_combat::AttackSpec {
     // Construct via the live `attack_spec` builder; a minimal Player
     // is enough — only the `intent` field is meaningful for these
     // tests, and the builder gives us a well-formed spec with
@@ -21,7 +21,7 @@ fn dummy_attack_spec() -> crate::combat::AttackSpec {
         vec![],
     );
     let scratch = crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
-    let view = crate::combat::AttackView {
+    let view = ambition_combat::AttackView {
         pos: scratch.kinematics.pos,
         size: scratch.kinematics.size,
         facing: scratch.kinematics.facing,
@@ -30,7 +30,7 @@ fn dummy_attack_spec() -> crate::combat::AttackSpec {
         dashing: scratch.axis().dash_timer > 0.0,
         abilities_directional_primary: scratch.abilities.abilities.directional_primary,
     };
-    crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward)
+    ambition_combat::attack_spec_from_view(&view, ambition_combat::AttackIntent::Forward)
 }
 
 /// Two player entities each carry their own `BodyMelee`, so a swing on one player does not silently

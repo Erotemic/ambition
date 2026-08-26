@@ -151,7 +151,7 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// exact equality with the table he authored.
 #[test]
 fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
-    use ambition_platformer2d::actors::combat::moveset::ActorMoveset;
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
     use ambition_platformer2d::characters::brain::ActionSet;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
@@ -250,7 +250,7 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
     };
     assert!(
         app.world()
-            .get::<ambition_platformer2d::actors::combat::moveset::ActorMoveset>(body)
+            .get::<ambition_platformer2d::combat::moveset::ActorMoveset>(body)
             .is_some_and(|m| !m.0.moves.is_empty()),
         "the gate must be the ABILITY — detaching his repertoire would break the \
          crossover grid that wants it (D146)"

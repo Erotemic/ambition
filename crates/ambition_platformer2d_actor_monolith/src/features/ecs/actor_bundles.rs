@@ -1,7 +1,7 @@
 
 use bevy::prelude::*;
 
-use crate::combat::components::*;
+use ambition_combat::components::*;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;

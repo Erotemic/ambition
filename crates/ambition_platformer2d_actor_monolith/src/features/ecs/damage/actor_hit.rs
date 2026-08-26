@@ -154,7 +154,7 @@ pub(crate) fn apply_actor_hit(
     // death-ownership marker, which correlates and does not mean the same thing.
     // An eliminated fighter's body keeps standing, its death still belongs to
     // the match, and it is not fighting; the correlation breaks exactly there.
-    if !crate::combat::components::CombatStanding::of(disposition, active_combatant).takes_damage()
+    if !ambition_combat::components::CombatStanding::of(disposition, active_combatant).takes_damage()
     {
         // Body-generic post-hit i-frame — the same consume-time gate
         // `resolve_body_hit` applies to a hostile body: a body that registered
@@ -178,7 +178,7 @@ pub(crate) fn apply_actor_hit(
         // the VICTIM's, so both are resolved before the emitter borrows the writers.
         let attacker_source = writers.source_of(event.attacker);
         let victim_source = writers.source_of(Some(actor_entity));
-        crate::combat::util::emit_hit_feedback(
+        ambition_combat::util::emit_hit_feedback(
             &mut writers.sfx,
             &mut writers.vfx,
             &mut writers.debris,
@@ -510,7 +510,7 @@ pub(crate) fn apply_actor_hit(
         // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
         // the VICTIM's. Both were resolved at the top of this branch, before the
         // emitters borrow the writers.
-        crate::combat::util::emit_hit_feedback(
+        ambition_combat::util::emit_hit_feedback(
             &mut writers.sfx,
             &mut writers.vfx,
             &mut writers.debris,
@@ -543,7 +543,7 @@ pub(crate) fn apply_actor_hit(
             // out of the world forever.
             writers
                 .knockouts
-                .write(crate::combat::stocks::BodyKnockedOut {
+                .write(ambition_combat::stocks::BodyKnockedOut {
                     body: actor_entity,
                     cause: event.source.clone(),
                 });

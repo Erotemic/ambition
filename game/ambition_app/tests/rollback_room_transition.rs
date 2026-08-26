@@ -458,7 +458,7 @@ fn a_transaction_authorized_under_a_stale_content_epoch_never_commits() {
 /// The ambient gravity direction the whole room simulates under.
 fn base_gravity_dir(sim: &Platformer2dSimHarness) -> Option<bevy::prelude::Vec2> {
     sim.world()
-        .get_resource::<ambition_platformer2d::actors::physics::BaseGravity>()
+        .get_resource::<ambition_platformer2d::world::BaseGravity>()
         .map(|gravity| gravity.dir)
 }
 
@@ -495,7 +495,7 @@ fn a_confirmed_room_transition_leaves_the_old_room_s_gravity_behind() {
     {
         let world = sim.world_mut();
         world
-            .resource_mut::<ambition_platformer2d::actors::physics::BaseGravity>()
+            .resource_mut::<ambition_platformer2d::world::BaseGravity>()
             .dir = flipped_dir;
     }
     assert_eq!(

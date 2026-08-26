@@ -357,7 +357,7 @@ pub fn rebuild_hostile_wielded_items_view(
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         Option<&BodyKinematics>,
         Option<&BodyHealth>,
-        Option<&ambition_platformer2d_actor_monolith::combat::components::ActorTarget>,
+        Option<&ambition_combat::components::ActorTarget>,
     )>,
     bodies: Query<&BodyKinematics>,
     controlled: Option<Res<ControlledSubject>>,

@@ -2,7 +2,7 @@
 //! Most fields are construction-time projections; `body_contact_damage` is mutable runtime state.
 //! Combat-relevant facts are projected separately onto combat components.
 
-use crate::combat::BodyMovementTuning;
+use ambition_combat::BodyMovementTuning;
 use ambition_entity_catalog::placements::RespawnPolicy;
 
 /// Numeric and flag tuning resolved from body, brain policy, and placement.
@@ -80,11 +80,11 @@ impl Default for ActorTuning {
 impl ActorTuning {
     /// Where this body contests space when it fights — the one fact the
     /// crowding signal needs that positions do not carry.
-    pub fn crowd_kind(&self) -> crate::combat::crowd::CrowdKind {
+    pub fn crowd_kind(&self) -> ambition_combat::crowd::CrowdKind {
         if self.is_aerial {
-            crate::combat::crowd::CrowdKind::Aerial
+            ambition_combat::crowd::CrowdKind::Aerial
         } else {
-            crate::combat::crowd::CrowdKind::Ground
+            ambition_combat::crowd::CrowdKind::Ground
         }
     }
 

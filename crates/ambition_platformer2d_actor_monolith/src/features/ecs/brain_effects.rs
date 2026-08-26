@@ -19,7 +19,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_characters::brain::{
     action_set::{ActionRequest, ProjectileFlight, RangedCommitment},
     ActorActionMessage,
@@ -78,7 +78,7 @@ pub fn spawn_projectiles_from_brain_actions(
     // `Option`, because the FEATURE and the PLUGIN are two switches: a host
     // may compile the publishers without installing an inspector.
     #[cfg(feature = "causal")] log: Option<ResMut<ambition_causal::CausalRecording>>,
-    #[cfg(feature = "causal")] identities: Query<&crate::combat::components::ActorIdentity>,
+    #[cfg(feature = "causal")] identities: Query<&ambition_combat::components::ActorIdentity>,
     #[cfg(feature = "causal")] tick: Option<Res<ambition_time::SimTick>>,
 ) {
     #[cfg(feature = "causal")]

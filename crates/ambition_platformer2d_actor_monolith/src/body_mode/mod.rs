@@ -18,7 +18,7 @@ use bevy::prelude::Component;
 /// avatar). Presence-gated: a body WITHOUT this component never body-modes at all.
 ///
 /// This is the body-mode analogue of the movement kit on
-/// [`crate::combat::CombatCapabilities`] (`can_blink` / `can_fly` / …): the
+/// [`ambition_combat::CombatCapabilities`] (`can_blink` / `can_fly` / …): the
 /// controller only *attempts* a posture change; the body decides whether it can.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyModeCapabilities {

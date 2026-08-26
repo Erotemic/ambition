@@ -4,12 +4,9 @@ use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
 
-use crate::combat::components::ActorFaction;
+use ambition_combat::components::ActorFaction;
 use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
-use crate::projectile::{
-    build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
-    ProjectileStart,
-};
+use ambition_projectiles::{build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
@@ -193,7 +190,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             crate::features::FeatureSimEntity,
             crate::features::FeatureId::new("enemy_bystander"),
             crate::features::CenteredAabb::new(actor_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::combat::components::ActorFaction::Enemy,
+            ambition_combat::components::ActorFaction::Enemy,
         ))
         .id();
     // An OWNERLESS shot already overlapping the Enemy actor.
@@ -479,7 +476,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     // 2 s lifetime retires an unspent bolt at 120.
     let mut live_projectiles = app
         .world_mut()
-        .query_filtered::<Entity, With<crate::projectile::LiveProjectile>>();
+        .query_filtered::<Entity, With<ambition_projectiles::LiveProjectile>>();
     for _ in 0..240 {
         if live_projectiles.iter(app.world()).next().is_none() {
             break;
@@ -554,7 +551,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
 
     let mut live_projectiles = app
         .world_mut()
-        .query_filtered::<Entity, With<crate::projectile::LiveProjectile>>();
+        .query_filtered::<Entity, With<ambition_projectiles::LiveProjectile>>();
     for _ in 0..240 {
         if live_projectiles.iter(app.world()).next().is_none() {
             break;
@@ -642,7 +639,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
 
     let mut live_projectiles = app
         .world_mut()
-        .query_filtered::<Entity, With<crate::projectile::LiveProjectile>>();
+        .query_filtered::<Entity, With<ambition_projectiles::LiveProjectile>>();
     for _ in 0..240 {
         if live_projectiles.iter(app.world()).next().is_none() {
             break;
@@ -673,7 +670,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
 /// [`spawn_overlapping_enemy_glider`] but the OWNER is the caller's, because
 /// what is under test is a fact about the owner (its team).
 fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
-    use crate::projectile::{ProjectileOwner, ProjectileSeq};
+    use ambition_projectiles::{ProjectileOwner, ProjectileSeq};
     let projectile = build_in_flight_projectile(ProjectileSpawn {
         origin: pos,
         dir: ae::Vec2::new(1.0, 0.0),
@@ -697,7 +694,7 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
         projectile.body.game,
         seq,
         ProjectileOwner(firer),
-        crate::projectile::LiveProjectile,
+        ambition_projectiles::LiveProjectile,
         bevy::prelude::Name::new("Owned glider (test)"),
     ));
 }
@@ -741,7 +738,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            crate::combat::components::ActorFaction::Player,
+            ambition_combat::components::ActorFaction::Player,
             BodyKinematics {
                 pos: player_pos,
                 vel: ae::Vec2::ZERO,
@@ -763,7 +760,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             },
             BodyCombat::default(),
             // Projectile victim queries read the resolved motion frame.
-            crate::physics::ResolvedMotionFrame::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
     // An enemy bolt overlapping the player, travelling left (toward where it
@@ -797,7 +794,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     // NOT mutate a faction label.
     let owner = app
         .world_mut()
-        .query::<&crate::projectile::ProjectileOwner>()
+        .query::<&ambition_projectiles::ProjectileOwner>()
         .iter(app.world())
         .next()
         .map(|o| o.0);
@@ -884,7 +881,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         BodyShieldState::default(),
         BodyCombat::default(),
         // Projectile victim queries read the resolved motion frame.
-        crate::physics::ResolvedMotionFrame::default(),
+        ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
     ));
 
     // Fire an enemy-faction shot owned by `attacker`, overlapping the player.
@@ -934,13 +931,13 @@ fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
     fn arena_publishing(volume: ae::Aabb) -> App {
         let mut app = arena_projectile_app(crate::features::FactionRelations::default());
         let pos = ae::Vec2::new(300.0, 100.0);
-        let mut volumes = crate::combat::components::DamageableVolumes::default();
+        let mut volumes = ambition_combat::components::DamageableVolumes::default();
         volumes.set_single(volume);
         app.world_mut().spawn((
             crate::features::FeatureSimEntity,
             crate::features::FeatureId::new("arena_fighter"),
             crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            crate::combat::components::ActorFaction::Player,
+            ambition_combat::components::ActorFaction::Player,
             volumes,
             BodyHealth::new(Health {
                 current: 3,
@@ -998,9 +995,9 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
                 crate::features::FeatureSimEntity,
                 crate::features::FeatureId::new("arena_fighter"),
                 crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-                crate::combat::components::ActorFaction::Player,
+                ambition_combat::components::ActorFaction::Player,
                 // Carrying this is what makes a body a damage target at all.
-                crate::combat::components::DamageableVolumes::default(),
+                ambition_combat::components::DamageableVolumes::default(),
                 BodyHealth::new(Health {
                     current,
                     max: 3,
@@ -1017,7 +1014,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
     let (live, victim) = arena_with_victim_hp(3);
     assert!(
         live.world()
-            .get::<crate::combat::components::DamageableVolumes>(victim)
+            .get::<ambition_combat::components::DamageableVolumes>(victim)
             .expect("the shipped publisher ran")
             .published(),
         "the publisher must have spoken for this body, or 'published nothing' is \
@@ -1037,7 +1034,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
     let (mut dead, victim) = arena_with_victim_hp(0);
     let published = dead
         .world()
-        .get::<crate::combat::components::DamageableVolumes>(victim)
+        .get::<ambition_combat::components::DamageableVolumes>(victim)
         .expect("the shipped publisher ran");
     assert!(
         published.published() && published.volumes.is_empty(),
@@ -1062,7 +1059,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
 /// input, set without reading `owner_id`.
 #[test]
 fn spawn_executor_attaches_visual_id() {
-    use crate::projectile::ProjectileVisualId;
+    use ambition_projectiles::ProjectileVisualId;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     app.add_message::<ProjectileSpawnRequest>();

@@ -13,7 +13,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::{Block, World};
 use bevy::prelude::*;
 
-use super::state::PlayerProjectileState;
+use ambition_projectiles::state::PlayerProjectileState;
 use super::systems::{charge_projectile_input, step_projectiles};
 use crate::features::{ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
@@ -104,7 +104,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
-    app.init_resource::<crate::projectile::ProjectileSeqCounter>();
+    app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
     // The stepper resolves each shot's visual id through the (empty here) content
     // catalog for its detonation-FX pick; init it so the `Res` param validates.
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
@@ -118,9 +118,9 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
     app.add_message::<crate::features::ActorStimulus>();
-    app.add_message::<crate::combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
-    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+    app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
     app.add_message::<crate::avatar::PlayerHealRequested>();
@@ -193,13 +193,13 @@ pub(in crate::projectile) fn primary_player_entity(app: &mut App) -> Entity {
 
 /// Collect the in-flight player projectile bodies, sorted by spawn
 /// sequence (oldest first) — the same order the old `state.bodies` Vec
-/// presented. Recomposes a [`crate::projectile::ProjectileBody`] from the
+/// presented. Recomposes a [`ambition_projectiles::ProjectileBody`] from the
 /// entity's split `BodyKinematics` + `ProjectileGameplay` so the tests can
 /// keep asserting on `.body.kin` / `.body.game` exactly as before.
 pub(in crate::projectile) fn projectile_bodies(
     app: &mut App,
-) -> Vec<crate::projectile::ProjectileBody> {
-    use crate::projectile::{ProjectileGameplay, ProjectileSeq};
+) -> Vec<ambition_projectiles::ProjectileBody> {
+    use ambition_projectiles::{ProjectileGameplay, ProjectileSeq};
     let world = app.world_mut();
     let mut q = world
         .try_query::<(
@@ -208,12 +208,12 @@ pub(in crate::projectile) fn projectile_bodies(
             &ProjectileSeq,
         )>()
         .unwrap();
-    let mut rows: Vec<(ProjectileSeq, crate::projectile::ProjectileBody)> = q
+    let mut rows: Vec<(ProjectileSeq, ambition_projectiles::ProjectileBody)> = q
         .iter(world)
         .map(|(kin, game, seq)| {
             (
                 *seq,
-                crate::projectile::ProjectileBody::from_parts(*kin, *game),
+                ambition_projectiles::ProjectileBody::from_parts(*kin, *game),
             )
         })
         .collect();
@@ -227,8 +227,8 @@ pub(in crate::projectile) fn projectile_bodies(
 /// off `ProjectileBody`. `None` for any kind-less shot.
 pub(in crate::projectile) fn projectile_kinds(
     app: &mut App,
-) -> Vec<Option<crate::projectile::ProjectileKind>> {
-    use crate::projectile::{ProjectileKind, ProjectileSeq};
+) -> Vec<Option<ambition_projectiles::ProjectileKind>> {
+    use ambition_projectiles::{ProjectileKind, ProjectileSeq};
     let world = app.world_mut();
     let mut q = world
         .try_query::<(&ProjectileSeq, Option<&ProjectileKind>)>()
@@ -247,21 +247,21 @@ pub(in crate::projectile) fn projectile_kinds(
 /// next monotonic `ProjectileSeq` so injected bodies keep a stable order.
 pub(in crate::projectile) fn spawn_player_projectile(
     app: &mut App,
-    body: crate::projectile::ProjectileBody,
+    body: ambition_projectiles::ProjectileBody,
 ) {
     let owner = primary_player_entity(app);
     let seq = {
         let mut counter = app
             .world_mut()
-            .get_resource_or_insert_with(crate::projectile::ProjectileSeqCounter::default);
+            .get_resource_or_insert_with(ambition_projectiles::ProjectileSeqCounter::default);
         counter.next()
     };
     app.world_mut().spawn((
         body.kin,
         body.game,
-        crate::projectile::ProjectileOwner(owner),
+        ambition_projectiles::ProjectileOwner(owner),
         seq,
-        crate::projectile::LiveProjectile,
+        ambition_projectiles::LiveProjectile,
         Name::new("Player projectile (test)"),
     ));
 }

@@ -21,13 +21,13 @@ use bevy::prelude::{App, IntoScheduleConfigs, Update};
 /// one edit.
 fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<HitEvent>();
-    app.add_message::<crate::combat::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
-    app.add_message::<crate::combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
 }
 
@@ -321,7 +321,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
 
 #[test]
 fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player() {
-    use crate::combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
 
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -608,12 +608,12 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
         if ruleset_owns_death {
             app.world_mut()
                 .entity_mut(body)
-                .insert(crate::combat::components::RulesetOwnsDeath);
+                .insert(ambition_combat::components::RulesetOwnsDeath);
         }
         if in_a_fight {
             app.world_mut()
                 .entity_mut(body)
-                .insert(crate::combat::components::ActiveCombatant);
+                .insert(ambition_combat::components::ActiveCombatant);
         }
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
         app.world_mut().write_message(HitEvent {
@@ -1696,7 +1696,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
 /// onto `MovePlayback.hit_targets` so the next tick's emit ignores it.
 #[test]
 fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
-    use crate::combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
@@ -1752,7 +1752,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
 /// enemy every frame.
 #[test]
 fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
-    use crate::combat::moveset::{
+    use ambition_combat::moveset::{
         MovePlayback, MovesetMelee, SimpleMeleeParams, project_moveset_melee_to_body_melee,
         simple_melee,
     };
@@ -2059,8 +2059,8 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 /// victim already is. This pins the three answers that differ.
 #[test]
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
-    use crate::combat::components::ActorFaction;
-    use crate::combat::targeting::FriendlyFire;
+    use ambition_combat::components::ActorFaction;
+    use ambition_combat::targeting::FriendlyFire;
     use ambition_characters::control::DrivingParticipant;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
@@ -2123,7 +2123,7 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
 /// struck on the same tick speak together.
 mod bark_rate {
     use super::super::bark_is_allowed;
-    use crate::combat::rules::ResolvedCombatTuning;
+    use ambition_combat::rules::ResolvedCombatTuning;
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     /// A victim named the way the simulation names one. ⛔ NOT an `Entity`: the

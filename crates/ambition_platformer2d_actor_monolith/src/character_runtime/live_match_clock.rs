@@ -437,7 +437,7 @@ mod tests {
         let active = app.world().resource::<ActiveMatch>().clone();
         app.world_mut()
             .resource_mut::<StocksMatchSettled>()
-            .settle(&active, crate::combat::stocks::MatchVerdict::Draw);
+            .settle(&active, ambition_combat::stocks::MatchVerdict::Draw);
         for _ in 0..120 {
             step(&mut app);
         }

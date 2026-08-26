@@ -15,7 +15,7 @@
 
 use super::*;
 use crate::actor::PlayerEntity;
-use crate::combat::components::{ActorFaction, ActorIdentity};
+use ambition_combat::components::{ActorFaction, ActorIdentity};
 
 fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
     if is_player {

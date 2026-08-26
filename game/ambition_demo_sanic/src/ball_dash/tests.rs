@@ -195,7 +195,7 @@ fn body_app() -> (App, Entity) {
             BallDash::default(),
             BallDashInput::default(),
             ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
-            ambition_platformer2d::actors::physics::ResolvedMotionFrame::default(),
+            ambition_platformer2d::world::ResolvedMotionFrame::default(),
         ))
         .id();
     (app, e)

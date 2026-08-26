@@ -215,7 +215,7 @@ pub fn apply_contact_harm(
             if victim == striker {
                 continue;
             }
-            if crate::combat::util::body_is_corpse(Some(victim_health)) {
+            if ambition_combat::util::body_is_corpse(Some(victim_health)) {
                 continue;
             }
             if !ambition_combat::targeting::damage_lands_between(
@@ -229,7 +229,7 @@ pub fn apply_contact_harm(
             ) {
                 continue;
             }
-            if !crate::combat::util::body_vulnerable(
+            if !ambition_combat::util::body_vulnerable(
                 victim_health.health.invulnerable,
                 facts.evading(),
                 shield,

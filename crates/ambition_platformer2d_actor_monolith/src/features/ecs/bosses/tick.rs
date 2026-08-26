@@ -47,10 +47,10 @@ fn possessed_attack_choice(
         let dir = if frame.pogo_pressed && !frame.melee_pressed {
             ambition_entity_catalog::AttackDir::Down
         } else {
-            crate::combat::moveset::attack_dir_from_axis(frame.attack_axis, facing)
+            ambition_combat::moveset::attack_dir_from_axis(frame.attack_axis, facing)
         };
         let authored = ambition_entity_catalog::directional_verb_chain(
-            crate::combat::moveset::ATTACK_VERB,
+            ambition_combat::moveset::ATTACK_VERB,
             dir,
             /* grounded: a boss floats — its verb map authors no air variants */
             true,
@@ -143,13 +143,13 @@ pub fn trigger_boss_attack_moves(
         (
             Entity,
             &BossAttackIntent,
-            &crate::combat::moveset::ActorMoveset,
+            &ambition_combat::moveset::ActorMoveset,
             &crate::actor::BodyKinematics,
             // MUTABLE so an interrupted windup can go through the one teardown
             // path below. A windup carries no strike boxes yet, so nothing is
             // leaking today -- but "cancel this move" having one meaning is what
             // keeps the next interrupt from being the one that does.
-            Option<&mut crate::combat::moveset::MovePlayback>,
+            Option<&mut ambition_combat::moveset::MovePlayback>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -183,7 +183,7 @@ pub fn trigger_boss_attack_moves(
             let in_windup = pb.t < active_start(&pb.spec);
             let intent_wants_this = intent.is_some_and(|(p, _)| *p == move_profile);
             if in_windup && !intent_wants_this {
-                crate::combat::moveset::cancel_move_playback(&mut commands, entity, &mut pb);
+                ambition_combat::moveset::cancel_move_playback(&mut commands, entity, &mut pb);
             }
             continue;
         }
@@ -209,7 +209,7 @@ pub fn trigger_boss_attack_moves(
             };
             commands
                 .entity(entity)
-                .insert(crate::combat::moveset::MovePlayback::new_at(
+                .insert(ambition_combat::moveset::MovePlayback::new_at(
                     spec.clone(),
                     kin.facing,
                     t0,
@@ -239,7 +239,7 @@ pub fn trigger_boss_attack_moves(
 pub fn project_boss_attack_state_from_move(
     mut bosses: Query<
         (
-            Option<&crate::combat::moveset::MovePlayback>,
+            Option<&ambition_combat::moveset::MovePlayback>,
             &mut BossAttackState,
         ),
         With<FeatureSimEntity>,
@@ -700,7 +700,7 @@ pub fn integrate_boss_bodies(
             Entity,
             super::super::actor_clusters::ActorClusterQueryData,
             &ambition_boss_encounter::BossConfig,
-            &crate::combat::BodyEnvelope,
+            &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
             &super::super::super::components::ActorTarget,
@@ -713,7 +713,7 @@ pub fn integrate_boss_bodies(
             // phase — the SAME artifact every other body integrates under.
             &'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &'static mut ambition_platformer2d_core::BodyMotionFacts,
-            Option<&'static crate::combat::moveset::MovePlayback>,
+            Option<&'static ambition_combat::moveset::MovePlayback>,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,

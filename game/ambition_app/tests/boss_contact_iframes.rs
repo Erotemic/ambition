@@ -30,7 +30,7 @@ use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::boss_encounter::{
     BossEncounterPhase, EncounterDef, EncounterProgress,
 };
-use ambition_platformer2d::actors::combat::{HitEvent, HitSource};
+use ambition_platformer2d::combat::{HitEvent, HitSource};
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::encounter::EncounterParticipants;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};

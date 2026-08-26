@@ -118,7 +118,7 @@ pub fn publish_body_presentation_sources(
         (
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
-            Option<&crate::combat::CombatTuning>,
+            Option<&ambition_combat::CombatTuning>,
             Option<&ambition_sfx::BodyPresentationSource>,
         ),
         // Filtered, because this runs on the SIM clock and an all-`Option` tuple
@@ -133,7 +133,7 @@ pub fn publish_body_presentation_sources(
         // arm delete exactly those inherited ones on the very next tick.
         Or<(
             With<ambition_characters::actor::WornCharacter>,
-            With<crate::combat::CombatTuning>,
+            With<ambition_combat::CombatTuning>,
             With<ambition_sfx::DerivedPresentationSource>,
         )>,
     >,
@@ -317,12 +317,12 @@ pub fn project_prepared_character_definitions(
         (
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
-            Option<&crate::combat::CombatTuning>,
+            Option<&ambition_combat::CombatTuning>,
             Option<&ProjectedCharacterKit>,
         ),
         Or<(
             Changed<ambition_characters::actor::WornCharacter>,
-            Added<crate::combat::CombatTuning>,
+            Added<ambition_combat::CombatTuning>,
         )>,
     >,
     // The bodies a CAST REPLACEMENT invalidates. (H6)
@@ -346,7 +346,7 @@ pub fn project_prepared_character_definitions(
             With<ambition_characters::actor::WornCharacter>,
             With<Name>,
             With<ambition_characters::brain::ActionSet>,
-            With<crate::combat::moveset::ActorMoveset>,
+            With<ambition_combat::moveset::ActorMoveset>,
             With<ambition_characters::brain::action_set::IdentityKit>,
             With<crate::actor::BodyAbilities>,
             With<crate::features::MotionModel>,
@@ -357,7 +357,7 @@ pub fn project_prepared_character_definitions(
     all_bodies: Query<(
         Entity,
         Option<&ambition_characters::actor::WornCharacter>,
-        Option<&crate::combat::CombatTuning>,
+        Option<&ambition_combat::CombatTuning>,
         Option<&ProjectedCharacterKit>,
     )>,
 ) {
@@ -507,10 +507,10 @@ pub fn grant_prepared_character_body(
                 // which replaces the moveset and never knew the markers existed.
                 commands
                     .entity(entity)
-                    .insert(crate::combat::moveset::ActorMoveset(moveset));
+                    .insert(ambition_combat::moveset::ActorMoveset(moveset));
             }
             if let Some(action_set) = prepared.kit.action_set().cloned() {
-                let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
+                let combat_kit = ambition_combat::components::CombatKit::from_action_set(&action_set);
                 commands.entity(entity).insert((action_set, combat_kit));
             }
         }
@@ -521,7 +521,7 @@ pub fn grant_prepared_character_body(
             commands.entity(entity).insert((
                 super::AuthoredHurtboxes(hurtboxes),
                 super::ResolvedHurtboxes::default(),
-                crate::combat::components::DamageableVolumes::default(),
+                ambition_combat::components::DamageableVolumes::default(),
             ));
         }
         // THE AUTHORED BODY, which had no consumer at all.

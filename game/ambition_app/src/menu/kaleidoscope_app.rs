@@ -589,7 +589,7 @@ pub(crate) struct SystemMenuParams<'w> {
     >,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
-    base_gravity: Option<ResMut<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
+    base_gravity: Option<ResMut<'w, ambition_platformer2d::world::BaseGravity>>,
     reset: ResMut<'w, ambition_platformer2d::actors::session::reset::NewGameResetRequested>,
     // Selecting a rebind row ARMS this; the capture system reads it.
     rebind_capture: ResMut<'w, RebindCapture>,
@@ -831,7 +831,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     portal_camera: Option<
         Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
-    base_gravity: Option<Res<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
+    base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -1983,7 +1983,7 @@ fn close_kaleidoscope_menu(
 /// player overlaps still wins locally, and a room reset restores the authored default.
 fn cycle_dev_gravity(
     keys: Res<ButtonInput<KeyCode>>,
-    mut base: ResMut<ambition_platformer2d::actors::physics::BaseGravity>,
+    mut base: ResMut<ambition_platformer2d::world::BaseGravity>,
 ) {
     if !keys.just_pressed(KeyCode::Backslash) {
         return;

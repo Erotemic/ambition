@@ -17,7 +17,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 
 use crate::items::pickup::GroundItem;
-use crate::physics::{GravityZone, TemporaryZone};
+use ambition_platformer2d_shared_tangle::gravity::{GravityZone, TemporaryZone};
 use ambition_platformer2d_core as ae;
 
 /// Held-item id the gravity grenade grants.

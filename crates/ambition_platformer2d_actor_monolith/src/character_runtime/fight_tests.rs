@@ -272,8 +272,8 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
 // ─────────────────────────────────────────────────────────────────────────────
 // The actual fight.
 
-use crate::combat::hitbox::apply_hitbox_damage;
-use crate::combat::moveset::{
+use ambition_combat::hitbox::apply_hitbox_damage;
+use ambition_combat::moveset::{
     advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, MovePlayback,
 };
 use crate::features::apply_feature_hit_events;
@@ -360,7 +360,7 @@ fn spawn_fighter(
     character_id: &str,
     at: Vec2,
     facing: f32,
-    faction: crate::combat::components::ActorFaction,
+    faction: ambition_combat::components::ActorFaction,
 ) -> Entity {
     finalize(app);
     let prepared = app
@@ -461,7 +461,7 @@ fn fight_app() -> App {
     // Both fighters author explicit rectangles, so no blade is resolved from
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.
-    app.insert_resource(crate::combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
+    app.insert_resource(ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
     app.insert_resource(crate::features::GameplayBanner::default());
     app.init_resource::<ambition_time::WorldTime>();
     {
@@ -470,7 +470,7 @@ fn fight_app() -> App {
         time.raw_dt = TICK;
     }
     app.add_message::<crate::features::HitEvent>();
-    app.add_message::<crate::combat::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
     app.add_message::<crate::features::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -480,9 +480,9 @@ fn fight_app() -> App {
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
     app.add_message::<crate::features::ActorStimulus>();
-    app.add_message::<crate::combat::stocks::BodyKnockedOut>();
+    app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
-    app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
     // A session whose speakers belong to somebody else.
     {
@@ -502,7 +502,7 @@ fn fight_app() -> App {
             // The cue dispatcher, in the chain. Without it the fight proved that a
             // move fires a `MoveEventMessage` and nothing about what the audio
             // authority receives — which is where the attribution actually lands.
-            crate::combat::moveset::dispatch_move_events,
+            ambition_combat::moveset::dispatch_move_events,
             crate::character_runtime::hurtbox::resolve_body_hurtboxes,
             crate::features::refresh_body_damageable_volumes,
             apply_hitbox_damage,
@@ -585,14 +585,14 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        crate::combat::components::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(22.0, 0.0),
         -1.0,
-        crate::combat::components::ActorFaction::Npc,
+        ambition_combat::components::ActorFaction::Npc,
     );
     assert_eq!(health(&app, mary), 10);
     assert_eq!(health(&app, sanic), 10);
@@ -664,14 +664,14 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        crate::combat::components::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(52.0, 0.0),
         -1.0,
-        crate::combat::components::ActorFaction::Npc,
+        ambition_combat::components::ActorFaction::Npc,
     );
     press_attack(&mut app, mary);
     finalize_and_update(&mut app);
@@ -689,8 +689,8 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
         // owner's box centre, so there is no world rectangle on the entity to read.
         let strike = {
             let world = app.world_mut();
-            let mut q = world.query_filtered::<&crate::combat::hitbox::Hitbox, With<
-                crate::combat::moveset::StrikeVolume,
+            let mut q = world.query_filtered::<&ambition_combat::hitbox::Hitbox, With<
+                ambition_combat::moveset::StrikeVolume,
             >>();
             let hitbox = q.iter(world).next().cloned();
             hitbox.map(|hitbox| {
@@ -709,7 +709,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
             .aabb();
         let published = app
             .world()
-            .get::<crate::combat::components::DamageableVolumes>(sanic)
+            .get::<ambition_combat::components::DamageableVolumes>(sanic)
             .expect("the volume publisher ran");
         assert!(
             published.published(),
@@ -771,14 +771,14 @@ fn a_dying_body_dies_in_its_own_voice() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        crate::combat::components::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(22.0, 0.0),
         -1.0,
-        crate::combat::components::ActorFaction::Npc,
+        ambition_combat::components::ActorFaction::Npc,
     );
 
     // Mary-O's stomp authors 3 damage against 10 HP, and a struck body holds

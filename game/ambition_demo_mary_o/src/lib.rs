@@ -2102,7 +2102,7 @@ fn publish_timeout_death(
         // your attempt", and inventing one would only be honest if something
         // read it.
         cause: ambition_platformer2d::actors::DeathCause {
-            source: ambition_platformer2d::actors::combat::HitSource::Hazard,
+            source: ambition_platformer2d::combat::HitSource::Hazard,
             attacker: None,
         },
     });

@@ -1089,7 +1089,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_time::WorldTime>();
     {
@@ -1116,14 +1116,14 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     input.axis_y = 1.0;
     controls.set(PlayerSlot(0), input);
     app.insert_resource(controls);
-    app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_systems(
         Update,
         (
             crate::features::tick_boss_brains_system,
             crate::features::trigger_boss_attack_moves,
-            crate::combat::moveset::advance_move_playback,
+            ambition_combat::moveset::advance_move_playback,
             crate::features::project_boss_attack_state_from_move,
             route_boss_strikes_to_limbs,
             fan_out_limb_intents,
@@ -1228,7 +1228,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             BossAttackState::default(),
             capability,
             moveset,
-            crate::combat::components::ActorFaction::Boss,
+            ambition_combat::components::ActorFaction::Boss,
             crate::features::ActorTarget::default(),
             crate::features::FeatureSimEntity,
             Mounted,
@@ -1245,7 +1245,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     // → trigger), started at its strike edge (possession is instant).
     let pb = app
         .world()
-        .get::<crate::combat::moveset::MovePlayback>(rider)
+        .get::<ambition_combat::moveset::MovePlayback>(rider)
         .expect("down+attack starts the rider's hand_slam move");
     assert_eq!(pb.spec.id, "hand_slam", "the G5 verb map picked hand_slam");
 
@@ -1275,7 +1275,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     }
     assert!(
         app.world()
-            .get::<crate::combat::moveset::MovePlayback>(rider)
+            .get::<ambition_combat::moveset::MovePlayback>(rider)
             .is_none(),
         "the slam move finished and was removed",
     );

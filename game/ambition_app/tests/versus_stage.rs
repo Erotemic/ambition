@@ -1404,13 +1404,13 @@ fn four_controllers_make_versus_a_two_versus_two() {
         Entity,
         &MatchSeat,
         &MatchTeam,
-        &ambition_platformer2d::actors::combat::components::ActorFaction,
+        &ambition_platformer2d::combat::components::ActorFaction,
     )>();
     let mut fighters: Vec<(
         Entity,
         usize,
         String,
-        ambition_platformer2d::actors::combat::components::ActorFaction,
+        ambition_platformer2d::combat::components::ActorFaction,
     )> = q
         .iter(world)
         .map(|(entity, seat, team, faction)| (entity, seat.0, team.0.clone(), *faction))

@@ -33,7 +33,7 @@ pub fn refresh_body_damageable_volumes(
 ) {
     for (aabb, health, hurtboxes, kin, mut damageable) in &mut bodies {
         // Dead bodies publish no target volume; disposition does not affect tangibility.
-        if crate::combat::util::body_is_corpse(health) {
+        if ambition_combat::util::body_is_corpse(health) {
             damageable.clear();
             continue;
         }

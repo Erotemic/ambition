@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -148,7 +148,7 @@ pub fn update_sentries(
             // Structural tangibility gate: a dead enemy is an
             // intangible corpse — the sentry does not target it.
             .filter(|(_, f, health)| {
-                **f == ActorFaction::Enemy && !crate::combat::util::body_is_corpse(*health)
+                **f == ActorFaction::Enemy && !ambition_combat::util::body_is_corpse(*health)
             })
             .map(|(aabb, _, _)| aabb.center)
             .filter(|c| c.distance(sentry.pos) <= SENTRY_RANGE)
@@ -200,12 +200,12 @@ mod tests {
     use super::*;
     use crate::abilities::test_support::spawn_primary_player_holding;
     use crate::enemy_projectile::test_support::live_projectile_bodies;
-    use crate::projectile::ProjectileSeqCounter;
+    use ambition_projectiles::ProjectileSeqCounter;
 
     fn test_app() -> App {
         let mut app = App::new();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+        app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
         app.insert_resource(ambition_time::WorldTime {
             raw_dt: 0.1,
             scaled_dt: 0.1,

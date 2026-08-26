@@ -4,12 +4,9 @@
 //! body shape production materialization uses while keeping collision/routing
 //! tests independent of message scheduling.
 
-use crate::combat::components::ActorFaction;
-use crate::projectile::ProjectileSpawn;
-use crate::projectile::{
-    build_in_flight_projectile, ProjectileGameplay, ProjectileOwner, ProjectileSeq,
-    ProjectileSeqCounter,
-};
+use ambition_combat::components::ActorFaction;
+use ambition_projectiles::ProjectileSpawn;
+use ambition_projectiles::{build_in_flight_projectile, ProjectileGameplay, ProjectileOwner, ProjectileSeq, ProjectileSeqCounter};
 use bevy::prelude::*;
 
 /// Directly spawn an open-visual projectile entity for collision/routing tests.
@@ -38,7 +35,7 @@ pub(crate) fn spawn_test_projectile(
         projectile.body.game,
         seq,
         ProjectileOwner(owner),
-        crate::projectile::LiveProjectile,
+        ambition_projectiles::LiveProjectile,
         Name::new("Test projectile"),
     ));
 }
@@ -55,16 +52,16 @@ pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn
         projectile.body.kin,
         projectile.body.game,
         seq,
-        crate::projectile::LiveProjectile,
+        ambition_projectiles::LiveProjectile,
         Name::new("Ownerless projectile (test)"),
     ));
 }
 
 /// Collect the in-flight test projectile bodies, sorted by spawn sequence
-/// (oldest first), matching production sequence ordering. Recomposes an [`crate::projectile::InFlightProjectile`] from the
+/// (oldest first), matching production sequence ordering. Recomposes an [`ambition_projectiles::InFlightProjectile`] from the
 /// entity's split `BodyKinematics` + `ProjectileGameplay` so the historical
 /// collision tests can keep asserting on the reconstructed flight body.
-pub(crate) fn live_projectile_bodies(app: &mut App) -> Vec<crate::projectile::InFlightProjectile> {
+pub(crate) fn live_projectile_bodies(app: &mut App) -> Vec<ambition_projectiles::InFlightProjectile> {
     let world = app.world_mut();
     // `try_query_filtered` returns `Err` when the projectile component types
     // were never registered in this World — exactly the "no projectile ever
@@ -74,16 +71,16 @@ pub(crate) fn live_projectile_bodies(app: &mut App) -> Vec<crate::projectile::In
         &crate::actor::BodyKinematics,
         &ProjectileGameplay,
         &ProjectileSeq,
-    ), With<crate::projectile::LiveProjectile>>() else {
+    ), With<ambition_projectiles::LiveProjectile>>() else {
         return Vec::new();
     };
-    let mut rows: Vec<(ProjectileSeq, crate::projectile::InFlightProjectile)> = q
+    let mut rows: Vec<(ProjectileSeq, ambition_projectiles::InFlightProjectile)> = q
         .iter(world)
         .map(|(kin, game, seq)| {
             (
                 *seq,
-                crate::projectile::InFlightProjectile {
-                    body: crate::projectile::ProjectileBody::from_parts(*kin, *game),
+                ambition_projectiles::InFlightProjectile {
+                    body: ambition_projectiles::ProjectileBody::from_parts(*kin, *game),
                 },
             )
         })

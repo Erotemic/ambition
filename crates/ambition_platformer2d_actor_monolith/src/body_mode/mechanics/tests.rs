@@ -102,7 +102,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 BodyModeState::default(),
                 BodyJumpState::default(),
                 crate::actor::BodyFlightState::default(),
-                crate::physics::ResolvedMotionFrame::default(),
+                ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
             ),
         ))
         .id();
@@ -137,7 +137,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
             BodyModeState::default(),
             BodyJumpState::default(),
             crate::actor::BodyFlightState::default(),
-            crate::physics::ResolvedMotionFrame::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ),
     ));
     if let Some(slot) = slot {

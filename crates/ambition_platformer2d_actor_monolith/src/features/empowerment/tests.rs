@@ -22,7 +22,7 @@ fn app_with_striker_and_victim(
         ..Default::default()
     });
     app.add_message::<HitEvent>();
-    app.add_message::<crate::combat::hitbox::LandedBodyHit>();
+    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
     let pos = ae::Vec2::new(100.0, 100.0);
     let size = ae::Vec2::new(30.0, 48.0);
     let striker = app

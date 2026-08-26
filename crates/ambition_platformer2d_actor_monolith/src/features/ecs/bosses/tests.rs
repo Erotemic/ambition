@@ -28,7 +28,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
+    app.init_resource::<ambition_combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.init_resource::<ambition_time::WorldTime>();
     app.world_mut()
         .resource_mut::<ambition_time::WorldTime>()
@@ -36,13 +36,13 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     app.world_mut()
         .resource_mut::<ambition_time::WorldTime>()
         .raw_dt = 0.016;
-    app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_systems(
         Update,
         (
             crate::features::trigger_boss_attack_moves,
-            crate::combat::moveset::advance_move_playback,
+            ambition_combat::moveset::advance_move_playback,
         )
             .chain(),
     );
@@ -52,7 +52,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
         ..Default::default()
     };
     app.world_mut().spawn((
-        crate::combat::components::ActorFaction::Boss,
+        ambition_combat::components::ActorFaction::Boss,
         crate::actor::BodyKinematics {
             pos: ae::Vec2::new(300.0, 300.0),
             vel: ae::Vec2::ZERO,
@@ -67,7 +67,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     app.update();
     app.update();
 
-    let mut q = app.world_mut().query::<&crate::combat::hitbox::Hitbox>();
+    let mut q = app.world_mut().query::<&ambition_combat::hitbox::Hitbox>();
     let hits: Vec<_> = q.iter(app.world()).collect();
     assert!(
         !hits.is_empty(),

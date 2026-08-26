@@ -11,8 +11,8 @@ use bevy::prelude::Name;
 
 fn damage_volume_from_authored(
     authored: &crate::rooms::Authored<crate::rooms::HazardVolumeSpec>,
-) -> crate::combat::DamageVolume {
-    let mut damage = crate::combat::Damage::new(
+) -> ambition_combat::DamageVolume {
+    let mut damage = ambition_combat::Damage::new(
         authored.payload.damage,
         authored.payload.kind,
         authored.payload.team,
@@ -22,7 +22,7 @@ fn damage_volume_from_authored(
         authored.payload.knockback[1],
     );
     damage.hitstop_seconds = authored.payload.hitstop_seconds;
-    crate::combat::DamageVolume {
+    ambition_combat::DamageVolume {
         id: authored.id.clone(),
         aabb: authored.aabb,
         damage,

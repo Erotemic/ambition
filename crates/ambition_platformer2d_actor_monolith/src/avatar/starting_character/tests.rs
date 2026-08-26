@@ -157,7 +157,7 @@ fn non_default_id_is_not_default() {
 /// and movement identity re-derived by `apply_worn_character_gameplay`.
 #[test]
 fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 
@@ -230,7 +230,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
 
 #[test]
 fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 
@@ -299,7 +299,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
 /// `Changed` edges, not by the system running unconditionally every frame.
 #[test]
 fn derive_system_only_fires_on_identity_or_ability_change() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 
@@ -368,7 +368,7 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
             WornCharacter::new("sanic"),
             Name::new("placeholder"),
             ambition_characters::brain::ActionSet::peaceful(),
-            crate::combat::moveset::ActorMoveset(Default::default()),
+            ambition_combat::moveset::ActorMoveset(Default::default()),
             ambition_characters::brain::action_set::IdentityKit::default(),
             crate::actor::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
             MotionModel::default(),
@@ -411,7 +411,7 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
 /// the goblin's kit, leaving no stale pirate pistol behind.
 #[test]
 fn worn_kit_fully_follows_a_known_character_rewear() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{action_set::RangedStyle, ActionSet, RangedActionSpec};
     use bevy::prelude::*;
 
@@ -488,7 +488,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
 
 #[test]
 fn runtime_rewear_rebuilds_from_the_destination_character() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{ActionSet, RangedActionSpec};
     use bevy::prelude::*;
 
@@ -579,7 +579,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
 /// the prior character's kit or name.
 #[test]
 fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
     use bevy::prelude::*;
 
@@ -641,7 +641,7 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
 /// missed.
 #[test]
 fn host_code_kit_refreshes_when_body_abilities_change() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
     use bevy::prelude::*;
 
@@ -1485,7 +1485,7 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
         moveset
             .0
             .verbs
-            .contains_key(crate::combat::moveset::RANGED_VERB),
+            .contains_key(ambition_combat::moveset::RANGED_VERB),
         "the action set advertises ranged and the derived moveset has no ranged \
          verb, so pressing it does nothing: {:?}",
         moveset.0.verbs.keys().collect::<Vec<_>>()
@@ -1528,7 +1528,7 @@ fn an_authored_special_action_set_derives_a_special_move() {
         moveset
             .0
             .verbs
-            .contains_key(crate::combat::moveset::SPECIAL_VERB),
+            .contains_key(ambition_combat::moveset::SPECIAL_VERB),
         "the action set advertises a special and the derived moveset has no \
          special verb, so pressing it does nothing: {:?}",
         moveset.0.verbs.keys().collect::<Vec<_>>()
@@ -1557,7 +1557,7 @@ fn an_unregistered_authored_persona_derives_its_ranged_move() {
         moveset
             .0
             .verbs
-            .contains_key(crate::combat::moveset::RANGED_VERB),
+            .contains_key(ambition_combat::moveset::RANGED_VERB),
         "an unregistered catalog persona advertises ranged and derived no ranged \
          verb, so pressing it does nothing: {:?}",
         moveset.0.verbs.keys().collect::<Vec<_>>()
@@ -1614,7 +1614,7 @@ fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
 /// against a body carrying what a player body carries.
 #[test]
 fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
@@ -1695,7 +1695,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
 /// heal.
 #[test]
 fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 
@@ -1868,7 +1868,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
 /// character one.
 #[test]
 fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
@@ -1997,7 +1997,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
 /// acquire one permanently from a character that only briefly authored it.
 #[test]
 fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
@@ -2069,7 +2069,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
 /// state such as `max_health`, including during rollback resimulation.
 #[test]
 fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
@@ -2161,7 +2161,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
 /// the BODY, and it does not move when the definition behind the id does.
 #[test]
 fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
@@ -2253,7 +2253,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
 /// A worn body with NO moveset must still get its persona — and get a moveset.
 #[test]
 fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 
@@ -2332,7 +2332,7 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
 /// would leave.
 #[test]
 fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
-    use crate::combat::moveset::ActorMoveset;
+    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 

@@ -1,7 +1,7 @@
 use super::*;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::features::ecs::actor_clusters::ActorClusterSeed;
-use crate::projectile::ProjectileSeqCounter;
+use ambition_projectiles::ProjectileSeqCounter;
 use ambition_characters::brain::{ActionSet, RangedActionSpec, RangedCommitment};
 
 /// Build a rider-shaped hostile actor: standalone PirateRaider
@@ -36,7 +36,7 @@ fn build_app() -> App {
     app.add_plugins(MinimalPlugins);
     app.add_message::<ActorActionMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+    app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
     // The consumer emits ProjectileSpawnRequest; chain the immediate materializer
     // so the projectile entity spawns within the update.
@@ -89,7 +89,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
     );
     let mut owners = app
         .world_mut()
-        .query::<&crate::projectile::ProjectileOwner>();
+        .query::<&ambition_projectiles::ProjectileOwner>();
     assert_eq!(
         owners.single(app.world()).expect("one projectile owner").0,
         actor,
@@ -134,7 +134,7 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
     app.update();
     let mut q = app
         .world_mut()
-        .query::<&crate::projectile::ProjectileVisualId>();
+        .query::<&ambition_projectiles::ProjectileVisualId>();
     let ids: Vec<_> = q.iter(app.world()).map(|v| v.0.clone()).collect();
     assert_eq!(
         ids,

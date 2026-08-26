@@ -109,7 +109,7 @@ fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     );
     assert!(
         app.world()
-            .get::<crate::combat::components::ActorFaction>(npc)
+            .get::<ambition_combat::components::ActorFaction>(npc)
             .is_none(),
         "provoke must NOT insert an Enemy faction — identity is preserved, the grudge does the work"
     );

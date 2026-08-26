@@ -97,7 +97,7 @@ pub(crate) fn observe_actor_decision_inputs(
             &super::super::super::components::ActorTarget,
             Option<super::super::actor_clusters::ActorClusterQueryDataReadOnly>,
             Option<&super::super::super::components::ActorFaction>,
-            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
+            bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
         ),
         (
             With<FeatureSimEntity>,
@@ -119,7 +119,7 @@ pub(crate) fn observe_actor_decision_inputs(
     }
     for (entity, disposition, target, body, faction, in_a_fight) in &actors {
         let fighting =
-            crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
+            ambition_combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
         observation.note_actor(
             entity,
             body.as_ref().is_some_and(|body| body.health.alive()),
@@ -309,7 +309,7 @@ pub fn tick_actor_brains(
                 // reverse — so this is the world-in port doing what it is for.
                 // `Option` because a body with no moveset (a peaceful NPC, a
                 // prop) has no kit, and an empty kit is the honest answer.
-                Option<&crate::combat::moveset::ActorMoveset>,
+                Option<&ambition_combat::moveset::ActorMoveset>,
                 // THE MOVE THAT CURRENTLY OWNS THIS BODY, so the attack kit
                 // can say which of its candidates could be STARTED this tick —
                 // see `ActionLegality`. Here for exactly the reason the moveset
@@ -318,7 +318,7 @@ pub fn tick_actor_brains(
                 //
                 // A brain inferring "I look like I am in recovery" would be answering a different
                 // question and would be wrong for every move with a cancel window.
-                Option<&crate::combat::moveset::MovePlayback>,
+                Option<&ambition_combat::moveset::MovePlayback>,
                 // WHAT IS TRUE OF THIS BODY'S LOCOMOTION, published once per
                 // tick by the movement kernel. The brain snapshot's
                 // `turns_at_walls` reads it instead of the spawn-time
@@ -513,7 +513,7 @@ pub fn tick_actor_brains(
                     // `build_world_view` the player-robot body uses. The SELF-view is
                     // HONEST — real (possession-aware) faction, `can_fire` reflecting a real
                     // ranged slot, hostility against the LIVE `FactionRelations` + grudge.
-                    let self_faction = crate::combat::targeting::effective_faction(
+                    let self_faction = ambition_combat::targeting::effective_faction(
                         faction
                             .copied()
                             .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
@@ -1006,7 +1006,7 @@ pub fn integrate_sim_bodies(
             Option<super::super::actor_clusters::ActorClusterQueryData>,
             // The body's live move, if any — its authored per-window motion
             // lock scales the steering intent inside `integrate_actor_body`.
-            Option<&crate::combat::moveset::MovePlayback>,
+            Option<&ambition_combat::moveset::MovePlayback>,
             // The body's own FEEL, if its character authored one.
             //
             // this component was GRANTED to every seated fighter and read by nobody on this path:
@@ -1060,7 +1060,7 @@ pub fn integrate_sim_bodies(
             // motion lock — a committed swing, and the charge root Jon asked for
             // by name — was live for brain-driven bodies and silently off for the
             // one a human drives.
-            Option<&crate::combat::moveset::MovePlayback>,
+            Option<&ambition_combat::moveset::MovePlayback>,
             // A body that authors its own axis feel (a demo protagonist) carries
             // this; the shared sandbox protagonist does not and tracks the F3
             // dev tuning live (see the per-body resolve below).
@@ -1328,7 +1328,7 @@ pub fn apply_actor_contact_damage(
         let Ok((hurtbox, victim_health, facts, shield, combat)) = victims.get(target_entity) else {
             continue;
         };
-        if !crate::combat::util::body_vulnerable(
+        if !ambition_combat::util::body_vulnerable(
             victim_health.health.invulnerable,
             facts.evading(),
             shield,
@@ -1353,7 +1353,7 @@ pub fn apply_actor_contact_damage(
 /// far apart. Returns the position of each actor's nearest same-kind
 /// neighbor; actors with no same-kind peer are absent from the map.
 pub(crate) fn compute_nearest_neighbors(
-    requests: &[(String, ae::Vec2, crate::combat::crowd::CrowdKind)],
+    requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
 ) -> std::collections::HashMap<String, ae::Vec2> {
     let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
         std::collections::HashMap::new();
@@ -1382,7 +1382,7 @@ pub(crate) fn compute_nearest_neighbors(
 /// over the per-tick slot requests `(id, pos, kind)` so it is
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
-    requests: &[(String, ae::Vec2, crate::combat::crowd::CrowdKind)],
+    requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
     faction_by_id: &std::collections::HashMap<
         String,
         super::super::super::components::ActorFaction,
@@ -1401,7 +1401,7 @@ pub(crate) fn compute_crowding_by_id(
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
         let mut centroid = ae::Vec2::ZERO;
-        let aerial = *kind_a == crate::combat::crowd::CrowdKind::Aerial;
+        let aerial = *kind_a == ambition_combat::crowd::CrowdKind::Aerial;
         let radius = if aerial {
             AERIAL_CROWDING_RADIUS_PX
         } else {
@@ -1422,7 +1422,7 @@ pub(crate) fn compute_crowding_by_id(
             if different_faction || is_my_target {
                 continue;
             }
-            if aerial && *kind_b != crate::combat::crowd::CrowdKind::Aerial {
+            if aerial && *kind_b != ambition_combat::crowd::CrowdKind::Aerial {
                 continue;
             }
             if pos_a.distance_squared(*pos_b) <= radius * radius {
@@ -1456,7 +1456,7 @@ pub(crate) fn compute_crowding_by_id(
 /// `Vec` — so the kit is stable across ticks and across a replay, and no sort is
 /// needed to make it deterministic.
 pub(super) fn attack_kit_of(
-    moveset: Option<&crate::combat::moveset::ActorMoveset>,
+    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
     // The body's REAL posture this tick. The kit is what it can press NOW.
     grounded: bool,
     // only a FIGHTER brain reads the kit, and building it is a `Vec` of
@@ -1471,7 +1471,7 @@ pub(super) fn attack_kit_of(
     // `cancel_permits` call `trigger_moveset_moves` makes — see
     // `ActionLegality`. `None` means nothing owns the body and everything is
     // startable.
-    playback: Option<&crate::combat::moveset::MovePlayback>,
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
 ) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
@@ -1509,9 +1509,9 @@ pub(super) fn attack_kit_of(
     // which is the no-cheat contract's whole subject.
     let mut kit: Vec<AttackCandidate> = Vec::new();
     for (verb, verb_name) in [
-        (AttackVerb::Basic, crate::combat::moveset::ATTACK_VERB),
-        (AttackVerb::Smash, crate::combat::moveset::SMASH_VERB),
-        (AttackVerb::Special, crate::combat::moveset::SPECIAL_VERB),
+        (AttackVerb::Basic, ambition_combat::moveset::ATTACK_VERB),
+        (AttackVerb::Smash, ambition_combat::moveset::SMASH_VERB),
+        (AttackVerb::Special, ambition_combat::moveset::SPECIAL_VERB),
     ] {
         for direction in [
             AttackDir::Neutral,
@@ -1562,7 +1562,7 @@ pub(super) fn attack_kit_of(
 /// namespace, and asking with a different list would make this answer a
 /// question nothing enforces.
 fn legality_of(
-    playback: Option<&crate::combat::moveset::MovePlayback>,
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
     verb_name: &str,
     move_id: &str,
 ) -> ambition_characters::brain::fighter::options::ActionLegality {
@@ -1602,9 +1602,9 @@ fn legality_of(
 /// every actor in every game the engine runs.  the honest number here is
 /// zero, and the missing one is the fighter capability's.
 fn capture_candidate(
-    moveset: &crate::combat::moveset::ActorMoveset,
+    moveset: &ambition_combat::moveset::ActorMoveset,
     grounded: bool,
-    playback: Option<&crate::combat::moveset::MovePlayback>,
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
 ) -> Option<ambition_characters::brain::fighter::options::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::options::{
@@ -1664,13 +1664,13 @@ fn build_enemy_brain_snapshot(
     sim_time: f32,
     gravity_dir: ae::Vec2,
     // FB4b §13.2: the body's own moveset, or `None` for a body that has none.
-    moveset: Option<&crate::combat::moveset::ActorMoveset>,
+    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
     // Which brain this body carries, so the kit is built only for one that reads
     // it. See `attack_kit_of`.
     brain: Option<&ambition_characters::brain::Brain>,
     // The move that currently owns this body, so the attack kit can say
     // which candidates could be STARTED this tick. See `attack_kit_of`.
-    playback: Option<&crate::combat::moveset::MovePlayback>,
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
     // What is TRUE of this body's locomotion, published by the movement
     // kernel — see `turns_at_walls` below for why this replaced a tuning read.
     motion_facts: &ambition_platformer2d_core::BodyMotionFacts,

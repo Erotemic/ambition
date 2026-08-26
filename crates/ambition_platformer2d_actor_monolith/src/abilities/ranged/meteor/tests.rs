@@ -1,12 +1,12 @@
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
-use crate::projectile::ProjectileSeqCounter;
+use ambition_projectiles::ProjectileSeqCounter;
 
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+    app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
     // Fire emits a request; the immediate materializer creates the live projectile.
     app.add_systems(

@@ -203,9 +203,9 @@ pub struct ActorMut<'a> {
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
     /// the per-frame integration and the damage hook branch on these
     /// instead of calling back into the named archetype enum.
-    pub caps: &'a crate::combat::CombatCapabilities,
+    pub caps: &'a ambition_combat::CombatCapabilities,
     /// The body's live held item, if it has one. See the query member.
-    pub held_item: Option<&'a crate::combat::held_items::HeldItem>,
+    pub held_item: Option<&'a ambition_combat::held_items::HeldItem>,
     // ── The 18 ancillary movement clusters (real components) ──
     pub abilities: &'a BodyAbilities,
     pub base_size: &'a mut BodyBaseSize,
@@ -274,7 +274,7 @@ pub struct ActorClusterQueryData {
     /// dismount reads the same component directly rather than through this view.
     pub spawn: &'static mut SpawnBaseline,
     pub motion: &'static mut ActorMotionPath,
-    pub caps: &'static crate::combat::CombatCapabilities,
+    pub caps: &'static ambition_combat::CombatCapabilities,
     /// What this body is holding RIGHT NOW, if anything.
     ///
     /// `Option` because most bodies hold nothing, and because an OPTIONAL query
@@ -282,7 +282,7 @@ pub struct ActorClusterQueryData {
     /// required one can. Read by the death path so a defeated body drops the
     /// weapon it actually has rather than the one its archetype was authored
     /// with.
-    pub held_item: Option<&'static crate::combat::held_items::HeldItem>,
+    pub held_item: Option<&'static ambition_combat::held_items::HeldItem>,
     pub abilities: &'static BodyAbilities,
     pub base_size: &'static mut BodyBaseSize,
     pub ground: &'static mut BodyGroundState,
@@ -369,7 +369,7 @@ pub struct ActorClusterSeed {
     pub body: ActorBody,
     /// Spawn-resolved special-behavior flags (kit vocabulary), spawned
     /// alongside the clusters by [`Self::into_components`].
-    pub caps: crate::combat::CombatCapabilities,
+    pub caps: ambition_combat::CombatCapabilities,
     /// Victim-owned contact material/profile resolved from the catalog row.
     pub hurt_feedback: ambition_vfx::HurtFeedback,
 }
@@ -459,8 +459,8 @@ pub type ActorClusterBundle = (
     ActorSurfaceState,
     BodyMelee,
     AncillaryMovementBundle,
-    crate::combat::CombatCapabilities,
-    crate::combat::CombatTuning,
+    ambition_combat::CombatCapabilities,
+    ambition_combat::CombatTuning,
 );
 
 impl ActorClusterSeed {
@@ -723,7 +723,7 @@ impl ActorClusterSeed {
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
             body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
-            caps: crate::combat::CombatCapabilities::default(),
+            caps: ambition_combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
         };
         (seed, render_size)
@@ -943,7 +943,7 @@ impl ActorClusterSeed {
             // Death traits are the character's and arrive with the persona
             // derive, like its moves — a seed that guessed them would be a
             // second writer.
-            caps: crate::combat::CombatCapabilities::default(),
+            caps: ambition_combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
         }
     }
@@ -997,7 +997,7 @@ impl ActorClusterSeed {
         &mut self,
         world: &ae::World,
         target_pos: ae::Vec2,
-        tuning: crate::combat::FeatureCombatTuning,
+        tuning: ambition_combat::FeatureCombatTuning,
         dt: f32,
         is_mounted: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
@@ -1034,7 +1034,7 @@ impl ActorClusterSeed {
         // Project the actor's authored weight onto the combat-owned carrier at
         // spawn (E2 verdict b): the damage paths read `CombatTuning`, never the
         // sim-heart `ActorConfig`.
-        let combat_tuning = crate::combat::CombatTuning {
+        let combat_tuning = ambition_combat::CombatTuning {
             weight: self.config.tuning.weight,
             attack_cooldown_mult: self.config.brain_profile.attack_cooldown_mult,
             sprite_character_id: self.config.sprite_character_id.clone(),

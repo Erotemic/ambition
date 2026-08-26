@@ -97,7 +97,7 @@ pub fn derive_slot_direction_gestures(
     // WHO IS DRIVING WHAT, so each seat's gesture resolves against the
     // gravity of the body that seat is actually steering.
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
-    frames: Query<&crate::physics::ResolvedMotionFrame>,
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     //  the SLOT TABLE, not the global frame. The derivation refines the
@@ -206,7 +206,7 @@ pub fn interaction_input_system(
     latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
-    frames: Query<&crate::physics::ResolvedMotionFrame>,
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Hit-stun gate reads the DRIVEN body's reaction state — the body actually

@@ -6,17 +6,17 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
-use super::diagnostics::log_press_diagnostics;
-use super::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
-use super::state::{PlayerProjectileState, ProjectileTraceEvent};
-use super::{resolve_world_collision, WorldHitOutcome};
-use super::{ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::diagnostics::log_press_diagnostics;
+use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
+use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
+use ambition_projectiles::{resolve_world_collision, WorldHitOutcome};
+use ambition_projectiles::{ProjectileSpawnRequest, ProjectileStart};
 use crate::actor::BodyKinematics;
 use crate::features::{
     ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
-use crate::projectile::ProjectileGameplay;
+use ambition_projectiles::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use ambition_boss_encounter::{BossClusterRef, BossConfig};
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -102,8 +102,8 @@ pub fn charge_projectile_input(
         (
             Entity,
             &crate::actor::BodyKinematics,
-            &crate::physics::ResolvedMotionFrame,
-            &mut crate::projectile::PlayerProjectileState,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &mut ambition_projectiles::PlayerProjectileState,
             Option<&mut crate::actor::BodyAnimFacts>,
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
@@ -158,7 +158,7 @@ pub fn charge_projectile_input(
 
         // Motion input uses the same +Y-down convention as `MotionDirection::from_axis`.
         let dir =
-            crate::projectile::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
+            ambition_projectiles::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
         let now = state.clock;
         state.motion_buffer.push(dir, now);
 
@@ -192,9 +192,9 @@ pub fn charge_projectile_input(
             let motion_kind = if (super_qcf.is_some() || half_circle.is_some())
                 && state.unlocked.hadouken_super
             {
-                Some(crate::projectile::ProjectileKind::HadoukenSuper)
+                Some(ambition_projectiles::ProjectileKind::HadoukenSuper)
             } else if grace_qcf.is_some() && state.unlocked.hadouken {
-                Some(crate::projectile::ProjectileKind::Hadouken)
+                Some(ambition_projectiles::ProjectileKind::Hadouken)
             } else {
                 None
             };
@@ -243,7 +243,7 @@ pub fn charge_projectile_input(
                 fired_this_frame += try_fire_projectile(
                     &mut state,
                     body_entity,
-                    crate::projectile::ProjectileKind::Fireball,
+                    ambition_projectiles::ProjectileKind::Fireball,
                     origin,
                     direction,
                     damage_mult,
@@ -287,7 +287,7 @@ pub fn charge_projectile_input(
 fn try_fire_projectile(
     state: &mut PlayerProjectileState,
     owner: Entity,
-    kind: crate::projectile::ProjectileKind,
+    kind: ambition_projectiles::ProjectileKind,
     origin: ae::Vec2,
     direction: ae::Vec2,
     damage_mult: f32,
@@ -303,8 +303,8 @@ fn try_fire_projectile(
             let spec = kind.charged_spec(spec, charge_tier);
             spawn_projectiles.write(ProjectileSpawnRequest::named(
                 owner,
-                crate::projectile::InFlightProjectile {
-                    body: crate::projectile::ProjectileBody::from_spec(spec),
+                ambition_projectiles::InFlightProjectile {
+                    body: ambition_projectiles::ProjectileBody::from_spec(spec),
                 },
                 kind,
                 ProjectileStart::StepNextTick,
@@ -312,11 +312,11 @@ fn try_fire_projectile(
             events.push(ProjectileTraceEvent::Fired { kind });
             true
         }
-        Err(crate::projectile::SpawnFailure::OutOfResource) => {
+        Err(ambition_projectiles::SpawnFailure::OutOfResource) => {
             events.push(ProjectileTraceEvent::BlockedByResource { kind });
             false
         }
-        Err(crate::projectile::SpawnFailure::Cooldown) => false,
+        Err(ambition_projectiles::SpawnFailure::Cooldown) => false,
     }
 }
 
@@ -347,7 +347,7 @@ pub fn step_projectiles(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     carved: ambition_projectiles::collision_world::ProjectileCollisionWorld,
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut projectiles: Query<
         (
             Entity,
@@ -357,8 +357,8 @@ pub fn step_projectiles(
             // `None` is reserved for a genuinely ownerless/environmental volley.
             Option<&ProjectileAllegiance>,
             &ProjectileSeq,
-            Option<&crate::projectile::ProjectileKind>,
-            Option<&crate::projectile::ProjectileVisualId>,
+            Option<&ambition_projectiles::ProjectileKind>,
+            Option<&ambition_projectiles::ProjectileVisualId>,
             // G1: the firer's presentation source, stamped on the bolt at spawn.
             // Read from the PROJECTILE rather than chased back through the owner,
             // because a shot outlives its firer and must still sound like it.
@@ -499,7 +499,7 @@ pub fn step_projectiles(
         // Portal transit: thread the aperture instead of hitting the wall.
         #[cfg(feature = "portal")]
         if !portal_list.is_empty()
-            && crate::projectile::try_projectile_portal_transit(&mut kin, &portal_list)
+            && ambition_projectiles::try_projectile_portal_transit(&mut kin, &portal_list)
         {
             continue;
         }

@@ -1,12 +1,12 @@
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
-use crate::projectile::ProjectileSeqCounter;
+use ambition_projectiles::ProjectileSeqCounter;
 
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+    app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
     // Chain the immediate projectile materializer after the fire system.
     app.add_systems(
@@ -36,7 +36,7 @@ fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
     // back to them (the executor stamps `ProjectileOwner` from the request).
     let owners: Vec<_> = app
         .world_mut()
-        .query::<&crate::projectile::ProjectileOwner>()
+        .query::<&ambition_projectiles::ProjectileOwner>()
         .iter(app.world())
         .map(|o| o.0)
         .collect();

@@ -222,7 +222,7 @@ impl PhysicalBaseline {
         boundary: BaselineBoundary,
         entity: &mut EntityCommands,
         health: Option<&mut ambition_characters::actor::BodyHealth>,
-        combat_tuning: Option<&mut crate::combat::CombatTuning>,
+        combat_tuning: Option<&mut ambition_combat::CombatTuning>,
         geometry: Option<BodyGeometry<'_>>,
         retraction: PhysicalRetraction,
     ) {

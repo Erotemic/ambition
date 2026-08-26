@@ -519,13 +519,13 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
 /// inverse mapping, so labels move only when the active mapping policy says that
 /// a different raw joystick direction now means local U/D/L/R.
 fn position_frame_axis_glyphs(
-    gravity: Option<Res<ambition_platformer2d_actor_monolith::physics::GravityField>>,
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
     use ambition_geometry::{AccelerationFrame, InputFrameMode};
     let gdir =
-        ambition_platformer2d_actor_monolith::physics::gravity_dir_or_default(gravity.as_deref());
+        ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref());
     let mode = user_settings
         .as_deref()
         .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| {

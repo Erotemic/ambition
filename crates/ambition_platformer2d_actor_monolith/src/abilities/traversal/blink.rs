@@ -97,7 +97,7 @@ pub fn blink_system(
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
         &ActorControl,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,

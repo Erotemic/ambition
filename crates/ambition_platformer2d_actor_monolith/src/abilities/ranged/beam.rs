@@ -87,7 +87,7 @@ pub fn fire_beam_system(
         &ActorControl,
         &HeldItem,
         &BodyKinematics,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,

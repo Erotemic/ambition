@@ -204,8 +204,8 @@ pub struct EncounterLockWallSpec {
     pub size: ae::Vec2,
 }
 
-/// LDtk-authored localized-gravity zone (a [`crate::physics::GravityZone`]).
-/// `oscillate_amplitude > 0` also attaches a [`crate::physics::OscillatingZone`]
+/// LDtk-authored localized-gravity zone (a [`ambition_platformer2d_shared_tangle::gravity::GravityZone`]).
+/// `oscillate_amplitude > 0` also attaches a [`ambition_platformer2d_shared_tangle::gravity::OscillatingZone`]
 /// so the column slides horizontally. The authored-placement home for the debug
 /// `spawn_debug_gravity_zone_once`.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

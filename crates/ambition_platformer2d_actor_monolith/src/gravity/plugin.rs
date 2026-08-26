@@ -3,8 +3,8 @@
 //! This is a *gravity mechanic*, so it owns its own scheduling and must not depend on
 //! `ambition_portal2d`.
 //!
-//! Note: `crate::physics::BaseGravity` (the ambient-gravity resource) STAYS in
-//! `crate::physics` because it is read widely; this plugin only owns the
+//! Note: `ambition_platformer2d_shared_tangle::gravity::BaseGravity` (the ambient-gravity resource) STAYS in
+//! [`ambition_platformer2d_shared_tangle::gravity`] because it is read widely; this plugin only owns the
 //! gravity-ZONE behavior (zones / switches that flip the ambient + their
 //! per-frame snapshot), initializing the shared resources so the mechanic is
 //! self-contained when installed.
@@ -34,11 +34,11 @@ impl Plugin for GravityPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         // Shared ambient-gravity resources. `BaseGravity`/`GravityField` live in
-        // `crate::physics` (read widely) but the gravity mechanic owns making
+        // shared_tangle (read widely) but the gravity mechanic owns making
         // sure they (and the per-frame `GravityZones` snapshot) exist.
-        app.init_resource::<crate::physics::GravityField>();
-        app.init_resource::<crate::physics::BaseGravity>();
-        app.init_resource::<crate::physics::GravityZones>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityField>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::gravity::GravityZones>();
         app.init_resource::<ambition_platformer2d_shared_tangle::frame_env::ForceZones>();
 
         // the gravity capability publishes its own construction schema, exactly as the portal
@@ -64,8 +64,8 @@ impl Plugin for GravityPlugin {
         app.add_systems(
             sim,
             (
-                crate::physics::oscillate_gravity_zones,
-                crate::physics::collect_gravity_zones
+                ambition_platformer2d_shared_tangle::gravity::oscillate_gravity_zones,
+                ambition_platformer2d_shared_tangle::gravity::collect_gravity_zones
                     .in_set(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected),
                 collect_force_zones,
             )
@@ -90,7 +90,7 @@ impl Plugin for GravityPlugin {
             sim,
             (
                 super::resolve::resolve_body_motion_frames,
-                crate::physics::resolve_active_gravity,
+                ambition_platformer2d_shared_tangle::gravity::resolve_active_gravity,
             )
                 .chain()
                 .in_set(FrameResolveSet),

@@ -78,7 +78,7 @@ mod target_volumes;
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
 // (attack/chests/damage_apply/effect_bus/pickups/spawn_static
 // are LOCAL modules now — the E2 glue re-home.)
-pub use crate::combat::{
+pub use ambition_combat::{
     banner, breakables, falling_chest, hazards, held_items, hitbox, targeting, variation,
 };
 
@@ -187,7 +187,7 @@ pub use targeting::{
 pub use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 // `HazardFeature` moved to the combat kit with the hazard runtime.
-pub use crate::combat::hazard_runtime::HazardFeature;
+pub use ambition_combat::hazard_runtime::HazardFeature;
 
 #[cfg(test)]
 mod tests;

@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::projectile::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use crate::features::HeldItem;
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -89,7 +89,7 @@ pub fn fire_meteor_system(
         Entity,
         &ActorControl,
         &BodyKinematics,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
         &mut BodyMana,
     )>,

@@ -152,7 +152,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
     /// 16-system-param ceiling.
-    pub gravity: Option<Res<'w, ambition_platformer2d::actors::physics::GravityField>>,
+    pub gravity: Option<Res<'w, ambition_platformer2d::world::GravityField>>,
     /// App-local character authority and attack-volume bridge used by the combat
     /// preview. Keeping them in this bundle preserves the top-level system's
     /// parameter budget.
@@ -161,7 +161,7 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub boss_catalog: Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>,
     pub authored_attack_volumes: Res<
         'w,
-        ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
+        ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver,
     >,
     /// Every in-flight projectile, with its frozen combat side when it has one.
     /// Bundled here so `draw_debug_overlay` stays under Bevy's parameter ceiling.
@@ -240,7 +240,7 @@ pub(crate) fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-    authored_attack_volumes: &ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    authored_attack_volumes: &ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver,
     worn_character_id: &str,
     clusters: &ae::BodyClustersMut<'_>,
     // Where the body is DRAWN this frame — the frame-clock presented
@@ -335,7 +335,7 @@ pub(crate) fn draw_player_debug(
     // debug below.
     let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
     if gameplay_active && developer_tools.show_combat_preview {
-        let view = ambition_platformer2d::actors::combat::AttackView {
+        let view = ambition_platformer2d::combat::AttackView {
             pos,
             size,
             facing,
@@ -358,16 +358,16 @@ pub(crate) fn draw_player_debug(
                     gravity_dir,
                 )
                 .unwrap_or_else(|| {
-                    ambition_platformer2d::actors::combat::attack_hitbox_from_view(
+                    ambition_platformer2d::combat::attack_hitbox_from_view(
                         &view,
                         attack_state.spec,
                     )
                     .into()
                 });
             let color = match attack_state.phase() {
-                Some(ambition_platformer2d::actors::combat::AttackPhase::Startup) => yellow(),
-                Some(ambition_platformer2d::actors::combat::AttackPhase::Active) => red(),
-                Some(ambition_platformer2d::actors::combat::AttackPhase::Recovery) => gray(),
+                Some(ambition_platformer2d::combat::AttackPhase::Startup) => yellow(),
+                Some(ambition_platformer2d::combat::AttackPhase::Active) => red(),
+                Some(ambition_platformer2d::combat::AttackPhase::Recovery) => gray(),
                 None => gray(),
             };
             draw_combat_volume(gizmos, world, &volume, color);

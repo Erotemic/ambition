@@ -45,7 +45,7 @@ pub fn grapple_system(
         Entity,
         &ActorControl,
         &mut BodyKinematics,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
     )>,

@@ -19,10 +19,10 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
-use crate::combat::BodyMelee;
-use crate::combat::{AttackIntent, AttackView};
+use ambition_combat::BodyMelee;
+use ambition_combat::{AttackIntent, AttackView};
 
-use crate::physics;
+use ambition_platformer2d_shared_tangle::frame_env as physics;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_sfx::SfxMessage;
 
@@ -259,7 +259,7 @@ pub fn pogo_moveset_off_world_orbs(
     mut hitboxes: Query<(
         Entity,
         &ambition_combat::strike::Hitbox,
-        &mut crate::combat::on_hit::HitboxOnHit,
+        &mut ambition_combat::on_hit::HitboxOnHit,
     )>,
     boxes: Query<&ae::CenteredAabb>,
     mut owners: Query<(
@@ -275,7 +275,7 @@ pub fn pogo_moveset_off_world_orbs(
     // (hitbox, owner, world box, rise, the cue the effect authored)
     let pogo: Vec<(Entity, Entity, ae::Aabb, f32, Option<ambition_sfx::SfxId>)> = hitboxes
         .iter()
-        .filter(|(_, _, on_hit)| on_hit.effect.key == crate::combat::on_hit::POGO_BOUNCE_KEY)
+        .filter(|(_, _, on_hit)| on_hit.effect.key == ambition_combat::on_hit::POGO_BOUNCE_KEY)
         .filter(|(_, _, on_hit)| !on_hit.world_fired())
         .filter_map(|(hb_entity, hitbox, on_hit)| {
             let owner_box = boxes.get(hitbox.owner).ok()?;
@@ -284,8 +284,8 @@ pub fn pogo_moveset_off_world_orbs(
                 hb_entity,
                 hitbox.owner,
                 world_box,
-                crate::combat::on_hit::pogo_rise_from(&on_hit.effect),
-                crate::combat::on_hit::pogo_sfx_from(&on_hit.effect),
+                ambition_combat::on_hit::pogo_rise_from(&on_hit.effect),
+                ambition_combat::on_hit::pogo_sfx_from(&on_hit.effect),
             ))
         })
         .collect();
@@ -325,10 +325,10 @@ pub fn pogo_moveset_off_world_orbs(
     }
 }
 
-// `emit_melee_slash` (+ its size curve) lives in `crate::combat::util` (E2): the
+// `emit_melee_slash` (+ its size curve) lives in `ambition_combat::util` (E2): the
 // ONE slash-emit shared by the moveset strike path and `spawn_melee_strike`'s
 // heirs. Re-exported here for callers that reach it through this module.
-pub use crate::combat::util::emit_melee_slash;
+pub use ambition_combat::util::emit_melee_slash;
 
 /// Source the body's melee hitbox from the sprite manifest — the box authored
 /// and shown by `debug-hitboxes` — so the debug overlay draws the visible blade
@@ -338,7 +338,7 @@ pub use crate::combat::util::emit_melee_slash;
 /// `AttackSpec` volume. Consumed by `dev/debug_overlay/gizmos.rs`.
 pub fn player_attack_hitbox(
     character_catalog: &CharacterCatalog,
-    authored_volumes: &crate::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    authored_volumes: &ambition_combat::authored_volumes::AuthoredAttackVolumeResolver,
     sprite_character_id: Option<&str>,
     view: &AttackView,
     intent: AttackIntent,

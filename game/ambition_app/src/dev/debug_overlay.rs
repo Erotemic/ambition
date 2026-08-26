@@ -206,7 +206,7 @@ pub(crate) fn draw_debug_overlay(
         let clusters = cluster_item.as_clusters_mut();
         let player_draw_pos =
             presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
-        let player_gravity = ambition_platformer2d::actors::physics::gravity_dir_or_default(
+        let player_gravity = ambition_platformer2d::world::gravity_dir_or_default(
             feature_q.gravity.as_deref(),
         );
         draw_player_debug(

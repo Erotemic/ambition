@@ -32,7 +32,7 @@ use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::actors::actor::BodyKinematics;
-use ambition_platformer2d::actors::combat::moveset::MovePlayback;
+use ambition_platformer2d::combat::moveset::MovePlayback;
 use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
 use ambition_platformer2d::characters::brain::fighter::{
     shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning,

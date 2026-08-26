@@ -55,19 +55,19 @@ impl Plugin for CombatSchedulePlugin {
         // drains it. Registered here so the writers never hit an unregistered
         // message.
         app.add_message::<ambition_vfx::EffectRequest>();
-        app.add_message::<ambition_platformer2d_actor_monolith::combat::moveset::MoveEventMessage>(
+        app.add_message::<ambition_combat::moveset::MoveEventMessage>(
         );
         // One authoritative resolved body-contact fact. The shared hitbox resolver
         // writes it; move confirms and authored on-hit techniques both consume it
         // instead of independently deciding whether the strike connected.
-        app.add_message::<ambition_platformer2d_actor_monolith::combat::hitbox::LandedBodyHit>();
-        app.add_message::<ambition_platformer2d_actor_monolith::combat::on_hit::OnHitEffectMessage>();
+        app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
+        app.add_message::<ambition_combat::on_hit::OnHitEffectMessage>();
         // A BODY REACHING ZERO SAYS SO, WHETHER OR NOT A RULESET IS LISTENING.
         // `apply_player_hit_events` and `apply_actor_hit` both write `BodyKnockedOut`, so the
         // message has to exist wherever they run — not wherever the STOCKS rules happen to be
         // installed. A writer whose message is registered by a different plugin is a composition
         // that works until somebody composes differently.
-        app.add_message::<ambition_platformer2d_actor_monolith::combat::stocks::BodyKnockedOut>();
+        app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
         // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
         // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
         // actor through the same `spawn_boss` / `spawn_enemy` paths room load uses.
@@ -110,14 +110,14 @@ impl Plugin for CombatSchedulePlugin {
                 // control frame presses a verb edge starts the matching move (inserts
                 // `MovePlayback`).
                 (
-                    ambition_platformer2d_actor_monolith::combat::moveset::resolve_attack_gestures,
+                    ambition_combat::moveset::resolve_attack_gestures,
                     // Input leniency sits BETWEEN interpretation and the action
                     // authority, and only there: it decays the body's combat
                     // verb windows, arms them from this tick's resolved edges,
                     // and re-proposes an unspent press. The trigger below is the
                     // one seam that can accept — and therefore spend — one.
-                    ambition_platformer2d_actor_monolith::combat::moveset::buffer_combat_action_presses,
-                    ambition_platformer2d_actor_monolith::combat::moveset::trigger_moveset_moves,
+                    ambition_combat::moveset::buffer_combat_action_presses,
+                    ambition_combat::moveset::trigger_moveset_moves,
                 )
                     .chain()
                     .run_if(gameplay_allowed),
@@ -141,24 +141,24 @@ impl Plugin for CombatSchedulePlugin {
                 // no-op every ordinary frame, and the thing that keeps a rollback from
                 // stranding the boxes it rewound past.
                 (
-                    ambition_platformer2d_actor_monolith::combat::moveset::retire_orphaned_strike_volumes,
+                    ambition_combat::moveset::retire_orphaned_strike_volumes,
                     // BEFORE the advance, deliberately. A move that landed
                     // this frame is over, and running the advance first would
                     // open its next window — spawning a strike volume for a
                     // move that has already been cancelled by the ground.
-                    ambition_platformer2d_actor_monolith::combat::moveset::resolve_aerial_landings,
+                    ambition_combat::moveset::resolve_aerial_landings,
                     // AFTER the landing that charges it, so a body that landed
                     // and left the ground in the same frame is charged and then
                     // released rather than released and then charged — which
                     // would leave it paying lag in mid-air, the one state the
                     // rule exists to prevent.
-                    ambition_platformer2d_actor_monolith::combat::moveset::edge_cancel_landing_recovery,
-                    ambition_platformer2d_actor_monolith::combat::moveset::advance_move_playback,
+                    ambition_combat::moveset::edge_cancel_landing_recovery,
+                    ambition_combat::moveset::advance_move_playback,
                     // Right behind the clock that moves them: a move's authored
                     // Invuln / Armor windows are republished onto the two facts
                     // the rest of combat already reads, so eligibility keeps ONE
                     // authority and nothing downstream learns to read timelines.
-                    ambition_platformer2d_actor_monolith::combat::moveset::project_move_defense_windows,
+                    ambition_combat::moveset::project_move_defense_windows,
                 )
                     .chain()
                     .run_if(gameplay_allowed),
@@ -172,11 +172,11 @@ impl Plugin for CombatSchedulePlugin {
                 // ⭐ THE OTHER HALF OF THE SPECIAL TURN, after the trigger that
                 // opens its window — a flick on the same tick as the press is
                 // the press, not a B-reverse.
-                ambition_platformer2d_actor_monolith::combat::moveset::apply_special_turn_flicks
+                ambition_combat::moveset::apply_special_turn_flicks
                     .run_if(gameplay_allowed),
-                ambition_platformer2d_actor_monolith::combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
+                ambition_combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
                 // Writes no gameplay — the real strike is the move's own hitbox.
-                ambition_platformer2d_actor_monolith::combat::moveset::project_moveset_melee_to_body_melee
+                ambition_combat::moveset::project_moveset_melee_to_body_melee
                     .run_if(gameplay_allowed),
                 // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
                 // is inside its Active window, `BossAttackState`'s active_* fields are
@@ -274,12 +274,12 @@ impl Plugin for CombatSchedulePlugin {
                     // anything they own.
                     ambition_combat::clank::rebound_from_clanks,
                     ambition_platformer2d_actor_monolith::features::apply_hitbox_damage,
-                    ambition_platformer2d_actor_monolith::combat::moveset::mark_move_playback_landed_hits,
+                    ambition_combat::moveset::mark_move_playback_landed_hits,
                 )
                     .chain()
                     .run_if(gameplay_allowed),
-                ambition_platformer2d_actor_monolith::combat::on_hit::dispatch_landed_hit_effects.run_if(gameplay_allowed),
-                ambition_platformer2d_actor_monolith::combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
+                ambition_combat::on_hit::dispatch_landed_hit_effects.run_if(gameplay_allowed),
+                ambition_combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
                 // Genuine WORLD pogo surfaces have no victim entity, so they stay a
                 // separate collision-world contact path. ECS bodies are never projected
                 // into this world-surface representation.
@@ -449,9 +449,9 @@ mod tests {
 /// change and never per hit.
 fn authored_volume_resolver_for(
     sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-) -> ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver {
+) -> ambition_combat::authored_volumes::AuthoredAttackVolumeResolver {
     let sheets = sheets.clone();
-    ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
+    ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
         move |catalog, sprite_character_id, animation, collision, clip_elapsed| {
             ambition_character_sprites::authored_attack_volume_resolver(
                 &sheets,
@@ -474,7 +474,7 @@ fn authored_volume_resolver_for(
 fn refresh_authored_volume_resolver(
     sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     mut resolver: bevy::prelude::ResMut<
-        ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver,
+        ambition_combat::authored_volumes::AuthoredAttackVolumeResolver,
     >,
 ) {
     *resolver = authored_volume_resolver_for(&sheets);

@@ -219,7 +219,7 @@ pub fn tick_ball_dash(
         &BallDashInput,
         // The body's per-tick resolved frame (ADR 0024): the airborne launch
         // direction is the SAME frame the momentum kernel integrates under.
-        &ambition_platformer2d::actors::physics::ResolvedMotionFrame,
+        &ambition_platformer2d::world::ResolvedMotionFrame,
         &mut ambition_platformer2d::actors::features::MotionModel,
         &mut ae::BodyKinematics,
         &mut BallDash,

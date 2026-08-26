@@ -153,7 +153,7 @@ pub(crate) fn apply_boss_hit(
             // the VICTIM's, so both are resolved before the emitter borrows the writers.
             let attacker_source = writers.source_of(event.attacker);
             let victim_source = writers.source_of(Some(boss_entity));
-            crate::combat::util::emit_hit_feedback(
+            ambition_combat::util::emit_hit_feedback(
                 &mut writers.sfx,
                 &mut writers.vfx,
                 &mut writers.debris,
@@ -225,7 +225,7 @@ pub(crate) fn apply_boss_hit(
     // A13: attacker's cue vs victim's fallback, resolved before the borrows.
     let attacker_source = writers.source_of(event.attacker);
     let victim_source = writers.source_of(Some(boss_entity));
-    crate::combat::util::emit_hit_feedback(
+    ambition_combat::util::emit_hit_feedback(
         &mut writers.sfx,
         &mut writers.vfx,
         &mut writers.debris,
@@ -317,10 +317,10 @@ pub(crate) fn apply_boss_hit(
 }
 
 // `begin_ecs_breakable_respawn` / `emit_breakable_destroyed` moved to
-// the combat kit (`crate::combat::breakables`) — they are
+// the combat kit (`ambition_combat::breakables`) — they are
 // generic breakable side-effect helpers shared by the typed-damage
 // path here and the kit's stand-to-break path.
-pub(crate) use crate::combat::breakables::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
+pub(crate) use ambition_combat::breakables::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
 
 #[cfg(test)]
 mod entity_damage_tests {

@@ -531,7 +531,14 @@ pub mod rollback;
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
     /// The authored/base gravity and its resolved live field.
-    pub use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityField};
+    pub use ambition_platformer2d_shared_tangle::gravity::{
+        gravity_dir_or_default, BaseGravity, GravityField,
+    };
+    /// The per-tick motion environment a body is stepped in. Named here rather
+    /// than through the actor crate: it is a world-physics fact, and routing it
+    /// through a domain crate's re-export is how a census mistakes it for that
+    /// domain's coupling.
+    pub use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;
 

@@ -37,9 +37,9 @@ use ambition_vfx::vfx::VfxMessage;
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
-    &'w crate::combat::components::ActorFaction,
+    &'w ambition_combat::components::ActorFaction,
     Option<&'w ambition_characters::control::DrivingParticipant>,
-    Option<&'w crate::combat::targeting::MatchTeam>,
+    Option<&'w ambition_combat::targeting::MatchTeam>,
 );
 
 /// May this attacker's hit damage this boss?
@@ -55,7 +55,7 @@ type CombatSide<'w> = (
 pub(crate) fn boss_damage_allowed(
     attacker: Option<CombatSide<'_>>,
     boss: Option<CombatSide<'_>>,
-    friendly_fire: crate::combat::targeting::FriendlyFire,
+    friendly_fire: ambition_combat::targeting::FriendlyFire,
     boss_entity: Entity,
 ) -> bool {
     let (
@@ -65,9 +65,9 @@ pub(crate) fn boss_damage_allowed(
     else {
         return true;
     };
-    crate::combat::targeting::damage_lands_between(
-        crate::combat::targeting::effective_faction(*attacker_faction, attacker_driver),
-        crate::combat::targeting::effective_faction(*boss_faction, boss_driver),
+    ambition_combat::targeting::damage_lands_between(
+        ambition_combat::targeting::effective_faction(*attacker_faction, attacker_driver),
+        ambition_combat::targeting::effective_faction(*boss_faction, boss_driver),
         attacker_team,
         boss_team,
         friendly_fire,
@@ -88,10 +88,10 @@ pub struct FeatureHitWriters<'w, 's> {
     /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
     /// the consequence over.
-    pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+    pub knockouts: MessageWriter<'w, ambition_combat::stocks::BodyKnockedOut>,
     /// The hit's RESULT, for the simulation — the match freeze reads it.
     /// `Option` for the reason spelled out on the player-side twin.
-    pub resolved: Option<MessageWriter<'w, crate::combat::hitbox::ResolvedBodyHit>>,
+    pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,
     /// The resolver's DECISION about each hit, for the causal inspector.
     /// `Option` for the reason spelled out on the player-side twin: this is read
     /// by an instrument and by nothing else, so a composition that never
@@ -196,7 +196,7 @@ pub struct BarkDraw<'w> {
     tick: Option<Res<'w, ambition_time::SimTick>>,
     active: Option<Res<'w, crate::character_runtime::ActiveMatch>>,
     feel_tuning: Option<Res<'w, ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
-    combat_rules: Option<Res<'w, crate::combat::rules::ResolvedCombatTuning>>,
+    combat_rules: Option<Res<'w, ambition_combat::rules::ResolvedCombatTuning>>,
 }
 
 impl BarkDraw<'_> {
@@ -206,7 +206,7 @@ impl BarkDraw<'_> {
     }
 
     /// The match's resolved rules, or the baseline.
-    pub fn rules(&self) -> crate::combat::rules::ResolvedCombatTuning {
+    pub fn rules(&self) -> ambition_combat::rules::ResolvedCombatTuning {
         self.combat_rules.as_deref().cloned().unwrap_or_default()
     }
 
@@ -216,7 +216,7 @@ impl BarkDraw<'_> {
     /// caller that resolves hits holds `identities` for its own reasons.
     pub fn allows(
         &self,
-        rules: &crate::combat::rules::ResolvedCombatTuning,
+        rules: &ambition_combat::rules::ResolvedCombatTuning,
         victim: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     ) -> bool {
         bark_is_allowed(
@@ -250,7 +250,7 @@ impl BarkDraw<'_> {
 /// A world that declares no rate, or has no clock to draw against, barks on
 /// every hit — which is what every body did before this existed.
 pub(crate) fn bark_is_allowed(
-    rules: Option<&crate::combat::rules::ResolvedCombatTuning>,
+    rules: Option<&ambition_combat::rules::ResolvedCombatTuning>,
     tick: Option<&ambition_time::SimTick>,
     active: Option<&crate::character_runtime::ActiveMatch>,
     victim: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -364,7 +364,7 @@ pub fn apply_feature_hit_events(
     // one term of the shared eligibility gate, which the actor cluster query
     // has no column left to carry.
     (victim_volumes, victim_motion): (
-        Query<&crate::combat::components::DamageableVolumes>,
+        Query<&ambition_combat::components::DamageableVolumes>,
         Query<&ambition_platformer2d_core::BodyMotionFacts>,
     ),
     mut banner: ResMut<GameplayBanner>,
@@ -437,9 +437,9 @@ pub fn apply_feature_hit_events(
             // body stays standing, its death still belongs to the match, and it is not fighting any
             // more.
             (
-                Option<&'static crate::combat::CombatTuning>,
-                bevy::prelude::Has<crate::combat::components::RulesetOwnsDeath>,
-                bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
+                Option<&'static ambition_combat::CombatTuning>,
+                bevy::prelude::Has<ambition_combat::components::RulesetOwnsDeath>,
+                bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
             ),
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
@@ -472,7 +472,7 @@ pub fn apply_feature_hit_events(
             &ambition_characters::brain::BossAttackState,
             Option<&crate::features::BossAnimationFrameSample>,
             // CM8: the boss's own hurt reaction (ENEMY default).
-            Option<&crate::combat::CombatTuning>,
+            Option<&ambition_combat::CombatTuning>,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -499,7 +499,7 @@ pub fn apply_feature_hit_events(
         ),
     >,
     mut writers: FeatureHitWriters,
-    mut attacker_moves: Query<&mut crate::combat::moveset::MovePlayback>,
+    mut attacker_moves: Query<&mut ambition_combat::moveset::MovePlayback>,
     // The player's OUTGOING damage scale (the power slider). `Option` so minimal
     // headless test worlds that never stand up settings still run at the neutral
     // 1.0 — the same shape as `feel_tuning`. Read in a sim system exactly as the
@@ -524,9 +524,9 @@ pub fn apply_feature_hit_events(
         // that read the authored faction would have it defending the team it was
         // taken from.
         Query<(
-            &'static crate::combat::components::ActorFaction,
+            &'static ambition_combat::components::ActorFaction,
             Option<&'static ambition_characters::control::DrivingParticipant>,
-            Option<&'static crate::combat::targeting::MatchTeam>,
+            Option<&'static ambition_combat::targeting::MatchTeam>,
         )>,
     ),
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
@@ -600,7 +600,7 @@ pub fn apply_feature_hit_events(
         // body, whatever its source direction — this is how an Enemy/Boss swing
         // damages another actor without flowing through the player path.
         let actor_target = match event.target {
-            crate::combat::events::HitTarget::Body(entity) => Some(entity),
+            ambition_combat::events::HitTarget::Body(entity) => Some(entity),
             _ => None,
         };
         // Body victims are already resolved by entity. `UnresolvedFeatures` is
@@ -608,7 +608,7 @@ pub fn apply_feature_hit_events(
         // resolver cannot name, so do not rescan actors for it.
         let bodies_already_resolved = matches!(
             event.target,
-            crate::combat::events::HitTarget::UnresolvedFeatures
+            ambition_combat::events::HitTarget::UnresolvedFeatures
         );
         // Is the attacker a HEAVY body? — asked of the attacker entity, which
         // the event already names, rather than pattern-matched out of the cause
@@ -680,7 +680,7 @@ pub fn apply_feature_hit_events(
             if target_is_ignored(&event.ignored_targets, prefix, id.as_str()) {
                 continue;
             }
-            if !crate::combat::hitbox::strike_reaches_victim(
+            if !ambition_combat::hitbox::strike_reaches_victim(
                 &event.volume,
                 victim_volumes.get(actor_entity).ok(),
                 aabb,
@@ -697,7 +697,7 @@ pub fn apply_feature_hit_events(
             // tangibility, so the peaceful branch (which has no alive check of its
             // own) is covered too; `resolve_body_hit`'s alive check remains as
             // last-line defense.
-            if crate::combat::util::body_is_corpse(Some(&*em.health)) {
+            if ambition_combat::util::body_is_corpse(Some(&*em.health)) {
                 continue;
             }
             let hurt = combat_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
@@ -799,7 +799,7 @@ pub fn apply_feature_hit_events(
             // Structural tangibility gate: a defeated boss is intangible — no hit
             // lands and no bark answers. (`apply_boss_hit` also guards on `alive()`
             // as defense-in-depth.)
-            if crate::combat::util::body_is_corpse(Some(&*health)) {
+            if ambition_combat::util::body_is_corpse(Some(&*health)) {
                 continue;
             }
             let hurt = boss_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
@@ -839,9 +839,9 @@ pub fn apply_feature_hit_events(
         // did this" is true of a broadcast and of nothing else.
         let unresolved_broadcast = matches!(
             event.target,
-            crate::combat::events::HitTarget::Volume
-                | crate::combat::events::HitTarget::UnresolvedFeatures
-                | crate::combat::events::HitTarget::OrbMatch
+            ambition_combat::events::HitTarget::Volume
+                | ambition_combat::events::HitTarget::UnresolvedFeatures
+                | ambition_combat::events::HitTarget::OrbMatch
         );
         let target_attacker = event.attacker.or_else(|| {
             (unresolved_broadcast && event.source.seeks_victims())
@@ -944,7 +944,7 @@ pub fn apply_feature_hit_events(
             // `strike_sfx == <this cue>` test is needed to keep it quiet.
             if let Some(strike) = event.strike_sfx {
                 writers.sfx.write(ambition_sfx::SfxMessage::Play {
-                    id: crate::combat::util::resolve_strike_sfx(
+                    id: ambition_combat::util::resolve_strike_sfx(
                         ambition_vfx::HurtFeedback::METAL,
                         Some(strike),
                         event.damage,

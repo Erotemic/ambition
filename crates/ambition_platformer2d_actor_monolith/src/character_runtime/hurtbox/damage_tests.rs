@@ -39,7 +39,7 @@ fn capture_hits(mut events: MessageReader<HitEvent>, mut out: ResMut<CapturedHit
     out.0.extend(
         events
             .read()
-            .filter(|e| matches!(e.target, crate::combat::events::HitTarget::Body(_)))
+            .filter(|e| matches!(e.target, ambition_combat::events::HitTarget::Body(_)))
             .cloned(),
     );
 }

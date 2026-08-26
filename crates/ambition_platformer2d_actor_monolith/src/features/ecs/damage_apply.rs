@@ -22,7 +22,7 @@ use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
 use crate::avatar::PlayerSafetyState;
-use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
+use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use crate::{
     remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
 };
@@ -32,14 +32,14 @@ use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 
-// `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
+// `body_vulnerable` / `shield_blocks_hit` moved to `ambition_combat::util`
 // (E2): they are the shared victim-gate predicates every damage EMITTER
 // reads — combat vocabulary, not victim-side application code.
-pub use crate::combat::util::{body_vulnerable, shield_blocks_hit};
+pub use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
 
-// `scaled_knockback` moved to `crate::combat::util` (E2): the CM1
+// `scaled_knockback` moved to `ambition_combat::util` (E2): the CM1
 // knockback-scaling LAW is combat model vocabulary.
-pub use crate::combat::util::scaled_knockback;
+pub use ambition_combat::util::scaled_knockback;
 
 // Re-exported here because this is where its consumers learned to name it.
 pub use ae::hit_response::di_adjust;
@@ -100,7 +100,7 @@ impl<'a> GuardUnderFire<'a> {
     /// places D203 exists to stop rules being written twice — and there is now
     /// nowhere else a `GuardUnderFire` can be built.
     pub fn offered_to(
-        knockback: Option<&crate::combat::HitKnockback>,
+        knockback: Option<&ambition_combat::HitKnockback>,
         state: &'a mut ae::BodyShieldState,
         tuning: ae::ShieldTuning,
         vel: &'a mut ae::Vec2,
@@ -159,7 +159,7 @@ pub enum BodyHitResolution {
 pub struct BodyHitResolved {
     pub body: bevy::prelude::Entity,
     pub resolution: BodyHitResolution,
-    pub source: crate::combat::HitSource,
+    pub source: ambition_combat::HitSource,
     /// The raw damage the hit carried, BEFORE the multiplier and before any
     /// defence. Kept beside the outcome because "asked for 30 and dealt 0" and
     /// "asked for 0" are different findings.
@@ -280,7 +280,7 @@ pub fn resolve_body_hit(
         .map(|health| health.health.invulnerable)
         .unwrap_or_default();
     let guard = shield.as_ref().map(|g| *g.state).unwrap_or_default();
-    if !unstoppable && !crate::combat::util::body_vulnerable(invulnerable, evading, &guard, combat)
+    if !unstoppable && !ambition_combat::util::body_vulnerable(invulnerable, evading, &guard, combat)
     {
         return BodyHitResolution::Ignored;
     }
@@ -295,7 +295,7 @@ pub fn resolve_body_hit(
     // which is every body outside a match.
     let shield_active = shield.as_ref().is_some_and(|g| {
         g.state.active
-            && crate::combat::util::guard_covers_hit(
+            && ambition_combat::util::guard_covers_hit(
                 g.tuning.coverage_at(g.state.integrity_fraction(g.tuning)),
                 g.state.shield_tilt,
                 body_pos,
@@ -408,7 +408,7 @@ pub struct BodyDeathWriters<'w> {
     /// separate message rather than a flag on `ActorDiedMessage` because the two
     /// do not fire together: an `Unbounded` fighter is knocked out without dying
     /// in the world's sense at all.
-    pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+    pub knockouts: MessageWriter<'w, ambition_combat::stocks::BodyKnockedOut>,
     /// The hit's RESULT, for the simulation — the match freeze reads it. Rides
     /// this bundle for the same reason the causal one below does: same two
     /// places, same moment, same value.
@@ -419,7 +419,7 @@ pub struct BodyDeathWriters<'w> {
     /// and twenty-five hand-built fixtures should not have to learn that a
     /// screen freeze exists. Every real composition registers it in
     /// `SimCoreResourcesPlugin`, so the degradation never reaches a game.
-    pub resolved: Option<MessageWriter<'w, crate::combat::hitbox::ResolvedBodyHit>>,
+    pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,
     /// The resolver's DECISION about each hit, for the causal inspector. Rides
     /// this bundle rather than a new parameter because it is written from the
     /// same two places, at the same moment, from the same value.
@@ -551,7 +551,7 @@ pub(crate) fn handle_player_damage_events(
         // The player's knockback i-frames are 0.75s — the longest window in the
         // game, armed by the very launch that throws them off the stage.
         facts.evading(),
-        matches!(damage.source, crate::combat::HitSource::LeftTheWorld),
+        matches!(damage.source, ambition_combat::HitSource::LeftTheWorld),
     );
     // The resolver's decision, announced for the inspector. Gated: a build with
     // no `causal` feature writes nothing here.
@@ -572,7 +572,7 @@ pub(crate) fn handle_player_damage_events(
     if ruleset_owns_death {
         let knocked_out = match resolution {
             BodyHitResolution::Damaged { died, .. } => {
-                died || matches!(damage.source, crate::combat::HitSource::LeftTheWorld)
+                died || matches!(damage.source, ambition_combat::HitSource::LeftTheWorld)
             }
             // An i-framed or already-refused hit is not a KO. `LeftTheWorld` is
             // passed as unstoppable above, so a ring-out cannot land here.
@@ -581,7 +581,7 @@ pub(crate) fn handle_player_damage_events(
         if knocked_out {
             death_writers
                 .knockouts
-                .write(crate::combat::stocks::BodyKnockedOut {
+                .write(ambition_combat::stocks::BodyKnockedOut {
                     body: player_entity,
                     cause: damage.source.clone(),
                 });
@@ -626,7 +626,7 @@ pub(crate) fn handle_player_damage_events(
             // reaction. This preserves hazard reset and knockback feel without
             // making positive currency a no-recoil invincibility exploit.
             match damage.mode {
-                crate::combat::HitMode::SafeRespawn => {
+                ambition_combat::HitMode::SafeRespawn => {
                     safe_respawn_player(
                         sfx,
                         victim_source,
@@ -642,7 +642,7 @@ pub(crate) fn handle_player_damage_events(
                     );
                     true
                 }
-                crate::combat::HitMode::Knockback => {
+                ambition_combat::HitMode::Knockback => {
                     let reaction = apply_player_knockback(
                         sfx,
                         motion_model,
@@ -705,7 +705,7 @@ pub(crate) fn handle_player_damage_events(
             false
         }
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
-            crate::combat::HitMode::SafeRespawn => {
+            ambition_combat::HitMode::SafeRespawn => {
                 // CM8: a safe-respawn is a "reset" reaction, not a hurt, so it
                 // keeps its own Reset cue — but the striking attack's sound
                 // (e.g. the spike) still plays, since the body did touch it.
@@ -735,7 +735,7 @@ pub(crate) fn handle_player_damage_events(
                 );
                 true
             }
-            crate::combat::HitMode::Knockback => {
+            ambition_combat::HitMode::Knockback => {
                 let reaction = apply_player_knockback(
                     sfx,
                     motion_model,
@@ -814,7 +814,7 @@ pub(crate) fn resolved_body_knockback_velocity(
     victim_facing: f32,
     gravity_dir: ae::Vec2,
     boss_hit: bool,
-    knockback: Option<&crate::combat::HitKnockback>,
+    knockback: Option<&ambition_combat::HitKnockback>,
     di_input_local: ae::Vec2,
     feel: Platformer2dFeelTuningMonolith,
 ) -> ae::Vec2 {
@@ -832,7 +832,7 @@ pub(crate) fn resolved_body_knockback_velocity(
 /// name for this module's tests. Test-only for the same reason as
 /// [`resolved_body_knockback_velocity`] above.
 #[cfg(test)]
-fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> f32 {
+fn knockback_reaction_scale(knockback: Option<&ambition_combat::HitKnockback>) -> f32 {
     ae::hit_response::reaction_scale(
         knockback,
         &hit_response_tuning(
@@ -884,13 +884,13 @@ fn publish_reaction(
 /// beside it: that one is `#[cfg(feature = "causal")]` and compiles to nothing in
 /// a shipping build. An instrument may vanish; a beat may not.
 pub(crate) fn publish_resolved_hit(
-    resolved: Option<&mut MessageWriter<'_, crate::combat::hitbox::ResolvedBodyHit>>,
+    resolved: Option<&mut MessageWriter<'_, ambition_combat::hitbox::ResolvedBodyHit>>,
     victim: bevy::prelude::Entity,
     hitlag_seconds: f32,
-    source: crate::combat::HitSource,
+    source: ambition_combat::HitSource,
 ) {
     if let Some(resolved) = resolved {
-        resolved.write(crate::combat::hitbox::ResolvedBodyHit {
+        resolved.write(ambition_combat::hitbox::ResolvedBodyHit {
             victim,
             hitlag_seconds,
             source,
@@ -967,7 +967,7 @@ pub(crate) fn apply_player_knockback(
         Some((motion_model, &mut clusters.ledge)),
         feel,
     );
-    crate::combat::util::emit_hit_feedback(
+    ambition_combat::util::emit_hit_feedback(
         sfx,
         vfx,
         debris,
@@ -1060,11 +1060,11 @@ pub fn publish_kernel_reset_death(
 /// the attempt to be over. It is charged to `Hazard` — the same anonymous
 /// world-killed-you category the spikes use — because no vocabulary exists for
 /// "you asked", and inventing one would only be honest if something read it.
-fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
+fn death_source_of(cause: ae::ResetCause) -> ambition_combat::HitSource {
     match cause {
-        ae::ResetCause::LeftTheWorld => crate::combat::HitSource::LeftTheWorld,
+        ae::ResetCause::LeftTheWorld => ambition_combat::HitSource::LeftTheWorld,
         ae::ResetCause::Hazard | ae::ResetCause::Drowned | ae::ResetCause::Requested => {
-            crate::combat::HitSource::Hazard
+            ambition_combat::HitSource::Hazard
         }
     }
 }
@@ -1087,7 +1087,7 @@ fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
 /// the FIFO — restored exactly by GGRS — crosses the frame boundary.
 pub fn stage_player_victim_hit_events(
     mut hit_events: MessageReader<FeatureHitEvent>,
-    mut pending: ResMut<crate::combat::events::PendingPlayerHitEvents>,
+    mut pending: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
     controlled_bodies: Query<
         (),
         bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -1126,9 +1126,9 @@ pub fn stage_player_victim_hit_events(
 /// restores. Runs after `ResetProcessing` (the last boundary processor in the
 /// frame), before the next frame's drain.
 pub fn void_pending_player_hits_at_lifecycle_boundaries(
-    mut room_resets: MessageReader<crate::combat::ResetRoomFeaturesEvent>,
+    mut room_resets: MessageReader<ambition_combat::ResetRoomFeaturesEvent>,
     mut rooms_loaded: MessageReader<crate::rooms::RoomLoaded>,
-    mut pending: ResMut<crate::combat::events::PendingPlayerHitEvents>,
+    mut pending: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
 ) {
     let crossed = room_resets.read().count() > 0 || rooms_loaded.read().count() > 0;
     if crossed && !pending.0.is_empty() {
@@ -1178,7 +1178,7 @@ pub fn apply_player_hit_events(
     // this system runs before Combat, so the victim stream is consumed one
     // frame after it is produced, and cross-frame combat truth must be
     // snapshot state (see `PendingPlayerHitEvents`).
-    mut pending_hits: ResMut<crate::combat::events::PendingPlayerHitEvents>,
+    mut pending_hits: ResMut<ambition_combat::events::PendingPlayerHitEvents>,
     mut death_writers: BodyDeathWriters,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -1195,8 +1195,8 @@ pub fn apply_player_hit_events(
     // folded over the world's baseline. Never `FriendlyFire` directly — a
     // reader that consults the baseline is how a stage's rules and the
     // world's rules got to disagree.
-    combat_rules: Option<Res<crate::combat::rules::ResolvedCombatTuning>>,
-    attacker_factions: Query<&crate::combat::components::ActorFaction>,
+    combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
+    attacker_factions: Query<&ambition_combat::components::ActorFaction>,
     mut player_q: Query<
         (
             Entity,
@@ -1215,14 +1215,14 @@ pub fn apply_player_hit_events(
             // Does a RULESET own this body's death? A match fighter's zero
             // health is the match's business; the exploration respawn would
             // teleport and full-heal it before any rules layer could look.
-            bevy::prelude::Has<crate::combat::components::RulesetOwnsDeath>,
+            bevy::prelude::Has<ambition_combat::components::RulesetOwnsDeath>,
             // The controlled body's held input, for directional influence (CM2).
             // `Option` so a headless player with no brain still resolves (→ ZERO,
             // no DI). Inert unless `feel.di_max_angle` is authored nonzero.
             Option<&ambition_characters::control::ActorControl>,
             // The victim's per-tick resolved frame (shield side + knockback
             // launch are frame-relative facts of the VICTIM's body).
-            &crate::physics::ResolvedMotionFrame,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             // The body's movement policy: a death/safe respawn is a discrete
             // TRANSIT and must reconcile model-private attachment.
             &mut crate::features::MotionModel,
@@ -1258,9 +1258,9 @@ pub fn apply_player_hit_events(
         // (hazards or genuinely ownerless projectiles) are environmental and always apply.
         .filter(
             |e| match e.attacker.and_then(|a| attacker_factions.get(a).ok()) {
-                Some(faction) => crate::combat::targeting::can_damage(
+                Some(faction) => ambition_combat::targeting::can_damage(
                     *faction,
-                    crate::combat::components::ActorFaction::Player,
+                    ambition_combat::components::ActorFaction::Player,
                     friendly_fire,
                 ),
                 None => true,

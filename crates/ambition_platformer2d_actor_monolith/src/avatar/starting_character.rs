@@ -25,7 +25,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 
-use crate::combat::moveset::{build_actor_moveset, ActorMoveset};
+use ambition_combat::moveset::{build_actor_moveset, ActorMoveset};
 use crate::features::MotionModel;
 
 /// The catalog `character_id` the local player spawns as.
@@ -272,7 +272,7 @@ pub fn derive_persona_moveset(
     let mut derived =
         build_actor_moveset(None, set.melee.as_ref(), ranged, special).unwrap_or_default();
     if execution.charges_projectiles() {
-        crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived);
+        ambition_combat::moveset::apply_player_robot_slash_sfx(&mut derived);
     }
     let Some(authored) = authored else {
         return derived;
@@ -366,7 +366,7 @@ pub fn apply_worn_character_overlay(
     // seated fighter carries `CombatKit` (seating seeds it), the plain player
     // bundle does not. `None` is "this body has no second baseline", which is a
     // different claim from "leave it stale" — and the type says which.
-    combat_kit: Option<&mut crate::combat::components::CombatKit>,
+    combat_kit: Option<&mut ambition_combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
     // See `MatchParticipant::action_set`.
@@ -434,7 +434,7 @@ fn apply_worn_character_kit(
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     // The DURABLE half of the same baseline, when this body has one. See the
     // publication point below.
-    combat_kit: Option<&mut crate::combat::components::CombatKit>,
+    combat_kit: Option<&mut ambition_combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
     // What the MATCH says this fighter fights with, if a match said anything.
@@ -527,7 +527,7 @@ fn apply_worn_character_kit(
     // baseline used to reconstruct capabilities. Equipment and granted verbs stay
     // overlays rather than being baked into that baseline.
     if let Some(combat_kit) = combat_kit {
-        *combat_kit = crate::combat::components::CombatKit::from_action_set(&set);
+        *combat_kit = ambition_combat::components::CombatKit::from_action_set(&set);
     }
     *identity =
         ambition_characters::brain::action_set::IdentityKit::of(set.clone(), derived.clone());
@@ -587,7 +587,7 @@ pub fn apply_worn_character_gameplay(
         // seated fighter does, the plain player bundle does not. It is published
         // WITH the identity kit rather than beside it, because a second baseline
         // updated separately is a second baseline that can be stale.
-        Option<&mut crate::combat::components::CombatKit>,
+        Option<&mut ambition_combat::components::CombatKit>,
         Ref<crate::actor::BodyAbilities>,
         // The one transition seam (`switch_motion_model`): a cross-model
         // re-wear initializes destination-private state inside the new
@@ -605,7 +605,7 @@ pub fn apply_worn_character_gameplay(
         // never fights carries no `CombatTuning`; and this path may only
         // WRITE its field, never insert or remove the component — see
         // `apply_to_body`.
-        Option<&mut crate::combat::CombatTuning>,
+        Option<&mut ambition_combat::CombatTuning>,
         Has<ambition_projectiles::PlayerProjectileState>,
         // What THIS system last applied to this body.
         (
@@ -772,7 +772,7 @@ pub fn apply_worn_character_gameplay(
                 .as_deref()
                 .and_then(|registry| registry.get(id))
                 .and_then(|prepared| prepared.death_traits.as_ref())
-                .map(crate::combat::CombatCapabilities::from);
+                .map(ambition_combat::CombatCapabilities::from);
             let previous_authored = baseline
                 .zip(registry.as_deref())
                 .and_then(|(baseline, registry)| registry.get(&baseline.id))
@@ -784,7 +784,7 @@ pub fn apply_worn_character_gameplay(
                 None if previous_authored => {
                     commands
                         .entity(entity)
-                        .try_insert(crate::combat::CombatCapabilities::default());
+                        .try_insert(ambition_combat::CombatCapabilities::default());
                 }
                 None => {}
             }

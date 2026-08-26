@@ -5,11 +5,12 @@
 //! *gravity mechanic*, not a portal helper, so it owns its own registration via
 //! [`GravityPlugin`] and must NOT depend on `ambition_portal2d`.
 //!
-//! The underlying ambient-gravity types/resources ([`crate::physics::BaseGravity`],
-//! [`crate::physics::GravityField`], [`crate::physics::GravityZone`], the
-//! [`crate::physics::GravityZones`] snapshot and its `oscillate`/`collect`
-//! systems) stay in [`crate::physics`] because they are read widely; this module
-//! owns the gravity-zone *mechanic* layered on top.
+//! The underlying ambient-gravity types/resources — `BaseGravity`,
+//! `GravityField`, `GravityZone`, the `GravityZones` snapshot and its
+//! `oscillate`/`collect` systems — live in [`ambition_platformer2d_shared_tangle::gravity`],
+//! because they are read far more widely than this mechanic. This module
+//! owns the gravity-zone *mechanic* layered on top and names that crate
+//! directly: there is no `crate::physics` facade to spell them through.
 
 mod lifecycle;
 mod plugin;

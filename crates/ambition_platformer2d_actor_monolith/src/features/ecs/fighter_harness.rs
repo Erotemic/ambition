@@ -18,7 +18,7 @@ use ambition_characters::control::{ActorControl};
 use super::actor_clusters::ActorClusterSeed;
 use super::brain_effects::spawn_projectiles_from_brain_actions;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
-use crate::projectile::ProjectileSeqCounter;
+use ambition_projectiles::ProjectileSeqCounter;
 
 pub const HARNESS_DT: f32 = 1.0 / 60.0;
 
@@ -58,7 +58,7 @@ impl FighterHarness {
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_message::<crate::projectile::ProjectileSpawnRequest>();
+        app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
                 app.init_resource::<ProjectileSeqCounter>();
         // The real pipeline, in order: tick body cooldowns, resolve the seam,
         // enforce + emit fire effects, then materialize the projectiles.

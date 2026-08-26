@@ -5497,6 +5497,59 @@ failure mode this repository has already named twice.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
+✔✔✔ **2026-08-26, AFTER THE MOUNT CARVE: THE MONOLITH STOPPED REPUBLISHING ITS
+PEERS, AND THE NEXT CANDIDATE CHANGED.** Three re-export facades were deleted —
+`crate::physics` (a 15-line pure forward to `shared_tangle::{gravity,frame_env}`),
+`pub use ambition_combat as combat` (a whole-crate alias on the PUBLIC surface,
+carrying its own `TODO(compat-remove)`), and `pub use ambition_projectiles::*`
+(a glob, split by NAME because that module also owns real code). 565 internal
+sites and 64 external ones now name a real owner.
+
+⛔⛔ **THE REASON THIS IS A DEFECT AND NOT TIDYING: IT WAS BREAKING THE CENSUS
+THAT PICKS THE NEXT CARVE.** `damage_apply` measured 61 `crate::combat::`
+references and read as deeply coupled; every one of them was `ambition_combat`,
+which the three crates reaching through the monolith ALREADY DEPENDED ON
+DIRECTLY. Re-measured with the facades gone:
+
+```text
+                lines   outward refs        was
+damage_apply     3674          17      read as ~70
+perception       1580          13
+aggression        860          13
+bosses           1852          36
+actors           3601          43
+damage           4399         120
+spawn            3352         154
+```
+
+⇒ **`damage_apply` is the strongest candidate left: 3,674 lines against SEVENTEEN
+outward references.** Mount carved at 1,871 against four.
+
+⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
+138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
+vocabulary names from FOUR crates, so it composes something a single alias does
+not. It stays. But a census cannot tell composition from republication, so the
+resolution is written down ONCE here instead of re-derived per carve:
+
+```text
+crate::actor::BodyKinematics                    crate::platformer_runtime::body
+crate::actor::{PlayerEntity, PrimaryPlayer,     shared_tangle::markers
+               PrimaryPlayerOnly}
+crate::actor::BodyAnimFacts                     ambition_characters::actor
+crate::actor::BodyMelee                         ambition_combat
+crate::actor::Body*  (19 movement clusters)     ambition_platformer2d_core
+```
+
+⇒ of `damage_apply`'s seventeen, the four `crate::actor::` refs resolve to
+`_core` / `shared_tangle` / `ambition_characters` — already below the monolith.
+**Its real outward edge count is thirteen.**
+
+⛔ **NOT A DEFECT — the SDK facade.** `ambition_platformer2d` re-exporting
+`ambition_combat as combat` is one hop and `architecture.md` sanctions it. The
+rule is about WHO republishes: a curated SDK may, a domain crate republishing a
+peer domain may not.
+
+
 ⭐⭐ **A COSTED CARVE CANDIDATE, MEASURED AND THEN UNBLOCKED 2026-08-26 — this
 row asked for exactly this: design work backed by measurement rather than another
 coupling table.** ⇒ **`ecs/mount/mod.rs` now names ZERO monolith paths**; four

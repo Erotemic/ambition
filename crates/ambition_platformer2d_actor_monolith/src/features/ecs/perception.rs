@@ -15,7 +15,7 @@ use ambition_characters::perception::{
     SolidKind, StageView, Viewport, WorldView,
 };
 
-use crate::combat::targeting::FactionRelations;
+use ambition_combat::targeting::FactionRelations;
 
 /// Default viewport half-extent (world px) — the AI analogue of the human's
 /// screen. Generous so a body perceives approaching threats with room to react;
@@ -31,7 +31,7 @@ pub const DEFAULT_VIEWPORT_HALF: ae::Vec2 = ae::Vec2::new(480.0, 320.0);
 ///
 /// The two modes are a spectrum from primal to refined:
 /// - [`Omniscient`](Self::Omniscient) — the BASIC perception: the body simply KNOWS
-///   the nearest hostile ANYWHERE (the global [`ActorTarget`](crate::combat::components::ActorTarget)
+///   the nearest hostile ANYWHERE (the global [`ActorTarget`](ambition_combat::components::ActorTarget)
 ///   `select_actor_targets` maintains). No viewport, no line-of-sight, no forgetting.
 ///   A boss has this — it is relentless, you cannot juke it — and it is what any body
 ///   defaults to before it is given senses, so a fixture that wires up no perception
@@ -141,7 +141,7 @@ pub struct PerceptionBody {
     /// and could not SEE each other. A brain with no perceived foe stands still,
     /// and every component that would explain the stillness is present and
     /// correct.
-    pub team: Option<crate::combat::targeting::MatchTeam>,
+    pub team: Option<ambition_combat::targeting::MatchTeam>,
 }
 
 /// A candidate other-body the viewer may perceive. Pre-collected (id +
@@ -150,7 +150,7 @@ pub struct PerceptionBody {
 pub struct PerceptionPeer {
     /// This peer's match team, when it is seated in one. Paired with
     /// [`PerceptionBody::team`]; both are needed or the relation is undecidable.
-    pub team: Option<crate::combat::targeting::MatchTeam>,
+    pub team: Option<ambition_combat::targeting::MatchTeam>,
     /// The source body's `Entity` — so the viewer can excludes itself AND resolve a
     /// per-entity grudge against this exact body (grudge is keyed by `Entity`, not id).
     pub entity: bevy::prelude::Entity,
@@ -192,7 +192,7 @@ pub struct PerceptionProjectile {
     pub faction: Option<ActorFaction>,
     /// Frozen match team from the firing body, when the shot belongs to a
     /// seated combatant. `None` for unseated and ownerless shots.
-    pub team: Option<crate::combat::targeting::MatchTeam>,
+    pub team: Option<ambition_combat::targeting::MatchTeam>,
 }
 
 /// A portal aperture the viewer may perceive. `channel_key` is the stable pair
@@ -282,7 +282,7 @@ pub fn collect_perception_peers(
         // The match team, so hostility can follow the same precedence the DAMAGE
         // rule follows. `None` for anything not seated in a match, which is most
         // of the world.
-        Option<&crate::combat::targeting::MatchTeam>,
+        Option<&ambition_combat::targeting::MatchTeam>,
         // The published motion facts, for the two a watcher can see: tumbling,
         // and hanging on a ledge.
         Option<&ae::BodyMotionFacts>,
@@ -341,10 +341,10 @@ pub fn collect_perception_projectiles(
     live: bevy::prelude::Query<
         (
             &crate::actor::BodyKinematics,
-            &crate::projectile::ProjectileGameplay,
+            &ambition_projectiles::ProjectileGameplay,
             Option<&crate::projectile::ProjectileAllegiance>,
         ),
-        bevy::prelude::With<crate::projectile::LiveProjectile>,
+        bevy::prelude::With<ambition_projectiles::LiveProjectile>,
     >,
 ) {
     out.0.clear();
@@ -527,7 +527,7 @@ pub fn build_world_view(
             // same `team_allows_damage` authority: when both bodies are seated,
             // the team relation decides and factions have nothing to say. A
             // grudge still overrides, exactly as it does for damage.
-            hostile_to_self: match crate::combat::targeting::team_allows_damage(
+            hostile_to_self: match ambition_combat::targeting::team_allows_damage(
                 body.team.as_ref(),
                 p.team.as_ref(),
             ) {
@@ -561,7 +561,7 @@ pub fn build_world_view(
             // indiscriminate, matching the damage stepper.
             hostile_to_self: match pr.faction {
                 None => true,
-                Some(faction) => match crate::combat::targeting::team_allows_damage(
+                Some(faction) => match ambition_combat::targeting::team_allows_damage(
                     pr.team.as_ref(),
                     body.team.as_ref(),
                 ) {

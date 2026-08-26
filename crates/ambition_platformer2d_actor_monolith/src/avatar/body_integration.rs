@@ -150,7 +150,7 @@ pub fn integrate_home_body(
     // and is always honoured.
     let reset = result.events.reset.and_then(|cause| {
         let untouched = cause == ae::ResetCause::Hazard
-            && !crate::combat::util::body_vulnerable(
+            && !ambition_combat::util::body_vulnerable(
                 invulnerable,
                 evading,
                 clusters.shield,

@@ -153,8 +153,8 @@ pub struct PreparedSeat {
     pub seed: crate::features::ecs::actor_clusters::ActorClusterSeed,
     /// The body box this fighter was resolved to occupy.
     pub body_px: Vec2,
-    pub faction: crate::combat::components::ActorFaction,
-    pub team: Option<crate::combat::targeting::MatchTeam>,
+    pub faction: ambition_combat::components::ActorFaction,
+    pub team: Option<ambition_combat::targeting::MatchTeam>,
     /// What will drive it, attached AFTER the body exists — never a fork in how
     /// the body is built.
     pub authority: ControlAuthority,
@@ -169,7 +169,7 @@ pub struct PreparedSeat {
     pub action_set: ambition_characters::brain::ActionSet,
     /// See [`Self::identity_kit`]. Derived from [`Self::action_set`] by the same
     /// overlay call, so it can never describe a different repertoire.
-    pub combat_kit: crate::combat::components::CombatKit,
+    pub combat_kit: ambition_combat::components::CombatKit,
     /// Effective ability set after match guarantees and permissions are applied.
     /// Kit derivation must use this resolved set.
     pub effective_abilities: Option<ambition_platformer2d_core::AbilitySet>,
@@ -426,7 +426,7 @@ impl PreparedMatch {
     pub fn seats_on_side(&self, side: &str) -> usize {
         self.seats
             .iter()
-            .filter(|seat| crate::combat::stocks::side_label(seat.seat, seat.team.as_ref()) == side)
+            .filter(|seat| ambition_combat::stocks::side_label(seat.seat, seat.team.as_ref()) == side)
             .count()
     }
 
@@ -802,10 +802,10 @@ pub fn prepare_match(
             .clone()
             .or_else(|| definition.kit.action_set().cloned())
             .unwrap_or_default();
-        let mut moveset = crate::combat::moveset::ActorMoveset(Default::default());
+        let mut moveset = ambition_combat::moveset::ActorMoveset(Default::default());
         let mut identity_kit = ambition_characters::brain::action_set::IdentityKit::default();
         let mut overlay_combat_kit =
-            crate::combat::components::CombatKit::from_action_set(&overlay_action_set);
+            ambition_combat::components::CombatKit::from_action_set(&overlay_action_set);
         let _ = crate::avatar::apply_worn_character_overlay(
             catalog,
             Some(registry),
@@ -838,7 +838,7 @@ pub fn prepare_match(
             // relationship policy never has to fall back to faction inside a
             // match — and the faction is left to mean what it means everywhere
             // else in the world.
-            faction: crate::combat::components::ActorFaction::Player,
+            faction: ambition_combat::components::ActorFaction::Player,
             team: Some(team_for(index, participant.team.as_ref())),
             authority,
             match_kit: participant.action_set.clone(),
@@ -926,8 +926,8 @@ mod tests;
 /// Resolve a seat's match team without changing the character's authored world
 /// faction. An authored team is preserved; otherwise each seat gets its own team,
 /// producing free-for-all relationships.
-fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting::MatchTeam {
-    crate::combat::targeting::MatchTeam::new(
+fn team_for(index: usize, authored: Option<&String>) -> ambition_combat::targeting::MatchTeam {
+    ambition_combat::targeting::MatchTeam::new(
         authored
             .cloned()
             .unwrap_or_else(|| format!("seat {}", index + 1)),
@@ -974,7 +974,7 @@ fn realize_seat(
     // seed's own note says the persona brings this; a seat that will stop asking
     // for a persona pass brings its own, and the enemy road already does exactly
     // this at construction.
-    seed.caps = crate::combat::CombatCapabilities::from(
+    seed.caps = ambition_combat::CombatCapabilities::from(
         &seat.definition.death_traits.clone().unwrap_or_default(),
     );
     let at = seed.kin.pos;
@@ -990,7 +990,7 @@ fn realize_seat(
     // A match participant is a COMBATANT, whatever drives it. The disposition the seed derives
     // follows the authored brain, and a local-input seat authors `Passive` — `apply_actor_hit`
     // reads the disposition first, and a peaceful body takes NO health damage.
-    let disposition = crate::combat::components::ActorDisposition::Hostile;
+    let disposition = ambition_combat::components::ActorDisposition::Hostile;
     // Use the action set resolved by preparation rather than deriving a second
     // answer from the same inputs.
     let action_set = seat.action_set.clone();
@@ -1068,7 +1068,7 @@ fn realize_seat(
                 // This was an empty contract with the persona derive expected to fill it on the
                 // body's first tick.
                 (
-                    crate::combat::moveset::ActorMoveset(seat.moveset.clone()),
+                    ambition_combat::moveset::ActorMoveset(seat.moveset.clone()),
                     // AND THE IDENTITY KIT — grant three.
                     seat.identity_kit.clone(),
                 ),
@@ -1082,15 +1082,15 @@ fn realize_seat(
                 // owns this fighter's death, not the world. Without it a KO runs the exploration
                 // economy — a bounty coin, a heart, an in-place respawn timer — none of which an
                 // arena has a use for.
-                crate::combat::components::RulesetOwnsDeath,
+                ambition_combat::components::RulesetOwnsDeath,
                 // And it is IN the fight — which is a different fact from whose
                 // business its death is, and the one every other combat system
                 // actually wants. Removed again when the fighter is eliminated.
-                crate::combat::components::ActiveCombatant,
+                ambition_combat::components::ActiveCombatant,
                 // WITHOUT THIS THE FIGHTER IS INVISIBLE: the authored render pass
                 // only spawns visuals for `spec.enemy_spawns`, so a directly
                 // staged actor would render nothing.
-                crate::combat::components::RuntimeStagedActor,
+                ambition_combat::components::RuntimeStagedActor,
                 ambition_characters::control::ActorControl::default(),
                 ambition_characters::actor::attack_gesture::AttackGestureState::default(),
                 ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
@@ -1415,7 +1415,7 @@ pub fn activate_the_prepared_match(
             ));
         }
         if let Some(stocks) = rules.stocks {
-            entity.try_insert(crate::combat::components::FighterStocks::new(stocks));
+            entity.try_insert(ambition_combat::components::FighterStocks::new(stocks));
         }
         if rules.opens_suspended {
             // the OPENING bit, distinct from the interlude a KO card claims:

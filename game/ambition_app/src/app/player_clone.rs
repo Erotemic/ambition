@@ -198,7 +198,7 @@ pub fn tick_player_clone_brains(
         (
             &ambition_platformer2d::actors::actor::BodyKinematics,
             &ambition_platformer2d::actors::actor::BodyGroundState,
-            &ambition_platformer2d::actors::physics::ResolvedMotionFrame,
+            &ambition_platformer2d::world::ResolvedMotionFrame,
             &mut Brain,
             &mut ActorControl,
         ),

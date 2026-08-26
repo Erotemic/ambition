@@ -112,7 +112,7 @@ fn spawn_and_possess(sim: &mut Platformer2dSimHarness) -> Entity {
 fn settle_out_of_any_move(sim: &mut Platformer2dSimHarness, actor: Entity) {
     let playing = |sim: &mut Platformer2dSimHarness| {
         sim.world_mut()
-            .get::<ambition_platformer2d::actors::combat::moveset::MovePlayback>(actor)
+            .get::<ambition_platformer2d::combat::moveset::MovePlayback>(actor)
             .is_some()
     };
     for _ in 0..240 {

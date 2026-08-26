@@ -28,7 +28,7 @@ pub(crate) struct DevToggleRead<'a> {
         Option<&'a ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     // The Gravity row's ambient direction (down/left/up/right). Option so
     // fixtures without the resource still render the row (as "n/a").
-    pub(crate) base_gravity: Option<&'a ambition_platformer2d::actors::physics::BaseGravity>,
+    pub(crate) base_gravity: Option<&'a ambition_platformer2d::world::BaseGravity>,
 }
 
 pub(crate) struct DevToggleWrite<'a> {
@@ -41,7 +41,7 @@ pub(crate) struct DevToggleWrite<'a> {
     #[cfg(feature = "portal_render")]
     pub(crate) portal_camera:
         Option<&'a mut ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
-    pub(crate) base_gravity: Option<&'a mut ambition_platformer2d::actors::physics::BaseGravity>,
+    pub(crate) base_gravity: Option<&'a mut ambition_platformer2d::world::BaseGravity>,
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The

@@ -346,13 +346,13 @@ fn projectile_threat_resolved_relationally() {
     // Same authored faction but a different match team: team authority
     // outranks faction exactly as projectile damage does.
     let mut team_player = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Player);
-    team_player.team = Some(crate::combat::targeting::MatchTeam::new("blue"));
+    team_player.team = Some(ambition_combat::targeting::MatchTeam::new("blue"));
     let team_shot = PerceptionProjectile {
         pos: ae::Vec2::new(150.0, 180.0),
         vel: ae::Vec2::ZERO,
         damage: 1,
         faction: Some(ActorFaction::Player),
-        team: Some(crate::combat::targeting::MatchTeam::new("red")),
+        team: Some(ambition_combat::targeting::MatchTeam::new("red")),
     };
     let team_view = build_world_view(
         &team_player,
@@ -522,25 +522,25 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
         size: ae::Vec2::new(8.0, 8.0),
         facing: -1.0,
     };
-    let game = |dmg: i32| crate::projectile::ProjectileGameplay {
+    let game = |dmg: i32| ambition_projectiles::ProjectileGameplay {
         age: 0.0,
         max_lifetime: 2.0,
         gravity: 0.0,
         damage: dmg,
         bounces_remaining: 0,
-        world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
+        world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
     };
     app.world_mut().spawn((
-        crate::projectile::LiveProjectile,
+        ambition_projectiles::LiveProjectile,
         kin(200.0),
         game(3),
         crate::projectile::ProjectileAllegiance {
             faction: ActorFaction::Enemy,
-            team: Some(crate::combat::targeting::MatchTeam::new("red")),
+            team: Some(ambition_combat::targeting::MatchTeam::new("red")),
         },
     ));
     app.world_mut()
-        .spawn((crate::projectile::LiveProjectile, kin(50.0), game(2)));
+        .spawn((ambition_projectiles::LiveProjectile, kin(50.0), game(2)));
     app.update();
 
     let shots = app.world().resource::<PerceptionProjectiles>();
@@ -715,7 +715,7 @@ impl<T> CountOrNone for Option<T> {
 /// could not SEE each other, and a brain with no perceived foe stands still.
 #[test]
 fn a_different_team_is_hostile_even_on_the_same_faction() {
-    use crate::combat::targeting::MatchTeam;
+    use ambition_combat::targeting::MatchTeam;
 
     let world = arena_world();
     let relations = FactionRelations::default();

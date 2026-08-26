@@ -17,7 +17,7 @@
 
 use super::actor_clusters::ActorConfig;
 use super::{CombatKit, HeldItem};
-use crate::combat::CombatCapabilities;
+use ambition_combat::CombatCapabilities;
 use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile};
 use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};

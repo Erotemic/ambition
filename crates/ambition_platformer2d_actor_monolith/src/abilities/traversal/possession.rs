@@ -124,7 +124,7 @@ pub fn holding_ascend(
 pub fn possession_trigger_system(
     slots: Res<ambition_characters::control::SlotControls>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    frames: Query<&crate::physics::ResolvedMotionFrame>,
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     world_time: Res<ambition_time::WorldTime>,
     // The possession DECISION — who is driven and where the seat returns to. The
@@ -217,7 +217,7 @@ pub fn possession_trigger_system(
         // Structural tangibility gate: a dead body is an
         // intangible corpse — you cannot possess a corpse. Excluded BEFORE
         // distance selection so a nearer corpse never shadows a farther live body.
-        .filter(|(_, _, health)| !crate::combat::util::body_is_corpse(*health))
+        .filter(|(_, _, health)| !ambition_combat::util::body_is_corpse(*health))
         .map(|(entity, aabb, _)| (entity, (aabb.center - home_pos).length()))
         .filter(|(_, dist)| *dist <= POSSESS_RADIUS)
         .min_by(|a, b| a.1.total_cmp(&b.1));

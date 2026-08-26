@@ -32,7 +32,7 @@ pub fn update_body_mode(
         (
             &crate::body_mode::BodyModeCapabilities,
             &crate::actor::BodyFlightState,
-            &crate::physics::ResolvedMotionFrame,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         ),
     )>,
 ) {

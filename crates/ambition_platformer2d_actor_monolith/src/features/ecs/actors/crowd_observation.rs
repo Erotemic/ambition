@@ -20,7 +20,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::Entity;
 use std::collections::HashMap;
 
-use crate::combat::crowd::CrowdKind;
+use ambition_combat::crowd::CrowdKind;
 use crate::features::components::ActorFaction;
 
 /// One body's contribution to the crowd picture.

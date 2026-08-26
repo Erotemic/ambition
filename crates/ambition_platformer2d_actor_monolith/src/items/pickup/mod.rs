@@ -200,7 +200,7 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 crate::abilities::thrown::gravity_grenade::tick_gravity_grenade_fuses
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
-                crate::physics::tick_temporary_zones
+                ambition_platformer2d_shared_tangle::gravity::tick_temporary_zones
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
             )
                 .chain()
@@ -409,7 +409,7 @@ pub fn carry_or_wake_settled_items(
 pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut commands: Commands,
     mut grounds: Query<(Entity, &mut GroundItem, &ItemCustody), Without<SettledItem>>,
 ) {
@@ -435,10 +435,10 @@ pub fn ground_item_physics(
         }
         // Free bodies resolve gravity by the body-overlap rule, not the center
         // point (ADR 0024) — a zone grabs an item the item TOUCHES.
-        let local = crate::physics::GravityField {
+        let local = ambition_platformer2d_shared_tangle::gravity::GravityField {
             dir: gravity.dir_for(ae::Aabb::new(item.pos, item.half_extent)),
         };
-        crate::physics::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &local, dt);
+        ambition_platformer2d_shared_tangle::gravity::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &local, dt);
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
         let blocked = world.blocks.iter().any(|block| {
@@ -1321,7 +1321,7 @@ enum Release {
 pub fn throw_held_item_system(
     mut commands: Commands,
     controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     mut bodies: Query<(
         &mut ActorControl,
         &BodyKinematics,
@@ -1609,7 +1609,7 @@ pub fn fire_held_ranged_system(
     bodies: Query<(
         &ActorControl,
         &BodyKinematics,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
     )>,
     mut sfx: ambition_sfx::SfxWriter,
@@ -1665,7 +1665,7 @@ pub fn fire_held_ranged_system(
         // `held_projectile_step` (keyed on `HeldProjectile`), not the ECS
         // projectile step (keyed on `LiveProjectile`), so this marker never
         // double-steps the bolt.
-        crate::projectile::ProjectileGameplay {
+        ambition_projectiles::ProjectileGameplay {
             age: 0.0,
             max_lifetime: f32::MAX,
             gravity: 0.0,
@@ -1674,7 +1674,7 @@ pub fn fire_held_ranged_system(
             // Stepped by `held_projectile_step` (keyed on `HeldProjectile`), not
             // the ECS projectile world-collision path, so this is inert here; a
             // detonate-on-contact bolt is `ExpireOnContact` in spirit.
-            world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
+            world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
         },
         HeldProjectile {
             damage: ranged.damage(),

@@ -145,15 +145,15 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     let mut q = world.query::<(
         &ambition_characters::actor::WornCharacter,
         &ambition_platformer2d_shared_tangle::body::BodyKinematics,
-        &crate::combat::components::ActorFaction,
-        Option<&crate::combat::targeting::MatchTeam>,
+        &ambition_combat::components::ActorFaction,
+        Option<&ambition_combat::targeting::MatchTeam>,
     )>();
     let mut seated: Vec<(
         String,
         f32,
         f32,
-        crate::combat::components::ActorFaction,
-        Option<crate::combat::targeting::MatchTeam>,
+        ambition_combat::components::ActorFaction,
+        Option<ambition_combat::targeting::MatchTeam>,
     )> = q
         .iter(world)
         .map(|(worn, kin, faction, team)| {
@@ -208,12 +208,12 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     // other. A seating change that gives both the same team passes the line
     // above only if it also renames one of them, and fails here either way.
     assert!(
-        crate::combat::targeting::damage_lands_between(
+        ambition_combat::targeting::damage_lands_between(
             seated[0].3,
             seated[1].3,
             Some(left_team),
             Some(right_team),
-            crate::combat::targeting::FriendlyFire::default(),
+            ambition_combat::targeting::FriendlyFire::default(),
             None,
             bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw index"),
         ),
@@ -630,7 +630,7 @@ fn two_seats_on_one_controller_are_refused_by_name() {
 /// asked to do.
 #[test]
 fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
-    use crate::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+    use ambition_combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
 
     let mut app = seating_app();
     for id in ["alpha", "beta", "gamma", "delta"] {
@@ -661,13 +661,13 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
         Entity,
         &MatchSeat,
         &MatchTeam,
-        &crate::combat::components::ActorFaction,
+        &ambition_combat::components::ActorFaction,
     )>();
     let mut fighters: Vec<(
         Entity,
         usize,
         String,
-        crate::combat::components::ActorFaction,
+        ambition_combat::components::ActorFaction,
     )> = q
         .iter(world)
         .map(|(entity, seat, team, faction)| (entity, seat.0, team.0.clone(), *faction))
@@ -951,7 +951,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
 
     let moves: Vec<(usize, Vec<String>)> = {
         let world = app.world_mut();
-        let mut seated = world.query::<(&MatchSeat, &crate::combat::moveset::ActorMoveset)>();
+        let mut seated = world.query::<(&MatchSeat, &ambition_combat::moveset::ActorMoveset)>();
         let mut rows: Vec<(usize, Vec<String>)> = seated
             .iter(world)
             .map(|(seat, moveset)| {
@@ -1377,7 +1377,7 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::brain::ActionSet,
-        &crate::combat::components::CombatKit,
+        &ambition_combat::components::CombatKit,
         &ambition_characters::actor::WornCharacter,
     )>();
     let (live, durable, _) = bodies
@@ -1883,7 +1883,7 @@ fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
         let mut q = world.query_filtered::<(
             &ambition_platformer2d_core::BodyAbilities,
             &ambition_platformer2d_core::AbilityBase,
-            &crate::combat::CombatCapabilities,
+            &ambition_combat::CombatCapabilities,
         ), With<MatchSeat>>();
         let rows: Vec<_> = q
             .iter(world)
@@ -2584,7 +2584,7 @@ fn a_seated_fighter_on_the_host_kit_is_not_left_empty_handed() {
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
         &ambition_characters::brain::ActionSet,
-        &crate::combat::moveset::ActorMoveset,
+        &ambition_combat::moveset::ActorMoveset,
     )>();
     let (_, action_set, moveset) = bodies
         .iter(world)
@@ -2635,7 +2635,7 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
         With<ambition_characters::actor::WornCharacter>,
         With<Name>,
         With<ambition_characters::brain::ActionSet>,
-        With<crate::combat::moveset::ActorMoveset>,
+        With<ambition_combat::moveset::ActorMoveset>,
         With<ambition_characters::brain::action_set::IdentityKit>,
         With<crate::actor::BodyAbilities>,
         With<crate::features::MotionModel>,
@@ -3012,7 +3012,7 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     let mut q = world.query::<(
         Entity,
         &ambition_characters::actor::WornCharacter,
-        Option<&crate::combat::CombatCapabilities>,
+        Option<&ambition_combat::CombatCapabilities>,
     )>();
     let mut seen: Vec<(Entity, String, bool)> = q
         .iter(world)
@@ -3059,7 +3059,7 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     // missing component.
     let after = app
         .world()
-        .get::<crate::combat::CombatCapabilities>(sandbag_body)
+        .get::<ambition_combat::CombatCapabilities>(sandbag_body)
         .cloned();
     assert!(
         after.is_some(),
@@ -3105,7 +3105,7 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
     let world = app.world_mut();
     let mut q = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        &crate::combat::CombatTuning,
+        &ambition_combat::CombatTuning,
     )>();
     let mut seen: Vec<(String, f32)> = q
         .iter(world)

@@ -853,6 +853,71 @@ stand in — mount ZEROES the last one itself. Naming the baseline also collapse
 recorded value. Cost: one stable schema name and a declared bump to
 `GGRS_ROLLBACK_SCHEMA_VERSION` 113. See the D33 row in `queue.md`.
 
+### Wave I — the monolith stops republishing its peers, and the census stops lying
+
+⛔⛔ **THE HUB WAS RE-EXPORTING THREE ALREADY-CARVED CRATES UNDER `crate::`
+PATHS, AND EVERY COUPLING NUMBER ON THIS PAGE WAS INFLATED BY IT.** Wave H's
+census already recorded the symptom — *"half of what a census finds is not an
+edge at all... eleven of the boss carve's thirteen"* — but treated it as a
+lookup discipline. It was a source defect, and it is deleted, 2026-08-26:
+
+```text
+DELETED                                       WAS                       SITES
+crate::physics (physics.rs, 15 lines)         pure re-export of          50 in
+                                              shared_tangle::{gravity,      + 17
+                                              frame_env}                 outside
+pub use ambition_combat as combat             a whole-crate alias        436 in
+  (it carried its own TODO(compat-remove))    on the PUBLIC surface        + 47
+                                                                        outside
+pub use ambition_projectiles::*               a glob forward; the module 79 model
+  (in projectile/mod.rs)                      also owns real code, so    names,
+                                              the split is by NAME       locals kept
+```
+
+⭐⭐ **THE PAYOFF IS THE NEXT CARVE, AND IT IS BIGGER THAN THE MOUNT PAIR.**
+Re-measuring `features/ecs` with the facades gone:
+
+```text
+                lines   outward path refs   BEFORE (facade-inflated)
+damage_apply     3674          17             61 crate::combat:: alone
+perception       1580          13
+aggression        860          13
+bosses           1852          36
+actors           3601          43
+damage           4399         120
+spawn            3352         154
+```
+
+⇒ **`damage_apply` is now the strongest candidate left** — 3,674 lines against
+SEVENTEEN outward references, where mount carved at 1,871 against four.
+
+⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
+138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
+vocabulary names from FOUR crates, so it composes something a single alias does
+not. It stays. But a census cannot tell composition from republication, so the
+resolution is written down ONCE here instead of re-derived per carve:
+
+```text
+crate::actor::BodyKinematics                    crate::platformer_runtime::body
+crate::actor::{PlayerEntity, PrimaryPlayer,     shared_tangle::markers
+               PrimaryPlayerOnly}
+crate::actor::BodyAnimFacts                     ambition_characters::actor
+crate::actor::BodyMelee                         ambition_combat
+crate::actor::Body*  (19 movement clusters)     ambition_platformer2d_core
+```
+
+⇒ of `damage_apply`'s seventeen, the four `crate::actor::` refs resolve to
+`_core` / `shared_tangle` / `ambition_characters` — already below the monolith.
+**Its real outward edge count is thirteen.**
+
+⛔ **WHAT IS NOT A DEFECT: the SDK facade.** `ambition_platformer2d` re-exports
+`ambition_combat as combat` on its own, one hop, and `architecture.md` sanctions
+exactly that — *"curated re-exports and convenient composition."* The rule is
+about WHO republishes: a curated SDK may; a domain crate republishing a peer
+domain is how `ambition_platformer2d::actors::combat::X` became a three-hop path
+that made the runtime look coupled to the monolith when it already depended on
+`ambition_combat` directly. Those 47 external sites now name one hop or zero.
+
 ### Wave F — presentation effects and audio
 
 Simulation publishes deterministic/confirmed effect intent; audio, SFX, VFX,

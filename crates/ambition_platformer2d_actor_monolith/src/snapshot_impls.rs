@@ -197,8 +197,8 @@ impl SnapshotState for crate::character_runtime::live_match_clock::LiveMatchTick
 
 /// The stocks ruleset's verdict, and WHICH MATCH it is about.
 /// One byte of tag plus the winning side's label when there is one.
-fn encode_match_verdict(out: &mut Vec<u8>, verdict: &crate::combat::stocks::MatchVerdict) {
-    use crate::combat::stocks::MatchVerdict;
+fn encode_match_verdict(out: &mut Vec<u8>, verdict: &ambition_combat::stocks::MatchVerdict) {
+    use ambition_combat::stocks::MatchVerdict;
     match verdict {
         MatchVerdict::Winner(side) => {
             put_u8(out, 0);
@@ -209,8 +209,8 @@ fn encode_match_verdict(out: &mut Vec<u8>, verdict: &crate::combat::stocks::Matc
     }
 }
 
-fn decode_match_verdict(r: &mut Reader<'_>) -> Option<crate::combat::stocks::MatchVerdict> {
-    use crate::combat::stocks::MatchVerdict;
+fn decode_match_verdict(r: &mut Reader<'_>) -> Option<ambition_combat::stocks::MatchVerdict> {
+    use ambition_combat::stocks::MatchVerdict;
     match r.u8()? {
         0 => Some(MatchVerdict::Winner(r.str()?.to_string())),
         1 => Some(MatchVerdict::Draw),

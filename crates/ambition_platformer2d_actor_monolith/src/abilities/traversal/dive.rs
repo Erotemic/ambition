@@ -92,7 +92,7 @@ pub fn fire_dive_system(
         &ActorControl,
         ae::BodyClusterQueryData,
         &mut crate::features::MotionModel,
-        &crate::physics::ResolvedMotionFrame,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &HeldItem,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,

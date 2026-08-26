@@ -15,12 +15,12 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 /// follows on the next resolution.
 pub fn reset_gravity_on_room_reset(
     mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
-    mut base: ResMut<crate::physics::BaseGravity>,
+    mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
 ) {
     if resets.read().next().is_none() {
         return;
     }
-    *base = crate::physics::BaseGravity::default();
+    *base = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
 }
 
 /// A sandbox gravity-flip switch: a tall pressure-plate column the player steps
@@ -41,12 +41,12 @@ pub struct GravityFlipSwitch {
 // component + `gravity_flip_switch_system` below remain only for the unit test
 // + any future overlap-style gravity plate; nothing spawns one in-game.
 
-/// Flip the room's ambient gravity ([`crate::physics::BaseGravity`]) up↔down
+/// Flip the room's ambient gravity ([`ambition_platformer2d_shared_tangle::gravity::BaseGravity`]) up↔down
 /// when the player steps into a [`GravityFlipSwitch`] (rising-edge latched by
 /// `armed`). Flipping the ambient (not the live `GravityField` directly) lets
 /// gravity zones override locally while the switch sets the room default.
 pub fn gravity_flip_switch_system(
-    mut base: ResMut<crate::physics::BaseGravity>,
+    mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
     // SLOT-0 BY DESIGN: a gravity-flip switch rewrites the ROOM's ambient gravity
     // for everyone, so exactly one body may arm it — the local human's own. (If a
     // possessed actor should be able to arm it too, this becomes `ControlledSubject`;
@@ -84,7 +84,7 @@ mod tests {
     use super::*;
     use crate::actor::BodyBaseSize;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::physics::{BaseGravity, GravityField};
+    use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityField};
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         app.world_mut()

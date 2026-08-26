@@ -48,7 +48,7 @@ pub(crate) mod enemies;
 mod npcs;
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
-pub use crate::combat::components;
+pub use ambition_combat::components;
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
 // facts for whichever body produced them; `swim` and `ledge_grab` are thin shims over
 // engine-owned water / ledge state and name no `crate::` type at all.
@@ -62,10 +62,10 @@ pub use movement_fx::{
     emit_movement_fx, handle_player_events,
 };
 
-pub use crate::combat::events;
-pub use crate::combat::hazard_runtime as hazards;
-pub use crate::combat::path_motion;
-pub use crate::combat::util;
+pub use ambition_combat::events;
+pub use ambition_combat::hazard_runtime as hazards;
+pub use ambition_combat::path_motion;
+pub use ambition_combat::util;
 pub use ambition_platformer2d_world::collision as world_overlay;
 pub use ecs::effect_bus as bus;
 
@@ -624,13 +624,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it. Combat
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
-        crate::combat::targeting::init_targeting_resources(app);
+        ambition_combat::targeting::init_targeting_resources(app);
         // AE6: the rules a MATCH plays under, resolved from its declaration
         // folded over those baselines — so a stage never writes them. In
         // WorldPrep because every reader is later (PlayerSimulation/Combat),
         // and a resolution landing after them would hand the hit kernel last
         // tick's rules on the one tick they differ.
-        app.init_resource::<crate::combat::rules::ResolvedCombatTuning>();
+        app.init_resource::<ambition_combat::rules::ResolvedCombatTuning>();
         app.add_systems(
             sim,
             crate::features::combat_rules::project_combat_rules

@@ -33,7 +33,7 @@ use ambition_platformer2d_shared_tangle::schedule::{
 use bevy::prelude::*;
 
 use crate::actor::BodyAbilities;
-use crate::combat::moveset::ActorMoveset;
+use ambition_combat::moveset::ActorMoveset;
 
 /// Re-derive [`ActorActionScheme`] for any body whose authorities changed (or
 /// that has no scheme yet). A no-op in steady state — the change-detection
@@ -110,7 +110,7 @@ impl Plugin for ActionSchemePlugin {
                 // after identity derived it and equipment overlaid its grants, so
                 // a ranged move granted by a row routes through the move timeline
                 // on the same tick it is granted.
-                crate::combat::moveset::reconcile_moveset_routing_markers
+                ambition_combat::moveset::reconcile_moveset_routing_markers
                     .after(ambition_items::equipment::reconcile_equipment_grants),
                 reconcile_action_schemes
                     .after(ambition_items::equipment::reconcile_equipment_grants),
@@ -237,7 +237,7 @@ mod tests {
         // from the ActionSet + legacy projectile pipeline (not the moveset).
         let abilities = AbilitySet::sandbox_all();
         let action_set = crate::avatar::bundles::default_player_action_set(abilities);
-        let moveset = crate::combat::moveset::build_actor_moveset(
+        let moveset = ambition_combat::moveset::build_actor_moveset(
             None,
             action_set.melee.as_ref(),
             None,
@@ -319,7 +319,7 @@ mod tests {
 
         // Canonical player: gate keeps melee/ranged/special; scheme shows them.
         let action_set = crate::avatar::bundles::default_player_action_set(ab);
-        let moveset = crate::combat::moveset::build_actor_moveset(
+        let moveset = ambition_combat::moveset::build_actor_moveset(
             None,
             action_set.melee.as_ref(),
             None,

@@ -44,7 +44,7 @@ pub struct RoomTransitionCombatReset<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub live_projectiles: Query<'w, 's, Entity, With<ambition_projectiles::LiveProjectile>>,
     pub feature_overlay: Res<'w, FeatureEcsWorldOverlay>,
-    pub base_gravity: ResMut<'w, ambition_platformer2d_actor_monolith::physics::BaseGravity>,
+    pub base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
 }
 
 impl RoomTransitionCombatReset<'_, '_> {
@@ -58,7 +58,7 @@ impl RoomTransitionCombatReset<'_, '_> {
         // Resetting the AMBIENT is the real gravity reset; the presentation
         // `GravityField` is a per-tick mirror of the primary body's resolved
         // frame and has exactly one writer (`resolve_active_gravity`).
-        *self.base_gravity = ambition_platformer2d_actor_monolith::physics::BaseGravity::default();
+        *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
     }
 }
 
@@ -473,7 +473,7 @@ pub struct TransitBodies<'w, 's> {
     /// cluster borrow) so the landing diagnostic probes along the body's own
     /// gravity, not world-down.
     motion_frames:
-        Query<'w, 's, &'static ambition_platformer2d_actor_monolith::physics::ResolvedMotionFrame>,
+        Query<'w, 's, &'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     presentation: Query<
         'w,
         's,

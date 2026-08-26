@@ -32,7 +32,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
             ActionSet::default(),
             ambition_characters::control::ActorControl::default(),
             // `fire_held_ranged_system` reads the resolved frame (ADR 0024).
-            crate::physics::ResolvedMotionFrame::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
     // `fire_held_ranged_system` keys on the controlled subject; in tests the

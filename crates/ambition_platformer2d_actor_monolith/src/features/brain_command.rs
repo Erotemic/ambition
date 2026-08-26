@@ -6,7 +6,7 @@
 //! live brain is displaced by mount control; possession redirects a seat without
 //! displacing brain policy. Provocation remains a separate disposition authority.
 
-use crate::combat::CombatCapabilities;
+use ambition_combat::CombatCapabilities;
 use crate::features::ecs::actor_clusters::ActorConfig;
 use crate::features::{ActorAggression, ActorDisposition, CombatKit};
 use ambition_characters::actor::character_catalog::{

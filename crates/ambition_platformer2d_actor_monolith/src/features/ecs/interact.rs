@@ -128,7 +128,7 @@ pub fn interact_ecs_actors_and_switches(
         };
         // A hostile actor gates dialogue off; a dead one is an intangible corpse
         // and cannot be talked to.
-        if disposition.is_hostile() || crate::combat::util::body_is_corpse(health) {
+        if disposition.is_hostile() || ambition_combat::util::body_is_corpse(health) {
             continue;
         }
         let interactable = &interaction_payload.interactable;

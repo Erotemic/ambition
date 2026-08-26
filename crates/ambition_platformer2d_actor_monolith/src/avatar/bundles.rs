@@ -86,12 +86,12 @@ pub struct PlayerSimulationBundle {
     /// all attach to the same character behavior. Ranged stays on the player's
     /// charge system (`None` here), specials on the `Special` channel —
     /// `MovesetMelee` marks the melee-swing move.
-    pub moveset: crate::combat::moveset::ActorMoveset,
+    pub moveset: ambition_combat::moveset::ActorMoveset,
     /// The kit this body's IDENTITY derived, before equipment. Written at spawn by
     /// the same overlay the runtime re-wear uses, so the equipment reconcile has a
     /// correct baseline from the body's very first tick.
     pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
-    pub moveset_melee: crate::combat::moveset::MovesetMelee,
+    pub moveset_melee: ambition_combat::moveset::MovesetMelee,
     pub actor_control: ActorControl,
     /// Capability marker: this body uses the chargeable-projectile (Fireball)
     /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
@@ -121,7 +121,7 @@ pub struct PlayerSimulationBundle {
     pub pogo_policy: PogoPolicy,
     pub pogo_target_volumes: PogoTargetVolumes,
     pub movement: AncillaryMovementBundle,
-    pub projectile: crate::projectile::PlayerProjectileState,
+    pub projectile: ambition_projectiles::PlayerProjectileState,
 }
 
 impl PlayerSimulationBundle {
@@ -142,7 +142,7 @@ impl PlayerSimulationBundle {
         let action_set = default_player_action_set(scratch.abilities.abilities);
         // Build host-kit moves through the same persona derivation path so move
         // construction has one authority.
-        let moveset = crate::combat::moveset::ActorMoveset(
+        let moveset = ambition_combat::moveset::ActorMoveset(
             crate::avatar::starting_character::derive_persona_moveset(
                 &action_set,
                 ambition_characters::brain::RangedExecution::ChargedProjectile,
@@ -188,7 +188,7 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             moveset,
-            moveset_melee: crate::combat::moveset::MovesetMelee,
+            moveset_melee: ambition_combat::moveset::MovesetMelee,
             actor_control: ActorControl::default(),
             charges_projectiles: ambition_characters::brain::ChargesProjectiles,
             actor_pose: ActorPose::from_parts(
@@ -203,7 +203,7 @@ impl PlayerSimulationBundle {
             pogo_policy: PogoPolicy::FromDamageable,
             pogo_target_volumes: PogoTargetVolumes::default(),
             movement: AncillaryMovementBundle::from_scratch(scratch),
-            projectile: crate::projectile::PlayerProjectileState::default(),
+            projectile: ambition_projectiles::PlayerProjectileState::default(),
         }
     }
 

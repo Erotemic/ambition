@@ -10363,7 +10363,45 @@ genre distinguishes these by the ORDER of stick and button, and this seam is
 handed one already-resolved direction. A game DECLARES which technique its
 Back+Special performs. Reopen when a customer needs per-press choice.
 
-▢ STILL OPEN, in the review's own order: **(4) `LandedBodyHit` means OVERLAP and
+◐ **(4)/(5) — BUILT, MEASURED, REVERTED, AND THE REVERT IS THE FINDING.
+2026-08-25.**
+
+⭐⭐ **(5) IS CONFIRMED IN PRODUCTION, not by reading the schedule.** A real
+hostile enemy next to the real player, real schedules, 300 frames: **the player
+served 0.036s of its own hitlag, no other body served any, and the match froze
+for ZERO frames.** The fixture is committed and IGNORED —
+`ambition_app/tests/a_hit_on_the_player_freezes_the_match.rs` — because it goes
+GREEN with the fix and the fix is not landed.
+
+⭐ **THE ARCHITECTURE IS SETTLED AND IT WORKED.** `ResolvedBodyHit { victim,
+hitlag_seconds }` in `ambition_combat::hitbox`, registered in
+`SimCoreResourcesPlugin` (⛔ NOT in a schedule plugin — its writers are on the
+PLAYER road and the ACTOR road, which different compositions install separately;
+registering beside one panics the other, a crash this repo has already shipped
+once). Published by `publish_resolved_hit` beside the REACTION, never beside the
+resolution — ⛔ publishing beside `resolve_body_hit` reports `0` for every hit,
+because the reaction is what charges the hitlag, and that was measured too.
+`request_impact_hitstop_on_resolved_hits` then reads the resolver's own answer
+and has no opinion about which road resolved the hit or on which frame.
+
+⛔⛔ **AND LANDING IT EXPOSED THE REAL BLOCKER: ONE STRIKE RESOLVES SEVENTEEN
+TIMES.** Measured on `smash_in_the_host`, actor road, one victim, seventeen
+consecutive resolutions across twenty-three ticks with an IDENTICAL hitlag —
+`hitstop_timer` at its `max`, re-set every tick. With the freeze reading them the
+world alternates frozen/moving forever (`until_tick` tracking `tick + 2` for 180
+ticks) and three smash fixtures never reach the gait they wait for. Refusing to
+arm while ALREADY frozen — a rule the module needs anyway, since the freeze stops
+the clock that would have ended the overlap — halves it and no more.
+
+⇒ **THE REPEAT IS THE ITEM TO FIX FIRST**, and it is (4) restated with evidence:
+a channel that means OVERLAP fires once per overlapping TICK, and every consumer
+that wants CONNECT has been quietly living with that. The old freeze survived
+only because for a player victim it never armed at all.
+
+⇒ ⚠ AND IT IS NOT A FREEZE KNOB. Do not answer it with a refractory period or a
+duty-cycle cap; those encode the repeat rather than removing it.
+
+▢ STILL OPEN: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
 split. ⚠ NOT PURELY GEOMETRIC ALREADY: the producer refuses a PARRIED hit
 ("no `LandedBodyHit`: the attacker's move did not connect"), so the seam is

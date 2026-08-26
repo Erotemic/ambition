@@ -28,7 +28,7 @@ fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_damage::WalletShieldSpent>();
 }
 
 fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {

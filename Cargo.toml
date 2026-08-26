@@ -24,6 +24,7 @@ members = [
     "crates/ambition_content_cli",
     "crates/ambition_conversation",
     "crates/ambition_boss_encounter",
+    "crates/ambition_damage",
     "crates/ambition_mount",
     "game/ambition_content",
     "crates/ambition_cutscene",

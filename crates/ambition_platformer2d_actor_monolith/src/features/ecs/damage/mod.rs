@@ -81,7 +81,7 @@ pub struct FeatureHitWriters<'w, 's> {
     pub vfx: MessageWriter<'w, VfxMessage>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
     pub wallet_shield_spent:
-        MessageWriter<'w, crate::features::ecs::damage_apply::WalletShieldSpent>,
+        MessageWriter<'w, ambition_damage::WalletShieldSpent>,
     /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
     /// the consequence over.
@@ -94,11 +94,11 @@ pub struct FeatureHitWriters<'w, 's> {
     /// by an instrument and by nothing else, so a composition that never
     /// registers it publishes nothing rather than panicking.
     #[cfg(feature = "causal")]
-    pub resolutions: Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyHitResolved>>,
+    pub resolutions: Option<MessageWriter<'w, ambition_damage::BodyHitResolved>>,
     /// The LAUNCH the reaction produced. Same `Option` rule as above.
     #[cfg(feature = "causal")]
     pub reactions:
-        Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyReactionApplied>>,
+        Option<MessageWriter<'w, ambition_damage::BodyReactionApplied>>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.
@@ -720,7 +720,7 @@ pub fn apply_feature_hit_events(
                 &mut motion_model,
                 &mut combat,
                 wallet_shield.map(|(wallet, shield)| {
-                    crate::features::ecs::damage_apply::WalletArmor::new(
+                    ambition_damage::WalletArmor::new(
                         wallet.into_inner(),
                         shield,
                     )
@@ -818,7 +818,7 @@ pub fn apply_feature_hit_events(
                 &mut health,
                 &mut combat,
                 wallet_shield.map(|(wallet, shield)| {
-                    crate::features::ecs::damage_apply::WalletArmor::new(
+                    ambition_damage::WalletArmor::new(
                         wallet.into_inner(),
                         shield,
                     )
@@ -891,7 +891,7 @@ pub fn apply_feature_hit_events(
                     combat.hitstop_timer = combat.hitstop_timer.max(
                         ambition_platformer2d_core::hit_response::hitlag_duration(
                             event.damage,
-                            &crate::features::ecs::damage_apply::hit_response_tuning(
+                            &ambition_combat::hit_reaction::hit_response_tuning(
                                 &feel,
                                 heavy_attacker,
                             ),

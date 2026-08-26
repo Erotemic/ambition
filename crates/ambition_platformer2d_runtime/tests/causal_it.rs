@@ -163,7 +163,7 @@ fn facts_survive_a_parallel_schedule() {
 /// stamp first, then everything else.
 #[test]
 fn three_domains_answer_one_question_about_one_body_on_one_tick() {
-    use ambition_platformer2d_actor_monolith::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved};
+    use ambition_damage::{BodyHitResolution, BodyHitResolved};
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_combat::stocks::FighterStockSpent;
 

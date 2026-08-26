@@ -1,3 +1,8 @@
+//! ⛔ AND IT RE-EXPORTS NOTHING. Three `pub use` lines forwarded
+//! `ambition_combat::util` and `_core::hit_response` items from here, which is
+//! the same facade shape that hid this module's real coupling for months.
+//! Callers name the owner.
+//!
 //! Victim-side combat damage resolution: shield blocks, knockback, hitstun,
 //! safe-respawn, and death-respawn for the controlled body, plus the
 //! `apply_player_hit_events` system that drives them off the victim-side
@@ -14,6 +19,7 @@
 //! does. The relativity-principle fix is the actor-unification rename of those
 //! types, tracked separately; this drain only relocates and de-render-couples.
 
+use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
@@ -34,14 +40,11 @@ use ambition_time::time_control::{ClockRequester, ClockResetRequest};
 // `body_vulnerable` / `shield_blocks_hit` moved to `ambition_combat::util`
 // (E2): they are the shared victim-gate predicates every damage EMITTER
 // reads — combat vocabulary, not victim-side application code.
-pub use ambition_combat::util::{body_vulnerable, shield_blocks_hit};
 
 // `scaled_knockback` moved to `ambition_combat::util` (E2): the CM1
 // knockback-scaling LAW is combat model vocabulary.
-pub use ambition_combat::util::scaled_knockback;
 
 // Re-exported here because this is where its consumers learned to name it.
-pub use ae::hit_response::di_adjust;
 
 /// Per-body feel values for [`resolve_body_hit`] — how hard the hit reads on
 /// THIS body (blink length, i-frame window), not whether it lands. The player
@@ -808,6 +811,11 @@ pub(crate) fn safe_respawn_player(
 /// than deleted, because a test asserting the wrapper's feel selection is asserting something the
 /// kernel's own tests do not.
 #[cfg(test)]
+// ⛔ TEST-ONLY, AND THE CARVE IS WHAT MADE THAT VISIBLE. Inside the monolith
+// `pub(crate)` spanned 95k lines, so a helper with no production caller looked
+// like one with a caller somewhere. Here the crate is small enough that the
+// compiler can say it: nothing but this crate's own arms calls it.
+#[cfg(test)]
 pub(crate) fn resolved_body_knockback_velocity(
     victim_pos: ae::Vec2,
     victim_facing: f32,
@@ -849,7 +857,9 @@ fn knockback_reaction_scale(knockback: Option<&ambition_combat::HitKnockback>) -
 #[cfg(feature = "causal")]
 pub(crate) use ambition_combat::hit_reaction::BodyReaction;
 pub(crate) use ambition_combat::hit_reaction::{apply_body_hit_reaction, BodyReactionOutcome};
-pub(crate) use ambition_combat::hit_reaction::{hit_response_tuning, VictimStance};
+#[cfg(test)]
+pub(crate) use ambition_combat::hit_reaction::hit_response_tuning;
+pub(crate) use ambition_combat::hit_reaction::VictimStance;
 
 /// Announce a player-side launch, if anybody is listening.
 ///
@@ -882,7 +892,7 @@ fn publish_reaction(
 /// ⛔ UNCONDITIONAL, and that is why it is not folded into `publish_reaction`
 /// beside it: that one is `#[cfg(feature = "causal")]` and compiles to nothing in
 /// a shipping build. An instrument may vanish; a beat may not.
-pub(crate) fn publish_resolved_hit(
+pub fn publish_resolved_hit(
     resolved: Option<&mut MessageWriter<'_, ambition_combat::hitbox::ResolvedBodyHit>>,
     victim: bevy::prelude::Entity,
     hitlag_seconds: f32,
@@ -1111,7 +1121,7 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
 /// facade exists to prevent.
 ///
 /// ONE member, for the same reason as
-/// [`crate::world::overlay::FeatureWorldOverlaySet`]: the system beside it in the
+/// [`the actor crate's `world::overlay::FeatureWorldOverlaySet``]: the system beside it in the
 /// tuple (`publish_kernel_reset_death`) is deliberately NOT gated on
 /// `gameplay_allowed` while this one is, so a set spanning both would hand
 /// consumers an ordering against a system with different run conditions. One

@@ -21,12 +21,12 @@ where
             OWNER,
             "message.causal_body_movement_ops",
         );
-        registrar.clear_message_on_rollback::<crate::features::ecs::damage_apply::BodyHitResolved>(
+        registrar.clear_message_on_rollback::<ambition_damage::BodyHitResolved>(
             OWNER,
             "message.causal_body_hit_resolved",
         );
         registrar
-            .clear_message_on_rollback::<crate::features::ecs::damage_apply::BodyReactionApplied>(
+            .clear_message_on_rollback::<ambition_damage::BodyReactionApplied>(
                 OWNER,
                 "message.causal_body_reaction_applied",
             );
@@ -503,7 +503,7 @@ where
         OWNER,
         "message.sandbox_reset_committed",
     );
-    registrar.clear_message_on_rollback::<crate::features::ecs::damage_apply::WalletShieldSpent>(
+    registrar.clear_message_on_rollback::<ambition_damage::WalletShieldSpent>(
         OWNER,
         "message.wallet_shield_spent",
     );

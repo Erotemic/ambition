@@ -624,7 +624,7 @@ pub fn handle_player_events(
     // Movement operations (jump, dash, blink, …) deliberately do NOT flash: an
     // action is not a hit, and flashing the sprite white on every jump reads as
     // taking damage. Real combat/hazard damage arms `hit_flash` through the damage
-    // path (`features::ecs::damage_apply`).
+    // path (`ambition_damage`).
     if events.reset.is_some_and(ae::ResetCause::is_hazardous) {
         combat.hit_flash = 0.12;
     }

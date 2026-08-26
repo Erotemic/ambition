@@ -281,9 +281,9 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::features::ecs::damage_apply::apply_player_hit_events
+                ambition_damage::apply_player_hit_events
                     .in_set(
-                        ambition_platformer2d_actor_monolith::features::ecs::damage_apply::PlayerHitResolutionSet,
+                        ambition_damage::PlayerHitResolutionSet,
                     )
                     .run_if(gameplay_allowed),
                 // Kernel deaths bypass hit resolution, so publish their death fact here after

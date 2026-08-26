@@ -5500,6 +5500,31 @@ failure mode this repository has already named twice.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
+✔✔✔ **THE CARVE LANDED 2026-08-26. `crates/ambition_damage` EXISTS**, and it was
+a MOVE rather than a design, because the day's five facade deletions had already
+taken the module's outward edges from an apparent ~70 to zero.
+
+```text
+damage_apply.rs → ambition_damage/src/lib.rs     1,389 lines
+damage_apply/tests.rs → src/tests.rs             47 arms, and they TRAVELLED —
+                                                 unlike mount's, they needed no
+                                                 construction road
+inward refs                                      42, a rename (Wave E's rule)
+re-exports from the new crate                    NONE; its own three were deleted
+                                                 in the same commit
+footprint                                        42 → 43 crates, 15 → 16
+                                                 never-asked-for, DECLARED
+```
+
+⭐⭐ **AND THE CARVE MADE TWO THINGS SAY THEMSELVES THAT THE MONOLITH HAD HIDDEN:**
+`ambition_damage` names `ambition_persistence`, because the assist-mode damage
+scale reads gameplay settings — a damage resolver depending on a settings store,
+free to notice only once the crate had to list its own deps. And
+`resolved_body_knockback_velocity` turned out to have NO production caller:
+inside a 95k-line crate `pub(crate)` hid that, and in a small one the compiler
+says it.
+
+
 ⭐⭐ **`features/ecs/damage_apply` COSTED AT HEAD, 2026-08-26 — and the facade
 deletion above is most of why it is now the candidate.** 3,705 lines, and the
 PRODUCTION census (tests excluded, counting the PATHS it names and not the `use`

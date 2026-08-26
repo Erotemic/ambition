@@ -29,7 +29,7 @@ pub(crate) fn apply_entity_boss_damage(
     status: &mut BossEncounter,
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
-    wallet_shield: Option<crate::features::ecs::damage_apply::WalletArmor<'_>>,
+    wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
     amount: i32,
 ) -> (bool, bool, Option<i32>) {
     // Phase-invuln is boss POLICY, gated before the shared mechanics.
@@ -42,7 +42,7 @@ pub(crate) fn apply_entity_boss_damage(
     }
     // THE shared victim-side mechanics. The guard is `None` — a boss carries no
     // `BodyShieldState`, so there is nothing to block with and nothing to spend.
-    let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
+    let resolution = ambition_damage::resolve_body_hit(
         combat,
         Some(health),
         // Bosses wear no equipment; armor is inert here.
@@ -56,7 +56,7 @@ pub(crate) fn apply_entity_boss_damage(
         amount,
         1.0,
         false,
-        crate::features::ecs::damage_apply::BodyHitFeel {
+        ambition_damage::BodyHitFeel {
             hit_flash: 0.18,
             damage_invuln_time: 0.0,
             block_hit_flash: 0.0,
@@ -76,15 +76,15 @@ pub(crate) fn apply_entity_boss_damage(
     );
     match resolution {
         // Already dead (raced past the caller's liveness check) — no hit.
-        crate::features::ecs::damage_apply::BodyHitResolution::Ignored => (false, false, None),
+        ambition_damage::BodyHitResolution::Ignored => (false, false, None),
         // No shield component  the resolver never returns Blocked for a boss.
-        crate::features::ecs::damage_apply::BodyHitResolution::Blocked => (false, false, None),
+        ambition_damage::BodyHitResolution::Blocked => (false, false, None),
         // No `WornEquipment`  the resolver never returns Armored for a boss.
-        crate::features::ecs::damage_apply::BodyHitResolution::Armored => (true, false, None),
-        crate::features::ecs::damage_apply::BodyHitResolution::WalletShielded { spent } => {
+        ambition_damage::BodyHitResolution::Armored => (true, false, None),
+        ambition_damage::BodyHitResolution::WalletShielded { spent } => {
             (true, false, Some(spent))
         }
-        crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died, .. } => {
+        ambition_damage::BodyHitResolution::Damaged { died, .. } => {
             if died {
                 if let Some(phase) = status.encounter.as_mut() {
                     let _ = phase.kill();
@@ -111,7 +111,7 @@ pub(crate) fn apply_boss_hit(
     // authority, `BodyCombat.hit_flash` the one damage-blink.
     health: &mut ambition_characters::actor::BodyHealth,
     combat: &mut ambition_characters::actor::BodyCombat,
-    wallet_shield: Option<crate::features::ecs::damage_apply::WalletArmor<'_>>,
+    wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
     attack_state: &ambition_characters::brain::BossAttackState,
     animation_frame: Option<&crate::features::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
@@ -214,7 +214,7 @@ pub(crate) fn apply_boss_hit(
     if let Some(spent) = wallet_spent {
         writers
             .wallet_shield_spent
-            .write(crate::features::ecs::damage_apply::WalletShieldSpent {
+            .write(ambition_damage::WalletShieldSpent {
                 victim: boss_entity,
                 amount: spent,
                 pos: boss.kin.pos,

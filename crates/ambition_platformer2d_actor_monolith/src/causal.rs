@@ -27,7 +27,7 @@ use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectK
 use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
-use crate::features::ecs::damage_apply::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
+use ambition_damage::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
 use ambition_characters::control::{ActorControl};
 use ambition_characters::control::{DrivingParticipant};
 
@@ -631,7 +631,7 @@ use ambition_characters::control::{PlayerSlot};
 #[cfg(test)]
 mod knockback_tests {
     use super::*;
-    use crate::features::ecs::damage_apply::BodyReaction;
+    use ambition_damage::BodyReaction;
     use ambition_causal::{FactValue, RecordingPolicy};
     use ambition_characters::brain::{Brain};
 use ambition_characters::control::{PlayerSlot};

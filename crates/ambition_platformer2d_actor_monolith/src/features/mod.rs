@@ -655,7 +655,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // unaffected (`transform_beat` does exactly this for the same reason).
         app.add_message::<ambition_time::time_control::ClockScaleRequest>();
         #[cfg(feature = "causal")]
-        app.add_message::<crate::features::ecs::damage_apply::BodyHitResolved>();
+        app.add_message::<ambition_damage::BodyHitResolved>();
         #[cfg(feature = "causal")]
         app.add_message::<crate::causal::BodyMovementOps>();
         // AN INSTRUMENT REGISTERS WHAT IT READS.
@@ -675,7 +675,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
             app.add_message::<ambition_combat::stocks::FighterStockSpent>();
             app.add_message::<ambition_combat::stocks::StocksMatchDecided>();
-            app.add_message::<crate::features::ecs::damage_apply::BodyReactionApplied>();
+            app.add_message::<ambition_damage::BodyReactionApplied>();
         }
         // `decide_stocks_match` READS this, so a composition that installs the
         // stocks loop must have the channel or the system fails parameter

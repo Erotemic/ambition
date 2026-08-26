@@ -7,7 +7,6 @@
 //! stuck). The `render_room_geometry -- report` example prints the same
 //! check for humans; this fails the build if a future room regresses.
 
-use ambition_platformer2d::actors as sb;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 
 /// Footprints of placement records of a given kind (families migrated to the

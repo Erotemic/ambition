@@ -311,6 +311,9 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
   distinguished presentation name if we really need it."*
 * Smash respawn: jumping while respawning RAISES THE CHARACTER UP ON THE PLATFORM.
   ⚠ adjacent to D192 — a returning fighter should not be able to act before it lands.
+* SFX NOISE in a Goblin vs `npc_pirate_admiral` fight — either side triggers far too
+  many sounds. Jon wants a test that stages that fight and COUNTS the triggers,
+  because the volume of them may be a symptom of a deeper bug, not a mix problem.
 
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 

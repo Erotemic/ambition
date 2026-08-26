@@ -184,7 +184,15 @@ where
         "actor.transform_beat_requested",
     );
     registrar.rollback_component_clone::<crate::features::CanPilot>(OWNER, "mount.can_pilot");
-    registrar.rollback_component_clone::<crate::features::Mass>(OWNER, "mount.mass");
+    // ⛔ THE STABLE NAME STAYS `mount.mass` THOUGH THE TYPE LEFT `mount`. It is
+    // an IDENTITY on the wire, not an address: renaming it to match the new home
+    // would be a declared schema change bought for tidiness, and every peer would
+    // have to agree to it. The type moved to `shared_tangle::body` because two
+    // domains share it; the wire does not care where a type lives.
+    registrar.rollback_component_clone::<ambition_platformer2d_shared_tangle::body::Mass>(
+        OWNER,
+        "mount.mass",
+    );
     registrar.rollback_component_clone_entity_set::<crate::features::MountSlot>(
         OWNER,
         "mount.slot",

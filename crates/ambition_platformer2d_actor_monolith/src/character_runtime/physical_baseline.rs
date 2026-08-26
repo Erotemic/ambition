@@ -39,7 +39,7 @@ pub struct DisplacedPhysicals {
     /// `max_health` on this body, so nothing here may write it.
     pub max_health: Option<i32>,
     /// Outer `None` = no persona has ever set mass. Inner `None` = the body
-    /// carried no [`Mass`](crate::features::Mass) at all, so retraction REMOVES
+    /// carried no [`Mass`](ambition_platformer2d_shared_tangle::body::Mass) at all, so retraction REMOVES
     /// the component rather than inventing the ambient 1.0 — a distinction
     /// `Vitals::mass` already documents.
     pub mass: Option<Option<f32>>,
@@ -258,7 +258,7 @@ impl PhysicalBaseline {
             // frame its worn identity last changed, and a torn-down entity is not
             // an error here.
             (Some(mass), _) => {
-                entity.try_insert(crate::features::Mass(mass));
+                entity.try_insert(ambition_platformer2d_shared_tangle::body::Mass(mass));
             }
             // Silent character putting back what a persona took: the body's own
             // mass, or the ABSENCE of one. Same shape as the
@@ -266,10 +266,10 @@ impl PhysicalBaseline {
             // already runs a few lines later — absence there has always been a
             // retraction, and it was only here that it meant "keep".
             (None, Some(Some(own))) => {
-                entity.try_insert(crate::features::Mass(own));
+                entity.try_insert(ambition_platformer2d_shared_tangle::body::Mass(own));
             }
             (None, Some(None)) => {
-                entity.try_remove::<crate::features::Mass>();
+                entity.try_remove::<ambition_platformer2d_shared_tangle::body::Mass>();
             }
             // Nothing to put back: either a construction, or a body no persona
             // has ever given a mass to. Its own value stands.

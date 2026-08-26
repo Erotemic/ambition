@@ -460,70 +460,69 @@ fn apply_worn_character_kit(
     // them"* — so the override is consulted here, where the persona is derived,
     // and the identity baseline, the moveset and the durable combat kit are still
     // built together by the one path that knows they have to agree.
-    let (set, derived, execution) =
-        if let Some(kit) = match_kit {
-            // a MATCH kit is a borrowed repertoire, and how the borrower fires
-            // is still the character's own fact — a robot seated with a stage's
-            // generic set still charges if the robot charges.
-            let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
-                prepared.ranged_execution
-            });
-            // A granted action set controls which attacks are available, not what
-            // authored moves are. Preserve a character's own moveset when present;
-            // only derive fallback moves for bodies that authored none.
-            let authored = prepared.and_then(|prepared| prepared.authored_moveset.clone());
-            let derived = derive_persona_moveset(kit, execution, authored);
-            (kit.clone(), derived, execution)
-        } else {
-            match prepared.map(|prepared| &prepared.kit) {
-                Some(crate::character_runtime::PreparedKit::Authored {
-                    action_set,
-                    moveset,
-                }) => (
-                    // THE CANONICAL REPERTOIRE, NARROWED TO WHAT IS UNLOCKED
-                    // . `default_player_action_set` did this gating
-                    // inside the same expression that BUILT the kit, for one
-                    // character, in Rust. `gated_by` is that filter's general
-                    // form, so a character can author what it HAS and progression
-                    // decides what it may currently use.
-                    action_set.gated_by(base_abilities),
-                    moveset.clone(),
-                    // This read `MovesetVerb` unconditionally, on the reasoning that the charge
-                    // belonged to the code-side compat kit — which made a property of the
-                    // protagonist's ranged ATTACK a property of which arm of
-                    // `PlayableKitSource` built it.
-                    prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
-                        prepared.ranged_execution
-                    }),
-                ),
-                Some(crate::character_runtime::PreparedKit::Unauthored { authored_moveset }) => {
-                    let set = crate::avatar::bundles::default_player_action_set(base_abilities);
-                    let execution = RangedExecution::ChargedProjectile;
-                    let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
-                    (set, derived, execution)
-                }
-                None => {
-                    let catalog_knows_it = catalog.knows(character_id);
-                    let authored = catalog.build_default_action_set(character_id);
-                    if catalog_knows_it && authored.is_none() {
-                        bevy::log::error!(
-                    "worn character '{character_id}' has a catalog row whose \
-                     default_action_set does not resolve; installing a safe peaceful kit"
-                );
-                    } else if !catalog_knows_it {
-                        bevy::log::warn_once!(
-                    "worn character id '{character_id}' is not in the catalog; wearing the \
-                     code-side compatibility kit and showing the id as the display name"
-                );
-                    }
-                    // ONE call for both kits now.
-                    let (set, execution) =
-                        resolve_playable_action_set(catalog_knows_it, authored, base_abilities);
-                    let derived = derive_persona_moveset(&set, execution, None);
-                    (set, derived, execution)
-                }
+    let (set, derived, execution) = if let Some(kit) = match_kit {
+        // a MATCH kit is a borrowed repertoire, and how the borrower fires
+        // is still the character's own fact — a robot seated with a stage's
+        // generic set still charges if the robot charges.
+        let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
+            prepared.ranged_execution
+        });
+        // A granted action set controls which attacks are available, not what
+        // authored moves are. Preserve a character's own moveset when present;
+        // only derive fallback moves for bodies that authored none.
+        let authored = prepared.and_then(|prepared| prepared.authored_moveset.clone());
+        let derived = derive_persona_moveset(kit, execution, authored);
+        (kit.clone(), derived, execution)
+    } else {
+        match prepared.map(|prepared| &prepared.kit) {
+            Some(crate::character_runtime::PreparedKit::Authored {
+                action_set,
+                moveset,
+            }) => (
+                // THE CANONICAL REPERTOIRE, NARROWED TO WHAT IS UNLOCKED
+                // . `default_player_action_set` did this gating
+                // inside the same expression that BUILT the kit, for one
+                // character, in Rust. `gated_by` is that filter's general
+                // form, so a character can author what it HAS and progression
+                // decides what it may currently use.
+                action_set.gated_by(base_abilities),
+                moveset.clone(),
+                // This read `MovesetVerb` unconditionally, on the reasoning that the charge
+                // belonged to the code-side compat kit — which made a property of the
+                // protagonist's ranged ATTACK a property of which arm of
+                // `PlayableKitSource` built it.
+                prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
+                    prepared.ranged_execution
+                }),
+            ),
+            Some(crate::character_runtime::PreparedKit::Unauthored { authored_moveset }) => {
+                let set = crate::avatar::bundles::default_player_action_set(base_abilities);
+                let execution = RangedExecution::ChargedProjectile;
+                let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
+                (set, derived, execution)
             }
-        };
+            None => {
+                let catalog_knows_it = catalog.knows(character_id);
+                let authored = catalog.build_default_action_set(character_id);
+                if catalog_knows_it && authored.is_none() {
+                    bevy::log::error!(
+                        "worn character '{character_id}' has a catalog row whose \
+                     default_action_set does not resolve; installing a safe peaceful kit"
+                    );
+                } else if !catalog_knows_it {
+                    bevy::log::warn_once!(
+                        "worn character id '{character_id}' is not in the catalog; wearing the \
+                     code-side compatibility kit and showing the id as the display name"
+                    );
+                }
+                // ONE call for both kits now.
+                let (set, execution) =
+                    resolve_playable_action_set(catalog_knows_it, authored, base_abilities);
+                let derived = derive_persona_moveset(&set, execution, None);
+                (set, derived, execution)
+            }
+        }
+    };
     // Publish `CombatKit` with the live `ActionSet`: it is the durable innate
     // baseline used to reconstruct capabilities. Equipment and granted verbs stay
     // overlays rather than being baked into that baseline.
@@ -601,7 +600,7 @@ pub fn apply_worn_character_gameplay(
         // The physical baseline's other live half, read-only: it is WRITTEN
         // through commands, and read here only to capture what the body weighed
         // before any persona spoke for it.
-        Option<&crate::features::Mass>,
+        Option<&ambition_platformer2d_shared_tangle::body::Mass>,
         // The knockback weight's live carrier. `Option` because a body that
         // never fights carries no `CombatTuning`; and this path may only
         // WRITE its field, never insert or remove the component — see

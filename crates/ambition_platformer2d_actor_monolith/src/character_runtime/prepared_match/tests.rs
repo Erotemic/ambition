@@ -1435,7 +1435,7 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
         let world = app.world_mut();
         let mut q = world.query_filtered::<(
             &ambition_platformer2d_core::BodyKinematics,
-            &crate::features::Mass,
+            &ambition_platformer2d_shared_tangle::body::Mass,
         ), With<MatchSeat>>();
         q.iter(world)
             .map(|(kin, mass)| ((kin.size.x, kin.size.y), mass.0))
@@ -2539,7 +2539,7 @@ fn a_seated_fighter_carries_its_authored_mass() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        &crate::features::Mass,
+        &ambition_platformer2d_shared_tangle::body::Mass,
     )>();
     let (_, mass) = bodies
         .iter(world)

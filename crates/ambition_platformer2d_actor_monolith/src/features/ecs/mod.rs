@@ -140,7 +140,7 @@ pub use hitbox::{
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
     enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,
-    ControlGrant, Mass, MountClass, MountDeathImpact, MountRiderLinkEnforced, MountSlot, Mountable,
+    ControlGrant, MountClass, MountDeathImpact, MountRiderLinkEnforced, MountSlot, Mountable,
     Mounted, MountedBrainCache, MountedSize, RidingOn,
 };
 pub use pickups::{

@@ -156,7 +156,7 @@ pub use ecs::{
     ActorConstructionContext, ActorSteering, CanPilot, ChallengeRequested, ControlGrant,
     EncounterMobSeed, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
-    HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Mass, MountClass, MountDeathImpact,
+    HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, MountClass, MountDeathImpact,
     MountRiderLinkEnforced, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize, RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,

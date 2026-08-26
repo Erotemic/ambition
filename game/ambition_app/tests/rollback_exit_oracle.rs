@@ -457,7 +457,12 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored capability payload; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::mount::Mass",
+            // ⛔ THE PATH MOVED 2026-08-26 and this list is keyed by the PATH,
+            // which is the third ledger a moved registered type touches — the
+            // other two are the registration turbofish and the schema baseline
+            // (whose STABLE NAME, `mount.mass`, deliberately did not change).
+            // `Mass` left `features::ecs::mount` because two domains share it.
+            "ambition_platformer2d_shared_tangle::body::Mass",
             "authored mass; immutable at runtime",
         ),
                 (

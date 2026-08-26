@@ -20,15 +20,13 @@ use ambition_platformer2d_core as ae;
 // imported, never re-exported: a `pub use` here would let a caller keep
 // spelling it `features::MountDied` and hide whose type it is.
 use ambition_platformer2d_shared_tangle::body::MountDied;
-
-#[derive(Component, Clone, Copy, Debug)]
-pub struct Mass(pub f32);
-
-impl Default for Mass {
-    fn default() -> Self {
-        Mass(1.0)
-    }
-}
+// ⛔ AND `Mass` MOVED FOR THE SAME REASON AND BY THE SAME RULE, 2026-08-26. It
+// was defined here — a generic physics fact with 27 users outside this module,
+// every one of them spelling it `ambition_platformer2d_shared_tangle::body::Mass`, which is a body's
+// weight wearing one mechanic's address. The writer is the character runtime's
+// physical baseline and the reader is the mass-weighted centre below; two
+// domains, so it sits under both. Imported, never re-exported.
+use ambition_platformer2d_shared_tangle::body::Mass;
 
 /// A mount's *class* — the content-defined category a rider must be
 /// allowed to pilot (a shark-rider cannot pilot a mech). The engine
@@ -193,7 +191,10 @@ pub fn steer_mount_from_rider(
         (&RidingOn, &ambition_characters::control::ActorControl),
         (With<Mounted>, Without<MountSlot>),
     >,
-    mut mounts: Query<(&Mountable, &mut ambition_characters::control::ActorControl), With<MountSlot>>,
+    mut mounts: Query<
+        (&Mountable, &mut ambition_characters::control::ActorControl),
+        With<MountSlot>,
+    >,
 ) {
     for (riding, rider_control) in &riders {
         let Ok((mountable, mut mount_control)) = mounts.get_mut(riding.mount) else {

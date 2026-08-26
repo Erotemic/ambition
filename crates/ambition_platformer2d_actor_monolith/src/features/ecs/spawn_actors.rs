@@ -1612,7 +1612,7 @@ fn attach_mount_role_from(
             },
             // A heavy mount keeps the pair's center of gravity near itself, so
             // the lighter rider orbits it under a gravity flip (sync reads Mass).
-            super::Mass(mass),
+            ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
     }
     if !pilotable.is_empty() {
@@ -1620,7 +1620,7 @@ fn attach_mount_role_from(
             super::CanPilot {
                 classes: pilotable.iter().cloned().map(super::MountClass).collect(),
             },
-            super::Mass(mass),
+            ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
     }
 }

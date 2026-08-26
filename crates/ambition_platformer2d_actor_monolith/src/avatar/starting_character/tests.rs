@@ -1757,7 +1757,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
          construction, so accumulated damage is the body's and survives"
     );
     assert_eq!(
-        app.world().get::<crate::features::Mass>(body).map(|m| m.0),
+        app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0),
         Some(6.5),
         "the authored mass reached a seated fighter and not a worn one, which is \
          the same character weighing two different amounts"
@@ -1923,7 +1923,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
                 BODY_MAX_HEALTH,
             )),
-            crate::features::Mass(BODY_MASS),
+            ambition_platformer2d_shared_tangle::body::Mass(BODY_MASS),
             ambition_platformer2d_core::BodyKinematics::default(),
             crate::actor::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
@@ -1941,7 +1941,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
             .unwrap()
             .max()
     };
-    let mass = |app: &App| app.world().get::<crate::features::Mass>(body).map(|m| m.0);
+    let mass = |app: &App| app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0);
 
     assert_eq!(health_max(&app), DUELIST_MAX_HEALTH);
     assert_eq!(mass(&app), Some(DUELIST_MASS));
@@ -2043,7 +2043,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         .id();
     app.update();
     assert_eq!(
-        app.world().get::<crate::features::Mass>(body).map(|m| m.0),
+        app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0),
         Some(2.0)
     );
 
@@ -2057,7 +2057,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     assert!(
-        app.world().get::<crate::features::Mass>(body).is_none(),
+        app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).is_none(),
         "the body never had a mass of its own, so retraction REMOVES the \
          component rather than inventing an ambient 1.0 — the same distinction \
          `Vitals::mass` documents between authoring 1.0 and saying nothing"
@@ -2212,7 +2212,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
                 BODY_MAX_HEALTH,
             )),
-            crate::features::Mass(BODY_MASS),
+            ambition_platformer2d_shared_tangle::body::Mass(BODY_MASS),
             ambition_platformer2d_core::BodyKinematics::default(),
             crate::actor::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
@@ -2230,7 +2230,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             .unwrap()
             .max()
     };
-    let mass = |app: &App| app.world().get::<crate::features::Mass>(body).map(|m| m.0);
+    let mass = |app: &App| app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0);
     assert_eq!((health_max(&app), mass(&app)), (60, Some(2.0)));
 
     // The reload: the SAME character, re-prepared with both lines removed.

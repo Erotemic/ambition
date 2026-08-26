@@ -5269,6 +5269,27 @@ external users** — a generic physics fact parked inside one mechanic. A carve
 either drags it out or exports it from a mount crate, and the second is wrong.
 ⇒ move `Mass` first, on its own, and the carve gets smaller and honest.
 
+✔✔ **DONE 2026-08-26 — and the module's own comment had already written the
+rule.** `MountDied` sits in `shared_tangle::body` *"below both of the domains
+that share it"*, and is *"imported, never re-exported: a `pub use` here would let
+a caller keep spelling it `features::MountDied` and hide whose type it is."*
+`Mass` is the same shape — writer is the character runtime's physical baseline,
+reader is the mount pair's mass-weighted centre — so it moved to the same place
+by the same rule, imported and not re-exported.
+
+⭐ **THE DELETION IS THE PROOF, and the compiler named it**: two re-export lines
+(`features/ecs/mod.rs`, `features/mod.rs`) had to go, and every caller now spells
+the real owner instead of `crate::features::Mass`.
+
+⛔⛔ **AND IT TOUCHED ALL THREE PATH-KEYED LEDGERS, exactly as that trap
+predicts.** (1) the registration turbofish in `rollback_registration.rs`; (2) the
+rollback EXIT ORACLE, which keys its immutable-component list by the FULL TYPE
+PATH as a string (`rollback_exit_oracle.rs:460`) — invisible to the compiler and
+red only when run; (3) the schema baseline, which did NOT change and must not:
+⭐ **the stable name stays `mount.mass` though the type left `mount`.** It is an
+identity on the wire, not an address, and renaming it would be a declared schema
+change bought for tidiness.
+
 ⚠ **AND THE COUPLING IS NOT ONLY WHAT THE MODULE IMPORTS — the ledger names it
 too.** `rollback_registration.rs` registers EIGHT mount types by
 `crate::features::…` path (`can_pilot`, `mass`, `mount_slot` + its entity map,

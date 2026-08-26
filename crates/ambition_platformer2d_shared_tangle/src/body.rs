@@ -47,6 +47,32 @@ pub struct MountDied {
     pub rider: Entity,
 }
 
+/// HOW HEAVY THIS BODY IS, and `1.0` is the reference.
+///
+/// ⭐⭐ IT LIVES HERE FOR THE REASON `MountDied` DOES, one type up: two domains
+/// share it. The WRITER is the character runtime's physical baseline — mass
+/// arrives with a character's authored vitals — and the READER is the mount
+/// coupling's mass-weighted centre of gravity. A physics fact owned by one
+/// mechanic makes every other consumer depend on that mechanic to say how heavy
+/// something is.
+///
+/// ⛔ IT USED TO LIVE IN `features::ecs::mount`, and 27 references outside that
+/// module spelled it `crate::features::Mass` — a generic fact wearing one
+/// mechanic's address. ⇒ imported, never re-exported, exactly as `MountDied`'s
+/// own note demands: a `pub use` would let callers keep the old spelling and
+/// hide whose type it is.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Mass(pub f32);
+
+impl Default for Mass {
+    /// The reference body. ⛔ NOT zero — mass is a divisor in the mount pair's
+    /// centre of gravity, and a default that made a body weightless would move
+    /// that centre onto whichever body forgot to author one.
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
 /// THIS BODY IS SOLID TO OTHER BODIES THAT ARE ALSO SOLID.
 ///
 /// presence is the whole opt-in. A body without this component is not resisted and does not

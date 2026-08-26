@@ -6,7 +6,10 @@
 
 pub mod host;
 pub mod quest;
+mod rollback_registration;
 pub mod save;
+
+pub use rollback_registration::register_rollback_state;
 
 /// The directory this App reads and writes its settings, save and developer
 /// files in. Defaults to the platform data dir, so production is unchanged.

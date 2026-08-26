@@ -2057,8 +2057,9 @@ he has dropped since arrives through his MESSAGES and lands in
 `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, which is role (4) — so that file, not an
 mtime scan, is where recent maintainer work actually shows up.
 
-- ▢ **D245 — THE ROLLBACK DECLARATION FEDERATION IS 16 CRATES DONE AND TWO
-  INSTANCES SHORT. PROMOTED FROM `tracks.md` 2026-08-26.**
+- ▢ **D245 — THE ROLLBACK DECLARATION FEDERATION IS 17 CRATES DONE AND ONE
+  JUDGEMENT SHORT. PROMOTED FROM `tracks.md` 2026-08-26; both INSTANCE items are
+  closed and only `_core`'s reading is open.**
 
 ⭐ **PROMOTED BECAUSE THE INSTANCES ARGUED IT, NOT THE CARD.** The reservoir card
 *"Simulation authority and deterministic phase structure"* asks to *"invert
@@ -2067,7 +2068,7 @@ gameplay domain"*, and was reachable from `tracks.md` and NO ledger row. It is
 mostly DONE and nobody had written that down:
 
 ```text
-crates with their own rollback_registration.rs      16
+crates with their own rollback_registration.rs      17
 what the runtime still declares (285 lines)          engine-floor state only
 ```
 
@@ -2108,9 +2109,24 @@ reading wins.** The gameplay-domain census the card complained about is gone; wh
 is left is where the engine floor's own state should be declared, and the two
 crates that are both floor currently answer it differently.
 
-⚠ **`ambition_persistence` and `ambition_sfx` are the same shape at smaller
-scale** (2 and 3 declarations from the runtime, no file of their own) — check
-whether either can see the trait before assuming they can.
+✔ **(c) `ambition_persistence` FEDERATED 2026-08-26, and `ambition_sfx` CANNOT
+— asking the question answered it both ways.** Persistence already depends on
+`ambition_platformer2d_core`, so it could see `RollbackRegistrar` and now owns
+its three rows (`resource.sandbox_save`, `resource.quest_registry`,
+`message.quest_advance_requested`). `ambition_sfx` cannot: its dependencies are
+`ambition_sfx_bank` plus an **optional** `bevy_ecs`, deliberately near-leaf, and
+federating two rows would buy a dependency edge with a declaration. Its two rows
+stay in the composition and the runtime now says why, so the next reader does not
+re-open it. ⭐ THE STABLE NAMES DID NOT MOVE — still 379 names / 123 encoded
+types — only the OWNER string.
+
+⛔⛔ **AND THE HAND-KEPT LIST HAD ACCUMULATED A DUPLICATE.** The runtime declared
+`QuestAdvanceRequested` **twice**, both under `"message.quest_advance_requested"`,
+about twenty lines apart. Nothing failed: `should_install_backend` dedupes the
+backend install by stable name and `try_register` treats an identical
+re-registration as idempotent, so the census read the same either way. That is
+the argument for the federation stated as a defect rather than as a principle — a
+list nobody owns grows rows nobody notices.
 
 ⛔ **THE OTHER HALF OF THE CARD — "decompose parameter-ceiling systems by
 semantic phase" — IS NOT THIS.** Do not bundle them; see

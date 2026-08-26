@@ -2081,15 +2081,29 @@ move: `rollback-wire-format-changes-are-declared` still reports 375 names / 123
 encoded types across 11 crates. Only the OWNER string moved, from the composition
 to the crate that defines the types.
 
-▢ **(b) `ambition_platformer2d_core` DEFINES `RollbackRegistrar` AND DECLARES
-NOTHING.** The trait is at `core/src/snapshot.rs:338`, so the floor crate can
-absolutely own its declarations — `ambition_time` proves it — yet `_core` has no
-`rollback_registration.rs` and the runtime declares **18** of its `bc::`
-body-cluster components (`BodyAbilities`, `BodyGroundState`, `BodyWallState`,
-`BodyJumpState`, `BodyDashState`, `BodyFlightState`, `BodyBlinkState`,
-`BodyDodgeState`, `BodyShieldState`, `BodyOffense`, `BodyLifetime`,
-`BodyActionBuffer`, `BodyComboTrace`, …) on its behalf. ⇒ **that is the remaining
-census**, it is one crate, and the clock move is its worked example.
+◐ **(b) `ambition_platformer2d_core` DEFINES `RollbackRegistrar` AND DECLARES
+NOTHING — and this one is a JUDGEMENT, not a defect. Both readings, so nobody
+does it on my say-so.** The trait is at `core/src/snapshot.rs:338`, so the floor
+crate CAN own its declarations, and `ambition_time` — equally a floor crate —
+does. Yet `_core` has no `rollback_registration.rs` and the runtime declares
+**22** of its type paths: 18 `bc::` body-cluster components plus `RoomGeometry`,
+`MotionModel`, `AbilityBase` and three `declare_rollback_derived_*`.
+
+```text
+FOR MOVING     a new body-cluster component's registration becomes an obligation
+               the compiler shows to whoever adds it in `_core`, instead of a
+               thing to remember in a distant crate — the argument that carried
+               the clock, and `MovesetContract::remap_move_ids` under D240
+AGAINST        the runtime IS the engine composition and `_core` is the engine
+               FLOOR, so these are not a foreign domain's types. The file's own
+               comment scopes its claim precisely: *"the runtime contains no
+               GAMEPLAY type paths"* — which is TRUE as written
+```
+
+⇒ ⛔ **do not price this as the card's remainder until somebody decides which
+reading wins.** The gameplay-domain census the card complained about is gone; what
+is left is where the engine floor's own state should be declared, and the two
+crates that are both floor currently answer it differently.
 
 ⚠ **`ambition_persistence` and `ambition_sfx` are the same shape at smaller
 scale** (2 and 3 declarations from the runtime, no file of their own) — check

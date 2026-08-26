@@ -1101,11 +1101,11 @@ pub(crate) fn spawn_boss_with_overrides_into(
     // The `RidingOn`/`MountSlot` link is installed later by
     // the planned `ambition.mount` relation from the room's authored `mounted_on` refs.
     if !boss_attack_behavior.pilotable_mount_classes.is_empty() {
-        entity.insert(super::CanPilot {
+        entity.insert(ambition_mount::CanPilot {
             classes: boss_attack_behavior
                 .pilotable_mount_classes
                 .iter()
-                .map(|c| super::MountClass(c.clone()))
+                .map(|c| ambition_mount::MountClass(c.clone()))
                 .collect(),
         });
     }
@@ -1605,13 +1605,13 @@ fn attach_mount_role_from(
         let mount_size = default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
         let rider_offset = ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0));
         commands.entity(entity).insert((
-            super::Mountable {
+            ambition_mount::Mountable {
                 rider_offset,
-                class: super::MountClass(class.to_string()),
-                control_grant: super::ControlGrant::Total,
+                class: ambition_mount::MountClass(class.to_string()),
+                control_grant: ambition_mount::ControlGrant::Total,
                 death_impact: match death_splash {
-                    Some(amount) => super::MountDeathImpact::Splash(amount),
-                    None => super::MountDeathImpact::Dismount,
+                    Some(amount) => ambition_mount::MountDeathImpact::Splash(amount),
+                    None => ambition_mount::MountDeathImpact::Dismount,
                 },
             },
             // A heavy mount keeps the pair's center of gravity near itself, so
@@ -1621,8 +1621,8 @@ fn attach_mount_role_from(
     }
     if !pilotable.is_empty() {
         commands.entity(entity).insert((
-            super::CanPilot {
-                classes: pilotable.iter().cloned().map(super::MountClass).collect(),
+            ambition_mount::CanPilot {
+                classes: pilotable.iter().cloned().map(ambition_mount::MountClass).collect(),
             },
             ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));

@@ -7,9 +7,10 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::limb::Limb;
+use ambition_mount::Mountable;
 use ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy;
 use ambition_platformer2d_actor_monolith::features::{
-    ActorFaction, BodyKinematics, EncounterMob, FeatureId, Mountable,
+    ActorFaction, BodyKinematics, EncounterMob, FeatureId,
 };
 
 /// Wake radius for roaming Ambition hostiles.

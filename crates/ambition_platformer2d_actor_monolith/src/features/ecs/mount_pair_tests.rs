@@ -1,18 +1,25 @@
 //! Tests for the rider/mount link: per-tick rider-to-mount snapping and the
 //! mount-death dissolution that re-grounds and re-brains the rider.
-
-use super::super::CenteredAabb;
-use super::*;
+//!
+//! ⭐ THESE ARMS TEST `ambition_mount` FROM THE COMPOSITION. They stayed in this
+//! crate when the pair was carved (D33) because their fixtures build real riders
+//! through this crate's construction road — `ActorClusterSeed`,
+//! `ActorDisposition`, the boss systems — which is exactly what a mount crate
+//! does not have and should not grow.
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_characters::control::DrivingParticipant;
+use ambition_mount::*;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::CenteredAabb;
+use ambition_platformer2d_shared_tangle::body::MountDied;
 use bevy::prelude::*;
 
 /// A patrol lane centre no derivation would ever produce — the marker the
 /// boss-rider dismount tests below check for.
 const AUTHORED_BOSS_LANE_X: f32 = 4242.0;
 
-use super::super::actor_clusters::ActorClusterBundle;
+use super::actor_clusters::ActorClusterBundle;
 
 fn hostile(
     id: &str,
@@ -21,7 +28,7 @@ fn hostile(
     size: ae::Vec2,
 ) -> (crate::features::ActorDisposition, ActorClusterBundle) {
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let mut enemy = super::super::actor_clusters::ActorClusterSeed::new(
+    let mut enemy = super::actor_clusters::ActorClusterSeed::new(
         id,
         id,
         aabb,
@@ -42,10 +49,10 @@ fn hostile(
 fn rider_kin(
     world: &bevy::prelude::World,
     e: bevy::prelude::Entity,
-) -> super::super::actor_clusters::BodyKinematics {
+) -> super::actor_clusters::BodyKinematics {
     *world
         .entity(e)
-        .get::<super::super::actor_clusters::BodyKinematics>()
+        .get::<super::actor_clusters::BodyKinematics>()
         .expect("enemy entity has BodyKinematics")
 }
 

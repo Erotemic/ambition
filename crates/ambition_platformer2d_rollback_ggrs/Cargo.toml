@@ -10,6 +10,9 @@ description = "GGRS rollback backend for the Ambition platformer runtime."
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The MOUNT PAIR's `Mounted` marker — reconciliation asks whether a body is
+# being carried. `ambition_mount` owns the pair now (D33).
+ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["headless", "input"] }
 ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }

@@ -250,7 +250,7 @@ pub fn apply_brain_commands(
         Option<&AuthoredBrainContext>,
         Option<&mut ActorConfig>,
         &ActorPose,
-        Has<crate::features::ecs::Mounted>,
+        Has<ambition_mount::Mounted>,
         Option<&CombatKit>,
         Option<&mut CombatCapabilities>,
         Option<&mut ActionSet>,

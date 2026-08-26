@@ -488,7 +488,7 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
     let rider = spawn_candidate(&mut app, vec2(80.0, 0.0));
     app.world_mut().entity_mut(rider).insert((
         RoomScopedEntity,
-        crate::features::RidingOn {
+        ambition_mount::RidingOn {
             mount: piloted_mount,
         },
     ));
@@ -498,7 +498,7 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
     let ai_rider = spawn_candidate(&mut app, vec2(4000.0, 0.0));
     app.world_mut().entity_mut(ai_rider).insert((
         RoomScopedEntity,
-        crate::features::RidingOn { mount: ai_mount },
+        ambition_mount::RidingOn { mount: ai_mount },
     ));
 
     hold_down_interact(&mut app, true);

@@ -457,28 +457,31 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored boss definition; nothing writes it after spawn",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::mount::CanPilot",
+            "ambition_mount::CanPilot",
             "authored capability payload; immutable at runtime",
         ),
         (
-            // ⛔ THE PATH MOVED 2026-08-26 and this list is keyed by the PATH,
-            // which is the third ledger a moved registered type touches — the
-            // other two are the registration turbofish and the schema baseline
+            // ⛔ THE PATH MOVED 2026-08-26 and this list is keyed by the PATH.
+            // It is one of the ledgers a moved registered type touches; the
+            // others are the registration turbofish and the schema baseline
             // (whose STABLE NAME, `mount.mass`, deliberately did not change).
-            // `Mass` left `features::ecs::mount` because two domains share it.
+            // `Mass` left `features::ecs::mount` because two domains share it;
+            // the rest of that module then left the monolith entirely for
+            // `crates/ambition_mount`, which is why the rows below say
+            // `ambition_mount::` and not `features::ecs::mount::`.
             "ambition_platformer2d_shared_tangle::body::Mass",
             "authored mass; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::mount::Mountable",
+            "ambition_mount::Mountable",
             "authored capability payload; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::mount::MountedBrainCache",
+            "ambition_mount::MountedBrainCache",
             "a cached Brain + ActionSet; holds no entity handle (checked 2026-07-27)",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::mount::MountedSize",
+            "ambition_mount::MountedSize",
             "authored size; immutable at runtime",
         ),
         (

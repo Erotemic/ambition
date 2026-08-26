@@ -37,7 +37,7 @@ pub fn reconcile_brain_bindings(world: &mut bevy::ecs::world::World) {
             Option<&AuthoredBrainContext>,
             &ActorPose,
             &Brain,
-            bevy::ecs::query::Has<ambition_platformer2d_actor_monolith::features::Mounted>,
+            bevy::ecs::query::Has<ambition_mount::Mounted>,
         )>();
         q.iter(world)
             .filter_map(|(entity, binding, authored, pose, brain, mounted)| {

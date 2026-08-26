@@ -271,7 +271,7 @@ fn a_mounted_body_updates_its_source_not_its_control() {
     let e = spawn_npc(&mut app, "rider", "npc_puppy_slug", 100.0);
     app.world_mut()
         .entity_mut(e)
-        .insert(crate::features::ecs::Mounted);
+        .insert(ambition_mount::Mounted);
 
     send(
         &mut app,

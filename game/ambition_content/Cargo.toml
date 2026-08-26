@@ -40,6 +40,9 @@ ambition_boss_encounter = { path = "../../crates/ambition_boss_encounter" }
 # monolith's `ldtk_world` compatibility facade, whose own doc says callers
 # should repoint to the owning crate; the edge was already here transitively.
 ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk", default-features = false }
+# The MOUNT PAIR's `Mountable`, carved out of the monolith (D33): dormancy asks
+# whether a body is somebody's mount before it retires it.
+ambition_mount = { path = "../../crates/ambition_mount" }
 ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
     "ldtk_runtime",
     "input",

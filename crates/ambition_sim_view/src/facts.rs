@@ -393,11 +393,7 @@ pub fn rebuild_hostile_wielded_items_view(
             .unwrap_or_else(|| kin.pos + ae::Vec2::new(kin.facing * wielder_height, 0.0));
         view.0.push(HostileWieldedItemFact {
             item_id: held_item.id().to_owned(),
-            hand_world: ambition_platformer2d_actor_monolith::features::rider_hand_world_pos(
-                kin.pos,
-                kin.facing,
-                wielder_height,
-            ),
+            hand_world: ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, wielder_height),
             aim_world,
             wielder_height,
         });

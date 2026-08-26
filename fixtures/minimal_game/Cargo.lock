@@ -370,6 +370,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_mount"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_persistence"
 version = "0.1.0"
 dependencies = [
@@ -398,6 +408,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_load",
  "ambition_load_presentation",
+ "ambition_mount",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
  "ambition_platformer2d_host",
@@ -431,6 +442,7 @@ dependencies = [
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_ldtk",
@@ -540,6 +552,7 @@ dependencies = [
  "ambition_items",
  "ambition_load",
  "ambition_menu",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
@@ -670,6 +683,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_input",
  "ambition_interaction",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",

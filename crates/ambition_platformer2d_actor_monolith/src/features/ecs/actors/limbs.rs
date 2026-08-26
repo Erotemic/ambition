@@ -10,7 +10,8 @@ use ambition_characters::brain::BossAttackState;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::Query;
 
-use crate::features::{ActorSurfaceState, BodyKinematics, MountSlot};
+use ambition_mount::MountSlot;
+use crate::features::{ActorSurfaceState, BodyKinematics};
 use ambition_boss_encounter::BossConfig;
 use ambition_boss_encounter::{LimbMotion, LimbRoute};
 

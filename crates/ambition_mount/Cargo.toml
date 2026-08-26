@@ -1,0 +1,27 @@
+[package]
+name = "ambition_mount"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition's MOUNT PAIR: two linked bodies where one carries the other. Owns the pair's components (Mountable / CanPilot / MountSlot / RidingOn / Mounted), the saddle constraint, the control grant that routes a rider's locomotion onto its mount, and the dissolution when either side dies. Carved out of ambition_platformer2d_actor_monolith (D33)."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# ⛔ NARROW ON PURPOSE. Query / Component / Commands / MessageWriter and nothing
+# else — this crate draws nothing, loads nothing and knows no content.
+bevy = { version = "0.18.1", default-features = false }
+# The movement kernel's body vocabulary: BodyKinematics, ActorSurfaceState,
+# BodyGroundState, CenteredAabb, and `movement::constrain_body_pose` — the
+# saddle pin is an external-constraint authority (ADR 0024), not a bare write.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# `BodyHealth`, and only that: whether either side of the pair is still alive is
+# the whole of what this crate asks a character.
+ambition_characters = { path = "../ambition_characters" }
+# The floor both domains share: `Mass` (the pair's mass-weighted centre),
+# `MountDied` (the dissolution this crate ANNOUNCES rather than acts on),
+# `SpawnBaseline` (the body a dismount hands back), `ResolvedMotionFrame` (the
+# pair's gravity frame) and `SimId`.
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

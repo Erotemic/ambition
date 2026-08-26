@@ -600,7 +600,7 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
 /// waiting for one is how a population stays unswept.
 #[test]
 fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
-    use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
+    use ambition_platformer2d::mount::{MountSlot, Mounted, RidingOn};
     use ambition_platformer2d::characters::brain::Brain;
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())

@@ -195,7 +195,7 @@ where
         OWNER,
         "actor.transform_beat_requested",
     );
-    registrar.rollback_component_clone::<crate::features::CanPilot>(OWNER, "mount.can_pilot");
+    registrar.rollback_component_clone::<ambition_mount::CanPilot>(OWNER, "mount.can_pilot");
     // ⛔ THE STABLE NAME STAYS `mount.mass` THOUGH THE TYPE LEFT `mount`. It is
     // an IDENTITY on the wire, not an address: renaming it to match the new home
     // would be a declared schema change bought for tidiness, and every peer would
@@ -205,20 +205,20 @@ where
         OWNER,
         "mount.mass",
     );
-    registrar.rollback_component_clone_entity_set::<crate::features::MountSlot>(
+    registrar.rollback_component_clone_entity_set::<ambition_mount::MountSlot>(
         OWNER,
         "mount.slot",
         |slot| slot.rider.into_iter().collect(),
     );
-    registrar.rollback_map_entities::<crate::features::MountSlot>(OWNER, "map.mount_slot");
-    registrar.rollback_component_clone::<crate::features::Mountable>(OWNER, "mount.mountable");
-    registrar.rollback_component_clone::<crate::features::Mounted>(OWNER, "mount.mounted");
-    registrar.rollback_component_clone_entity_ref::<crate::features::RidingOn>(
+    registrar.rollback_map_entities::<ambition_mount::MountSlot>(OWNER, "map.mount_slot");
+    registrar.rollback_component_clone::<ambition_mount::Mountable>(OWNER, "mount.mountable");
+    registrar.rollback_component_clone::<ambition_mount::Mounted>(OWNER, "mount.mounted");
+    registrar.rollback_component_clone_entity_ref::<ambition_mount::RidingOn>(
         OWNER,
         "mount.riding_on",
         |riding| riding.mount,
     );
-    registrar.rollback_map_entities::<crate::features::RidingOn>(OWNER, "map.riding_on");
+    registrar.rollback_map_entities::<ambition_mount::RidingOn>(OWNER, "map.riding_on");
     // An ARMED challenge, counting down to a fight.
     //
     // it was not rollback state, and it is the `SaveRestored` failure
@@ -468,9 +468,9 @@ where
         "gravity.flip_switch",
     );
     registrar
-        .rollback_component_clone::<crate::features::MountedBrainCache>(OWNER, "mount.brain_cache");
+        .rollback_component_clone::<ambition_mount::MountedBrainCache>(OWNER, "mount.brain_cache");
     registrar
-        .rollback_component_clone::<crate::features::MountedSize>(OWNER, "mount.authored_size");
+        .rollback_component_clone::<ambition_mount::MountedSize>(OWNER, "mount.authored_size");
     registrar.declare_rollback_derived_component::<crate::avatar::body_integration::PlayerBodyFrameOutput>(
         OWNER,
         "derived.player_body_frame_output",

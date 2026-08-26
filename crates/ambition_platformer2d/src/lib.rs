@@ -173,6 +173,10 @@ pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
 #[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
+/// THE MOUNT PAIR — two linked bodies where one carries the other. Carved out
+/// of `actors` (D33); a game that wires mounts names this domain, exactly as it
+/// names `boss_encounter`.
+pub use ambition_mount as mount;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
 pub use ambition_platformer2d_actor_monolith as actors;
@@ -300,8 +304,8 @@ pub mod actor {
     pub use ambition_combat::components::FighterStocks;
     pub use ambition_combat::stocks::{
         retract_respawn_grace_on_removal, tick_respawn_grace, BodyKnockedOut, FighterEliminated,
-        FighterRespawnDue, FighterRespawnsDue, FighterStockSpent, MatchVerdict,
-        PendingRespawn, RespawnGrace, RespawnInterval, StocksMatchDecided,
+        FighterRespawnDue, FighterRespawnsDue, FighterStockSpent, MatchVerdict, PendingRespawn,
+        RespawnGrace, RespawnInterval, StocksMatchDecided,
     };
 
     /// How a body came to exist — ADR 0030's construction provenance.

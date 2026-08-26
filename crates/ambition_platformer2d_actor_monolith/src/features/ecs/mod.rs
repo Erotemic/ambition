@@ -51,6 +51,7 @@ pub(crate) use brain_builders::enemy_default_brain;
 pub use brain_builders::project_authored_fighter_ladder;
 /// The dismount reaction: mount announces, this rebuilds. See its own note.
 pub use brain_builders::rebuild_dismounted_rider_brains;
+pub(crate) mod autonomous_reconcile;
 mod brain_effects;
 pub(crate) mod character_policy;
 pub mod chests;
@@ -65,16 +66,13 @@ mod encounter_rewards;
 mod fighter_harness;
 mod interact;
 pub mod ledge_trump;
-mod mount;
 pub mod perception;
 pub mod pickups;
-pub mod spawn_static;
-pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
-pub(crate) mod autonomous_reconcile;
 mod reset;
 mod save_sync;
 mod spawn;
 mod spawn_actors;
+pub mod spawn_static;
 mod target_volumes;
 
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
@@ -140,11 +138,15 @@ pub use hitbox::{
     HitboxKnockback, HitboxLifetime,
 };
 pub use interact::interact_ecs_actors_and_switches;
-pub use mount::{
-    enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,
-    ControlGrant, MountClass, MountDeathImpact, MountRiderLinkEnforced, MountSlot, Mountable,
-    Mounted, MountedBrainCache, MountedSize, RidingOn,
-};
+// ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
+// construction road. They exercise `ambition_mount` from the composition.
+#[cfg(test)]
+mod mount_pair_tests;
+
+// ⛔ THE MOUNT PAIR LEFT THIS CRATE (D33, 2026-08-26) and is NOT re-exported.
+// `ambition_mount` owns it; a `pub use` here would let every caller keep
+// spelling it `ambition_mount::MountSlot` and hide whose domain it is — the same rule
+// `Mass`, `MountDied` and `TemporaryControl` each moved under.
 pub use pickups::{
     collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize,

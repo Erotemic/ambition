@@ -1482,14 +1482,14 @@ fn related_actor_plan(
 /// a compatible `CanPilot` on the rider, so a wiring test must equip the pair for
 /// the same reason a real room's archetypes do.
 fn equip_mount_pair(world: &mut World, rider: Entity, mount: Entity) {
-    world.entity_mut(mount).insert(crate::features::Mountable {
+    world.entity_mut(mount).insert(ambition_mount::Mountable {
         rider_offset: ae::Vec2::ZERO,
-        class: crate::features::MountClass("giant".into()),
-        control_grant: crate::features::ControlGrant::Total,
-        death_impact: crate::features::MountDeathImpact::Dismount,
+        class: ambition_mount::MountClass("giant".into()),
+        control_grant: ambition_mount::ControlGrant::Total,
+        death_impact: ambition_mount::MountDeathImpact::Dismount,
     });
-    world.entity_mut(rider).insert(crate::features::CanPilot {
-        classes: vec![crate::features::MountClass("giant".into())],
+    world.entity_mut(rider).insert(ambition_mount::CanPilot {
+        classes: vec![ambition_mount::MountClass("giant".into())],
     });
 }
 
@@ -1643,18 +1643,18 @@ fn a_mount_relation_wires_the_rider_and_the_mounts_slot() {
 
     assert_eq!(
         world
-            .get::<crate::features::RidingOn>(rider)
+            .get::<ambition_mount::RidingOn>(rider)
             .expect("the rider side landed")
             .mount,
         mount
     );
     assert!(
-        world.get::<crate::features::Mounted>(rider).is_some(),
+        world.get::<ambition_mount::Mounted>(rider).is_some(),
         "the rider is marked mounted"
     );
     assert_eq!(
         world
-            .get::<crate::features::MountSlot>(mount)
+            .get::<ambition_mount::MountSlot>(mount)
             .expect("the mount side landed")
             .rider,
         Some(rider)
@@ -1682,7 +1682,7 @@ fn a_mount_that_does_not_point_back_at_its_rider_is_detected() {
 
     world
         .entity_mut(mount)
-        .remove::<crate::features::MountSlot>();
+        .remove::<ambition_mount::MountSlot>();
 
     let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
         .expect_err("a mount that does not point back must be detected");
@@ -1706,7 +1706,7 @@ fn a_mount_holding_a_different_rider_is_detected() {
     equip_mount_pair(&mut world, rider, mount);
     let usurper = world.spawn_empty().id();
 
-    world.entity_mut(mount).insert(crate::features::MountSlot {
+    world.entity_mut(mount).insert(ambition_mount::MountSlot {
         rider: Some(usurper),
     });
 
@@ -1801,7 +1801,7 @@ fn a_mount_link_missing_the_mounted_marker_is_detected() {
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
     equip_mount_pair(&mut world, rider, mount);
 
-    world.entity_mut(rider).remove::<crate::features::Mounted>();
+    world.entity_mut(rider).remove::<ambition_mount::Mounted>();
 
     let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
         .expect_err("a rider without Mounted must be detected");
@@ -1831,11 +1831,11 @@ fn a_mount_link_with_an_incompatible_class_is_detected() {
     let mount = receipt.entity(&SimId::placement("mount")).expect("built");
     equip_mount_pair(&mut world, rider, mount);
     // The rider can pilot "giant" but the mount is now a "shark".
-    world.entity_mut(mount).insert(crate::features::Mountable {
+    world.entity_mut(mount).insert(ambition_mount::Mountable {
         rider_offset: ae::Vec2::ZERO,
-        class: crate::features::MountClass("shark".into()),
-        control_grant: crate::features::ControlGrant::Total,
-        death_impact: crate::features::MountDeathImpact::Dismount,
+        class: ambition_mount::MountClass("shark".into()),
+        control_grant: ambition_mount::ControlGrant::Total,
+        death_impact: ambition_mount::MountDeathImpact::Dismount,
     });
 
     let violations = verify_bare(&mut world, &plan, &receipt, &baseline)
@@ -2736,14 +2736,14 @@ fn a_committed_mount_pair_is_welded_both_ways_and_published() {
     let mount = find(world, &SimId::placement("sky_shark"));
     assert_eq!(
         world
-            .get::<crate::features::RidingOn>(rider)
+            .get::<ambition_mount::RidingOn>(rider)
             .map(|riding| riding.mount),
         Some(mount)
     );
-    assert!(world.get::<crate::features::Mounted>(rider).is_some());
+    assert!(world.get::<ambition_mount::Mounted>(rider).is_some());
     assert_eq!(
         world
-            .get::<crate::features::MountSlot>(mount)
+            .get::<ambition_mount::MountSlot>(mount)
             .and_then(|slot| slot.rider),
         Some(rider),
         "the mount points back — the half-write this campaign kept finding"
@@ -2815,13 +2815,13 @@ fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
     let host_entity = find(world, &host);
     assert_eq!(
         world
-            .get::<crate::features::RidingOn>(rider_entity)
+            .get::<ambition_mount::RidingOn>(rider_entity)
             .map(|riding| riding.mount),
         Some(host_entity)
     );
     assert_eq!(
         world
-            .get::<crate::features::MountSlot>(host_entity)
+            .get::<ambition_mount::MountSlot>(host_entity)
             .and_then(|slot| slot.rider),
         Some(rider_entity)
     );

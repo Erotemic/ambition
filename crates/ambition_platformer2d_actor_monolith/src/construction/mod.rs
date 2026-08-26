@@ -965,12 +965,12 @@ pub fn verify_rig_composition(
 /// on the mount going back. One function writes both ends.
 fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
     ctx.commands.entity(rider).insert((
-        crate::features::RidingOn { mount },
-        crate::features::Mounted,
+        ambition_mount::RidingOn { mount },
+        ambition_mount::Mounted,
     ));
     ctx.commands
         .entity(mount)
-        .insert(crate::features::MountSlot { rider: Some(rider) });
+        .insert(ambition_mount::MountSlot { rider: Some(rider) });
 }
 
 /// That leaves a rider pointing at a mount that does not point back, and
@@ -982,7 +982,7 @@ fn verify_mount(
     mount: Entity,
     _relation: &ActorRelation,
 ) -> RelationCheck {
-    let Some(riding) = world.get::<crate::features::RidingOn>(rider) else {
+    let Some(riding) = world.get::<ambition_mount::RidingOn>(rider) else {
         return RelationCheck::NotInstalled;
     };
     if riding.mount != mount {
@@ -993,7 +993,7 @@ fn verify_mount(
     // `Mounted` is not decoration: `steer_mount_from_rider` queries
     // `With<Mounted>`, so a rider linked without it sits on a mount that never
     // receives its intent — a pair that points at each other and does nothing.
-    if world.get::<crate::features::Mounted>(rider).is_none() {
+    if world.get::<ambition_mount::Mounted>(rider).is_none() {
         return RelationCheck::MissingCapability {
             component: "Mounted",
         };
@@ -1001,12 +1001,12 @@ fn verify_mount(
     // Both ends must still carry the capabilities the preflight approved them
     // on. A recipe that stripped `Mountable` leaves a link whose class nothing
     // can re-check, and `steer_mount_from_rider` reads `Mountable` to route.
-    let Some(mountable) = world.get::<crate::features::Mountable>(mount) else {
+    let Some(mountable) = world.get::<ambition_mount::Mountable>(mount) else {
         return RelationCheck::MissingCapability {
             component: "Mountable",
         };
     };
-    match world.get::<crate::features::CanPilot>(rider) {
+    match world.get::<ambition_mount::CanPilot>(rider) {
         Some(pilot) if pilot.can_pilot(&mountable.class) => {}
         Some(_) => {
             return RelationCheck::PayloadMismatch {
@@ -1020,7 +1020,7 @@ fn verify_mount(
         }
     }
     match world
-        .get::<crate::features::MountSlot>(mount)
+        .get::<ambition_mount::MountSlot>(mount)
         .and_then(|slot| slot.rider)
     {
         Some(back) if back == rider => RelationCheck::Installed,
@@ -1115,8 +1115,8 @@ pub fn install_actor_construction_recipes(
 /// The mount capabilities a planned row will carry once it is constructed.
 ///
 /// Derived from the same archetype data `attach_mount_role` and `spawn_boss`
-/// read when they install [`crate::features::Mountable`] /
-/// [`crate::features::CanPilot`], so a preflight decision here predicts the
+/// read when they install [`ambition_mount::Mountable`] /
+/// [`ambition_mount::CanPilot`], so a preflight decision here predicts the
 /// world the commit will produce rather than guessing at it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PlannedMountCapabilities {

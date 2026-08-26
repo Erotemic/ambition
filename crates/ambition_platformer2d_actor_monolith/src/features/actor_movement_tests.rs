@@ -281,7 +281,7 @@ fn enemy_aabb(pos: ae::Vec2) -> ae::Aabb {
 // body AABB, dismount morphs the archetype) deleted with the
 // mount/rider split. The composite is now two linked entities;
 // coverage lives in
-// `crate::features::ecs::mount::tests`.
+// `crate::features::ecs::mount_pair_tests`.
 
 /// With the brain→sim seam (`ActorControlFrame` + uniform `step_motion`) the wall blocks them, so
 /// the position must stay on the safe side of the wall after one tick of forced chase.

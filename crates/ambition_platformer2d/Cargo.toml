@@ -143,6 +143,7 @@ basic_shell_presentation = [
 ]
 
 [dependencies]
+ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
 ambition_audio = { path = "../ambition_audio" }

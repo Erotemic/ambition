@@ -52,6 +52,7 @@
     "ambition_load",
     "ambition_load_presentation",
     "ambition_menu",
+    "ambition_mount",
     "ambition_persistence",
     "ambition_platformer2d",
     "ambition_platformer2d_actor_monolith",
@@ -72,7 +73,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "closure_size": 41,
+  "closure_size": 42,
   "never_asked_for": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -82,6 +83,7 @@
     "ambition_encounter",
     "ambition_items",
     "ambition_menu",
+    "ambition_mount",
     "ambition_persistence",
     "ambition_projectiles",
     "ambition_sfx",
@@ -89,7 +91,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "never_asked_for_count": 14,
+  "never_asked_for_count": 15,
   "reachable_via_ambition_platformer2d_actor_monolith_alone": [
     "ambition_audio",
     "ambition_boss_encounter",
@@ -155,5 +157,6 @@
     "how": "Two ownership leaks were removed together. ambition_game_shell no longer imports the full settings/system-menu IR to edit four universal audio fields; its private row identity delegates to the canonical AudioSettings mutation helpers already in ambition_persistence. ambition_platformer2d_actor_monolith no longer names ambition_settings_menu only to forward its dev_tools feature; the public facade weakly forwards ambition_settings_menu?/dev_tools instead, so developer tooling configures that capability when selected without selecting it.",
     "why_this_is_not_a_monolith_carve": "No actor code moved. The monolith had zero source references to ambition_settings_menu; its edge existed only as feature forwarding. Removing that composition responsibility and the independent shell edge is enough for the crate to leave a narrow consumer.",
     "runtime_behavior": "Rich/default compositions still select ambition_settings_menu through all_capabilities. Enabling dev_tools still enables the settings menu developer row when the settings capability is present. Narrow compositions retain the shell audio controls because those mutate UserSettings::audio directly through AudioSettings helpers."
-  }
+  },
+  "mount_entered_the_closure_2026_08_26": "\u2b50 DECLARED GROWTH, not a leak. `ambition_mount` is the MOUNT PAIR carved out of the actor monolith (D33): the monolith's construction and spawn roads BUILD pairs, so every consumer of the monolith links the crate that owns them. \u26d4 EXACTLY the shape `ambition_boss_encounter` already has in this list, and for the same reason \u2014 a carved domain the composition still names. \u26a0 the carve did NOT make the footprint worse in substance: the same code was linked before, inside the monolith. What changed is that it is now COUNTABLE, which is what this ratchet is for. \u21d2 the way out for both is the same and neither has it yet: a movement-only game should not install the domain's plugin, and the closure should follow the installation rather than the dependency."
 }

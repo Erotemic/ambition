@@ -22,7 +22,7 @@ use crate::abilities::traversal::possession::PossessionState;
 pub fn project_body_custody(
     mut commands: Commands,
     state: Res<PossessionState>,
-    riders: Query<(Entity, &crate::features::RidingOn)>,
+    riders: Query<(Entity, &ambition_mount::RidingOn)>,
     limbs: Query<(Entity, &Limb)>,
     // `RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK. `RoomResident`
     // excludes anything wearing `InCustodyOf` — the very marker this system writes — so reading it

@@ -184,7 +184,7 @@ pub fn spawn_projectiles_from_brain_actions(
         };
         let world_dir = request.dir_to_world(frame).normalize_or_zero();
         let spawn_origin = if uses_gun_sword {
-            let hand = crate::features::rider_hand_world_pos_in_frame(
+            let hand = ambition_mount::rider_hand_world_pos_in_frame(
                 kin.pos,
                 kin.facing,
                 kin.size.y,

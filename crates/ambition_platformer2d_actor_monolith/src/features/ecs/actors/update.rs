@@ -999,7 +999,7 @@ pub fn integrate_sim_bodies(
             &super::super::super::components::ActorTarget,
             Option<&mut ambition_characters::control::ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
-            Option<&super::super::Mounted>,
+            Option<&ambition_mount::Mounted>,
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,

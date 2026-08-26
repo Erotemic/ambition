@@ -314,11 +314,11 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link,
+                ambition_mount::enforce_mount_rider_link,
                 ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains,
             )
                 .chain()
-                .in_set(ambition_platformer2d_actor_monolith::features::MountRiderLinkEnforced)
+                .in_set(ambition_mount::MountRiderLinkEnforced)
                 .in_set(CombatSet::Settle),
         );
 
@@ -362,7 +362,7 @@ impl Plugin for CombatSchedulePlugin {
             ambition_platformer2d_actor_monolith::features::ecs::damage_apply::stage_player_victim_hit_events
                 .run_if(gameplay_allowed)
                 .in_set(CombatSet::Settle)
-                .before(ambition_platformer2d_actor_monolith::features::MountRiderLinkEnforced),
+                .before(ambition_mount::MountRiderLinkEnforced),
         );
 
         // The FIFO's lifecycle guard: a room boundary voids staged hits from

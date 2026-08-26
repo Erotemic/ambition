@@ -1,3 +1,19 @@
+//! THE MOUNT PAIR: two linked bodies where one carries the other.
+//!
+//! ⭐⭐ CARVED OUT OF `ambition_platformer2d_actor_monolith` (D33). What made it
+//! carvable was not line count: this module reached the monolith four ways and
+//! all four were removed first — the dismount brain rebuild became an answer to
+//! the `MountDied` this crate already announces, `ResolvedMotionFrame` turned
+//! out to live in `shared_tangle` behind a re-export, `TemporaryControl` moved
+//! to `shared_tangle` beside `Mass`, and the twenty-six-column
+//! `ActorClusterQueryData` was replaced by the FIVE columns these systems touch.
+//!
+//! ⛔ THE MONOLITH STILL BUILDS PAIRS AND THAT IS CORRECT. 106 references to
+//! these components live in its construction and spawn roads; after the carve
+//! they spell `ambition_mount::` instead of `crate::features::` and compile
+//! unchanged. An inward edge is a caller naming a domain, not a dependency the
+//! domain has.
+//!
 //! Generic rider/mount relationship between separate actor entities.
 //!
 //! `RidingOn` links the rider to a `MountSlot`; per-tick coupling publishes the
@@ -10,11 +26,11 @@
 use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, With, Without};
 
 use ambition_platformer2d_core as ae;
-// ⛔ NAMED FROM ITS REAL OWNER, not through this crate's re-export chain. It was
-// `use super::CenteredAabb`, which made a monolith module look like the source of
-// a geometry type that `ambition_geometry` defines and `_core` re-exports — and
-// this module already imports `_core`. Same rule the `MountDied` note above
-// states: spell whose type it is.
+// ⛔ NAMED FROM ITS REAL OWNER. It was `use super::CenteredAabb` while this
+// module lived in the monolith, which made a monolith module look like the
+// source of a geometry type that `ambition_geometry` defines and `_core`
+// re-exports. Same rule the `MountDied` note below states: spell whose type it
+// is.
 use ae::CenteredAabb;
 
 // `MountDied` — the `(dead-mount, still-mounted)` dissolution
@@ -562,8 +578,16 @@ pub fn enforce_mount_rider_link(
     }
 }
 
-#[cfg(test)]
-mod tests;
+// ⛔⛔ THIS CRATE SHIPS WITH NO TESTS OF ITS OWN, AND THAT IS A STATED COST.
+// The fifteen arms that cover these rules build real riders through the actor
+// monolith's construction road (`ActorClusterSeed`, `ActorDisposition`, the boss
+// systems), so they stayed where their fixtures are:
+// `ambition_platformer2d_actor_monolith::features::ecs::mount_pair_tests`.
+//
+// ⭐ THEY STILL TEST THIS CRATE — from the composition, against the real bodies
+// the game makes, which is the stronger half of the coverage. What is missing is
+// the narrow half: nine of the fifteen are mount RULES and are expressible in the
+// nine components these systems read. See D33 for the classification.
 
 /// World position of the rider's hand (where mounted attacks originate). The
 /// hand offset is sprite-layout-derived but the SIM needs it to spawn attacks, so

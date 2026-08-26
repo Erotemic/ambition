@@ -27,7 +27,7 @@ use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::features::FeatureId;
-use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
+use ambition_platformer2d::mount::{MountSlot, Mounted, RidingOn};
 use ambition_platformer2d::characters::brain::Brain;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};

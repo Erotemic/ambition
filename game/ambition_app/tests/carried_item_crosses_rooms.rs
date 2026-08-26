@@ -1223,7 +1223,7 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
 fn a_mount_you_are_riding_crosses_the_door_with_you() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::actors::features::RidingOn;
+    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::characters::brain::Brain;
 
     let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
@@ -1357,7 +1357,7 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
 fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::actors::features::RidingOn;
+    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
 
@@ -1499,7 +1499,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
     use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::actors::features::RidingOn;
+    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;

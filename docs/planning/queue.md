@@ -5668,7 +5668,37 @@ because the old query view demanded all twenty-six columns. Mount now reads
 fixture is those spawned directly, and none of them is a monolith type. ⇒ the
 fixtures CAN be rewritten rather than relocated.
 
-⭐⭐ **THE CARVE'S FULL PRICE, MEASURED 2026-08-26 — nothing left to discover:**
+✔✔✔ **THE CARVE LANDED 2026-08-26. `crates/ambition_mount` EXISTS.** Every price
+below was paid as measured, and two things came out better than predicted:
+
+```text
+mount/mod.rs → ambition_mount/src/lib.rs    631 lines, four dependencies
+                                            (bevy · _core · characters · shared_tangle)
+the 15 arms                                 STAYED, as the monolith's
+                                            `features::ecs::mount_pair_tests` —
+                                            their fixtures build real riders
+                                            through the construction road, so
+                                            they test the carved crate FROM THE
+                                            COMPOSITION. 1194 passed, unchanged.
+re-exports                                  NONE. `features::MountSlot` is gone;
+                                            the facade exposes `platformer2d::mount`
+                                            as its own domain beside boss_encounter
+the 106 inward refs                         a rename, exactly as Wave E predicted
+```
+
+⛔ **THE FOOTPRINT GREW BY ONE AND IS DECLARED, NOT WAIVED** —
+`capability-footprint-baseline.json` now reads 42 crates / 15 never-asked-for,
+with the reason beside it. ⭐ **AND THE HONEST FRAMING IS IN THAT REASON**: the
+same code was linked before, inside the monolith; what changed is that it became
+COUNTABLE. `ambition_boss_encounter` sits in the list for the same reason, and
+the way out is the same for both and neither has it — **the closure should follow
+the plugin a game INSTALLS, not the dependency its crate declares.**
+
+⚠ **`ambition_mount` ships with no tests of its own**, stated in its own header.
+The nine component-level arms are still owed; see the classification below.
+
+⭐⭐ **THE CARVE'S FULL PRICE, MEASURED 2026-08-26 — and the estimate below was
+short by one ledger row, found only by RUNNING `app_it`:**
 
 ```text
 MOVES        mount/mod.rs        615 lines, ZERO monolith paths
@@ -5679,8 +5709,16 @@ INWARD       106 references to mount types inside the monolith, outside the
                features/ecs/spawn_actors.rs  11
                rollback_registration.rs       9
                everything else               21   (≤5 per file)
-LEDGERS      8 rollback registrations by path + 3 exit-oracle rows; stable names
-             UNCHANGED, so it is a repoint and not a schema change
+LEDGERS      8 rollback registrations by path + 4 exit-oracle rows (the estimate
+             said 3); stable names UNCHANGED, so it is a repoint and NOT a
+             schema change — `GGRS_ROLLBACK_SCHEMA_VERSION` deliberately stands.
+             ⛔⛔ THE ORACLE ROW WENT RED WITH THE APP GATE ALREADY GREEN AND
+             THE MONOLITH'S 1194 ALREADY GREEN: `rollback_exit_oracle.rs` keys
+             its presence-only list on the FULL type path, and only
+             `cargo test -p ambition_app --test app_it` asks it. ⇒ a carve is
+             not verified by the gate; the four names were CanPilot, Mountable,
+             MountedBrainCache, MountedSize, and their REASONS are untouched —
+             a move does not change whether a payload is authored-and-immutable.
 GATE         `capability-footprint-may-not-grow` GROWS BY ONE — the monolith's
              construction road depends on the new crate, so every consumer links
              it. ⭐ PRECEDENTED: `ambition_boss_encounter` did exactly this and

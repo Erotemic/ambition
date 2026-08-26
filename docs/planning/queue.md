@@ -5668,6 +5668,33 @@ because the old query view demanded all twenty-six columns. Mount now reads
 fixture is those spawned directly, and none of them is a monolith type. ⇒ the
 fixtures CAN be rewritten rather than relocated.
 
+⭐⭐ **THE CARVE'S FULL PRICE, MEASURED 2026-08-26 — nothing left to discover:**
+
+```text
+MOVES        mount/mod.rs        615 lines, ZERO monolith paths
+             mount/tests.rs       9 of 15 arms (classified below)
+INWARD       106 references to mount types inside the monolith, outside the
+             module — and per Wave E's rule these are a RENAME, not a blocker:
+               construction/mod.rs + tests   65   the authored road that BUILDS pairs
+               features/ecs/spawn_actors.rs  11
+               rollback_registration.rs       9
+               everything else               21   (≤5 per file)
+LEDGERS      8 rollback registrations by path + 3 exit-oracle rows; stable names
+             UNCHANGED, so it is a repoint and not a schema change
+GATE         `capability-footprint-may-not-grow` GROWS BY ONE — the monolith's
+             construction road depends on the new crate, so every consumer links
+             it. ⭐ PRECEDENTED: `ambition_boss_encounter` did exactly this and
+             sits in the "14 a movement-only game never asked for" list today.
+             Declare it in the baseline with the same reason.
+LOCKFILES    a new dep edge fails the contracts job until BOTH `Cargo.lock` and
+             `fixtures/minimal_game/Cargo.lock` are refreshed
+```
+
+⇒ **the shape is the BOSS carve's**: the new crate owns the RULES (two systems +
+the components), the monolith keeps CONSTRUCTION, which names those components to
+build pairs. ⛔ do not try to take construction with it — that is the actor
+spawn road, and it is the thing the monolith IS.
+
 ⭐ **AND THE 15 ARMS IN `mount/tests.rs` CLASSIFY CLEANLY — done 2026-08-26, so
 the move is a sorting job rather than a judgement call:**
 

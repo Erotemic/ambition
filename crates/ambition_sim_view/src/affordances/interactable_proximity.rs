@@ -58,6 +58,8 @@ pub fn update_nearest_interactable(
             &ActorDisposition,
             &ActorInteraction,
             Option<&ambition_characters::actor::BodyHealth>,
+            // The world's hands are off this body — no prompt from it either.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -81,10 +83,12 @@ pub fn update_nearest_interactable(
     // carries `ActorInteraction`; a provoked one keeps it but flips to
     // `Hostile`, so the disposition gate drops it out of the prompt.
     let mut chosen = InteractVariant::None;
-    for (aabb, disposition, _interaction, health) in &actors {
+    for (aabb, disposition, _interaction, health, out_of_play) in &actors {
         // A hostile actor drops out of the Talk prompt; a dead one is an
         // intangible corpse and offers no prompt.
-        if disposition.is_hostile() || ambition_combat::util::body_is_corpse(health) {
+        if disposition.is_hostile()
+            || ambition_combat::util::body_is_untouchable(health, out_of_play)
+        {
             continue;
         }
         if aabb.aabb().strict_intersects(player_aabb) {

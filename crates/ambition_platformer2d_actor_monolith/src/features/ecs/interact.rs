@@ -70,6 +70,7 @@ pub fn interact_ecs_actors_and_switches(
             &ActorIdentity,
             &ActorInteraction,
             Option<&ambition_characters::actor::BodyHealth>,
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -122,13 +123,17 @@ pub fn interact_ecs_actors_and_switches(
         interactions.get(subject).ok(),
         identities.get(subject).ok(),
     );
-    for (actor_entity, aabb, disposition, identity, interaction_payload, health) in &actors {
+    for (actor_entity, aabb, disposition, identity, interaction_payload, health, out_of_play) in
+        &actors
+    {
         let Some(speaker_id) = speaker_id.as_deref() else {
             break;
         };
         // A hostile actor gates dialogue off; a dead one is an intangible corpse
         // and cannot be talked to.
-        if disposition.is_hostile() || ambition_combat::util::body_is_corpse(health) {
+        if disposition.is_hostile()
+            || ambition_combat::util::body_is_untouchable(health, out_of_play)
+        {
             continue;
         }
         let interactable = &interaction_payload.interactable;

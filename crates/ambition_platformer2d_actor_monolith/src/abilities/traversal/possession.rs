@@ -155,6 +155,8 @@ pub fn possession_trigger_system(
             Entity,
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
+            // The world's hands are off this body — it is not a target either.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         (
             With<FeatureSimEntity>,
@@ -217,8 +219,10 @@ pub fn possession_trigger_system(
         // Structural tangibility gate: a dead body is an
         // intangible corpse — you cannot possess a corpse. Excluded BEFORE
         // distance selection so a nearer corpse never shadows a farther live body.
-        .filter(|(_, _, health)| !ambition_combat::util::body_is_corpse(*health))
-        .map(|(entity, aabb, _)| (entity, (aabb.center - home_pos).length()))
+        .filter(|(_, _, health, out_of_play)| {
+            !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
+        })
+        .map(|(entity, aabb, _, _)| (entity, (aabb.center - home_pos).length()))
         .filter(|(_, dist)| *dist <= POSSESS_RADIUS)
         .min_by(|a, b| a.1.total_cmp(&b.1));
     let Some((target, _)) = nearest else {

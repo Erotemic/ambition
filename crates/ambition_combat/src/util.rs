@@ -143,14 +143,35 @@ pub fn body_vulnerable(
 }
 
 /// This is the SINGLE tangibility gate the damage *detection* layer consults,
-/// so a dead thing is filtered ONCE at every hit boundary rather than relying on
-/// each consume-time resolver to re-check `alive()` (those checks remain as
+/// so an untouchable thing is filtered ONCE at every hit boundary rather than
+/// relying on each consume-time resolver to re-check (those checks remain as
 /// last-line defense). A body with no `BodyHealth` — a pure prop — is not
-/// governed here; a breakable owns its own `broken()` gate. Extend THIS function
-/// for any future intangibility cause (phasing, spawn-in grace) and every combat
-/// boundary inherits it at once.
-pub fn body_is_corpse(health: Option<&ambition_characters::actor::BodyHealth>) -> bool {
-    health.is_some_and(|h| !h.alive())
+/// governed here; a breakable owns its own `broken()` gate.
+///
+/// ⭐⭐ THE DOC ABOVE PROMISED THIS AND THEN THE PROMISE WAS COLLECTED ON:
+/// *"extend THIS function for any future intangibility cause (phasing, spawn-in
+/// grace) and every combat boundary inherits it at once."* `OutOfPlay` is that
+/// cause, and D201 made it a body-generic fact rather than a player-only one.
+///
+/// ⛔⛔ AND A BODY WAITING OUT ITS DEATH BEAT IS NOT A CORPSE, which is why the
+/// health check alone could not see it. `spend_fighter_stocks` calls
+/// `health.reset()` the moment the stock is spent — a fighter comes back FRESH —
+/// so for the whole interlude the body reads ALIVE while `OutOfPlay` says the
+/// world's hands are off it. It could be struck, could shield, could be counted
+/// as a connect, and could accumulate percent it then carried into its next
+/// stock.
+///
+/// ⛔ THE ARGUMENT IS SEPARATE RATHER THAN LOOKED UP because this runs inside
+/// detection loops that already hold the victim's components; a lookup here
+/// would need a `World` this has no business taking. Changing the signature is
+/// deliberate: it makes every existing boundary a compile error until it answers
+/// the new question, which is the only way a gate that claims to be THE gate
+/// stays one.
+pub fn body_is_untouchable(
+    health: Option<&ambition_characters::actor::BodyHealth>,
+    out_of_play: bool,
+) -> bool {
+    out_of_play || health.is_some_and(|h| !h.alive())
 }
 
 /// Does a SPENT guard still reach this hit? — the poke rule.

@@ -636,7 +636,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ ALREADY FIXED AT HEAD — `weapon_ready` refuses a firing move at ACCEPTANCE on `ranged_cooldown <= 0.0`, `start_move` spends the authored `RangedActionSpec::refire_s`, and `brain_effects.rs` applies the low-level refire rejection only to `RangedCommitment::Attempt`, never to a committed move. ⛔ THIS IS THE THIRD STALE ONE and I called that batch "two" — I checked the two I could reach by grepping a symbol and stopped, which is the partial-sweep error again.
 
 * `emit_knockout_beat` asks for one or two `VfxMessage::Impact`s and calls them "expanding rings", but `Impact` is the ordinary hit-marker API. Asset-backed, it resolves to the shipped generic hit effect, so an elimination draws the normal damage-impact art twice at the blast line. Semantic misuse of the VFX vocabulary.
-  * ▢
+  * ✔ the beat names `ids::SHOCKWAVE` — authored as *"the expanding ring a committed heavy throws"*, which is exactly what the field claimed to draw — through `VfxMessage::Effect`, and `rings: u32` became `ring_scale: f32`. ⭐ THE COUNT WAS NEVER A DOUBLING ANYWAY: two copies of one clip at one position on one tick are coincident, so "an elimination gets a second one" doubled the alpha and never the size; an elimination is now BIGGER. `beat_reach` takes the ring's own extent as a `max` so a bigger ring cannot quietly start spilling off the frame edge. ⛔ IT LANDED IN `bd37e4ddc` WITHOUT BEING MENTIONED IN THAT COMMIT'S MESSAGE — a broad `git add crates` swept up work in progress from a different item. The commit is green and correct; the message is incomplete, and that is the `git commit` takes the WHOLE INDEX trap.
 
 * Stock-loss presentation has no composition policy. The launch-trail module says its flare/plume sit "on top of the hit spark and camera shake", and knockout adds another layer on top of that. Nothing at the stock-spend boundary retires or attenuates the cues whose job was to PREDICT danger, so all three modules can be locally correct and still over-signal.
   * ▢
@@ -655,22 +655,22 @@ huge regressions, not sure how we didn't have a test to catch these."*
 ## Full review of HEAD `f56b5ea`, relayed by Jon 2026-08-26 — worked in the order Jon gave
 
 * **1. Same-frame Back+Special is double-counted as both halves of wavebounce.** Production orders `CombatSet::Trigger` → `CombatSet::Playback`; the accepted Special opens `special_turn_window` but never records the stick sign that belonged to that press, so `apply_special_turn_flicks` in Playback sees `prev_lateral_sign == 0` and calls the SAME tick's Back a fresh post-press flick — facing flips twice and drift reverses. Holding Back a frame first hides it. The accepted Special must set a baseline sign. Also: `flick_window_ticks` is aged in scaled `sim_dt()` seconds here and in integer ticks for ordinary attack flicks — one authored knob, two clock semantics. The regression must run the real Trigger→Playback graph; the existing arm installs the two halves into bare `Update`.
-  * ▢
+  * ✔ `bd37e4dd` — the acceptance seeds `prev_lateral_sign` from the press's own stick through one shared `lateral_flick_sign`, the window counts ticks, and the harness runs the production order so the turnaround-B arm IS the regression. ⚠ its descendant is open below: that helper's threshold is not the ordinary flick's.
 
 * **2. Windbox loses its identity before hit resolution.** Lowering reduces it to `HitKnockback { flinchless: true }`, so `apply_body_hit_reaction` still knocks the body off its ledge, refunds `air_dodge_spent`, clears `post_recovery_helpless` and charges `hitstop_timer` before the flinchless branch. `ResolvedBodyHit` carries no reaction kind, so `impact_hitstop::is_a_connect()` sees `HitSource::Melee` and a windbox can freeze the whole match. Carry the reaction kind through resolution and define the windbox policy once; the ledge question needs an explicit rule rather than inherited injury handling.
-  * ▢
+  * ✔ `bd37e4dd` — `HitKnockback::reaction` carries `HitReaction`, the four injury facts are gated on it, the ledge push is kept by its own stated rule, and the match freeze follows from the gust earning no hitlag.
 
 * **3. D192 canonicalizes simultaneous respawns with `Entity`.** `tick_pending_respawn` sorts a `Vec<Entity>` under a comment saying query order is not guaranteed and message order decides placement — but `Entity` is allocator identity. The clank work in the same window moved to `SimId` for exactly this reason. Sort on `MatchSeat` (or `SimId`), or remove the sort and correct the comment; a fake canonicalization is worse than none.
-  * ▢
+  * ◐ `df9e887ff` sorted on `SimId`. ⚠ THE REVIEW THEN REVISED ITS OWN PREMISE: it traced every `FighterRespawnDue` consumer and found each fighter placed at its OWN seat's position, so the operation is commutative and nothing needs canonical order today. The remaining work is to DELETE the sort and the claim rather than keep anticipatory ordering infrastructure. See the open row below.
 
 * **4. The mount carve moved implementation but not rollback ownership.** `actor_monolith/rollback_registration.rs` still registers the seven `ambition_mount::` components and their `MapEntities`, while `runtime/rollback/mod.rs` says domains own their own declarations and composes six `register_rollback_state` calls with no mount one. Give `ambition_mount` its own `register_rollback_state`, preserve the wire names, and watch the registrar's owner string.
-  * ▢
+  * ✔ `1d5f2b708` — wire names unchanged (the contract still counts 375), only the owner label moved.
 
 * **5. The saddle COG mixes mount-local and world vectors.** `ambition_mount/src/lib.rs` adds `cog_local` (local) to `frame.to_world(rider_offset - cog_local)` (world). Default gravity hides it; rotated gravity with unequal masses and a nonzero saddle offset pins the COG term to screen axes. Predates this window (5c9b11a, 2026-08-24). Either the invariant is just `mount_kin.pos + frame.to_world(rider_offset)`, or a true rigid pair must rotate BOTH bodies about one world COG.
-  * ▢
+  * ✔ `1d5f2b708` — the first reading, because a constraint with authority over ONE body cannot express a two-body rotation. ⚠ its descendant is open below: the new helper's doc claims facing-relative `+x` and `to_world` does not know facing.
 
 * **6. Three-way clank applies rebound more than once per fighter.** Arbitration emits `AttacksClanked` per qualifying pair (AB, AC, BC) and `rebound_from_clanks` adds a full impulse per message. The new three-way arm cannot see it: all three bodies sit at `Vec2::ZERO`, where the rebound axis is deliberately zero. Decide the rule — summed pairwise or one bounded recoil per participant — before clanking is enabled (`clank_damage_window` is 0.0 in Smash today).
-  * ▢
+  * ✔ ONE BOUNDED RECOIL PER PARTICIPANT (`707871fcc`). The genre has a rebound, not a rebound COUNT, and this repo already fixed the same shape when a 2×2 volume overlap produced four rebounds for one clash. The DIRECTION is the sum of the pair axes — a fighter that clanked two opponents is pushed away from both — and the SPEED is not: being outnumbered is not a reason to fly faster. Accumulated in a `Vec` in message order, because a hash map's iteration is not deterministic. The new arm spreads the three fighters into a line; the existing one stands them all at `Vec2::ZERO` where the rebound axis is deliberately zero, so it could never have measured recoil.
 
 * Hygiene, same window: trailing whitespace in this file and a new blank line at EOF in `game/ambition_app/tests/duel_arena.rs`.
   * ▢
@@ -686,10 +686,42 @@ findings carry a ▢.
   * ✔ Tagged, with a poison arm and an equality premise guard; `GGRS_ROLLBACK_SCHEMA_VERSION` 114 → 115 because a checksum projection change is a wire change.
 
 * **B-reverse has a second, softer definition of "flick".** `lateral_flick_sign` accepts any deflection past `directional_deadzone` (0.5), while the ordinary attack flick needs `flick_threshold` (0.8) after re-arming under 0.35 — so 0.65, which the CPU's own `TILT_DEFLECTION` deliberately calls a TILT, is a B-reverse flick. And the window differs too: ordinary flicks admit `age_ticks <= flick_window_ticks` (four subsequent ticks), while special-turn spends one on the press tick and admits three. One authored knob, two temporal and two magnitude meanings. Either share one directional-edge semantic or give the special turn its own named threshold and window — but not the current middle state.
-  * ▢
+  * ✔ its own knobs: `special_turn_deflection` (0.5) and `special_turn_window_ticks` (4, counting SUBSEQUENT ticks — the acceptance tick is free, so the count now means what the ordinary flick's `age_ticks <= n` means). `lateral_flick_sign` is `special_turn_stick_sign`: it never read a flick. ⭐ THE SOFT READING IS CORRECT — a B-reverse in this genre is a stick tap, not a smash input — so the behaviour is unchanged and what is new is that the split is AUTHORED. A contrast arm pins the table: 0.65 is an edge to the special turn and not a flick to the attack gesture; 0.85 is both.
 
 * **`VolumeReaction::Windbox` still permits authored damage.** The contract says "no damage", lowering publishes whatever `damage` is authored, and every fixture merely remembers to write zero. No shipped move authors a Windbox yet, so this is the moment to reject `Windbox + damage != 0` at preparation with a useful error rather than silently discarding an authored number. ⚠ the neighbouring question — whether a successful gust counts as a move connect for `on_hit` and OnHit cancels — is a separate decision and must not be settled by accident here.
-  * ▢
+  * ✔ `73a83a8b5` — `CatalogError::WindboxWithDamage` rejects it at preparation naming entity/move/window, with a zero-damage arm so the mechanic stays authorable. The `on_hit` question is deliberately still open.
 
 * **Room vocabulary has the same unfinished rollback ownership the mount did.** `actor_monolith/rollback_registration.rs` — whose header promises it "names only state defined in this crate" — registers `ambition_platformer2d_world::rooms::{RoomSet, ActiveRoomMetadata, RoomMusicRequest}` and defines `room_set_checksum`. The world crate already owns `register_gate_portal_rollback_state`, so the machinery exists.
+  * ✔ `73a83a8b5` — `rooms::register_rollback_state` beside the gate-portal one; `room_set_checksum` moved with the type; stable names unchanged.
+
+## Third review, of HEAD `f17872dc`, relayed by Jon 2026-08-26
+
+Its priorities 3 and 4 — the windbox damage rejection and the room rollback move
+— were already done at `73a83a8b5` before this arrived, and its 8 (stale
+receipts) is done above.
+
+* **The staged-hit checksum does not identify WHO is hitting WHOM.** The windbox omission was one instance of a larger hole: `pending_player_hits_checksum` reduces `attacker` to `is_some()` and `HitTarget::Body(entity)` to the tag `1`, so "A hits X" and "B hits Y" fingerprint identically while every other field is equal. `HitTarget::Body` is documented as the complete victim-routing answer and production uses it for projectiles, contact damage, empowerment, enemy hits and blast-zone events. ⛔ the fix is NOT to hash `Entity` — that is allocator identity and trades one blindness for a false alarm. The queue should carry stable semantic identity across the frame boundary, which would also retire its `MapEntities`.
   * ▢
+
+* **The new `saddle_world_offset` promises facing-relative `+x` and cannot deliver it.** Its doc says the offset is `+x toward the mount's facing side`, but `AccelerationFrame::to_world` knows gravity-relative side/down and nothing about facing — so a saddle authored at `x = +5` stays on the same gravity-relative side when the mount turns around. Invisible today because production saddles author `x = 0`, and the new rotated-gravity arm never flips facing. Either mirror `x` by facing, or stop claiming the axis is facing-relative. ⇒ prefer mirroring, to match the rest of the authored character-local geometry convention.
+  * ✔ mirrored, and the decision is settled by the constraint itself: it already hands the rider `mount_kin.facing`, so an offset that did not mirror would put a rider authored on one shoulder onto the other the moment the mount turned. A neutral facing keeps the authored side — `signum(0.0)` would have collapsed the offset.
+
+* **Delete the respawn sort rather than elaborate it.** Revised premise, and the review revised its own: every `FighterRespawnDue` consumer places a fighter at its own seat's position, so the operation is commutative and no canonical order is needed. `df9e887ff` replaced a fake canonicalization with a real one nothing consumes. Remove the sort and the comment claiming message order is meaningful; a future order-sensitive ruleset should name its own key.
+  * ✔ removed. ⛔⛔ AND THE TEST WAS PASSING BY LUCK: with two bodies the query returns them in allocation order anyway, so the ordering assertion survived the sort's removal. It now measures the SET — both fighters return on one tick, unchanged by spawn order — which is the property that would actually break.
+
+## Fourth review, of HEAD `e17fe564`, relayed by Jon 2026-08-26
+
+Its HIGH finding is on D201 (another agent's work in the same window), not on
+the facade/review lane. Its two LOW items were both mine and are fixed.
+
+* **`OutOfPlay` has a stronger documented meaning than an implemented one, and D201 is its second customer.** The type promises "no control, no hurtbox, no world interaction"; D201 delivered the movement/input half for actor bodies and not the combat half. VICTIM SIDE: the melee victim query in `hitbox/mod.rs` carries no `Without<OutOfPlay>` and gates only on `is_corpse()` — and the stock spend calls `health.reset()` first, so a waiting fighter is specifically NOT a corpse. The actor damage road reads `CombatStanding::of(disposition, active_combatant)`, and prepared match construction sets every fighter `ActorDisposition::Hostile`, so dropping `ActiveCombatant` does not make it undamageable: it can accumulate percent during the interlude and return from its stock at 8% or 12% rather than 0. ATTACKER SIDE: the spend does not cancel `MovePlayback`, and `advance_move_playback` consults neither `OutOfPlay` nor `ActiveCombatant` — so a fighter KO'd mid-swing keeps advancing its move clock, opening hit volumes and firing authored events for the whole death beat. Smash does call `cancel_move_playback`, but inside `place_respawning_fighters`, one lifecycle boundary too late.
+  * ✔ both halves. ⭐ THE VICTIM HALF NEEDED NO NEW LIST: `body_is_corpse`'s own doc already promised *"extend THIS function for any future intangibility cause and every combat boundary inherits it at once"* — so it became `body_is_untouchable(health, out_of_play)`, and changing the SIGNATURE made all thirteen boundaries a compile error until each answered the new question. Melee, boss, actor-damage, footstool, capture, empowerment, target volumes, interact, affordances, sentry, vortex and possession, with no hand-kept list to go stale. The attacker half cancels `MovePlayback` through the canonical `cancel_move_playback` where the episode OPENS rather than where the fighter returns. Both poison-verified; ⚠ the worktree3 agent that owns D201 was clean and idle when I took this.
+
+* The stale `RESOURCE_WAIVED` prose for `RespawnInterval` described D192's ticks-and-`PendingRespawn` architecture after D201 moved the window into `DeathInterlude`.
+  * ✔ corrected — the waiver is keyed by type name, so nothing failed; a stale reason hands the next reviewer an architecture that is gone.
+
+* A blank line at EOF in `actor_monolith/rollback_registration.rs`, left by my own removal of `room_set_checksum`.
+  * ✔ fixed.
+
+* D202 and D206 were both examined and accepted by the review; D206's one `MatchSeat` check has a crisp semantic reason, with the caveat that a SECOND such check would belong in an effective match-body policy rather than another `if MatchSeat`.
+  * ✔ no action.

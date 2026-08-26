@@ -6763,9 +6763,10 @@ fn the_special_turn_techniques_are_chosen_by_the_input_order() {
 /// handed the player twice the ticks of B-reverse opportunity.
 ///
 /// ⭐ THE ARMS STRADDLE THE BOUNDARY, because an arm that only flicks early
-/// passes under both clocks. `flick_window_ticks` is 4 and the press tick spends
-/// one, so a flick on the 3rd tick after the press still turns and a flick on the
-/// 4th does not — and that pair of answers must not move with `scaled_dt`.
+/// passes under both clocks. `special_turn_window_ticks` is 4 and it counts
+/// SUBSEQUENT ticks, so a flick on the 4th tick after the press still turns and
+/// one on the 5th does not — and that pair of answers must not move with
+/// `scaled_dt`.
 #[test]
 fn the_b_reverse_window_is_the_same_number_of_ticks_at_every_time_scale() {
     /// Press Special forward, wait `wait` neutral ticks, then flick Back.
@@ -6813,15 +6814,15 @@ fn the_b_reverse_window_is_the_same_number_of_ticks_at_every_time_scale() {
 
     for (label, dt) in [("full speed", 0.016), ("half speed", 0.008), ("hitstop", 0.0)] {
         assert!(
-            flick_after(dt, 2),
-            "at {label} a flick on the 3rd tick after the press was refused, and \
+            flick_after(dt, 3),
+            "at {label} a flick on the 4th tick after the press was refused, and \
              the window is authored to be open there"
         );
         assert!(
-            !flick_after(dt, 3),
-            "at {label} a flick on the 4th tick after the press still turned the \
-             fighter — the window is FOUR authored ticks and the press spends one, \
-             so this one is late however slowly the match is running"
+            !flick_after(dt, 4),
+            "at {label} a flick on the 5th tick after the press still turned the \
+             fighter — `special_turn_window_ticks` is FOUR and it counts ticks \
+             AFTER the press, so this one is late however slowly the match runs"
         );
     }
 }

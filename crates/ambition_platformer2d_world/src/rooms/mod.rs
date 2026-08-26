@@ -10,11 +10,13 @@ mod graph;
 mod loading_zone;
 mod metadata;
 mod room_graph;
+mod rollback;
 mod spawn;
 mod specs;
 
 pub use camera::*;
 pub use gate_portal::*;
+pub use rollback::register_rollback_state;
 pub use loading_zone::*;
 pub use metadata::*;
 pub use room_graph::*;

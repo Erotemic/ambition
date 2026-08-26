@@ -848,6 +848,8 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureTuning {
         put_f32(out, self.flick_threshold);
         put_f32(out, self.rearm_threshold);
         put_u8(out, self.flick_window_ticks);
+        put_f32(out, self.special_turn_deflection);
+        put_u8(out, self.special_turn_window_ticks);
         put_f32(out, self.directional_deadzone);
         put_f32(out, self.action_buffer_s);
     }
@@ -857,6 +859,8 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureTuning {
             flick_threshold: r.f32()?,
             rearm_threshold: r.f32()?,
             flick_window_ticks: r.u8()?,
+            special_turn_deflection: r.f32()?,
+            special_turn_window_ticks: r.u8()?,
             directional_deadzone: r.f32()?,
             action_buffer_s: r.f32()?,
         })

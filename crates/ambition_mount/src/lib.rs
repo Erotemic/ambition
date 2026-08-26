@@ -106,10 +106,16 @@ pub enum MountDeathImpact {
 /// rider, and its [`MountDeathImpact`].
 #[derive(Component, Clone, Debug)]
 pub struct Mountable {
-    /// Rider's center offset from the mount's center. For an
+    /// Rider's center offset from the mount's center, in the MOUNT'S OWN
+    /// FRAME: `+x` toward the side the mount faces, `+y` toward its feet. For an
     /// aerial mount this is typically `(0, -mount.size.y * 0.5 -
     /// rider.size.y * 0.5 + epsilon)` so the rider sits on the
     /// mount's saddle without their hitboxes overlapping.
+    ///
+    /// ⭐ FACING-RELATIVE `x` BECAUSE THE SADDLE IS A PLACE ON THE MOUNT. The
+    /// constraint already gives the rider the mount's facing, so an offset that
+    /// did not mirror would put a rider authored on one shoulder onto the other
+    /// the moment the mount turned. See [`saddle_world_offset`].
     pub rider_offset: ae::Vec2,
     /// The mount's class — a rider needs a matching [`CanPilot`] entry.
     pub class: MountClass,
@@ -350,7 +356,8 @@ pub fn sync_riders_to_mounts(
         // The saddle offset is authored in the mount's local frame; rotate it into
         // world space by the pair's gravity frame. See `saddle_world_offset`.
         let frame = mount_frame.basis();
-        let rider_local = saddle_world_offset(mountable.rider_offset, frame);
+        let rider_local =
+            saddle_world_offset(mountable.rider_offset, mount_kin.facing, frame);
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
         ae::movement::constrain_body_pose(
@@ -730,9 +737,30 @@ where
 /// saddle offset"*, and that is what it now computes.
 pub fn saddle_world_offset(
     rider_offset: ambition_platformer2d_core::Vec2,
+    facing: f32,
     frame: ambition_platformer2d_core::AccelerationFrame,
 ) -> ambition_platformer2d_core::Vec2 {
-    frame.to_world(rider_offset)
+    // ⛔⛔ THE MIRROR, AND WITHOUT IT THIS FUNCTION'S OWN DOC WAS A LIE.
+    // `AccelerationFrame` knows gravity-relative side and down; it knows nothing
+    // about which way the mount is looking. So a saddle authored at `x = +5`
+    // stayed on the same GRAVITY-relative side when the mount turned around —
+    // while four lines from the call site the rider is given
+    // `rider_kin.facing = mount_kin.facing`. A rider that turns with its mount
+    // and does not move with it has swapped shoulders, which is not a saddle.
+    //
+    // ⭐ INVISIBLE TODAY because every authored mount uses `x = 0`, and a
+    // rotated-gravity arm that never flips facing cannot see it either. It is
+    // fixed now rather than when the first lateral saddle is authored, because
+    // by then the wrong answer would be baked into the authored number.
+    //
+    // ⛔ `signum` OF A FACING THAT MAY BE ZERO IS ZERO, which would collapse the
+    // lateral offset instead of mirroring it. A neutral facing keeps the
+    // authored side.
+    let side = if facing < 0.0 { -1.0 } else { 1.0 };
+    frame.to_world(ambition_platformer2d_core::Vec2::new(
+        rider_offset.x * side,
+        rider_offset.y,
+    ))
 }
 
 #[cfg(test)]
@@ -758,7 +786,7 @@ mod saddle_tests {
         let offset = Vec2::new(3.0, -11.0);
         // Feet toward world +x: a wall-walker on a right-hand wall.
         let sideways = AccelerationFrame::new(Vec2::new(1.0, 0.0));
-        let world = saddle_world_offset(offset, sideways);
+        let world = saddle_world_offset(offset, 1.0, sideways);
 
         assert!(
             (world.length() - offset.length()).abs() < 1e-4,
@@ -779,6 +807,49 @@ mod saddle_tests {
         );
     }
 
+    /// ⛔⛔ AND THE SADDLE TURNS WITH THE MOUNT.
+    ///
+    /// `AccelerationFrame` knows gravity, not facing, so `to_world` alone left a
+    /// laterally-authored saddle on the same GRAVITY-relative side when the
+    /// mount turned around — while the constraint four lines away hands the
+    /// rider `mount_kin.facing`. A rider that turns with its mount and does not
+    /// move with it has swapped shoulders.
+    ///
+    /// ⭐ THE TWO ASSERTIONS ARE THE TWO HALVES: the side component MUST flip
+    /// and the toward-feet component MUST NOT. A test that only checked "the
+    /// answer changed" would pass for a mirror that flipped both, which is a
+    /// rider standing on its head.
+    #[test]
+    fn a_lateral_saddle_mirrors_with_the_mounts_facing_and_nothing_else_does() {
+        let offset = Vec2::new(3.0, -11.0);
+        let sideways = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+        let right = saddle_world_offset(offset, 1.0, sideways);
+        let left = saddle_world_offset(offset, -1.0, sideways);
+
+        assert!(
+            (right.dot(sideways.side) + left.dot(sideways.side)).abs() < 1e-4,
+            "the saddle's SIDE component did not flip when the mount turned, so a \
+             rider authored on one shoulder stays on the gravity-side it started \
+             on while facing the other way"
+        );
+        assert!(
+            (right.dot(sideways.down) - left.dot(sideways.down)).abs() < 1e-4,
+            "the saddle's TOWARD-FEET component moved when the mount merely \
+             turned around — a mount facing left does not put its rider under it"
+        );
+    }
+
+    /// ⭐ A NEUTRAL FACING KEEPS THE AUTHORED SIDE. `signum(0.0)` is zero, and
+    /// multiplying by it would collapse the lateral offset to nothing rather
+    /// than mirroring it — a rider snapping to the mount's centre line the
+    /// instant its facing passed through zero.
+    #[test]
+    fn a_neutral_facing_does_not_collapse_the_saddle() {
+        let offset = Vec2::new(3.0, -11.0);
+        let frame = AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR);
+        assert_eq!(saddle_world_offset(offset, 0.0, frame), offset);
+    }
+
     /// ⭐ THE PREMISE GUARD FOR THE ARM ABOVE, and the measurement that
     /// condemned the mass term: under DEFAULT gravity the rotation is the
     /// identity. So every arm that only ever ran at default gravity — which is
@@ -790,6 +861,7 @@ mod saddle_tests {
         assert_eq!(
             saddle_world_offset(
                 offset,
+                1.0,
                 AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR)
             ),
             offset

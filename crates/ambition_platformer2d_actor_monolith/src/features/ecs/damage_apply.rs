@@ -1092,6 +1092,12 @@ pub fn stage_player_victim_hit_events(
         (),
         bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
+    // ⭐ THE STABLE IDENTITIES, RESOLVED HERE BECAUSE HERE IS WHERE THE WORLD IS.
+    // The queue's registered checksum is a bare `fn(&T) -> u64` and cannot look
+    // an `Entity` up; carrying the ids on the staged row is the only way the
+    // desync oracle can see WHO a cross-frame hit connects. See
+    // `StagedPlayerHit`.
+    identities: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) {
     for event in hit_events.read() {
         let mine = match event.target {
@@ -1110,7 +1116,17 @@ pub fn stage_player_victim_hit_events(
             _ => !event.source.seeks_victims(),
         };
         if mine {
-            pending.0.push(event.clone());
+            pending.0.push(ambition_combat::events::StagedPlayerHit {
+                attacker_id: event
+                    .attacker
+                    .and_then(|attacker| identities.get(attacker).ok())
+                    .cloned(),
+                victim_id: match event.target {
+                    HitTarget::Body(victim) => identities.get(victim).ok().cloned(),
+                    _ => None,
+                },
+                event: event.clone(),
+            });
         }
     }
 }
@@ -1252,6 +1268,10 @@ pub fn apply_player_hit_events(
     let friendly_fire = combat_rules.friendly_fire();
     let events: Vec<FeatureHitEvent> = std::mem::take(&mut pending_hits.0)
         .into_iter()
+        // ⭐ THE ENTITIES ARE STILL THE ROUTING ANSWER. The stable ids beside
+        // them on the staged row are the FINGERPRINT's — see `StagedPlayerHit`
+        // — so routing keeps exactly one authority and this drain is unchanged.
+        .map(|staged| staged.event)
         // Friendly-fire gate: a same-faction attacker (co-op ally) doesn't damage
         // the player unless friendly fire is on; any different-faction hit lands
         // (the observer takes a duel's strays). Hits with no entity attacker

@@ -226,38 +226,35 @@ pub fn respawn_when_the_interlude_closes(
     >,
     mut due: MessageWriter<FighterRespawnDue>,
 ) {
-    // Collected and sorted: `Query` iteration order is not guaranteed, and the
-    // message order here decides placement order for two fighters returning on
-    // one tick — which is a seat-dependent position.
+    // ⛔⛔ NOT SORTED, AND THE REASON IS THE INTERESTING PART. This carried a
+    // comment saying *"the message order here decides placement order for two
+    // fighters returning on one tick — which is a seat-dependent position"*, and
+    // then sorted to make it true. THE PREMISE WAS FALSE: every
+    // `FighterRespawnDue` consumer reads the SEAT off the body it is placing
+    // (`place_respawning_fighters` takes `Option<&MatchSeat>` and asks
+    // `respawn_placement` for that seat's point), so each returning fighter goes
+    // to its own place and the operation is COMMUTATIVE. Nothing consumes the
+    // order, here or anywhere.
     //
-    // ⛔⛔ BY `SimId`, NOT BY `Entity` — the same rule the clank arbitration
-    // states two files away, and this is what it looked like to get it wrong.
-    // The sort was on `Entity`, which is ALLOCATOR identity: it is stable within
-    // one run and says nothing about which fighter is which, so a comment
-    // declaring that the order is semantically load-bearing sat directly above a
-    // key that cannot carry that meaning. Two peers, or one peer replaying a
-    // world it built in a different order, could canonicalize differently and
-    // both believe they had.
+    // ⭐⭐ AND THE FIRST REPAIR WAS ALSO WRONG, WHICH IS THE LESSON WORTH
+    // KEEPING. The sort was originally on `Entity` — allocator identity, a fake
+    // canonicalization — and the repair sorted on `SimId` instead. That
+    // replaced a fake canonicalization with a REAL one that nothing consumes:
+    // anticipatory ordering infrastructure for a dependency that does not
+    // exist, carrying its own fallback for bodies with no identity. Both
+    // versions answered "what is the canonical key" when the question to ask
+    // was "does anything need one".
     //
-    // ⭐ A FAKE CANONICALIZATION IS WORSE THAN NONE, because the next consumer
-    // trusts it. Today's Smash placement is largely commutative — each fighter
-    // is placed at its own seat's position — so nothing visibly diverges yet;
-    // the ruleset that makes the order matter is the one this would have caught
-    // out.
-    //
-    // ⭐ `(SimId, entity)`, and the second key is only reached by a body with no
-    // `SimId` at all. That is not a fighter in any composed match — every
-    // constructed body is identified — but a hand-built fixture can spawn one,
-    // and a total order that panics on a fixture is a worse answer than a total
-    // order that falls back.
-    let mut ready: Vec<(Option<ambition_platformer2d_shared_tangle::sim_id::SimId>, Entity)> =
-        pending
-            .iter()
-            .filter(|(_, window, _, _)| !window.open())
-            .map(|(entity, _, sim_id, _)| (sim_id.cloned(), entity))
-            .collect();
-    ready.sort();
-    for (_, entity) in ready {
+    // ⇒ a future ruleset that genuinely makes simultaneous returns
+    // order-sensitive should name its own canonical key — probably `MatchSeat`,
+    // which its placement already reads — rather than inheriting a guess made
+    // here on its behalf.
+    let ready: Vec<Entity> = pending
+        .iter()
+        .filter(|(_, window, _, _)| !window.open())
+        .map(|(entity, _, _, _)| entity)
+        .collect();
+    for entity in ready {
         // ⭐ THE WHOLE RETURN, IN ONE PLACE. This says the fighter is back, so
         // it hands back every fact the spend took — including the ones the
         // ENGINE owns. Leaving `OutOfPlay` for `clear_out_of_play_on_restart`
@@ -360,6 +357,22 @@ pub fn spend_fighter_stocks(
         ),
     >,
     mut meters: Query<&mut ambition_characters::actor::BodyHealth>,
+    // ⛔⛔ THE SWING THE STOCK COST, TORN DOWN WHERE THE STOCK IS SPENT. A move
+    // clock is NOT the movement kernel: `advance_move_playback` reads neither
+    // `OutOfPlay` nor `ActiveCombatant`, so a fighter KO'd mid-swing went on
+    // advancing its move for the whole death beat — opening active hit volumes,
+    // firing authored events, throwing projectiles and playing sfx while dead.
+    //
+    // ⭐ BY VALUE, not as a component to strip: cancelling a move means
+    // despawning the strike boxes it derived, and only the playback knows which
+    // entities those are. `cancel_move_playback` is the canonical teardown.
+    //
+    // ⛔ SMASH ALREADY DID THIS — inside `place_respawning_fighters`, which runs
+    // when the fighter comes BACK. Its comment was right that the move did not
+    // survive the stock it cost; it was one lifecycle boundary too late, so the
+    // swing stayed live for the entire interlude and only got cleaned up a
+    // second later. Owned here, by the seam that opens the episode.
+    mut swings: Query<&mut crate::moveset::MovePlayback>,
     interval: Option<Res<RespawnInterval>>,
 ) {
     // Absent resource == zero == the same-tick placement every ruleset had
@@ -373,6 +386,11 @@ pub fn spend_fighter_stocks(
         };
         let eliminated = stocks.spend();
         let remaining = stocks.remaining;
+        // Whether the fighter is out for good or out for a beat, the swing is
+        // over: it belonged to a body that is no longer in the fight.
+        if let Ok(mut playback) = swings.get_mut(knockout.body) {
+            crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback);
+        }
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
             // and it stops being IN the fight, which is the other half of
@@ -674,23 +692,96 @@ mod tests {
             .id()
     }
 
-    /// ⛔⛔ TWO FIGHTERS RETURNING ON ONE TICK ARE ORDERED BY WHO THEY ARE.
+    /// ⛔⛔ THE SWING DOES NOT SURVIVE THE STOCK IT COST.
     ///
-    /// `tick_pending_respawn` sorts its ready list because the message order
-    /// decides placement order, and placement is a seat-dependent position. It
-    /// sorted on `Entity` — ALLOCATOR identity, which is stable within one run
-    /// and carries no gameplay meaning — so a comment declaring the order
-    /// semantically load-bearing sat directly above a key that could not carry
-    /// it. The clank arbitration two files away had already written down why
-    /// `Entity` cannot be that key.
+    /// A move clock is not the movement kernel. D201 froze the body — `OutOfPlay`
+    /// halts `step_body`, the control hold silences input — but
+    /// `advance_move_playback` reads neither `OutOfPlay` nor `ActiveCombatant`,
+    /// so a fighter KO'd mid-swing went on advancing its move for the whole
+    /// death beat: opening active hit volumes, firing authored events, throwing
+    /// projectiles and playing sfx while dead.
     ///
-    /// ⭐⭐ THE ARMS SPAWN THE SAME TWO SEMANTIC FIGHTERS IN OPPOSITE ALLOCATION
-    /// ORDER, which is the only way to tell a real canonicalization from one
-    /// that merely looks sorted: under `Entity` the second arm comes back
-    /// REVERSED, and both arms would still have "passed" a test that only
-    /// checked the list was sorted by its own key.
+    /// ⭐ SMASH ALREADY CANCELLED IT — inside `place_respawning_fighters`, which
+    /// runs when the fighter comes BACK. That comment was right that the move
+    /// did not survive the stock; it was one lifecycle boundary too late. Owned
+    /// here now, by the seam that opens the episode.
+    ///
+    /// ⭐ THE SURVIVING-STOCK ARM IS THE PREMISE GUARD: a spend that cancelled
+    /// nothing, or one that cancelled by eliminating the fighter outright, would
+    /// satisfy the first assertion for the wrong reason.
     #[test]
-    fn simultaneous_returns_are_ordered_by_identity_not_by_allocation() {
+    fn a_knocked_out_fighter_stops_swinging_the_move_that_cost_it_the_stock() {
+        use crate::moveset::MovePlayback;
+
+        fn swing_after_knockout(stocks: u32) -> bool {
+            let mut app = respawn_app(0.5);
+            let body = combat_fighter(&mut app, stocks);
+            app.world_mut()
+                .entity_mut(body)
+                .insert(MovePlayback::new(
+                    ambition_entity_catalog::MoveSpec {
+                        display_name: None,
+                        id: "swing".to_string(),
+                        clip: ambition_entity_catalog::ClipBinding {
+                            clip: "swing".to_string(),
+                            fallbacks: vec![],
+                        },
+                        duration_s: 5.0,
+                        windows: vec![],
+                        events: vec![],
+                        gates: Default::default(),
+                        start_impulse: None,
+                        smash_charge_mult: 1.0,
+                        smash_charge: None,
+                        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+                        repeat: None,
+                        landing_lag_s: None,
+                        autocancel_after_s: None,
+                        sprite_spin_hz: None,
+                    },
+                    1.0,
+                ));
+            app.update();
+            let _ = returned_this_tick(&mut app);
+            assert!(
+                app.world().get::<MovePlayback>(body).is_some(),
+                "the fixture lost its swing before the knockout, so nothing below \
+                 measures the spend"
+            );
+            knock_out(&mut app, body);
+            app.world().get::<MovePlayback>(body).is_some()
+        }
+
+        assert!(
+            !swing_after_knockout(3),
+            "a fighter that lost a stock kept swinging: its move goes on opening \
+             hit volumes and firing authored events for the whole death beat"
+        );
+        assert!(
+            !swing_after_knockout(1),
+            "an ELIMINATED fighter kept swinging — the move belonged to a body \
+             that is not in the fight either way"
+        );
+    }
+
+    /// ⛔⛔ TWO FIGHTERS DUE ON ONE TICK BOTH COME BACK — AND THE ORDER IS NOT
+    /// ASSERTED, DELIBERATELY.
+    ///
+    /// This arm used to demand a canonical ORDER, and that was a claim about a
+    /// consumer that does not exist. Every `FighterRespawnDue` consumer reads the
+    /// SEAT off the body it is placing, so two returning fighters go to two
+    /// different authored points and the operation is commutative. Asserting an
+    /// order here would pin infrastructure nothing needs, and — worse — would go
+    /// on passing after somebody removed the sort, because with two bodies the
+    /// query happens to come back in allocation order anyway. It did exactly
+    /// that, which is how a test starts measuring luck.
+    ///
+    /// ⭐ SO IT MEASURES THE SET. Both fighters return, both on the SAME tick,
+    /// and that answer does not move when the same two semantic fighters are
+    /// SPAWNED in the opposite order — which is the property that would actually
+    /// break if returns became allocation-sensitive.
+    #[test]
+    fn two_fighters_due_on_one_tick_both_return_whatever_order_they_were_spawned_in() {
         use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
         /// Spawn `alpha` and `beta` in the given allocation order, knock both
@@ -749,21 +840,23 @@ mod tests {
                 .collect()
         }
 
-        let forward = returned_order(true);
-        // The premise: both fighters really do come back on ONE tick. Without
+        let mut forward = returned_order(true);
+        let mut reversed = returned_order(false);
+        // The premise: both fighters really do come back, on ONE tick. Without
         // this the equality below is satisfied by two empty lists.
         assert_eq!(
             forward.len(),
             2,
-            "the two fighters did not return on the same tick, so this proves \
-             nothing about the order they return in"
+            "the two fighters did not both return on the same tick, so nothing \
+             below is measuring what it says"
         );
+        forward.sort();
+        reversed.sort();
         assert_eq!(
-            forward,
-            returned_order(false),
-            "the same two fighters returned in a different order when they were \
-             SPAWNED in a different order — the sort key is allocation identity, \
-             not who the fighters are"
+            forward, reversed,
+            "the same two fighters came back as a different SET when they were \
+             spawned in the opposite order — returning is supposed to depend on \
+             the window closing and nothing else"
         );
     }
 

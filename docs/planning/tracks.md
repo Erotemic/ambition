@@ -299,9 +299,14 @@ L9  46.0 / cap 420  = 11.0%                     20
   guard is NOT vacuous though — it carries its own non-vacuity arm** (*"the rig
   produced no presses at all"*), added after it once went green over an unarmed
   attack kit; what is inert is the CAP, not the check. ⇒ **and `distinct_frames`
-  is FLAT (19–21) across all nine rungs**: a level 9 fighter uses the same
-  repertoire as a level 1, only faster. **Difficulty is a tempo knob and nothing
-  else.**
+  is FLAT (19–21) across every rung** — but ⛔⛔ **that is a fact about the
+  FIXTURE, not the ladder, and reading it as one was wrong.** A `Scenario` never
+  steps a world. Measured in a REAL MATCH the ladder broadens: distinct moves
+  started go **L1 11, L3 15, L5 17, L6 14, L9 17**, the top rung reaching grabs,
+  pummels, throws and smashes the bottom never touches. ⚠ and that measurement is
+  WINDOW-SENSITIVE — at 900 ticks the same sweep reports L9 at SIX, the opposite
+  conclusion, because a fast rung spends more of a short window committed. See
+  `probe_repertoire_by_rung` and D244.
 
   ⭐ **AND THE GENRE'S ANSWER IS ALREADY PARTLY SHIPPED.** A high-level CPU in
   this genre uses more of its kit and reads better, and the match sweep above

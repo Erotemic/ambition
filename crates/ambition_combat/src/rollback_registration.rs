@@ -266,6 +266,15 @@ where
         OWNER,
         "message.fighter_stock_spent",
     );
+    // ⛔ D192's return cue. A reader's cursor is `Local` state GGRS never rewinds,
+    // so an abandoned future's cursor would either re-read a consumed
+    // `FighterRespawnDue` — placing a body twice — or skip an unread one, leaving
+    // a fighter waiting forever on a beat that already elapsed. Both are
+    // positions on the stage, which is the loudest kind of desync.
+    registrar.clear_message_on_rollback::<crate::stocks::FighterRespawnDue>(
+        OWNER,
+        "message.fighter_respawn_due",
+    );
     registrar.clear_message_on_rollback::<crate::stocks::StocksMatchDecided>(
         OWNER,
         "message.stocks_match_decided",

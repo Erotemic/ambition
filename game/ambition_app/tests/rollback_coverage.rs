@@ -842,6 +842,19 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // D192's authored respawn beat, in ticks.
+    //
+    // ⭐ CONFIG, NOT STATE, and structurally so: the ruleset inserts it once in
+    // its plugin `build` and NOTHING in the simulation writes it — `spend_fighter_stocks`
+    // takes `Option<Res<_>>` and only reads `.ticks`. A rewind restoring it would
+    // restore the same number it already holds.
+    //
+    // ⛔ what IS rollback state is the countdown it seeds — `PendingRespawn` is
+    // registered canonically, because the tick a body is placed on is a position.
+    (
+        "ambition_combat::stocks::RespawnInterval",
+        "authored config: inserted once at plugin build, never written by a system; the countdown it seeds (PendingRespawn) is registered",
+    ),
     // The condition catalog: which questions the installed domains can
     // answer, and the function that answers each.
     //

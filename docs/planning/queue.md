@@ -8242,6 +8242,26 @@ Smash preparation  produces runtime MoveSpecs / fighter data
 ⇒ **the generic engine should not need to know Smash move-slot taxonomy** — and
 until a facet seam exists, it does, which is the whole content of this row.
 
+◐ **THE RESTITCH POINT HAS PARTLY ARRIVED — status 2026-08-26, recorded rather
+than acted on.** `SmashFighterFacet` is real and George authors one on disk
+(`tools/…/characters/george_booul/smash_fighter.ron`), compiled through the
+demo's pack. What now rides the facet:
+
+```text
+capture kit   grab / pummel / throws        ON THE FACET (shipped)
+fighter BODY  gravity, fall speed, gait…    ON THE FACET (2026-08-26), reaching
+                                            the seat as `MatchParticipant::body`
+sixteen moves the composed `SmashRepertoire` STILL Rust, and DELIBERATELY
+```
+
+⛔ **the moves are not the next slice, and the refusal is written into the facet
+file itself**: *"do NOT flatten George's sixteen composed moves into RON —
+representation and ownership are separate questions"*. The Rust table is BUILT by
+composing `strike` / `impulse` / `on_hit` / `committed_tail` / `feel`, and that
+composition is the design. ⇒ this row's remaining content is the OWNERSHIP
+question for a SECOND character's values, not a representation change to the
+first.
+
 ⭐⭐ **THE CUSTOMER ARRIVED, AND IT NAMED THE SEAM PRECISELY (2026-08-18, the
 grab campaign).** Capture was built to Jon's plan, landed end to end, and then
 put enough load on the transitional generic structures to show exactly where the

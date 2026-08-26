@@ -127,6 +127,17 @@ cmd_setup() {
     ( cd "$path" && python3 "$path/scripts/mirror_assets_for_worktree.py" ) \
         || printf '⚠ asset mirror failed in %s\n' "$path"
 
+    # ⛔ GITIGNORED FILES THAT TRACKED DOCS LINK TO. `README.md:46` points at
+    # `.agent/README.md`, which `.gitignore:109` excludes — so `check_doc_links.py`
+    # FAILS in every fresh worktree and passes in the main checkout, which reads
+    # as "this worktree is broken" rather than "that file does not travel".
+    for stray in .agent/README.md; do
+        if [ -f "$MAIN/$stray" ] && [ ! -e "$path/$stray" ]; then
+            mkdir -p "$path/$(dirname "$stray")"
+            ln -s "$MAIN/$stray" "$path/$stray" && printf 'linked %s from the main checkout\n' "$stray"
+        fi
+    done
+
     # Fast storage, and its own store: setup_target_bindmount.sh keys the store
     # by worktree path, so slots never share one.
     ( cd "$path" && "$path/scripts/setup_target_bindmount.sh" ) \

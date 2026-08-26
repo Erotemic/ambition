@@ -290,8 +290,10 @@ L9 mean apm 46.0 (cap 420)   distinct frames 20
 ```
 
   ⇒ **the APM CAP IS INERT** — every rung runs at roughly a TENTH of its own
-  limit, so the number the ladder authors forbids nothing at any level, and the
-  guard that asserts rungs stay under it can never fail. ⇒ **and `distinct_frames`
+  limit, so the number the ladder authors forbids nothing at any level. ⚠ **the
+  guard is NOT vacuous though — it carries its own non-vacuity arm** (*"the rig
+  produced no presses at all"*), added after it once went green over an unarmed
+  attack kit; what is inert is the CAP, not the check. ⇒ **and `distinct_frames`
   is FLAT (19–21) across all nine rungs**: a level 9 fighter uses the same
   repertoire as a level 1, only faster. **Difficulty is a tempo knob and nothing
   else.**

@@ -65,11 +65,23 @@ fn no_rung_presses_faster_than_its_profile_allows() {
 /// so. Winning is a survival/damage question that needs two bodies fighting;
 /// this rig has one brain and a scripted opponent. What it can say is that the
 /// rungs are not interchangeable and that they order the way the ladder intends:
-/// mean APM rises monotonically, 28.5 at L1 to 103.5 at L9.
+/// mean APM rises monotonically.
 ///
-/// and one calibration fact worth keeping: every rung sits near a QUARTER of
-/// its own cap. The caps are not what separates the levels — reaction and
-/// decision cadence are — so raising a cap alone would move nothing.
+/// ⛔⛔ THE NUMBERS IN THIS COMMENT HAD DRIFTED BY MORE THAN 2x, re-measured
+/// 2026-08-26 at seed `0x5EED` (`probe_ladder_census`). It said *"28.5 at L1 to
+/// 103.5 at L9"* and *"a QUARTER of its own cap"*. Current:
+///
+/// ```text
+/// L1 mean apm 12.7 (cap 120)   L5 29.3 (270)   L9 46.0 (420)
+/// ```
+///
+/// ⇒ the conclusion SURVIVES and gets stronger — every rung now sits near a
+/// TENTH of its own cap, so the caps separate the levels even less than this
+/// paragraph claimed. Reaction and decision cadence are what order the ladder;
+/// raising a cap alone would still move nothing.
+///
+/// ⚠ a number written into a comment beside a live probe goes stale silently.
+/// Re-run `probe_ladder_census` before quoting these.
 #[test]
 fn the_ladder_is_ordered_by_press_rate() {
     let rows = report(0x5EED);

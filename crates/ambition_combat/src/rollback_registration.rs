@@ -388,7 +388,35 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
     use crate::events::{HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
     let mut bytes = Vec::new();
     put_u64(&mut bytes, pending.0.len() as u64);
-    for event in &pending.0 {
+    for staged in &pending.0 {
+        // ⛔⛔ WHO, AND IT WAS THE BIGGER HOLE. The reaction byte below separated
+        // "same people, different reaction"; nothing separated "different
+        // people, same reaction". The attacker was reduced to `is_some()` and
+        // `HitTarget::Body(victim)` to its tag, so A-hits-X and B-hits-Y
+        // fingerprinted identically — and `HitTarget::Body` is documented as the
+        // COMPLETE victim-routing answer, used by projectiles, contact damage,
+        // empowerment, enemy hits and blast-zone events alike.
+        //
+        // ⛔ NOT THE `Entity`, EVER. That is allocator identity: hashing it
+        // would report a desync every time two peers allocated in a different
+        // order, which is a worse instrument than a blind one. The staged row
+        // carries the bodies' stable ids for exactly this — resolved at staging,
+        // where a `World` is in hand, because a registered checksum never has one.
+        match &staged.attacker_id {
+            None => put_bool(&mut bytes, false),
+            Some(id) => {
+                put_bool(&mut bytes, true);
+                put_str(&mut bytes, id.as_str());
+            }
+        }
+        match &staged.victim_id {
+            None => put_bool(&mut bytes, false),
+            Some(id) => {
+                put_bool(&mut bytes, true);
+                put_str(&mut bytes, id.as_str());
+            }
+        }
+        let event = &staged.event;
         let bounds = event.volume.bounds();
         put_vec2(&mut bytes, bounds.min);
         put_vec2(&mut bytes, bounds.max);
@@ -498,7 +526,19 @@ mod pending_hit_checksum_tests {
     use ambition_platformer2d_core::hit_response::HitReaction;
 
     fn staged(reaction: HitReaction) -> PendingPlayerHitEvents {
-        PendingPlayerHitEvents(vec![HitEvent {
+        staged_between(reaction, Some("alpha"), Some("xavier"))
+    }
+
+    fn staged_between(
+        reaction: HitReaction,
+        attacker: Option<&str>,
+        victim: Option<&str>,
+    ) -> PendingPlayerHitEvents {
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        PendingPlayerHitEvents(vec![crate::events::StagedPlayerHit {
+            attacker_id: attacker.map(SimId::placement),
+            victim_id: victim.map(SimId::placement),
+            event: HitEvent {
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),
             damage: 0,
             source: HitSource::Melee,
@@ -514,8 +554,9 @@ mod pending_hit_checksum_tests {
                 launch_dir: None,
                 follow: None,
             }),
-            ignored_targets: Vec::new(),
-            strike_sfx: None,
+                ignored_targets: Vec::new(),
+                strike_sfx: None,
+            },
         }])
     }
 
@@ -539,6 +580,67 @@ mod pending_hit_checksum_tests {
     /// projection that has become sensitive to something incidental — the vector's
     /// address, an iteration order — and would then differ for two IDENTICAL
     /// queues too.
+    /// ⛔⛔ AND WHO THE HIT CONNECTS, WHICH WAS THE BIGGER HOLE OF THE TWO.
+    ///
+    /// The reaction byte separates "same people, different reaction". Nothing
+    /// separated "different people, same reaction": the attacker was reduced to
+    /// `is_some()` and `HitTarget::Body(victim)` to its bare tag, so a staged
+    /// A-hits-X and a staged B-hits-Y fingerprinted identically with every other
+    /// field equal — while `HitTarget::Body` is documented as the COMPLETE
+    /// victim-routing answer.
+    ///
+    /// ⭐ THE LAST ARM IS THE ONE THAT SAYS THE KEY IS SEMANTIC. Rebuilding the
+    /// same two named bodies must give the same fingerprint however the world
+    /// allocated them — which is the property `Entity` could never have, and the
+    /// reason hashing it would have been a worse instrument than the blindness
+    /// it replaced.
+    #[test]
+    fn who_the_hit_connects_is_in_the_fingerprint_and_it_is_not_the_entity() {
+        let baseline = pending_player_hits_checksum(&staged_between(
+            HitReaction::Strike,
+            Some("alpha"),
+            Some("xavier"),
+        ));
+
+        assert_ne!(
+            baseline,
+            pending_player_hits_checksum(&staged_between(
+                HitReaction::Strike,
+                Some("alpha"),
+                Some("yolanda"),
+            )),
+            "the same attacker hitting a DIFFERENT victim fingerprinted the same"
+        );
+        assert_ne!(
+            baseline,
+            pending_player_hits_checksum(&staged_between(
+                HitReaction::Strike,
+                Some("bravo"),
+                Some("xavier"),
+            )),
+            "a DIFFERENT attacker hitting the same victim fingerprinted the same"
+        );
+        assert_ne!(
+            baseline,
+            pending_player_hits_checksum(&staged_between(
+                HitReaction::Strike,
+                None,
+                Some("xavier"),
+            )),
+            "an UNIDENTIFIED attacker fingerprinted the same as a named one"
+        );
+        assert_eq!(
+            baseline,
+            pending_player_hits_checksum(&staged_between(
+                HitReaction::Strike,
+                Some("alpha"),
+                Some("xavier"),
+            )),
+            "two queues naming the same two bodies fingerprinted differently, so \
+             the key is not semantic identity after all"
+        );
+    }
+
     #[test]
     fn a_windbox_and_a_strike_do_not_fingerprint_the_same() {
         assert_eq!(

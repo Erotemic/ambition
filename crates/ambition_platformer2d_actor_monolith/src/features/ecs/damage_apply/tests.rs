@@ -1137,7 +1137,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         1,
         "only the hit resolved onto a body THIS resolver owns belongs in its FIFO"
     );
-    assert_eq!(pending[0].target, ambition_combat::HitTarget::Body(victim));
+    assert_eq!(pending[0].event.target, ambition_combat::HitTarget::Body(victim));
 }
 
 /// A staged victim hit must not survive a room-lifecycle boundary: the void
@@ -1167,7 +1167,14 @@ fn a_lifecycle_boundary_voids_staged_player_hits() {
         app.world_mut()
             .resource_mut::<ambition_combat::events::PendingPlayerHitEvents>()
             .0
-            .push(staged_hit());
+            .push(ambition_combat::events::StagedPlayerHit {
+                event: staged_hit(),
+                // The fixture builds the event by hand rather than through the
+                // staging system, so it names no identities. `None` is the
+                // honest answer and the checksum is not what this arm measures.
+                attacker_id: None,
+                victim_id: None,
+            });
         app
     }
 

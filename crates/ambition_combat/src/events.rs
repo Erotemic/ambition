@@ -246,14 +246,53 @@ pub enum HitTarget {
     UnresolvedFeatures,
 }
 
+/// One hit waiting in the cross-frame FIFO, with the STABLE IDENTITIES of the
+/// two bodies it connects.
+///
+/// ⛔⛔ THE IDS EXIST BECAUSE THE CHECKSUM CANNOT ASK THE WORLD. A registered
+/// checksum is a bare `fn(&T) -> u64` with no `World`, so the only identity it
+/// can see is whatever the queue itself carries — and the queue carried
+/// `Entity`, which is allocator identity and must never be hashed. So the
+/// projection reduced the attacker to `is_some()` and the victim to the tag
+/// `Body`, and "A hits X" fingerprinted the same as "B hits Y" with every other
+/// field equal. The desync oracle could not see WHO a staged hit connects,
+/// which is most of what a staged hit is.
+///
+/// ⭐ RESOLVED AT STAGING, WHERE THE WORLD IS IN HAND. Both are written once, by
+/// the one system that fills this queue, and then rewound with it — so they
+/// cannot drift from the `Entity` handles beside them the way a lazily
+/// recomputed copy would.
+///
+/// ⭐ THE ENTITIES ARE STILL THE RUNTIME ANSWER. `MapEntities` fixes them across
+/// a rollback and the consumer routes on them exactly as before; these ids are
+/// the FINGERPRINT's, not a second routing authority. One thing decides where a
+/// hit lands.
+///
+/// ⚠ `None` MEANS UNIDENTIFIED, AND TWO UNIDENTIFIED BODIES STILL COLLIDE. Every
+/// body in a composed match carries a `SimId`; a hand-built fixture can spawn one
+/// that does not, and for those the oracle is no blinder than it was. Stated
+/// rather than papered over with an allocator-derived fallback, which would trade
+/// blindness for false desync reports.
+#[derive(Clone, Debug)]
+pub struct StagedPlayerHit {
+    pub event: HitEvent,
+    /// Who dealt it. `None` for a hit with no attacker entity, or one whose
+    /// attacker carries no stable identity.
+    pub attacker_id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// Who it was routed to, for a `HitTarget::Body` hit. `None` for every
+    /// target that names no body.
+    pub victim_id: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+}
+
 /// Rollback-registered FIFO for victim-side hits that intentionally cross a frame boundary.
 /// Bevy message buffers and reader cursors are not rollback state.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
-pub struct PendingPlayerHitEvents(pub Vec<HitEvent>);
+pub struct PendingPlayerHitEvents(pub Vec<StagedPlayerHit>);
 
 impl bevy::ecs::entity::MapEntities for PendingPlayerHitEvents {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        for event in &mut self.0 {
+        for staged in &mut self.0 {
+            let event = &mut staged.event;
             if let Some(attacker) = event.attacker.as_mut() {
                 *attacker = mapper.get_mapped(*attacker);
             }

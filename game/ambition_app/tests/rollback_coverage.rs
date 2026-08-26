@@ -845,18 +845,25 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
-    // D192's authored respawn beat, in ticks.
+    // The authored respawn beat, in SECONDS.
     //
     // ⭐ CONFIG, NOT STATE, and structurally so: the ruleset inserts it once in
-    // its plugin `build` and NOTHING in the simulation writes it — `spend_fighter_stocks`
-    // takes `Option<Res<_>>` and only reads `.ticks`. A rewind restoring it would
-    // restore the same number it already holds.
+    // its plugin `build` and NOTHING in the simulation writes it. A rewind
+    // restoring it would restore the same number it already holds.
     //
-    // ⛔ what IS rollback state is the countdown it seeds — `PendingRespawn` is
-    // registered canonically, because the tick a body is placed on is a position.
+    // ⛔ WHAT IS ROLLBACK STATE IS `DeathInterlude::remaining`, the countdown
+    // this SEEDS — the window a body waits out is a position in time, so it
+    // rewinds. `PendingRespawn` beside it is a MARKER: it names the consequence
+    // the window owes when it closes and carries no countdown of its own.
+    //
+    // ⛔⛔ THIS PARAGRAPH DESCRIBED THE OLD IMPLEMENTATION FOR SEVERAL COMMITS.
+    // It said `.ticks`, and that the countdown was `PendingRespawn` — both true
+    // of D192 and neither true after D201 moved the window into `DeathInterlude`.
+    // The waiver is keyed by TYPE NAME, so nothing failed; a stale reason in a
+    // waiver hands the next rollback reviewer an architecture that is gone.
     (
         "ambition_combat::stocks::RespawnInterval",
-        "authored config: inserted once at plugin build, never written by a system; the countdown it seeds (PendingRespawn) is registered",
+        "authored config in seconds: inserted once at plugin build, never written by a system; the countdown it seeds (DeathInterlude::remaining) is registered",
     ),
     // SOMEBODY ASKED TO STOP A MATCH, and this one is waived because rewinding
     // it would LOSE the request rather than preserve it.

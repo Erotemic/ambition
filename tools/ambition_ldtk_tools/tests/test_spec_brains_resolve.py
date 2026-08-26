@@ -14,7 +14,17 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[3]
 SPECS = REPO / "tools/ambition_ldtk_tools/specs"
-ROSTER = REPO / "game/ambition_content/assets/data/character_archetypes.ron"
+# ⛔⛔ THE ARCHETYPE ROSTER WAS DELETED — `74bd5e9ae Delete the enemy-archetype
+# ontology: a body is what its character says` — and this guard pointed at the
+# file for long enough to go dark: every test here died on `FileNotFoundError`
+# rather than reporting anything, in a suite the project's cargo gate never runs.
+#
+# ⭐ THE SURVIVING ROSTER IS THE CATALOG'S TWO BRAIN SECTIONS. A spec `brain:`
+# names a built-in controller, or a key resolved through `autonomous_profiles` /
+# `brain_presets`, or nothing — and the rule below is unchanged: naming nothing
+# is allowed only when the placement also identifies its character.
+ROSTER = REPO / "game/ambition_content/assets/data/character_catalog.ron"
+ROSTER_SECTIONS = ("autonomous_profiles", "brain_presets")
 
 # : `parse_enemy_brain` and `parse_boss_brain` :
 # (crates/ambition_platformer2d_ldtk/src/fields.rs) resolve these themselves; : everything else
@@ -29,10 +39,30 @@ _BRAIN = re.compile(r'brain"?\s*:\s*"([^"]+)"')
 
 
 def _roster_rows() -> frozenset[str]:
-    """Top-level keys of the archetype roster — the rows a `brain:` can name."""
-    rows = re.findall(
-        r'^\s{4}"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:\s*\(', ROSTER.read_text(), re.MULTILINE
-    )
+    """Keys a `brain:` can name — the catalog's brain sections, not characters.
+
+    ⚠ the CHARACTERS section is deliberately excluded. A placement identifies its
+    character with `character_id`; `brain:` names a CONTROLLER, and folding 130
+    character ids into this set would let a placement that names a character in
+    the brain field pass as resolved.
+    """
+    text = ROSTER.read_text()
+    rows: set[str] = set()
+    for section in ROSTER_SECTIONS:
+        opened = re.search(r"^\s{4}" + section + r":\s*\{", text, re.MULTILINE)
+        assert opened, f"{ROSTER} has no `{section}:` section"
+        index, depth = opened.end(), 1
+        while index < len(text) and depth:
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+            index += 1
+        rows |= set(
+            re.findall(
+                r'^\s{8}"([a-zA-Z_][a-zA-Z0-9_]*)"\s*:', text[opened.end() : index], re.MULTILINE
+            )
+        )
     assert rows, (
         f"{ROSTER} parsed to zero rows, so every brain below would look dead and "
         "this guard would report the whole repository as broken. The row regex "

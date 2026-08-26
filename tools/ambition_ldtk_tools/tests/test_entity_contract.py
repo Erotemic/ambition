@@ -113,12 +113,28 @@ def test_a_tolerated_field_warns_rather_than_erroring():
 
 
 def test_a_silently_defaulted_value_is_an_authoring_error():
-    # `LoadingZoneActivation` falls through to Door, so `edgeexit` IS a door and
-    # nothing anywhere says so.
-    project = _project(_entity("LoadingZone", "z1", id="exit", activation="edgeexit"))
+    """A value the converter quietly substitutes is still a mistake.
+
+    ⛔ THE SUBJECT MOVED, and that is the good news. This used to use
+    `LoadingZone.activation` — *"falls through to Door, so `edgeexit` IS a door
+    and nothing anywhere says so"* — and the converter was FIXED: it refuses an
+    unrecognised spelling now and says so by name
+    (`ldtk/src/lib.rs`, *"rather than silently becoming a Door"*), so the
+    contract calls that field `refused` and this test had been asserting the old
+    world. It was red from that day, invisibly, because nothing runs this suite.
+
+    ⭐ nine fields still declare `silent_default`, so the disposition is alive and
+    worth guarding; `KinematicPath.mode` is one, substituting `PingPong`.
+    """
+    # ⚠ `points` and `speed` are supplied so the ONLY issue is the one under
+    # test: a bare `KinematicPath` also trips `required_field_missing`, which
+    # would make this assertion about the fixture rather than the disposition.
+    project = _project(
+        _entity("KinematicPath", "k1", points="0,0;100,0", speed=110, mode="sideways")
+    )
     issues = entity_contract_issues(project)
     assert [i.code for i in issues] == ["contract.value_silently_defaulted"]
-    assert "Door" in issues[0].message
+    assert "PingPong" in issues[0].message
 
 
 def test_a_legal_activation_is_silent():

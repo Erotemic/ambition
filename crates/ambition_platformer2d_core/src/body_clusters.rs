@@ -417,6 +417,61 @@ pub struct BodyFlightState {
     /// model. It lives in rollback-registered `BodyFlightState`, and `Vec2::ZERO`
     /// is the no-op/empty representation.
     pub pending_launch: crate::Vec2,
+    /// IS THE PENDING LAUNCH A PUSH RATHER THAN A HIT?
+    ///
+    /// ⭐⭐ THE FLOOR GAME IS DECIDED FROM SPEED ALONE WITHOUT THIS. The one
+    /// gateway every launch passes through asks `jab_lock` and
+    /// `launch_into_tumble` from `launch.length()`, so a WEAK GUST could pin a
+    /// prone body where it lies and a STRONG one could send it tumbling — both
+    /// against a volume whose authored contract is *"moves you and leaves you in
+    /// control"*.
+    ///
+    /// ⛔ THE KIND WAS GENUINELY ABSENT, unlike the parry and guard halves of the
+    /// same review item, where `flinchless` was already riding the knockback to
+    /// the site. `pending_launch` is a bare `Vec2`, so the gateway had nothing to
+    /// read — which is why this one costs wire format and those did not.
+    ///
+    /// ⛔ STAGE THE PAIR WITH [`Self::stage_launch`] AND DRAIN IT WITH
+    /// [`Self::take_launch`]. A caller that writes `pending_launch` directly gets
+    /// `false`, which is what an ordinary knockback means, and is why the many
+    /// fixtures that set the vector by hand still say what they meant.
+    pub pending_launch_flinchless: bool,
+}
+
+/// A launch waiting at the gateway, and what KIND of thing it is.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PendingLaunch {
+    pub velocity: crate::Vec2,
+    /// A push, not a hit: it moves the body and leaves it in control, so it
+    /// neither pins a prone body nor starts a tumble.
+    pub flinchless: bool,
+}
+
+impl PendingLaunch {
+    /// Nothing is waiting. `Vec2::ZERO` is the empty state, so the common path
+    /// is one comparison.
+    pub fn is_empty(&self) -> bool {
+        self.velocity.length_squared() <= 1.0e-6
+    }
+}
+
+impl BodyFlightState {
+    /// Hand a launch to the gateway, with the kind it is.
+    ///
+    /// ⭐ ONE CALL FOR THE PAIR, so a writer cannot set the velocity and forget
+    /// the kind — which is the whole hazard of a flag beside a vector.
+    pub fn stage_launch(&mut self, velocity: crate::Vec2, flinchless: bool) {
+        self.pending_launch = velocity;
+        self.pending_launch_flinchless = flinchless;
+    }
+
+    /// Take the waiting launch, clearing both halves together.
+    pub fn take_launch(&mut self) -> PendingLaunch {
+        PendingLaunch {
+            velocity: std::mem::replace(&mut self.pending_launch, crate::Vec2::ZERO),
+            flinchless: std::mem::replace(&mut self.pending_launch_flinchless, false),
+        }
+    }
 }
 
 /// Blink RESOURCE: the recharge cooldown, preserved across policy switches.

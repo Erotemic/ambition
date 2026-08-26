@@ -6,15 +6,15 @@
 //! plus the complete world-space acceleration for the body tick. It never lives
 //! inside a model spec and is never rebuilt by an individual solver.
 
-use crate::collision_semantics::{Contact, ContactKind, supporting_block};
+use crate::collision_semantics::{supporting_block, Contact, ContactKind};
 use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
 use super::model::MotionModel;
 use super::surface_momentum::{self, SurfaceBody, SurfaceInputs};
 use super::{
-    FrameEvents, GroundContactTransition, InputState, ResetCause, touching_hazard_aabb,
-    touching_rebound_aabb,
+    touching_hazard_aabb, touching_rebound_aabb, FrameEvents, GroundContactTransition, InputState,
+    ResetCause,
 };
 
 /// One deterministic movement tick's complete external context.
@@ -125,7 +125,7 @@ pub fn step_motion(
     // which sets the velocity, goes airborne, and then takes its substep.
     //
     // and it is drained in ONE place on purpose.
-    let launch = std::mem::replace(&mut clusters.flight.pending_launch, crate::Vec2::ZERO);
+    let launch = clusters.flight.take_launch();
     accept_external_launch(model, clusters, &ctx, launch);
     match model {
         MotionModel::AxisSwept(axis) => {
@@ -252,11 +252,13 @@ fn accept_external_launch(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: &MotionStepContext<'_>,
-    launch: crate::Vec2,
+    launch: crate::body_clusters::PendingLaunch,
 ) {
-    if launch.length_squared() <= 1.0e-6 {
+    if launch.is_empty() {
         return;
     }
+    let flinchless = launch.flinchless;
+    let launch = launch.velocity;
     match model {
         // Assigning again is deliberate rather than redundant: it makes the launch channel the
         // single story for every model, so a reader does not have to know which arm secretly relies
@@ -266,7 +268,15 @@ fn accept_external_launch(
             // launch: a body already prone that takes a weak hit is re-pinned
             // where it lies, and assigning the velocity before asking would
             // slide it away from the spot the attacker is standing over.
-            if super::knockdown::jab_lock(&mut axis.state, axis.params, launch.length()) {
+            // ⛔⛔ AND A PUSH DECIDES NO FLOOR GAME. Both questions below were
+            // asked from SPEED ALONE, so a weak gust pinned a prone body where
+            // it lay and a strong one sent it tumbling — against a volume whose
+            // authored contract is *"moves you and leaves you in control"*. The
+            // KIND is the only thing that separates them, and it had to be
+            // carried here because a bare `Vec2` says nothing about it.
+            if !flinchless
+                && super::knockdown::jab_lock(&mut axis.state, axis.params, launch.length())
+            {
                 return;
             }
             clusters.kinematics.vel = launch;
@@ -277,7 +287,13 @@ fn accept_external_launch(
             // reaction that resolved the knockback holds neither. Asking it at
             // the one gateway every launch already passes through is what keeps
             // it from being a follow-up call some caller forgets.
-            if super::knockdown::launch_into_tumble(&mut axis.state, axis.params, launch.length()) {
+            if !flinchless
+                && super::knockdown::launch_into_tumble(
+                    &mut axis.state,
+                    axis.params,
+                    launch.length(),
+                )
+            {
                 // Without it a launched body carried its stale resting contact into the same
                 // step's `tick_knockdown`, which read `on_ground == true`, called that a
                 // landing *while still tumbling*, and resolved the whole thing to a KNOCKDOWN —

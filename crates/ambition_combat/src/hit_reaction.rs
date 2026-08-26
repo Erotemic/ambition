@@ -213,7 +213,10 @@ pub fn apply_body_hit_reaction(
     // thing that knows whether a launch means *leave the surface* or *override
     // the run*. Written here rather than applied here for the same reason: this
     // function has a `&mut Vec2` and no world and no `MotionModel`.
-    flight.pending_launch = launch;
+    // …with the KIND it is, because the gateway that drains this decides the
+    // floor game from it: a gust must neither pin a prone body nor start a
+    // tumble, and speed alone cannot tell it from a hit.
+    flight.stage_launch(launch, knockback.flinchless);
     // ⭐⭐ A GUST MOVES YOU AND LEAVES YOU IN CONTROL. The launch above is
     // computed exactly as a strike's is — a windbox authors its strength and
     // direction the ordinary way — and the ONE difference is here: no hitstun,

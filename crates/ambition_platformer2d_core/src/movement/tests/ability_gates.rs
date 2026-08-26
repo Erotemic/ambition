@@ -1146,6 +1146,82 @@ fn fast_fall_is_refused_inside_a_tumble_and_returns_when_it_ends() {
     );
 }
 
+/// ⛔⛔ A GUST DECIDES NO FLOOR GAME — IT NEITHER PINS NOR TUMBLES.
+///
+/// The one gateway every launch passes through asked `jab_lock` and
+/// `launch_into_tumble` from `launch.length()` alone, because
+/// `BodyFlightState::pending_launch` was a bare `Vec2` carrying no kind. So a
+/// WEAK gust pinned a prone body where it lay — the jab-lock rule, which exists
+/// to reward hitting somebody who is down — and a STRONG one sent it tumbling,
+/// both against a volume whose authored contract is *"moves you and leaves you
+/// in control"*.
+///
+/// ⭐ THE ARMS STRADDLE THE KIND AND NOTHING ELSE: the same speed, the same
+/// state, one `flinchless` flag apart. Without the strike arms this would pass
+/// for a kernel that had stopped pinning and tumbling altogether.
+#[test]
+fn a_flinchless_push_neither_pins_a_prone_body_nor_starts_a_tumble() {
+    let world = test_world();
+    let mut tuning = super::TEST_TUNING;
+    tuning.tumble_speed = 500.0;
+    tuning.jab_lock_speed = 320.0;
+    tuning.jab_lock_limit = 3;
+
+    // A body already down: the state the jab lock is about.
+    let pinned_by = |flinchless: bool| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 300.0));
+        scratch.axis_mut().knockdown_timer = 0.5;
+        let before = scratch.axis().jab_locks;
+        scratch
+            .flight
+            .stage_launch(crate::Vec2::new(120.0, -40.0), flinchless);
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        scratch.axis().jab_locks > before
+    };
+    assert!(
+        pinned_by(false),
+        "a weak STRIKE did not pin a prone body, so the refusal below is a \
+         kernel that stopped jab-locking rather than one reading the kind"
+    );
+    assert!(
+        !pinned_by(true),
+        "a GUST pinned a body that was already down — the floor game is being \
+         decided from speed alone"
+    );
+
+    // …and a hard one launches into tumble, unless it is a push.
+    let tumbled_by = |flinchless: bool| {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), crate::Vec2::new(400.0, 300.0));
+        scratch
+            .flight
+            .stage_launch(crate::Vec2::new(0.0, -900.0), flinchless);
+        super::update_player_with_tuning_scratch(
+            &world,
+            &mut scratch,
+            InputState::default(),
+            1.0 / 60.0,
+            tuning,
+        );
+        scratch.axis().tumble_until_landing || scratch.axis().tumble_timer > 0.0
+    };
+    assert!(
+        tumbled_by(false),
+        "a hard STRIKE did not tumble the body, so the refusal below proves \
+         nothing"
+    );
+    assert!(
+        !tumbled_by(true),
+        "a GUST sent the body tumbling — a push that takes control away is the \
+         one thing a windbox must not do"
+    );
+}
+
 /// OWNING A RISE MEANS HAVING BOUGHT IT, NOT BEING SLOW ENOUGH TO HAVE.
 ///
 /// ⛔⛔ THE ARM THAT MATTERS IS THE LAUNCH BELOW `double_jump_speed`. What stood

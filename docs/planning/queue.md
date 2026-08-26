@@ -10637,17 +10637,20 @@ refreshed that every pulse. Now it declines the lock by the same asymmetry the
 stun arm states — and does NOT discharge one, which is poisoned in both
 directions (clearing it would make a gust the best combo breaker in the game).
 
-◐ **29b REMAINS, AND 29c IS HALF DONE** — both are GATEWAY losses, the reason not to
-fix them as four `if windbox` exceptions: **29b** `pending_launch` is a bare
-`Vec2`, so `accept_external_launch` asks `jab_lock()` and `launch_into_tumble()`
-from SPEED ALONE — a weak gust can pin a prone body, a strong one can tumble it.
-⇒ the launch needs a KIND (`Knockback` vs `FlinchlessPush`). ⭐ CHECKED
-2026-08-25 AGAINST THE LESSON 29c TAUGHT — is the fact already at the site? NO,
-genuinely: `accept_external_launch` receives only `launch: Vec2`, and
-`BodyFlightState::pending_launch` is a bare `Vec2` carrying no kind. ⚠ THAT
-STRUCT IS SNAPSHOTTED, so this one really is a wire-format change — which is
-exactly what separates it from 29c, where `flinchless` was already riding the
-knockback. **29c** the parry
+⭐⭐ **29b CLOSED 2026-08-25 — THE LAUNCH CARRIES ITS KIND.** The gateway asked
+`jab_lock()` and `launch_into_tumble()` from SPEED ALONE, so a weak gust pinned a
+prone body where it lay and a strong one sent it tumbling — both against a volume
+whose contract is *"moves you and leaves you in control"*. ⇒
+`BodyFlightState::pending_launch_flinchless`, staged and drained AS A PAIR
+(`stage_launch` / `take_launch`) so a writer cannot set the vector and forget the
+kind, which is the whole hazard of a flag beside a vector. Wire v108. ⭐ ONE
+PRODUCTION WRITER, and it already held the fact: `hit_reaction` was reading
+`knockback.flinchless` four lines below the line that staged the launch. ⚠ a
+fixture that sets `pending_launch` by hand still gets `false`, which is what an
+ordinary knockback means — so the many kernel fixtures that do say what they
+meant. Straddling arms: same speed, same state, one flag apart.
+
+▢ **29c** the parry
 producer and `resolve_body_hit` receive no fact saying the contact is a windbox,
 so a gust can be PARRIED, or blocked for shield integrity and shieldstun and
 pushback — against an authored `no shield`. ⇒ the volume needs a declared

@@ -161,6 +161,7 @@ snapshot_pod!(crate::body_clusters::BodyFlightState {
     // landed would resimulate a body that was never launched — or, worse, drain
     // a launch that the new timeline never imparted.
     pending_launch: vec2,
+    pending_launch_flinchless: bool,
 });
 
 snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 });

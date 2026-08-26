@@ -191,6 +191,13 @@ Platformer2dInputActionMonolith variants                 35
 
 - ▢ **Author input schemas/assets where it improves tooling.** Do this through
   the same registry/binding model rather than adding another settings authority.
+  ⛔ **GATED BY THE ITEM ABOVE, not by effort — 2026-08-26.** *"The same
+  registry/binding model"* is exactly the half that does not exist: the registry
+  describes, and only the closed enum binds. An authoring surface written against
+  the registry today could describe actions nothing can bind, and one written
+  against the enum would be the *"another settings authority"* this sentence
+  refuses. ⇒ nothing to do here until the key type moves; and *"where it improves
+  tooling"* means it wants a tooling customer as well.
 
 ## Exit
 
@@ -198,3 +205,13 @@ A local participant is represented by participant/seat/channel facts rather than
 by a privileged primary-player identity, and a provider can contribute a new
 semantic action all the way from authoring through physical binding and UI cue to
 consumption without a core-engine edit.
+
+⚠ **NEITHER CLAUSE IS MET AT HEAD, and the two are held by different things
+(2026-08-26).** The first is held by the seat-0 split — which is now DEFENDED in
+six paragraphs of `input_systems.rs` rather than merely present, so the honest
+next step is deciding whether it is a split or a design, not removing it. The
+second is held by ONE key type: a provider action is describable and neither
+bindable nor readable, because `InputMap` and `ActionState` are keyed by a
+35-variant enum with 288 references across 21 files. ⇒ **this exit is two
+questions, not one milestone**, and five of the nine items above are already
+closed or partly closed without touching either.

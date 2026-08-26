@@ -2502,14 +2502,43 @@ owes ONE table-driven arm→tick routing test** — twelve variants, each ticked
 with an output that distinguishes it — written BEFORE the arms are rehomed, so it
 guards the gap rather than the fix.
 
-⚠ **THE OTHER THING STILL UNPRICED IS THE DISPATCHER'S SHAPE**, and it is a
-choice rather than a blocker: either `tick_state_machine` moves WHOLE to its single
-production caller (`features/ecs/actors/update.rs:588`) and calls nine `pub fn
-tick_*` downward plus three upward-moved ones, or `ambition_characters` keeps a
-nine-arm dispatcher and the monolith handles the three. ⛔ **the second is the
-one that can rot silently** — a new arm added to the enum has to be remembered in
-two places — so prefer the first, where the compiler's exhaustiveness check sees
-every variant at one site.
+⛔⛔ **CORRECTION, SAME DAY: "the test price is two" WAS TRUE ABOUT VARIANTS AND
+WRONG ABOUT REWRITING.** Only two tests build a variant that LEAVES — but all 43
+call `tick_state_machine`, and each one owns a `StateMachineCfg` value and
+DESTRUCTURES it after ticking (`if let StateMachineCfg::Patrol { state, .. } =
+&sm`). Move the dispatcher out and every one of them has to be restructured to
+hold `cfg`/`state` separately and call `tick_patrol(…)`. ⇒ **the real price of
+removing the dispatcher is ~43 test rewrites in a 991-line file**, not two, and
+that is what makes the obvious shape expensive rather than the crate moves.
+
+⭐⭐⭐ **SO THE DISPATCHER SHOULD NOT MOVE — THE ENUM SHOULD SPLIT.** The three
+arms that leave are exactly the three that are not ordinary NPC behaviour:
+
+```text
+StateMachineCfg   keeps the NINE  (StandStill · Patrol · Wanderer · MeleeBrute ·
+                                   Skirmisher · Sniper · ChargeCrash · Aerial ·
+                                   PlayerDemo) AND `tick_state_machine`
+PlatformBrainCfg  NEW, holds Fighter · Smash · BossPattern (data only, still in
+                  ambition_characters — the enum names them by value and
+                  snapshot_impls still encodes them)
+Brain             gains a second variant: StateMachine(..) | Platform(..)
+```
+
+⇒ the three arms' TICKS move up with their behaviour; the monolith matches
+`Brain`'s two variants and sends each to the crate that owns it. ⭐ **all 43
+tests keep calling `tick_state_machine`, untouched**, because the thing they test
+never moves — and the routing gap above never opens for the nine.
+
+⚠ **the costs, stated:** (1) a WIRE FORMAT change — `snapshot_impls` encodes
+`StateMachineCfg::Fighter { … }` by name today, so the split is a declared
+`GGRS_ROLLBACK_SCHEMA_VERSION` bump; (2) `Brain::tick`/`tick_with_actions` still
+have to be deleted, because a two-variant `Brain` cannot dispatch `Platform`
+downward — their five callers are the price, not forty-three; (3) ⛔ **`Brain`
+grows a second variant, and this row's own history is about REMOVING one**
+(`Brain::Player`). The difference is real — that one was CONTROL AUTHORITY
+wearing a policy's clothes, this one is policy split by PLACEMENT — but say it
+out loud when the slice lands, because a reviewer will see the shape before the
+reason.
 
 ⚠ **the paragraph below is the ORIGINAL design statement, kept because it is
 still the right shape — but read it as HISTORY: it describes work that landed.**

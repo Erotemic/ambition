@@ -9628,7 +9628,29 @@ the edge at full width, `[]` for a taper and `[]` for an empty frame.
 
 ⛔ **THE ONE THAT MATTERS IS `perfect_cellular_automaton` (53 frames)** — a
 SELECT-SCREEN FIGHTER, so it is player-visible, unlike the bosses and NPCs above
-it. That is where this row should start.
+it. That is where this row should start, and here is its diagnosis:
+
+```text
+frame            492 x 684, and `crop: enabled=False` — auto_crop is OFF
+cut LEFT   36    slide#1-4, knockdown#3-4, +30 more
+cut RIGHT  17    punch#3, dash_attack#3-4, smash_forward#5-6, special#6, +11
+```
+
+⇒ **both cuts are HORIZONTAL REACH on lunging poses**, not a spike or an
+antenna, so `super_sanic`'s answer (scale one named appendage) does not
+transfer — there is no single element to shrink.
+
+⛔⛔ **AND "just widen the frame" IS REFUSED FOR THE SAME REASON IT WAS ON
+`super_sanic`, checked here rather than assumed.** `pca_gameplay.py` authors
+`ATTACK_HITBOXES` in ABSOLUTE draw coordinates (`_lens_attack(68, 78, 34, 28)`)
+and `body_metrics(fw, fh)` normalises them by dividing by the frame
+(`feet_x / fw - 0.5`). Changing `fw` moves **every** authored hitbox on the
+character. ⇒ either the art gives, or the hitbox table is re-authored against the
+new frame in the same commit — and the second is a bigger change than it looks.
+
+⚠ **so this is ART AUTHORING WITH A GAMEPLAY CONSEQUENCE, not a constant sweep:**
+shortening a lunge's drawn reach makes the drawing disagree with the reach its
+hitbox still has. Worth Jon's eye before somebody picks a number.
 
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**

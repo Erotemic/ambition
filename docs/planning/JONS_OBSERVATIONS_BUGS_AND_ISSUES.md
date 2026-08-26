@@ -30,6 +30,7 @@
   structural fix. We should not be able to clip sprite artwork so easily.
 
   ▢ Confirmed and measured 2026-08-16, and you were right that it is structural: `super_sanic`'s spikes are clipped at the logical frame's top edge, and 23 of 133 sheets show the same signature (`robot`, `player_extended`, four robot variants, `puppy_slug`, `ninja_shadow_oni_leader`). Tracked as D129 in the queue.
+  ⊙ **Re-swept 2026-08-26 by rendering every target: every sheet you named is CLEAN now** — `robot`, `player_extended`, the robot variants and `ninja_shadow_oni_leader` all render without the guard firing, and `super_sanic` was fixed 2026-08-18. ⚠ the defect is not gone, the POPULATION moved: 25 other sheets still clip, and the one that matters is `perfect_cellular_automaton` (53 frames) because it is a select-screen fighter. Details in D129.
 
 * The current player V3 collision / hurt box  is larger than the player sprite. It needs to be slightly inset from the visible parts of the player. It should be under the main head, and well within the player arms. The player hitbox needs to be very forgiving to the player.
 

@@ -6690,8 +6690,15 @@ fn the_special_turn_techniques_are_chosen_by_the_input_order() {
         *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(frame);
         app.update();
         if let Some(flick) = flick {
+            // ⛔⛔ THE FRAME ARRIVES DAMPED, which is what a rooted special
+            // publishes: `update.rs` writes the post-integration frame back onto
+            // the component, so `locomotion` is ZERO for the whole of a
+            // `motion_scale: 0.0` tail — and that is how this repository authors
+            // a commitment. The flick has to be read off what the player is
+            // HOLDING or the technique is impossible on exactly those moves.
             let mut after = ambition_characters::actor::control::ActorControlFrame::neutral();
             after.locomotion = ae::LocalAxes::new(flick, 0.0);
+            let after = after.damped_by_move_motion(0.0);
             *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(after);
             app.update();
         }
@@ -6994,6 +7001,7 @@ fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
     // the half whose AXIS this test is about.
     let mut after = ambition_characters::actor::control::ActorControlFrame::neutral();
     after.locomotion = ae::LocalAxes::new(1.0, 0.0);
+    let after = after.damped_by_move_motion(0.0);
     *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(after);
     app.update();
 

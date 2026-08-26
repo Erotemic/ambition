@@ -264,6 +264,23 @@ pub struct MovePlayback {
     /// is exactly what the flat swing published for one. Saying so here is
     /// what stops a fallback appearing in every consumer.
     pub attack_intent: AttackIntent,
+    /// Was this move SELECTED as a ground move?
+    ///
+    /// ⭐⭐ THE STANCE IS A FACT ABOUT THE MOVE, NOT ABOUT EACH RECTANGLE. It is
+    /// the same `grounded` that chose which variant this press resolves to
+    /// (`move_for_verb_in_stance`), so a consumer asking "was this an aerial"
+    /// gets the answer the SELECTOR used rather than a re-observation.
+    ///
+    /// ⛔⛔ AND IT IS NOT [`Self::was_grounded`], which is a per-TICK observation
+    /// for the landing edge and is seeded `true` on purpose. Clank eligibility
+    /// asked `BodyGroundState::on_ground` at COLLISION time, so a ground attack
+    /// stopped clanking the moment its owner walked off a ledge mid-swing and an
+    /// aerial started when its owner landed. "Grounded attack" is a
+    /// CLASSIFICATION and it is settled when the swing comes out.
+    ///
+    /// ⛔ `true` for a move nobody selected in a stance — the same default the
+    /// selector takes for a body with no ground state.
+    pub started_grounded: bool,
     /// The ranged intent that STARTED this move, if one did.
     ///
     /// a move's fire event usually arrives after its own request is gone.
@@ -478,6 +495,8 @@ impl MovePlayback {
             // What the flat swing published for a move no direction asked for.
             // `with_attack_intent` is the seam that says otherwise.
             attack_intent: AttackIntent::Forward,
+            // `started_in_stance` is the seam that says otherwise.
+            started_grounded: true,
             // Nobody aimed unless a caller says so — `with_aim` is the seam, and
             // the facing fallback at the fire frame is what an unaimed move gets.
             aim: None,
@@ -491,6 +510,13 @@ impl MovePlayback {
     /// Remember the ranged intent that started this move. See [`Self::aim`].
     pub fn with_aim(mut self, aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>) -> Self {
         self.aim = aim;
+        self
+    }
+
+    /// Remember the STANCE this move was selected in. See
+    /// [`Self::started_grounded`].
+    pub fn started_in_stance(mut self, grounded: bool) -> Self {
+        self.started_grounded = grounded;
         self
     }
 
@@ -1874,6 +1900,9 @@ struct StartingMove<'a, 'cw, 'cs> {
     started_by: Option<ambition_entity_catalog::ChargeGesture>,
     /// The DIRECTION the gesture asked for — see [`MovePlayback::attack_intent`].
     attack_intent: AttackIntent,
+    /// The STANCE this move was SELECTED in — see
+    /// [`MovePlayback::started_grounded`].
+    started_grounded: bool,
     proposer: ProposedVerb,
     action_buffer: &'a mut ae::BodyActionBuffer,
     // ⭐ THE COMPONENTS, NOT THE QUERIES. A helper that took the queries would
@@ -1909,6 +1938,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         aim,
         started_by,
         attack_intent,
+        started_grounded,
         proposer,
         action_buffer,
         mut shield,
@@ -1933,6 +1963,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         MovePlayback::new(spec, facing)
             .with_aim(aim)
             .with_attack_intent(attack_intent)
+            .started_in_stance(started_grounded)
             .charged_by_gesture(started_by),
     );
     // ACCEPTED — the proposal is over. A buffered press that starts a move must
@@ -2763,6 +2794,9 @@ pub fn trigger_moveset_moves(
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
                 started_by,
                 attack_intent,
+                // The SAME stance the selector used — see
+                // `MovePlayback::started_grounded`.
+                started_grounded: grounded,
                 proposer,
                 action_buffer: &mut action_buffer,
                 shield: guards.get_mut(entity).ok(),
@@ -2848,6 +2882,9 @@ pub fn trigger_moveset_moves(
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
                 started_by,
                 attack_intent,
+                // The SAME stance the selector used — see
+                // `MovePlayback::started_grounded`.
+                started_grounded: grounded,
                 proposer,
                 action_buffer: &mut action_buffer,
                 shield: guards.get_mut(entity).ok(),
@@ -2907,9 +2944,13 @@ pub fn apply_special_turn_flicks(
         .as_ref()
         .is_some_and(|rules| rules.special_turn_reverses_drift);
     for (mut gesture, control, tuning, mut kin, frame) in &mut bodies {
-        // The stick's lateral sign, in the body's own local frame — the same
-        // reading the special's own direction was resolved from.
-        let lateral = control.0.locomotion.vec().x;
+        // ⛔⛔ THE STICK THE PLAYER IS HOLDING, NOT THE ONE THE BODY MAY MOVE BY.
+        // `update.rs` publishes the DAMPED frame back onto the component after
+        // integration, so `locomotion` reads zero for the whole of a rooted
+        // move — and a special with a `motion_scale: 0.0` tail is how this
+        // repository authors a commitment. Reading it would have made the
+        // B-reverse impossible on exactly the moves that most want it.
+        let lateral = control.0.steer_axis().vec().x;
         let sign = if lateral.abs() > tuning.directional_deadzone {
             lateral.signum()
         } else {

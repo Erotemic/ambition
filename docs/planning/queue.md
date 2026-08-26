@@ -10754,10 +10754,14 @@ behavioural change to arbitration without one is what this run refuses. Building
 the fixture was the work; the line was never the work. ⚠ LATENT EITHER WAY: Smash
 declares `clank_damage_window = 0`.
 
-▢ **(27) STILL OPEN** — eligibility asks `BodyGroundState::on_ground` AT
-COLLISION TIME, so a ground attack stops clanking when its owner walks off a
-ledge. A CLASSIFICATION, not a foot contact; latch it on the strike volume when
-the move is accepted. The fixture above is now there to prove it. **(28) pivot selection and move-facing DISAGREE** —
+⭐⭐ **(27) CLOSED 2026-08-26 — AND NOT ON THE STRIKE VOLUME.** The finding said
+*"latch it on the strike volume"*, and the first implementation did exactly that:
+a `grounded` bool on every rectangle a move opens. ⛔ THE STANCE IS A FACT ABOUT
+THE MOVE, and a move opens many volumes — so it belongs on `MovePlayback`
+(`started_grounded`), populated with the SAME `grounded` the selector used to
+choose the variant. ⭐ AND THE CLANK ALREADY HELD THE PLAYBACK: it queries
+`&mut MovePlayback` to cancel the loser. No new channel, no per-rectangle
+duplicate, one fewer query on `advance_move_playback`. **(28) pivot selection and move-facing DISAGREE** —
 the gesture picks the forward move using the turnaround facing, `start_move` then
 snapshots the OLD `kin.facing`, so the move is selected forward and its geometry
 mirrors the old way; **(30) `MatchParticipantRoster` is accumulating match RULES**
@@ -11154,6 +11158,15 @@ both                               flip twice (= no flip)
 
 ⇒ the fourth outcome falls out of the other two rather than needing its own
 recognition, which is why this is small.
+
+⛔⛔ **AND THE FLICK MUST BE READ OFF THE HELD STICK, WHICH THE FIRST VERSION
+GOT WRONG.** `update.rs` publishes the POST-INTEGRATION frame back onto
+`ActorControl`, so an actor's `locomotion` reads ZERO for the whole of a rooted
+move — and `motion_scale: 0.0` is how this repository authors a commitment. A
+B-reverse would have been impossible on exactly the specials that most want it.
+⇒ `ActorControlFrame::steer_axis()`, the twin of `InputState::steer_axis()` added
+the same day for the same reason on the other side of the seam. The fixtures
+deliver a DAMPED frame now, so the arm cannot pass by accident.
 
 ⭐ WHAT IT COST, as designed: `special_turn_window` + `prev_lateral_sign` on
 `AttackGestureState` (already per-body rollback state, already the gesture-history

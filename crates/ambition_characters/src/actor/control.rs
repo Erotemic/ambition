@@ -372,6 +372,23 @@ impl ActorControlFrame {
         Self::default()
     }
 
+    /// What the PLAYER is HOLDING, as opposed to what this body is ALLOWED to
+    /// move by.
+    ///
+    /// ⭐⭐ THE TWIN OF [`InputState::steer_axis`], and it exists for the same
+    /// reason on this side of the seam: `update.rs` PUBLISHES THE DAMPED FRAME
+    /// back onto the component after integration, so a consumer reading
+    /// `locomotion` off an actor's `ActorControl` sees zero for the whole of a
+    /// rooted move.
+    ///
+    /// ⛔ THAT IS NOT A DETAIL. The B-reverse flick is read off this component,
+    /// and a special with a `motion_scale: 0.0` tail — which is how this
+    /// repository authors a commitment — would have made the technique
+    /// impossible on exactly the moves that most want it.
+    pub fn steer_axis(&self) -> LocalAxes {
+        self.undamped_locomotion.unwrap_or(self.locomotion)
+    }
+
     /// Damp this frame's STEERING INTENT by a live move's authored motion lock
     /// (`MoveSpec::motion_scale_at`, or zero while a charge roots the body).
     ///

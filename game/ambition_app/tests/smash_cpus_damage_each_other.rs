@@ -93,8 +93,29 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut respawned_this_tick: Vec<bevy::prelude::Entity> = Vec::new();
     let mut spent_cursor = None;
     let mut due_cursor = None;
+    // ⭐⭐ D194'S FAILURE MODE, NAMED. Two grabs on one tick made both bodies
+    // captor AND captive, and a body in that state can neither act nor be
+    // released — which is what put the capture policy out of reach and cost the
+    // mirror 28% of the match. `CapturedBy` is the sole authority and the
+    // inverse is derived, so the shape is checkable directly: nobody may be
+    // held while also holding somebody.
+    //
+    // Here because D192's interval is the arm that was never run against the
+    // repaired regime: the old hold could not test `D194 fix + interval` at all.
+    let mut mutual_capture_ticks = 0usize;
     for tick in 0..(countdown + TICKS) {
         app.update();
+        {
+            let world = app.world_mut();
+            let mut held = world
+                .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::capture::CapturedBy)>();
+            let pairs: Vec<(bevy::prelude::Entity, bevy::prelude::Entity)> =
+                held.iter(world).map(|(body, by)| (body, by.captor)).collect();
+            let captives: Vec<bevy::prelude::Entity> = pairs.iter().map(|(b, _)| *b).collect();
+            if pairs.iter().any(|(_, captor)| captives.contains(captor)) {
+                mutual_capture_ticks += 1;
+            }
+        }
         let world = app.world_mut();
         {
             let messages = world
@@ -191,6 +212,13 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         "two fighters shared the stage for only {both_seated_ticks} of {TICKS} \
          ticks (decided on {decided_on:?}), which is under the {A_MEASURABLE_DUEL}-tick \
          floor a rate can be read off — so nothing below is a measurement of a duel"
+    );
+
+    assert_eq!(
+        mutual_capture_ticks, 0,
+        "a body was BOTH captor and captive on {mutual_capture_ticks} tick(s) — \
+         D194's lock is back, and with a respawn interval in play it would hold \
+         two fighters through the beat as well as through the fight"
     );
 
     // ⭐ REPORTED ON SUCCESS TOO. The threshold is calibrated against a match

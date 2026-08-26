@@ -855,8 +855,8 @@
       "fields": [
         {
           "name": "gated_by",
-          "kind": "string",
-          "required": false,
+          "presence": "optional",
+          "sample": "bob_field_survey_received",
           "on_invalid": "open",
           "note": "names a world-fact flag; the wall stands until `world.flag_set(<gated_by>)` is satisfied. ABSENT means this wall belongs to the encounter consumer or is inert - which is why it is optional and why an unknown flag is not refused: a flag that has never been set is a legitimate authored state, so refusing unknown names would refuse every wall gated on a fact the run has not reached yet."
         }

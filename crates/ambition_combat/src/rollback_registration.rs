@@ -444,6 +444,25 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                         put_vec2(&mut bytes, dir);
                     }
                 }
+                // ⛔⛔ THE REACTION KIND, AND IT WAS MISSING. `HitReaction`
+                // decides whether the victim gets its air dodge back, leaves
+                // helplessness, takes hitlag, takes hitstun, takes the recoil
+                // lock, and which launch path it enters — six outcomes — and two
+                // staged hits identical in every other field but Strike-vs-
+                // Windbox fingerprinted the SAME. That is exactly the thing this
+                // function's own header forbids: *"everything that decides what
+                // the hit DOES participates"*.
+                //
+                // ⭐ AN EXPLICIT TAG, never a derive: the byte is the wire's, so
+                // adding a variant must be a decision about the wire rather than
+                // a silent renumber.
+                put_u8(
+                    &mut bytes,
+                    match kb.reaction {
+                        ambition_platformer2d_core::hit_response::HitReaction::Strike => 0,
+                        ambition_platformer2d_core::hit_response::HitReaction::Windbox => 1,
+                    },
+                );
                 // AUTOLINK, and it must be IN the fingerprint: it decides the
                 // victim's velocity, so two peers that disagree about whether a
                 // pulse holds or launches disagree about the whole match. One
@@ -466,4 +485,71 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
         }
     }
     checksum_bytes(&bytes)
+}
+
+#[cfg(test)]
+mod pending_hit_checksum_tests {
+    use super::*;
+    use crate::events::{HitEvent, HitMode, HitSource, HitTarget, PendingPlayerHitEvents};
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_core::hit_response::HitReaction;
+
+    fn staged(reaction: HitReaction) -> PendingPlayerHitEvents {
+        PendingPlayerHitEvents(vec![HitEvent {
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),
+            damage: 0,
+            source: HitSource::Melee,
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: Some(crate::HitKnockback {
+                reaction,
+                dir: 1.0,
+                magnitude: crate::HitKnockbackMagnitude::LaunchSpeed(120.0),
+                source_pos: ae::Vec2::ZERO,
+                impact_pos: ae::Vec2::new(10.0, 0.0),
+                launch_dir: None,
+                follow: None,
+            }),
+            ignored_targets: Vec::new(),
+            strike_sfx: None,
+        }])
+    }
+
+    /// ⛔⛔ TWO STAGED HITS THAT DIFFER ONLY IN WHAT THEY DO MUST NOT FINGERPRINT
+    /// THE SAME.
+    ///
+    /// `HitReaction` decides six outcomes for the victim — the air-dodge refund,
+    /// leaving helplessness, hitlag, hitstun, the recoil lock, and which launch
+    /// path it takes — and it was absent from this projection, so a Strike and a
+    /// Windbox identical in every other field checksummed identically. The
+    /// desync oracle was blind to the most consequential field the pulse
+    /// carries, which is precisely what this function's header forbids:
+    /// "everything that decides what the hit DOES participates".
+    ///
+    /// ⭐ NOT SNAPSHOT LOSS — `PendingPlayerHitEvents` is clone-rewound, so the
+    /// value itself always came back. What was broken is the ORACLE: two peers
+    /// that had genuinely diverged here agreed on their checksums and reported
+    /// health.
+    ///
+    /// ⭐ THE EQUALITY ARM IS THE PREMISE GUARD. Without it this passes against a
+    /// projection that has become sensitive to something incidental — the vector's
+    /// address, an iteration order — and would then differ for two IDENTICAL
+    /// queues too.
+    #[test]
+    fn a_windbox_and_a_strike_do_not_fingerprint_the_same() {
+        assert_eq!(
+            pending_player_hits_checksum(&staged(HitReaction::Strike)),
+            pending_player_hits_checksum(&staged(HitReaction::Strike)),
+            "two identical staged queues fingerprinted differently, so the \
+             inequality below would prove nothing"
+        );
+        assert_ne!(
+            pending_player_hits_checksum(&staged(HitReaction::Strike)),
+            pending_player_hits_checksum(&staged(HitReaction::Windbox)),
+            "a staged Strike and a staged Windbox fingerprint the same. They \
+             differ in six things the victim will experience on the next step, \
+             and a desync between them would report as agreement"
+        );
+    }
 }

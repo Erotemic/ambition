@@ -852,6 +852,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_sim_view",
  "bevy",
  "bevy_ggrs",

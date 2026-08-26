@@ -624,7 +624,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ▢
 
 * Every `MoveEventKind::Ranged` passes through a hidden 1.1-second body refire cooldown at the effect consumer, while Projectile Polygon's authored Charge Shot is 0.58 seconds long. The move-start authority does not consult that cooldown.
-  * ▢
+  * ✔ ALREADY FIXED AT HEAD — `weapon_ready` refuses a firing move at ACCEPTANCE on `ranged_cooldown <= 0.0`, `start_move` spends the authored `RangedActionSpec::refire_s`, and `brain_effects.rs` applies the low-level refire rejection only to `RangedCommitment::Attempt`, never to a committed move. ⛔ THIS IS THE THIRD STALE ONE and I called that batch "two" — I checked the two I could reach by grepping a symbol and stopped, which is the partial-sweep error again.
 
 * `emit_knockout_beat` asks for one or two `VfxMessage::Impact`s and calls them "expanding rings", but `Impact` is the ordinary hit-marker API. Asset-backed, it resolves to the shipped generic hit effect, so an elimination draws the normal damage-impact art twice at the blast line. Semantic misuse of the VFX vocabulary.
   * ▢
@@ -664,4 +664,23 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ▢
 
 * Hygiene, same window: trailing whitespace in this file and a new blank line at EOF in `game/ambition_app/tests/duel_arena.rs`.
+  * ▢
+
+## Follow-up review of HEAD `bd37e4dd`, relayed by Jon 2026-08-26
+
+Three of its "still open" items were already done between `bd37e4dd` and this
+entry — D192's `Entity` ordering (pushed as `df9e887ff`), the mount rollback
+ownership, and the mount rotated-gravity COG — so only the genuinely new
+findings carry a ▢.
+
+* **`HitReaction` was missing from `pending_player_hits_checksum`.** The field decides six victim outcomes and two staged hits differing only in Strike-vs-Windbox fingerprinted identically, contradicting the projection's own "everything that decides what the hit DOES participates". Not snapshot loss — the queue is clone-rewound — but the desync oracle was blind to the most consequential field the pulse carries.
+  * ✔ Tagged, with a poison arm and an equality premise guard; `GGRS_ROLLBACK_SCHEMA_VERSION` 114 → 115 because a checksum projection change is a wire change.
+
+* **B-reverse has a second, softer definition of "flick".** `lateral_flick_sign` accepts any deflection past `directional_deadzone` (0.5), while the ordinary attack flick needs `flick_threshold` (0.8) after re-arming under 0.35 — so 0.65, which the CPU's own `TILT_DEFLECTION` deliberately calls a TILT, is a B-reverse flick. And the window differs too: ordinary flicks admit `age_ticks <= flick_window_ticks` (four subsequent ticks), while special-turn spends one on the press tick and admits three. One authored knob, two temporal and two magnitude meanings. Either share one directional-edge semantic or give the special turn its own named threshold and window — but not the current middle state.
+  * ▢
+
+* **`VolumeReaction::Windbox` still permits authored damage.** The contract says "no damage", lowering publishes whatever `damage` is authored, and every fixture merely remembers to write zero. No shipped move authors a Windbox yet, so this is the moment to reject `Windbox + damage != 0` at preparation with a useful error rather than silently discarding an authored number. ⚠ the neighbouring question — whether a successful gust counts as a move connect for `on_hit` and OnHit cancels — is a separate decision and must not be settled by accident here.
+  * ▢
+
+* **Room vocabulary has the same unfinished rollback ownership the mount did.** `actor_monolith/rollback_registration.rs` — whose header promises it "names only state defined in this crate" — registers `ambition_platformer2d_world::rooms::{RoomSet, ActiveRoomMetadata, RoomMusicRequest}` and defines `room_set_checksum`. The world crate already owns `register_gate_portal_rollback_state`, so the machinery exists.
   * ▢

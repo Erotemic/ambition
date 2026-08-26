@@ -9596,24 +9596,30 @@ downstream can put lost pixels back.
 ⛔⛔ **RE-MEASURED AGAIN 2026-08-26 BY RENDERING EVERY TARGET, AND THE LIST BELOW
 IS OBSOLETE — the roster has moved on.** A sweep of all 186 registered targets
 (`python -m ambition_sprite2d_renderer sheet <t>` each, the guard printing at
-build time as designed) found a DIFFERENT population. Through the first ~120
-targets, 25 sheets warn, worst first:
+build time as designed) found a DIFFERENT population: **40 of 186 targets warn**,
+worst first —
 
 ```text
-hunny_horror_boss 59 · perfect_cellular_automaton 53 · davy_hylbert 42
-le_beast 39 · pipi_tau 36 · flying_spaghetti_monster_boss 29 · paul_diracula 26
+hunny_horror_boss 59 · trex_enemy 57 · perfect_cellular_automaton 53
+davy_hylbert 42 · le_beast 39 · pipi_tau 36 · flying_spaghetti_monster_boss 29
+smirking_behemoth_boss 26 · paul_diracula 26 · puppy_slug 17
 hypatia_prime · georg_canter · data_lovelace 13 each · mary_o_v2 12
-paradox_barber · carl_stargan 8 · mary_o_v2_tall · galwah 5 · busy_beaver 4
-mary_o_v2_fire · leib_knives 3 · four pirates 2 each · charley_beagle_svg 1
+super_mary_o 10 · paradox_barber 8 · carl_stargan 8 · super_mary_o_tall 7
+mary_o_v2_tall 5 · galwah 5 · super_mary_o_fire 4 · busy_beaver 4
+mary_o_v2_fire 3 · leib_knives 3 · five pirates 2 · mantis_lancer 2
+snakes_on_a_cartesian_plane 2 · eight more at 1
 ```
 
-⭐⭐ **AND NOT ONE OF THE TEN NAMED BELOW AS WORST APPEARS.** `ninja_shadow_oni_leader`
-(was 73), `ninja_shadow_duelist` (70), `player_combat_review` (108),
-`player_traversal_review` (100), `trex_enemy` (57), `raid_enforcer` (52),
-`fascist_enforcer` (53), `robot` (34), `player_extended` (30) all render CLEAN
-today — verified individually as well as in the sweep. ⇒ **the art was redrawn
-and nobody updated this row**, which is exactly what its own warning about
-snapshots predicted.
+⭐⭐ **AND SEVEN OF THE TEN NAMED BELOW AS WORST ARE GONE.**
+`ninja_shadow_oni_leader` (was 73), `ninja_shadow_duelist` (70),
+`player_combat_review` (108), `player_traversal_review` (100), `raid_enforcer`
+(52), `fascist_enforcer` (53), `robot` (34), `player_extended` (30) all render
+CLEAN today. ⇒ **the art was redrawn and nobody updated this row**, which is
+exactly what its own warning about snapshots predicted.
+
+⛔ **BUT `trex_enemy` (57) AND `puppy_slug` (17) ARE STILL CUT** — I said
+otherwise before the sweep reached them, reading a partial result as a whole one.
+`super_sanic` is genuinely fixed and out of the list; those two are not.
 
 ⭐ **THE GUARD IS NOT VACUOUS — CHECKED DIRECTLY**, because "everything is clean
 now" is the shape that usually means the check stopped working:

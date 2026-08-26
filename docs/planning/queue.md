@@ -5294,24 +5294,55 @@ red only when run; (3) the schema baseline, which did NOT change and must not:
 identity on the wire, not an address, and renaming it would be a declared schema
 change bought for tidiness.
 
-▢ **AND THE ONE REMAINING IMPORT HAS A DESIGNED ANSWER, using a pattern already
-in that file.** `dismounted_rider_brain_and_action_set` rebuilds a fallen rider's
-solo `(Brain, ActionSet)` from its stored `CombatKit` plus the PREPARED CAST —
-`ActorConfig`, `CombatKit`, `PreparedCharacterRegistry`, all monolith types — so
-it cannot travel WITH a mount carve, and the mount module should not be the thing
-that calls it.
+✔✔ **DONE 2026-08-26 — THE MOUNT MODULE NO LONGER CALLS THE BRAIN BUILDER, and
+`MountDied` was the precedent three lines above the import.** Mount already
+ANNOUNCED the `(dead-mount, still-mounted)` dissolution and let another domain
+react — `ambition_boss_encounter` turns it into a rider boss's
+`External("mount_died")` phase. `rebuild_dismounted_rider_brains` now takes the
+same road: mount announces, the brain builder answers. ⭐ **THE MESSAGE COST
+NOTHING — it was already being written, for the boss bridge.** The reactor reads
+`ActorConfig`, `HeldItem`, `CombatKit` and the prepared cast straight off the
+rider entity, so nothing had to be threaded through the announcement.
 
-⭐ **`MountDied` IS THE PRECEDENT, three lines above the import.** Mount already
-ANNOUNCES the `(dead-mount, still-mounted)` dissolution and lets another domain
-react: `ambition_boss_encounter` reads it and turns it into a rider boss's
-`External("mount_died")` phase. ⇒ the dismount brain rebuild can take the same
-road — mount announces, the CHARACTER RUNTIME rebuilds — and the carve then
-imports nothing from the monolith at all.
+⭐ **THE DELETION IS THE PROOF, and it is bigger than the one import.** Out of
+`enforce_mount_rider_link` went the `use`, the `PreparedCharacterRegistry`
+resource, three query columns (`HeldItem`, `CombatKit`, `BossConfig`) and the
+rebuild block — **and with them the last `Res` in the file**: the dissolution
+system takes no resources at all now.
 
-⚠ **the thing to get right is ORDER, not shape**: the rebuilt brain has to land
-before the dismounted body is simulated, so this is a behaviour-preserving
-refactor with a scheduling edge, not a message-and-hope. Do it BEFORE the carve;
-it is testable on its own and it makes the carve a move rather than a redesign.
+⛔ **BUT THE ROW'S "imports nothing from the monolith at all" WAS OPTIMISTIC, and
+the honest remainder is three things**, all inline paths rather than `use` lines,
+which is how the earlier count missed them:
+
+```text
+super::actor_clusters::ActorClusterQueryData    the shared actor view
+crate::physics::ResolvedMotionFrame             the shared motion frame
+crate::features::TemporaryControl               the snapshot control state
+```
+
+⇒ those are SHARED SUBSTRATE, not brain building — a carve resolves them by
+placement, not by another message. The brain rebuild was the one that could not
+travel, and it no longer has to.
+
+⛔⛔ **AND MAKING IT TWO SYSTEMS OPENED A WIRING GAP THAT NEEDED ITS OWN ARM.**
+Every mount unit test hand-lists its systems, so all 37 keep passing if the
+reactor is dropped from `CombatSchedulePlugin` — a hand-listed chain pins the
+FUNCTION, not the WIRING. ⇒
+`a_dead_mount_rebuilds_its_riders_brain_through_the_real_schedule` drives the
+REAL headless sim; poisoned by removing the reactor from the plugin it goes red
+while the 37 stay green, which is exactly the gap it is for.
+
+⭐ **AND THE ARM FOUND THE BUILDER'S OTHER BRANCH.** A pirate raider carries a
+gun-sword, so a fallen raider gets the RANGED brain, not `MeleeBrute` — the
+builder's own rule (*"keep the weapon live after the shark dies"*), which no test
+had reached because the unit fixture holds no ranged item.
+
+⭐ **A SECOND ARM WAS ALREADY VACUOUS AND IS NOT ANY MORE.**
+`boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount` asserts a BOSS
+rider is REFUSED a rebuild — and once the rebuild left the enforcer, that arm
+registered no system that rebuilds ANY rider's brain, so it would have passed on
+a world where the rule did not exist. It registers the pair now, and deleting the
+`BossConfig` skip turns it red.
 
 ⚠ **AND THE COUPLING IS NOT ONLY WHAT THE MODULE IMPORTS — the ledger names it
 too.** `rollback_registration.rs` registers EIGHT mount types by

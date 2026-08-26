@@ -315,7 +315,7 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// Smash, which has tighter grounded observation requirements, and PirateHeavy's
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
-pub(super) fn dismounted_rider_brain_and_action_set(
+fn dismounted_rider_brain_and_action_set(
     rider: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
@@ -871,3 +871,59 @@ pub fn project_authored_fighter_ladder(
 
 // ⇒ the row is gone and the constant is unchanged, so the decision is made:
 // `default_fighting_kit()` is the only authority on what a provoked body swings.
+
+/// Rebuild a fallen rider's solo brain, on the dissolution the mount ANNOUNCES.
+///
+/// ⭐ THE MOUNT MODULE DOES NOT CALL THE BUILDER ANY MORE. It writes
+/// [`MountDied`](ambition_platformer2d_shared_tangle::body::MountDied) — which it
+/// already did, for the boss bridge — and this system answers it. That is the
+/// same road `ambition_boss_encounter` takes to turn the dissolution into a
+/// rider boss's `External("mount_died")` phase: mount announces, the domain that
+/// owns the reaction reacts.
+///
+/// ⛔ THE REBUILD CANNOT TRAVEL WITH A MOUNT CARVE and that is why it moved.
+/// It reads `ActorConfig`, `CombatKit`, `HeldItem` and the prepared cast —
+/// character-runtime facts, every one — so a mount crate that called it would
+/// have to import the character runtime to dissolve a mount.
+///
+/// ⛔ A BOSS RIDER IS SKIPPED, unchanged: its identity is AUTHORED, not derived
+/// from a kit, so re-deriving a brain for it would be wrong (ADR 0020; Q19b).
+/// The component IS the marker — no new flag.
+///
+/// ⚠ ORDER, not shape, is what this had to preserve: the insert must land
+/// before the dismounted body is simulated. It runs chained straight after
+/// `enforce_mount_rider_link` in `CombatSet::Settle`, so its commands flush at
+/// the same barrier the direct call's did.
+pub fn rebuild_dismounted_rider_brains(
+    mut commands: bevy::prelude::Commands,
+    mut dismounts: bevy::prelude::MessageReader<
+        ambition_platformer2d_shared_tangle::body::MountDied,
+    >,
+    // The prepared cast, so a dismounted rider swings its own weapon rather
+    // than borrowing an archetype's.
+    prepared: Option<bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    riders: bevy::prelude::Query<(
+        &ActorConfig,
+        Option<&HeldItem>,
+        Option<&CombatKit>,
+        Option<&ambition_boss_encounter::BossConfig>,
+    )>,
+) {
+    for dismount in dismounts.read() {
+        let Ok((config, held_item, combat_kit, boss_config)) = riders.get(dismount.rider) else {
+            continue;
+        };
+        if boss_config.is_some() {
+            continue;
+        }
+        // A rider always carries a CombatKit; fall back defensively.
+        let kit = combat_kit.cloned().unwrap_or_default();
+        let (brain, action_set) = dismounted_rider_brain_and_action_set(
+            config,
+            &kit,
+            held_item.map(|item| &item.spec),
+            prepared.as_deref(),
+        );
+        commands.entity(dismount.rider).insert((brain, action_set));
+    }
+}

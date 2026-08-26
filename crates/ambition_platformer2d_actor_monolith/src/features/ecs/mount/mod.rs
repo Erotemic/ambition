@@ -7,9 +7,8 @@
 //! Authored pairs are lowered from linked placements into the same engine-owned
 //! relation; the engine contains no mount-species special case.
 
-use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With, Without};
+use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, With, Without};
 
-use super::brain_builders::dismounted_rider_brain_and_action_set;
 use ambition_platformer2d_core as ae;
 // ⛔ NAMED FROM ITS REAL OWNER, not through this crate's re-export chain. It was
 // `use super::CenteredAabb`, which made a monolith module look like the source of
@@ -346,20 +345,23 @@ pub fn sync_riders_to_mounts(
 /// The mount/rider link is re-established here, and the frame's staged victim
 /// hits must be handed over BEFORE that happens.
 ///
-/// ONE member, nested inside `CombatSet::Settle`. The consumer is itself in
-/// `Settle`, so pinning the parent would be a cycle — this is the shape only a
-/// nested set can express.
+/// TWO members, nested inside `CombatSet::Settle`: the link enforcer and the
+/// dismount brain rebuild it announces to, chained. The staged-hit handover must
+/// precede BOTH, which is why the set covers the pair rather than the enforcer
+/// alone. The consumer is itself in `Settle`, so pinning the parent would be a
+/// cycle — this is the shape only a nested set can express.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MountRiderLinkEnforced;
 
 /// Dissolve a rider / mount link when either side dies. Runs after
 /// the damage pass.
 ///
-/// - Mount dies: rider's gravity flips on (so they fall), and their
-///   brain + action set are swapped through the shared dismounted
-///   rider builder so a pirate falling off a dead shark keeps whatever
-///   capabilities their held item grants (gun-sword shots today, axe / bow /
-///   bomb authored rows later). The [`RidingOn`]
+/// - Mount dies: rider's gravity flips on (so they fall), and the dissolution is
+///   ANNOUNCED with `MountDied`. `rebuild_dismounted_rider_brains` answers it and
+///   swaps the brain + action set, so a pirate falling off a dead shark keeps
+///   whatever capabilities their held item grants (gun-sword shots today, axe /
+///   bow / bomb authored rows later) — this system does not build brains. The
+///   [`RidingOn`]
 ///   component itself STAYS attached — `sync_riders_to_mounts`
 ///   gates on `mount.alive` and won't snap the rider while the
 ///   mount is dead. Keeping the link record lets the same-room
@@ -369,18 +371,14 @@ pub struct MountRiderLinkEnforced;
 ///   standalone) brain. The mount's [`MountSlot`] keeps its
 ///   `rider` back-reference so the reset path can re-arm the link.
 ///
-/// The dissolution is idempotent — applying it twice to the same
-/// dead-mount situation is a no-op because the second pass sees
-/// the rider's brain is already the solo brain. The fired hook
-/// is the (transitively-tracked) alive transition, but we don't
-/// trust that to fire only once because reset_to_spawn brings
-/// `mount.alive` back to true and a future death would mean
-/// re-applying the dissolve.
+/// The dissolution is idempotent, and the `Mounted` MARKER is what makes it so:
+/// the dissolve arm requires `(mount dead, rider still marked)`, and it removes
+/// the marker, so a second pass over the same dead mount lands on the steady
+/// state. ⛔ NOT the rider's brain — this system does not read one. We do not
+/// trust the alive TRANSITION to fire once either, because `reset_to_spawn`
+/// brings `mount.alive` back to true and a future death means dissolving again.
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
-    // The prepared cast, so a dismounted rider swings its own weapon rather
-    // than borrowing an archetype's.
-    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut mount_died: MessageWriter<MountDied>,
     mut riders: Query<
         (
@@ -389,12 +387,6 @@ pub fn enforce_mount_rider_link(
             &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
-            Option<&super::HeldItem>,
-            Option<&super::CombatKit>,
-            // A rider whose identity is AUTHORED, not derived from its kit (it
-            // carries `BossConfig`), keeps its `Brain` untouched on dismount —
-            // no new flag, the component IS the marker (ADR 0020; Q19b).
-            Option<&ambition_boss_encounter::BossConfig>,
             Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         Without<MountSlot>,
@@ -425,18 +417,7 @@ pub fn enforce_mount_rider_link(
         );
     }
 
-    for (
-        rider_entity,
-        riding,
-        mut rider_aabb,
-        cache,
-        was_mounted,
-        held_item,
-        combat_kit,
-        boss_config,
-        rider_clusters,
-    ) in &mut riders
-    {
+    for (rider_entity, riding, mut rider_aabb, cache, was_mounted, rider_clusters) in &mut riders {
         let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
@@ -519,24 +500,13 @@ pub fn enforce_mount_rider_link(
                     mount: riding.mount,
                     rider: rider_entity,
                 });
-                // Brain swap: rebuild the solo brain/action-set from the rider's
-                // DURABLE stored kit — UNLESS the rider's identity is authored (it
-                // carries `BossConfig`). A boss's behavior is not derived from a
-                // kit, so re-deriving it on dismount would be wrong; it lands on
-                // foot still running its authored `Brain`/`BossPattern` (Q19b).
-                if boss_config.is_none() {
-                    // A rider always carries a CombatKit; fall back defensively.
-                    let rider_kit = combat_kit.cloned().unwrap_or_default();
-                    let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(
-                        rider.config,
-                        &rider_kit,
-                        held_item.map(|item| &item.spec),
-                        prepared.as_deref(),
-                    );
-                    commands
-                        .entity(rider_entity)
-                        .insert((new_brain, new_action_set));
-                }
+                // ⭐ THE BRAIN SWAP IS NOT DONE HERE. `MountDied` above is the
+                // whole request: `rebuild_dismounted_rider_brains` reads it and
+                // rebuilds the rider's solo brain/action-set from its durable
+                // kit and the prepared cast — character-runtime facts this
+                // module would otherwise have to import in order to dissolve a
+                // mount. Same road the boss bridge already takes. A boss rider
+                // is skipped THERE, by the same `BossConfig` marker (Q19b).
                 commands
                     .entity(rider_entity)
                     .remove::<Mounted>()

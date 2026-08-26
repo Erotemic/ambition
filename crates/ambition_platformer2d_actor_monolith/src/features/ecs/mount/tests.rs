@@ -217,7 +217,17 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
 #[test]
 fn dead_mount_dissolves_link_keeping_records() {
     let mut app = build_app();
-    app.add_systems(Update, enforce_mount_rider_link);
+    // ⛔ THE BRAIN SWAP IS A SECOND SYSTEM NOW, and this arm asserts it, so it
+    // registers the pair the way `CombatSchedulePlugin` chains them. Dropping
+    // the reactor here would leave the arm asserting the mounted brain.
+    app.add_systems(
+        Update,
+        (
+            enforce_mount_rider_link,
+            crate::features::rebuild_dismounted_rider_brains,
+        )
+            .chain(),
+    );
     let (mount, rider) = spawn_pair(&mut app, /*mount_alive*/ false, true);
 
     app.update();
@@ -278,7 +288,18 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
 
     let mut app = build_app();
     app.init_resource::<MountDiedLog>();
-    app.add_systems(Update, (enforce_mount_rider_link, log_mount_died).chain());
+    // ⛔ THE REACTOR MUST BE REGISTERED FOR THIS REFUSAL TO MEAN ANYTHING.
+    // Without it nothing rebuilds any rider's brain, boss or not, and the
+    // assertion below would pass on a world where the rule does not exist.
+    app.add_systems(
+        Update,
+        (
+            enforce_mount_rider_link,
+            crate::features::rebuild_dismounted_rider_brains,
+            log_mount_died,
+        )
+            .chain(),
+    );
 
     // A dead mount + a live mounted rider (default `Dismount` impact).
     let (mount, rider) = spawn_dead_mount_with_impact(&mut app, MountDeathImpact::Dismount);
@@ -538,8 +559,8 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::control::{ActorControl};
-use ambition_characters::control::{PlayerSlot};
+    use ambition_characters::control::ActorControl;
+    use ambition_characters::control::PlayerSlot;
 
     let mut app = build_app();
     // The two coupling systems in their schedule order: steer routes the rider's
@@ -888,7 +909,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::control::ActorControl;
 
     let profile = BossProfile::from_id(
         ambition_boss_encounter::test_boss_catalog(),
@@ -1052,8 +1073,8 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
     use ambition_characters::brain::{BossAttackIntent, BossAttackState, BossCapability, Brain};
-use ambition_characters::control::{ActorControl};
-use ambition_characters::control::{PlayerSlot, SlotControls};
+    use ambition_characters::control::ActorControl;
+    use ambition_characters::control::{PlayerSlot, SlotControls};
 
     let profile = BossProfile::from_id(
         ambition_boss_encounter::test_boss_catalog(),

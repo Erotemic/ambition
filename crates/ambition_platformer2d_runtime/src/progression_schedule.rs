@@ -25,19 +25,25 @@ impl Plugin for ProgressionSchedulePlugin {
         // / cues) + the on-death payload-release signal.
         app.add_message::<ambition_boss_encounter::EncounterGate>();
         app.add_message::<ambition_boss_encounter::PayloadReleased>();
-        // ADR 0020 / Q19: mount dissolution → the rider boss's `mount_died`
-        // external phase trigger. Written in the `Combat` set (earlier this
-        // frame) by `enforce_mount_rider_link`, consumed by
-        // `notify_bosses_on_mount_death` at the head of the boss chain below.
+        // ADR 0020 / Q19: mount dissolution. Written in the `Combat` set (earlier
+        // this frame) by `enforce_mount_rider_link`; it now has TWO readers —
+        // `rebuild_dismounted_rider_brains`, chained straight behind the writer,
+        // and `notify_bosses_on_mount_death` at the head of the boss chain below,
+        // which turns it into a rider boss's `mount_died` external phase.
         app.add_message::<ambition_platformer2d_shared_tangle::body::MountDied>();
         // P0.2: the phase machine's own transition edge. Written by `update_boss_encounters` in
         // `BossAdvance` where the swap is committed, consumed by
         // `boss_phase_transition_feedback` in `BossHazards` — the next set in the same chain,
-        // so delivery is same-frame by construction. deliberately NOT
-        // `clear_message_on_rollback`, and not rollback state, for the same reason
-        // `MountDied` above is neither: it never crosses a frame boundary. A re-simulation
-        // re-runs the phase machine, which re-announces the change if and only if the corrected
-        // timeline really makes it.
+        // so delivery is same-frame by construction.
+        //
+        // ⛔ BOTH OF THESE ARE `clear_message_on_rollback`, and the registrations
+        // say why: a same-frame handshake still leaves a READER CURSOR behind,
+        // and a rewind that does not reset it replays an abandoned branch's
+        // messages. `BossPhaseChanged` is registered in
+        // `ambition_boss_encounter::rollback_registration`, `MountDied` in
+        // `shared_tangle`. Never crossing a frame boundary is what makes them
+        // in-tick channels; it is NOT a reason to leave them out of the sweep,
+        // and the next message added here owes the same registration.
         app.add_message::<ambition_boss_encounter::BossPhaseChanged>();
         app.configure_sets(
             sim,

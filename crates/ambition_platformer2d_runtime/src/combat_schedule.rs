@@ -304,9 +304,20 @@ impl Plugin for CombatSchedulePlugin {
                 .chain()
                 .in_set(CombatSet::Resolve),
         );
+        // ⭐ TWO SYSTEMS, CHAINED, AND THE CHAIN IS THE POINT. The link enforcer
+        // announces a dissolution with `MountDied`; the rebuild answers it. They
+        // are chained rather than merely both in `Settle` because the message is
+        // an IN-TICK channel — the reader must run after this frame's write, and
+        // the rebuilt brain must be inserted before the dismounted body is next
+        // simulated. Chaining puts both facts in one line instead of an ordering
+        // that happens to hold.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link
+            (
+                ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link,
+                ambition_platformer2d_actor_monolith::features::rebuild_dismounted_rider_brains,
+            )
+                .chain()
                 .in_set(ambition_platformer2d_actor_monolith::features::MountRiderLinkEnforced)
                 .in_set(CombatSet::Settle),
         );

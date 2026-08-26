@@ -2425,11 +2425,55 @@ this?"* — applied to thinking rather than to fighting: **a floor crate owns wh
 character IS; the layer above owns how it THINKS.**
 
 ⛔ **NOT STARTED, and it should not be started as a side effect.** What is
-established is only that the ENTRY POINT can leave without a mechanism. The
-destination crate, what `boss_pattern` does about `ambition_boss_encounter`
-already sitting above it, and the 44 test call sites are all unpriced. ⇒ the next
-session on this row prices the DESTINATION first, and this measurement is what
-says the trait seam above is no longer the only option.
+established is only that the ENTRY POINT can leave without a mechanism.
+
+⭐⭐⭐ **THE DESTINATION IS PRICED, 2026-08-26 — and all three unpriced items came
+back CHEAPER than the row assumed.**
+
+**(1) IT IS THREE ARMS, NOT "ALL BRAIN BEHAVIOUR".** `StateMachineCfg` has twelve
+variants. Nine of them — `StandStill`, `Patrol`, `Wanderer`, `MeleeBrute`,
+`Skirmisher`, `Sniper`, `ChargeCrash`, `Aerial`, `PlayerDemo` — are implemented
+INLINE in `state_machine/mod.rs` and are ordinary NPC behaviour a floor crate
+should keep. The mass is in three:
+
+```text
+LEAVES   fighter        10,762   +  7,441 test lines (fighter + smash)
+         boss_pattern    6,265   +  2,704
+         smash           5,080
+         ─────────────  22,107   ⇒ 77% of brain/
+STAYS    state_machine   2,250   the nine simple arms AND the enum
+         mod.rs            518   `Brain` + every cfg/state + snapshot_impls
+```
+
+**(2) BOTH DESTINATIONS ALREADY EXIST AND ALREADY DEPEND ON `ambition_characters`.**
+⭐ `boss_pattern` has an obvious home: **`ambition_boss_encounter`**, which
+already `pub use`s `brain::boss_pattern::profile::*` (`behavior.rs:23`) and
+already reads `boss_pattern_state()` (`anim.rs:19`). It is the boss domain's own
+thinking, sitting one crate too low. ⇒ that sub-question answers itself: the
+boss carve should have taken it. `ambition_combat` is the nearest existing home
+for `fighter`+`smash` (it depends on `ambition_characters` too), though a
+dedicated platform-fighter crate is the cleaner read.
+
+**(3) THE "44 TEST CALL SITES" PRICE IS TWO.** Measured across
+`state_machine/tests.rs` (991 lines, 43 tick calls): of **62** variant
+constructions, **60 are the nine arms that stay**. `BossPattern` appears twice.
+`Fighter` and `Smash` appear **zero** times — their tests live in their own
+subtrees and travel with the behaviour.
+
+⇒ **so the migration is: three subtrees move to two crates that already depend on
+this one, the dispatcher's three big arms follow them, and two tests need a new
+home.** No trait, no type parameter, no fallback type, no registry — and no
+"what does a fighterless composition pass", because a composition without a
+platform fighter does not link the crate.
+
+⚠ **THE ONE THING STILL UNPRICED IS THE DISPATCHER'S SHAPE**, and it is a choice
+rather than a blocker: either `tick_state_machine` moves WHOLE to its single
+production caller (`features/ecs/actors/update.rs:588`) and calls nine `pub fn
+tick_*` downward plus three upward-moved ones, or `ambition_characters` keeps a
+nine-arm dispatcher and the monolith handles the three. ⛔ **the second is the
+one that can rot silently** — a new arm added to the enum has to be remembered in
+two places — so prefer the first, where the compiler's exhaustiveness check sees
+every variant at one site.
 
 ⚠ **the paragraph below is the ORIGINAL design statement, kept because it is
 still the right shape — but read it as HISTORY: it describes work that landed.**

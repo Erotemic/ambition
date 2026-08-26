@@ -6,11 +6,11 @@ use super::input::InputState;
 use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
-use crate::MotionFrame;
 use crate::body_clusters::{
     BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState,
     BodyKinematics, BodyShieldState,
 };
+use crate::MotionFrame;
 
 /// Maneuver a burst press would resolve to in the body's current state.
 ///
@@ -279,8 +279,13 @@ pub(super) fn apply_intent(
     // ROLLBACK FIELD bought for a difference nothing can currently observe (the
     // facing snaps to the stick the moment the timer expires — see below — so
     // the phase cannot actually re-arm forever). Same threshold, no new state.
-    let turn_dir = if local_stick.x.abs() > super::integration::STEER_DEADZONE {
-        local_stick.x.signum()
+    // ⛔ THE STICK THE PLAYER IS HOLDING, because `prev_steer_dir` records that
+    // one — comparing a damped read against an undamped memory is what made a
+    // rooted move look like a release. The ARMING below still needs `reversing`,
+    // which is the damped question.
+    let steer_stick = input.steer_axis();
+    let turn_dir = if steer_stick.x.abs() > super::integration::STEER_DEADZONE {
+        steer_stick.x.signum()
     } else {
         0.0
     };
@@ -823,7 +828,6 @@ pub(super) fn apply_dash(
 #[cfg(test)]
 mod burst_maneuver_tests {
     use super::*;
-    use crate::MotionFrame;
     use crate::body_clusters::{
         BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyGroundState,
         BodyKinematics,
@@ -832,6 +836,7 @@ mod burst_maneuver_tests {
     use crate::movement::input::InputState;
     use crate::movement::model::AxisManeuverState;
     use crate::movement::tuning::AxisSweptParams;
+    use crate::MotionFrame;
 
     /// A body that owns BOTH verbs — the shipped Smash fighter (P4.30).
     fn both_abilities() -> BodyAbilities {

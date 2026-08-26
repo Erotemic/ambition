@@ -173,6 +173,14 @@ pub struct ActorControlFrame {
     /// "controlled body's local frame" the whole time, is not something the
     /// compiler reads.
     pub locomotion: LocalAxes,
+    /// [`Self::locomotion`] as it stood BEFORE a playing move damped it. `None`
+    /// when nothing damped it — then `locomotion` IS the stick.
+    ///
+    /// ⛔ EDGE DETECTION ONLY. It travels to [`InputState::undamped_axes`] so
+    /// the kernel can remember what the player was HOLDING while still acting
+    /// on what the body is ALLOWED to do. See
+    /// [`Self::damped_by_move_motion`].
+    pub undamped_locomotion: Option<LocalAxes>,
     /// Exact world-space velocity command in px/s, for the *free-mover /
     /// choreography* modality: boss patterns that snap to a scripted velocity, and
     /// AI flyers that steer a 2D velocity directly. The free-mover integrator
@@ -377,9 +385,20 @@ impl ActorControlFrame {
     /// ⭐ INTENT ONLY. Action edges (melee, jump, burst, shield) pass through
     /// untouched: a move restricts where a body may GO, never whether it may act.
     /// A rooted body still releases its charge.
+    /// ⭐⭐ AND IT RECORDS WHAT IT DAMPED. Forbidding movement must not erase the
+    /// state that recognises the next input: the initial dash remembers
+    /// direction by comparing this tick's stick against last tick's, so a player
+    /// who simply HELD a direction through a rooted move read as neutral for its
+    /// whole duration and was handed a free full-speed dash the frame it ended.
+    /// [`Self::undamped_locomotion`] travels to `InputState` so edge detection
+    /// can ask what was HELD while the body still acts on what it is ALLOWED.
+    ///
+    /// ⛔ RECORDED HERE rather than threaded through each call site, because
+    /// this is the one function that knows the value is about to be lost.
     pub fn damped_by_move_motion(mut self, scale: f32) -> Self {
         let scale = scale.clamp(0.0, 1.0);
         if scale < 1.0 {
+            self.undamped_locomotion = Some(self.locomotion);
             self.locomotion *= scale;
             self.velocity_target *= scale;
         }
@@ -442,6 +461,10 @@ impl ActorControlFrame {
                     },
                 ),
             axes: self.locomotion,
+            // What the player was HOLDING before a rooted move took it away.
+            // `None` on every undamped road, which is every body not inside a
+            // motion-scaled window.
+            undamped_axes: self.undamped_locomotion,
             blink_quick_dir: self.blink_quick_dir,
             blink_aim_step: self.blink_aim_step,
             attack_pressed: self.melee_pressed,
@@ -750,5 +773,36 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(frame, unchanged);
+    }
+
+    /// ⭐⭐ THE DAMPING RECORDS WHAT IT TOOK, AND IT REACHES THE KERNEL.
+    ///
+    /// The kernel's fix is only worth anything if the producer actually supplies
+    /// the undamped stick — and it is supplied HERE, at the one function that
+    /// knows the value is about to be lost, rather than threaded through each
+    /// integrator. This walks the whole chain a rooted body walks.
+    #[test]
+    fn a_damped_frame_carries_the_stick_it_damped_all_the_way_to_the_kernel() {
+        let mut held = ActorControlFrame::neutral();
+        held.locomotion = LocalAxes::new(1.0, 0.0);
+
+        // Nothing damping: the kernel is told there is no second answer.
+        let plain = held.to_input_state();
+        assert_eq!(plain.undamped_axes, None);
+        assert_eq!(plain.steer_axis().x, 1.0);
+
+        // ROOTED. The body may not move, and the player is still holding right.
+        let rooted = held.damped_by_move_motion(0.0).to_input_state();
+        assert_eq!(
+            rooted.local_axis().x,
+            0.0,
+            "a rooted body was still allowed to steer"
+        );
+        assert_eq!(
+            rooted.steer_axis().x,
+            1.0,
+            "the stick the player was HOLDING did not survive the damping, so \
+             the kernel still cannot tell a rooted move from a release"
+        );
     }
 }

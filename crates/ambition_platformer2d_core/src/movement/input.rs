@@ -233,8 +233,23 @@ mod action_edge_tests {
 /// Raw [`crate::ScreenAxes`] never appear below the seam.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct InputState {
-    /// Locomotion stick in the controlled body's local frame.
+    /// Locomotion stick in the controlled body's local frame — what this body is
+    /// ALLOWED to move by this tick.
     pub axes: LocalAxes,
+    /// The same stick BEFORE a playing move damped it, when something did.
+    /// `None` means nothing damped it and [`Self::axes`] IS the stick.
+    ///
+    /// ⭐⭐ FORBIDDING AN ACTION MUST NOT ERASE THE STATE THAT RECOGNISES THE
+    /// NEXT INPUT. A rooted move scales `axes` to zero, and the initial dash
+    /// remembers direction by comparing this tick's stick against last tick's —
+    /// so a player who simply HELD right through an attack read as "let go, then
+    /// pressed right again" the moment it ended, and was handed a free
+    /// full-speed dash they never asked for.
+    ///
+    /// ⛔ ONLY EDGE DETECTION READS THIS. What the body may DO still comes from
+    /// `axes`: a rooted body that presses a fresh direction must not dash out of
+    /// its own recovery.
+    pub undamped_axes: Option<LocalAxes>,
     /// The locomotion-verb edges — jump / burst / blink / fly-toggle / fast-fall.
     /// The kernel dispatches locomotion on [`MovementAction`] through the typed
     /// accessors below ([`Self::jump_pressed`] …), never on raw fields.
@@ -286,6 +301,15 @@ impl InputState {
         self.axes.vec()
     }
 
+    /// What the PLAYER is HOLDING, as opposed to what this body is allowed to
+    /// move by — see [`Self::undamped_axes`]. Read by edge detection only.
+    pub const fn steer_axis(self) -> Vec2 {
+        match self.undamped_axes {
+            Some(axes) => axes.vec(),
+            None => self.axes.vec(),
+        }
+    }
+
     /// Convenience constructor for a locomotion-only intent.
     pub const fn with_axes(x: f32, y: f32) -> Self {
         let mut input = Self::const_default();
@@ -296,6 +320,7 @@ impl InputState {
     const fn const_default() -> Self {
         Self {
             axes: LocalAxes::ZERO,
+            undamped_axes: None,
             movement: ActionEdges::EMPTY,
             blink_quick_dir: WorldVec2::ZERO,
             blink_aim_step: WorldVec2::ZERO,

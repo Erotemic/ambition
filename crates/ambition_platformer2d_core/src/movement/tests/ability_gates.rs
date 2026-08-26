@@ -1244,6 +1244,83 @@ fn owned_air_jump_rise_is_bought_by_the_jump_and_never_by_a_launch() {
     );
 }
 
+/// ⛔⛔ A ROOTED MOVE HANDED BACK A FREE DASH THE PLAYER NEVER ASKED FOR.
+///
+/// The initial dash remembers direction by comparing this tick's stick with last
+/// tick's. A move with `motion_scale: 0.0` scales the stick to zero, so a player
+/// who simply HELD right through an attack was recorded as neutral for its whole
+/// duration — and the tick it ended read as "pressed right from nothing", which
+/// is exactly the edge that arms a full-speed dash.
+///
+/// ⭐ THE ARMS SEPARATE THE TWO THINGS THE OLD READING COULD NOT TELL APART: a
+/// stick that was DAMPED and a stick that was RELEASED. Letting go and pressing
+/// again SHOULD buy a dash — that is the third arm, and without it this test
+/// would pass just as well for a kernel that had stopped granting dashes.
+#[test]
+fn holding_a_direction_through_a_rooted_move_does_not_buy_a_dash() {
+    let world = test_world();
+    // ⛔ THE EXPLORATION DEFAULT AUTHORS NO INITIAL DASH — the fighter profile
+    // does. Stated here rather than assumed: the premise guard below caught this
+    // fixture measuring a kernel that could not dash at all.
+    let mut tuning = super::TEST_TUNING;
+    tuning.initial_dash_time = 0.18;
+    tuning.initial_dash_speed = 520.0;
+    assert!(
+        tuning.params().locomotion.initial_dash_time > 0.0,
+        "the fixture has no initial dash to be handed"
+    );
+
+    /// Hold right until the first dash has expired, then feed `during` for ten
+    /// ticks, then a plain held-right tick. Reports whether that last tick armed
+    /// a dash.
+    fn dash_after(world: &crate::World, tuning: super::TestTuning, during: InputState) -> bool {
+        let held = InputState::with_axes(1.0, 0.0);
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+        for _ in 0..30 {
+            super::update_player_with_tuning_scratch(world, &mut scratch, held, 1.0 / 60.0, tuning);
+        }
+        assert_eq!(
+            scratch.axis().initial_dash_timer,
+            0.0,
+            "the opening dash never expired, so the arm below cannot tell a NEW \
+             dash from the first one"
+        );
+        for _ in 0..10 {
+            super::update_player_with_tuning_scratch(
+                world,
+                &mut scratch,
+                during,
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        super::update_player_with_tuning_scratch(world, &mut scratch, held, 1.0 / 60.0, tuning);
+        scratch.axis().initial_dash_timer > 0.0
+    }
+
+    // ⛔ THE DEFECT. The stick is damped to nothing by a rooted move; the player
+    // never let go.
+    let rooted = InputState {
+        axes: crate::LocalAxes::ZERO,
+        undamped_axes: Some(crate::LocalAxes::new(1.0, 0.0)),
+        ..InputState::default()
+    };
+    assert!(
+        !dash_after(&world, tuning, rooted),
+        "a rooted move gave the body a free initial dash the frame it ended — \
+         the damped stick was recorded as a RELEASE, so holding right read as \
+         pressing it again"
+    );
+
+    // ⭐ AND A REAL RELEASE STILL BUYS ONE, or the arm above proves nothing.
+    assert!(
+        dash_after(&world, tuning, InputState::default()),
+        "letting go and pressing again did not buy a dash, so the refusal above \
+         is a kernel that stopped dashing rather than one that stopped being \
+         fooled"
+    );
+}
+
 /// AN ACCEPTED ROLL TRAVELS THE SAME DISTANCE WHETHER OR NOT YOU KEEP HOLDING
 /// THE BUTTON THAT STARTED IT.
 ///

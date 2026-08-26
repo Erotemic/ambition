@@ -598,16 +598,33 @@ fn resolve_initial_dash(
     if tuning.locomotion.initial_dash_time <= 0.0 {
         return 0.0;
     }
+    // ⭐⭐ TWO STICKS, TWO QUESTIONS. `dir` is what this body may ACT on — damped
+    // to nothing by a rooted move — and `held` is what the PLAYER is holding.
+    // The dash arms on `dir` so a rooted body cannot dash out of its own
+    // recovery; the MEMORY is of `held`, because forbidding an action must not
+    // erase the state that recognises the next input.
+    //
+    // ⛔⛔ IT USED TO REMEMBER THE DAMPED ONE. A player who simply held right
+    // through an attack was recorded as neutral for its whole duration, so the
+    // tick it ended read as "pressed right from nothing" — the exact edge that
+    // arms a full-speed dash. A free dash out of every rooted move.
+    //
+    // ⛔ AND THEY ARE THE SAME VALUE WHENEVER NOTHING IS DAMPING, which is every
+    // body outside a motion-scaled window.
     let steer = input.local_axis().x;
-    let dir = if steer.abs() > STEER_DEADZONE {
-        steer.signum()
-    } else {
-        0.0
+    let deadzoned = |x: f32| {
+        if x.abs() > STEER_DEADZONE {
+            x.signum()
+        } else {
+            0.0
+        }
     };
+    let dir = deadzoned(steer);
+    let held = deadzoned(input.steer_axis().x);
     if !on_ground {
         state.initial_dash_timer = 0.0;
         state.initial_dash_dir = 0.0;
-        state.prev_steer_dir = dir;
+        state.prev_steer_dir = held;
         return 0.0;
     }
     // ⛔ A BODY MID-TURNAROUND IS NOT STARTING A DASH. It committed to a run and
@@ -616,10 +633,11 @@ fn resolve_initial_dash(
     if state.turnaround_timer > 0.0 {
         state.initial_dash_timer = 0.0;
         state.initial_dash_dir = 0.0;
-        state.prev_steer_dir = dir;
+        state.prev_steer_dir = held;
         return 0.0;
     }
-    if dir != 0.0 && dir != state.prev_steer_dir {
+    // The EDGE is against what the player was holding; the PERMISSION is `dir`.
+    if dir != 0.0 && held != state.prev_steer_dir {
         state.initial_dash_timer = tuning.locomotion.initial_dash_time;
         state.initial_dash_dir = dir;
     } else {
@@ -628,7 +646,7 @@ fn resolve_initial_dash(
             state.initial_dash_dir = 0.0;
         }
     }
-    state.prev_steer_dir = dir;
+    state.prev_steer_dir = held;
     // Letting go mid-dash ends it: the phase is a committed DIRECTION, and a
     // body with no direction held is not dashing anywhere.
     if dir == 0.0 {

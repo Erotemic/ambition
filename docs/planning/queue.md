@@ -10304,14 +10304,22 @@ built identities for one fighter agree and a different fighter still differs.
 Plus the parity row PIVOT SMASH, which was already true — the pivot went in
 where facing is resolved, so every attack family inherited it.
 
-⛔⛔ **(13) LEDGE-TRUMP POP: REFUSED AS A HALF-FIX, AND THIS IS THE INTERESTING
-ONE.** The review is right that `kin.vel.x = outward.signum() * pop` is world X.
-But its INPUT, `LedgeContact::wall_normal_x`, is a world-X SCALAR — the whole
-ledge contact representation is world-X — so projecting only the consumer onto
-`body_frame.side` would move the inconsistency rather than remove it. ⇒ the real
-item is **give the ledge contact a frame-relative normal**, and that is a design
-change, not a line. ⚠ contrast the WAVEBOUNCE, which WAS a line: there the input
-was already a vector and the frame was already in scope.
+⭐⭐ **(13) CLOSED 2026-08-25 — AND THE REFUSAL BELOW WAS WRONG, WHICH IS THE
+INTERESTING PART.** The review was right that `kin.vel.x = outward.signum() * pop`
+is world X. It was refused on the claim that its INPUT was world-X too — and that
+claim was read off the NAME. `LedgeContact::wall_normal_x` is a body-LOCAL side
+sign: the producer computes `world_normal.dot(frame.side).signum()`, and
+`probe_ledge_grab_in_frame`'s own doc says *"`wall_normal_x` is historical naming:
+it is now the side-face normal expressed in the controlled body's local side
+axis"*. ⇒ it WAS the one-line projection the review proposed, and the refusal cost
+the fix a day.
+
+⛔⛔ **THE LESSON IS THE FIELD NAME.** A stale NAME is a claim about behaviour
+exactly like a stale comment, and it is worse: a comment is read sceptically and a
+type signature is believed. Two greps — the producer and the doc — would have
+settled it. ⇒ on any "the input is in the wrong space" refusal, READ THE PRODUCER.
+
+⚠ THE ORIGINAL REFUSAL, kept as the record of how it read at the time:
 
 ⚠ **AND (11) COST A FIXTURE, WHICH IS THE MOST USEFUL THING IN THIS ROW.**
 Unifying the threshold changed exactly FOUR arming decisions across a 3600-tick

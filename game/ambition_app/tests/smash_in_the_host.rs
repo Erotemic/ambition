@@ -2338,18 +2338,36 @@ fn exit_match_ends_the_match_as_a_no_contest_and_returns_to_select() {
         "an abandoned match was decided as something the fighters achieved"
     );
 
-    // And it goes home the ORDINARY way — the same countdown an ordinary
-    // knockout takes, not a teardown path of its own.
-    for _ in 0..600 {
+    // ⭐⭐ AND IT GOES HOME ON THE PRESS. Jon, 2026-08-26: *"skip the no
+    // contest presentation for now and just exit to the character select menu
+    // immediately."* The budget is what makes this an assertion rather than a
+    // restatement: `RETURN_TO_SELECT_AFTER` is 4.5 SECONDS, so a countdown road
+    // cannot pass a loop this short, and the old behaviour would have.
+    const IMMEDIATE: usize = 30;
+    let mut frames = 0;
+    while frames < IMMEDIATE {
         if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
             break;
         }
         app.update();
+        frames += 1;
     }
     assert_eq!(
         active_route(&app).as_deref(),
         Some(ambition_demo_smash::SMASH_SELECT_ROUTE),
-        "an exited match left the player on the stage"
+        "an exited match kept the player on the stage for more than {IMMEDIATE} frames, \
+         so it is still going home by the winner-card countdown"
+    );
+    // ⛔ AND NO CARD WAS PUT UP ON THE WAY OUT. A NO CONTEST readout is the
+    // presentation Jon asked to skip; asserting only the route would stay green
+    // with the card flashing for four and a half seconds first.
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::presentation::HudReadouts>()
+            .get(&ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT.into())
+            .is_none(),
+        "exiting the match still announced a result, so the no-contest card is \
+         still in the road out"
     );
     assert!(
         app.world()

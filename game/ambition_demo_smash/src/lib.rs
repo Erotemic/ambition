@@ -14,12 +14,12 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
-pub mod shark_ride;
 pub mod capture;
 pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;
 pub mod select_screen;
+pub mod shark_ride;
 pub mod smash_pack;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
@@ -1773,7 +1773,8 @@ fn smash_fighters_are_solid_to_each_other(
 }
 
 /// Return to character select after a decided match has left its winner card
-/// visible for [`RETURN_TO_SELECT_AFTER`].
+/// visible for [`RETURN_TO_SELECT_AFTER`] — or IMMEDIATELY, when the verdict is
+/// a `NoContest` and there is no card to leave visible.
 ///
 /// ⛔⛔ AND IT ARMS ONLY ON A CONFIRMED FRAME, because leaving the stage is not
 /// retractable. It used to arm on `StocksMatchDecided`, which a SPECULATIVE
@@ -1829,6 +1830,37 @@ fn return_to_the_select_screen_when_the_match_ends(
         (Some(settled), Some(active)) => settled.settled(active),
         _ => false,
     };
+    // ⭐⭐ AN ABANDONED MATCH GOES HOME ON THE PRESS. Jon, 2026-08-26: *"skip
+    // the no contest presentation for now and just exit to the character select
+    // menu immediately."* A knockout earns its card and its beat; a match
+    // somebody asked to stop has no result to show, and three seconds of a card
+    // reading NO CONTEST is the only thing between the press and the lobby.
+    //
+    // ⛔ AND IT DOES NOT WAIT FOR CONFIRMATION, which is safe for exactly this
+    // verdict and no other. The other two are reached by the SIMULATION, so a
+    // rewind can retract them and leaving the stage cannot be taken back.
+    // `NoContest` is reached only by `MatchAbandonRequest` — a latch made
+    // OUTSIDE the simulation that does not rewind — so the resim reaches the
+    // same verdict and there is nothing to retract. That is the same argument
+    // that gave the request its shape; see `MatchAbandonRequest`.
+    let abandoned = settled
+        .as_deref()
+        .zip(active.as_deref())
+        .and_then(|(settled, active)| settled.verdict(active))
+        .is_some_and(|verdict| {
+            matches!(
+                verdict,
+                ambition_platformer2d::actor::MatchVerdict::NoContest
+            )
+        });
+    if abandoned {
+        *countdown = None;
+        readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
+        shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_SELECT_ROUTE),
+        ));
+        return;
+    }
     let confirmed = boundary
         .as_deref()
         .is_none_or(|boundary| boundary.fully_confirmed());
@@ -1912,6 +1944,18 @@ fn announce_the_winner(
     }
     if let Some(verdict) = settled.verdict(active) {
         *announced = Some(this_match);
+        // ⛔ A NO CONTEST GETS NO CARD. Jon, 2026-08-26: *"skip the no contest
+        // presentation for now."* The card exists to tell a player which of the
+        // three endings happened; somebody who just picked `Exit Match` already
+        // knows, and the announcement only delays the lobby they asked for. The
+        // rising edge is consumed above regardless, so this does not re-ask the
+        // question every tick.
+        if matches!(
+            verdict,
+            ambition_platformer2d::actor::MatchVerdict::NoContest
+        ) {
+            return;
+        }
         // Keep a team's name unless the winning side has exactly one participant.
         // Resolve participant identity from the match roster, not surviving bodies;
         // simultaneous ring-outs may leave no resident winner body, so the side name
@@ -2236,10 +2280,15 @@ fn offer_to_exit_the_match(
 /// ⭐ TWO LINES, AND THAT IS THE POINT. Jon: *"Reuse the existing match outcome
 /// / route transition machinery. Do not introduce a one-off scene teardown
 /// path."* Everything after this already exists: `decide_stocks_match` settles
-/// the match as a [`MatchVerdict::NoContest`],
-/// [`announce_the_winner`] puts NO CONTEST on the card, and
+/// the match as a [`MatchVerdict::NoContest`] and
 /// [`return_to_the_select_screen_when_the_match_ends`] brings the player back to
-/// the lobby — the same three systems an ordinary knockout goes through.
+/// the lobby — the same systems an ordinary knockout goes through.
+///
+/// ⛔ WITH ONE STEP SKIPPED, and it is skipped by those systems rather than by a
+/// road of its own: [`announce_the_winner`] writes no card for a `NoContest` and
+/// the return takes no countdown. Jon, 2026-08-26: *"skip the no contest
+/// presentation for now and just exit to the character select menu
+/// immediately."*
 ///
 /// ⛔ NOT GATED ON A SEAT. It is a match-level command, so it works the same in
 /// CPU-vs-CPU as in a human match; the person who opened the menu is not
@@ -3929,29 +3978,35 @@ mod tests {
         );
     }
 
-    /// THE THREE ENDINGS REACH THE CARD AS THREE ENDINGS.
+    /// THE TWO WINNER-LESS ENDINGS ARE STILL TWO, and only one of them gets a
+    /// card.
     ///
     /// ⛔⛔ a draw and a no contest BOTH have no winner, so a card that
     /// distinguished them by asking `winner.is_none()` would say the same thing
     /// about a mutual ring-out and an abandoned match — which is the conflation
-    /// `MatchVerdict` exists to remove.
+    /// `MatchVerdict` exists to remove. The distinction is unchanged; what
+    /// changed is that the abandoned match no longer stops to show it. Jon,
+    /// 2026-08-26: *"skip the no contest presentation for now."* A mutual
+    /// ring-out is something the fighters achieved and nobody watching knows it
+    /// happened until the card says so; `Exit Match` is something the player
+    /// did on purpose one keypress ago.
+    ///
+    /// ⭐ the WORDING for a no contest is still proven, by
+    /// `every_ending_has_its_own_words` over `victory_banner` — so restoring the
+    /// card is a one-line change and not a re-derivation.
     #[test]
-    fn a_draw_and_a_no_contest_are_announced_as_different_endings() {
+    fn a_draw_is_announced_and_an_abandoned_match_is_not() {
         use ambition_platformer2d::actor::MatchVerdict;
         let drawn = announced_outcome(MatchVerdict::Draw).expect("a draw is still an ending");
-        let stopped =
-            announced_outcome(MatchVerdict::NoContest).expect("a no contest is still an ending");
         assert!(
             drawn.contains("Draw"),
             "a draw was announced as something else: {drawn}"
         );
-        assert!(
-            stopped.contains("NO CONTEST"),
-            "an abandoned match was announced as something the fighters did: {stopped}"
-        );
-        assert_ne!(
-            drawn, stopped,
-            "the two winner-less endings say the same thing on the card"
+        assert_eq!(
+            announced_outcome(MatchVerdict::NoContest),
+            None,
+            "an abandoned match still put a result card up, so the press to leave \
+             is still behind a readout the player has to sit through"
         );
     }
 

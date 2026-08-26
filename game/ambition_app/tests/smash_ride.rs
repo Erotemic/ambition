@@ -80,7 +80,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
 
     // ── PRESS UP + SPECIAL. Held, because a one-tick press assumes the body
     //    steps after the frame is committed inside one update. ──
-    let mut press = |app: &mut App, frames: usize, frame: ambition_platformer2d::engine_core::ControlFrame| {
+    let press = |app: &mut App, frames: usize, frame: ambition_platformer2d::engine_core::ControlFrame| {
         for _ in 0..frames {
             ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
             app.update();

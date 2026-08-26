@@ -249,6 +249,28 @@ fn prepare_args(
         .collect()
 }
 
+/// Convert ONE authored argument text into the [`AuthoredArg`] its declared
+/// [`ParamSpec`] asks for.
+///
+/// ⭐⭐ THE ONE AUTHORITY ON WHAT AN AUTHORED VALUE MEANS — what spellings of
+/// truth are accepted, what a Number will parse, how a reference is minted. It is
+/// public because a SECOND surface needs it: authored dialogue hands a command
+/// its parameters as untyped text and had grown a byte-identical copy of the
+/// Name/Number/Truth arms, comment included. Two authorities on "what `true`
+/// means" is exactly the defect the Truth arm's own comment warns about — a
+/// fifth spelling accepted by accident on one road and not the other.
+///
+/// ⛔ A CALLER THAT CANNOT EXPRESS AN IDENTITY REFUSES `ParamKind::Reference`
+/// ITSELF, before delegating, so its refusal can say WHY in its own terms. This
+/// function mints the reference for callers that can.
+pub fn prepare_authored_arg(
+    id: &str,
+    param: &ParamSpec,
+    text: &str,
+) -> Result<AuthoredArg, String> {
+    prepare_one(id, param, text)
+}
+
 fn prepare_one(id: &str, param: &ParamSpec, text: &str) -> Result<AuthoredArg, String> {
     match param.kind {
         ParamKind::Name => Ok(AuthoredArg::Name(text.to_string())),

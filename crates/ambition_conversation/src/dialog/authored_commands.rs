@@ -132,36 +132,33 @@ fn prepare_arguments(
         .collect()
 }
 
+/// ⭐⭐ ONE REFUSAL OF ITS OWN, then the SHARED conversion.
+///
+/// The Name / Number / Truth arms used to be a byte-identical copy of
+/// `authored_logic::prepared`'s — comment included — which made two authorities
+/// on what `true` means. That is precisely the accident the Truth arm's comment
+/// warns about, one layer up: a fifth spelling accepted on one road and not the
+/// other, and nothing to say which was right.
+///
+/// ⛔ THE REFERENCE ARM STAYS HERE because it is not a conversion, it is a
+/// CAPABILITY statement about this surface: Yarn hands a command its parameters
+/// as quoted text and a quoted string is not an identity, so authored dialogue
+/// refuses references in its own words rather than borrowing a message written
+/// for a road that can mint them.
 fn prepare_one(id: &CommandId, param: &ParamSpec, text: &str) -> Result<AuthoredArg, String> {
-    match param.kind {
-        ParamKind::Name => Ok(AuthoredArg::Name(text.to_string())),
-        ParamKind::Number => text.parse::<f64>().map(AuthoredArg::Number).map_err(|_| {
-            format!(
-                "`{id}` argument `{}` is a Number, and the authored value {text:?} \
-                 is not one",
-                param.name
-            )
-        }),
-        // exactly `true` / `false`, with no `1`, `yes` or `on`. A verb that
-        // accepted four spellings of truth would accept a fifth by accident, and
-        // a mistyped one would read as `false` — which is a flag being CLEARED
-        // when the author meant to set it.
-        ParamKind::Truth => match text {
-            "true" => Ok(AuthoredArg::Truth(true)),
-            "false" => Ok(AuthoredArg::Truth(false)),
-            other => Err(format!(
-                "`{id}` argument `{}` is a Truth, and the authored value {other:?} \
-                 is neither `true` nor `false`",
-                param.name
-            )),
-        },
-        ParamKind::Reference => Err(format!(
+    if matches!(param.kind, ParamKind::Reference) {
+        return Err(format!(
             "`{id}` argument `{}` is a prepared reference to an occurrence, and \
              authored dialogue can only pass names, numbers and truths — a quoted \
              string is not an identity",
             param.name
-        )),
+        ));
     }
+    ambition_platformer2d_shared_tangle::authored_logic::prepare_authored_arg(
+        id.as_str(),
+        param,
+        text,
+    )
 }
 
 #[cfg(test)]

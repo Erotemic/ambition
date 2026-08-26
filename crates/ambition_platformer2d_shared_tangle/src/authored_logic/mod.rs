@@ -20,7 +20,7 @@ pub use commands::{
     AuthoredCommandPlugin, AuthoredCommandSet, CommandCatalog, CommandDescriptor, CommandId,
     CommandOutcome, CommandRunner, PublishCommand, RunAuthoredCommand,
 };
-pub use prepared::{PreparationError, PreparedCommand, PreparedCondition};
+pub use prepared::{prepare_authored_arg, PreparationError, PreparedCommand, PreparedCondition};
 
 /// The one spelling rule both halves obey: `<domain>.<leaf>`, exactly one
 /// dot, neither side empty.
@@ -275,7 +275,13 @@ impl ConditionCatalog {
                 existing.descriptor.summary
             );
         }
-        self.rows.insert(id, Registered { descriptor, evaluate });
+        self.rows.insert(
+            id,
+            Registered {
+                descriptor,
+                evaluate,
+            },
+        );
     }
 
     /// Every published condition, in id order.
@@ -313,7 +319,12 @@ impl ConditionCatalog {
     /// evaluator that had to validate its own arguments would be fifty domains
     /// each writing the same four lines, and the day one of them wrote them
     /// differently the catalog's schema would stop meaning anything.
-    pub fn evaluate(&self, world: &World, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
+    pub fn evaluate(
+        &self,
+        world: &World,
+        id: &ConditionId,
+        args: &[AuthoredArg],
+    ) -> ConditionOutcome {
         let Some(row) = self.rows.get(id) else {
             return ConditionOutcome::unanswerable(format!(
                 "no condition `{id}` is published; the installed engine knows {} others",

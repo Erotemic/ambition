@@ -7735,9 +7735,33 @@ M5  ▢ diagnostics, untouched
 
 ⇒ two follow-ups are named and are NOT this row's next action: `gated_lock_walls`
 still rebuilds its condition arguments every tick instead of holding a
-`PreparedCondition`, and `ambition_conversation::dialog::authored_commands`
+`PreparedCondition`, and ~~`ambition_conversation::dialog::authored_commands`
 still owns a second text→`AuthoredArg` conversion that `prepared::prepare_args`
-now generalises.
+now generalises~~.
+
+✔ **THE SECOND ONE IS DONE, 2026-08-26, and it was a DELETION rather than a
+wrapper.** The dialog road's Name / Number / Truth arms were a byte-identical
+copy of `authored_logic::prepared`'s — the Truth arm's comment included — which
+made TWO AUTHORITIES ON WHAT `true` MEANS. That is precisely the accident that
+comment warns about one layer up: a fifth spelling accepted by accident on one
+road and not the other, with nothing to say which was right.
+`prepare_authored_arg` is the one public conversion now.
+
+⛔ **THE REFERENCE ARM STAYED BEHIND, deliberately, because it is not a
+conversion.** It is a CAPABILITY statement about that surface — Yarn hands a
+command its parameters as quoted text, and a quoted string is not an identity —
+so authored dialogue refuses references in its own words instead of borrowing a
+message written for a road that can mint them.
+
+⛔⛔ **AND THE POISON EXPOSED A HOLE IN THE GATE, the second one found today.**
+`cargo test -p ambition_conversation` runs 25 tests; `--features ui` runs 35.
+The whole `dialog` module — the authored-command road AND its 262 lines of
+tests — is behind a NON-DEFAULT feature, so the plain per-crate invocation
+compiles none of it and the first poison came back green over a deliberately
+broken Truth arm. Under `--features ui` it reddened
+`a_command_published_by_a_foreign_domain_is_requestable_from_authored_yarn`
+immediately. ⇒ **when a crate has features, a poison that passes is evidence
+about the FEATURE SET, not about the code.**
 
 ⭐⭐ **M2 acceptance is met for ONE call, not for a `when … then` rule,
 deliberately.** `authored_logic::prepared` turns one authored line

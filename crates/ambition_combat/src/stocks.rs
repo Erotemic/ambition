@@ -191,22 +191,48 @@ pub struct FighterRespawnsDue;
 /// paths for one event, and the rarely-taken one is the one that rots.
 pub fn tick_pending_respawn(
     mut commands: Commands,
-    mut pending: Query<(Entity, &mut PendingRespawn)>,
+    mut pending: Query<(
+        Entity,
+        &mut PendingRespawn,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    )>,
     mut due: MessageWriter<FighterRespawnDue>,
 ) {
     // Collected and sorted: `Query` iteration order is not guaranteed, and the
     // message order here decides placement order for two fighters returning on
     // one tick — which is a seat-dependent position.
-    let mut ready: Vec<Entity> = Vec::new();
-    for (entity, mut pending) in &mut pending {
+    //
+    // ⛔⛔ BY `SimId`, NOT BY `Entity` — the same rule the clank arbitration
+    // states two files away, and this is what it looked like to get it wrong.
+    // The sort was on `Entity`, which is ALLOCATOR identity: it is stable within
+    // one run and says nothing about which fighter is which, so a comment
+    // declaring that the order is semantically load-bearing sat directly above a
+    // key that cannot carry that meaning. Two peers, or one peer replaying a
+    // world it built in a different order, could canonicalize differently and
+    // both believe they had.
+    //
+    // ⭐ A FAKE CANONICALIZATION IS WORSE THAN NONE, because the next consumer
+    // trusts it. Today's Smash placement is largely commutative — each fighter
+    // is placed at its own seat's position — so nothing visibly diverges yet;
+    // the ruleset that makes the order matter is the one this would have caught
+    // out.
+    //
+    // ⭐ `(SimId, entity)`, and the second key is only reached by a body with no
+    // `SimId` at all. That is not a fighter in any composed match — every
+    // constructed body is identified — but a hand-built fixture can spawn one,
+    // and a total order that panics on a fixture is a worse answer than a total
+    // order that falls back.
+    let mut ready: Vec<(Option<ambition_platformer2d_shared_tangle::sim_id::SimId>, Entity)> =
+        Vec::new();
+    for (entity, mut pending, sim_id) in &mut pending {
         if pending.remaining_ticks > 0 {
             pending.remaining_ticks -= 1;
             continue;
         }
-        ready.push(entity);
+        ready.push((sim_id.cloned(), entity));
     }
     ready.sort();
-    for entity in ready {
+    for (_, entity) in ready {
         commands.entity(entity).remove::<PendingRespawn>();
         // Back IN the fight, which is the half that makes the body targetable
         // and gives it a place on the anti-clump board again.
@@ -526,6 +552,99 @@ mod tests {
                 crate::components::ActiveCombatant,
             ))
             .id()
+    }
+
+    /// ⛔⛔ TWO FIGHTERS RETURNING ON ONE TICK ARE ORDERED BY WHO THEY ARE.
+    ///
+    /// `tick_pending_respawn` sorts its ready list because the message order
+    /// decides placement order, and placement is a seat-dependent position. It
+    /// sorted on `Entity` — ALLOCATOR identity, which is stable within one run
+    /// and carries no gameplay meaning — so a comment declaring the order
+    /// semantically load-bearing sat directly above a key that could not carry
+    /// it. The clank arbitration two files away had already written down why
+    /// `Entity` cannot be that key.
+    ///
+    /// ⭐⭐ THE ARMS SPAWN THE SAME TWO SEMANTIC FIGHTERS IN OPPOSITE ALLOCATION
+    /// ORDER, which is the only way to tell a real canonicalization from one
+    /// that merely looks sorted: under `Entity` the second arm comes back
+    /// REVERSED, and both arms would still have "passed" a test that only
+    /// checked the list was sorted by its own key.
+    #[test]
+    fn simultaneous_returns_are_ordered_by_identity_not_by_allocation() {
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+        /// Spawn `alpha` and `beta` in the given allocation order, knock both
+        /// out on one tick, and report the SimIds they came back in.
+        fn returned_order(alpha_first: bool) -> Vec<String> {
+            let mut app = respawn_app(2);
+            let mut spawn = |name: &str| -> Entity {
+                let body = app
+                    .world_mut()
+                    .spawn((
+                        FighterStocks::new(3),
+                        BodyHealth::new(Health::new(50)).with_policy(DeathPolicy::Unbounded),
+                        crate::components::ActiveCombatant,
+                        SimId::placement(name),
+                    ))
+                    .id();
+                body
+            };
+            let (alpha, beta) = if alpha_first {
+                let a = spawn("alpha");
+                let b = spawn("beta");
+                (a, b)
+            } else {
+                let b = spawn("beta");
+                let a = spawn("alpha");
+                (a, b)
+            };
+            app.update();
+            let _ = returned_this_tick(&mut app);
+
+            for body in [alpha, beta] {
+                app.world_mut()
+                    .resource_mut::<Messages<BodyKnockedOut>>()
+                    .write(BodyKnockedOut {
+                        body,
+                        cause: crate::HitSource::LeftTheWorld,
+                    });
+            }
+            // The spend tick, then the interval, then the tick they are due.
+            let mut due = Vec::new();
+            for _ in 0..8 {
+                app.update();
+                due = returned_this_tick(&mut app);
+                if !due.is_empty() {
+                    break;
+                }
+            }
+            due.into_iter()
+                .map(|body| {
+                    app.world()
+                        .get::<SimId>(body)
+                        .expect("every fighter here is identified")
+                        .as_str()
+                        .to_string()
+                })
+                .collect()
+        }
+
+        let forward = returned_order(true);
+        // The premise: both fighters really do come back on ONE tick. Without
+        // this the equality below is satisfied by two empty lists.
+        assert_eq!(
+            forward.len(),
+            2,
+            "the two fighters did not return on the same tick, so this proves \
+             nothing about the order they return in"
+        );
+        assert_eq!(
+            forward,
+            returned_order(false),
+            "the same two fighters returned in a different order when they were \
+             SPAWNED in a different order — the sort key is allocation identity, \
+             not who the fighters are"
+        );
     }
 
     #[test]

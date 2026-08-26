@@ -486,4 +486,3 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
         robot.last_hp
     );
 }
-

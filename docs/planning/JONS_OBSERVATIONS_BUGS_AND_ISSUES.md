@@ -264,7 +264,7 @@ goblin (control, 1 page)          1    2,185,530   1.000
   is the one to re-check the day anything starts calling it.
 
   ⇒ six causes eliminated, and every road that can be compared from a file
-  agrees. What is left needs a screen.                           
+  agrees. What is left needs a screen.
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: `sprite-residency-and-live-quality.md`.

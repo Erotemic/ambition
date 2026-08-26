@@ -2476,6 +2476,37 @@ STAYS    state_machine   2,250   the nine simple arms AND the enum
          mod.rs            518   `Brain` + every cfg/state + snapshot_impls
 ```
 
+⛔⛔⛔ **AND THE PAYOFF IS NOT THE ONE THIS ROW IMPLIES. MEASURED 2026-08-26 —
+NOTHING STOPS LINKING ANYTHING.** The row's complaint is that 15,928 lines sit in
+*"a floor crate every composition links"*. But the movement-only sentinel's frozen
+closure (`scripts/baselines/capability-footprint-baseline.json`, 41 crates)
+ALREADY contains all three candidate destinations **and the actor monolith**:
+
+```text
+ambition_characters   ambition_combat   ambition_boss_encounter
+ambition_platformer2d_actor_monolith          ← dispatches the brain
+```
+
+⇒ wherever the behaviour goes, the monolith has to name it in order to dispatch,
+and the monolith is in every closure. **A NEW crate would be linked too.** ⇒ this
+migration cannot reduce the capability footprint by a single crate, by any
+destination.
+
+⭐⭐ **THE REAL PAYOFF IS EDIT COST, AND IT IS MEASURABLE.** Direct dependents:
+
+```text
+ambition_characters       18      ← touching fighter/decision.rs today rebuilds these
+ambition_combat           10
+ambition_boss_encounter    6
+```
+
+⇒ moving fighter+smash to `ambition_combat` cuts the rebuild fan-out of a
+fighter-AI edit from 18 crates to 10, and boss_pattern's from 18 to 6 — which is
+the decomposition plan's OTHER stated goal (*"less work per actor edit, more
+independent work available for parallelism"*), not the capability one. ⚠ **say
+that when the slice lands.** A session that claims a footprint win here will be
+wrong, and the ratchet will not contradict it because the closure does not move.
+
 **(2) BOTH DESTINATIONS ALREADY EXIST AND ALREADY DEPEND ON `ambition_characters`.**
 ⭐ `boss_pattern` has an obvious home: **`ambition_boss_encounter`**, which
 already `pub use`s `brain::boss_pattern::profile::*` (`behavior.rs:23`) and

@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{
-    CombatSet, Platformer2dSimulationPhaseMonolith, gameplay_allowed,
+    gameplay_allowed, CombatSet, Platformer2dSimulationPhaseMonolith,
 };
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
@@ -319,14 +319,17 @@ impl Plugin for CombatSchedulePlugin {
                 .in_set(CombatSet::Settle),
         );
 
-        // The MATCH's impact freeze, from the same landed hits the shake above
-        // reads and for the same reason: a connect is a beat, and the beat
-        // belonged to slot zero. ⭐ ONE system — the hold is an absolute expiry
-        // tick, so there is nothing to decay and nothing to hand back.
+        // The MATCH's impact freeze. ⭐ ONE system — the hold is an absolute
+        // expiry tick, so there is nothing to decay and nothing to hand back.
+        //
+        // ⛔ IT READS `ResolvedBodyHit`, NOT the landed hits the shake above
+        // reads. The shake is presentation and geometry is enough for it; the
+        // freeze needs the hit's RESULT, and the two roads that produce one
+        // resolve on different frames. See the system's own note.
         app.init_resource::<ambition_combat::impact_hitstop::ImpactHitstop>();
         app.add_systems(
             sim,
-            ambition_combat::impact_hitstop::request_impact_hitstop_on_landed_hits
+            ambition_combat::impact_hitstop::request_impact_hitstop_on_resolved_hits
                 .run_if(gameplay_allowed)
                 .in_set(CombatSet::Settle),
         );

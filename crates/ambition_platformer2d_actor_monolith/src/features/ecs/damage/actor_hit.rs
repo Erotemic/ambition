@@ -490,6 +490,16 @@ pub(crate) fn apply_actor_hit(
                 Some((motion_model, em.ledge)),
                 feel,
             );
+            // ⭐ THE HIT'S RESULT, for the simulation — the actor road's half of
+            // the fact the match freeze reads. Beside the reaction because THAT
+            // is where the hitlag exists: publishing beside the resolution
+            // instead reported zero for every hit.
+            crate::features::ecs::damage_apply::publish_resolved_hit(
+                writers.resolved.as_mut(),
+                actor_entity,
+                combat.hitstop_timer,
+                event.source.clone(),
+            );
             #[cfg(feature = "causal")]
             if let Some(reactions) = writers.reactions.as_mut() {
                 reactions.write(crate::features::ecs::damage_apply::BodyReactionApplied {

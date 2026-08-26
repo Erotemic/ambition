@@ -328,6 +328,7 @@ message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abando
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
+message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping

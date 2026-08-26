@@ -63,21 +63,46 @@ impl ImpactHitstop {
 /// on a resimulated frame as it did live.
 const TICKS_PER_SECOND: f32 = 60.0;
 
-/// A landed hit sets the freeze's expiry, bounded by the authored hitlag.
+/// Does this source produce the beat a freeze is FOR?
 ///
-/// ⭐ THE VICTIM'S OWN RESOLVED HITLAG, not a flat rate — the same number and
-/// the same source `shake_camera_on_landed_hits` reads one system over, and this
-/// runs in the same phase for the same reason: the frame's damage is resolved.
+/// ⛔⛔ A CONNECT, NOT AN INJURY. `ResolvedBodyHit` comes off the resolver, which
+/// also serves contact attrition, hazards and the blast zone — a fighter leaning
+/// on another was measured producing SEVENTEEN `Contact` resolutions in
+/// twenty-three ticks, one damage each. A freeze armed by those alternates
+/// frozen and moving forever, and three smash fixtures stopped reaching the gait
+/// they were waiting for. Standing in lava is not a hit connecting.
+fn is_a_connect(source: &crate::HitSource) -> bool {
+    matches!(
+        source,
+        crate::HitSource::Melee | crate::HitSource::Projectile | crate::HitSource::Pogo
+    )
+}
+
+/// A RESOLVED connect sets the freeze's expiry, bounded by the authored hitlag.
 ///
-/// ⛔ A FLAT `feel.hitlag_time` PER CONNECT WAS MEASURED AND IS TOO MUCH. It is
-/// the reference for the HARDEST hit, so every jab would stop the world as long
-/// as a smash. Proportional means a jab barely stops the screen and a smash
-/// stops it hard, which is the genre's behaviour.
-pub fn request_impact_hitstop_on_landed_hits(
-    mut hits: MessageReader<crate::hitbox::LandedBodyHit>,
+/// ⭐ THE VICTIM'S OWN RESOLVED HITLAG, not a flat rate — a jab barely stops the
+/// screen and a smash stops it hard, which is the genre's behaviour. A flat
+/// `feel.hitlag_time` per connect was measured and is too much: it is the
+/// reference for the HARDEST hit.
+///
+/// ⛔⛔ AND IT READS THE RESOLUTION, NOT THE VICTIM. This used to take
+/// `LandedBodyHit` — which means OVERLAP — and go looking for
+/// `BodyCombat::hitstop_timer` on the victim. That timer is written this frame
+/// for an actor victim and NEXT frame for a player victim, because player-victim
+/// hits are staged into a rollback FIFO the player resolver drains in
+/// `PlayerSimulation`. **So the connect that stopped the world for a CPU did not
+/// stop it for the human** — measured 2026-08-25 in the real schedule: 0.036s of
+/// player hitlag, zero frozen frames, and every existing arm blind to it because
+/// they all injected the timer before firing the message.
+///
+/// ⛔ THE FIX IS NOT A SCHEDULE REORDER. `ResolvedBodyHit` carries the resolver's
+/// own answer, so this system no longer has an opinion about which road resolved
+/// the hit or on which frame — at the price of having to say which SOURCES are a
+/// connect, which `LandedBodyHit` used to answer by construction.
+pub fn request_impact_hitstop_on_resolved_hits(
+    mut hits: MessageReader<crate::hitbox::ResolvedBodyHit>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     tick: Option<Res<ambition_time::SimTick>>,
-    bodies: Query<&ambition_characters::actor::BodyCombat>,
     hold: Option<ResMut<ImpactHitstop>>,
 ) {
     let (Some(feel), Some(tick), Some(mut hold)) = (feel, tick, hold) else {
@@ -88,11 +113,10 @@ pub fn request_impact_hitstop_on_landed_hits(
     };
     let mut wanted = 0.0f32;
     for hit in hits.read() {
-        let landed = bodies
-            .get(hit.victim)
-            .map(|combat| combat.hitstop_timer)
-            .unwrap_or(0.0);
-        wanted = wanted.max(landed.min(feel.hitlag_time));
+        if !is_a_connect(&hit.source) {
+            continue;
+        }
+        wanted = wanted.max(hit.hitlag_seconds.min(feel.hitlag_time));
     }
     if wanted <= 0.0 {
         return;

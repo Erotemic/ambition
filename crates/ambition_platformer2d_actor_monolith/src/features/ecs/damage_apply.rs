@@ -371,6 +371,17 @@ pub struct BodyDeathWriters<'w> {
     /// do not fire together: an `Unbounded` fighter is knocked out without dying
     /// in the world's sense at all.
     pub knockouts: MessageWriter<'w, crate::combat::stocks::BodyKnockedOut>,
+    /// The hit's RESULT, for the simulation — the match freeze reads it. Rides
+    /// this bundle for the same reason the causal one below does: same two
+    /// places, same moment, same value.
+    ///
+    /// ⛔ `Option` DESPITE BEING SIMULATION, and the reason is narrow: what it
+    /// drives is a BEAT. `request_impact_hitstop_on_resolved_hits` already
+    /// degrades to no freeze when a headless fixture installs no feel tuning,
+    /// and twenty-five hand-built fixtures should not have to learn that a
+    /// screen freeze exists. Every real composition registers it in
+    /// `SimCoreResourcesPlugin`, so the degradation never reaches a game.
+    pub resolved: Option<MessageWriter<'w, crate::combat::hitbox::ResolvedBodyHit>>,
     /// The resolver's DECISION about each hit, for the causal inspector. Rides
     /// this bundle rather than a new parameter because it is written from the
     /// same two places, at the same moment, from the same value.
@@ -635,6 +646,12 @@ pub(crate) fn handle_player_damage_events(
                         victim_source,
                         heavy_attacker,
                     );
+                    publish_resolved_hit(
+                        death_writers.resolved.as_mut(),
+                        player_entity,
+                        combat.hitstop_timer,
+                        damage.source.clone(),
+                    );
                     publish_reaction(death_writers, player_entity, reaction);
                     false
                 }
@@ -721,6 +738,12 @@ pub(crate) fn handle_player_damage_events(
                     attacker_source,
                     victim_source,
                     heavy_attacker,
+                );
+                publish_resolved_hit(
+                    death_writers.resolved.as_mut(),
+                    player_entity,
+                    combat.hitstop_timer,
+                    damage.source.clone(),
                 );
                 publish_reaction(death_writers, player_entity, reaction);
                 false
@@ -836,6 +859,30 @@ fn publish_reaction(
 ) {
     if let Some(reactions) = writers.reactions.as_mut() {
         reactions.write(BodyReactionApplied { body, reaction });
+    }
+}
+
+/// ⭐⭐ THE HIT'S RESULT, announced for the SIMULATION. Called where the reaction
+/// has been APPLIED, because that is where the hitlag exists: `resolve_body_hit`
+/// decides whether the hit lands, and the reaction is what charges the freeze.
+/// Publishing beside the resolution instead reported `0` for every hit, which is
+/// the first thing this was measured doing.
+///
+/// ⛔ UNCONDITIONAL, and that is why it is not folded into `publish_reaction`
+/// beside it: that one is `#[cfg(feature = "causal")]` and compiles to nothing in
+/// a shipping build. An instrument may vanish; a beat may not.
+pub(crate) fn publish_resolved_hit(
+    resolved: Option<&mut MessageWriter<'_, crate::combat::hitbox::ResolvedBodyHit>>,
+    victim: bevy::prelude::Entity,
+    hitlag_seconds: f32,
+    source: crate::combat::HitSource,
+) {
+    if let Some(resolved) = resolved {
+        resolved.write(crate::combat::hitbox::ResolvedBodyHit {
+            victim,
+            hitlag_seconds,
+            source,
+        });
     }
 }
 

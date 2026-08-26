@@ -26,6 +26,8 @@ struct Bout {
     peak_shake_px: f32,
     /// Home avatars still in the world during the bout. Must stay zero.
     home_avatars_seen: usize,
+    /// Frames on which the MATCH clock was held by a connect.
+    frozen_frames: u32,
 }
 
 fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
@@ -76,6 +78,13 @@ fn watch_a_duel_with_no_home_avatar() -> (Bout, f32) {
         bout.peak_shake_px = bout
             .peak_shake_px
             .max(world.resource::<CameraShakeState>().amplitude_px);
+        let tick = *world.resource::<ambition_platformer2d::time::SimTick>();
+        if world
+            .resource::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
+            .is_freezing(tick)
+        {
+            bout.frozen_frames += 1;
+        }
     }
 
     // read from the running app rather than restated: a route that retunes its
@@ -119,5 +128,16 @@ fn a_fight_between_two_bodies_nobody_is_playing_shakes_the_camera() {
          camera never moved a pixel — the hit shake is gated on `PrimaryPlayer` \
          again, or it has gone back to living in the app's player-presentation \
          system where the standalone smash binary cannot reach it: {bout:?}"
+    );
+    // ⭐⭐ AND THE MATCH FREEZE IS THE SHAKE'S SIBLING, pinned in the same bout
+    // for the same reason: it is the other beat a connect buys, and NOTHING in
+    // this suite watched it fire in a real match. It reads `ResolvedBodyHit`
+    // now — a channel with two producers on two damage roads, registered in a
+    // plugin neither of them owns — so the hand-listed chain wants a fixture
+    // that only passes if the whole thing is wired.
+    assert!(
+        bout.frozen_frames > 0,
+        "two fighters connected repeatedly and the match clock never once \
+         stopped — the resolved-hit channel is not reaching the freeze: {bout:?}"
     );
 }

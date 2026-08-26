@@ -281,6 +281,7 @@
     "message.release_provocation",
     "message.reset_room_features",
     "message.reset_to_checkpoint",
+    "message.resolved_body_hit",
     "message.respawn_room_visuals",
     "message.room_loaded",
     "message.room_replay_requested",

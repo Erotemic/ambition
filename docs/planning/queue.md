@@ -10365,7 +10365,59 @@ genre distinguishes these by the ORDER of stick and button, and this seam is
 handed one already-resolved direction. A game DECLARES which technique its
 Back+Special performs. Reopen when a customer needs per-press choice.
 
-▢ STILL OPEN, in the review's own order: **(4) `LandedBodyHit` means OVERLAP and
+◐ **(4)/(5) — BUILT, MEASURED, REVERTED, AND THE REVERT IS THE FINDING.
+2026-08-25.**
+
+⭐⭐ **(5) IS CONFIRMED IN PRODUCTION, not by reading the schedule.** A real
+hostile enemy next to the real player, real schedules, 300 frames: **the player
+served 0.036s of its own hitlag, no other body served any, and the match froze
+for ZERO frames.** The fixture is committed and IGNORED —
+`ambition_app/tests/a_hit_on_the_player_freezes_the_match.rs` — because it goes
+GREEN with the fix and the fix is not landed.
+
+⭐ **THE ARCHITECTURE IS SETTLED AND IT WORKED.** `ResolvedBodyHit { victim,
+hitlag_seconds }` in `ambition_combat::hitbox`, registered in
+`SimCoreResourcesPlugin` (⛔ NOT in a schedule plugin — its writers are on the
+PLAYER road and the ACTOR road, which different compositions install separately;
+registering beside one panics the other, a crash this repo has already shipped
+once). Published by `publish_resolved_hit` beside the REACTION, never beside the
+resolution — ⛔ publishing beside `resolve_body_hit` reports `0` for every hit,
+because the reaction is what charges the hitlag, and that was measured too.
+`request_impact_hitstop_on_resolved_hits` then reads the resolver's own answer
+and has no opinion about which road resolved the hit or on which frame.
+
+⛔⛔ **AND THE FIRST ATTEMPT FROZE THE WORLD FOREVER — THE DIAGNOSIS IS WORTH
+MORE THAN THE FIX.** Measured on `smash_in_the_host`: one victim, SEVENTEEN
+consecutive resolutions across twenty-three ticks, identical hitlag, the world
+alternating frozen/moving with `until_tick` tracking `tick + 2` for 180 ticks,
+and three smash fixtures never reaching the gait they wait for. Probing the
+SOURCE settled it: every one of them was **`HitSource::Contact`** — one fighter
+leaning on another, one damage a tick.
+
+⇒ **`ResolvedBodyHit` IS A BROADER CHANNEL THAN `LandedBodyHit`, and that is
+its price.** `LandedBodyHit` comes off the hitbox sweep, so it is strikes and
+shots BY CONSTRUCTION; this comes off the RESOLVER, which also serves contact
+attrition, hazards and the blast zone. A consumer that wants a CONNECT must now
+say so — the message carries `source`, and the freeze arms on
+`Melee | Projectile | Pogo` only. Standing in lava is not a hit connecting.
+
+⛔ A REFRACTORY PERIOD WAS TRIED AND DROPPED. "Refuse to arm while already
+frozen" halves the duty cycle and no more, and it contradicts a documented
+mechanic the module's own test states (overlapping connects extend). The source
+filter removes the cause instead.
+
+⭐⭐ **AND (5) IS PROVEN END TO END — THE SPACING WAS THE FIXTURE'S BUG.** At 60px
+the automaton's contact footprint SHOVES the player away before anything it aims
+can reach: 900 frames produced five hits, every one `Contact`. At **26px** its
+glider connects, and a `Projectile` IS a connect — so the bout freezes, and it
+can only have frozen from a connect, because the contact attrition hitting the
+same player arms nothing. Poisoning the PLAYER ROAD's publish reddens it. The
+fixture is live (`a_hit_on_the_player_freezes_the_match`), not ignored.
+
+⇒ ⚠ **A FIXTURE'S SPACING IS A PARAMETER, and "the enemy never lands one" was a
+conclusion about the number rather than about the game.**
+
+▢ STILL OPEN: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
 split. ⚠ NOT PURELY GEOMETRIC ALREADY: the producer refuses a PARRIED hit
 ("no `LandedBodyHit`: the attacker's move did not connect"), so the seam is

@@ -5294,6 +5294,25 @@ red only when run; (3) the schema baseline, which did NOT change and must not:
 identity on the wire, not an address, and renaming it would be a declared schema
 change bought for tidiness.
 
+▢ **AND THE ONE REMAINING IMPORT HAS A DESIGNED ANSWER, using a pattern already
+in that file.** `dismounted_rider_brain_and_action_set` rebuilds a fallen rider's
+solo `(Brain, ActionSet)` from its stored `CombatKit` plus the PREPARED CAST —
+`ActorConfig`, `CombatKit`, `PreparedCharacterRegistry`, all monolith types — so
+it cannot travel WITH a mount carve, and the mount module should not be the thing
+that calls it.
+
+⭐ **`MountDied` IS THE PRECEDENT, three lines above the import.** Mount already
+ANNOUNCES the `(dead-mount, still-mounted)` dissolution and lets another domain
+react: `ambition_boss_encounter` reads it and turns it into a rider boss's
+`External("mount_died")` phase. ⇒ the dismount brain rebuild can take the same
+road — mount announces, the CHARACTER RUNTIME rebuilds — and the carve then
+imports nothing from the monolith at all.
+
+⚠ **the thing to get right is ORDER, not shape**: the rebuilt brain has to land
+before the dismounted body is simulated, so this is a behaviour-preserving
+refactor with a scheduling edge, not a message-and-hope. Do it BEFORE the carve;
+it is testable on its own and it makes the carve a move rather than a redesign.
+
 ⚠ **AND THE COUPLING IS NOT ONLY WHAT THE MODULE IMPORTS — the ledger names it
 too.** `rollback_registration.rs` registers EIGHT mount types by
 `crate::features::…` path (`can_pilot`, `mass`, `mount_slot` + its entity map,

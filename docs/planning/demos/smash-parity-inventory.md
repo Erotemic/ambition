@@ -51,6 +51,19 @@ individually well-reasoned.**
 ⇒ so this is a TUNING question about the scorer, not a wiring gap in shield,
 parry or capture. ⛔ do not "fix" any of those three mechanics on this evidence.
 
+⭐ **AND THE "BEFORE" IS ON RECORD NOW, which is the expensive half of changing
+it.** Whoever tunes the scorer should re-run the same command and compare
+`shielding`, `parries`, `held`, `moves`, `damage` and `KOs` against the numbers
+above — plus the repertoire probes, for the same reason D117 asks a first authored
+body to run them: a scorer edit moves what the whole cast does, not one character.
+
+⚠ **the genre's own answer is worth naming before anybody invents one.** Smash
+CPUs shield because approaching into a guard is PUNISHED (the shield grab) and
+because a held shield DECAYS. Both mechanics ship here. What is missing is that a
+grab is priced almost entirely as a guard-beater, while in the genre it is also
+the combo STARTER at 0% — which is exactly the term that would break the
+stalemate without touching shield at all.
+
 ⚠ **`downed` is the one that might be correct.** A CPU with perfect reactions
 acts out of tumble as soon as it may; a human eating a spike does not. Worth one
 playtest before anybody tunes the knockdown window.

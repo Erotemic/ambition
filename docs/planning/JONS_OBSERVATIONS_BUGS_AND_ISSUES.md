@@ -704,10 +704,10 @@ receipts) is done above.
   * ▢
 
 * **The new `saddle_world_offset` promises facing-relative `+x` and cannot deliver it.** Its doc says the offset is `+x toward the mount's facing side`, but `AccelerationFrame::to_world` knows gravity-relative side/down and nothing about facing — so a saddle authored at `x = +5` stays on the same gravity-relative side when the mount turns around. Invisible today because production saddles author `x = 0`, and the new rotated-gravity arm never flips facing. Either mirror `x` by facing, or stop claiming the axis is facing-relative. ⇒ prefer mirroring, to match the rest of the authored character-local geometry convention.
-  * ▢
+  * ✔ mirrored, and the decision is settled by the constraint itself: it already hands the rider `mount_kin.facing`, so an offset that did not mirror would put a rider authored on one shoulder onto the other the moment the mount turned. A neutral facing keeps the authored side — `signum(0.0)` would have collapsed the offset.
 
 * **Delete the respawn sort rather than elaborate it.** Revised premise, and the review revised its own: every `FighterRespawnDue` consumer places a fighter at its own seat's position, so the operation is commutative and no canonical order is needed. `df9e887ff` replaced a fake canonicalization with a real one nothing consumes. Remove the sort and the comment claiming message order is meaningful; a future order-sensitive ruleset should name its own key.
-  * ▢
+  * ✔ removed. ⛔⛔ AND THE TEST WAS PASSING BY LUCK: with two bodies the query returns them in allocation order anyway, so the ordering assertion survived the sort's removal. It now measures the SET — both fighters return on one tick, unchanged by spawn order — which is the property that would actually break.
 
 ## Fourth review, of HEAD `e17fe564`, relayed by Jon 2026-08-26
 

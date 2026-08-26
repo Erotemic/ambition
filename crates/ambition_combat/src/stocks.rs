@@ -226,38 +226,35 @@ pub fn respawn_when_the_interlude_closes(
     >,
     mut due: MessageWriter<FighterRespawnDue>,
 ) {
-    // Collected and sorted: `Query` iteration order is not guaranteed, and the
-    // message order here decides placement order for two fighters returning on
-    // one tick — which is a seat-dependent position.
+    // ⛔⛔ NOT SORTED, AND THE REASON IS THE INTERESTING PART. This carried a
+    // comment saying *"the message order here decides placement order for two
+    // fighters returning on one tick — which is a seat-dependent position"*, and
+    // then sorted to make it true. THE PREMISE WAS FALSE: every
+    // `FighterRespawnDue` consumer reads the SEAT off the body it is placing
+    // (`place_respawning_fighters` takes `Option<&MatchSeat>` and asks
+    // `respawn_placement` for that seat's point), so each returning fighter goes
+    // to its own place and the operation is COMMUTATIVE. Nothing consumes the
+    // order, here or anywhere.
     //
-    // ⛔⛔ BY `SimId`, NOT BY `Entity` — the same rule the clank arbitration
-    // states two files away, and this is what it looked like to get it wrong.
-    // The sort was on `Entity`, which is ALLOCATOR identity: it is stable within
-    // one run and says nothing about which fighter is which, so a comment
-    // declaring that the order is semantically load-bearing sat directly above a
-    // key that cannot carry that meaning. Two peers, or one peer replaying a
-    // world it built in a different order, could canonicalize differently and
-    // both believe they had.
+    // ⭐⭐ AND THE FIRST REPAIR WAS ALSO WRONG, WHICH IS THE LESSON WORTH
+    // KEEPING. The sort was originally on `Entity` — allocator identity, a fake
+    // canonicalization — and the repair sorted on `SimId` instead. That
+    // replaced a fake canonicalization with a REAL one that nothing consumes:
+    // anticipatory ordering infrastructure for a dependency that does not
+    // exist, carrying its own fallback for bodies with no identity. Both
+    // versions answered "what is the canonical key" when the question to ask
+    // was "does anything need one".
     //
-    // ⭐ A FAKE CANONICALIZATION IS WORSE THAN NONE, because the next consumer
-    // trusts it. Today's Smash placement is largely commutative — each fighter
-    // is placed at its own seat's position — so nothing visibly diverges yet;
-    // the ruleset that makes the order matter is the one this would have caught
-    // out.
-    //
-    // ⭐ `(SimId, entity)`, and the second key is only reached by a body with no
-    // `SimId` at all. That is not a fighter in any composed match — every
-    // constructed body is identified — but a hand-built fixture can spawn one,
-    // and a total order that panics on a fixture is a worse answer than a total
-    // order that falls back.
-    let mut ready: Vec<(Option<ambition_platformer2d_shared_tangle::sim_id::SimId>, Entity)> =
-        pending
-            .iter()
-            .filter(|(_, window, _, _)| !window.open())
-            .map(|(entity, _, sim_id, _)| (sim_id.cloned(), entity))
-            .collect();
-    ready.sort();
-    for (_, entity) in ready {
+    // ⇒ a future ruleset that genuinely makes simultaneous returns
+    // order-sensitive should name its own canonical key — probably `MatchSeat`,
+    // which its placement already reads — rather than inheriting a guess made
+    // here on its behalf.
+    let ready: Vec<Entity> = pending
+        .iter()
+        .filter(|(_, window, _, _)| !window.open())
+        .map(|(entity, _, _, _)| entity)
+        .collect();
+    for entity in ready {
         // ⭐ THE WHOLE RETURN, IN ONE PLACE. This says the fighter is back, so
         // it hands back every fact the spend took — including the ones the
         // ENGINE owns. Leaving `OutOfPlay` for `clear_out_of_play_on_restart`
@@ -674,23 +671,24 @@ mod tests {
             .id()
     }
 
-    /// ⛔⛔ TWO FIGHTERS RETURNING ON ONE TICK ARE ORDERED BY WHO THEY ARE.
+    /// ⛔⛔ TWO FIGHTERS DUE ON ONE TICK BOTH COME BACK — AND THE ORDER IS NOT
+    /// ASSERTED, DELIBERATELY.
     ///
-    /// `tick_pending_respawn` sorts its ready list because the message order
-    /// decides placement order, and placement is a seat-dependent position. It
-    /// sorted on `Entity` — ALLOCATOR identity, which is stable within one run
-    /// and carries no gameplay meaning — so a comment declaring the order
-    /// semantically load-bearing sat directly above a key that could not carry
-    /// it. The clank arbitration two files away had already written down why
-    /// `Entity` cannot be that key.
+    /// This arm used to demand a canonical ORDER, and that was a claim about a
+    /// consumer that does not exist. Every `FighterRespawnDue` consumer reads the
+    /// SEAT off the body it is placing, so two returning fighters go to two
+    /// different authored points and the operation is commutative. Asserting an
+    /// order here would pin infrastructure nothing needs, and — worse — would go
+    /// on passing after somebody removed the sort, because with two bodies the
+    /// query happens to come back in allocation order anyway. It did exactly
+    /// that, which is how a test starts measuring luck.
     ///
-    /// ⭐⭐ THE ARMS SPAWN THE SAME TWO SEMANTIC FIGHTERS IN OPPOSITE ALLOCATION
-    /// ORDER, which is the only way to tell a real canonicalization from one
-    /// that merely looks sorted: under `Entity` the second arm comes back
-    /// REVERSED, and both arms would still have "passed" a test that only
-    /// checked the list was sorted by its own key.
+    /// ⭐ SO IT MEASURES THE SET. Both fighters return, both on the SAME tick,
+    /// and that answer does not move when the same two semantic fighters are
+    /// SPAWNED in the opposite order — which is the property that would actually
+    /// break if returns became allocation-sensitive.
     #[test]
-    fn simultaneous_returns_are_ordered_by_identity_not_by_allocation() {
+    fn two_fighters_due_on_one_tick_both_return_whatever_order_they_were_spawned_in() {
         use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
         /// Spawn `alpha` and `beta` in the given allocation order, knock both
@@ -749,21 +747,23 @@ mod tests {
                 .collect()
         }
 
-        let forward = returned_order(true);
-        // The premise: both fighters really do come back on ONE tick. Without
+        let mut forward = returned_order(true);
+        let mut reversed = returned_order(false);
+        // The premise: both fighters really do come back, on ONE tick. Without
         // this the equality below is satisfied by two empty lists.
         assert_eq!(
             forward.len(),
             2,
-            "the two fighters did not return on the same tick, so this proves \
-             nothing about the order they return in"
+            "the two fighters did not both return on the same tick, so nothing \
+             below is measuring what it says"
         );
+        forward.sort();
+        reversed.sort();
         assert_eq!(
-            forward,
-            returned_order(false),
-            "the same two fighters returned in a different order when they were \
-             SPAWNED in a different order — the sort key is allocation identity, \
-             not who the fighters are"
+            forward, reversed,
+            "the same two fighters came back as a different SET when they were \
+             spawned in the opposite order — returning is supposed to depend on \
+             the window closing and nothing else"
         );
     }
 

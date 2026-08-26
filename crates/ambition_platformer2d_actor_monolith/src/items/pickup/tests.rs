@@ -1182,7 +1182,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
     });
     app.add_systems(
         Update,
-        (wake_unsupported_settled_items, ground_item_physics).chain(),
+        (carry_or_wake_settled_items, ground_item_physics).chain(),
     );
 
     let item = app
@@ -1230,5 +1230,83 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
         "the item stayed put ({fell:.1}px) after its support went away — settling \
          is permanent, so an item caught by a moving platform hangs in world \
          space once that platform leaves"
+    );
+}
+
+/// ⭐⭐ AN ITEM ON A MOVING PLATFORM GOES WITH IT.
+///
+/// Settling used to be world-fixed: an item that landed on a platform stayed
+/// where it was while the platform slid out from under it, and only woke once
+/// there was nothing left beneath the OLD position.
+///
+/// ⛔ NO SUPPORT IDENTITY AND NO LOCAL OFFSET WAS NEEDED. `Block::velocity` is
+/// the block's own per-frame displacement, and its doc already says the sweep
+/// carries *"any body resting on the block"* by it; the support probe already
+/// finds the block. ⇒ the fact was at the site.
+///
+/// ⭐ THE STATIC ARM IS NOT DECORATION. Carrying by a block's `velocity`
+/// unconditionally would drift every settled item in the game by whatever the
+/// floor happens to hold, so the identity case is the one that says this reads
+/// the platform rather than the clock.
+#[test]
+fn a_settled_item_rides_the_platform_it_landed_on() {
+    let carried_by = |platform_velocity: Vec2| -> f32 {
+        let mut app = App::new();
+        let mut ledge = ae::Block::solid("ledge", Vec2::new(0.0, 380.0), Vec2::new(400.0, 20.0));
+        ledge.velocity = platform_velocity;
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                "phys",
+                Vec2::new(400.0, 400.0),
+                Vec2::new(200.0, 360.0),
+                vec![ledge],
+            )),
+        );
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_systems(
+            Update,
+            (carry_or_wake_settled_items, ground_item_physics).chain(),
+        );
+        let item = app
+            .world_mut()
+            .spawn(GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(200.0, 300.0),
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            })
+            .id();
+        // Let it fall and settle first: an item still in flight is carried by
+        // nothing, and this is about what settling means.
+        for _ in 0..120 {
+            app.update();
+        }
+        assert!(
+            app.world().get::<SettledItem>(item).is_some(),
+            "the item never settled, so this arm is not about riding at all"
+        );
+        let settled_at = app.world().get::<GroundItem>(item).unwrap().pos.x;
+        for _ in 0..10 {
+            app.update();
+        }
+        app.world().get::<GroundItem>(item).unwrap().pos.x - settled_at
+    };
+
+    assert_eq!(
+        carried_by(Vec2::ZERO),
+        0.0,
+        "a settled item drifted on STATIC ground, so the arm below is measuring \
+         the tick rather than the platform"
+    );
+    let ridden = carried_by(Vec2::new(2.0, 0.0));
+    assert!(
+        (ridden - 20.0).abs() < 0.01,
+        "ten ticks of a platform moving 2px each left the item {ridden:.2}px \
+         along — settling is still world-fixed, so the platform slides out from \
+         under whatever lands on it"
     );
 }

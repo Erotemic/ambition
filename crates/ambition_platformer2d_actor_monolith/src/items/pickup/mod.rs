@@ -131,8 +131,9 @@ impl Plugin for ItemPickupSimulationPlugin {
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 // ⭐ SUPPORT IS RE-VALIDATED BEFORE THE STEP, so an item whose
                 // platform left falls THIS tick rather than hanging for one —
-                // the same reason the spawn above runs before the physics.
-                wake_unsupported_settled_items
+                // the same reason the spawn above runs before the physics — and
+                // an item whose platform MOVED goes with it.
+                carry_or_wake_settled_items
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 ground_item_physics
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
@@ -351,20 +352,31 @@ pub struct SettledItem;
 /// composited world, so "what counts as support" has one definition rather than
 /// two that can disagree.
 ///
-/// ⚠ THIS IS THE SAFE MINIMUM, NOT THE ENDPOINT. It makes an unsupported item
-/// FALL; it does not make a supported one RIDE. Carrying an item with its
-/// platform needs support IDENTITY (which body/block, and the local offset),
-/// which is the design the ledger records — this removes the hovering item
-/// without pretending to have built that.
-pub fn wake_unsupported_settled_items(
+/// ⭐⭐ AND A SUPPORTED ONE RIDES, which is the half this used to say it had not
+/// built. It reached for support IDENTITY and a local offset — and neither is
+/// needed, because `Block::velocity` is the block's own PER-FRAME DISPLACEMENT
+/// and its doc already says the sweep carries *"any body resting on the block"*
+/// by it, *"uniform across every body, with no per-actor wiring"*. The fact was
+/// at the site: the probe below already finds the block.
+///
+/// ⛔ THE PROBE ASKS WHERE THE BLOCK WAS. It runs after the platform has moved,
+/// so testing against its NEW footprint would drop an item off any platform
+/// moving faster than the probe's one-pixel band. `translated(-velocity)` is the
+/// same correction `ledge_grab::runtime` makes, and it is the identity for
+/// static geometry.
+///
+/// ⛔ AND `velocity` IS NOT DRAG. A conveyor belt has zero displacement and a
+/// non-zero drag, and its own doc says so — an item on a belt stays put, which
+/// is right: nothing is carrying it.
+pub fn carry_or_wake_settled_items(
     mut commands: Commands,
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    settled: Query<(Entity, &GroundItem, &ItemCustody), With<SettledItem>>,
+    mut settled: Query<(Entity, &mut GroundItem, &ItemCustody), With<SettledItem>>,
 ) {
     let Some(world) = world.solids() else {
         return;
     };
-    for (entity, item, custody) in &settled {
+    for (entity, mut item, custody) in &mut settled {
         if !custody.in_world() {
             continue;
         }
@@ -373,14 +385,21 @@ pub fn wake_unsupported_settled_items(
             item.pos + Vec2::new(0.0, 1.0),
             item.half_extent + Vec2::new(0.0, 1.0),
         );
-        let supported = world.blocks.iter().any(|block| {
+        let support = world.blocks.iter().find(|block| {
             matches!(
                 block.kind,
                 ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-            ) && probe.strict_intersects(block.aabb)
+            ) && probe.strict_intersects(block.aabb.translated(-block.velocity))
         });
-        if !supported {
-            commands.entity(entity).remove::<SettledItem>();
+        match support {
+            None => {
+                commands.entity(entity).remove::<SettledItem>();
+            }
+            Some(block) => {
+                if block.velocity != Vec2::ZERO {
+                    item.pos += block.velocity;
+                }
+            }
         }
     }
 }

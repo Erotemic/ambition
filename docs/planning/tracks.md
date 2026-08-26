@@ -297,11 +297,25 @@ L9 mean apm 46.0 (cap 420)   distinct frames 20
   is FLAT (19–21) across all nine rungs**: a level 9 fighter uses the same
   repertoire as a level 1, only faster. **Difficulty is a tempo knob and nothing
   else.**
-  ⛔ **`ScenarioOutcome` also carries no survival, damage or recovery field at
-  all** — `scenario, level, apm, apm_cap, distinct_frames` — so the evidence this
-  track names cannot be produced by this rig yet. ⇒ **the next step is a FIELD,
-  not a calibration pass**: give the outcome what a difficulty is supposed to
-  change (did it win, how much did it take, did it recover), then look again.
+  ⛔ **`ScenarioOutcome` carries no survival, damage or recovery field** —
+  `scenario, level, apm, apm_cap, distinct_frames` — and **it should not**: a
+  `Scenario` is a static `WorldView` + expected `Situation`, so `play()` never
+  steps a world. This rig measures DECISION QUALITY (does the brain recognise the
+  situation, how often does it press), and outcome fields are unfillable here.
+
+  ⭐⭐ **THE OUTCOME RIG ALREADY EXISTS TOO, and it is the one this track's
+  sentence actually describes**: `ladder_rig.rs` runs CPU-vs-CPU matches and
+  reports *"time to elimination, stocks remaining, and engagement evidence for
+  each pair, using medians across deterministic seeds"*, with `--weight` for
+  refitting the scorer. ⇒ **the runner half is done TWICE, for two different
+  questions**; the open half is RUNNING the outcome rig and acting on it.
+
+  ⛔⛔ **AND ONE CAVEAT THAT UNDERCUTS MY OWN CENSUS ABOVE: the registered ladder
+  is SPARSE — levels 1, 3, 5, 6 and 9 only.** `ladder_rig`'s header says the
+  unregistered levels *"are invalid for this measurement because their generic
+  fallback does not represent a ladder rung"*, while `evaluation::report`
+  iterates `1..=9` regardless. ⇒ the tidy 12.7→46.0 line includes FOUR SYNTHETIC
+  RUNGS, and any calibration read off it must filter to the five that exist.
   Use
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 

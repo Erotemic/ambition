@@ -8152,6 +8152,34 @@ and a before/after over several seeds.
 field for one genre. (2) is right and wide. (3) is right and is a carve. Nothing
 here is blocked on more measurement — the measurement is done.
 
+⚠ **CORRECTION 2026-08-26 — option (2) costs ONE THING THE TABLE DOES NOT NAME,
+and it is not a magnitude, it is an INPUT THE SCORER DOES NOT HAVE.** Re-read at
+HEAD before picking. The startup half is free: `AttackOption.frames.startup_s` is
+already in hand at the scoring site and the neighbouring `frame_advantage`
+feature reads it. The CLOSING-SPEED half is not.
+
+```text
+options.rs:454   coverage_fit(c.frames.coverage, foe_local, foe_extent)
+generate_options sees   view.self_view: PerceivedActor
+PerceivedActor carries  pos, vel, facing, half_extent, faction, phase, ...
+                        and NO top ground speed — `grep 'run_speed' options.rs` 0
+options.rs:312   "Nothing here knows whose body it is."   <- deliberate
+```
+
+⛔ **AND THE AVAILABLE VELOCITY IS THE WRONG ONE.** `me.vel` is what the body is
+doing, not what it CAN do, so a standing fighter reads a closing speed of zero,
+a tolerance of zero, and refuses every attack whose reach does not already span
+the gap exactly. The question "how far can I close during my own startup" is
+asking about a CAPABILITY, and the capability is in the body's tuning.
+
+⇒ **so option (2) is really: thread the body's own top ground speed into
+perception, then derive.** That is a new `PerceivedActor` field on a struct that
+describes FOES as well as self — which is arguably right (an opponent's closing
+speed prices the same spacing question from the other side) but is a wider change
+than "derive it from `startup_s`" reads. ⛔ Nothing here changes the
+recommendation; it changes the PRICE, and the price is the reason this is still
+Jon's pick rather than an obvious cleanup.
+
 ✔✔ **AND ONE OF THE REVIEW'S ASKS WAS ALREADY DONE — measured before touching
 it.** *"Move authoring has historically duplicated `Vfx(...)` and matching
 `Sfx(...)` events … converge on one semantic authored effect request with default

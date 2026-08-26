@@ -76,7 +76,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         app.world_mut(),
         set,
     );
-    app.insert_resource(crate::RoomTransitionCooldown::default());
+    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
@@ -217,7 +217,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         app.world_mut(),
         set,
     );
-    app.insert_resource(crate::RoomTransitionCooldown::default());
+    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
@@ -350,7 +350,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
             app.world_mut(),
             set,
         );
-        app.insert_resource(crate::RoomTransitionCooldown::default());
+        app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
         app.insert_resource(GatePortalRegistry::default());
         // The live phase is its own resource (rollback state) since
         // `detect_room_transition_system` reads it.

@@ -31,7 +31,7 @@ pub struct InputTimersAdvanced;
 /// below but the clock.
 pub fn tick_room_transition_cooldown(
     world_time: Res<ambition_time::WorldTime>,
-    mut sim_state: ResMut<crate::RoomTransitionCooldown>,
+    mut sim_state: ResMut<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
 ) {
     sim_state.remaining = (sim_state.remaining - world_time.wall_dt()).max(0.0);
 }

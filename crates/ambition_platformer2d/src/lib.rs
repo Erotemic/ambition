@@ -316,7 +316,7 @@ pub mod actor {
     ///
     /// The implementation type still carries its historical player-centric name;
     /// the SDK does not.
-    pub use ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState as BodySafetyState;
+    pub use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState as BodySafetyState;
     /// Canonical fallback body size for a body not yet materialized.
     pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
     /// Where the body is, and how it moves.

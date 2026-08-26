@@ -35,7 +35,7 @@ pub struct RoomTransitionEffects<'w> {
 /// consumed by the time-control owner — no system here mutates `time_scale`.
 #[derive(SystemParam)]
 pub struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_platformer2d_actor_monolith::RoomTransitionCooldown>,
+    pub sim_state: ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     pub clock_resets: MessageWriter<'w, ClockResetRequest>,
 }
 
@@ -481,7 +481,7 @@ pub struct TransitBodies<'w, 's> {
         's,
         (
             &'static mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-            &'static mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
+            &'static mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
         ),
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,

@@ -373,16 +373,6 @@ impl SnapshotState for crate::features::GameplayElapsed {
     }
 }
 
-impl SnapshotState for crate::avatar::PlayerSafetyState {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_vec2(out, self.last_safe_pos);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self::new(r.vec2()?))
-    }
-}
-
 /// A shot's own side of the fight.
 ///
 /// The stamp is taken from the firer the first tick the bolt flies; after the firer is gone
@@ -419,18 +409,6 @@ impl SnapshotState for crate::session::reset::NewGameResetRequested {
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self { request: r.bool()? })
-    }
-}
-
-impl SnapshotState for crate::RoomTransitionCooldown {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.remaining);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            remaining: r.f32()?,
-        })
     }
 }
 

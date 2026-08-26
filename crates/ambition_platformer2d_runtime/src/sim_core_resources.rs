@@ -82,7 +82,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
             .init_resource::<ambition_platformer2d_actor_monolith::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-            .init_resource::<ambition_platformer2d_actor_monolith::RoomTransitionCooldown>()
+            .init_resource::<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>()
             // The session's movement-tuning authority. Engine-owned with a
             // neutral default so EVERY sim composition has one; content seeds
             // the authored values over it, and a developer build's inspector

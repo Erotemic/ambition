@@ -1,5 +1,13 @@
 use super::*;
+// ⭐ THE MECHANIC LEFT AND THESE ARMS STAYED, for the same reason the mount
+// pair's fifteen did: `player_at` builds a real player through
+// `avatar::primary_player_scratch`, which is this crate's construction road and
+// is not something `shared_tangle` has or should grow. So they test the moved
+// code FROM THE COMPOSITION that uses it.
 use ambition_platformer2d_core::Block;
+use ambition_platformer2d_shared_tangle::safe_position::{
+    remember_safe_player_position_from_kinematics, SafePositionContext,
+};
 
 fn dummy_world() -> ae::World {
     ae::World::new(
@@ -17,7 +25,7 @@ fn dummy_world() -> ae::World {
 fn player_at(
     world: &ae::World,
     pos: ae::Vec2,
-) -> (ae::BodyClusterScratch, crate::avatar::PlayerSafetyState) {
+) -> (ae::BodyClusterScratch, ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState) {
     let mut scratch =
         crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
     ae::refresh_movement_resources_clusters(
@@ -30,7 +38,7 @@ fn player_at(
     scratch.kinematics.pos = pos;
     scratch.ground.on_ground = true;
     // Force a known starting "safe pos" we can detect changes from.
-    let safety = crate::avatar::PlayerSafetyState::new(ae::Vec2::new(170.0, 1695.0));
+    let safety = ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::new(ae::Vec2::new(170.0, 1695.0));
     (scratch, safety)
 }
 

@@ -114,7 +114,7 @@ pub fn tick_portal_phases_system(
 /// is a no-op when no transition transaction is active.
 pub fn detect_room_transition_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    sim_state: Res<crate::RoomTransitionCooldown>,
+    sim_state: Res<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
     // The transition subject is the CONTROLLED body: if the driven body (home

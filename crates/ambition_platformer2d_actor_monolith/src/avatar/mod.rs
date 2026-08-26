@@ -26,7 +26,6 @@ pub use starting_character::{
     InitialBodyPolicy, PersonaBaseline, StartingCharacter, WornControlGateSet,
 };
 // Body-generic vocabulary stays under `crate::actor`; this module exports only home-avatar policy.
-pub use components::PlayerSafetyState;
 pub use events::PlayerHealRequested;
 pub use systems::{
     apply_player_heal_requests, blank_scripted_control_frames, regen_player_mana,

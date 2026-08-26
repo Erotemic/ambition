@@ -211,3 +211,30 @@ impl SnapshotState for crate::temporary_control::TemporaryControl {
         })
     }
 }
+
+// ⛔ THE ORPHAN RULE MOVED THESE TWO HERE, 2026-08-26, and that is the compiler
+// doing the adjudication rather than a judgement call. `safe_position`'s types
+// left the actor monolith; the `impl SnapshotState` blocks that stayed behind
+// stopped compiling the moment they did, which is exactly what this file's own
+// header promises.
+impl SnapshotState for crate::safe_position::PlayerSafetyState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.last_safe_pos);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self::new(r.vec2()?))
+    }
+}
+
+impl SnapshotState for crate::safe_position::RoomTransitionCooldown {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.remaining);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            remaining: r.f32()?,
+        })
+    }
+}

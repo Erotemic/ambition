@@ -20,7 +20,7 @@ use bevy::prelude::*;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
+use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
@@ -53,7 +53,7 @@ pub fn reset_sandbox(
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
-    safety: &mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
+    safety: &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     attack: &mut Option<ambition_platformer2d_actor_monolith::MeleeSwing>,
     anim: &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
@@ -138,7 +138,7 @@ pub fn apply_room_replay_request_system(
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
             &mut ambition_platformer2d_actor_monolith::actor::BodyMelee,
-            &mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
+            &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
             // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
             // because a scratch body without a meter is a valid thing to reset.
             Option<&mut ambition_characters::actor::BodyHealth>,
@@ -334,8 +334,8 @@ mod tests {
             ae::AbilitySet::sandbox_all(),
         );
         let mut model = ae::MotionModel::default();
-        let mut sim_state = ambition_platformer2d_actor_monolith::RoomTransitionCooldown::default();
-        let mut safety = ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState::default();
+        let mut sim_state = ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default();
+        let mut safety = ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default();
         let mut attack: Option<ambition_platformer2d_actor_monolith::MeleeSwing> = None;
         let mut anim = ambition_platformer2d_actor_monolith::actor::BodyAnimFacts::default();
         let mut combat = ambition_characters::actor::BodyCombat::default();

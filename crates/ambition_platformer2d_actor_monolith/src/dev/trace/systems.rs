@@ -21,7 +21,7 @@ pub fn record_simulation_frame(
     // AC3.1.B: the melee AUTHORITY.
     melee: &crate::actor::BodyMelee,
     clock: &ambition_time::ClockState,
-    safety: &crate::avatar::PlayerSafetyState,
+    safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,
@@ -178,7 +178,7 @@ pub fn record_frame_system(
             &ae::MotionModel,
             &ae::BodyMotionFacts,
             Option<&ambition_characters::actor::BodyHealth>,
-            &crate::avatar::PlayerSafetyState,
+            &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
             &ambition_characters::actor::BodyCombat,
             // AC3.1.B: the melee authority, read directly rather than through the
             // deleted `BodyCombat.attacking` mirror.

@@ -21,11 +21,10 @@ use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 
 use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
-use crate::avatar::PlayerSafetyState;
+use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::{
-    remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
-};
+use crate::ActorDiedMessage;
+use ambition_platformer2d_shared_tangle::safe_position::{remember_safe_player_position, RoomTransitionCooldown, SafePositionContext};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;

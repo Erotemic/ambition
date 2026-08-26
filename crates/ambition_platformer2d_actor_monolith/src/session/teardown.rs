@@ -11,7 +11,7 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use crate::abilities::traversal::possession::PossessionState;
 use ambition_characters::control::SlotInteractionState;
 use crate::encounter::SwitchActivationQueue;
-use crate::RoomTransitionCooldown;
+use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterRegistry, EncounterView};
 use ambition_persistence::quest::QuestRegistry;

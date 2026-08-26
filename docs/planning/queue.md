@@ -12428,6 +12428,12 @@ dash or a brake can be commanded the fact reads `0.0`. Reading it there would
 therefore make things WORSE: a body at 1300px/s with a surrendered floor would
 brake to a stop.
 
+✔ **ROUTED 2026-08-26 — it is [decision 34](awaiting-maintainer-decision.md),
+and it has THREE consumers, not two.** The same guess is made a third time by
+`body_contact` (*"faster than one walk-tick is not walking"*), which D179 closed
+as a feel question on the same day without either row noticing the other. All
+three are blocked on the one answer below.
+
 ⇒ **AND THE GENRE'S OWN ANSWER TO "you were launched hard" IS TUMBLE, WHICH NO
 SHIPPED BODY AUTHORS.** `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the only
 `500.0` in the tree is a unit-test fixture, and neither `ambition_characters` nor

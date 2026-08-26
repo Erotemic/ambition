@@ -67,9 +67,20 @@
   normal participant-context path. For loading/retry, fix the schedule ownership
   seam rather than introducing a cycle.
 
-- ▢ **Pad-specific calibration filtering with shared bindings.** Bindings remain
-  machine-wide by decision; deadzones/trigger thresholds should follow the actual
-  controller/pad.
+- ✔ **Pad-specific calibration filtering with shared bindings — SHIPPED,
+  verified at HEAD 2026-08-26.** Bindings remain machine-wide by decision, and
+  the filters follow the pad: `filters_for_seat` resolves
+  `ControlFilters::for_pad(&settings.controls, devices.gamepad_style_for(slot))`,
+  and BOTH roads take it — the menu decode and the production gameplay seat loop.
+  The site says why in one sentence: *"a deadzone is a fact about the stick in
+  somebody's hands"*, after player two's drifty 360 pad ran on whatever suited
+  player one's DualSense.
+  ⚠ **one second answer survives and is worth knowing about**:
+  `read_gameplay_control_frame` (no `_with_settings`) builds
+  `ControlSettings::default()` and has two callers — `ambition_sim_view::facts`
+  (the blink-aim preview) and the debug overlay. Harmless today because the field
+  it reads is a BUTTON and buttons are not deadzoned; it becomes a real
+  disagreement the day either caller reads an axis.
 
 - ▢ **Make provider-defined semantic actions fully usable end to end.** The code
   now has `SemanticActionId`, `ActionRegistry`, `InstalledActions`, and

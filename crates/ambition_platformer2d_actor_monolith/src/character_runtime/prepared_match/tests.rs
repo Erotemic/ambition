@@ -3299,3 +3299,72 @@ fn a_mirror_preserving_characters_two_cpu_seats_share_one_mind() {
          cognitive streams, so the authored trait reached nothing"
     );
 }
+
+/// A FIGHTER SELF IS NOT A HOME SELF, and the seat is where the difference is
+/// stated.
+///
+/// ⭐⭐ A catalog row's movement feel is that character's feel EVERYWHERE it
+/// appears — a hub, a room, a stage — so a character that walks around a hub and
+/// also fights cannot author two gravities there. `MatchParticipant::body` is the
+/// second one: per SEAT, the movement twin of `action_set`, and it outranks what
+/// the character brought.
+///
+/// ⛔ It is deliberately NOT a `MatchBody`. That type's own doc refuses a
+/// mode-owned gravity in advance — *"adding a field here is declaring that a MODE
+/// owns that number for every fighter alive"* — and per-fighter gravity, fall
+/// speed and jump arc are exactly what makes a heavy heavy.
+///
+/// Both arms, because the claim is a PRECEDENCE and one arm cannot show one: the
+/// same character is seated twice in one match, once with a seat body and once
+/// without, and the two seats must disagree.
+#[test]
+fn a_seat_body_outranks_the_character_and_a_seat_without_one_keeps_it() {
+    let mut app = seating_app();
+    app.register_character({
+        let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
+        definition.body = Some(crate::character_runtime::BodySource::Explicit {
+            half_extents: (19.0, 31.0),
+        });
+        // THE HOME SELF: what this character is when it is not on a stage.
+        definition.movement_tuning = Some(ambition_platformer2d_core::MovementTuning {
+            gravity: 1111.0,
+            ..ambition_platformer2d_core::DEFAULT_TUNING
+        });
+        definition
+    });
+    // THE FIGHTER SELF, on one seat only.
+    let stage_body = ambition_platformer2d_core::MovementTuning {
+        gravity: 3333.0,
+        ..ambition_platformer2d_core::DEFAULT_TUNING
+    };
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("heavy").with_body(stage_body), cpu("heavy")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let mut gravities: Vec<f32> = {
+        let world = app.world_mut();
+        let mut q = world
+            .query_filtered::<&ambition_platformer2d_core::AuthoredMovementTuning, With<MatchSeat>>(
+            );
+        q.iter(world).map(|tuning| tuning.0.gravity).collect()
+    };
+    gravities.sort_by(f32::total_cmp);
+    assert_eq!(
+        gravities.len(),
+        2,
+        "a mirror match is two bodies, and both must carry a movement feel or \
+         the precedence below is measured on one seat: {gravities:?}"
+    );
+    assert_eq!(
+        gravities,
+        vec![1111.0, 3333.0],
+        "the two seats wear the same character and must NOT agree: the one \
+         given a stage body plays on 3333 and the one given none keeps the \
+         character's own 1111. Reading 1111 twice means the seat's body was \
+         dropped; reading 3333 twice means it leaked onto a seat that never \
+         asked for one"
+    );
+}

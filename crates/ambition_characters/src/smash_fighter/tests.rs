@@ -52,6 +52,7 @@ fn kit() -> CaptureKitAuthoring {
 
 fn facet() -> SmashFighterFacet {
     SmashFighterFacet {
+        body: None,
         character: "test_fighter".to_string(),
         capture: kit(),
     }

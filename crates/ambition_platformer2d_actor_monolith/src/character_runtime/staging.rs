@@ -89,6 +89,24 @@ pub struct MatchParticipant {
     /// point. An ability is *may this body attack* and levelling it is fairness; a moveset is
     /// *what the attack IS* and levelling it would erase the character.
     pub action_set: Option<ambition_characters::brain::ActionSet>,
+    /// The BODY this match gives this fighter, outranking the character's own
+    /// catalog row — the movement twin of [`Self::action_set`], and per SEAT for
+    /// the same reason.
+    ///
+    /// ⭐⭐ THIS IS WHERE A FIGHTER SELF DIFFERS FROM A HOME SELF. A catalog
+    /// row's `axis_tuning` is that character's feel EVERYWHERE it appears, so a
+    /// character that walks around a hub and also fights on a stage cannot state
+    /// two gravities there. It states the second one here, and a composition
+    /// fills it from whatever it uses to author fighters.
+    ///
+    /// ⛔ NOT a `MatchBody`, and the distinction is the one that type's own doc
+    /// draws: a `MatchBody` is the small set of numbers a MODE owns for every
+    /// fighter alive, and gravity is deliberately not among them. This is the
+    /// whole body, stated for ONE seat, which is what makes a heavy heavy.
+    ///
+    /// `None` keeps whatever the character brought, which is every existing
+    /// roster.
+    pub body: Option<ambition_platformer2d_core::MovementTuning>,
 }
 
 impl MatchParticipant {
@@ -104,6 +122,7 @@ impl MatchParticipant {
             },
             team: None,
             action_set: None,
+            body: None,
         }
     }
 
@@ -111,6 +130,13 @@ impl MatchParticipant {
     /// [`MatchParticipant::action_set`].
     pub fn with_action_set(mut self, action_set: ambition_characters::brain::ActionSet) -> Self {
         self.action_set = Some(action_set);
+        self
+    }
+
+    /// Give this seat a body for the duration of the match. See
+    /// [`MatchParticipant::body`].
+    pub fn with_body(mut self, body: ambition_platformer2d_core::MovementTuning) -> Self {
+        self.body = Some(body);
         self
     }
 

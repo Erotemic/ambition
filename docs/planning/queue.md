@@ -3061,7 +3061,12 @@ GAP WITH AN OWNER, not a quietly different tuning number.
     convergence on a platform-fighter stage and gets an air dodge; the crawler
     keeps its crawl."* A fighter-self air jump therefore needs a SECOND tuning
     for one character, which is the `SmashFighterFacet` D146 deliberately
-    deferred. ⇒ blocked on that deferral, not on effort.
+    deferred. ⇒ blocked on that deferral, not on effort. ⭐⭐ **UNBLOCKED
+    2026-08-26, and the deferral claim was stale twice over**: the facet SHIPPED
+    (`ambition_characters::smash_fighter`, George authors one on disk), and the
+    seat now carries a body of its own — `MatchParticipant::body`, which outranks
+    the character's row. A fighter-self air jump is an authored number on one
+    seat now, not a second tuning nothing can hold.
   * the **tumble and get-up** are ART, and Jon already said so.
   * ⚠ **and the gap is real and specific**: she authors `air_jumps: 0` while
     `SMASH_FIGHTER_KIT` grants `double_jump`, so hers is a dead grant of exactly
@@ -3151,6 +3156,44 @@ lineage reads zero content mentions outside the catalog. Placement is reached
 through archetypes and Rust spawners, so an absence-grep on the id says nothing.
 ⇒ the honest instrument is the SPAWNER side: ask which ids the room/archetype
 construction can reach, not which files spell them.
+
+⭐⭐⭐ **AND THE BLOCKER THIS ITEM NAMES IS STALE — `SmashFighterFacet` IS NOT
+DEFERRED, IT SHIPPED.** `crates/ambition_characters/src/smash_fighter/mod.rs`
+carries the facet, its content schema, and a `SmashFighterBook`; George Booul
+authors one on disk and the smash demo compiles it through the pack. What it does
+NOT carry is a body — it is `character` + `capture` (grab, pummel, throws). ⇒ so
+the Mary-O air jump and the seventeen fighters on the wandering-enemy body were
+never blocked on a deferred campaign; they were blocked on ONE MISSING SEAM, and
+grepping for the thing the row said was missing is what found it.
+
+✔ **THE SEAM LANDED 2026-08-26: `MatchParticipant::body`.** Per SEAT, the
+movement twin of `action_set`, and it outranks the character's own row:
+`rules.body_over(participant.body.or(definition.movement_tuning), built_body)`.
+
+```text
+action_set   the KIT this match gives this fighter    (already existed)
+body         the BODY this match gives this fighter   (new, same shape)
+```
+
+⭐ **THE REASON IT HAS TO BE THE SEAT AND NOT THE ROW**: a catalog row's
+`axis_tuning` is that character's feel EVERYWHERE it appears, and every one of
+the seventeen is `tier: MainHall`, so authoring a fighter's gravity on the row
+changes the same character standing in the hub. ⛔ and it may not be the MODE
+either — `MatchBody`'s doc refuses a mode-owned gravity in advance, and it is
+right to: per-fighter gravity, fall speed and jump arc are what make a heavy
+heavy.
+
+Guarded by `a_seat_body_outranks_the_character_and_a_seat_without_one_keeps_it`,
+which seats ONE character TWICE in one match — one seat given a stage body, one
+not — because the claim is a precedence and a single seat cannot show one.
+Poisoned by dropping the `.or`: it reads `[1111, 1111]` and reddens.
+
+▢ **WHAT IS LEFT IS NOW ORDINARY CONTENT WORK, in two steps.** (1) give
+`SmashFighterFacet` a `body` and lower it; (2) have the smash demo fill
+`MatchParticipant::body` from the facet when it builds a roster. Then the census
+test's ratchet falls one authored fighter at a time. ⚠ nothing here decides what
+the numbers ARE — that is per-fighter authoring, and the ratchet is what keeps it
+honest.
 
 ▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
 not the burst button.** In the genre a dodge is shield + direction. Recorded,

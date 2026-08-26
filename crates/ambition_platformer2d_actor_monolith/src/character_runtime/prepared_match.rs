@@ -854,7 +854,12 @@ pub fn prepare_match(
             // falls back to when a body carries no marker — so a mode's six
             // numbers land on the body this fighter would otherwise have had,
             // and nothing else about it moves.
-            effective_movement_tuning: rules.body_over(definition.movement_tuning, built_body),
+            //  THE SEAT'S OWN BODY OUTRANKS THE CHARACTER'S, and it has to:
+            // a catalog row's feel is that character's feel everywhere it
+            // appears, so a fighter self and a home self cannot both state one
+            // there. See `MatchParticipant::body`.
+            effective_movement_tuning: rules
+                .body_over(participant.body.or(definition.movement_tuning), built_body),
             moveset,
         });
     }

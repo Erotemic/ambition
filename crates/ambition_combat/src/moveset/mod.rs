@@ -249,6 +249,21 @@ pub struct MovePlayback {
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
     pub hit_targets: Vec<String>,
+    /// The DIRECTION the gesture that started this move asked for.
+    ///
+    /// ⭐⭐ CAPTURED WHERE IT IS KNOWN, which is the whole point. The read-model
+    /// swing used to RECONSTRUCT this by matching the move's id against a
+    /// seven-entry canonical vocabulary (`attack_up`, `attack_air_back`, …), and
+    /// no shipped fighter spells its moves that way — Pointed authors
+    /// `polygon_tilt_up`, Pugnacious `polygon_brawler_air_back` — so every one
+    /// of them synthesised `Forward`. Animation, the HUD and the gizmos read
+    /// this, so all of them were told the same wrong thing.
+    ///
+    /// ⛔ NOT AN `Option`. A move no directional gesture started — a chain
+    /// successor, a held weapon's action, a special — reports `Forward`, which
+    /// is exactly what the flat swing published for one. Saying so here is
+    /// what stops a fallback appearing in every consumer.
+    pub attack_intent: AttackIntent,
     /// The ranged intent that STARTED this move, if one did.
     ///
     /// a move's fire event usually arrives after its own request is gone.
@@ -460,6 +475,9 @@ impl MovePlayback {
             live_boxes: Vec::new(),
             fired,
             hit_targets: Vec::new(),
+            // What the flat swing published for a move no direction asked for.
+            // `with_attack_intent` is the seam that says otherwise.
+            attack_intent: AttackIntent::Forward,
             // Nobody aimed unless a caller says so — `with_aim` is the seam, and
             // the facing fallback at the fire frame is what an unaimed move gets.
             aim: None,
@@ -473,6 +491,13 @@ impl MovePlayback {
     /// Remember the ranged intent that started this move. See [`Self::aim`].
     pub fn with_aim(mut self, aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>) -> Self {
         self.aim = aim;
+        self
+    }
+
+    /// Remember the DIRECTION the gesture asked for. See
+    /// [`Self::attack_intent`].
+    pub fn with_attack_intent(mut self, intent: AttackIntent) -> Self {
+        self.attack_intent = intent;
         self
     }
 
@@ -1847,6 +1872,8 @@ struct StartingMove<'a, 'cw, 'cs> {
     aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
     /// Which gesture the press RESOLVED to, when it is one that charges.
     started_by: Option<ambition_entity_catalog::ChargeGesture>,
+    /// The DIRECTION the gesture asked for — see [`MovePlayback::attack_intent`].
+    attack_intent: AttackIntent,
     proposer: ProposedVerb,
     action_buffer: &'a mut ae::BodyActionBuffer,
     // ⭐ THE COMPONENTS, NOT THE QUERIES. A helper that took the queries would
@@ -1877,6 +1904,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         facing,
         aim,
         started_by,
+        attack_intent,
         proposer,
         action_buffer,
         mut shield,
@@ -1894,6 +1922,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
             .with_aim(aim)
+            .with_attack_intent(attack_intent)
             .charged_by_gesture(started_by),
     );
     // ACCEPTED — the proposal is over. A buffered press that starts a move must
@@ -2234,6 +2263,10 @@ pub fn trigger_moveset_moves(
         // `start_impulse` multiplied by. So the correct move came out pointing
         // backwards: the right name, the wrong geometry.
         let mut pivot_turn = false;
+        // The direction the resolved gesture asked for, carried onto the
+        // accepted playback. `Forward` for a move no directional gesture
+        // started — see `MovePlayback::attack_intent`.
+        let mut attack_intent = AttackIntent::Forward;
         // ⭐⭐ PROPOSED HERE, COMMITTED WHERE THE MOVE STARTS. The double-jump
         // cancel used to write `kin.vel` in the middle of resolution, before
         // `cancel_permits` had been asked — so a buffered aerial thrown during a
@@ -2483,6 +2516,18 @@ pub fn trigger_moveset_moves(
             // ⛔ PROPOSED, like everything else on this road. A press the
             // playing move refuses must not turn the fighter around.
             pivot_turn = motion_facts.is_some_and(|facts| facts.turning_around);
+            // ⭐ AND THE DIRECTION TRAVELS WITH THE MOVE. Resolved from the same
+            // three facts the move was selected from, so the read-model swing
+            // never has to guess it back out of a move id.
+            attack_intent = attack_intent_of(
+                dir,
+                if gesture_grounded {
+                    AttackPosture::Grounded
+                } else {
+                    AttackPosture::Airborne
+                },
+                running_attack,
+            );
             (spec, verb_names, ProposedVerb::Attack)
         } else if frame.taunt_pressed {
             // LAST in the chain on purpose: a taunt loses to every verb that
@@ -2685,6 +2730,7 @@ pub fn trigger_moveset_moves(
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
                 started_by,
+                attack_intent,
                 proposer,
                 action_buffer: &mut action_buffer,
                 shield: guards.get_mut(entity).ok(),
@@ -2772,6 +2818,7 @@ pub fn trigger_moveset_moves(
                 facing: kin.facing,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
                 started_by,
+                attack_intent,
                 proposer,
                 action_buffer: &mut action_buffer,
                 shield: guards.get_mut(entity).ok(),
@@ -3118,15 +3165,30 @@ fn is_melee_swing_move(moveset: Option<&MovesetContract>, id: &str) -> bool {
     id == ATTACK_VERB || id.starts_with("attack_") || id == SMASH_VERB || id.starts_with("smash_")
 }
 
-fn attack_intent_from_move_id(id: &str) -> AttackIntent {
-    match id {
-        "attack_up" => AttackIntent::Up,
-        "attack_down" => AttackIntent::Down,
-        "attack_air" => AttackIntent::AirForward,
-        "attack_air_up" => AttackIntent::AirUp,
-        "attack_air_back" => AttackIntent::AirBack,
-        "attack_air_down" => AttackIntent::AirDown,
-        _ => AttackIntent::Forward,
+/// The read-model direction a resolved gesture asked for.
+///
+/// ⭐ ONE TABLE, and it is the whole of what the string parser was trying to
+/// recover. Posture chooses the aerial family; `running` names the dash attack,
+/// which no move id ever spelled.
+pub fn attack_intent_of(
+    dir: AttackDir,
+    posture: ambition_characters::actor::attack_gesture::AttackPosture,
+    running: bool,
+) -> AttackIntent {
+    use ambition_characters::actor::attack_gesture::AttackPosture;
+    let airborne = matches!(posture, AttackPosture::Airborne);
+    match (dir, airborne) {
+        (AttackDir::Up, false) => AttackIntent::Up,
+        (AttackDir::Up, true) => AttackIntent::AirUp,
+        (AttackDir::Down, false) => AttackIntent::Down,
+        (AttackDir::Down, true) => AttackIntent::AirDown,
+        (AttackDir::Back, false) => AttackIntent::Back,
+        (AttackDir::Back, true) => AttackIntent::AirBack,
+        (AttackDir::Neutral, true) | (AttackDir::Forward, true) => AttackIntent::AirForward,
+        (AttackDir::Forward, false) if running => AttackIntent::DashForward,
+        (AttackDir::Forward, false) => AttackIntent::Forward,
+        (AttackDir::Neutral, false) if running => AttackIntent::DashForward,
+        (AttackDir::Neutral, false) => AttackIntent::Neutral,
     }
 }
 
@@ -3151,13 +3213,15 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
     };
     let recovery = (spec.duration_s - startup - active).max(0.0);
     let attack_spec = AttackSpec {
-        // The move's directional variant id (from `directional_attack_variants`)
-        // carries the swing direction — recover it so the read-model swing drives
-        // the correct directional sprite row (up-tilt reads `AttackUp`, a down-air
-        // `AirDown`, …) and any preview gizmo points the right way. The base
-        // `"attack"` move stays `Forward` (byte-parity with the pre-directional
-        // hardcode).
-        intent: attack_intent_from_move_id(spec.id.as_str()),
+        // ⭐⭐ THE DIRECTION THE GESTURE ASKED FOR, carried on the playback since
+        // the move started. This used to MATCH THE MOVE ID against a seven-entry
+        // canonical vocabulary, and the comment here claimed *"the move's
+        // directional variant id carries the swing direction"* — which is simply
+        // untrue for shipped content: Pointed authors `polygon_tilt_up`,
+        // Pugnacious `polygon_brawler_air_back`, and every borrowed fighter adds
+        // another prefix, so all of them fell through to `Forward`. Animation,
+        // the HUD and the gizmos read this.
+        intent: pb.attack_intent,
         startup_seconds: startup,
         active_seconds: active,
         recovery_seconds: recovery,

@@ -626,7 +626,6 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
         // The stop-this-match channel, owned here for the same reason the two
         // above are: a rules-only harness may not have the engine plugins.
-        app.add_message::<ambition_platformer2d::actor::MatchAbandoned>();
         // The capture request channels. The ADAPTER below writes them and the
         // body runtime reads them, so this plugin owns them the same way it owns
         // the two above.
@@ -1949,8 +1948,8 @@ fn offer_to_exit_the_match(
     // ⭐⭐ A MATCH THAT HAS BEEN DECIDED IS STILL ACTIVE — the winner card is up
     // and the return countdown is running — so `ActiveMatch` alone cannot answer
     // this, and offering to abandon then is offering to stop something already
-    // stopped. The press would reach `MatchAbandoned`, whose once-only latch
-    // discards it because the match already settled: a row that does nothing.
+    // stopped. The press would reach the abandon latch, which the once-only
+    // settle discards because the match already ended: a row that does nothing.
     //
     // ⛔ THE CONDITION, NOT A PROXY. Not the winner card's presence, not a menu
     // state, not a countdown — `StocksMatchSettled::settled` is the authority
@@ -1989,14 +1988,28 @@ fn offer_to_exit_the_match(
 /// CPU-vs-CPU as in a human match; the person who opened the menu is not
 /// necessarily playing.
 fn abandon_the_match_when_the_shell_asks(
+    mut commands: bevy::prelude::Commands,
     mut asked: bevy::prelude::MessageReader<
         ambition_platformer2d::game_shell::ShellAbandonRequested,
     >,
-    mut abandon: bevy::prelude::MessageWriter<ambition_platformer2d::actor::MatchAbandoned>,
+    // WHICH MATCH is being stopped. The ask is made outside the simulation, so
+    // it cannot be re-made by a resimulation and cannot ride a channel that
+    // rewinds — it names its match instead. See `MatchAbandonRequest`.
+    active: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
+    >,
 ) {
-    for _ in asked.read() {
-        abandon.write(ambition_platformer2d::actor::MatchAbandoned);
+    let asked_to_stop = asked.read().count() > 0;
+    if !asked_to_stop {
+        return;
     }
+    let Some(active) = active else {
+        // Nothing is running; there is no match to name.
+        return;
+    };
+    commands.insert_resource(
+        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&active),
+    );
 }
 
 /// SUDDEN DEATH'S STAGE HALF: put the survivors on the edge of death.
@@ -3872,7 +3885,7 @@ mod tests {
     #[test]
     fn every_authored_difficulty_is_a_published_controller_policy() {
         use ambition_platformer2d::characters::actor::character_catalog::{
-            CharacterCatalog, parse_catalog,
+            parse_catalog, CharacterCatalog,
         };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
@@ -3910,7 +3923,7 @@ mod tests {
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
         use ambition_platformer2d::characters::actor::character_catalog::{
-            CharacterCatalog, parse_catalog,
+            parse_catalog, CharacterCatalog,
         };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
@@ -3963,10 +3976,10 @@ mod tests {
 mod pause_arbitration_tests {
     use super::*;
     use ambition_platformer2d::input::participant::{
-        ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
+        context_priority, resolve_active_input_context, ContextClaim, ParticipantContexts,
     };
     use ambition_platformer2d::input::{
-        InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
+        InputParticipant, MenuControlFrame, SeatInputContexts, SeatMenuFrames, PAUSE_CONTEXT,
     };
     use bevy::prelude::*;
 

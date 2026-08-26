@@ -842,6 +842,26 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // SOMEBODY ASKED TO STOP A MATCH, and this one is waived because rewinding
+    // it would LOSE the request rather than preserve it.
+    //
+    // ⛔⛔ THE ASK IS MADE OUTSIDE THE SIMULATION — a shell menu — so a
+    // resimulation cannot re-make it. It rode a `MatchAbandoned` message
+    // registered with `clear_message_on_rollback` before, and that
+    // registration's own comment claimed the clear *"restores the channel with
+    // its cursor, so the resim reads the request again"*; the backend simply
+    // `.clear()`s the buffer, so an Exit Match consumed on a speculative frame
+    // was GONE after a rewind and the match kept going. Snapshotting it fails
+    // the same way from the other side.
+    //
+    // ⭐ WHAT SURVIVES BOTH is a latch that does not rewind and NAMES ITS MATCH:
+    // a rewind leaves the ask standing so the resim reaches the same verdict,
+    // and the next match ignores it because the instance differs. The scoping is
+    // pinned by `stocks::a_stop_request_ends_the_match_it_names_and_no_other`.
+    (
+        "ambition_platformer2d_actor_monolith::features::stocks_match::MatchAbandonRequest",
+        "an ask made outside the sim cannot be re-made by a resim; it is scoped by MatchInstance instead of rewound",
+    ),
     // The condition catalog: which questions the installed domains can
     // answer, and the function that answers each.
     //

@@ -11,12 +11,11 @@
 use bevy::prelude::{Has, MessageWriter, Query, Res, ResMut, Resource, World};
 
 use crate::character_runtime::{ActiveMatch, MatchInstance};
-use ambition_time::ClockDomain;
 use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
+use ambition_time::ClockDomain;
 
 use ambition_combat::stocks::{
-    FighterEliminated, MatchAbandoned, MatchVerdict, SidesOutcome, StocksMatchDecided,
-    last_side_standing,
+    last_side_standing, FighterEliminated, MatchVerdict, SidesOutcome, StocksMatchDecided,
 };
 
 /// THE STOCKS OUTCOME FOR ONE MATCH: which match has been settled.
@@ -150,6 +149,45 @@ pub struct SuddenDeathBegan {
 /// result does not depend on the order the query yields entities — which is the
 /// one thing a Bevy query does not promise. A version that collected and sorted
 /// would be adding ceremony to buy a property the fold already has.
+/// SOMEBODY ASKED TO STOP A MATCH — the third way one ends.
+///
+/// ⭐ A MATCH-LEVEL COMMAND, not a body's action. Jon: *"This should also work
+/// in CPU-vs-CPU and other roster configurations; it is a match-level command,
+/// not a player-body action."* So it carries no seat and no reason — only WHICH
+/// MATCH is being stopped.
+///
+/// ⛔⛔ AND IT NAMES ITS MATCH BECAUSE IT CANNOT REWIND. This was a `MatchAbandoned`
+/// MESSAGE registered with `clear_message_on_rollback`, and that registration's
+/// comment claimed the clear *"restores the channel with its cursor, so the resim
+/// reads the request again"*. The backend does no such thing: it `.clear()`s the
+/// buffer. So an Exit Match consumed on a speculative frame was simply GONE after
+/// a rewind — the player pressed it and the match kept going.
+///
+/// ⛔ AND SNAPSHOTTING IT WOULD NOT HELP EITHER, which is the part that decides
+/// the shape. The ask is made OUTSIDE the simulation, so a resimulation cannot
+/// re-make it; rewinding a resource that holds it throws it away exactly as the
+/// clear did. What survives both is a latch that does NOT rewind and is scoped by
+/// the match it is about: a rewind leaves the ask standing, the resim reaches the
+/// same verdict, and the next match ignores it because the instance differs.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct MatchAbandonRequest {
+    of: Option<MatchInstance>,
+}
+
+impl MatchAbandonRequest {
+    /// Ask for `active` to stop.
+    pub fn stop(active: &ActiveMatch) -> Self {
+        Self {
+            of: Some(active.instance()),
+        }
+    }
+
+    /// Is THIS match the one somebody asked to stop?
+    pub fn asks_to_stop(&self, active: &ActiveMatch) -> bool {
+        self.of.as_ref() == Some(&active.instance())
+    }
+}
+
 pub fn decide_stocks_match(
     mut settled: ResMut<StocksMatchSettled>,
     mut decided: MessageWriter<StocksMatchDecided>,
@@ -166,7 +204,9 @@ pub fn decide_stocks_match(
     // THE THIRD WAY A MATCH ENDS: somebody stopped it. Read here rather than in
     // a system of its own so that "the match is over" has exactly one author and
     // the once-only latch below covers all three roads.
-    mut abandoned: bevy::prelude::MessageReader<MatchAbandoned>,
+    //
+    // `Option`, because a composition with no shell offers no way to ask.
+    abandoned: Option<bevy::prelude::Res<MatchAbandonRequest>>,
     active: Option<Res<ActiveMatch>>,
     // The CLOCK's half — the RULE (how long is this match). Optional for the
     // reason every other reader of the projection is: a bare fixture has no
@@ -194,17 +234,16 @@ pub fn decide_stocks_match(
         return;
     };
     if settled.settled(&active) {
-        // Drain anyway: a stop request arriving after the fight settled itself
-        // is answered by the match already being over, and leaving it in the
-        // channel would end the NEXT match the moment it activates.
-        abandoned.clear();
+        // A stop request arriving after the fight settled itself is answered by
+        // the match already being over. Nothing to drain: the ask NAMES its
+        // match, so it cannot leak into the next one.
         return;
     }
     // ⭐ ASKED FIRST, AND IT IS THE ONLY ONE OF THE THREE THAT NEEDS NO CAST.
     // The two roads below both read the fighters, so both answer `return` on a
     // stage that is still seating — and a player who opens the menu during the
     // opening ceremony and picks Exit Match is entitled to an answer.
-    if abandoned.read().count() > 0 {
+    if abandoned.is_some_and(|ask| ask.asks_to_stop(&active)) {
         settled.settle(&active);
         decided.write(StocksMatchDecided {
             outcome: MatchVerdict::NoContest,

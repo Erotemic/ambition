@@ -300,7 +300,7 @@ pub mod actor {
     pub use ambition_combat::components::FighterStocks;
     pub use ambition_combat::stocks::{
         retract_respawn_grace_on_removal, tick_respawn_grace, BodyKnockedOut, FighterEliminated,
-        FighterStockSpent, MatchAbandoned, MatchVerdict, RespawnGrace, StocksMatchDecided,
+        FighterStockSpent, MatchVerdict, RespawnGrace, StocksMatchDecided,
     };
 
     /// How a body came to exist — ADR 0030's construction provenance.

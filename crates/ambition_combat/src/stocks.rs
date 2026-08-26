@@ -286,27 +286,12 @@ impl MatchVerdict {
 ///
 /// Written once, by the ruleset-facing half of the loop, when
 /// [`last_side_standing`] first answers, the clock expires, or somebody stops
-/// the match with [`MatchAbandoned`].
+/// the match (`MatchAbandonRequest`, which the RULESET owns because only it
+/// knows which match an ask is about).
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct StocksMatchDecided {
     pub outcome: MatchVerdict,
 }
-
-/// STOP THIS MATCH — it ends as a [`MatchVerdict::NoContest`].
-///
-/// ⭐ A MATCH-LEVEL COMMAND, not a body's action. Jon: *"This should also work
-/// in CPU-vs-CPU and other roster configurations; it is a match-level command,
-/// not a player-body action."* So it carries no seat, no entity and no reason:
-/// the request is that the match stop, and who asked is the asker's business.
-///
-/// ⛔⛔ AND IT IS CLEARED ON ROLLBACK, which is the opposite of what the shape
-/// suggests. It is WRITTEN outside the simulation — a system menu, a host, a
-/// test — and READ inside it, and a reader's cursor is `Local` state GGRS never
-/// rewinds. Without the clear, an abandon consumed in a future that then gets
-/// rolled back is simply GONE: the resimulation finds the cursor already past it
-/// and the match never ends. See `ambition_combat::rollback_registration`.
-#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct MatchAbandoned;
 
 // It is the latch that stops `decide_stocks_match` announcing twice — and `decide_stocks_match` is
 // not in this crate, deliberately: this module owns the COUNT, and the QUESTION needs a seat and a

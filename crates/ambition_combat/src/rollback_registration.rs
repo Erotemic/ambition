@@ -262,17 +262,6 @@ where
         OWNER,
         "message.stocks_match_decided",
     );
-    // ⛔⛔ AND THE STOP REQUEST TOO, which is the opposite of what it looks like.
-    // `MatchAbandoned` is WRITTEN outside the sim (a system menu) and READ inside
-    // it, and a reader's cursor is `Local` state GGRS never rewinds. Without this
-    // an abandon consumed in a future that gets rolled back is simply GONE: the
-    // resimulation finds the cursor already past it and the match does not end.
-    // Clearing on rollback restores the channel with its cursor, so the resim
-    // reads the request again and reaches the same verdict.
-    registrar.clear_message_on_rollback::<crate::stocks::MatchAbandoned>(
-        OWNER,
-        "message.match_abandoned",
-    );
     // Two attacks traded. Written INSIDE the sim and read inside it — the
     // rebound a clank owes is a gameplay consequence — so its reader's cursor
     // must rewind with everything else, exactly as the landed-hit channel's does.

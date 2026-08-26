@@ -225,3 +225,66 @@ fn a_stage_with_no_live_match_is_never_decided() {
          can be judged before it exists"
     );
 }
+
+/// ⭐⭐ AN ASK TO STOP NAMES ITS MATCH, AND THAT IS WHY IT CAN OUTLIVE A REWIND.
+///
+/// This was a `MatchAbandoned` MESSAGE registered with
+/// `clear_message_on_rollback`, whose comment claimed the clear *"restores the
+/// channel with its cursor, so the resim reads the request again"*. The backend
+/// does no such thing — it `.clear()`s the buffer — so an Exit Match consumed on
+/// a speculative frame was simply gone after a rewind and the match kept going.
+///
+/// ⛔ SNAPSHOTTING IT INSTEAD WOULD LOSE IT TOO: the ask is made OUTSIDE the
+/// simulation, so a resimulation cannot re-make it, and rewinding a resource
+/// that holds it throws it away exactly as the clear did. The latch therefore
+/// does not rewind — and the thing that used to stop a stale ask ending the NEXT
+/// match was the clear, so the latch has to name its match itself. These arms
+/// are that replacement.
+#[test]
+fn a_stop_request_ends_the_match_it_names_and_no_other() {
+    let mut app = composed_app();
+    let _blue = fighter(&mut app, 0, "blue", 2);
+    let _red = fighter(&mut app, 1, "red", 2);
+    app.update();
+    assert!(
+        decided(&app).is_empty(),
+        "the fixture decided a match before anybody asked it to, so neither arm \
+         below is about the ask"
+    );
+
+    // A request naming a DIFFERENT match is inert — this is what the old
+    // channel-clear was protecting against, and it is now the latch's own job.
+    let live = app.world().resource::<ActiveMatch>().clone();
+    // A DIFFERENT match: same seats, a different activation tick. The identity
+    // is `(session, activated_on)`, so that is what has to differ.
+    let other = ActiveMatch::activated(2, None, None, Some(999));
+    assert_ne!(
+        other.instance(),
+        live.instance(),
+        "the fixture built two matches with the same identity, so the refusal \
+         below cannot distinguish them"
+    );
+    app.world_mut().insert_resource(
+        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&other),
+    );
+    app.update();
+    assert!(
+        decided(&app).is_empty(),
+        "a stop request naming ANOTHER match ended this one — a stale ask now \
+         ends whatever activates next"
+    );
+
+    // And the live one does end it.
+    app.world_mut().insert_resource(
+        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&live),
+    );
+    app.update();
+    assert_eq!(
+        decided(&app)
+            .iter()
+            .map(|d| d.outcome.clone())
+            .collect::<Vec<_>>(),
+        vec![ambition_platformer2d::combat::stocks::MatchVerdict::NoContest],
+        "asking to stop the LIVE match did not end it as a No Contest"
+    );
+}

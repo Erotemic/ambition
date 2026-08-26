@@ -5497,6 +5497,51 @@ failure mode this repository has already named twice.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
+⭐⭐ **`features/ecs/damage_apply` COSTED AT HEAD, 2026-08-26 — and the facade
+deletion above is most of why it is now the candidate.** 3,705 lines, and the
+PRODUCTION census (tests excluded, counting the PATHS it names and not the `use`
+lines — Wave H's lesson) is **seven real outward items**:
+
+```text
+crate::actor::{BodyAnimFacts, PrimaryPlayerOnly}   NOT an edge — `ambition_characters`
+                                                   and `shared_tangle::markers`
+crate::features::MotionModel                       a SIBLING in `features::ecs`;
+                                                   it travels with any carve of it
+crate::avatar::PlayerSafetyState             ⎫
+crate::{SafePositionContext,                 ⎬ ONE MECHANIC — four of the seven
+        remember_safe_player_position,       ⎪ (see below)
+        RoomTransitionCooldown}              ⎭
+crate::avatar::PlayerBodyFrameOutput               real
+crate::world::overlay                              real
+crate::ActorDiedMessage                            real; a message it WRITES
+```
+
+⛔⛔ **AND MY OWN FIRST COUNT MISSED FOUR OF THEM, THE SAME WAY WAVE H's DID.** A
+regex for `crate::x::Y` does not match `use crate::{a, b, c}` — four crate-ROOT
+items imported in one brace. ⇒ **a census must read the IMPORT BLOCK as well as
+the body**, because the root is exactly where a monolith parks things.
+
+⭐⭐ **FOUR OF THE SEVEN ARE ONE THING: the last-safe-player-position memory.**
+`SafePositionContext` gates the write, `remember_safe_player_position` performs
+it, `RoomTransitionCooldown` is one of its gates, and `PlayerSafetyState` is
+where it lands. Three of those four are parked at the MONOLITH ROOT — a
+mechanic wearing the crate's address, which is exactly the shape `Mass` had
+before the mount carve.
+
+⇒ **the removal that unblocks this carve is that mechanic, not the carve
+itself.** Its only monolith-owned input is `PlayerSafetyState`; everything else
+in `remember_safe_player_position`'s signature is `_core`. Its consumers are the
+runtime's room transition and reset (`sandbox_reset`, `room_transition/commit`,
+`sim_core_resources`) and the monolith's damage road — two domains, neither able
+to own it without the wrong edge, which is `shared_tangle`'s own admission test.
+
+⛔ **PRICE, so the next session does not re-derive it:** `PlayerSafetyState` and
+`RoomTransitionCooldown` are BOTH rollback-registered and encoded, so the move
+touches the path-keyed ledgers (registration turbofish, exit oracle, the JSON
+baseline's `encoded_types`, the `SnapshotState` impls the orphan rule relocates).
+Stable names must NOT move — it is a repoint, not a schema change. ~10 files.
+
+
 ✔✔✔ **2026-08-26, AFTER THE MOUNT CARVE: THE MONOLITH STOPPED REPUBLISHING ITS
 PEERS, AND THE NEXT CANDIDATE CHANGED.** Three re-export facades were deleted —
 `crate::physics` (a 15-line pure forward to `shared_tangle::{gravity,frame_env}`),

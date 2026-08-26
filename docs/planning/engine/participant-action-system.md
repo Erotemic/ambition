@@ -125,6 +125,27 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   built-in platformer action enum. A provider action should be registerable,
   bindable, presentable, and consumable without editing core action vocabulary.
 
+  ⭐ **THE GATE, WITH ITS SIZE, measured 2026-08-26.** The registry stores
+  DESCRIPTIONS — `SemanticActionDef { id, capability, kind, contexts, doc }` —
+  and the test that proves a capability *"registers its own action without
+  touching the engine enum"* asserts exactly that and nothing about binding it.
+  The physical road is leafwing keyed by the closed enum:
+
+```text
+Platformer2dInputActionMonolith variants                 35
+`Platformer2dInputActionMonolith::` references          288 across 21 files
+`InputMap<Platformer2dInputActionMonolith>`   the only thing a binding can name
+`ActionState<Platformer2dInputActionMonolith>` the only thing a reader can poll
+```
+
+  ⇒ **a registered `grapple` is describable, and unbindable and unreadable**, so
+  the four verbs this item asks for split two-and-two. ⛔ this is NOT an `S`: the
+  gate is the KEY TYPE, so closing it means a second `InputMap` over a dynamic
+  key or making the key generic, and 288 references decide how far that reaches.
+  ⇒ price it as a carve, and start by asking whether the cue/touch/presentation
+  path can key on `SemanticActionId` while the leafwing map stays closed —
+  presentable and consumable may be reachable well before bindable is.
+
 - ▢ **Author input schemas/assets where it improves tooling.** Do this through
   the same registry/binding model rather than adding another settings authority.
 

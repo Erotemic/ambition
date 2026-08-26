@@ -118,8 +118,8 @@ pub(crate) fn observe_actor_decision_inputs(
         observation.note_controlled_liveness(entity, health.current() > 0);
     }
     for (entity, disposition, target, body, faction, in_a_fight) in &actors {
-        let fighting =
-            ambition_combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage();
+        let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
+            .takes_damage();
         observation.note_actor(
             entity,
             body.as_ref().is_some_and(|body| body.health.alive()),
@@ -698,6 +698,10 @@ pub(crate) fn integrate_actor_body(
     // derived here for the same reason `authored_tuning` below is: the fact
     // lives on the entity and this function takes clusters.
     tumbling: bool,
+    // Is this body's death window open (ADR 0033)? Threaded for the same reason
+    // `tumbling` is — the fact lives on the entity and this function takes
+    // clusters — and read on BOTH roads, which is the part that was missing.
+    out_of_play: bool,
     dt: f32,
     feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
     // This body's own movement feel, when its character authored one.
@@ -779,6 +783,7 @@ pub(crate) fn integrate_actor_body(
         authored_tuning,
         combat,
         tumbling,
+        out_of_play,
         contact_field,
     );
     if was_dead && em.health.alive() {
@@ -1013,6 +1018,20 @@ pub fn integrate_sim_bodies(
             // `presentation.rs` inserts it precisely so a seated fighter and a worn player move
             // alike, and the only consumer in the repository was the PLAYER loop below.
             Option<&ambition_platformer2d_core::AuthoredMovementTuning>,
+            // Has this body's death window been opened (ADR 0033)? ⛔⛔ THIS WAS
+            // HARD-CODED `false` at the `step_body` call, under a comment
+            // stating as a FACT that `OutOfPlay` is only ever granted to a
+            // participant's body — true only while `open_death_interlude` was
+            // the sole opener. A Smash fighter is NOT a `PlayerEntity`, so when
+            // the stocks respawn beat began opening a window (D201) the body it
+            // was meant to hold still went on integrating: it kept the velocity
+            // that launched it and coasted through the wait, and a held jump
+            // still reached it.
+            //
+            // The player query below has always read this. Two roads, one
+            // question — see the `playing_a_move` note on `ActorMut::update`,
+            // which is the same defect on the same function.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         (
             With<FeatureSimEntity>,
@@ -1098,6 +1117,7 @@ pub fn integrate_sim_bodies(
         clusters,
         playback,
         authored_tuning,
+        out_of_play,
     ) in &mut actors
     {
         let Some(mut cq) = clusters else {
@@ -1128,6 +1148,7 @@ pub fn integrate_sim_bodies(
             // the projection below is written after the step, and a tech window
             // is many ticks long.
             motion_facts.tumbling,
+            out_of_play,
             dt,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
@@ -1277,6 +1298,37 @@ pub fn apply_actor_contact_damage(
                 Entity,
                 &super::super::super::components::ActorTarget,
                 Option<&ambition_characters::control::DrivingParticipant>,
+                // ⭐⭐ IS THIS BODY SEATED IN A MATCH? D206. Whether touching a
+                // body hurts is a CHARACTER trait
+                // (`CharacterBodyBlueprint::contact_damage`), and that is right
+                // for the overworld: a goblin you walk into hurts you. It is
+                // wrong for a versus match, where a fighter's body is never a
+                // permanent hazard — the genre puts damage in MOVES.
+                //
+                // MEASURED: goblin vs `perfect_cellular_automaton`, both
+                // authoring a contact-damage block, traded **6,908 Contact hit
+                // events in 3,776 ticks — 109.8/s** against 29.5/s of melee,
+                // because this system writes an event EVERY TICK two bodies
+                // overlap and the only thing pacing it is the victim's i-frames.
+                // That is what Jon heard as *"a bad sfx problem with goblin and
+                // pca"*: every one of those events asks for `player.hit`, the
+                // unauthored default for an enemy-profile victim. A george
+                // mirror was quiet at 223 — not because the engine behaves
+                // differently, but because George authors no contact block.
+                //
+                // ⛔ THE SEAT AND NOT THE TUNING. `actor_clusters` builds this
+                // tuning on the SHARED character→body road, which the overworld
+                // NPC and the seated fighter both take, so it cannot answer a
+                // question about the match. And a ruleset that reached in and
+                // rewrote the tuning would be editing a construction-time fact
+                // that a re-seat puts straight back. The seat is the authority
+                // and this is the read that asks it.
+                //
+                // ⛔ NOT a claim that a fighter can never harm on contact. A
+                // move that wants a damaging body state grants it as a move —
+                // Sanic's ball dash, a super form, a spiked shell — and none of
+                // those flows through this permanent trait.
+                Has<crate::character_runtime::MatchSeat>,
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
@@ -1299,7 +1351,7 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, clusters) in &mut set.p0() {
+    for (actor_entity, target, driver, seated_in_a_match, clusters) in &mut set.p0() {
         let Some(mut cq) = clusters else {
             continue;
         };
@@ -1307,7 +1359,8 @@ pub fn apply_actor_contact_damage(
         // Body-contact hazard is off for any participant-driven body; derived
         // from the DRIVER (no possession special-case), gated by the body's
         // authored `body_contact_damage` tuning.
-        let enabled = driver.is_none() && em.config.tuning.body_contact_damage;
+        let enabled =
+            driver.is_none() && !seated_in_a_match && em.config.tuning.body_contact_damage;
         if !enabled || !em.health.alive() {
             continue;
         }
@@ -1610,7 +1663,7 @@ fn capture_candidate(
     use ambition_characters::brain::fighter::options::{
         AttackBinding, AttackCandidate, AttackVerb,
     };
-    use ambition_characters::smash_capture::{CAPTURE_ATTEMPT, CaptureAttemptParams};
+    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,

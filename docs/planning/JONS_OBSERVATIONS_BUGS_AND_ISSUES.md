@@ -362,8 +362,13 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
 * "Mary-O (Tall)" should just be **"Mary-O"**. Jon: *"the characters should not be
   required to have a unique presentation name. Or maybe they have an optional
   distinguished presentation name if we really need it."*
-* Smash respawn: jumping while respawning RAISES THE CHARACTER UP ON THE PLATFORM.
-  ⚠ adjacent to D192 — a returning fighter should not be able to act before it lands.
+* ✔ FIXED 2026-08-26 (D201). Smash respawn: jumping while respawning RAISES THE
+  CHARACTER UP ON THE PLATFORM. The beat D192 added claimed no control hold and
+  no `OutOfPlay`, so a waiting body still answered the pad — and worse, the ACTOR
+  road (which is the road a Smash fighter takes) passed a hard-coded `false` for
+  out-of-play under a comment asserting only a participant's body could ever hold
+  one. Both fixed; the waiting body is now held still and holds
+  `ControlHold::Sequence`. Probed red at 174.7px of motion in 60 frames.
 * HITBOXES ARE AUTHORED TOO SMALL, and ⛔ Jon does NOT want them magically scaled.
   He wants a better way to AUTHOR them, so they make sense and so there are good
   patterns for building new characters. Jon: *"Something that should be generally
@@ -387,9 +392,13 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
   `blink_hold_timer` in `movement/model.rs` is a hold-aim-release teleport — so
   this is WIRING an existing verb as a recovery, not inventing one.
 
-* SFX NOISE in a Goblin vs PCA (`perfect_cellular_automaton`) fight IN SMASH — either side triggers far too
-  many sounds. Jon wants a test that stages that fight and COUNTS the triggers,
-  because the volume of them may be a symptom of a deeper bug, not a mix problem.
+* ✔ FIXED 2026-08-26 (D206). SFX NOISE in a Goblin vs PCA
+  (`perfect_cellular_automaton`) fight IN SMASH. Jon was right that the volume was
+  a symptom: the two traded 6,908 body-CONTACT hit events in 3,776 ticks (109.8/s)
+  because contact damage fires every tick two bodies overlap, and every one asked
+  for `player.hit`. Both characters author a contact-damage block — correct for
+  Ambition, wrong for a versus match — so the match now answers it rather than the
+  character. 114.2 sfx/s → 11.9/s.
 
 ## 2026-08-24 — Smash: a shield roll throws the fighter across the stage
 

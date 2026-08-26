@@ -158,6 +158,8 @@ impl<'a> ActorMut<'a> {
         // gate needs it so a falling body's tech press is not deleted before
         // the kernel can read it.
         tumbling: bool,
+        // Is this body's death window open (ADR 0033)?
+        out_of_play: bool,
         // Inert for every body whose composition never granted the capability, which is every
         // body outside a smash match.
         contact_field: ae::BodyContactField<'_>,
@@ -228,6 +230,7 @@ impl<'a> ActorMut<'a> {
             authored_tuning,
             combat,
             tumbling,
+            out_of_play,
             contact_field,
         );
 
@@ -286,6 +289,8 @@ impl<'a> ActorMut<'a> {
         // See `update`'s own parameter: the published tumble fact, for the
         // tech exemption in the post-hit gate.
         tumbling: bool,
+        // See `update`'s own parameter, and the call site below.
+        out_of_play: bool,
         contact_field: ae::BodyContactField<'_>,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
@@ -357,11 +362,23 @@ impl<'a> ActorMut<'a> {
             &mut clusters,
             combat,
             resolved_tuning,
-            // never, and this is a fact rather than an exemption:
-            // `open_death_interlude` queries `With<PlayerEntity>`, so `OutOfPlay`
-            // is only ever granted to a participant's body. An enemy dies by
-            // despawning or by its own encounter rules, not by this window.
-            false,
+            // ⛔⛔ THIS WAS `false`, "a fact rather than an exemption": the
+            // reasoning was that `open_death_interlude` queries
+            // `With<PlayerEntity>`, so `OutOfPlay` could only ever reach a
+            // participant's body — and an enemy dies by despawning or by its own
+            // encounter rules, not by this window. It was true when it was
+            // written and it stopped being true the day the stocks respawn beat
+            // began opening a window of its own (D201): a Smash fighter is
+            // integrated HERE, not on the player road, and it is not a
+            // `PlayerEntity`. The measured symptom was the whole beat doing
+            // nothing — the body coasted on the velocity that launched it and
+            // answered the jump button while it waited to come back.
+            //
+            // ⭐ A COMMENT STATING A RULE IS A SPECIFICATION, and the second
+            // opener of a state is what tests it. This is now READ rather than
+            // asserted, so the next opener costs nothing. (The same function
+            // already carries the same lesson about `playing_a_move`.)
+            out_of_play,
             ae::MotionStepContext {
                 world,
                 input,

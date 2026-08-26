@@ -643,7 +643,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // is the same-tick placement every other ruleset already had; the beat is
         // a smash-stage decision, so it is declared here and nowhere else.
         app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
-            ticks: RESPAWN_INTERVAL_TICKS,
+            seconds: RESPAWN_INTERVAL_SECONDS,
         });
         // The stop-this-match channel, owned here for the same reason the two
         // above are: a rules-only harness may not have the engine plugins.
@@ -1551,8 +1551,13 @@ const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
 /// away with no travel — measured as the three largest single-tick camera steps
 /// in a 5,400-tick match, against a p99 of 13.1.
 ///
-/// 60 ticks is the genre's ~1s pause between the knockout and the reappearance.
-const RESPAWN_INTERVAL_TICKS: u32 = 60;
+/// One second is the genre's pause between the knockout and the reappearance.
+///
+/// D201: SECONDS, because the beat is now the engine's `DeathInterlude` — the
+/// same window a Mary-O death opens, counted on `WorldTime` and rewound with
+/// everything else. The tick spelling D192 chose was a second clock for one
+/// beat, argued from a determinism premise the component beside it disproves.
+const RESPAWN_INTERVAL_SECONDS: f32 = 1.0;
 
 /// Take an eliminated fighter OUT OF PLAY.
 ///

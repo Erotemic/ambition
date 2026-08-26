@@ -79,17 +79,14 @@ impl SnapshotState for crate::stocks::FighterEliminated {
 }
 
 impl SnapshotState for crate::stocks::PendingRespawn {
-    // The remaining beat rewinds for the same reason `RespawnGrace`'s does: a
-    // branch that restored "this fighter is coming back" without its clock would
-    // place the body on a different tick than the one being resimulated, and a
-    // placement tick is a position.
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_u32(out, self.remaining_ticks);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::stocks::PendingRespawn {
-            remaining_ticks: r.u32()?,
-        })
+    // A BARE PRESENCE, and the clock it used to carry now rides
+    // `DeathInterlude` beside it — which is registered too, so the pair still
+    // restores "this fighter is coming back, and on this tick". Encoding a
+    // second copy of the countdown here would be two rewindable answers to one
+    // question, which is worse than none.
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::PendingRespawn)
     }
 }
 

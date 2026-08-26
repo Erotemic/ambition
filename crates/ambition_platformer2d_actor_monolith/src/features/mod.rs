@@ -686,7 +686,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // D192: the return is decided AFTER the spend and BEFORE any
                 // ruleset places a body. An interval of zero still resolves on
                 // this tick, so a mode that authored no beat is unchanged.
-                ambition_combat::stocks::tick_pending_respawn
+                //
+                // D201: this no longer TICKS anything — the window it reads is
+                // advanced by `tick_death_interlude`, which every death in the
+                // process already shares. What is ordered here is the
+                // CONSEQUENCE, and it still has to sit between the spend that
+                // opens the window and the ruleset that places the body.
+                ambition_combat::stocks::respawn_when_the_interlude_closes
                     .in_set(ambition_combat::stocks::FighterRespawnsDue)
                     .after(ambition_combat::stocks::FighterStocksSpent),
                 crate::features::stocks_match::decide_stocks_match

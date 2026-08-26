@@ -104,10 +104,12 @@ where
     // the fighter acted would hand back a grant it had already spent.
     registrar
         .rollback_component_canonical::<crate::stocks::RespawnGrace>(OWNER, "entity:respawn_grace");
-    // D192's return beat. Registered for the same reason the grace is: the
-    // interval decides WHEN a body is placed, so a rewind that dropped it would
-    // resimulate a fighter returning on the wrong tick — and a placement tick is
-    // a position on the stage.
+    // D192's return beat, D201's one remaining bit: WHICH consequence this
+    // body's open death window owes. Registered because a rewind that dropped
+    // it would resimulate a fighter whose window closes into nothing — it would
+    // never be placed — and a body that never comes back is the loudest
+    // position desync there is. Its COUNTDOWN lives on `DeathInterlude`, which
+    // is registered a few lines below.
     registrar.rollback_component_canonical::<crate::stocks::PendingRespawn>(
         OWNER,
         "entity:pending_respawn",
@@ -276,10 +278,11 @@ where
     // backend `.clear()`s the buffer rather than restoring a cursor, so a
     // request MADE OUTSIDE THE SIMULATION is simply lost by a rewind — that is
     // why `MatchAbandoned` had to become a latch instead. This cue is the
-    // opposite: `tick_pending_respawn` DERIVES it every tick from
-    // `PendingRespawn`, which is rollback-registered, so a resim re-emits it on
-    // the same tick it emitted it before. Losing the buffered copy is exactly
-    // what should happen to a message the simulation will say again.
+    // opposite: `respawn_when_the_interlude_closes` DERIVES it every tick from
+    // `PendingRespawn` and `DeathInterlude`, both rollback-registered, so a
+    // resim re-emits it on the same tick it emitted it before. Losing the
+    // buffered copy is exactly what should happen to a message the simulation
+    // will say again.
     registrar.clear_message_on_rollback::<crate::stocks::FighterRespawnDue>(
         OWNER,
         "message.fighter_respawn_due",

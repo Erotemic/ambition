@@ -120,41 +120,7 @@ pub fn open_death_interlude(
     }
 }
 
-/// Count the open windows down on the SIM clock, and play the death row for as
-/// long as one is open.
-///
-/// arming the death animation is the ENGINE's job now. `death_anim_timer`
-/// had exactly one writer in the workspace — Mary-O's beat — which re-armed it
-/// EVERY TICK because the engine's respawn called `BodyAnimFacts::reset()` on
-/// the very frame she died. Nothing resets it out from under the interlude any
-/// more, and every game's death row plays without each one discovering the timer
-/// for itself. The anim view already reads it (`v.dead = death_anim_timer > 0.0`),
-/// so "dead" and "out of play with a window open" are now the same fact.
-pub fn tick_death_interlude(
-    time: Res<ambition_time::WorldTime>,
-    mut windows: Query<(
-        &mut DeathInterlude,
-        Option<&mut ambition_characters::actor::BodyAnimFacts>,
-    )>,
-) {
-    let dt = time.sim_dt();
-    for (mut window, anim) in &mut windows {
-        if window.remaining > 0.0 {
-            window.remaining = (window.remaining - dt).max(0.0);
-        }
-        // only while the window is OPEN. The component OUTLIVES the window
-        // (it carries the consequence debt until the body restarts), so arming
-        // unconditionally would hold every corpse in its death row forever.
-        if let Some(mut anim) = anim {
-            if window.open() {
-                // At least one frame's worth, so the row is visible on the frame
-                // the window closes rather than blinking out one tick early —
-                // the same `.max(dt)` Mary-O's beat carried.
-                anim.death_anim_timer = window.remaining.max(dt);
-            }
-        }
-    }
-}
+pub use ambition_combat::death_rules::tick_death_interlude;
 
 /// The window closed: ask the roster whether the level goes back.
 ///

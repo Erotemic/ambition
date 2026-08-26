@@ -76,6 +76,8 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
+            // In play — a body waiting out a death window does not move at all.
+            false,
             ae::BodyContactField::NONE,
         );
     }
@@ -139,6 +141,8 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
             false,
+            // In play — a body waiting out a death window does not move at all.
+            false,
             ae::BodyContactField::NONE,
         );
         let expected = -gravity;
@@ -193,6 +197,8 @@ fn walk_run_staggered(mut combat: ambition_characters::actor::BodyCombat, ticks:
             None,
             &mut combat,
             // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
+            // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
         );
@@ -291,6 +297,8 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         &mut ambition_characters::actor::BodyCombat::default(),
         // Not tumbling — this fixture is not about the floor game.
         false,
+        // In play — a body waiting out a death window does not move at all.
+        false,
         ae::BodyContactField::NONE,
     );
     let crate::features::MotionModel::AxisSwept(axis) = &model else {
@@ -346,6 +354,8 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
+            // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
         );
@@ -434,6 +444,8 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
+            false,
+            // In play — a body waiting out a death window does not move at all.
             false,
             ae::BodyContactField::NONE,
         );

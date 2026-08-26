@@ -88,6 +88,8 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
             &mut combat,
             // Not tumbling — this fixture is not about the floor game.
             false,
+            // In play — a body waiting out a death window does not move at all.
+            false,
             ae::BodyContactField::NONE,
         );
     }

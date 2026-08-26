@@ -714,6 +714,8 @@ pub fn integrate_boss_bodies(
             &'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &'static mut ambition_platformer2d_core::BodyMotionFacts,
             Option<&'static ambition_combat::moveset::MovePlayback>,
+            // ADR 0033's window, asked rather than assumed — see the call below.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -737,6 +739,7 @@ pub fn integrate_boss_bodies(
         resolved_frame,
         mut motion_facts,
         playback,
+        boss_out_of_play,
     ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
@@ -773,6 +776,13 @@ pub fn integrate_boss_bodies(
             // The same published read the actor loop makes: last tick's tumble,
             // so a launched boss keeps its tech press too.
             motion_facts.tumbling,
+            // The same read too, and by the RULE rather than by a boss
+            // exemption. Nothing opens a death window on a boss today, so this
+            // is `false` in every shipped composition — which is exactly why it
+            // is asked instead of asserted: the last road that asserted it
+            // silently stopped holding a body still the day a second opener
+            // appeared.
+            boss_out_of_play,
             dt,
             *feel_tuning,
             // A boss authors its feel through its own catalog today; when one

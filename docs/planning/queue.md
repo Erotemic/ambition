@@ -11523,8 +11523,16 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
-- ▢ **D243 — A NON-DEFAULT FEATURE IS WHERE CODE GOES TO ROT, and one of them
-  had stopped compiling. (opened 2026-08-26)**
+- ✔ **D243 — A NON-DEFAULT FEATURE IS WHERE CODE GOES TO ROT, and one of them
+  had stopped compiling. (opened AND closed 2026-08-26)**
+
+⇒ **CLOSED the same day, because the audit turned out to be reachable.** `causal`
+was broken and is fixed; the shell's fixture is fixed and 26 tests came back; the
+`visible,desktop_platform` persona checks clean; the WEB persona checks clean on
+`wasm32`; and our Android Rust turns out to be compiled and tested on the HOST
+already. ⚠ **what is NOT closed is the habit** — the table below is the reason
+this row exists, and it is the thing to re-read before editing a type that a
+gated module consults.
 
 ⛔⛔ **`--features causal` DID NOT BUILD**, and had not for long enough to collect
 four separate breaks: three references to `StocksMatchDecided.winner` after that

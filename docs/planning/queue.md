@@ -11551,6 +11551,19 @@ ledger keeps paying for, and two of the nine are already suspect:
                                     the channel
 ```
 
+✔✔ **ALL NINE SWEPT THE SAME DAY, and the doc now carries the measurement for
+each — 2026-08-26.** Two were already SHIPPED (per-seat pause ownership, with a
+guard at `pause_menu.rs:788`; pad-specific calibration filtering, on BOTH the
+menu and gameplay roads). Two are partly done with the remainder named
+(`ambition_ui_nav` — adopted by dialogue, not by the shell, and the two menus
+disagree about the end of a list; dialogue-per-seat — the explicit policy
+shipped, and the OTHER half is inexpressible because `allows_gameplay` is a bare
+`matches!` that never asks it). Three were sharpened from prose into counts (the
+activation seam has ONE adopter; `ControlContextKind` has four variants and no
+`VEHICLE`; provider actions are describable but unbindable behind a 35-variant
+enum with 288 references in 21 files). One was re-framed (the seat-0 split is now
+DEFENDED, so the question changed).
+
 ⇒ **what a reader should do first**: take one item, grep for the thing it says
 is missing, and either update the doc or work it. ⛔ do not price the nine as a
 campaign — the doc is a list of independent seams, and three of them (dialogue

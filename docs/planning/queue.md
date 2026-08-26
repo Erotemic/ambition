@@ -10568,10 +10568,22 @@ instance differs — which is the job the channel-clear used to do. The
 `rollback_coverage` carries the reasoning, because "why is this NOT rollback
 state" is exactly the question a later session will ask.
 
-▢ ROLLBACK: **(22) winner card and
-return countdown react to SPECULATIVE settlement** — `Local<Option<f32>>` on real
-time, no retraction; use the existing `ConfirmedFrameBoundary` rather than a new
-delay.
+◐ **(22) HALF CLOSED 2026-08-25 — the RETURN, which is the half that cannot be
+taken back.** The countdown armed on `StocksMatchDecided`, which a SPECULATIVE
+frame can write, into a `Local` GGRS never rewinds — so a rolled-back decision
+still sent the player to the lobby out of a live match. It reads
+`StocksMatchSettled` now (rollback STATE, stamped with its match) and arms only
+when `ConfirmedFrameBoundary::fully_confirmed`, so by the time it commits the
+settlement can never be simulated again. ⛔ THE STAMP ALSO REPLACED the
+`decided.clear()` on leaving the stage: a previous match's verdict cannot arm the
+next one. Straddling arms; the poison sends the player home on a prediction.
+
+▢ **THE CARD'S HALF IS STILL OPEN, and deliberately.** `announce_the_winner`
+needs the VERDICT, which only the message carries — `StocksMatchSettled` says
+WHETHER, not WHICH — so guarding it the same way risks dropping the announcement
+rather than delaying it, because its reader lives in `Update` and its cursor does
+not rewind. ⚠ the consequence is cosmetic and self-correcting (the readout is
+cleared on leaving the stage), which is why the irreversible half went first.
 
 ▢ LIVE SMASH PARITY: ⭐⭐ **(23) CLOSED 2026-08-25** — the gate
 carried the sentence *"AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes

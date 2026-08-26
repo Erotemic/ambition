@@ -5600,3 +5600,95 @@ fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
         (x(&app, keyboard_body) - x(&app, pad_body)).abs()
     );
 }
+
+/// ⛔⛔ LEAVING THE STAGE IS NOT RETRACTABLE, SO IT WAITS FOR A CONFIRMED FRAME.
+///
+/// The return countdown used to arm on `StocksMatchDecided`, which a SPECULATIVE
+/// frame can write, and it lives in a `Local` that GGRS never rewinds. A decision
+/// that was later rolled back still sent the player back to the lobby out of a
+/// match that was still being fought, and there is no retraction to write — the
+/// only fix is not to commit.
+///
+/// ⭐ THE ARMS STRADDLE `fully_confirmed`, with everything else held still: same
+/// settled match, same route, same countdown budget, one field of the boundary
+/// different. ⚠ this host publishes NO boundary of its own (there is no GGRS
+/// session behind it), so the inserted one survives — which is what makes the
+/// first arm possible at all.
+#[test]
+fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
+    use ambition_platformer2d::engine_core::ConfirmedFrameBoundary;
+
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+    wait_for_the_round_to_go_live(&mut app);
+    assert!(
+        app.world()
+            .get_resource::<ConfirmedFrameBoundary>()
+            .is_none(),
+        "this host publishes a boundary of its own, so the values inserted below \
+         are overwritten and neither arm means anything"
+    );
+
+    // PREDICTED: the world is ahead of what can never be simulated again.
+    app.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 120,
+        confirmed: 100,
+        session: 0,
+    });
+    let running = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .cloned()
+        .expect("a live match");
+    app.world_mut().insert_resource(
+        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&running),
+    );
+
+    for _ in 0..600 {
+        app.update();
+        // Re-assert the prediction: the sim keeps running and nothing else here
+        // maintains this resource.
+        app.world_mut().insert_resource(ConfirmedFrameBoundary {
+            current: 120,
+            confirmed: 100,
+            session: 0,
+        });
+    }
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled>()
+            .is_some_and(|settled| settled.settled(&running)),
+        "the match never settled at all, so the refusal below is about nothing"
+    );
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "a verdict reached on a SPECULATIVE frame sent the player back to the \
+         lobby — and a `Local` countdown cannot be rewound, so nothing was ever \
+         going to take that back"
+    );
+
+    // CONFIRMED: the same settlement, now unrewindable.
+    app.world_mut().insert_resource(ConfirmedFrameBoundary {
+        current: 120,
+        confirmed: 120,
+        session: 0,
+    });
+    for _ in 0..600 {
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
+            break;
+        }
+        app.update();
+        app.world_mut().insert_resource(ConfirmedFrameBoundary {
+            current: 120,
+            confirmed: 120,
+            session: 0,
+        });
+    }
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        "a CONFIRMED verdict never returned the player to select, so the guard \
+         above is refusing everything rather than refusing predictions"
+    );
+}

@@ -1612,14 +1612,45 @@ fn smash_fighters_are_solid_to_each_other(
 }
 
 /// Return to character select after a decided match has left its winner card
-/// visible for [`RETURN_TO_SELECT_AFTER`]. The countdown runs on frame/real time
-/// and arms only once even if rollback re-delivers the decision message.
+/// visible for [`RETURN_TO_SELECT_AFTER`].
+///
+/// ⛔⛔ AND IT ARMS ONLY ON A CONFIRMED FRAME, because leaving the stage is not
+/// retractable. It used to arm on `StocksMatchDecided`, which a SPECULATIVE
+/// frame can write: the countdown is a `Local` that GGRS never rewinds, so a
+/// decision that was later rolled back still sent the player back to the lobby
+/// out of a match that was still being fought. There is no retraction to write —
+/// the fix is not to commit in the first place.
+///
+/// ⭐ TWO CHANGES, AND THE SECOND IS WHAT MAKES THE FIRST SAFE.
+///
+/// It reads `StocksMatchSettled` — rollback STATE, stamped with the match it is
+/// about — instead of the message, so a rewound decision simply un-settles and
+/// there is nothing left claiming the match ended. And it waits for
+/// `ConfirmedFrameBoundary::fully_confirmed`, so by the time the countdown arms
+/// the settlement can never be simulated again.
+///
+/// ⛔ THE STAMP ALSO REPLACES THE `decided.clear()` this used to do on leaving
+/// the stage: a verdict for the PREVIOUS match cannot arm the next one, because
+/// the instance differs. Same rule as the abandon latch.
 fn return_to_the_select_screen_when_the_match_ends(
-    mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    // WHETHER THIS MATCH IS OVER, from the authority that rewinds.
+    settled: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
+        >,
+    >,
+    active: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
+    >,
+    // ⛔ `Option`: absent means there is no rollback host, and the module's own
+    // doc says that case confirms everything.
+    boundary: Option<
+        bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
+    >,
     mut countdown: bevy::prelude::Local<Option<f32>>,
 ) {
     let on_stage = router
@@ -1630,12 +1661,17 @@ fn return_to_the_select_screen_when_the_match_ends(
         // Left by some other road — the pause menu, a host quitting home. The
         // countdown belongs to THIS visit to the stage.
         *countdown = None;
-        decided.clear();
         readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
         return;
     }
-    let ended = decided.read().count() > 0;
-    if ended && countdown.is_none() {
+    let ended = match (settled.as_deref(), active.as_deref()) {
+        (Some(settled), Some(active)) => settled.settled(active),
+        _ => false,
+    };
+    let confirmed = boundary
+        .as_deref()
+        .is_none_or(|boundary| boundary.fully_confirmed());
+    if ended && confirmed && countdown.is_none() {
         *countdown = Some(RETURN_TO_SELECT_AFTER);
     }
     let Some(remaining) = countdown.as_mut() else {

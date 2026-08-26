@@ -9380,10 +9380,22 @@ remaining failure (Mary-O's visual baseline) stands against an uncommitted
 side-view strap edit in the worktree — it belongs to whoever lands that art,
 in the same commit.
 
-▢ **and one survivor is genuine, left red on purpose:**
+✔ **AND THAT SURVIVOR IS GREEN NOW — re-run 2026-08-26, and the whole file
+passes (12/12).** `python -m pytest tests/test_rig_codegen_and_scale.py` in
+`tools/ambition_sprite2d_renderer` reports
+`test_generated_matches_rigdoc_render` PASSING, so the two roads emit one picture
+again. ⛔ what fixed it is not recorded here and the row below never named the
+cause, so treat the paragraph that follows as the SYMPTOM DESCRIPTION it was —
+useful if it ever comes back, not a live finding. ⚠ and the shape it describes is
+worth keeping for that day: `39x78 vs 43x82` is a UNIFORM 2px fringe on all four
+sides, which is a stroke-width or antialias-radius difference rather than a
+transform — *"every 1px shift makes the match WORSE"* is exactly what a dilation
+looks like when you try to explain it as a translation.
+
+~~▢ **and one survivor is genuine, left red on purpose:**
 `test_generated_matches_rigdoc_render` compares the rig document's own
 renderer against the module generated from it, and they disagree on every
-clip:
+clip:~~
 
 ```text
 alpha delta       max 11, >2 on 355 px, >8 on 8 px   (the tolerance is 2)

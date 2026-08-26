@@ -311,6 +311,22 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
   distinguished presentation name if we really need it."*
 * Smash respawn: jumping while respawning RAISES THE CHARACTER UP ON THE PLATFORM.
   ⚠ adjacent to D192 — a returning fighter should not be able to act before it lands.
+* HITBOXES ARE AUTHORED TOO SMALL, and ⛔ Jon does NOT want them magically scaled.
+  He wants a better way to AUTHOR them, so they make sense and so there are good
+  patterns for building new characters. Jon: *"Something that should be generally
+  true for a direction smash is that they should hit a fair bit of area in the
+  direction of the player hitbox, often at least as tall or wide as the character
+  dimension. e.g. forward smash should have a hit geometry such that everywhere in
+  front of the character gets hit and there aren't often holes a character can duck
+  under. similar for arcs of up airs and other attacks. the hitboxes are generally
+  too conservative. and note some attacks might be special and break those rules of
+  thumb. a we are going to give the cast unique and interesting moves."* ⇒ D203.
+
+* UP-B CAN OFTEN BE USED MORE THAN ONCE without going into freefall. Jon: *"only a
+  few should be exempt from that general rule."* ⇒ D204. ⚠ adjacent to main's
+  `Helplessness is an episode, not a count of charges` — the episode may be the
+  right home for the once-per-airtime rule rather than a charge count.
+
 * SFX NOISE in a Goblin vs `npc_pirate_admiral` fight — either side triggers far too
   many sounds. Jon wants a test that stages that fight and COUNTS the triggers,
   because the volume of them may be a symptom of a deeper bug, not a mix problem.

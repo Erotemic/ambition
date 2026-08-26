@@ -77,15 +77,20 @@ cmd_mount() {
         return 0
     fi
 
-    # REFUSE rather than silently orphan bytes. A populated `target/` here is
-    # a real build sitting on the shared mount; mounting over it hides it while
-    # it keeps consuming virtiofs space, and the owner would never find it.
-    if [ -d "$target" ] && [ -n "$(ls -A "$target" 2>/dev/null)" ]; then
-        die "$target already has build output on the shared mount.
-  Mounting over it would HIDE those bytes without freeing them.
-  Delete it first (it is a cache):  rm -rf '$target'
-  then re-run this script."
-    fi
+    # ⛔⛔ A POPULATED `target/` IS NOT A PROBLEM — SHADOWING IT IS THE POINT.
+    # The bind mount covers whatever is there; the underlying bytes stay exactly
+    # as they were and reappear on `--unmount`. On a virtiofs checkout that is
+    # the PROTECTION: the host's own `target/` is left untouched while the guest
+    # builds onto local disk, instead of both sides writing the same directory.
+    #
+    # This block used to REFUSE here and tell the caller `rm -rf '$target'`, and
+    # that instruction has a body count: 2026-08-25 an agent followed it exactly
+    # and destroyed `target/first_shots/` and `target/swing_shots/` — screenshot
+    # captures from a live investigation — to clear a path the mount would have
+    # preserved on its own. `target/` in this repo is not only a cache; it also
+    # carries probe output, run logs and a font download cache.
+    #
+    # ⇒ mount over it. Delete nothing, move nothing, ask for nothing.
 
     mkdir -p "$store"
     mkdir -p "$target"

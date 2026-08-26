@@ -34,10 +34,35 @@
   purpose — a standalone demo composes the shell without the participant
   pipeline, and there the one global frame IS the only seat.
 
-- ▢ **Dialogue through participant contexts only.** Finish the ruling that
+- ◐ **Dialogue through participant contexts only.** Finish the ruling that
   dialogue is per-seat by default rather than globally suspending the world.
   Experiences that intentionally stop world time should request that policy
   explicitly.
+
+  ✔ **THE EXPLICIT-POLICY HALF SHIPPED**: `DialogueStopsTheWorld` is a resource,
+  it defaults to `false`, and `GameMode::stops_the_world` consults it. Body
+  simulation is not suspended either — `ambition_conversation::rules`'s own
+  header says so, which is what lets contact and damage END a live conversation.
+
+  ⛔⛔ **AND THE OTHER HALF IS BLOCKED BY ONE MODE ANSWERING TWO QUESTIONS, ONLY
+  ONE OF WHICH LEARNED THE POLICY. Measured 2026-08-26:**
+
+```text
+GameMode::stops_the_world(self, policy)   Dialogue => policy.0     ← policy-aware
+GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditional
+```
+
+  ⇒ under the DEFAULT policy the world keeps running during a conversation and
+  **every seat's gameplay input is refused anyway**, because the input gate never
+  asks. So *"dialogue is per-seat by default"* is not merely unbuilt — it is
+  currently INEXPRESSIBLE: `GameMode` is one global `State`, and the gate that
+  would have to become per-seat is a bare `matches!` on it.
+  ⇒ **the real remaining work is naming what a per-seat dialogue mode IS** (a
+  second seat playing while the first talks needs the gate keyed by seat, not a
+  policy flag on a global mode), not threading `DialogueStopsTheWorld` into a
+  second function. ⚠ and the present behaviour is coherent even if it is not the
+  ruling: the world runs, you cannot act, and being hit cuts the conversation
+  short — do not "fix" the gate without deciding the mode.
 
 - ▢ **Unify semantic menu activation.** Controller submit, virtual-touch submit,
   and pointer release should produce one semantic activation seam. Pointer

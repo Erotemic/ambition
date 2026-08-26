@@ -334,7 +334,7 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
   `blink_hold_timer` in `movement/model.rs` is a hold-aim-release teleport — so
   this is WIRING an existing verb as a recovery, not inventing one.
 
-* SFX NOISE in a Goblin vs `npc_pirate_admiral` fight — either side triggers far too
+* SFX NOISE in a Goblin vs PCA (`perfect_cellular_automaton`) fight IN SMASH — either side triggers far too
   many sounds. Jon wants a test that stages that fight and COUNTS the triggers,
   because the volume of them may be a symptom of a deeper bug, not a mix problem.
 

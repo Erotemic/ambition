@@ -284,13 +284,18 @@ These cards are capability fronts, not a serial mega-campaign.
   SPECIFIC WAY — measured 2026-08-26, seed `0x5EED`:**
 
 ```text
-L1 mean apm 12.7 (cap 120)   distinct frames 19
-L5 mean apm 29.3 (cap 270)   distinct frames 19
-L9 mean apm 46.0 (cap 420)   distinct frames 20
+THE FIVE REGISTERED RUNGS ONLY (seed 0x5EED)
+L1  12.7 / cap 120  = 10.6%    distinct frames 19
+L3  21.3 / cap 195  = 10.9%                     19
+L5  29.3 / cap 270  = 10.9%                     19
+L6  34.0 / cap 308  = 11.0%                     21
+L9  46.0 / cap 420  = 11.0%                     20
 ```
 
-  ⇒ **the APM CAP IS INERT** — every rung runs at roughly a TENTH of its own
-  limit, so the number the ladder authors forbids nothing at any level. ⚠ **the
+  ⇒ **THE CAP NEVER BINDS, AND IT IS UNIFORM ABOUT IT**: every registered rung
+  sits at 10.6–11.0% of its own cap, so the cap is a fixed ~9x multiple of the
+  rate rather than a limit — it forbids nothing at any level, and moving one
+  would change nothing. ⚠ **the
   guard is NOT vacuous though — it carries its own non-vacuity arm** (*"the rig
   produced no presses at all"*), added after it once went green over an unarmed
   attack kit; what is inert is the CAP, not the check. ⇒ **and `distinct_frames`

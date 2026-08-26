@@ -5183,15 +5183,21 @@ failure mode this repository has already named twice.
 
   | row | why it is next |
   | --- | --- |
-  | Z-drop / neutral drop (`▢ S`) | a custody transition `Held → InWorld` with zero launch — the item road already owns both ends |
+  | Z-drop / neutral drop (`✔ SHIPPED 2026-08-24`) | ⛔ THIS TABLE WAS STALE, the inventory was not. One enum inside `throw_held_item_system`, guarded by a CONTRAST fixture; `a_dropped_item_falls.rs` carries the app arm |
   | Self-damage / recoil move (`▢ S`) | an owner-side `on_hit` through the effect seam that already exists |
   | Stock + timer selectors (`▢ S`) | rules UI over configuration the ruleset already reads; no mechanic |
-  | Cannot-clank / transcendent hit (`▢ S`) | one hitbox policy after clank arbitration, which ships |
+  | Cannot-clank / transcendent hit (`▢ S`, wants a CUSTOMER) | ⛔ do not build it: the inventory row already says why, and re-measuring agreed. `arbitrate_attack_clanks` queries `&StrikeVolume`, which ONLY `advance_move_playback` spawns for an authored move window — a projectile carries none and never reaches the arbitration. The genre's transcendent hits are mostly projectiles, so **they are already transcendent by construction**. What is left is a MELEE move that wants to pass through a swing, and nothing authors one |
   | Pivot grab (`▢ S`, twice) | ⛔ BLOCKED on the §4 turnaround/pivot FACT; the capture side needs nothing. Do not start it from the capture end |
 
   ⛔ every one of these was re-read against the inventory on 2026-08-24, not
   copied from an older list — and the pivot-grab pair is listed WITH its blocker
   precisely because two rows name it and neither says so on its own.
+
+  ⛔⛔ **AND ONE OF THEM WENT STALE ANYWAY WITHIN TWO DAYS, which is the reason
+  this row names the inventory as the canonical truth.** Z-drop shipped on the
+  very date this table was re-read and the table kept its `▢`. ⇒ **a duplicated
+  status is a status that rots**: read the inventory row, not this column, and
+  when they disagree the inventory wins.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 

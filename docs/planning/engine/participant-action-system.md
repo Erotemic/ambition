@@ -68,6 +68,17 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   and pointer release should produce one semantic activation seam. Pointer
   press/release-with-drag-cancel is already shared; backend-specific select
   consumption remains.
+  ⭐ **AND "REMAINS" NOW HAS A NUMBER, measured 2026-08-26: the shared seam has
+  exactly ONE adopter.** `ambition_ui_nav::resolve_selectable_row_interaction`
+  (press/release with drag cancel, `ROW_TAP_SLOP_PX`) is used only by
+  `ambition_dialog` (two call sites). `ambition_game_shell` reads the raw
+  `MenuControlFrame::select` flag and routes it itself at three separate places —
+  `input.rs` maps it to `confirm`, `startup_acknowledge` AND `loading_continue`,
+  and `pause_menu` consumes it directly. ⇒ **the seam is not missing, it is
+  UNADOPTED**, which makes this a migration with a countable finish line rather
+  than a design question. ⛔ mind the three shell meanings: one flag currently
+  answers three different questions there, so moving it needs those to stay
+  distinguishable.
 
 - ◐ **Move directional repeat/focus/wrap behind `ambition_ui_nav`.** Preserve the
   existing navigation semantics while removing backend-specific duplication.

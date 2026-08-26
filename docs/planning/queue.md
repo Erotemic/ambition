@@ -11108,8 +11108,8 @@ forbidding an action must not erase the state that reads the next input
 
 ```text
 148c158 special-turn   acceptance mutation CLOSED · gravity-relative CLOSED
-                       real wavebounce RECOGNIZER still OPEN — the four outcomes
-                       are global rule booleans, not an ordered input reading
+                       real wavebounce RECOGNIZER still OPEN — see below, and
+                       the composition is smaller than the ledger assumed
 56fb9da settled item   wakes when unsupported CLOSED
                        rides a moving platform CLOSED — and it needed NO support
                        identity: `Block::velocity` IS the per-frame displacement
@@ -11118,6 +11118,39 @@ forbidding an action must not erase the state that reads the next input
                        PROVISIONAL conflation — carry an explicit guard policy
                        when #29b touches that channel
 ```
+
+▢ **THE WAVEBOUNCE RECOGNISER — DESIGNED 2026-08-25, AND THE INSIGHT IS THAT IT
+IS TWO TOGGLES, NOT THREE TECHNIQUES.** Every previous framing listed three named
+inputs and asked how to tell them apart. They are one rule composed:
+
+```text
+each qualifying input FLIPS THE FACING;
+a post-press flick ALSO reverses the lateral drift.
+
+back BEFORE the press              flip                    → turnaround-B
+back flick AFTER the press         flip + reverse drift    → B-reverse
+both                               flip twice (= no flip)
+                                   + reverse drift          → WAVEBOUNCE
+```
+
+⇒ the fourth outcome falls out of the other two rather than needing its own
+recognition, which is why this is small.
+
+⭐ WHAT IT COSTS: a `special_turn_window` on `AttackGestureState` (already
+per-body rollback state, already the gesture-history home) armed when a special
+press is accepted, plus one system that — while the window is open and a lateral
+flick arrives — flips facing and reverses the lateral drift, then closes it.
+⚠ `AttackGestureState` is snapshotted, so a wire bump.
+
+⛔ THE PRE-PRESS HALF ALREADY EXISTS as `special_turn`, committed at the accepted
+move. The NEW half is the post-press window, and it must apply a few ticks INTO
+the move — which is what the genre does and why this cannot be decided at
+move-start.
+
+⛔ AND `special_turn_reverses_drift` CHANGES MEANING: today it reverses on every
+back-special, which is the B-reverse final state applied unconditionally. With
+the recogniser it becomes what a FLICK buys. Its existing arms assert the
+unconditional reading and will need repairing, not working around.
 
 ⭐ ACCEPTED CLOSED by the reviewer with no further defect: `9d96948` (seat/device
 authority — *"the strongest fix in the window"*), `0e766bd`+`6d0ed2b` (roll

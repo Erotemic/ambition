@@ -366,7 +366,7 @@ impl Plugin for CombatSchedulePlugin {
         // arity limit.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::ecs::damage_apply::stage_player_victim_hit_events
+            ambition_damage::stage_player_victim_hit_events
                 .run_if(gameplay_allowed)
                 .in_set(CombatSet::Settle)
                 .before(ambition_mount::MountRiderLinkEnforced),
@@ -378,7 +378,7 @@ impl Plugin for CombatSchedulePlugin {
         // happen precisely while gameplay is suspended.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::ecs::damage_apply::void_pending_player_hits_at_lifecycle_boundaries
+            ambition_damage::void_pending_player_hits_at_lifecycle_boundaries
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
                 .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
                 .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),

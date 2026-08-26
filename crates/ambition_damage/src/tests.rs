@@ -1,7 +1,9 @@
+use ambition_combat::util::scaled_knockback;
+use ambition_platformer2d_core::hit_response::di_adjust;
 use super::*;
 // The parent module imports only the handful of Bevy items its systems need,
 // so the App-level tests below bring in their own.
-use bevy::prelude::{default, App, Messages, Update};
+use bevy::prelude::{App, Update};
 
 /// A guard that is UP, with a shield that is not a spendable resource — the
 /// shape every body in this file has. `resolve_body_hit` takes the guard itself

@@ -56,7 +56,9 @@ mod brain_effects;
 pub(crate) mod character_policy;
 pub mod chests;
 mod damage;
-pub mod damage_apply;
+// ⛔ `damage_apply` LEFT FOR `crates/ambition_damage`, 2026-08-26. It named no
+// monolith type by the time it went — five re-export facades had been hiding
+// what it actually depended on — so the carve was a move rather than a design.
 mod damage_drops;
 mod damage_predicates;
 pub mod dormancy;

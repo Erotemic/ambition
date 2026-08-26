@@ -40,7 +40,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<DebrisBurstMessage>()
             .add_message::<ambition_vfx::vfx::KnockoutBeatRequested>()
             .add_message::<ActorDiedMessage>()
-            .add_message::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::WalletShieldSpent>()
+            .add_message::<ambition_damage::WalletShieldSpent>()
             .add_message::<ambition_combat::SetFlagRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::features::QuestAdvanceRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::features::SwitchActivated>()

@@ -372,6 +372,7 @@ ambition_characters = { path = "../ambition_characters" }
 # `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_combat = { path = "../ambition_combat" }
+ambition_damage = { path = "../ambition_damage" }
 # Conversation continuity — the `ActiveConversation` authority, the hold, the break rule + its cast
 # port, the narrative-input ledger, and the dialogue- opening seam.
 ambition_conversation = { path = "../ambition_conversation" }

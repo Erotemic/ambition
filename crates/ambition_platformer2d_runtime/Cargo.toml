@@ -27,6 +27,7 @@ ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional =
 ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
+ambition_damage = { path = "../ambition_damage" }
 ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 # Optional for the same reason the LDtk edge above is: a portal is a

@@ -1378,7 +1378,7 @@ fn emit_ring_shield_spend(app: &mut App, victim: bevy::prelude::Entity, amount: 
         wallet.balance = 0;
     }
     app.world_mut().write_message(
-        ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent {
+        ambition_platformer2d::damage::WalletShieldSpent {
             victim,
             amount,
             pos,
@@ -1395,7 +1395,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
         let mut app = App::new();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-        app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+        app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
         let mut scope = ActiveSessionScope::default();
         scope.begin();
         app.insert_resource(scope);
@@ -1466,7 +1466,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
@@ -1667,7 +1667,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
     app.add_message::<ambition_platformer2d::combat::events::SetFlagRequested>();
     app.insert_resource(ambition_platformer2d::combat::events::GameplayBanner::default());
@@ -1794,7 +1794,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
@@ -2086,7 +2086,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);

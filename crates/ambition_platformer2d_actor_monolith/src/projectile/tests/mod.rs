@@ -120,7 +120,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<HitEvent>();
     app.add_message::<ambition_combat::events::ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
-    app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_damage::WalletShieldSpent>();
     app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.

@@ -176,6 +176,10 @@ pub use ambition_menu as menu;
 /// THE MOUNT PAIR — two linked bodies where one carries the other. Carved out
 /// of `actors` (D33); a game that wires mounts names this domain, exactly as it
 /// names `boss_encounter`.
+/// Victim-side damage resolution — shield blocks, knockback, hitstun, the
+/// safe-respawn and death-respawn roads. Carved out of the actor monolith
+/// 2026-08-26, exposed as its own domain beside `mount` and `boss_encounter`.
+pub use ambition_damage as damage;
 pub use ambition_mount as mount;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;

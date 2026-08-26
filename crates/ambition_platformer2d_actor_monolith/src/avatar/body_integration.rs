@@ -250,7 +250,7 @@ mod home_momentum_tests;
 #[cfg(test)]
 mod platform_advance_tests;
 
-// ⛔ THIS SYSTEM MOVED HERE FROM `features::ecs::damage_apply`, 2026-08-26, and
+// ⛔ THIS SYSTEM MOVED HERE FROM `ambition_damage`, 2026-08-26, and
 // it was the LAST monolith-owned thing that module named. Its own doc says
 // *"'died' here means the local player's attempt ended"* — that is avatar
 // language, not damage language, and the fact it reads is

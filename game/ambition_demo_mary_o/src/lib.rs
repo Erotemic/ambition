@@ -1758,7 +1758,7 @@ impl Plugin for MaryORulesPlugin {
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
-            .after(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet);
+            .after(ambition_platformer2d::damage::PlayerHitResolutionSet);
         // The walkers are registered by `install_mary_o_content`, the single
         // authored-content composition seam shared by direct and shell hosts.
         // Rules consume the staged actors; they do not mutate construction

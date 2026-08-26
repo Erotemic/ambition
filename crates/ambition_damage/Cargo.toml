@@ -1,0 +1,31 @@
+[package]
+name = "ambition_damage"
+version = "0.1.0"
+edition = "2021"
+
+# ⛔ NO `[lints] workspace = true`: the workspace root declares no
+# `workspace.lints`, and naming one fails manifest parsing. Same as
+# `ambition_mount`.
+
+[dependencies]
+bevy = { version = "0.18.1", default-features = false }
+
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_vfx = { path = "../ambition_vfx" }
+ambition_time = { path = "../ambition_time" }
+# ⚠ A DAMAGE RESOLVER READING SETTINGS is an edge worth naming rather than
+# hiding: the assist-mode damage scale is authored in gameplay settings, so this
+# is a real dependency and not a test fixture. It was invisible while the module
+# lived in a crate that already had it.
+ambition_persistence = { path = "../ambition_persistence" }
+
+[features]
+default = []
+causal = []

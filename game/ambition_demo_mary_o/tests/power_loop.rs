@@ -650,7 +650,7 @@ use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagReq
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_platformer2d::combat::events::ActorStimulus>();
-    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
     // A body reaching zero says so through `BodyKnockedOut` whether or not a
     // stocks ruleset is listening. This fixture hand-picks its systems, so it
     // hand-registers their messages; `CombatSchedulePlugin` covers the apps that

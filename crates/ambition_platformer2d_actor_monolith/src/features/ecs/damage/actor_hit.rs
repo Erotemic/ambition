@@ -100,7 +100,7 @@ pub(crate) fn apply_actor_hit(
     // The body's combat state — the ONE post-hit i-frame authority for every
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
-    wallet_shield: Option<crate::features::ecs::damage_apply::WalletArmor<'_>>,
+    wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
     aggression: Option<&mut crate::features::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
@@ -273,14 +273,14 @@ pub(crate) fn apply_actor_hit(
         let victim_facing = em.kin.facing;
         let victim_pos = em.kin.pos;
         let victim_size = em.kin.size;
-        let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
+        let resolution = ambition_damage::resolve_body_hit(
             combat,
             Some(&mut *em.health),
             // No actor archetype wears equipment armor today; the resolver
             // supports it generically, but nothing threads a `WornEquipment` here.
             None,
             wallet_shield,
-            crate::features::ecs::damage_apply::GuardUnderFire::offered_to(
+            ambition_damage::GuardUnderFire::offered_to(
                 event.knockback.as_ref(),
                 &mut *em.shield,
                 shield_tuning,
@@ -294,7 +294,7 @@ pub(crate) fn apply_actor_hit(
             event.damage,
             1.0,
             caps.never_dies,
-            crate::features::ecs::damage_apply::BodyHitFeel {
+            ambition_damage::BodyHitFeel {
                 hit_flash: 0.16,
                 // SCALED BY THE MATCH'S RULE, so a game whose moves author
                 // their own multi-hit cadence can say it has no blanket window
@@ -317,14 +317,14 @@ pub(crate) fn apply_actor_hit(
         // nothing, which are the puzzling ones.
         #[cfg(feature = "causal")]
         if let Some(resolutions) = writers.resolutions.as_mut() {
-            resolutions.write(crate::features::ecs::damage_apply::BodyHitResolved {
+            resolutions.write(ambition_damage::BodyHitResolved {
                 body: actor_entity,
                 resolution,
                 source: event.source.clone(),
                 raw_damage: event.damage,
             });
         }
-        if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Ignored {
+        if resolution == ambition_damage::BodyHitResolution::Ignored {
             return false;
         }
         // CM1 death policy: an `Unbounded` (smash-percent) body never dies from
@@ -342,7 +342,7 @@ pub(crate) fn apply_actor_hit(
         let killed = left_the_world
             || (matches!(
                 resolution,
-                crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
+                ambition_damage::BodyHitResolution::Damaged { died: true, .. }
             ) && em.health.policy().kills_at_max());
         if should_bark && !killed {
             // Catalog-first: the actor seed carries the stable authored
@@ -369,7 +369,7 @@ pub(crate) fn apply_actor_hit(
                 });
             }
         }
-        if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Blocked {
+        if resolution == ambition_damage::BodyHitResolution::Blocked {
             // The guard costs nothing but consumes the hit: no damage, no
             // knockback, just a clang. A blocked hit still counts as "took the
             // hit" (returns true) so the caller plays the shared hitstop.
@@ -393,18 +393,18 @@ pub(crate) fn apply_actor_hit(
             });
             return true;
         }
-        if let crate::features::ecs::damage_apply::BodyHitResolution::WalletShielded { spent } =
+        if let ambition_damage::BodyHitResolution::WalletShielded { spent } =
             resolution
         {
             writers.wallet_shield_spent.write(
-                crate::features::ecs::damage_apply::WalletShieldSpent {
+                ambition_damage::WalletShieldSpent {
                     victim: actor_entity,
                     amount: spent,
                     pos: em.kin.pos,
                 },
             );
         }
-        if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Armored {
+        if resolution == ambition_damage::BodyHitResolution::Armored {
             // A worn armor row absorbed the hit (no actor wears one today; kept
             // exhaustive so the generic resolver stays honest). Took the hit, no
             // damage, no death, no knockback.
@@ -456,7 +456,7 @@ pub(crate) fn apply_actor_hit(
             // actor staggers exactly like the player.
             let pos = em.kin.pos;
             let facing = em.kin.facing;
-            let reaction = crate::features::ecs::damage_apply::apply_body_hit_reaction(
+            let reaction = ambition_combat::hit_reaction::apply_body_hit_reaction(
                 &mut em.kin.vel,
                 &mut em.flight,
                 combat,
@@ -467,7 +467,7 @@ pub(crate) fn apply_actor_hit(
                 k.as_ref(),
                 event.damage,
                 di_input_local,
-                crate::features::ecs::damage_apply::VictimStance {
+                ambition_combat::hit_reaction::VictimStance {
                     grounded: em.ground.on_ground,
                     crouching: em.body_mode.body_mode == ae::BodyMode::Crouching,
                 },
@@ -486,7 +486,7 @@ pub(crate) fn apply_actor_hit(
             // the fact the match freeze reads. Beside the reaction because THAT
             // is where the hitlag exists: publishing beside the resolution
             // instead reported zero for every hit.
-            crate::features::ecs::damage_apply::publish_resolved_hit(
+            ambition_damage::publish_resolved_hit(
                 writers.resolved.as_mut(),
                 actor_entity,
                 combat.hitstop_timer,
@@ -494,7 +494,7 @@ pub(crate) fn apply_actor_hit(
             );
             #[cfg(feature = "causal")]
             if let Some(reactions) = writers.reactions.as_mut() {
-                reactions.write(crate::features::ecs::damage_apply::BodyReactionApplied {
+                reactions.write(ambition_damage::BodyReactionApplied {
                     body: actor_entity,
                     reaction,
                 });

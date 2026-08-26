@@ -1134,7 +1134,7 @@ impl Plugin for SanicRulesPlugin {
         // and `add_message`/`init_resource` are idempotent.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
-        app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+        app.add_message::<ambition_platformer2d::damage::WalletShieldSpent>();
         app.add_message::<ambition_platformer2d::world::rooms::RoomLoaded>();
         // The act cycle restarts the room on a clear, exactly as Mary-O's level
         // cycle does. The engine registers this in a full app; a thin
@@ -1230,7 +1230,7 @@ impl Plugin for SanicRulesPlugin {
                 // A provider ordering against `apply_worn_character_gameplay` is coupled to a
                 // name the engine may rename or split; `Persona` is the contract.
                 .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
-                .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
+                .before(ambition_platformer2d::damage::PlayerHitResolutionSet),
         );
 
         // The ball dash is a RULE, not world content: it exists while the Sanic
@@ -1296,7 +1296,7 @@ impl Plugin for SanicRulesPlugin {
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
-            .after(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet);
+            .after(ambition_platformer2d::damage::PlayerHitResolutionSet);
         // The scattered-ring burst flies out BETWEEN the coin magnet and the
         // collect: it owns each ring's position during the lock so the magnet
         // can't reclaim it, and collect then sees the ring out at its arc rather
@@ -1983,7 +1983,7 @@ pub fn scatter_rings_on_hit(
         bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
     >,
     mut spent: bevy::prelude::MessageReader<
-        ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent,
+        ambition_platformer2d::damage::WalletShieldSpent,
     >,
     mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,

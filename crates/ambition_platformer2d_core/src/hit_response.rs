@@ -1,4 +1,4 @@
-//! Carved down from `ambition_platformer2d_actor_monolith::features::ecs::damage_apply` (FB6b,
+//! Carved down from `ambition_damage` (FB6b,
 //! fighter-brain.md §12.3 route 1) so ONE formula answers both callers:
 //!
 //! * the authoritative victim path (`damage_apply`) resolves real hits with it;

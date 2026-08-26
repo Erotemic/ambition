@@ -216,12 +216,16 @@ what this plan's verification section already asks for.
    ABSENT there, because character realizations are presentation state. Boot
    `build_visible_app(VisibleRenderMode::NoWindow, true)`, the builder
    `boot_budget` uses to read `[image-census]`.
-2. ⛔ **there is no public accessor that enumerates RESIDENT sheets.**
-   `ready_token_count()` gives a count; `declared_character_ids()` is its
-   COMPLEMENT (it filters to tokens with no resident sheet, per `is_declared`'s
-   doc) and returns the pending ones. A test that wants "every resident token and
-   the file it resolves to" has to add that accessor first — which is the
-   smallest real blocker in front of this bug.
+2. ✔ ~~there is no public accessor that enumerates RESIDENT sheets.~~ **THAT
+   BLOCKER IS GONE — `CharacterSpriteAssets::resident_sheets()` exists
+   (`ambition_sprite_sheet/src/character/assets.rs:274`) and its own doc records
+   why it was added: *"its absence made a whole class of test unwritable"*, and
+   reaching for `declared_character_ids` instead *"yields a tautology: every id
+   in it is guaranteed to have no sheet"*.** ⚠ it is order-free on purpose
+   (`sheets` is a `HashMap`), so a deterministic caller collects and sorts.
+   ⭐ **and it already has its adopter** — `quality_change_keeps_each_character.rs`
+   iterates it, which is the test Jon's quality-change report is waiting on. ⇒
+   what is left is the LIVE Apply with `[image-census]`, not an accessor.
 
 ## Three small fixes, deliberately kept separate
 

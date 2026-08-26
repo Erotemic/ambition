@@ -321,11 +321,7 @@ fn portrait_art(
     // what it used to do, and what left the choice invisible at the call site.
     let rect = portraits
         .and_then(|registry| {
-            registry.resolve_still(
-                &reference.manifest,
-                None,
-                Some(&reference.still_clip),
-            )
+            registry.resolve_still(&reference.manifest, None, Some(&reference.still_clip))
         })
         .map(|(_, frame)| Rect::from(frame));
     Some((handle, rect))
@@ -1067,13 +1063,12 @@ pub(crate) fn drive_the_cursor(
             // between them. A deterministic answer beats a lucky one, and the
             // case needs two people to put two tokens down and then have one of
             // them tap.
-            let carrying = (0..MAX_SMASH_SEATS)
-                .find(|seat| {
-                    !taken.contains(seat)
-                        && cursors
-                            .seat(*seat)
-                            .is_some_and(|cursor| cursor.carrying.is_some())
-                });
+            let carrying = (0..MAX_SMASH_SEATS).find(|seat| {
+                !taken.contains(seat)
+                    && cursors
+                        .seat(*seat)
+                        .is_some_and(|cursor| cursor.carrying.is_some())
+            });
             // otherwise it drives seat 0, and only if seat 0 is free. One
             // person on a phone taps portraits and buttons without ever
             // touching a token, and that has to work; a stray thumb during
@@ -1185,10 +1180,28 @@ pub(crate) fn drive_the_cursor(
 
             // A HELD STICK ROAMS; A TAP STILL SNAPS.
             //
-            // A held stick gives continuous motion. A tap that produces a
-            // direction edge without a held deflection snaps to the next target,
-            // keeping d-pad and keyboard navigation exact.
-            if drive.nav != Vec2::ZERO {
+            // ⛔⛔ AND FOR MONTHS IT DID NOT — THE SNAP BRANCH WAS UNREACHABLE ON
+            // EVERY REAL DEVICE, which is what *"the controls don't feel good,
+            // they are very hard to use with a gamepad"* was. `nav` is not just
+            // the stick: `decode_menu_frame` folds the HELD d-pad and the held
+            // arrow keys into it too (`held_x`/`held_y`), and a direction EDGE
+            // implies the same direction is held on that very frame. So
+            // `nav != ZERO` was true on every frame any edge could fire, the
+            // roam always won, and nothing ever snapped — on a stick, a d-pad or
+            // a keyboard. The comment above stated the rule; the code could not
+            // reach it.
+            //
+            // ⭐ THE EDGE GOES FIRST NOW, which is the rule as written: a flick
+            // lands on the next portrait's centre, and a deflection that is
+            // still held between repeats roams freely, so Smash's hand survives
+            // for the player who wants to sweep the grid.
+            if drive.direction != Vec2::ZERO {
+                if let Some(entity) = cursor::snap(pointer.position, drive.direction, &snap_rects) {
+                    if let Some(target) = snap_rects.iter().find(|target| target.entity == entity) {
+                        pointer.move_to(target.rect.center());
+                    }
+                }
+            } else if drive.nav != Vec2::ZERO {
                 let travel = drive.nav
                     * layout.viewport.x
                     * CURSOR_SPEED_PER_SECOND
@@ -1198,12 +1211,6 @@ pub(crate) fn drive_the_cursor(
                     roamed.x.clamp(0.0, layout.viewport.x),
                     roamed.y.clamp(0.0, layout.viewport.y),
                 ));
-            } else if drive.direction != Vec2::ZERO {
-                if let Some(entity) = cursor::snap(pointer.position, drive.direction, &snap_rects) {
-                    if let Some(target) = snap_rects.iter().find(|target| target.entity == entity) {
-                        pointer.move_to(target.rect.center());
-                    }
-                }
             }
         }
 
@@ -2118,6 +2125,58 @@ mod touch_tests {
         assert!(
             !landed_on_a_centre,
             "the cursor snapped to a target centre at {moved:?} instead of roaming"
+        );
+    }
+
+    /// AND A FLICK LANDS ON A PORTRAIT, WHICH IS THE HALF THAT WAS BROKEN.
+    ///
+    /// ⛔⛔ THE FIXTURE IS THE FINDING. A real device never sends a direction
+    /// EDGE with an idle deflection: `decode_menu_frame` builds `nav` from the
+    /// held d-pad and held arrow keys as well as the stick, so on the frame any
+    /// edge fires, that same direction is held and `nav` is non-zero. The
+    /// screen took the roam branch first, so the snap branch was unreachable on
+    /// a stick, a d-pad AND a keyboard — and Jon's report was *"very hard to use
+    /// with a gamepad"*.
+    ///
+    /// ⭐ so this drives BOTH TOGETHER, which is the shape production sends, and
+    /// asserts the cursor arrived somewhere in particular. Its sibling above
+    /// keeps the other half honest: deflection with no edge still roams.
+    #[test]
+    fn a_flick_snaps_even_though_the_same_direction_is_held() {
+        let mut app = screen();
+        app.init_resource::<ambition_platformer2d::input::MenuControlFrame>();
+        app.update();
+
+        // A press edge AND the deflection that necessarily accompanies it.
+        {
+            let mut frame = app
+                .world_mut()
+                .resource_mut::<ambition_platformer2d::input::MenuControlFrame>();
+            frame.right = true;
+            frame.nav = Vec2::X;
+        }
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+
+        let landed = app
+            .world()
+            .resource::<SelectCursors>()
+            .seat(0)
+            .expect("seat 0")
+            .position;
+        let layout = headless_layout();
+        let nearest = layout
+            .targets()
+            .into_iter()
+            .map(|(_, rect)| rect.center().distance(landed))
+            .fold(f32::INFINITY, f32::min);
+        assert!(
+            nearest < 0.5,
+            "a flick left the cursor at {landed:?}, {nearest:.1}px from the \
+             nearest target centre — it roamed instead of snapping, which is the \
+             branch order that made this screen hard to drive with a pad"
         );
     }
 

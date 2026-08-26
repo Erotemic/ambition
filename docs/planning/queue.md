@@ -10554,14 +10554,38 @@ means dashing while carrying momentum no longer produces a fixed speed. The
 shield brake can be fixed the same way with no feel change — brake only the
 speed the brake itself is responsible for.
 
-▢ ROLLBACK: **(21) `MatchAbandoned` cannot survive a rewind** — the registration
-comment claims `clear_message_on_rollback` makes the external request available
-to resimulation; the backend literally just `.clear()`s the channel, so an Exit
-Match consumed on a speculative frame is unreproducible after a rollback. ⛔ THE
-COMMENT DESCRIBES THE OPPOSITE OF WHAT THE CODE DOES. **(22) winner card and
-return countdown react to SPECULATIVE settlement** — `Local<Option<f32>>` on real
-time, no retraction; use the existing `ConfirmedFrameBoundary` rather than a new
-delay.
+⭐⭐ **(21) CLOSED 2026-08-25 — AND THE FIX IS THE OPPOSITE OF BOTH OBVIOUS
+ONES.** The registration comment claimed `clear_message_on_rollback` *"restores
+the channel with its cursor, so the resim reads the request again"*; the backend
+`.clear()`s the buffer, so an Exit Match consumed on a speculative frame was GONE
+after a rewind. ⛔ AND SNAPSHOTTING IT FAILS FROM THE OTHER SIDE: the ask is made
+OUTSIDE the simulation, so a resimulation cannot re-make it, and rewinding a
+resource that holds it throws it away exactly as the clear did. ⇒ what survives
+both is a latch that does NOT rewind and NAMES ITS MATCH
+(`MatchAbandonRequest::stop(&active)`): a rewind leaves the ask standing so the
+resim reaches the same verdict, and the next match ignores it because the
+instance differs — which is the job the channel-clear used to do. The
+`MatchAbandoned` message is DELETED, with its three registrations, its
+`clear_message_on_rollback` and its baseline row; wire v106. ⚠ the waiver in
+`rollback_coverage` carries the reasoning, because "why is this NOT rollback
+state" is exactly the question a later session will ask.
+
+◐ **(22) HALF CLOSED 2026-08-25 — the RETURN, which is the half that cannot be
+taken back.** The countdown armed on `StocksMatchDecided`, which a SPECULATIVE
+frame can write, into a `Local` GGRS never rewinds — so a rolled-back decision
+still sent the player to the lobby out of a live match. It reads
+`StocksMatchSettled` now (rollback STATE, stamped with its match) and arms only
+when `ConfirmedFrameBoundary::fully_confirmed`, so by the time it commits the
+settlement can never be simulated again. ⛔ THE STAMP ALSO REPLACED the
+`decided.clear()` on leaving the stage: a previous match's verdict cannot arm the
+next one. Straddling arms; the poison sends the player home on a prediction.
+
+▢ **THE CARD'S HALF IS STILL OPEN, and deliberately.** `announce_the_winner`
+needs the VERDICT, which only the message carries — `StocksMatchSettled` says
+WHETHER, not WHICH — so guarding it the same way risks dropping the announcement
+rather than delaying it, because its reader lives in `Update` and its cursor does
+not rewind. ⚠ the consequence is cosmetic and self-correcting (the readout is
+cleared on leaving the stage), which is why the irreversible half went first.
 
 ▢ LIVE SMASH PARITY: ⭐⭐ **(23) CLOSED 2026-08-25** — the gate
 carried the sentence *"AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes

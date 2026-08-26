@@ -1531,7 +1531,7 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         ),
         (
             "ambition_game_shell::abandon::ShellAbandonRequested",
-            "the pause menu's contributed row was picked. Same STRUCTURAL argument as the          `ambition_game_shell` family below, and it holds for the same reason: no simulation          crate depends on `ambition_game_shell`, so the sim cannot name this type and no          cursor of its can exist inside the GGRS schedule. Its one reader is Smash's          `abandon_the_match_when_the_shell_asks`, in literal `Update`, which translates it          into `ambition_combat::stocks::MatchAbandoned` — and THAT channel is registered          for rollback clearing, because it is the one the sim actually reads",
+            "the pause menu's contributed row was picked. Same STRUCTURAL argument as the          `ambition_game_shell` family below, and it holds for the same reason: no simulation          crate depends on `ambition_game_shell`, so the sim cannot name this type and no          cursor of its can exist inside the GGRS schedule. Its one reader is Smash's          `abandon_the_match_when_the_shell_asks`, in literal `Update`, which translates it          into `MatchAbandonRequest`, a match-scoped latch the sim reads — deliberately NOT a          rewound channel, because an ask made outside the simulation cannot be re-made by a          resimulation",
         ),
         (
             "ambition_game_shell::launcher::ShellLauncherCommand",

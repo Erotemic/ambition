@@ -300,7 +300,7 @@ pub mod actor {
     pub use ambition_combat::components::FighterStocks;
     pub use ambition_combat::stocks::{
         retract_respawn_grace_on_removal, tick_respawn_grace, BodyKnockedOut, FighterEliminated,
-        FighterRespawnDue, FighterRespawnsDue, FighterStockSpent, MatchAbandoned, MatchVerdict,
+        FighterRespawnDue, FighterRespawnsDue, FighterStockSpent, MatchVerdict,
         PendingRespawn, RespawnGrace, RespawnInterval, StocksMatchDecided,
     };
 

@@ -260,7 +260,6 @@
     "message.hit_event",
     "message.item_grant_requested",
     "message.landed_body_hit",
-    "message.match_abandoned",
     "message.mount_died",
     "message.move_event",
     "message.on_hit_effect",

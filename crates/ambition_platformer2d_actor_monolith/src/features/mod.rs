@@ -684,7 +684,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // stocks loop must have the channel or the system fails parameter
         // validation before it can run. Idempotent, so the host registering it
         // beside `StocksMatchDecided` costs nothing.
-        app.add_message::<ambition_combat::stocks::MatchAbandoned>();
         app.add_message::<ambition_combat::stocks::FighterRespawnDue>();
         app.add_systems(
             sim,

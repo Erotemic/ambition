@@ -61,7 +61,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // …and the third way one ends: somebody stopped it. Registered
             // beside the other two so `decide_stocks_match`'s reader can exist
             // in every composition that installs the loop.
-            .add_message::<ambition_combat::stocks::MatchAbandoned>()
             // Two attacks met and both were refused. Written by the arbitration
             // that runs ahead of the damage sweep; read by whatever a ruleset
             // wants a clank to cost (the rebound is not built yet).

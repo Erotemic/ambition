@@ -160,8 +160,34 @@ done
 
 # The default run_tests.sh Rust lane is `cargo test --workspace`. `--no-run`
 # builds the same test graph without spending time executing it during marking.
+#
+# ⛔⛔ AND IT MARKS THE WRONG POPULATION, WHICH IS WHY THIS IS A WARNING RATHER
+# THAN A FIX. `cargo mark-sweep` runs every `--cmd` in ONE environment, and this
+# script sets no `CARGO_INCREMENTAL`, so all of them inherit `incremental = true`
+# from `.cargo/config.toml`. But `scripts/run_tests.py:717` sets
+# `CARGO_INCREMENTAL=0`, and the two modes produce DIFFERENT ARTIFACT HASHES that
+# coexist — measured 2026-08-25: the same crate built both ways yields
+# `6eeced958ebf3728` and `93ca37900671d6c1` side by side, and switching back
+# rebuilds nothing.
+#
+# ⇒ marking here preserves incremental test artifacts NOTHING USES, while the
+# non-incremental ones `run_tests.sh` actually depends on go unmarked and are
+# swept. "Backbone tests: preserve" prints and the opposite happens.
+#
+# It cannot be fixed through `--cmd`, which shares one environment. Until the
+# marker can take a per-command environment, say so out loud rather than let the
+# banner below be believed.
 if [[ "$with_tests" -eq 1 ]]; then
     mark_commands+=("test --no-run --workspace")
+    printf '⚠ the test graph is marked under CARGO_INCREMENTAL=1 (this repo defaults
+'
+    printf '  incremental=true) but run_tests.sh builds it with CARGO_INCREMENTAL=0.
+'
+    printf '  Those are DIFFERENT artifacts, so the ones run_tests.sh uses are NOT
+'
+    printf '  protected by this run. Expect a cold test rebuild after --apply.
+
+' >&2
 fi
 
 # run_game.sh accepts arbitrary --features / --no-default-features combinations,

@@ -271,6 +271,15 @@ where
     // `FighterRespawnDue` — placing a body twice — or skip an unread one, leaving
     // a fighter waiting forever on a beat that already elapsed. Both are
     // positions on the stage, which is the loudest kind of desync.
+    //
+    // ⭐ AND CLEARING IS RIGHT HERE, WHICH IS NOT TRUE OF EVERY CHANNEL. The
+    // backend `.clear()`s the buffer rather than restoring a cursor, so a
+    // request MADE OUTSIDE THE SIMULATION is simply lost by a rewind — that is
+    // why `MatchAbandoned` had to become a latch instead. This cue is the
+    // opposite: `tick_pending_respawn` DERIVES it every tick from
+    // `PendingRespawn`, which is rollback-registered, so a resim re-emits it on
+    // the same tick it emitted it before. Losing the buffered copy is exactly
+    // what should happen to a message the simulation will say again.
     registrar.clear_message_on_rollback::<crate::stocks::FighterRespawnDue>(
         OWNER,
         "message.fighter_respawn_due",
@@ -278,17 +287,6 @@ where
     registrar.clear_message_on_rollback::<crate::stocks::StocksMatchDecided>(
         OWNER,
         "message.stocks_match_decided",
-    );
-    // ⛔⛔ AND THE STOP REQUEST TOO, which is the opposite of what it looks like.
-    // `MatchAbandoned` is WRITTEN outside the sim (a system menu) and READ inside
-    // it, and a reader's cursor is `Local` state GGRS never rewinds. Without this
-    // an abandon consumed in a future that gets rolled back is simply GONE: the
-    // resimulation finds the cursor already past it and the match does not end.
-    // Clearing on rollback restores the channel with its cursor, so the resim
-    // reads the request again and reaches the same verdict.
-    registrar.clear_message_on_rollback::<crate::stocks::MatchAbandoned>(
-        OWNER,
-        "message.match_abandoned",
     );
     // Two attacks traded. Written INSIDE the sim and read inside it — the
     // rebound a clank owes is a gameplay consequence — so its reader's cursor

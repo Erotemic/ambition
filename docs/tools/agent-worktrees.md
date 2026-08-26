@@ -101,6 +101,21 @@ checkout path — so foundation crates deduplicate across worktrees. First-party
 (serde embeds its `OUT_DIR`), simply fail the content compare. No allowlist is
 needed. Dry-run by default.
 
+## Merging back
+
+Merge `main` into your slot FIRST, get it green there, then merge to `main`. A
+branch that drifts becomes unmergeable in the places that matter — D192's
+predecessor sat 271 commits behind and its twelve conflicts were all in rollback
+schema, which is why it was re-done rather than rebased.
+
+⛔⛔ **A CLEAN TEXTUAL MERGE IS NOT A CLEAN SEMANTIC ONE.** 2026-08-25: main
+bumped `GGRS_ROLLBACK_SCHEMA_VERSION` 104 → 105 for one registration while a
+branch bumped 104 → 105 for a different one. Both sides wrote the same literal,
+so git merged the line without a conflict and the result claimed v105 while
+carrying BOTH — a version that named three different schemas, which is the exact
+thing it exists to prevent. After any merge that touches a shared COUNTER or
+VERSION, check what the number now means, not whether the file merged.
+
 ## Etiquette
 
 - `list` before you touch anything. `BUSY=yes` means a build holds that lock now.

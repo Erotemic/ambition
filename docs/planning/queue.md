@@ -11634,6 +11634,26 @@ the green, because a `cfg` that silences itself compiles nothing and looks
 identical to a clean build. ⇒ that covers OUR code, which is the half this row
 cares about; the NDK is only needed for the C++ dependency's build script.
 
+✔✔ **AND MEASURING IT SHOWED THE RETARGET IS NOT EVEN NEEDED: OUR ANDROID CODE
+IS ALREADY COMPILED AND TESTED ON THE HOST. 2026-08-26.**
+
+```text
+`cfg(target_os = "android")` sites        16, in 6 files
+game/…/host/platform/mod.rs:10            `pub mod android;`  — NOT cfg-gated
+game/…/host/platform/android.rs           451 lines; imports only bevy and our
+                                          own crates — no `android_activity`,
+                                          no `jni`, no `ndk`
+its tests                                 4, and they RUN: `cargo test -p
+                                          ambition_app --lib android` passes
+```
+
+⇒ **the 16 gates are small branch points; the substantive module is
+unconditional**, so the standing gate typechecks it and its suspend/restore rules
+are guarded on the host. ⛔ **what the NDK would buy is the C++ dependency's
+build, which is not our code** — so this row's android half is CLOSED for the
+question it was asking, and *"cargo check --target aarch64-linux-android dies"*
+is a fact about `android-activity`, not about us.
+
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is
 that whoever edits a type consulted by a gated module has to know the module

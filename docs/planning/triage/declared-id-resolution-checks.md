@@ -17,10 +17,21 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
 
 ## Remaining work
 
-1. **Manifest-backed catalog targets.** Identify any still-live catalog `manifest`
-   declarations whose target can name a missing generated asset without a useful
-   preparation/authoring diagnostic. Add the check at the authoring/preparation
-   boundary that owns that declaration, not as a generic startup sweep.
+1. ✔ **Manifest-backed catalog targets — DONE 2026-08-26, and the gap was
+   exactly one field.** A catalog row declares TWO files and only one of them was
+   checked: `every_catalog_character_names_a_spritesheet_that_exists` pinned the
+   PIXELS, and nothing asked about `manifest` — the `.ron` beside them carrying
+   every frame rect, anchor and clip. A row naming a manifest that is nowhere has
+   no geometry to draw the pixels with, which is the worse failure.
+   `every_catalog_character_names_a_manifest_that_exists` is its sibling, in the
+   same file, with the same ratchet shape and a premise guard on the row count.
+   ⛔ NOT a startup sweep, and not in the catalog validator: that validator lives
+   in an engine crate with no filesystem knowledge, and asset existence is a
+   COMPOSITION question — which is why the composed-host asset test is the
+   boundary that owns this declaration here.
+   ⚠ same stated limit as its sibling: generated art is gitignored, so it catches
+   the TYPO and cannot answer the fresh-clone question. Measured at the time:
+   260 declared paths across the shipped catalog, 0 missing.
 
 2. **Runtime-composed misses.** At concrete resolver call sites that still discard
    an unexpected `None`, make the miss observable once with the resolver's own

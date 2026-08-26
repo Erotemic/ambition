@@ -309,3 +309,55 @@ fn every_catalog_character_names_a_spritesheet_that_exists() {
          so a fresh clone gets a character with no body."
     );
 }
+
+/// AND THE MANIFEST, WHICH IS THE HALF THAT SAYS WHERE THE FRAMES ARE.
+///
+/// ⭐⭐ A ROW DECLARES TWO FILES AND ONLY ONE OF THEM WAS CHECKED. The sibling
+/// above pins `spritesheet` — the pixels — and a missing one is a character with
+/// no body. `manifest` is the `.ron` beside it that carries every frame rect,
+/// anchor and clip: a row naming a manifest that is nowhere at all has no
+/// geometry to draw the pixels WITH, which is the worse of the two failures and
+/// the one nothing was asking about.
+///
+/// ⛔ SAME LIMIT AS ITS SIBLING, stated so it is not mistaken for more: generated
+/// art is gitignored, so this sees whatever the machine running it has rendered.
+/// It catches the TYPO — a row naming a file that exists nowhere — and cannot
+/// answer the fresh-clone question.
+#[test]
+fn every_catalog_character_names_a_manifest_that_exists() {
+    use ambition_platformer2d::character::CharacterCatalog;
+
+    /// Characters whose sheet manifest no regen batch produces.
+    const KNOWN_MISSING: &[&str] = &[];
+
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let roots = asset_roots();
+    assert!(!roots.is_empty(), "no asset root resolved");
+
+    let catalog = app
+        .world()
+        .get_resource::<CharacterCatalog>()
+        .expect("the composed host has an assembled character catalog");
+    // The premise: this measures nothing if the catalog is empty, and an empty
+    // catalog is exactly what a composition failure looks like from here.
+    assert!(
+        catalog.iter().count() > 1,
+        "the assembled catalog carries {} rows, so this census cannot fail",
+        catalog.iter().count()
+    );
+    let mut missing: Vec<String> = catalog
+        .iter()
+        .filter(|(_, entry)| !resolves(&entry.manifest, &roots))
+        .map(|(id, _)| id.clone())
+        .collect();
+    missing.sort();
+    missing.dedup();
+
+    let known: Vec<String> = KNOWN_MISSING.iter().map(|id| id.to_string()).collect();
+    assert_eq!(
+        missing, known,
+        "the set of characters with no sheet MANIFEST has CHANGED. A row whose \
+         `manifest` names nothing has no frame rects, so the character draws \
+         from a sheet nobody can index — the pixels being present does not help."
+    );
+}

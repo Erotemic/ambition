@@ -246,7 +246,22 @@ goblin (control, 1 page)          1    2,185,530   1.000
   (`md5 22db3461dfa5`); (3) select and match resolve the same catalog id. ⇒ the
   next hypothesis has to be about WHICH TIER each road asks for at the moment it
   draws, not about what the tiers contain. The falsifier Jon can run is still the
-  cheapest one: force full quality and see whether she changes in the match.                           
+  cheapest one: force full quality and see whether she changes in the match.
+
+  ⛔ **TWO MORE ELIMINATED THE SAME HOUR, both of which looked like the answer.**
+  (4) The renderer's GENERATED art and the PUBLISHED art are the same bytes
+  (`tools/…/generated/noether/` and `crates/…/assets/sprites/` both
+  `md5 22db3461dfa5`), so "new art rendered, old art shipped" is not it.
+  (5) **The select screen resolves a PORTRAIT and the match resolves a
+  SPRITESHEET, and those genuinely CAN disagree** — `portrait_for_declared_character`
+  prefers a registered definition's portrait TARGET over the catalog row and warns
+  *"two declarations of one character disagree"* when they differ. ⇒ but
+  `with_portrait` has **no caller anywhere in the tree**, so the registered target
+  is always `None` and both roads land on the same catalog manifest. ⚠ that fork
+  is the one to re-check the day anything starts calling it.
+
+  ⇒ six causes eliminated, and every road that can be compared from a file
+  agrees. What is left needs a screen.                           
 
 * When I change the video quality in ambition, my sprite went from the robot v3 character to the robot v2 character. 
   * ▢ **DOES NOT REPRODUCE HEADLESS, and the test now exercises YOUR case rather than a proxy.** `quality_change_keeps_each_character.rs` boots direct gameplay, finds the PrimaryPlayer's own worn character resident, changes the profile to Potato, and proves that sheet MOVES tier while its file root is unchanged — so resolution is not picking a different character. Ten causes eliminated in total. What is left is WHEN, which no file can answer: the falsifier is to change quality twice in a live session and say whether it swaps back. Owner doc: `sprite-residency-and-live-quality.md`.

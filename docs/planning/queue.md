@@ -2362,6 +2362,31 @@ SmashState    66
 behaviour  ~15,675          decision, rollout, options, arena, recovery + tests
 ```
 
+⛔⛔ **THE 253 DOES NOT SURVIVE CONTACT — re-measured 2026-08-26 by reading the
+fields.** `FighterState` is 22 lines of DECLARATION and a much larger transitive
+closure, because two of its fields are the fighter's thinking apparatus:
+
+```text
+FighterState.perception : DelayedPerception   the delay buffer — "the ONLY read path"
+FighterState.habits     : HabitModel          a model that LEARNS (habit.rs, 152)
+              .held     : ActorControlFrame · .apm : ApmLedger · .pending_press : PendingAttack
+FighterCfg   .profile   : FighterBrainProfile (profile.rs, 201)
+             .tuning    : ShadowTuning        (declared in rollout.rs)
+```
+
+⇒ the enum names `FighterState` BY VALUE, so everything it embeds stays with the
+enum — and those types are declared in the SAME FILES as the behaviour
+(`decision.rs` is 1,194 lines of cfg+state+ApmLedger+PendingAttack AND the
+decision logic; `ShadowTuning` sits inside `rollout.rs`). ⭐ **the real closure is
+roughly 1.5–2.5k lines, interleaved**, not 253 standing alone.
+
+⇒ **SO THE FIRST SLICE IS INTRA-CRATE AND IT IS NOT A CRATE MOVE.** Split each
+subtree into a data module and a behaviour module inside `ambition_characters`,
+with the compiler proving the data module names nothing from the behaviour one.
+Only then does "the behaviour leaves" mean anything. ⚠ and `impl
+FighterState::new(cfg, seed)` is behaviour ON data — it has to pick a side, and
+the catalog resolver that calls it is the argument for data.
+
 ⇒ `ambition_characters` keeps the 253 lines and declares a TRAIT for the two
 ticks; `tick_state_machine_with_actions<P: PlatformFighterPolicy>` dispatches the
 `Fighter` / `Smash` arms through `P`; the behaviour implements it from a crate

@@ -8090,24 +8090,35 @@ because `AxisManeuverState`'s own field doc said the design outright:
 `coyote_timer`, all inside the rollback-registered `MotionModel`), and the combat
 half is designed but unused:
 
+⭐⭐ **RE-GREPPED 2026-08-26 AND THIS HALF IS STALE — THE BUFFER SHIPPED.** The
+measurement below said `BodyActionBuffer` had zero field writers, zero `tick`
+callers, and was paying rollback rent for nothing. At HEAD it is the live combat
+leniency:
+
 ```text
-BodyActionBuffer { attack, pogo, projectile }   on every actor
-rollback                                         registered `body.action_buffer`,
-                                                 CANONICAL codec — it costs
-                                                 schema and snapshot bytes
+buffer_combat_action_presses   ticks it on the OWNER'S clock, arms
+                               attack/grab/pogo/special from the resolved
+                               gesture, and re-proposes a held press each tick
+trigger_moveset_moves          reads `action_buffer.grab/.special/.pogo`, and
+                               ACCEPTING a press is what spends the slot
+                               (`ProposedVerb::spend`)
+MotionModel                    "both halves are live, and they decay on the
+                               same clock" — its own doc
+```
+
+⇒ **a press in the last frames of recovery now starts the move on the frame
+recovery ends**, for a person and a CPU alike. The rent is being paid for.
+
+⛔ THE ORIGINAL MEASUREMENT, kept because the WARNING generalises: *"a
+canonical-codec component with zero writers is paying rent — implement it or
+retire it"*. That is the right question to ask of any registered type, and this
+one was answered by implementing.
+
+```text
+BodyActionBuffer { attack, pogo, projectile }   on every actor          [2026-08-18]
 production reads/writes of its FIELDS            0
 BodyActionBuffer::tick callers                   0
 ```
-
-⇒ **a press in the last frames of recovery still does nothing**, for a person as
-much as for a CPU. ⭐ the rollback question is ALREADY ANSWERED by precedent —
-`MotionModel` carries the jump buffer through the same schema.
-
-⚠ still a maintainer's call, because it changes the feel of every character in
-every game the engine runs — the same shape as the `REACH_TOLERANCE` question
-above, and possibly the same conversation. ⚠ `body.action_buffer` is currently a
-row in the rollback schema for state nothing produces: implement it or retire it,
-but a canonical-codec component with zero writers is paying rent.
 
 ▢▢ **THE FIX IS A DECISION, AND IT IS NOT MINE TO TAKE UNILATERALLY — three
 candidates, costed, 2026-08-18.** All three were reached by asking where "a grab

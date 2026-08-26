@@ -336,7 +336,7 @@ pub struct HitEvent {
 
 #[cfg(test)]
 mod resolution_direction_tests {
-    use super::HitSource;
+    use crate::events::HitSource;
 
     /// Only unresolved strike causes seek victims; hazards and world exit arrive at a victim.
     #[test]

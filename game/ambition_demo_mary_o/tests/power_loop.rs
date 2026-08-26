@@ -605,10 +605,8 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
-    use ambition_platformer2d::actors::features::{
-        ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
-        SetFlagRequested, apply_feature_hit_events, spawn_encounter_mob,
-    };
+    use ambition_platformer2d::actors::features::{ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, apply_feature_hit_events, spawn_encounter_mob};
+use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
     use ambition_platformer2d::actors::projectile::{ProjectileBody, step_projectiles};
     use ambition_platformer2d::characters::actor::{
         BodyHealth, character_catalog::CharacterCatalog,
@@ -651,7 +649,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.init_resource::<ambition_platformer2d::actors::trace::GameplayTraceBuffer>();
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<ambition_platformer2d::actors::features::ActorStimulus>();
+    app.add_message::<ambition_platformer2d::combat::events::ActorStimulus>();
     app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
     // A body reaching zero says so through `BodyKnockedOut` whether or not a
     // stocks ruleset is listening. This fixture hand-picks its systems, so it
@@ -779,10 +777,8 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
-    use ambition_platformer2d::actors::features::{
-        ActorConfig, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, GameplayBanner,
-        HitEvent, spawn_encounter_mob,
-    };
+    use ambition_platformer2d::actors::features::{ActorConfig, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, spawn_encounter_mob};
+use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -930,10 +926,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 #[test]
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
-    use ambition_platformer2d::actors::features::{
-        ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
-        HitSource, HitTarget, spawn_encounter_mob,
-    };
+    use ambition_platformer2d::actors::features::{ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, spawn_encounter_mob};
+use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, HitSource, HitTarget};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
@@ -1067,10 +1061,8 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
-    use ambition_platformer2d::actors::features::{
-        ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
-        spawn_encounter_mob,
-    };
+    use ambition_platformer2d::actors::features::{ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay, spawn_encounter_mob};
+use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent};
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;

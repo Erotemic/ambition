@@ -66,7 +66,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // that runs ahead of the damage sweep; read by whatever a ruleset
             // wants a clank to cost (the rebound is not built yet).
             .add_message::<ambition_combat::clank::AttacksClanked>()
-            .add_message::<ambition_platformer2d_actor_monolith::features::ActorStimulus>()
+            .add_message::<ambition_combat::events::ActorStimulus>()
             .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::avatar::PlayerHealRequested>()

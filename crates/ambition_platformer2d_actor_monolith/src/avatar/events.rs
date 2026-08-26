@@ -37,7 +37,7 @@ impl PlayerHealRequested {
     }
 }
 
-// Damage requests travel through the unified `crate::features::HitEvent`
+// Damage requests travel through the unified `ambition_combat::events::HitEvent`
 // channel — there is no longer a player-specific alias because both
 // directions (attacker → feature, *  → player) share the same shape
 // and message type. Producers emit `HitEvent` with a victim-side

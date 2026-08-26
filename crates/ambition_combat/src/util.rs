@@ -167,6 +167,14 @@ pub fn body_vulnerable(
 /// deliberate: it makes every existing boundary a compile error until it answers
 /// the new question, which is the only way a gate that claims to be THE gate
 /// stays one.
+/// ⭐ AND IT IS A PARTICIPATION QUESTION, NOT A DEFENSIVE ONE, which is why
+/// `OutOfPlay` belongs here and NOT in [`ambition_characters::actor::Invulnerability`].
+/// This decides whether the world may reach a body at all — it gates strikes,
+/// captures, footstools, contact harm, interaction prompts and TARGET SELECTION.
+/// [`body_vulnerable`] answers the later, narrower question: this body was
+/// reached, may the hit hurt it? Folding out-of-play into the invulnerability
+/// bitset would answer the second question in the first one's place, and a
+/// hunter would go on chasing a body it merely could not damage.
 pub fn body_is_untouchable(
     health: Option<&ambition_characters::actor::BodyHealth>,
     out_of_play: bool,

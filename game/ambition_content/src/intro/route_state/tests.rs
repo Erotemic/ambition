@@ -73,7 +73,8 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 fn cartography_quest_advances_through_alice_bob_p5() {
     use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
     use ambition_platformer2d_actor_monolith::features::{apply_flag_effects, apply_quest_effects};
-    use ambition_platformer2d_actor_monolith::features::{QuestAdvanceRequested, SetFlagRequested};
+    use ambition_platformer2d_actor_monolith::features::{QuestAdvanceRequested};
+use ambition_combat::events::{SetFlagRequested};
     use ambition_persistence::save::AmbitionGameSave;
     use bevy::app::{App, Update};
 

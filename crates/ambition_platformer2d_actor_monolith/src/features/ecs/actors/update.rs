@@ -3,6 +3,7 @@
 
 use super::super::*;
 use super::*;
+use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
@@ -680,7 +681,7 @@ pub(crate) fn integrate_actor_body(
     target_pos: ae::Vec2,
     is_mounted: bool,
     feature_world: &ae::World,
-    combat_tuning: crate::features::FeatureCombatTuning,
+    combat_tuning: ambition_combat::events::FeatureCombatTuning,
     steering: &ActorSteering,
     motion_frame: ae::MotionFrame,
     // The live move's authored motion lock (`MoveSpec::motion_scale_at` of the

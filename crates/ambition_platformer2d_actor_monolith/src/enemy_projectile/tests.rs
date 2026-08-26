@@ -1,5 +1,5 @@
 
-use crate::features::{HitEvent, HitSource};
+use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
@@ -128,7 +128,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     assert!(
         projectile_hits
             .iter()
-            .all(|e| e.target == crate::features::HitTarget::Body(enemy)),
+            .all(|e| e.target == ambition_combat::events::HitTarget::Body(enemy)),
         "the shot must NAME the body it struck, got {:?}",
         projectile_hits
             .iter()
@@ -217,7 +217,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     assert!(
         cap.0
             .iter()
-            .any(|e| matches!(e.target, crate::features::HitTarget::Body(a) if a == enemy)),
+            .any(|e| matches!(e.target, ambition_combat::events::HitTarget::Body(a) if a == enemy)),
         "an ownerless shot hits the Enemy actor a faction-owned Enemy shot would spare"
     );
 }
@@ -309,7 +309,7 @@ fn enemy_glider_damages_a_relationally_hostile_actor() {
         cap.0
             .iter()
             .any(|e| matches!(e.source, HitSource::Projectile)
-                && e.target == crate::features::HitTarget::Body(boss_actor)),
+                && e.target == ambition_combat::events::HitTarget::Body(boss_actor)),
         "the enemy glider lands a pre-resolved hit on the hostile Boss actor"
     );
 }
@@ -331,7 +331,7 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
         cap.0
             .iter()
             .any(|e| matches!(e.source, HitSource::Projectile)
-                && e.target == crate::features::HitTarget::Body(boss_actor)),
+                && e.target == ambition_combat::events::HitTarget::Body(boss_actor)),
         "a different-faction actor is hit regardless of relations (physical damage)"
     );
 }
@@ -389,7 +389,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     let hit = |who: Entity| {
         cap.0.iter().any(|e| {
             matches!(e.source, HitSource::Projectile)
-                && e.target == crate::features::HitTarget::Body(who)
+                && e.target == ambition_combat::events::HitTarget::Body(who)
         })
     };
     assert!(
@@ -488,7 +488,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     let hit = |who: Entity| {
         cap.0.iter().any(|e| {
             matches!(e.source, HitSource::Projectile)
-                && e.target == crate::features::HitTarget::Body(who)
+                && e.target == ambition_combat::events::HitTarget::Body(who)
         })
     };
     assert!(
@@ -562,7 +562,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     let cap = app.world().resource::<CapturedHits>();
     let hit_teammate = cap.0.iter().any(|e| {
         matches!(e.source, HitSource::Projectile)
-            && e.target == crate::features::HitTarget::Body(teammate)
+            && e.target == ambition_combat::events::HitTarget::Body(teammate)
     });
     assert!(
         !hit_teammate,
@@ -651,7 +651,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
     let hit = |who: Entity| {
         cap.0.iter().any(|e| {
             matches!(e.source, HitSource::Projectile)
-                && e.target == crate::features::HitTarget::Body(who)
+                && e.target == ambition_combat::events::HitTarget::Body(who)
         })
     };
     assert!(
@@ -1025,7 +1025,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
             .resource::<CapturedHits>()
             .0
             .iter()
-            .any(|e| e.target == crate::features::HitTarget::Body(victim)),
+            .any(|e| e.target == ambition_combat::events::HitTarget::Body(victim)),
         "a living body in the bolt's path is struck — otherwise the miss below \
          proves only that the geometry never overlapped"
     );

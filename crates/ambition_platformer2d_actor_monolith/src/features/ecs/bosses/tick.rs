@@ -7,6 +7,7 @@ use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, State
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
+use ambition_combat::events::{HitEvent};
 
 /// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
 /// fire intent — the controller→verb→move map.

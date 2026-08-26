@@ -191,6 +191,7 @@ use ambition_characters::actor::character_catalog::{
     resolve_initial_brain, AuthoredBrainContext, BarkSituation, BrainBinding, CharacterCatalog,
 };
 use ambition_interaction::{Interactable, InteractionKind};
+use ambition_combat::events::{NpcDialogueRequest};
 
 pub(crate) fn npc_flag_id(id: &str) -> String {
     format!("npc_{id}_hostile")

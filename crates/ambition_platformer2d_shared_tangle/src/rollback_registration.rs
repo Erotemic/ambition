@@ -12,6 +12,26 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
+    // ⛔⛔ THE SAFE-POSITION MECHANIC'S DECLARATIONS, AND THEY ARRIVED A COMMIT
+    // LATE. `6dca281` moved the types, the snapshot codecs and every consumer
+    // here and left these two rows behind in the actor monolith — whose header
+    // says it "names only state defined in this crate" — which is the SAME
+    // incomplete carve already fixed for mount and for rooms earlier the same
+    // day. Moving a type is four things, and the registration is the one that
+    // compiles fine where it is.
+    //
+    // ⛔ THE STABLE NAMES DO NOT MOVE. `resource.sandbox_sim_state` and
+    // `player.safety_state` are identities on the wire; the schema fingerprint
+    // deliberately excludes owner labels so an ownership repoint is not a
+    // wire-format event.
+    registrar.rollback_resource_canonical::<crate::safe_position::RoomTransitionCooldown>(
+        OWNER,
+        "resource.sandbox_sim_state",
+    );
+    registrar.rollback_component_canonical::<crate::safe_position::PlayerSafetyState>(
+        OWNER,
+        "player.safety_state",
+    );
     registrar.require_rollback::<crate::body::BodyKinematics>(OWNER, "entity:body_kinematics");
     registrar
         .require_rollback::<crate::lifecycle::FeatureSimEntity>(OWNER, "entity:feature_sim_entity");

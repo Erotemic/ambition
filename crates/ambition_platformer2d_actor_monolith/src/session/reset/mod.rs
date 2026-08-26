@@ -166,7 +166,7 @@ pub fn process_new_game_reset_request(
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,
-    mut banner: ResMut<crate::features::GameplayBanner>,
+    mut banner: ResMut<ambition_combat::events::GameplayBanner>,
     // **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room
     // CHANGE moves the room out from under its residents, so an object in a
     // body's custody rides across with whoever holds it. A reset DESTROYS the

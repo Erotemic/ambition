@@ -1,6 +1,6 @@
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
-use crate::features::FeatureCombatTuning;
+use ambition_combat::events::FeatureCombatTuning;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;

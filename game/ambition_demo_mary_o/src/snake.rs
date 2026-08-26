@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::actors::features::{ActorConfig, CenteredAabb, FeatureId};
-use ambition_platformer2d::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -533,7 +533,7 @@ pub fn tag_mary_o_snakes(
 /// toggle are owned here. Listen to `ResetRoomFeaturesEvent` so same-room retries
 /// reset them as well as room reloads.
 pub fn reset_snakes_on_room_reset(
-    mut resets: MessageReader<ambition_platformer2d::actors::features::ResetRoomFeaturesEvent>,
+    mut resets: MessageReader<ambition_platformer2d::combat::events::ResetRoomFeaturesEvent>,
     mut snakes: Query<(&mut SnakeShell, &mut BodyCombat, &mut ActorConfig)>,
 ) {
     if resets.read().count() == 0 {

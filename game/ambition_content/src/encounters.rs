@@ -126,7 +126,7 @@ pub fn drive_symmetry_attunement(
 pub fn celebrate_symmetry_attunement(
     mut events: MessageReader<EncounterEventMsg>,
     mut banners: MessageWriter<
-        ambition_platformer2d_actor_monolith::features::GameplayBannerRequested,
+        ambition_combat::events::GameplayBannerRequested,
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
@@ -134,7 +134,7 @@ pub fn celebrate_symmetry_attunement(
         if msg.encounter == SYMMETRY_ATTUNEMENT_ID && matches!(msg.event, EncounterEvent::Completed)
         {
             banners.write(
-                ambition_platformer2d_actor_monolith::features::GameplayBannerRequested::new(
+                ambition_combat::events::GameplayBannerRequested::new(
                     "NOETHER ATTUNEMENT — every symmetry conserved".to_string(),
                     4.0,
                 ),

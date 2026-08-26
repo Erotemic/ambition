@@ -6,6 +6,7 @@
 //! retry a room without having to leave and re-enter.
 
 use super::*;
+use ambition_combat::events::{ResetRoomFeaturesEvent};
 
 /// Spawned by THIS attempt at the room, and cleared when the attempt is.
 ///

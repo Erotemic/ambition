@@ -61,7 +61,7 @@ pub fn mark_recall_system(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut hits: MessageWriter<crate::features::HitEvent>,
+    mut hits: MessageWriter<ambition_combat::events::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
     // that never added the engine's schedule plugin still recalls.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
@@ -126,14 +126,14 @@ pub fn mark_recall_system(
             }
             // Recall-strike: a player-side shockwave at the mark, so you can mark a
             // spot, lure enemies onto it, and recall in to hit them (mirrors Blink).
-            hits.write(crate::features::HitEvent {
+            hits.write(ambition_combat::events::HitEvent {
                 strike_sfx: None,
                 volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
                 damage: RECALL_SHOCKWAVE_DAMAGE,
-                source: crate::features::HitSource::Melee,
+                source: ambition_combat::events::HitSource::Melee,
                 attacker: Some(player),
-                target: crate::features::HitTarget::Volume,
-                mode: crate::features::HitMode::Knockback,
+                target: ambition_combat::events::HitTarget::Volume,
+                mode: ambition_combat::events::HitMode::Knockback,
                 knockback: None,
                 ignored_targets: Vec::new(),
             });

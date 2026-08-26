@@ -5555,8 +5555,28 @@ way, so a caller could not grep the real type. ⭐ `damage_apply` spelled the SA
 type both ways in one file — `ae::MotionModel` twice and
 `crate::features::MotionModel` twice — which is the tell a facade leaves.
 
-⇒ **`damage_apply` has ONE real outward edge left: `avatar::PlayerBodyFrameOutput`,
-in one query.** That is a smaller boundary than the mount pair had.
+⇒ **`damage_apply` NAMES NO MONOLITH TYPE AT ALL — production OR tests.** The
+last edge was a SYSTEM, not a type: `publish_kernel_reset_death` read the
+avatar's own `PlayerBodyFrameOutput` and moved there with its regression. Its
+TESTS reached the monolith for exactly two names, and both were a FIFTH facade —
+`pub use ambition_combat::events` re-exported up to `features`, 74 sites.
+
+```text
+what is left        crate::world::overlay::FeatureWorldOverlaySet — a DOC LINK
+```
+
+⭐⭐ **FIVE FACADES IN ONE DAY, AND EVERY ONE OF THEM INFLATED THE CENSUS THAT
+PICKS THE NEXT CARVE:** `crate::physics`, `pub use ambition_combat as combat`,
+`pub use ambition_projectiles::*`, `MotionModel` (a `_core` type re-exported
+TWICE, and `MomentumMotion` renamed on the way so it could not be grepped), and
+`features::events`. ⇒ **the monolith looked coupled to itself.** `damage_apply`
+went from an apparent ~70 references to zero without a single system being
+rewritten.
+
+⛔ **THE TELL, EVERY TIME: ONE MODULE SPELLING ONE TYPE TWO WAYS.**
+`damage_apply` held `ae::MotionModel` twice and `crate::features::MotionModel`
+twice. Grep a suspect module for a type it names by two paths before designing
+anything.
 
 ⛔⛔ **AND THE SECOND MOVE COULD NOT GO WHERE THE FIRST ONE DID, which is the
 lesson worth more than either move.** The reflex after a successful move is to

@@ -5,16 +5,16 @@ use crate::actor::{BodyKinematics, BodyMana};
 fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.add_message::<crate::features::HitEvent>();
+    app.add_message::<ambition_combat::events::HitEvent>();
     app.add_systems(Update, fire_dive_system);
     app
 }
 
 #[derive(bevy::prelude::Resource, Default)]
-struct CapturedHits(Vec<crate::features::HitEvent>);
+struct CapturedHits(Vec<ambition_combat::events::HitEvent>);
 
 fn capture_hits(
-    mut reader: bevy::prelude::MessageReader<crate::features::HitEvent>,
+    mut reader: bevy::prelude::MessageReader<ambition_combat::events::HitEvent>,
     mut out: bevy::prelude::ResMut<CapturedHits>,
 ) {
     out.0.extend(reader.read().cloned());
@@ -44,7 +44,7 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
     assert!(
         matches!(
             hits[0].source,
-            crate::features::HitSource::Melee
+            ambition_combat::events::HitSource::Melee
         ),
         "player-side source so it spares the player",
     );
@@ -57,7 +57,7 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
     assert_eq!(knockback.dir, 1.0, "shoved along the lunge");
     assert_eq!(
         knockback.magnitude,
-        crate::features::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
+        ambition_combat::events::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
         "the authored DIVE_KNOCKBACK arrives intact — a sign-only channel loses it"
     );
     // The corridor spans the dash: from start (100) to landing (240) along x.

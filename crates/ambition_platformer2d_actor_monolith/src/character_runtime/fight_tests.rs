@@ -290,9 +290,9 @@ const TICK: f32 = 1.0 / 60.0;
 /// triggered, no volume spawned, no overlap, or an overlap whose event nobody
 /// consumed. With this, the assertion can say which.
 #[derive(Resource, Default)]
-struct Traded(Vec<crate::features::HitEvent>);
+struct Traded(Vec<ambition_combat::events::HitEvent>);
 
-fn record_trades(mut events: MessageReader<crate::features::HitEvent>, mut out: ResMut<Traded>) {
+fn record_trades(mut events: MessageReader<ambition_combat::events::HitEvent>, mut out: ResMut<Traded>) {
     out.0.extend(events.read().cloned());
 }
 
@@ -462,16 +462,16 @@ fn fight_app() -> App {
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.
     app.insert_resource(ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
-    app.insert_resource(crate::features::GameplayBanner::default());
+    app.insert_resource(ambition_combat::events::GameplayBanner::default());
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
         time.scaled_dt = TICK;
         time.raw_dt = TICK;
     }
-    app.add_message::<crate::features::HitEvent>();
+    app.add_message::<ambition_combat::events::HitEvent>();
     app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
-    app.add_message::<crate::features::SetFlagRequested>();
+    app.add_message::<ambition_combat::events::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     // `dispatch_move_events` asks for PAIRED effects now — a visual and the cue its own name
@@ -479,7 +479,7 @@ fn fight_app() -> App {
     // before it can run.
     app.add_message::<ambition_vfx::FxRequest>();
     app.add_message::<ambition_vfx::vfx::DebrisBurstMessage>();
-    app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<ambition_combat::events::ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();

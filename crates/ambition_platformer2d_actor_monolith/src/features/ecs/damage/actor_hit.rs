@@ -10,11 +10,12 @@ use super::super::damage_drops::{
     drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,
 };
-use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use super::super::{ae, ActorDisposition};
+use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use crate::features::ActorStimulus;
+use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};

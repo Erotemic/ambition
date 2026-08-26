@@ -289,7 +289,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Kernel deaths bypass hit resolution, so publish their death fact here after
                 // movement has flagged the reset. This remains ungated so suspended dialogue
                 // cannot swallow a pit/drown/tile-hazard death.
-                ambition_platformer2d_actor_monolith::features::ecs::damage_apply::publish_kernel_reset_death,
+                ambition_platformer2d_actor_monolith::avatar::body_integration::publish_kernel_reset_death,
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
                 ambition_platformer2d_actor_monolith::session::death::open_death_interlude,

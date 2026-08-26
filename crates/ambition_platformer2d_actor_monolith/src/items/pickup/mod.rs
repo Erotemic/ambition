@@ -1540,18 +1540,18 @@ fn emit_fireball_explosion(
     damage: i32,
     half: f32,
     attacker: Option<Entity>,
-    feature_damage: &mut MessageWriter<crate::features::HitEvent>,
+    feature_damage: &mut MessageWriter<ambition_combat::events::HitEvent>,
     sfx: &mut ambition_sfx::SfxWriter,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
-    feature_damage.write(crate::features::HitEvent {
+    feature_damage.write(ambition_combat::events::HitEvent {
         strike_sfx: None,
         volume: ae::Aabb::new(pos, Vec2::splat(half)).into(),
         damage,
-        source: crate::features::HitSource::Projectile,
+        source: ambition_combat::events::HitSource::Projectile,
         attacker,
-        target: crate::features::HitTarget::Volume,
-        mode: crate::features::HitMode::Knockback,
+        target: ambition_combat::events::HitTarget::Volume,
+        mode: ambition_combat::events::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
     });
@@ -1765,7 +1765,7 @@ pub fn held_projectile_step(
         ),
         With<crate::features::FeatureSimEntity>,
     >,
-    mut feature_damage: MessageWriter<crate::features::HitEvent>,
+    mut feature_damage: MessageWriter<ambition_combat::events::HitEvent>,
     mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
@@ -1789,14 +1789,14 @@ pub fn held_projectile_step(
         let vel = kin.vel;
         // Damage check against actors / bosses / breakables via the shared
         // attacker-side channel. Projectile hit events broadcast to features.
-        let hit_event = crate::features::HitEvent {
+        let hit_event = ambition_combat::events::HitEvent {
             strike_sfx: None,
             volume: HeldProjectile::contact_aabb(pos).into(),
             damage: proj.damage,
-            source: crate::features::HitSource::Projectile,
+            source: ambition_combat::events::HitSource::Projectile,
             attacker,
-            target: crate::features::HitTarget::Volume,
-            mode: crate::features::HitMode::Knockback,
+            target: ambition_combat::events::HitTarget::Volume,
+            mode: ambition_combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
         };

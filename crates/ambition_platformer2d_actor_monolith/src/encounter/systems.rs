@@ -466,7 +466,7 @@ pub fn apply_wave_encounter_effects(
     >,
     mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
-    mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
+    mut banner_requests: MessageWriter<ambition_combat::events::GameplayBannerRequested>,
     // The staging-policy view (E12): lifecycle + authored presentation
     // effects, with no wave requirement — any encounter kind stages alike.
     staged: Query<(
@@ -519,7 +519,7 @@ pub fn apply_wave_encounter_effects(
         if let Some(switch_id) = switch_index.switch_id_for_encounter(encounter_id) {
             save.data_mut().set_switch(&switch_id, true);
         }
-        banner_requests.write(crate::features::GameplayBannerRequested::new(
+        banner_requests.write(ambition_combat::events::GameplayBannerRequested::new(
             format!("ARENA CLEAR — {encounter_id}"),
             3.0,
         ));

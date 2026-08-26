@@ -17,11 +17,8 @@ use bevy::prelude::{
 
 use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
-use super::{
-    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
-    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
-    HitEvent, HitSource, SetFlagRequested,
-};
+use super::{sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat, BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity};
+use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -30,7 +27,7 @@ use super::damage_drops::EXPLODER_BLAST_DAMAGE;
 use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
-use crate::features::ActorStimulus;
+use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;

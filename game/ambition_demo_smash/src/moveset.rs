@@ -11,7 +11,7 @@ use ambition_platformer2d::characters::moveset_authoring::{
 };
 use ambition_platformer2d::entity_catalog::{
     CancelCondition, HitVolume, MoveGates, MoveLoop, MoveSpec, MoveWindow, MovesetContract,
-    VolumeShape, WindowTag,
+    RecoveryUse, VolumeShape, WindowTag,
 };
 
 /// Where the rapid jab's loop jumps back TO, and the instant it jumps back
@@ -30,11 +30,13 @@ pub(crate) fn grounded_only() -> MoveGates {
         // describe one posture and a fighter authored through this file must
         // not feel different from one authored through the repertoire.
         roots_steering: true,
-        spends_recovery: false,
-        // Inert without `spends_recovery`; the pair is the statement.
-        recovery_without_freefall: false,
-        // A posture says nothing about being HELD — that is the move's own
-        // statement, and only `call_the_shark` makes it today.
+        // Not a recovery: these helpers describe a POSTURE, and a posture
+        // cannot know whether a move is somebody's up-B.
+        recovery: RecoveryUse::None,
+        // A posture says nothing about being HELD. Whether a move refuses to
+        // start from a saddle is that move's own statement -- `call_the_shark`
+        // makes it -- and a stance default answering for every move would be
+        // this file deciding a question it cannot see.
         forbidden_while_held: false,
     }
 }
@@ -49,11 +51,13 @@ pub(crate) fn airborne_only() -> MoveGates {
         // An aerial keeps its drift: air control is the trade for the ground
         // control above.
         roots_steering: false,
-        spends_recovery: false,
-        // Inert without `spends_recovery`; the pair is the statement.
-        recovery_without_freefall: false,
-        // A posture says nothing about being HELD — that is the move's own
-        // statement, and only `call_the_shark` makes it today.
+        // Not a recovery: these helpers describe a POSTURE, and a posture
+        // cannot know whether a move is somebody's up-B.
+        recovery: RecoveryUse::None,
+        // A posture says nothing about being HELD. Whether a move refuses to
+        // start from a saddle is that move's own statement -- `call_the_shark`
+        // makes it -- and a stance default answering for every move would be
+        // this file deciding a question it cannot see.
         forbidden_while_held: false,
     }
 }

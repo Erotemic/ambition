@@ -360,14 +360,24 @@ pub struct BodyJumpState {
     /// spend the last recovery    arm this
     /// recovery move playing      episode suppressed (the move is the answer)
     /// move ends airborne         helpless becomes effective
-    /// accepted hit               CLEARED — and the CHARGE STAYS SPENT
+    /// flinching Strike           CLEARED — and the CHARGE COMES BACK WITH IT
     /// land / ledge / respawn     cleared with the ordinary refresh
     /// ```
     ///
-    /// ⛔ CLEARING THIS IS NOT REFUNDING THE RECOVERY. A hit ends the episode
-    /// and gives nothing back: the fighter may act again, and it still has no
-    /// recovery to spend. Restoring the charge — or the spent double jump — is a
-    /// different rule and a deliberate one this must not undo.
+    /// ⛔⛔ AND THE FLINCH IS THE CONDITION, not "an accepted hit". Jon,
+    /// 2026-08-26: *"the rule for refreshing the up-b should be getting
+    /// FLINCHED… that hit clears helplessness. Once hitstun ends, you can act
+    /// again, INCLUDING using your up-B again."* So a damage-only tick, a hit
+    /// an armored fighter ate, and a `HitReaction::Windbox` all leave both the
+    /// episode and the charge alone; only a flinching `Strike` lifts them. This
+    /// doc used to say a hit *"gives nothing back"* and that the charge was a
+    /// different rule *"this must not undo"* — written about the AIR DODGE half
+    /// and generalised too far.
+    ///
+    /// ⛔ THE DOUBLE JUMP IS STILL NOT GIVEN BACK, which is what keeps the two
+    /// recovery resources independent: after a flinch the up-B is available
+    /// again, the air dodge comes back through its own hit-refresh rule, and the
+    /// double jump stays spent.
     pub post_recovery_helpless: bool,
     /// A head is under this body's feet, and the next jump press belongs to
     /// it. Written by the pair pass BEFORE the kernel runs and consumed by
@@ -927,7 +937,8 @@ impl BodyJumpState {
     /// ```text
     /// fresh body / respawn  full initial budget   (here)
     /// landing · ledge · capture  refresh           (refresh_movement_resources_clusters)
-    /// ordinary hit          the air dodge only
+    /// flinching Strike      the air dodge AND the recovery  (apply_body_hit_reaction)
+    /// damage-only · armored · windbox   nothing
     /// ```
     pub fn fresh(air_jumps_available: u8) -> Self {
         Self {

@@ -36,7 +36,6 @@ pub struct SummonRideParams {
     pub seconds: f32,
 }
 
-
 /// Author a summon-and-ride onto a move's timeline.
 ///
 /// # Panics
@@ -59,19 +58,21 @@ pub fn author_summon_ride(mut spec: MoveSpec, at_s: f32, params: SummonRideParam
             params: ParamValue::from_typed(&params).expect("summon-ride params serialize"),
         }),
     });
-    // ⛔ BOTH GATES, AS A PAIR. The move costs its owner the once-per-airtime
-    // recovery — a vehicle that could be summoned forever is not a recovery, it
-    // is flight — and declines the freefall, because a rider that cannot act is
-    // not riding. Set here rather than left to the caller: a summon-and-ride
-    // that said only one of them would be a different mechanic wearing this
-    // one's name.
-    spec.gates.spends_recovery = true;
+    // ⛔ THE COST IS THE SLOT'S TO STATE, and it used to be set here as two
+    // booleans that had to agree. A vehicle that could be summoned forever is
+    // not a recovery, it is flight — and a rider that cannot act is not riding —
+    // so this move is `RecoveryUse::SpendWithoutFreefall`, which is now ONE
+    // value that cannot half-disagree with itself. The pirate says it where
+    // every other fighter says its up-B's cost: `UpSpecial::NoFreefall`.
     // ⛔⛔ REFUSED FROM THE SADDLE, AT ACCEPTANCE. Jon: *"No you cannot cast it
     // from the saddle."* This used to be enforced downstream, where the summon
     // effect was translated — so a mounted pirate who got flinched (which
-    // refunds the recovery) could press up-B, start the move, spend the charge,
-    // play the startup, and get nothing. See `MoveGates::forbidden_while_held`.
+    // refunds the recovery) could press up-B, start the move, spend the use,
+    // play the startup, and get nothing.
+    //
+    // ⭐ NOT AN ARM OF `RecoveryUse`, and deliberately beside it: what a move
+    // COSTS and whether it may BEGIN are different questions. See
+    // `MoveGates::forbidden_while_held`.
     spec.gates.forbidden_while_held = true;
-    spec.gates.recovery_without_freefall = true;
     spec
 }

@@ -12,20 +12,20 @@
 //! Smash vocabulary stops here and lowers into the generic [`MovesetContract`];
 //! engine-level move execution does not depend on Smash-specific action names.
 
-use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
+use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract, RecoveryUse};
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
 /// aerials rather than throwing a tilt in mid-air.
 const GROUNDED: MoveGates = MoveGates {
     grounded: Some(true),
-    spends_recovery: false,
-    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
-    // without it.
-    recovery_without_freefall: false,
-    // A posture says nothing about being HELD. Whether a move refuses to start
-    // from a saddle is that move's own statement -- `call_the_shark` makes it --
-    // and a stance default answering for every move would be this file deciding
-    // a question it cannot see.
+    // ⛔ A POSTURE KNOWS NOTHING ABOUT RECOVERIES. This is the neutral value the
+    // lowering loop then DISCARDS in favour of whatever the move or the slot
+    // said; see the destructure in `into_contract`.
+    recovery: RecoveryUse::None,
+    // A posture says nothing about being HELD. Whether a move refuses to
+    // start from a saddle is that move's own statement -- `call_the_shark`
+    // makes it -- and a stance default answering for every move would be
+    // this file deciding a question it cannot see.
     forbidden_while_held: false,
     // ⭐ A GROUNDED ATTACK ROOTS ITS OWNER. Jon, W8 playtest: *"When I quickly
     // perform a Forward Smash, the fighter currently travels noticeably before
@@ -46,14 +46,14 @@ const GROUNDED: MoveGates = MoveGates {
 /// reach a move whose whole design is that landing costs you.
 const AIRBORNE: MoveGates = MoveGates {
     grounded: Some(false),
-    spends_recovery: false,
-    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
-    // without it.
-    recovery_without_freefall: false,
-    // A posture says nothing about being HELD. Whether a move refuses to start
-    // from a saddle is that move's own statement -- `call_the_shark` makes it --
-    // and a stance default answering for every move would be this file deciding
-    // a question it cannot see.
+    // ⛔ A POSTURE KNOWS NOTHING ABOUT RECOVERIES. This is the neutral value the
+    // lowering loop then DISCARDS in favour of whatever the move or the slot
+    // said; see the destructure in `into_contract`.
+    recovery: RecoveryUse::None,
+    // A posture says nothing about being HELD. Whether a move refuses to
+    // start from a saddle is that move's own statement -- `call_the_shark`
+    // makes it -- and a stance default answering for every move would be
+    // this file deciding a question it cannot see.
     forbidden_while_held: false,
     // ⭐ AND AN AERIAL KEEPS ITS DRIFT, which is the other half of the same
     // rule: the genre trades ground control for air control, and a fighter that
@@ -63,14 +63,14 @@ const AIRBORNE: MoveGates = MoveGates {
 /// The specials: a move that answers its button from the ground OR the air.
 const EITHER: MoveGates = MoveGates {
     grounded: None,
-    spends_recovery: false,
-    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
-    // without it.
-    recovery_without_freefall: false,
-    // A posture says nothing about being HELD. Whether a move refuses to start
-    // from a saddle is that move's own statement -- `call_the_shark` makes it --
-    // and a stance default answering for every move would be this file deciding
-    // a question it cannot see.
+    // ⛔ A POSTURE KNOWS NOTHING ABOUT RECOVERIES. This is the neutral value the
+    // lowering loop then DISCARDS in favour of whatever the move or the slot
+    // said; see the destructure in `into_contract`.
+    recovery: RecoveryUse::None,
+    // A posture says nothing about being HELD. Whether a move refuses to
+    // start from a saddle is that move's own statement -- `call_the_shark`
+    // makes it -- and a stance default answering for every move would be
+    // this file deciding a question it cannot see.
     forbidden_while_held: false,
     // A special answers from either stance, so it cannot state a stance rule.
     // What a special does to its owner's motion is the SPECIAL's own business
@@ -118,6 +118,68 @@ pub enum DownSpecial {
     },
 }
 
+/// THE UP-B SLOT, and what it costs the fighter's airtime.
+///
+/// ⭐⭐ THE GENRE'S DEFAULT LIVES HERE BECAUSE THIS SLOT ALREADY MEANS "the
+/// Up-B". Jon, 2026-08-25: *"characters can often use their up b more than once
+/// without going into freefall. only a few should be exempt from that general
+/// rule."* The engine cannot state that rule — `MoveGates::recovery` is
+/// deliberately authored per move, because an up-special that does not lift and
+/// a side-special that does are both ordinary things to write. But a SMASH
+/// repertoire is not a generic moveset: its `up_special` field is the fighter's
+/// recovery by definition, so this is the one place the default is expressible
+/// at all.
+///
+/// ⛔⛔ AND IT WAS OPT-IN UNTIL 2026-08-26, WHICH MEANT IT WAS OFF. Every Up-B
+/// was bound through the `EITHER` posture gate, which says `RecoveryUse::None`;
+/// exactly one fighter in the tree had written the opt-in by hand. Asking
+/// fourteen authors to remember one field is how a rule ends up applying to one
+/// of them, and the census that would have caught it is the grep nobody ran.
+///
+/// ⭐ SHAPED AFTER [`NeutralSpecial`], which is the same problem solved once
+/// already in this file: the ordinary case is the shortest thing to write, the
+/// exception is a different variant, and the exceptional variant carries a
+/// `because` so the reason travels with it instead of living in a commit
+/// message.
+pub enum UpSpecial {
+    /// The genre's rule: one use per airtime, helpless once the move ends.
+    ///
+    /// This is what a fighter gets by writing the obvious thing, which is the
+    /// whole point.
+    Standard(MoveSpec),
+    /// Spends the airtime's recovery but leaves the fighter able to act — a
+    /// recovery that hands over a VEHICLE rather than an arc. The pirate's
+    /// burning shark is the case this exists for.
+    NoFreefall(MoveSpec),
+    /// ⛔ NOT A RECOVERY AT ALL: this fighter's up-B is repeatable, and
+    /// `because` says why that is a design and not an oversight.
+    NotARecovery {
+        /// The move.
+        spec: MoveSpec,
+        /// Prose, for the next reader — e.g. `"it does not rise"`.
+        because: &'static str,
+    },
+}
+
+impl UpSpecial {
+    /// The move, with `gates.recovery` set to what this slot says it costs.
+    ///
+    /// ⛔ THE SLOT OVERWRITES THE MOVE HERE, and that is the opposite of the
+    /// rule the posture gates follow one function down. It is right for this one
+    /// field: a posture cannot know whether a move is a recovery, but a slot
+    /// whose NAME is "the up-B" can, and letting a moveset quietly disagree with
+    /// its own repertoire slot would put the default back where it started.
+    fn into_spec(self) -> MoveSpec {
+        let (mut spec, recovery) = match self {
+            Self::Standard(spec) => (spec, RecoveryUse::SpendAndFreefall),
+            Self::NoFreefall(spec) => (spec, RecoveryUse::SpendWithoutFreefall),
+            Self::NotARecovery { spec, .. } => (spec, RecoveryUse::None),
+        };
+        spec.gates.recovery = recovery;
+        spec
+    }
+}
+
 /// The standard smash repertoire, as sixteen presses of bespoke moves.
 ///
 /// See the module doc. Fill every field; the compiler enforces that.
@@ -150,8 +212,8 @@ pub struct SmashRepertoire {
     pub neutral_special: NeutralSpecial,
     /// `special_forward`.
     pub side_special: MoveSpec,
-    /// `special_up`.
-    pub up_special: MoveSpec,
+    /// `special_up` — and WHAT IT COSTS. See [`UpSpecial`].
+    pub up_special: UpSpecial,
     /// `special_down`, and possibly `special_air_down`. See [`DownSpecial`].
     pub down_special: DownSpecial,
     /// The capture kit — grab, pummel, throws. See
@@ -293,7 +355,11 @@ impl SmashRepertoire {
             bound.push(("special", spec, EITHER));
         }
         bound.push(("special_forward", side_special, EITHER));
-        bound.push(("special_up", up_special, EITHER));
+        // ⭐ THE SLOT DECIDES THE RECOVERY, and it decides it HERE rather than in
+        // the loop below, so the loop's rule stays *"a posture sets posture
+        // fields and nothing else"*. What comes out is an ordinary `MoveSpec`
+        // whose `gates.recovery` the loop then leaves alone.
+        bound.push(("special_up", up_special.into_spec(), EITHER));
         match down_special {
             DownSpecial::OneForm(spec) => bound.push(("special_down", spec, EITHER)),
             DownSpecial::ByPosture { grounded, airborne } => {
@@ -316,20 +382,20 @@ impl SmashRepertoire {
             // ⛔⛔ THE POSTURE FIELDS ONLY. This was `spec.gates = gates`, a
             // wholesale overwrite, and it silently threw away every statement a
             // MOVE made about its own gates. Measured 2026-08-26: the pointed
-            // polygon authors `up_special.gates.spends_recovery = true` under a
-            // comment explaining that without it *"a fighter could press this
-            // forever and could only be killed by a launch that outran its own
-            // rise"* — and the line below deleted it on the way into the
-            // contract. The only fighter in the tree that had opted into the
-            // recovery budget did not have it.
+            // polygon was the one fighter in the tree that had opted into the
+            // recovery budget, and the line below deleted the opt-in on the way
+            // into the contract.
             //
             // ⭐ THE SPLIT IS BY AUTHORITY, and the comment on `GROUNDED` above
             // already states it: a POSTURE knows whether a slot answers from the
             // ground and whether that stance roots its owner, and it is right
             // that one place decides those for every fighter. It knows nothing
             // about whether a particular move is a recovery — `MoveGates::
-            // spends_recovery`'s own doc says so: *"AUTHORED BY THE MOVE, not
-            // inferred from its name or its impulse."*
+            // recovery`'s own doc says so: *"AUTHORED, not inferred from a name
+            // or an impulse."* For the up-B the author is the SLOT, and it has
+            // already spoken by the time a spec reaches this loop
+            // (`UpSpecial::into_spec`), which is why `recovery` is dropped here
+            // rather than carried through.
             //
             // ⚠ an exhaustive destructure rather than two assignments, so a new
             // gate is a compile error here and somebody has to say which side of
@@ -337,10 +403,9 @@ impl SmashRepertoire {
             let MoveGates {
                 grounded,
                 roots_steering,
-                spends_recovery: _,
-                recovery_without_freefall: _,
-                // THE MOVE'S OWN, NOT THE POSTURE'S -- same side of the line as
-                // the two above. `call_the_shark` sets it; a stance template
+                recovery: _,
+                // ⛔ THE MOVE'S OWN, NOT THE POSTURE'S — same side of the line as
+                // `recovery` above. `call_the_shark` sets it; a stance template
                 // overwriting it would delete the rule.
                 forbidden_while_held: _,
             } = gates;
@@ -381,10 +446,14 @@ mod tests {
             gates: MoveGates {
                 grounded: Some(true),
                 roots_steering: false,
-                spends_recovery: false,
-                // Nothing to be exempt from — this pairs with `spends_recovery`
-                // and is inert without it.
-                recovery_without_freefall: false,
+                // ⛔ A POSTURE KNOWS NOTHING ABOUT RECOVERIES. This is the neutral value the
+                // lowering loop then DISCARDS in favour of whatever the move or the slot
+                // said; see the destructure in `into_contract`.
+                recovery: RecoveryUse::None,
+                // A posture says nothing about being HELD. Whether a move refuses to
+                // start from a saddle is that move's own statement -- `call_the_shark`
+                // makes it -- and a stance default answering for every move would be
+                // this file deciding a question it cannot see.
                 forbidden_while_held: false,
             },
             start_impulse: None,
@@ -417,7 +486,7 @@ mod tests {
             down_air: spec("dair"),
             neutral_special,
             side_special: spec("sspecial"),
-            up_special: spec("uspecial"),
+            up_special: UpSpecial::Standard(spec("uspecial")),
             taunt: crate::moveset_authoring::taunt("taunt", 0.9),
             dash_attack: crate::moveset_authoring::dash_attack(
                 "dash_attack",
@@ -654,6 +723,94 @@ mod tests {
             NeutralSpecial::Authored(spec("nspecial")),
         )
         .into_contract();
+    }
+}
+
+#[cfg(test)]
+mod up_special_recovery_tests {
+    use super::tests::{repertoire, spec};
+    use super::*;
+
+    fn lowered(up_special: UpSpecial) -> RecoveryUse {
+        let mut kit = repertoire(
+            DownSpecial::OneForm(spec("dspecial")),
+            NeutralSpecial::Authored(spec("nspecial")),
+        );
+        kit.up_special = up_special;
+        let contract = kit.into_contract();
+        let id = contract
+            .verbs
+            .get("special_up")
+            .expect("the up-B slot bound no verb, so the button is dead")
+            .clone();
+        contract
+            .moves
+            .into_iter()
+            .find(|m| m.id == id)
+            .expect("the up-B verb names a move the contract does not carry")
+            .gates
+            .recovery
+    }
+
+    /// ⭐⭐ THE GENRE'S RULE IS WHAT A FIGHTER GETS FOR WRITING THE OBVIOUS
+    /// THING, and that is the whole of D204.
+    ///
+    /// ⛔⛔ THE DEFECT THIS PINS: the rule was OPT-IN, and one fighter in the
+    /// tree had opted in. Every up-B went through the `EITHER` posture gate,
+    /// which says `RecoveryUse::None`, so most of the roster could press its
+    /// recovery forever and could only be killed by a launch that outran it —
+    /// which is precisely the behaviour Jon asked to remove. A `Standard` that
+    /// lowered to anything but `SpendAndFreefall` would put it straight back,
+    /// silently, for fourteen fighters at once.
+    #[test]
+    fn a_standard_up_b_spends_the_recovery_and_ends_in_freefall() {
+        assert_eq!(
+            lowered(UpSpecial::Standard(spec("uspecial"))),
+            RecoveryUse::SpendAndFreefall,
+            "the ordinary up-B costs nothing, so the roster has no recovery              budget and the stage has no bottom blastzone"
+        );
+    }
+
+    /// AND THE TWO EXCEPTIONS SURVIVE THE LOWERING.
+    ///
+    /// ⛔ THE DEFECT THIS PINS is the mirror of the one above and it has already
+    /// happened once: `into_contract` used to do `spec.gates = gates`, which
+    /// threw away everything a move said about itself. An exception that the
+    /// lowering flattens back to the default is worse than no exception,
+    /// because the content still READS as though the fighter is exempt.
+    #[test]
+    fn the_declared_exceptions_reach_the_contract_as_themselves() {
+        assert_eq!(
+            lowered(UpSpecial::NoFreefall(spec("uspecial"))),
+            RecoveryUse::SpendWithoutFreefall,
+            "a vehicle recovery was flattened into the ordinary one, so the              pirate is helpless on the shark it is supposed to be riding"
+        );
+        assert_eq!(
+            lowered(UpSpecial::NotARecovery {
+                spec: spec("uspecial"),
+                because: "a fixture, exercising the third arm",
+            }),
+            RecoveryUse::None,
+            "a fighter declared exempt from the recovery budget was charged for              it anyway"
+        );
+    }
+
+    /// ⛔ AND THE POSTURE DOES NOT GET A VOTE. `EITHER` carries
+    /// `RecoveryUse::None` like every other posture constant, and the lowering
+    /// loop drops it: if the posture won instead, the slot's whole statement
+    /// would be dead code and the test above would be measuring the fixture.
+    #[test]
+    fn the_posture_gate_does_not_overwrite_the_slots_statement() {
+        assert_eq!(
+            EITHER.recovery,
+            RecoveryUse::None,
+            "the posture constant now states a recovery, so the assertion that              the SLOT decides it can no longer fail"
+        );
+        assert_ne!(
+            lowered(UpSpecial::Standard(spec("uspecial"))),
+            EITHER.recovery,
+            "the up-B came out of the lowering wearing the POSTURE's answer"
+        );
     }
 }
 

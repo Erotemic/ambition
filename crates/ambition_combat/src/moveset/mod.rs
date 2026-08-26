@@ -1928,10 +1928,18 @@ struct StartingMove<'a, 'cw, 'cs> {
 
 fn start_move(m: StartingMove<'_, '_, '_>) {
     // ⭐ THE RECOVERY IS SPENT AT THE START, not at the impulse and not on
-    // landing. A move that authors `spends_recovery` costs one use the moment it
-    // begins, so a fighter cannot buy a second rise by cancelling out of the
-    // first — and `afford_recovery` has already refused this move if there was
-    // none left.
+    // landing, and NOT conditioned on the stance it started from. A move whose
+    // `RecoveryUse` spends costs one use the moment it begins, so a fighter
+    // cannot buy a second rise by cancelling out of the first — and
+    // `afford_recovery` has already refused this move if there was none left.
+    //
+    // ⛔ SO THE RULE IS PER USE, NOT PER AIRTIME, and the difference is only
+    // visible from the ground: a grounded recovery that gets stuffed before it
+    // leaves the floor has still spent the charge. That is deliberate. The
+    // player COMMITTED the recovery, and a version that waited for the body to
+    // actually leave the ground would hand a fighter a free retry for every
+    // grounded up-B somebody jabbed them out of. `started_grounded` is right
+    // here in `StartingMove` and is deliberately not consulted.
     let StartingMove {
         commands,
         entity,
@@ -1951,7 +1959,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
     } = m;
     // Asked before `spec` is handed to the playback below.
     let fires_ranged = move_fires_ranged(&spec);
-    if spec.gates.spends_recovery {
+    if spec.gates.recovery.spends() {
         if let Some(mut jump) = jump {
             jump.recovery_charges = jump.recovery_charges.saturating_sub(1);
             // ⭐ THE EPISODE OPENS WITH THE LAST CHARGE, and it is armed here
@@ -1962,10 +1970,10 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
             // ⭐ …UNLESS THE MOVE DECLINES IT. A recovery that hands its owner a
             // vehicle has already given the height and the control together, so
             // the budget is the whole price — see
-            // `MoveGates::recovery_without_freefall`. The CHARGE is spent either
+            // `RecoveryUse::SpendWithoutFreefall`. The CHARGE is spent either
             // way, one line up: this is the punishment, not the cost.
             jump.post_recovery_helpless =
-                jump.recovery_charges == 0 && !spec.gates.recovery_without_freefall;
+                jump.recovery_charges == 0 && spec.gates.recovery.arms_freefall();
         }
     }
     commands.entity(entity).insert(
@@ -2024,7 +2032,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
 /// ⚠ read-only, and asked BEFORE a cancel tears the current move down: refusing
 /// after the teardown would leave the body with neither move.
 fn afford_recovery(spec: &ambition_entity_catalog::MoveSpec, charges_left: Option<u8>) -> bool {
-    if !spec.gates.spends_recovery {
+    if !spec.gates.recovery.spends() {
         return true;
     }
     // A body with no jump cluster is a bare fixture, not a fighter with an
@@ -2090,14 +2098,14 @@ fn weapon_ready(spec: &ambition_entity_catalog::MoveSpec, melee: Option<&BodyMel
 /// the state the rule exists to produce.
 ///
 /// ⭐ AND IT CANNOT REACH A GAME THAT DOES NOT WANT IT. Charges only fall to zero
-/// when a move authored `MoveGates::spends_recovery` spends one, so a cast that
+/// when a move whose `MoveGates::recovery` spends one does, so a cast that
 /// authors no recovery never satisfies this — by construction, with no flag.
 pub fn body_is_helpless(
     jump: &ae::BodyJumpState,
     grounded: bool,
     playing: Option<&MovePlayback>,
 ) -> bool {
-    let still_recovering = playing.is_some_and(|pb| pb.spec.gates.spends_recovery);
+    let still_recovering = playing.is_some_and(|pb| pb.spec.gates.recovery.spends());
     // ⛔⛔ THE EPISODE, NOT THE COUNT. `recovery_charges == 0` is a resource
     // reading, and a resource reading cannot be ENDED by anything short of a
     // refresh — refreshes are landing-shaped, which being hit deliberately is
@@ -3013,7 +3021,8 @@ pub fn apply_special_turn_flicks(
         .as_ref()
         .is_some_and(|rules| rules.special_turn_reverses_drift);
     for (mut gesture, control, tuning, mut kin, frame) in &mut bodies {
-        let sign = ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning);
+        let sign =
+            ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning);
         let flicked = sign != 0.0 && sign != gesture.prev_lateral_sign;
         gesture.prev_lateral_sign = sign;
         if gesture.special_turn_ticks == 0 {

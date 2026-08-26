@@ -13,7 +13,9 @@ use ambition_characters::smash_capture::{
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
+use ambition_characters::smash_repertoire::{
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
+};
 use ambition_platformer2d::entity_catalog::AutolinkVolume;
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
@@ -320,14 +322,13 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
             },
         },
     );
-    // ⛔⛔ AND IT COSTS THE RECOVERY. Nothing limited a repeated special before
-    // this — no cooldown, no cost, and `MoveGates` knew only `grounded`, which
-    // cannot tell the second use in one airtime from the first — so a fighter
-    // could press this forever and could only be killed by a launch that outran
-    // its own rise. The budget comes back when the body is re-seated: landing,
+    // ⭐ IT COSTS THE RECOVERY, and it no longer says so here: the up-B SLOT
+    // says it for every fighter (`UpSpecial::Standard`). This was the only
+    // moveset in the tree that had written the opt-in by hand, which is exactly
+    // how a rule Jon asked to apply to the whole roster came to apply to one
+    // character. The budget comes back when the body is re-seated: landing,
     // catching the ledge, being grabbed, a respawn.
     let mut up_special = rising_edge;
-    up_special.gates.spends_recovery = true;
     // ⭐ THE CRUDE SPIN READ, and it is deliberately crude. Jon, W8 playtest:
     // *"it is acceptable to fake the spin by repeatedly flipping the sprite
     // horizontally if that gives the basic rotational read... Do not spend a lot
@@ -456,7 +457,7 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
         down_air,
         neutral_special: NeutralSpecial::Authored(neutral_special),
         side_special,
-        up_special,
+        up_special: UpSpecial::Standard(up_special),
         down_special: DownSpecial::ByPosture {
             grounded: grounded_down_special,
             airborne: airborne_down_special,
@@ -477,6 +478,40 @@ pub fn pointed_polygon_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐⭐ THE AUTHORED FIGHTER REACHES THE RECOVERY BUDGET — through the real
+    /// moveset function, the real repertoire, and the real lowering.
+    ///
+    /// ⛔⛔ THIS IS THE TEST THAT WAS MISSING WHEN THE BUG SHIPPED. Every piece
+    /// had a generic unit test and they were all green: `afford_recovery`
+    /// refused a spent fighter, `start_move` spent the charge, `body_is_helpless`
+    /// answered correctly. What nothing asked was whether authored content
+    /// reaches those pieces — and it did not, twice for different reasons.
+    /// `into_contract` deleted the field on the way past, and once that was
+    /// repaired the rule was still opt-in with one fighter opted in.
+    ///
+    /// ⚠ so the claim is deliberately made against `pointed_polygon_moveset()`
+    /// and not against a fixture: a fixture would have passed on both of the
+    /// days this was broken in production.
+    #[test]
+    fn the_authored_up_b_costs_the_recovery_and_ends_in_freefall() {
+        let set = pointed_polygon_moveset();
+        let id = set
+            .verbs
+            .get("special_up")
+            .expect("the pointed polygon bound no up-B verb");
+        let up_b = set
+            .moves
+            .iter()
+            .find(|m| &m.id == id)
+            .expect("the up-B verb names a move the contract does not carry");
+        assert_eq!(
+            up_b.gates.recovery,
+            ambition_entity_catalog::RecoveryUse::SpendAndFreefall,
+            "the pointed polygon's rising spin costs nothing, so she can press \
+             it forever and can only be killed by a launch that outruns her"
+        );
+    }
 
     /// The Up-B's holding pulses, as authored: `(offset, half_extents, autolink)`.
     fn rising_spin_pulses() -> Vec<((f32, f32), (f32, f32), AutolinkVolume)> {

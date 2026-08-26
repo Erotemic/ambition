@@ -5943,8 +5943,11 @@ fn a_helpless_fighter_starts_no_move_through_the_real_trigger() {
     );
 
     // ⛔⛔ AND ZERO CHARGES ALONE IS NOT HELPLESSNESS. A fighter can hold no
-    // recovery without being inside the episode — a hit ends the episode and
-    // gives no charge back, which is exactly the state this arm describes.
+    // recovery without being inside the episode — a damage-only tick, a hit an
+    // armored fighter ate, or a windbox all leave the charge spent without
+    // arming anything, which is exactly the state this arm describes. (A
+    // FLINCHING strike is the one hit that lifts both; see
+    // `post_recovery_helpless`.)
     let (mut app, body) = smash_charge_app();
     app.world_mut()
         .entity_mut(body)
@@ -5971,7 +5974,7 @@ fn a_helpless_fighter_starts_no_move_through_the_real_trigger() {
 
     // …and the recovery it is still throwing is not cancelled by its own rule.
     let mut recovery = uncancelable("polygon_up_b");
-    recovery.gates.spends_recovery = true;
+    recovery.gates.recovery = ambition_entity_catalog::RecoveryUse::SpendAndFreefall;
     assert_eq!(
         started(true, false, Some(recovery)).as_deref(),
         Some("polygon_up_b"),
@@ -6215,7 +6218,7 @@ fn a_recovery_is_refused_once_its_budget_is_spent() {
         )
     };
     let spends = recovery(MoveGates {
-        spends_recovery: true,
+        recovery: ambition_entity_catalog::RecoveryUse::SpendAndFreefall,
         ..Default::default()
     });
     let ordinary = recovery(MoveGates::default());
@@ -6242,9 +6245,14 @@ fn a_recovery_is_refused_once_its_budget_is_spent() {
 }
 
 /// ... AND BEING RE-SEATED GIVES IT BACK. Landing, catching the ledge, being
-/// grabbed and a respawn all run the landing-class refresh, which is the one
-/// place the budget is restored — and deliberately NOT a hit, which would refund
-/// a recovery to the fighter being edge-guarded.
+/// grabbed and a respawn all run the landing-class refresh.
+///
+/// ⚠ NOT THE ONLY ROAD ANY MORE, and this doc said it was: a FLINCHING strike
+/// also hands the charge back (Jon, 2026-08-26 — *"once hitstun ends, you can
+/// act again, INCLUDING using your up-B again"*), which lives in
+/// `apply_body_hit_reaction` rather than here. What is still true is that the
+/// hits which do NOT flinch — damage-only, armored, windbox — refund nothing, so
+/// a fighter being edge-guarded by chip damage gets no recovery out of it.
 #[test]
 fn the_landing_class_refresh_restores_the_recovery_budget() {
     let abilities = ae::BodyAbilities::default();
@@ -6812,7 +6820,11 @@ fn the_b_reverse_window_is_the_same_number_of_ticks_at_every_time_scale() {
         app.world().get::<ae::BodyKinematics>(body).unwrap().vel.x < 0.0
     }
 
-    for (label, dt) in [("full speed", 0.016), ("half speed", 0.008), ("hitstop", 0.0)] {
+    for (label, dt) in [
+        ("full speed", 0.016),
+        ("half speed", 0.008),
+        ("hitstop", 0.0),
+    ] {
         assert!(
             flick_after(dt, 3),
             "at {label} a flick on the 4th tick after the press was refused, and \

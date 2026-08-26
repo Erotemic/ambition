@@ -97,6 +97,20 @@ pub struct SummonSpec {
     pub character_id: String,
     pub encounter_id: String,
     pub faction: HitSide,
+    /// The summoner BOARDS what it just made, if the pair is a legal one.
+    ///
+    /// ⭐ ON THE SUMMON RATHER THAN A FOLLOW-UP, because the only moment the
+    /// spawned entity and its summoner are both in hand is inside the executor's
+    /// own exclusive command. A caller that wanted to board afterwards would
+    /// have to be told which entity was made — a channel this needed no other
+    /// consumer for — and would then be boarding a mount that had already been
+    /// simulated for a tick without a rider.
+    ///
+    /// ⛔ IT IS A REQUEST, NOT A GUARANTEE. The class check is `mount::board`'s
+    /// and it refuses an illegal pair; a summon that names no mountable thing
+    /// simply spawns it and nobody gets on. `false` for every summon that
+    /// existed before this field, which is every minion a boss drops.
+    pub ridden_by_summoner: bool,
 }
 
 /// A composable non-projectile effect an actor *technique* emits.

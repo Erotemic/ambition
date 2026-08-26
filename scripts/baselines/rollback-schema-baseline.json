@@ -259,6 +259,7 @@
     "message.gameplay_sfx_requested",
     "message.hit_event",
     "message.item_grant_requested",
+    "message.knockout_beat",
     "message.landed_body_hit",
     "message.mount_died",
     "message.move_event",

@@ -270,6 +270,7 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
 pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl ScheduleLabel + Clone) {
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
     use ambition_vfx::vfx::DebrisBurstMessage;
+    use ambition_vfx::vfx::KnockoutBeatRequested;
     use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
 
     app.add_plugins((
@@ -279,6 +280,7 @@ pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl Schedu
         ExternalEffectQuarantinePlugin::<FireworksRequest>::default(),
         ExternalEffectQuarantinePlugin::<DebrisBurstMessage>::default(),
         ExternalEffectQuarantinePlugin::<CameraShakeRequest>::default(),
+        ExternalEffectQuarantinePlugin::<KnockoutBeatRequested>::default(),
     ));
 
     quarantine_discard_on_load::<ambition_sfx::OwnedSfxMessage>(app, load_schedule.clone());
@@ -286,7 +288,8 @@ pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl Schedu
     quarantine_discard_on_load::<FxRequest>(app, load_schedule.clone());
     quarantine_discard_on_load::<FireworksRequest>(app, load_schedule.clone());
     quarantine_discard_on_load::<DebrisBurstMessage>(app, load_schedule.clone());
-    quarantine_discard_on_load::<CameraShakeRequest>(app, load_schedule);
+    quarantine_discard_on_load::<CameraShakeRequest>(app, load_schedule.clone());
+    quarantine_discard_on_load::<KnockoutBeatRequested>(app, load_schedule);
 }
 
 #[cfg(test)]

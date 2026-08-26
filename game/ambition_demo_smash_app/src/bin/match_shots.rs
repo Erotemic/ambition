@@ -22,7 +22,7 @@
 //! `--on-ko` aims the burst at the ONE beat a fixed cadence cannot catch. A
 //! knockout happens on a handful of ticks in a whole match, and its sparks live
 //! under four tenths of a second, so `--after N --every M` photographs one only
-//! by luck. With the flag the tool steps until `KnockoutsView` publishes a row
+//! by luck. With the flag the tool steps until a `KnockoutBeatRequested` lands
 //! and starts the burst there, and every shot is annotated on stdout with its
 //! sim tick, the knockout's world position and the camera rect that frame — so
 //! a picture can be checked against the geometry it claims to show instead of
@@ -312,21 +312,37 @@ fn main() {
 
 /// Step the match until a knockout is published, or the match is over.
 ///
-/// Reads [`ambition_platformer2d::sim_view::KnockoutsView`] — the same
-/// read-model the knockout beat itself draws from, so what this waits for and
-/// what the picture shows are one fact rather than two guesses.
+/// Reads the same `KnockoutBeatRequested` intents the beat itself draws from,
+/// so what this waits for and what the picture shows are one fact rather than
+/// two guesses.
+///
+/// ⛔ A CURSOR, NOT A RESOURCE PEEK. The knockout used to be a rebuilt view this
+/// could sample at any moment; it is a quarantined message now, so the tool
+/// reads it the way presentation does — through its own reader, once each.
 fn step_until_a_knockout(app: &mut App) -> Option<String> {
     for _ in 0..12_000 {
         app.update();
-        let published = app
-            .world()
-            .get_resource::<ambition_platformer2d::sim_view::KnockoutsView>()
-            .is_some_and(|view| !view.0.is_empty());
-        if published {
+        if !knockouts_this_frame(app).is_empty() {
             return Some(frame_note(app));
         }
     }
     None
+}
+
+/// The knockout intents standing this frame, drained through this tool's own
+/// cursor so reading them here does not consume presentation's copy.
+fn knockouts_this_frame(app: &mut App) -> Vec<(ambition_platformer2d::engine_core::Vec2, bool, f32)> {
+    let Some(messages) = app
+        .world()
+        .get_resource::<bevy::prelude::Messages<ambition_platformer2d::vfx::vfx::KnockoutBeatRequested>>()
+    else {
+        return Vec::new();
+    };
+    let mut cursor = messages.get_cursor();
+    cursor
+        .read(messages)
+        .map(|ko| (ko.pos, ko.eliminated, ko.speed))
+        .collect()
 }
 
 /// What this frame actually holds: the sim tick, any knockout published on it,
@@ -342,16 +358,7 @@ fn frame_note(app: &mut App) -> String {
         .get_resource::<ambition_platformer2d::time::SimTick>()
         .map(|tick| tick.0)
         .unwrap_or_default();
-    let kos: Vec<(ambition_platformer2d::engine_core::Vec2, bool, f32)> = app
-        .world()
-        .get_resource::<ambition_platformer2d::sim_view::KnockoutsView>()
-        .map(|view| {
-            view.0
-                .iter()
-                .map(|ko| (ko.pos, ko.eliminated, ko.speed))
-                .collect()
-        })
-        .unwrap_or_default();
+    let kos = knockouts_this_frame(app);
     let observer = ambition_platformer2d::sim_view::the_only_view(app.world_mut());
     let camera = app
         .world()

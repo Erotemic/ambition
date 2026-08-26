@@ -38,6 +38,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<FxRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
+            .add_message::<ambition_vfx::vfx::KnockoutBeatRequested>()
             .add_message::<ActorDiedMessage>()
             .add_message::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::WalletShieldSpent>()
             .add_message::<ambition_combat::SetFlagRequested>()

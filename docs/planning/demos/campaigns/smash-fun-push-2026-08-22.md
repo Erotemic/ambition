@@ -614,7 +614,9 @@ platform fighter in that state has no bottom blastzone.**
 
 ```text
 BodyJumpState::recovery_charges   the budget, an INTEGER not a flag
-MoveGates::spends_recovery        the move AUTHORS that it costs one
+MoveGates::recovery               what it costs: nothing, spend+freefall,
+                                  or spend-and-keep-acting. For a smash up-B the
+                                  SLOT authors it (`UpSpecial`), not the moveset
 afford_recovery                   refuses the start; asked BEFORE a cancel tears
                                   the current move down, or the body is left
                                   with neither

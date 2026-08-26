@@ -12,7 +12,9 @@ use ambition_characters::smash_capture::{
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
+use ambition_characters::smash_repertoire::{
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
+};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 use ambition_characters::moveset_authoring::{
@@ -515,7 +517,7 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
         down_air: d_air,
         neutral_special: NeutralSpecial::Authored(neutral_b),
         side_special: side_b,
-        up_special: up_b,
+        up_special: UpSpecial::NoFreefall(up_b),
         // the second fighter to author one, and through a DIFFERENT
         // provider — this crate, not the smash demo. That is the falsifier:
         // the capture vocabulary is not quietly tied to one game-owned file.
@@ -598,8 +600,6 @@ mod tests {
             _ => None,
         })
     }
-
-
 
     /// THE POISON, AUTHORED: A TINY UPWARD ATTACK OUTRANKS THE RECOVERY ON
     /// THE SCALAR, AND MUST NOT BE THE RECOVERY.
@@ -723,13 +723,12 @@ mod tests {
                     if effect.key == ambition_characters::smash_ride::SUMMON_RIDE)),
             "the up-B summons nothing, so the admiral has no recovery at all"
         );
-        assert!(
-            find(&set, "call_the_shark").gates.spends_recovery
-                && find(&set, "call_the_shark")
-                    .gates
-                    .recovery_without_freefall,
-            "the pair is the whole price: one per airtime, and no freefall — a \
-             move stating one without the other is a different mechanic"
+        assert_eq!(
+            find(&set, "call_the_shark").gates.recovery,
+            ambition_entity_catalog::RecoveryUse::SpendWithoutFreefall,
+            "the whole price is one value: one use per airtime, and no freefall. \
+             It was two booleans that had to agree, and a move stating one \
+             without the other was a different mechanic wearing this one's name"
         );
 
         // Down: a full stop, which is a commanded velocity of nothing.

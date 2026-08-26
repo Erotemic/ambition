@@ -19,7 +19,9 @@ use ambition_characters::smash_capture::{
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
+use ambition_characters::smash_repertoire::{
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
+};
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, HitVolume, ImpulseMode, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
@@ -549,7 +551,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
         down_air: d_air,
         neutral_special: NeutralSpecial::Authored(cellular_pulse),
         side_special: side_b,
-        up_special: up_b,
+        up_special: UpSpecial::Standard(up_b),
         // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.

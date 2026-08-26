@@ -10,7 +10,7 @@ use ambition_platformer2d::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition_platformer2d::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
-use ambition_platformer2d::entity_catalog::{MoveGates, MovesetContract};
+use ambition_platformer2d::entity_catalog::{MoveGates, MovesetContract, RecoveryUse};
 
 /// Per-character parameters for the shared duelist moveset.
 #[derive(Clone, Copy, Debug)]
@@ -88,9 +88,9 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
             // statement `SmashRepertoire::GROUNDED` makes. Left at the engine
             // default, which is "the body keeps steering".
             roots_steering: false,
-            spends_recovery: false,
-        // Inert without `spends_recovery`; the pair is the statement.
-        recovery_without_freefall: false,
+            // Not a recovery: the duel arena authors no up-B slot, so nothing
+            // here spends the once-per-airtime budget.
+            recovery: RecoveryUse::None,
         };
         verbs.insert(verb.to_string(), id.to_string());
         moves.push(spec);

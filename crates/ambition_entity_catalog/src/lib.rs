@@ -841,6 +841,52 @@ pub struct ClipBinding {
     pub fallbacks: Vec<String>,
 }
 
+/// What a move does to its owner's once-per-airtime recovery.
+///
+/// ⭐⭐ THREE STATES BECAUSE THE GENRE HAS THREE, and they were two booleans
+/// until 2026-08-26 — `spends_recovery` and `recovery_without_freefall`, the
+/// second documented as *ignored* unless the first was set. That is an invalid
+/// combination spelled in valid data: `(false, true)` is representable, means
+/// nothing, and every reader had to correlate two fields to find out which of
+/// three things an author meant.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RecoveryUse {
+    /// Not a recovery: costs nothing and is refused by nothing.
+    #[default]
+    None,
+    /// THE GENRE'S ORDINARY UP-B. Spends the airtime's one recovery and leaves
+    /// its owner helpless once the move ends — the trade is your ability to act
+    /// for height, which is what makes freefall its price rather than a penalty.
+    SpendAndFreefall,
+    /// Spends the airtime's one recovery and leaves its owner able to act.
+    ///
+    /// ⭐ THE DIFFERENCE IS WHAT THE RECOVERY BUYS. A recovery that hands you a
+    /// VEHICLE has already given the height and the control together, so the
+    /// price is the once-per-airtime budget alone — the pirate is aboard a shark
+    /// and can still swing from the saddle, and it would be incoherent for the
+    /// same move to also say it cannot act.
+    ///
+    /// ⛔ NOT "this move is free". The charge is still spent and still refreshes
+    /// only on a re-seating cause or a flinching hit, so its owner gets ONE of
+    /// these per airtime exactly like everybody else. What it declines is the
+    /// helpless EPISODE, not the budget — see
+    /// `BodyJumpState::post_recovery_helpless`, whose whole point is that those
+    /// are different things.
+    SpendWithoutFreefall,
+}
+
+impl RecoveryUse {
+    /// Does starting this move cost a recovery charge?
+    pub const fn spends(self) -> bool {
+        !matches!(self, Self::None)
+    }
+
+    /// Does spending the LAST charge on this move arm the helpless episode?
+    pub const fn arms_freefall(self) -> bool {
+        matches!(self, Self::SpendAndFreefall)
+    }
+}
+
 /// Activation gates for a move. Narrow on purpose — add knobs when real
 /// moves need them.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -849,43 +895,27 @@ pub struct MoveGates {
     /// `None` = either.
     #[serde(default)]
     pub grounded: Option<bool>,
-    /// This move SPENDS a recovery use, and cannot fire when the body has none
-    /// left.
+    /// WHAT THIS MOVE COSTS THE AIRTIME'S ONE RECOVERY, and what it costs its
+    /// owner afterwards.
     ///
-    /// ⛔⛔ WITHOUT IT A PLATFORM FIGHTER HAS NO BOTTOM BLASTZONE. Nothing else
-    /// limits a repeated special — there is no cooldown, no cost and no
-    /// per-airtime rule on a move — and `grounded` cannot tell the second use in
-    /// one airtime from the first. A fighter that authored a rising special
-    /// could press it forever and only die to a launch that outran it.
+    /// ⛔⛔ WITHOUT A RECOVERY BUDGET A PLATFORM FIGHTER HAS NO BOTTOM
+    /// BLASTZONE. Nothing else limits a repeated special — there is no cooldown,
+    /// no cost and no per-airtime rule on a move — and `grounded` cannot tell the
+    /// second use in one airtime from the first. A fighter that authored a rising
+    /// special could press it forever and only die to a launch that outran it.
     ///
-    /// ⭐ AUTHORED BY THE MOVE, not inferred from its name or its impulse. What
-    /// makes a move a recovery is that its author says it is one — an up-special
-    /// that does not lift, or a side-special that does, are both ordinary
-    /// statements this way and neither is a special case in input code.
+    /// ⭐ AUTHORED, not inferred from a name or an impulse. What makes a move a
+    /// recovery is that somebody said it is one — an up-special that does not
+    /// lift, or a side-special that does, are both ordinary statements this way
+    /// and neither is a special case in input code. ⚠ for a SMASH fighter the
+    /// somebody is the repertoire slot rather than the moveset: see
+    /// `SmashRepertoire`'s `UpSpecial`, which applies the genre's default so that
+    /// fourteen authors do not each have to remember it.
+    ///
+    /// `#[serde(default)]` on a `Default`-`None` enum, so authored content from
+    /// before this existed still means what it meant.
     #[serde(default)]
-    pub spends_recovery: bool,
-    /// This move spends a recovery use WITHOUT leaving its owner in freefall.
-    ///
-    /// Ignored unless [`Self::spends_recovery`] is set — the two are a pair, and
-    /// a move that costs nothing has nothing to be exempt from.
-    ///
-    /// ⭐ THE GENRE HAS BOTH, and the difference is what a recovery BUYS. The
-    /// ordinary up-special trades your ability to act for height, which is why
-    /// freefall is its price. A recovery that hands you a VEHICLE has already
-    /// given you the height and the control together, so the price is the
-    /// once-per-airtime budget alone — the pirate is aboard a shark and can
-    /// still swing from the saddle, and it would be incoherent for the same move
-    /// to also say it cannot act.
-    ///
-    /// ⛔ NOT "this move is free". The charge is still spent and still refreshes
-    /// only on a re-seating cause or a flinching hit, so the fighter gets ONE of
-    /// these per airtime exactly like everybody else. What it declines is the
-    /// helpless EPISODE, not the budget — see `BodyJumpState::post_recovery_helpless`,
-    /// whose whole point is that those are different things.
-    ///
-    /// Default FALSE, so every move authored before this existed is unchanged.
-    #[serde(default)]
-    pub recovery_without_freefall: bool,
+    pub recovery: RecoveryUse,
     /// While this move plays, its owner has NO STEERING AUTHORITY: the
     /// controller's locomotion intent is zeroed and the body keeps only the
     /// motion the move itself gives it.

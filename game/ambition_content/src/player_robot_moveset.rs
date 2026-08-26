@@ -18,7 +18,9 @@ use ambition_characters::smash_capture::{
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
+use ambition_characters::smash_repertoire::{
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
+};
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveGates, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
@@ -475,7 +477,7 @@ pub fn player_robot_moveset() -> MovesetContract {
             because: "the charged Hadouken the robot's own body derives",
         },
         side_special: side_b,
-        up_special: up_b,
+        up_special: UpSpecial::Standard(up_b),
         // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the whole point of proving it was to stop being the only two.

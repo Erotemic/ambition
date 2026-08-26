@@ -11,7 +11,9 @@ use ambition_characters::smash_capture::{
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
     SmashCaptureRepertoire,
 };
-use ambition_characters::smash_repertoire::{DownSpecial, NeutralSpecial, SmashRepertoire};
+use ambition_characters::smash_repertoire::{
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
+};
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
 pub fn pugnacious_polygon_moveset() -> MovesetContract {
@@ -365,7 +367,7 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         down_air,
         neutral_special: NeutralSpecial::Authored(neutral_special),
         side_special,
-        up_special,
+        up_special: UpSpecial::Standard(up_special),
         down_special: DownSpecial::ByPosture {
             grounded: grounded_down_special,
             airborne: airborne_down_special,

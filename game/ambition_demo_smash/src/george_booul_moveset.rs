@@ -8,7 +8,7 @@
 
 use ambition_platformer2d::characters::moveset_authoring::Strike;
 use ambition_platformer2d::characters::smash_repertoire::{
-    DownSpecial, NeutralSpecial, SmashRepertoire,
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
 use ambition_platformer2d::entity_catalog::{CancelCondition, ImpulseMode, MovesetContract};
 
@@ -657,7 +657,7 @@ pub fn george_booul_moveset() -> MovesetContract {
         down_air: d_air,
         neutral_special: NeutralSpecial::Authored(bivalence),
         side_special: side_b,
-        up_special: up_b,
+        up_special: UpSpecial::Standard(up_b),
         capture,
         down_special: DownSpecial::ByPosture {
             grounded: ground_down_b,

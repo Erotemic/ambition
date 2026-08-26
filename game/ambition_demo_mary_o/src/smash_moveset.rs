@@ -14,7 +14,7 @@ use ambition_platformer2d::characters::smash_capture::{
     SmashCaptureRepertoire,
 };
 use ambition_platformer2d::characters::smash_repertoire::{
-    DownSpecial, NeutralSpecial, SmashRepertoire,
+    DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
 use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
 
@@ -453,7 +453,7 @@ pub fn mary_o_moveset() -> MovesetContract {
         down_air: d_air,
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
-        up_special: up_b,
+        up_special: UpSpecial::Standard(up_b),
         // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
         // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
         // the point of proving it was to stop being the only two.

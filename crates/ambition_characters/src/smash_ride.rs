@@ -36,7 +36,6 @@ pub struct SummonRideParams {
     pub seconds: f32,
 }
 
-
 /// Author a summon-and-ride onto a move's timeline.
 ///
 /// # Panics
@@ -59,13 +58,11 @@ pub fn author_summon_ride(mut spec: MoveSpec, at_s: f32, params: SummonRideParam
             params: ParamValue::from_typed(&params).expect("summon-ride params serialize"),
         }),
     });
-    // ⛔ BOTH GATES, AS A PAIR. The move costs its owner the once-per-airtime
-    // recovery — a vehicle that could be summoned forever is not a recovery, it
-    // is flight — and declines the freefall, because a rider that cannot act is
-    // not riding. Set here rather than left to the caller: a summon-and-ride
-    // that said only one of them would be a different mechanic wearing this
-    // one's name.
-    spec.gates.spends_recovery = true;
-    spec.gates.recovery_without_freefall = true;
+    // ⛔ THE COST IS THE SLOT'S TO STATE, and it used to be set here as two
+    // booleans that had to agree. A vehicle that could be summoned forever is
+    // not a recovery, it is flight — and a rider that cannot act is not riding —
+    // so this move is `RecoveryUse::SpendWithoutFreefall`, which is now ONE
+    // value that cannot half-disagree with itself. The pirate says it where
+    // every other fighter says its up-B's cost: `UpSpecial::NoFreefall`.
     spec
 }

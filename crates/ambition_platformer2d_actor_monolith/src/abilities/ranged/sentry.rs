@@ -120,6 +120,8 @@ pub fn update_sentries(
             &CenteredAabb,
             &ActorFaction,
             Option<&ambition_characters::actor::BodyHealth>,
+            // The world's hands are off this body — it is not a target either.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -147,10 +149,11 @@ pub fn update_sentries(
             .iter()
             // Structural tangibility gate: a dead enemy is an
             // intangible corpse — the sentry does not target it.
-            .filter(|(_, f, health)| {
-                **f == ActorFaction::Enemy && !ambition_combat::util::body_is_corpse(*health)
+            .filter(|(_, f, health, out_of_play)| {
+                **f == ActorFaction::Enemy
+                    && !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
             })
-            .map(|(aabb, _, _)| aabb.center)
+            .map(|(aabb, _, _, _)| aabb.center)
             .filter(|c| c.distance(sentry.pos) <= SENTRY_RANGE)
             .min_by(|a, b| {
                 a.distance_squared(sentry.pos)

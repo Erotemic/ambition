@@ -40,6 +40,10 @@ pub struct CaptureParticipant {
     pub kin: &'static ae::BodyKinematics,
     pub ground: &'static ambition_platformer2d_core::BodyGroundState,
     pub health: &'static ambition_characters::actor::BodyHealth,
+    /// The world's hands are off this body. NOT redundant with `health`: a
+    /// fighter waiting out its death beat has already had `health.reset()`
+    /// called on it, so it reads ALIVE for the whole interlude.
+    pub out_of_play: bevy::prelude::Has<crate::death_rules::OutOfPlay>,
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub flight: &'static ae::BodyFlightState,
     pub surface: &'static ae::ActorSurfaceState,
@@ -123,7 +127,7 @@ pub fn acquire_captures(
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
         };
-        if crate::util::body_is_corpse(Some(captor.body.health)) {
+        if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play) {
             continue;
         }
         if !captor.body.ground.on_ground {

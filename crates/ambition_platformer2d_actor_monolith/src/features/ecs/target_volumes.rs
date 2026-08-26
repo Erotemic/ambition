@@ -19,6 +19,7 @@ pub fn refresh_body_damageable_volumes(
         (
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
             // Authored hurtboxes override the coarse body envelope.
             Option<&crate::character_runtime::ResolvedHurtboxes>,
             Option<&crate::actor::BodyKinematics>,
@@ -31,9 +32,9 @@ pub fn refresh_body_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, health, hurtboxes, kin, mut damageable) in &mut bodies {
+    for (aabb, health, out_of_play, hurtboxes, kin, mut damageable) in &mut bodies {
         // Dead bodies publish no target volume; disposition does not affect tangibility.
-        if ambition_combat::util::body_is_corpse(health) {
+        if ambition_combat::util::body_is_untouchable(health, out_of_play) {
             damageable.clear();
             continue;
         }

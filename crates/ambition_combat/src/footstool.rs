@@ -26,6 +26,10 @@ pub struct FootstoolBody {
     pub ground: &'static ae::BodyGroundState,
     pub model: &'static ae::MotionModel,
     pub health: &'static ambition_characters::actor::BodyHealth,
+    /// The world's hands are off this body. NOT redundant with `health`: a
+    /// fighter waiting out its death beat has already had `health.reset()`
+    /// called on it, so it reads ALIVE for the whole interlude.
+    pub out_of_play: bevy::prelude::Has<crate::death_rules::OutOfPlay>,
     pub team: Option<&'static crate::targeting::MatchTeam>,
     pub control: Option<&'static ambition_characters::control::ActorControl>,
     /// The swing clock, read ONLY to ask whether this body is mid-move — see
@@ -111,7 +115,7 @@ pub fn claim_footstools(
                 continue;
             }
             if stomper.ground.on_ground
-                || crate::util::body_is_corpse(Some(stomper.health))
+                || crate::util::body_is_untouchable(Some(stomper.health), stomper.out_of_play)
             {
                 continue;
             }
@@ -129,7 +133,7 @@ pub fn claim_footstools(
 
             for victim in decide.iter() {
                 if victim.entity == stomper.entity
-                    || crate::util::body_is_corpse(Some(victim.health))
+                    || crate::util::body_is_untouchable(Some(victim.health), victim.out_of_play)
                 {
                     continue;
                 }

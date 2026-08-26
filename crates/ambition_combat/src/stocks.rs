@@ -357,6 +357,22 @@ pub fn spend_fighter_stocks(
         ),
     >,
     mut meters: Query<&mut ambition_characters::actor::BodyHealth>,
+    // ⛔⛔ THE SWING THE STOCK COST, TORN DOWN WHERE THE STOCK IS SPENT. A move
+    // clock is NOT the movement kernel: `advance_move_playback` reads neither
+    // `OutOfPlay` nor `ActiveCombatant`, so a fighter KO'd mid-swing went on
+    // advancing its move for the whole death beat — opening active hit volumes,
+    // firing authored events, throwing projectiles and playing sfx while dead.
+    //
+    // ⭐ BY VALUE, not as a component to strip: cancelling a move means
+    // despawning the strike boxes it derived, and only the playback knows which
+    // entities those are. `cancel_move_playback` is the canonical teardown.
+    //
+    // ⛔ SMASH ALREADY DID THIS — inside `place_respawning_fighters`, which runs
+    // when the fighter comes BACK. Its comment was right that the move did not
+    // survive the stock it cost; it was one lifecycle boundary too late, so the
+    // swing stayed live for the entire interlude and only got cleaned up a
+    // second later. Owned here, by the seam that opens the episode.
+    mut swings: Query<&mut crate::moveset::MovePlayback>,
     interval: Option<Res<RespawnInterval>>,
 ) {
     // Absent resource == zero == the same-tick placement every ruleset had
@@ -370,6 +386,11 @@ pub fn spend_fighter_stocks(
         };
         let eliminated = stocks.spend();
         let remaining = stocks.remaining;
+        // Whether the fighter is out for good or out for a beat, the swing is
+        // over: it belonged to a body that is no longer in the fight.
+        if let Ok(mut playback) = swings.get_mut(knockout.body) {
+            crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback);
+        }
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
             // and it stops being IN the fight, which is the other half of
@@ -669,6 +690,78 @@ mod tests {
                 crate::components::ActiveCombatant,
             ))
             .id()
+    }
+
+    /// ⛔⛔ THE SWING DOES NOT SURVIVE THE STOCK IT COST.
+    ///
+    /// A move clock is not the movement kernel. D201 froze the body — `OutOfPlay`
+    /// halts `step_body`, the control hold silences input — but
+    /// `advance_move_playback` reads neither `OutOfPlay` nor `ActiveCombatant`,
+    /// so a fighter KO'd mid-swing went on advancing its move for the whole
+    /// death beat: opening active hit volumes, firing authored events, throwing
+    /// projectiles and playing sfx while dead.
+    ///
+    /// ⭐ SMASH ALREADY CANCELLED IT — inside `place_respawning_fighters`, which
+    /// runs when the fighter comes BACK. That comment was right that the move
+    /// did not survive the stock; it was one lifecycle boundary too late. Owned
+    /// here now, by the seam that opens the episode.
+    ///
+    /// ⭐ THE SURVIVING-STOCK ARM IS THE PREMISE GUARD: a spend that cancelled
+    /// nothing, or one that cancelled by eliminating the fighter outright, would
+    /// satisfy the first assertion for the wrong reason.
+    #[test]
+    fn a_knocked_out_fighter_stops_swinging_the_move_that_cost_it_the_stock() {
+        use crate::moveset::MovePlayback;
+
+        fn swing_after_knockout(stocks: u32) -> bool {
+            let mut app = respawn_app(0.5);
+            let body = combat_fighter(&mut app, stocks);
+            app.world_mut()
+                .entity_mut(body)
+                .insert(MovePlayback::new(
+                    ambition_entity_catalog::MoveSpec {
+                        display_name: None,
+                        id: "swing".to_string(),
+                        clip: ambition_entity_catalog::ClipBinding {
+                            clip: "swing".to_string(),
+                            fallbacks: vec![],
+                        },
+                        duration_s: 5.0,
+                        windows: vec![],
+                        events: vec![],
+                        gates: Default::default(),
+                        start_impulse: None,
+                        smash_charge_mult: 1.0,
+                        smash_charge: None,
+                        charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+                        repeat: None,
+                        landing_lag_s: None,
+                        autocancel_after_s: None,
+                        sprite_spin_hz: None,
+                    },
+                    1.0,
+                ));
+            app.update();
+            let _ = returned_this_tick(&mut app);
+            assert!(
+                app.world().get::<MovePlayback>(body).is_some(),
+                "the fixture lost its swing before the knockout, so nothing below \
+                 measures the spend"
+            );
+            knock_out(&mut app, body);
+            app.world().get::<MovePlayback>(body).is_some()
+        }
+
+        assert!(
+            !swing_after_knockout(3),
+            "a fighter that lost a stock kept swinging: its move goes on opening \
+             hit volumes and firing authored events for the whole death beat"
+        );
+        assert!(
+            !swing_after_knockout(1),
+            "an ELIMINATED fighter kept swinging — the move belonged to a body \
+             that is not in the fight either way"
+        );
     }
 
     /// ⛔⛔ TWO FIGHTERS DUE ON ONE TICK BOTH COME BACK — AND THE ORDER IS NOT

@@ -264,6 +264,67 @@ fn a_dead_victim_is_intangible_to_a_swing() {
     );
 }
 
+/// ⛔⛔ A BODY WAITING OUT ITS DEATH BEAT IS NOT A HURTBOX EITHER — AND IT IS
+/// SPECIFICALLY NOT A CORPSE.
+///
+/// `OutOfPlay` promises the world's hands are off a body, and D201 made it
+/// body-generic rather than player-only. The tangibility gate above could not
+/// see it: `spend_fighter_stocks` calls `health.reset()` the instant the stock
+/// is spent — a fighter comes back FRESH — so for the whole interlude the body
+/// reads ALIVE while being explicitly out of the fight. It could be struck, it
+/// could shield, the attacker got a connect, and the percent it accumulated came
+/// back with it on its next stock.
+///
+/// ⭐ THE ARMS ARE THE SAME BODY, FULL HP, ONE COMPONENT APART. The live control
+/// is what makes this the `OutOfPlay` gate rather than the geometry or the
+/// health — both bodies are at HP 3 and both are in the swing.
+#[test]
+fn a_body_waiting_out_its_death_beat_is_intangible_though_it_is_at_full_health() {
+    use ambition_characters::actor::{BodyHealth, Health};
+
+    fn arena(out_of_play: bool) -> App {
+        let mut relations = FactionRelations::default();
+        relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+        let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(BodyHealth::new(Health {
+                current: 3,
+                max: 3,
+                invulnerable: Default::default(),
+            }));
+        if out_of_play {
+            app.world_mut()
+                .entity_mut(victim)
+                .insert(crate::death_rules::OutOfPlay);
+        }
+        app.update();
+        app
+    }
+
+    assert_eq!(
+        arena(false)
+            .world()
+            .resource::<CapturedHits>()
+            .body_hits()
+            .len(),
+        1,
+        "a living body in the swing is struck, so the silence below is the \
+         `OutOfPlay` gate and not the geometry"
+    );
+    assert!(
+        arena(true)
+            .world()
+            .resource::<CapturedHits>()
+            .body_hits()
+            .is_empty(),
+        "a body waiting out its death beat was struck. It is at FULL HEALTH — \
+         the stock spend resets the meter so the fighter returns fresh — so the \
+         corpse gate could never have caught it, and the hit it took came back \
+         with it as percent on the next stock"
+    );
+}
+
 /// The unification keystone: a Player-faction hitbox (a wielded boss
 /// AOE) emits exactly one attacker-side Volume `HitEvent` that
 /// `apply_feature_hit_events` then resolves against enemies/bosses — the

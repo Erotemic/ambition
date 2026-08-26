@@ -9066,6 +9066,28 @@ ambition_menu            its manifest says the trimmed bevy features are
                          "load-bearing for the WHOLE workspace"
 ```
 
+⭐⭐ **AND A STATED CONTRACT DID THE WORK FOUR TIMES IN ONE DAY — 2026-08-26,
+which is this row's thesis at its cheapest.** `shared_tangle`'s header carries an
+ADMISSION TEST: *"A type belongs here only when at least two distinct domains
+consume it and neither can own it without creating the wrong dependency edge.
+Being generic, potentially reusable, or awkward to place is not sufficient."* Four
+types were admitted against it today without anybody arguing:
+
+```text
+Mass               character runtime writes it · the mount pair reads it
+MountDied          mount announces · boss bridge AND the brain rebuild read
+TemporaryControl   possession · the mount pair
+SpawnBaseline      respawn · the mount dismount
+```
+
+⚠ **AND THE FOURTH TESTED THE WORDING, which is worth recording.** `SpawnBaseline`'s
+two consumers are BOTH inside the actor monolith today — `reset_to_spawn` and the
+mount dismount. It qualifies because the test says **DOMAINS**, not crates:
+neither can own it without the other depending on it, and that is true whether or
+not they currently share a `Cargo.toml`. ⇒ **if somebody reads "domain" as
+"crate", this admission looks wrong** — so the distinction is now written down
+next to an instance rather than left to the reader.
+
 ⭐ **AND ONE MORE DESTINATION NOW STATES ITS CONTRACT — 2026-08-21.**
 `ambition_combat` is an ACTIVE carve destination (it received `feel.rs` the same
 day) and had six header lines describing what it holds and not one sentence about

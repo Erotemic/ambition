@@ -273,9 +273,34 @@ These cards are capability fronts, not a serial mega-campaign.
   execution order. `E1` features may add a small reusable engine semantic;
   `E2` features get focused campaigns; `WAIT` rows stay deferred.
 
-- ▢ **Fighter-brain evaluation/calibration.** The brain stack exists; build the
+- ◐ **Fighter-brain evaluation/calibration.** The brain stack exists; build the
   scenario outcome runner and calibrate the difficulty ladder through measured
-  survival/damage/recovery evidence. Use
+  survival/damage/recovery evidence.
+  ✔ **THE RUNNER IS BUILT** — `brain::fighter::{evaluation, scenarios}` (188 +
+  451 lines) with a real adopter (`ladder_rig.rs`) and four guards: one seed is
+  one report, every scenario covered, no rung presses faster than its profile
+  allows, and the ladder is ordered by press rate.
+  ⛔⛔ **AND RUNNING ITS OWN CENSUS SAYS THE CALIBRATION HALF IS UNSTARTED IN A
+  SPECIFIC WAY — measured 2026-08-26, seed `0x5EED`:**
+
+```text
+L1 mean apm 12.7 (cap 120)   distinct frames 19
+L5 mean apm 29.3 (cap 270)   distinct frames 19
+L9 mean apm 46.0 (cap 420)   distinct frames 20
+```
+
+  ⇒ **the APM CAP IS INERT** — every rung runs at roughly a TENTH of its own
+  limit, so the number the ladder authors forbids nothing at any level, and the
+  guard that asserts rungs stay under it can never fail. ⇒ **and `distinct_frames`
+  is FLAT (19–21) across all nine rungs**: a level 9 fighter uses the same
+  repertoire as a level 1, only faster. **Difficulty is a tempo knob and nothing
+  else.**
+  ⛔ **`ScenarioOutcome` also carries no survival, damage or recovery field at
+  all** — `scenario, level, apm, apm_cap, distinct_frames` — so the evidence this
+  track names cannot be produced by this rig yet. ⇒ **the next step is a FIELD,
+  not a calibration pass**: give the outcome what a difficulty is supposed to
+  change (did it win, how much did it take, did it recover), then look again.
+  Use
   [`engine/fighter-brain.md`](engine/fighter-brain.md).
 
 - ✔ **Projectile contact against published body geometry — CLOSED 2026-08-22.**

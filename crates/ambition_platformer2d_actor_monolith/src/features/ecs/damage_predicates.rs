@@ -10,10 +10,8 @@ use bevy::prelude::{Query, With, Without};
 
 use ambition_boss_encounter::BossConfig;
 
-use super::{
-    ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId,
-    FeatureSimEntity, HitEvent,
-};
+use super::{ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureSimEntity};
+use ambition_combat::events::{HitEvent};
 
 pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &str) -> bool {
     ignored_targets.iter().any(|ignored| {
@@ -156,10 +154,10 @@ mod tests {
             strike_sfx: None,
             volume: Aabb::new(Vec2::new(90.0, 84.0), Vec2::new(4.0, 4.0)).into(),
             damage: 1,
-            source: crate::features::HitSource::Projectile,
+            source: ambition_combat::events::HitSource::Projectile,
             attacker: None,
-            target: crate::features::HitTarget::Volume,
-            mode: crate::features::HitMode::Knockback,
+            target: ambition_combat::events::HitTarget::Volume,
+            mode: ambition_combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
         }

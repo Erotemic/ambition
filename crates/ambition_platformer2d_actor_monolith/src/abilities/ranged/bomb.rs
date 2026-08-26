@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use crate::features::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 use crate::items::pickup::GroundItem;
 use ambition_platformer2d_core as ae;
 

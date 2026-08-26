@@ -28,9 +28,8 @@ use ambition_platformer2d::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition_platformer2d::actors::features::{
-    BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
-};
+use ambition_platformer2d::actors::features::{BossRewardChest};
+use ambition_platformer2d::combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::encounter::EncounterMusicRequest;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;

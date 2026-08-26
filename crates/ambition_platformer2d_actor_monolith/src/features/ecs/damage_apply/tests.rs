@@ -1628,11 +1628,11 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
             1.0,
             DOWN,
             false,
-            Some(&crate::features::HitKnockback {
+            Some(&ambition_combat::events::HitKnockback {
                 // An ordinary hit: it stuns.
                 reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                 dir: 1.0,
-                magnitude: crate::features::HitKnockbackMagnitude::LaunchSpeed(200.0),
+                magnitude: ambition_combat::events::HitKnockbackMagnitude::LaunchSpeed(200.0),
                 source_pos: ATTACKER,
                 impact_pos: VICTIM,
                 launch_dir: None,

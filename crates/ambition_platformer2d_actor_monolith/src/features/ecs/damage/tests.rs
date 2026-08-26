@@ -7,7 +7,7 @@ use super::super::damage_drops::{
 };
 use super::*;
 use crate::features::ecs::enemy_component_snapshot;
-use crate::features::{HitMode, HitTarget};
+use ambition_combat::events::{HitMode, HitTarget};
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
 use ambition_platformer2d_core as ae;
@@ -1195,12 +1195,12 @@ fn shield_test_app() -> App {
 /// A player slash whose hitbox is centered at `center` (must overlap the actor's
 /// body AABB to land), dealing `damage`.
 /// The shove a player slash carries, spelled the one way knockback is spelled.
-fn slash_knockback(center: ae::Vec2, dir: f32) -> crate::features::HitKnockback {
-    crate::features::HitKnockback {
+fn slash_knockback(center: ae::Vec2, dir: f32) -> ambition_combat::events::HitKnockback {
+    ambition_combat::events::HitKnockback {
         // An ordinary hit: it stuns.
         reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir,
-        magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+        magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
         source_pos: center,
         impact_pos: center,
         launch_dir: None,
@@ -1297,11 +1297,11 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         attacker: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
-        knockback: Some(crate::features::HitKnockback {
+        knockback: Some(ambition_combat::events::HitKnockback {
             // An ordinary hit: it stuns.
             reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
-            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
@@ -1354,11 +1354,11 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
 #[test]
 fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
     for knockback in [
-        Some(crate::features::HitKnockback {
+        Some(ambition_combat::events::HitKnockback {
             // An ordinary hit: it stuns.
             reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
-            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
@@ -1371,7 +1371,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
 }
 
 fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
-    knockback: Option<crate::features::HitKnockback>,
+    knockback: Option<ambition_combat::events::HitKnockback>,
 ) {
     let launched = knockback.is_some();
     let mut app = shield_test_app();
@@ -1518,11 +1518,11 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
         attacker: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
-        knockback: Some(crate::features::HitKnockback {
+        knockback: Some(ambition_combat::events::HitKnockback {
             // An ordinary hit: it stuns.
             reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
-            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,

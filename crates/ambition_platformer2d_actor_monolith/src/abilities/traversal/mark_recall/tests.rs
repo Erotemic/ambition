@@ -5,7 +5,7 @@ fn test_app() -> App {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
-    app.add_message::<crate::features::HitEvent>();
+    app.add_message::<ambition_combat::events::HitEvent>();
     app.add_systems(Update, mark_recall_system);
     app
 }
@@ -26,10 +26,10 @@ fn player_pos(app: &App, player: Entity) -> ae::Vec2 {
 }
 
 #[derive(bevy::prelude::Resource, Default)]
-struct CapturedHits(Vec<crate::features::HitEvent>);
+struct CapturedHits(Vec<ambition_combat::events::HitEvent>);
 
 fn capture_hits(
-    mut reader: bevy::prelude::MessageReader<crate::features::HitEvent>,
+    mut reader: bevy::prelude::MessageReader<ambition_combat::events::HitEvent>,
     mut out: bevy::prelude::ResMut<CapturedHits>,
 ) {
     out.0.extend(reader.read().cloned());
@@ -59,7 +59,7 @@ fn recall_emits_a_player_side_shockwave_at_the_mark() {
     assert!(
         matches!(
             hits[0].source,
-            crate::features::HitSource::Melee
+            ambition_combat::events::HitSource::Melee
         ),
         "player-side so it spares the player",
     );

@@ -1669,8 +1669,8 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
-    app.add_message::<ambition_platformer2d::actors::features::SetFlagRequested>();
-    app.insert_resource(ambition_platformer2d::actors::features::GameplayBanner::default());
+    app.add_message::<ambition_platformer2d::combat::events::SetFlagRequested>();
+    app.insert_resource(ambition_platformer2d::combat::events::GameplayBanner::default());
     let mut scope = ActiveSessionScope::default();
     let session = scope.begin();
     app.insert_resource(scope);

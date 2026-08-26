@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::features::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_portal2d::ClearPortals;
 
 /// Emit a [`ClearPortals`] for a MANUAL room reset (the delete-key reset or a

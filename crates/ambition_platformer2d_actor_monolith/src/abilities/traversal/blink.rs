@@ -105,7 +105,7 @@ pub fn blink_system(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-    mut hits: MessageWriter<crate::features::HitEvent>,
+    mut hits: MessageWriter<ambition_combat::events::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
     // that never added the engine's schedule plugin still blinks.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
@@ -184,14 +184,14 @@ pub fn blink_system(
     // Offensive blink: a small player-side shockwave at the arrival point, so you
     // can blink *into* enemies to strike them (and the PlayerSlash source spares
     // the player). Composes nicely with a gravity well — blink in, sweep them up.
-    hits.write(crate::features::HitEvent {
+    hits.write(ambition_combat::events::HitEvent {
         strike_sfx: None,
         volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
         damage: BLINK_SHOCKWAVE_DAMAGE,
-        source: crate::features::HitSource::Melee,
+        source: ambition_combat::events::HitSource::Melee,
         attacker: Some(player),
-        target: crate::features::HitTarget::Volume,
-        mode: crate::features::HitMode::Knockback,
+        target: ambition_combat::events::HitTarget::Volume,
+        mode: ambition_combat::events::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
     });

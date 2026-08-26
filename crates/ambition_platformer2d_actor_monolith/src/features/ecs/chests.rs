@@ -2,6 +2,7 @@
 
 use super::*;
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
 /// and legacy NPCs/switches.

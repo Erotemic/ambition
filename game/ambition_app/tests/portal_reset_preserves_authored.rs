@@ -18,7 +18,7 @@
 
 use crate::common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
-use ambition_platformer2d::actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_platformer2d::combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::portal::PlacedPortal;
 use ambition_app::Platformer2dSimHarness;
 

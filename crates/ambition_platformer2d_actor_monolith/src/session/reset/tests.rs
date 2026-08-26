@@ -222,7 +222,7 @@ fn min_app() -> App {
         app.world_mut(),
         EncounterMusicRequest::default(),
     );
-    app.insert_resource(crate::features::GameplayBanner::default());
+    app.insert_resource(ambition_combat::events::GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     // Explicit content-free boss authority: the reset processor reads
@@ -380,7 +380,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
     // Banner surfaces the action so the player can see it.
     assert_eq!(
         app.world()
-            .resource::<crate::features::GameplayBanner>()
+            .resource::<ambition_combat::events::GameplayBanner>()
             .text,
         "SANDBOX RESET"
     );

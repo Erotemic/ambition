@@ -13,7 +13,7 @@ use super::{
     ActorIdentity, ActorInteraction, AggressionMode, CombatKit,
     FeatureSimEntity, HeldItem,
 };
-use crate::features::ActorStimulus;
+use ambition_combat::events::ActorStimulus;
 
 /// Apply actor stimuli to aggression: a non-passive actor that crosses its
 /// provocation threshold flips hostile IN PLACE (peaceful NPC → hostile

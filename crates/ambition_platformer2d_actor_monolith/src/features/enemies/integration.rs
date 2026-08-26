@@ -11,6 +11,7 @@
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
 use super::*;
+use ambition_combat::events::{FeatureCombatTuning, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 
 /// Minimum knockback strength a body-contact hit imparts on the struck body, even
 /// when the archetype authored `contact_strength = 0`. Guarantees a body that

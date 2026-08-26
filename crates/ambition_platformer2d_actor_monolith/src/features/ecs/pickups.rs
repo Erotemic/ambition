@@ -1,8 +1,9 @@
 //! Player → pickup collection on the ECS feature path.
 
 use super::*;
-use crate::features::SetFlagRequested;
+use ambition_combat::events::SetFlagRequested;
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_combat::events::{GameplayBanner};
 
 /// Bodies eligible for passive touch collection.
 ///

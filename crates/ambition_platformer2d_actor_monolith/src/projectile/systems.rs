@@ -12,10 +12,8 @@ use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
 use ambition_projectiles::{resolve_world_collision, WorldHitOutcome};
 use ambition_projectiles::{ProjectileSpawnRequest, ProjectileStart};
 use crate::actor::BodyKinematics;
-use crate::features::{
-    ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
-    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
-};
+use crate::features::{ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity};
+use ambition_combat::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 use ambition_projectiles::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use ambition_boss_encounter::{BossClusterRef, BossConfig};

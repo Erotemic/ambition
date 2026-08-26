@@ -1688,7 +1688,7 @@ impl Plugin for MaryORulesPlugin {
         app.add_message::<ambition_platformer2d::actors::features::SpawnActorRequest>();
         // The snake reset listens to the engine's ONE "put this room back"
         // signal, which a full host emits and a rules-only harness does not.
-        app.add_message::<ambition_platformer2d::actors::features::ResetRoomFeaturesEvent>();
+        app.add_message::<ambition_platformer2d::combat::events::ResetRoomFeaturesEvent>();
         // The snake squash pops a dust burst through the engine's vfx seam; a full
         // app registers this via the presentation plugins, but a thin rules-only
         // harness may not, and `add_message` is idempotent.
@@ -1700,7 +1700,7 @@ impl Plugin for MaryORulesPlugin {
         // A sliding snake shell deals damage through the shared `HitEvent` pipeline
         // (`run_snake_shells`); the full app registers this via the engine's damage
         // plugin, but a thin rules-only harness may not. `add_message` is idempotent.
-        app.add_message::<ambition_platformer2d::actors::features::HitEvent>();
+        app.add_message::<ambition_platformer2d::combat::events::HitEvent>();
         // Level progression lives in the canonical gameplay-effects phase. The
         // flag runs before the clock; the cycle emitter runs last so it sees the
         // settled tally and its clock reset is not immediately decremented.

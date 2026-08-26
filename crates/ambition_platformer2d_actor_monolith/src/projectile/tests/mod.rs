@@ -15,7 +15,8 @@ use bevy::prelude::*;
 
 use ambition_projectiles::state::PlayerProjectileState;
 use super::systems::{charge_projectile_input, step_projectiles};
-use crate::features::{ActorIdentity, GameplayBanner, HitEvent, SetFlagRequested};
+use crate::features::{ActorIdentity};
+use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
@@ -117,7 +118,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<HitEvent>();
-    app.add_message::<crate::features::ActorStimulus>();
+    app.add_message::<ambition_combat::events::ActorStimulus>();
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<crate::features::ecs::damage_apply::WalletShieldSpent>();
     app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();

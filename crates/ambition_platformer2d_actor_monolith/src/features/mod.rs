@@ -168,11 +168,11 @@ pub(crate) use ecs::{
 // `SurfaceMomentumMotion` on the way, so a caller could not grep the real type.
 // Callers name `_core`; the SDK keeps its own one-hop alias.
 pub use enemies::{ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX};
-pub use events::{
-    ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,
-    GameplaySfxRequested, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
-    HitTarget, NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
-};
+// ⛔ THE COMBAT EVENT VOCABULARY LEFT THIS FACADE, 2026-08-26. All fifteen are
+// `ambition_combat::events`', re-exported up to `features` beside a whole-module
+// `pub use ambition_combat::events` — so 74 sites read as coupling to the actor
+// crate for types it does not own, and `damage_apply`'s own tests reached the
+// monolith for exactly two names, both of them these. Callers name the owner.
 pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};
 pub use path_motion::PathMotion;

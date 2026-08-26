@@ -7,6 +7,7 @@
 
 use super::*;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
+use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 
 /// Spawn the canonical player entity used by interaction system tests.
 ///

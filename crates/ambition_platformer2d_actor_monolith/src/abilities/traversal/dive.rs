@@ -13,7 +13,7 @@
 //!
 //! Mechanically it reuses two proven primitives: [`crate::platformer_runtime::collision::raycast_solids`]
 //! (the same wall-stop the blink uses, so the lunge never lands inside geometry)
-//! and a one-shot `Player`-faction [`crate::features::HitEvent`] over the dash
+//! and a one-shot `Player`-faction [`ambition_combat::events::HitEvent`] over the dash
 //! corridor (a `PlayerSlash` source, so it damages enemies and spares the
 //! player). A *one-shot* event — not a lingering `Hitbox` — because a dash hits
 //! at the instant it crosses, it doesn't leave a damaging box behind.
@@ -96,7 +96,7 @@ pub fn fire_dive_system(
         &HeldItem,
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
-    mut hits: MessageWriter<crate::features::HitEvent>,
+    mut hits: MessageWriter<ambition_combat::events::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
     // that never added the engine's schedule plugin still dives.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
@@ -186,19 +186,19 @@ pub fn fire_dive_system(
     // not a new one, and it is a constant above if it wants tuning.
     let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
     let corridor_center = corridor.center();
-    hits.write(crate::features::HitEvent {
+    hits.write(ambition_combat::events::HitEvent {
         strike_sfx: None,
         volume: corridor,
         damage: DIVE_DAMAGE,
-        source: crate::features::HitSource::Melee,
+        source: ambition_combat::events::HitSource::Melee,
         attacker: Some(player),
-        target: crate::features::HitTarget::Volume,
-        mode: crate::features::HitMode::Knockback,
-        knockback: Some(crate::features::HitKnockback {
+        target: ambition_combat::events::HitTarget::Volume,
+        mode: ambition_combat::events::HitMode::Knockback,
+        knockback: Some(ambition_combat::events::HitKnockback {
             // An ordinary hit: it stuns.
             reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: local_dir.x.signum(),
-            magnitude: crate::features::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
+            magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
             source_pos: corridor_center,
             impact_pos: corridor_center,
             launch_dir: None,

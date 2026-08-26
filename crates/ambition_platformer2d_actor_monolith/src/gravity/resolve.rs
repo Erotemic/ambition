@@ -217,7 +217,7 @@ mod tests {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
             ));
         app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 0.016 });
-        app.add_message::<crate::features::ResetRoomFeaturesEvent>();
+        app.add_message::<ambition_combat::events::ResetRoomFeaturesEvent>();
         app.add_plugins(crate::gravity::GravityPlugin);
         app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
         app.init_resource::<ProbeSawZoneFrame>();

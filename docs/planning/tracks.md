@@ -273,7 +273,7 @@ These cards are capability fronts, not a serial mega-campaign.
   execution order. `E1` features may add a small reusable engine semantic;
   `E2` features get focused campaigns; `WAIT` rows stay deferred.
 
-- ◐ **Fighter-brain evaluation/calibration.** The brain stack exists; build the
+- ◐ **Fighter-brain evaluation/calibration — PROMOTED TO THE LEDGER 2026-08-26 as D244.** The brain stack exists; build the
   scenario outcome runner and calibrate the difficulty ladder through measured
   survival/damage/recovery evidence.
   ✔ **THE RUNNER IS BUILT** — `brain::fighter::{evaluation, scenarios}` (188 +

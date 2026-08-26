@@ -11643,6 +11643,48 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ▢ **D244 — THE DIFFICULTY LADDER IS A TEMPO KNOB, AND ITS CAP FORBIDS NOTHING.
+  (promoted from the intake 2026-08-26, with the measurement that gives it a
+  target)**
+
+⭐ **PROMOTED BECAUSE IT STOPPED BEING VAGUE.** `tracks.md`'s *"calibrate the
+difficulty ladder through measured survival/damage/recovery evidence"* had no
+definition of done. It has one now, measured at seed `0x5EED` over the FIVE
+registered rungs (1, 3, 5, 6, 9 — `evaluation::report` walks 1..=9 and the other
+four are generic fallbacks, which is now warned at the iteration site):
+
+```text
+L1  apm 12.7 / cap 120  = 10.6%    distinct frames 19
+L3      21.3 /     195  = 10.9%                     19
+L5      29.3 /     270  = 10.9%                     19
+L6      34.0 /     308  = 11.0%                     21
+L9      46.0 /     420  = 11.0%                     20
+```
+
+⛔ **TWO FINDINGS, and the second is the row.** (1) the APM cap never binds and is
+uniformly ~9x the observed rate, so it is a derived number rather than a limit —
+moving one would change nothing. (2) **`distinct_frames` is FLAT.** A level 9
+fighter uses the same ~20 control frames as a level 1, only faster: difficulty is
+cadence and nothing else.
+
+⭐ **THE TARGET IS GENRE RESEARCH, NOT A MAINTAINER DECISION.** A high-level CPU
+in this genre uses MORE OF ITS KIT and reads better — spacing, shield pressure,
+edgeguards, punishes it never attempts low. ⇒ **the definition of done is that
+`distinct_frames` RISES with level**, and the instrument that would show it
+already exists and already runs.
+
+⚠ **AND THE TWO RIGS ANSWER DIFFERENT QUESTIONS — do not conflate them.**
+`brain::fighter::{evaluation, scenarios}` is a DECISION rig: a static `WorldView`
+plus an expected `Situation`, no world stepping, so survival and damage are
+unfillable there BY DESIGN. `ladder_rig.rs` is the OUTCOME rig: CPU-vs-CPU
+matches reporting time to elimination, stocks remaining and engagement evidence
+across deterministic seeds, with `--weight` for refitting the scorer. ⇒ the
+repertoire claim is `evaluation`'s to measure; whether a broader rung actually
+WINS more is `ladder_rig`'s.
+
+⛔ this is a change to what a RUNG IS, not a number to retune, so price it as a
+slice rather than a tuning pass.
+
 - ✔ **D243 — A NON-DEFAULT FEATURE IS WHERE CODE GOES TO ROT, and one of them
   had stopped compiling. (opened AND closed 2026-08-26)**
 

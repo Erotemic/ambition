@@ -118,6 +118,17 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   `menu_repeat_initial_delay` / `menu_repeat_interval` settings — a repeat is an
   INPUT cadence, not a list-navigation rule.
 
+  ✔ **AND THE REPAIR WAS ONE LINE, so 26 TESTS CAME BACK.** The fixture
+  installed `ShellPauseMenuPlugin` alone and registered only `ShellCommand` — a
+  composition that cannot exist, because `drive_shell_pause_menu` WRITES
+  `ShellAbandonRequested` and the SHELL plugin owns that channel
+  (`plugin.rs:48`). Registering it there took the crate from **45 tests to 72**
+  under `--features basic_presentation`: the ten pause tests plus sixteen more
+  from `basic_presentation` that had never run either. ⇒ the wrap guard lives
+  where the code does now
+  (`the_pause_cursor_wraps_at_both_ends_like_every_other_list`), and poisoning
+  the clamp back reddens it.
+
 - ▢ **Finish context migration.** Inventory/specialized menus beyond the current
   cue ownership, a `VEHICLE` context, and loading/retry input remain outside the
   normal participant-context path. For loading/retry, fix the schedule ownership

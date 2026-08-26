@@ -2456,9 +2456,25 @@ STAYS    state_machine   2,250   the nine simple arms AND the enum
 already `pub use`s `brain::boss_pattern::profile::*` (`behavior.rs:23`) and
 already reads `boss_pattern_state()` (`anim.rs:19`). It is the boss domain's own
 thinking, sitting one crate too low. ⇒ that sub-question answers itself: the
-boss carve should have taken it. `ambition_combat` is the nearest existing home
-for `fighter`+`smash` (it depends on `ambition_characters` too), though a
-dedicated platform-fighter crate is the cleaner read.
+boss carve should have taken it. `ambition_combat` is the home
+for `fighter`+`smash`, and the dependency arithmetic says so rather than taste:
+
+```text
+fighter + smash NAME     core · entity_catalog · causal · content_pack
+ambition_combat HAS      all four — content_pack and causal already OPTIONAL,
+                         the same feature shape ambition_characters uses
+⇒ NEW DEPENDENCY EDGES   ZERO
+```
+
+⛔ **`boss_pattern` is NOT free, and this is the one real cost the move carries.**
+`boss_pattern/content_schema.rs` reads `ambition_content_pack::PreparedContentPack`
+(the authored boss-behaviour schema), and `ambition_boss_encounter` has neither
+`content_pack` nor `causal`. ⇒ **+1 optional dependency and one feature**,
+mirroring exactly what `ambition_characters` and `ambition_combat` already do —
+not a new pattern, but a real edge, and [a new dep edge fails the contracts job
+until `Cargo.lock` and the sentinel's own lock are refreshed]. ⚠ do NOT dodge it
+by sending boss thinking to `ambition_combat` because that is free; combat is the
+wrong owner and `boss_encounter` already re-exports this module's `profile`.
 
 **(3) THE "44 TEST CALL SITES" PRICE IS TWO.** Measured across
 `state_machine/tests.rs` (991 lines, 43 tick calls): of **62** variant

@@ -1464,6 +1464,47 @@ tumble is long and fast), or a grounded scripted shove that moves a body the
 floor game owns. ⚠ the fixture lesson generalises — a hand-set timer bypassed
 the getup rule and measured a state the game cannot be in.
 
+⛔⛔ **RE-READ 2026-08-26, AND THE ROW WAS DESCRIBING TWO DIFFERENT THINGS AS
+ONE. THE NAMED FIX COULD NOT HAVE REPAIRED THE NAMED DEFECT.** Both halves
+re-read at HEAD; the call site is unchanged (`integration.rs:224`, still
+`axis == side_axis && clusters.ground.on_ground`), so the reopening condition
+above — contact reaching the airborne case — has NOT occurred.
+
+```text
+the DEFECT   grounded, |v| <= max_run_speed, and the motion came from a LAUNCH
+             -> the proxy calls it walking and a neighbour stops it
+the FIX      knockdown::owns_control(state)
+             = knockdown_timer > 0 || (tumble_until_landing && tumble_timer > 0)
+the MEASURE  "grounded AND moving AND owned never occurred once in 120 ticks"
+```
+
+⇒ **the third line is not a reason the defect is unreachable; it is a proof the
+fix does not cover it.** `owns_control` is FALSE exactly when the defect fires —
+a decaying launch is neither a knockdown nor a tumble — so gating on it would
+have left every decayed slide resisted exactly as it is today, and the three
+lines would have been dead code with a good comment. ⭐ the row's own instinct
+("a correct question nothing can test is dead code") was right about the shape
+and wrong about which question.
+
+⚠ **AND THE KERNEL DOES NOT HOLD THE FACT THAT WOULD ANSWER IT.** There is no
+hitstun in `AxisManeuverState` — `grep hitstun crates/ambition_platformer2d_core/src/movement/` is
+empty; hitstun lives monolith-side in the hit reaction. So "did this motion come
+from a hit" is not askable at this seam without threading a new fact through, and
+that is the real price of provenance here, not three lines.
+
+⇒ **what the defect actually costs, from the arithmetic**: at `resistance == 1.0`
+`allowed = free`, so the body is stopped AT contact — it is not slowed, the rest
+of the slide is cancelled. The exposure is the whole remaining tail below walk
+speed, not one step.
+
+⇒ **and it may not be a defect at all, which is why this is now a FEEL question
+rather than an unreachable one.** Two grounded bodies at walking speed stopping
+where they meet is what this capability is FOR; ploughing through is the
+exemption. The only open question is whether the DECAYED tail of a knockback is
+locomotion or launch. ⛔ do not answer that by refactor — it belongs in
+`awaiting-maintainer-decision.md` if anyone wants it answered, and nothing in the
+game currently looks wrong because of it.
+
 **(b) ✔ CLOSED 2026-08-21 — and it was WORSE than the doc admitted, which is
 why it did not need the schedule change.** The residual was written down as
 "bounded by one acceleration step, gone on the next tick". Measured on a

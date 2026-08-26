@@ -2529,9 +2529,26 @@ Brain             gains a second variant: StateMachine(..) | Platform(..)
 tests keep calling `tick_state_machine`, untouched**, because the thing they test
 never moves — and the routing gap above never opens for the nine.
 
-⚠ **the costs, stated:** (1) a WIRE FORMAT change — `snapshot_impls` encodes
-`StateMachineCfg::Fighter { … }` by name today, so the split is a declared
-`GGRS_ROLLBACK_SCHEMA_VERSION` bump; (2) `Brain::tick`/`tick_with_actions` still
+⭐⭐ **AND THE SPLIT IS NOT A WIRE-FORMAT CHANGE — I ASSUMED IT WAS AND THE CODE
+SAYS OTHERWISE.** `SnapshotCursor` is ENCODE-ONLY (a checksum projection; there is
+no decode side), and it already tags the three arms with explicit bytes —
+`1` BossPattern, `2` Smash, `3` Fighter, `_ => 0` for the nine. Rewriting those
+match arms from `Brain::StateMachine(StateMachineCfg::Fighter{..})` to
+`Brain::Platform(PlatformBrainCfg::Fighter{..})` emits the same tag and the same
+fields in the same order. ⇒ **no `GGRS_ROLLBACK_SCHEMA_VERSION` bump, no baseline
+row.** Neither `Brain` nor `StateMachineCfg` is in `encoded_types`.
+
+⛔ **BUT THE `boss_pattern` MOVE PAYS THE FOURTH LEDGER.** `encoded_types` keys by
+FULL PATH and holds **eight** `ambition_characters::brain::boss_pattern::*` rows
+(`BossAttackIntent`, `BossAttackProfile`, `BossAttackState`, `BossEncounterPhase`,
+`BossMacroState`, `BossPatternStep`, …) behind five `SnapshotState` impls. All
+eight repoint, and the orphan rule drags the impls to the destination. ⭐ same
+bytes and same stable names, so it is a MOVE and not a wire change — repoint, do
+not bump. ⇒ **`fighter` and `smash` own ZERO `SnapshotState` impls and ZERO
+`encoded_types` rows** (their state is projected inline by the cursor), so that
+half of the migration touches no ledger at all.
+
+⚠ **the remaining costs:** (2) `Brain::tick`/`tick_with_actions` still
 have to be deleted, because a two-variant `Brain` cannot dispatch `Platform`
 downward — their five callers are the price, not forty-three; (3) ⛔ **`Brain`
 grows a second variant, and this row's own history is about REMOVING one**

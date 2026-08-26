@@ -614,3 +614,31 @@ huge regressions, not sure how we didn't have a test to catch these."*
   room CHANGED, never WHICH, which `Replay` satisfies. Both now have guards
   (`walking_into_a_loading_zone`, `level_lap`, `mary_o_lap_in_the_host`).
 
+
+## GPT review, relayed by Jon 2026-08-26 — Smash cross-boundary pass
+
+* Sudden death enters at 150% but does not reduce the contenders to one stock. `open_the_sudden_death_round` only changes `BodyHealth`, so a tied fighter with two or three stocks just spends one on the first KO and respawns fresh, with the clock disabled. The entry transaction should set each contender's remaining stock to one alongside the damage.
+  * ✔ ALREADY FIXED AT HEAD — `open_the_sudden_death_round` sets `stocks.remaining = 1` for every contender, with a comment naming this exact bug; the review is reading an older tree.
+
+* The same sudden-death sim system writes the persistent "SUDDEN DEATH" `HudReadouts` slot. A rollback before the timeout retracts `BodyHealth` and the message but not `HudReadouts`, so the banner can survive as speculative presentation. Belongs with confirmed-result presentation cleanup, not with the game rules.
+  * ▢
+
+* Every `MoveEventKind::Ranged` passes through a hidden 1.1-second body refire cooldown at the effect consumer, while Projectile Polygon's authored Charge Shot is 0.58 seconds long. The move-start authority does not consult that cooldown.
+  * ▢
+
+* `emit_knockout_beat` asks for one or two `VfxMessage::Impact`s and calls them "expanding rings", but `Impact` is the ordinary hit-marker API. Asset-backed, it resolves to the shipped generic hit effect, so an elimination draws the normal damage-impact art twice at the blast line. Semantic misuse of the VFX vocabulary.
+  * ▢
+
+* Stock-loss presentation has no composition policy. The launch-trail module says its flare/plume sit "on top of the hit spark and camera shake", and knockout adds another layer on top of that. Nothing at the stock-spend boundary retires or attenuates the cues whose job was to PREDICT danger, so all three modules can be locally correct and still over-signal.
+  * ▢
+
+* `KnockoutsView` is a rebuilt read-model used as a one-tick event queue: cleared on every simulation advance but rendered once per frame. Catch-up resimulation can erase an intermediate KO before presentation samples it, and a KO on the latest speculative advance renders immediately, bypassing the confirmed-effect quarantine.
+  * ▢
+
+* `KnockoutsView`'s `LastSeenBodies` history is a non-rollback `Local`, so after a rewind the "where did the body leave play?" lookup can come from the abandoned future branch. This transient event belongs on the confirmed/journaled presentation-event path used by SFX/VFX/camera shake.
+  * ▢
+
+* `guard_covers_hit` shifts the full-width coverage band by `shield_tilt` even though the code promises a full shield can never be poked. At max tilt (0.34 half-heights) a 100% shield covers about -0.66 to +1.34, exposing the opposite outer third; the test misses it because its full-shield control samples only -0.3. Bound the tilt by the amount already exposed — at full coverage the allowed shift is zero.
+  * ✔ ALREADY FIXED AT HEAD — `guard_covers_hit` returns `true` on `coverage >= 1.0` before tilt is read, and its doc states that contract; the review is reading an older tree.
+
+* Negative result, same pass: camera reset, crouch scheduling, Z-drop, recovery edge-cancel, defense-policy composition and the deterministic item RNG produced no additional defects under the cross-boundary checks.

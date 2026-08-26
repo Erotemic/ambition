@@ -20,7 +20,42 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-26, LATEST — a fortnight of stale markers, and three feature-gate holes
+## 2026-08-26, LATEST — the mount is free, and four review rows were already finished
+
+⭐⭐⭐ **THE ONE SENTENCE: FOUR OF THE SIX OPEN LEDGER ROWS I RE-READ TODAY WERE
+FINISHED AND STILL MARKED OPEN.** D237, D238, D239 and D179 all closed by
+READING them against HEAD — not by building anything. Two items in D237 had
+shipped under D241 and were never marked; D238's clank fix and windbox contract
+were both live in the code the row called open. ⇒ **the ledger went 18 open rows
+→ 14 in one pass.** Re-read before you build; the four-session failure mode this
+file warns about is a `▢` on work that already landed.
+
+⭐⭐ **`ecs/mount/mod.rs` NOW NAMES ZERO MONOLITH PATHS**, which is D33's smallest
+honest carve unblocked. Four outward edges went in one day: the brain rebuild
+answers a `MountDied` mount was already writing; `ResolvedMotionFrame` was in
+`shared_tangle` all along behind a re-export; `TemporaryControl` moved to
+`shared_tangle` beside `Mass`; and the 26-column `ActorClusterQueryData` turned
+out to be five columns, four of which live in other crates. The last one wanted
+`ActorConfig`'s authored baseline, now `shared_tangle::body::SpawnBaseline` —
+which also collapsed **three** hand-written `if is_aerial { 0.0 } else { 1.0 }`
+sites into one recorded value. ⚠ `mount/tests.rs` still names 41 monolith paths,
+so the remaining carve work is the FIXTURES.
+
+⛔⛔ **THREE MECHANICS ARE GUESSING AT ONE MISSING FACT.** The initial dash, the
+shield brake and body contact each bound themselves by a magnitude with the same
+sentence — *"anything faster than its own run is somebody else's velocity"* — and
+each fails on a DECAYED launch. Two ledger rows tracked them separately and a
+third had already closed one as a feel question. All three are
+[decision 34](awaiting-maintainer-decision.md) now, and the genre's answer is
+TUMBLE, which this kernel fully implements and every shipped body leaves dormant.
+
+⚠ **AND D168's OWN PRICING WAS WRONG IN FOUR PLACES**, each corrected by
+measurement: the carve is three arms not all of `brain/`; the "253 lines of data"
+is really 1.5–2.5k interleaved with behaviour; the enum split costs NO wire
+format; and it buys EDIT COST (18 dependents → 10), **not** capability footprint —
+every destination is already in the movement-only sentinel's closure.
+
+## 2026-08-26 — a fortnight of stale markers, and three feature-gate holes
 
 ⭐⭐⭐ **THE ONE SENTENCE WORTH CARRYING FORWARD: A GREEN PER-CRATE `cargo test`
 IS EVIDENCE ABOUT A FEATURE SET, NOT ABOUT A CRATE.** Three holes found in one

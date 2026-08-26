@@ -172,6 +172,14 @@ pub fn play(scenario: &Scenario, profile: FighterBrainProfile, seed: u64) -> Sce
 }
 
 /// The whole suite across the whole authored ladder — the repeatable report.
+/// ⛔⛔ IT WALKS 1..=9, AND A COMPOSITION NEED NOT REGISTER ALL NINE. This crate
+/// cannot know which rungs a game publishes — `FighterBrainProfile::for_level`
+/// answers for any level, so an unregistered one yields a GENERIC FALLBACK that
+/// is not a ladder rung. The smash demo registers five (1, 3, 5, 6, 9) and its
+/// `ladder_rig` says the rest are *"invalid for this measurement"*. ⇒ **a caller
+/// reading a calibration off these rows must filter to the levels ITS
+/// composition registers**, or four of the nine rows are synthetic and the curve
+/// through them is partly invented.
 pub fn report(seed: u64) -> Vec<ScenarioOutcome> {
     let scenarios = suite();
     let mut rows = Vec::new();

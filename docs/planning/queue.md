@@ -10733,9 +10733,21 @@ fixture is live (`a_hit_on_the_player_freezes_the_match`), not ignored.
 ⇒ ⚠ **A FIXTURE'S SPACING IS A PARAMETER, and "the enemy never lands one" was a
 conclusion about the number rather than about the game.**
 
-▢ STILL OPEN: **(4) `LandedBodyHit` means OVERLAP and
+✔✔ **CLOSED (4) AND (5) — the split landed and its first customer is the freeze.
+Re-verified at HEAD 2026-08-26.** `ResolvedBodyHit { victim, hitlag_seconds,
+source }` is published beside `publish_reaction` (the reaction is what CHARGES
+the hitlag, which is why publishing it beside the RESOLUTION reported zero for
+every hit), `request_impact_hitstop_on_resolved_hits` replaced the landed-hit
+reader in `combat_schedule`, and `a_hit_on_the_player_freezes_the_match` is the
+arm the old file could not have. ⛔ **and the source had to be CARRIED**: the
+first version froze the world permanently — 185 resolutions holding `tick+2` for
+180 ticks — and printing `event.source` said why, every one was
+`HitSource::Contact`. The consumer filters to CONNECTS (`Melee | Projectile |
+Pogo`). ⇒ probe the SOURCE, not the count.
+
+~~▢ STILL OPEN: **(4) `LandedBodyHit` means OVERLAP and
 new consumers read it as a RESOLVED CONNECT** — needs the producer/resolved
-split. ⚠ NOT PURELY GEOMETRIC ALREADY: the producer refuses a PARRIED hit
+split.~~ ⚠ NOT PURELY GEOMETRIC ALREADY: the producer refuses a PARRIED hit
 ("no `LandedBodyHit`: the attacker's move did not connect"), so the seam is
 half-drawn rather than absent.
 
@@ -11139,8 +11151,20 @@ constructor, so a unit fixture can only build a system that EARLY-RETURNS — a
 check that cannot fail. **The follow-up is an integration harness that plays a
 timed match to expiry**, which nothing in the tree does yet.
 
-▢ STILL OPEN: **(31) CHARGE SHOT can start, animate, play its release and fire
-NOTHING — CONFIRMED AT HEAD 2026-08-25.** The numbers are exact: `duration_s
+✔✔ **(31) CLOSED under Jon's relayed ruling — re-verified at HEAD 2026-08-26.**
+The refire floor moved OUT of the projectile consumer and became explicit weapon
+readiness checked BEFORE move acceptance (`weapon_ready`, `moveset/mod.rs:2042`,
+consulted at both the trigger and the selection site), and an accepted authored
+move carries `RangedCommitment::CommittedMove` so the consumer never asks a
+second time — *"a committed move is not an attempt; its recharge was spent where
+the move was ACCEPTED, a quarter of a second and one whole windup ago."* The
+cadence is preserved deliberately rather than as a side effect: the floor is
+authored per action (`RangedActionSpec::refire_s`) instead of one constant every
+character in the game was silently balanced around. ⇒ neither (a) nor (b) below
+as written; the ruling took (a)'s authority with (b)'s truthfulness.
+
+~~▢ STILL OPEN: **(31) CHARGE SHOT can start, animate, play its release and fire
+NOTHING — CONFIRMED AT HEAD 2026-08-25.**~~ The numbers are exact: `duration_s
 0.58`, `CHARGE_FIRE_AT_S 0.26`, `RANGED_REFIRE_S 1.1`. A second Charge Shot at
 the earliest legal opportunity (0.58s) reaches its authored fire frame at 0.84s —
 0.58s after the first shot — and `try_fire_ranged` refuses it, so the move plays
@@ -11277,7 +11301,12 @@ more protected than the other"*. ⇒ read `Has<DrivingParticipant>` per body, an
 rename the flag `controlled` → `driven`: the bug IS the conflation of "the body
 the camera focuses on" with "any body a participant drives".
 
-▢ **(39) DIRECTIONAL MELEE IS RECONSTRUCTED FROM MOVE-ID SPELLING.**
+✔ **(39) CLOSED — re-verified at HEAD 2026-08-26: `attack_intent_from_move_id`
+has NO occurrence left in the tree and `MovePlayback::attack_intent` carries the
+resolved gesture (`moveset/mod.rs:266`, with `with_attack_intent` as the seam).
+Deletion, not a wrapper, exactly as the trace below asked.**
+
+~~▢ **(39) DIRECTIONAL MELEE IS RECONSTRUCTED FROM MOVE-ID SPELLING.**~~
 `attack_intent_from_move_id` matches a seven-entry canonical vocabulary
 (`attack_up`, `attack_air_back`, …) and falls through to `Forward`. Pointed
 authors `polygon_tilt_up`, Pugnacious `polygon_brawler_air_back`, and the

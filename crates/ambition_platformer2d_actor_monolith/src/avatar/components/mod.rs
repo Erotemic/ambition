@@ -38,4 +38,3 @@ pub use ambition_characters::control::PlayerSlot;
 // `shared_tangle::safe_position`, beside the gate that writes it and the
 // cooldown that gates that. The comment above had already written this move
 // down for `PlayerBlinkCameraState`, for the same reason and in the same words.
-

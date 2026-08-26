@@ -88,8 +88,6 @@ pub use world::rooms;
 pub use time::move_toward;
 pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
-use ambition_platformer2d_core as ae;
-use bevy::prelude::{Message};
 
 // ⛔ THE ACTOR-DEATH ANNOUNCEMENT LEFT THIS CRATE ROOT, 2026-08-26.
 // `ActorDiedMessage` and `DeathCause` are `ambition_combat::death_rules`', beside

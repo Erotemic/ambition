@@ -1038,38 +1038,11 @@ fn outgoing_projectile_damage_scales_with_the_slider() {
     assert_eq!(scaled, base * 4, "outgoing damage follows the slider");
 }
 
-#[test]
-fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
-    let mut app = App::new();
-    app.add_message::<ActorDiedMessage>();
-    app.add_systems(Update, publish_kernel_reset_death);
+// ⛔ `kernel_reset_death_reports_the_pre_respawn_impact_position` MOVED with its
+// system to `avatar::body_integration`, 2026-08-26. It builds a bare player and
+// drives `publish_kernel_reset_death` directly; nothing in it is this module's,
+// so it travels rather than reaching back.
 
-    let impact = ae::Vec2::new(321.0, -45.0);
-    app.world_mut().spawn((
-        crate::actor::PlayerEntity,
-        crate::actor::PrimaryPlayer,
-        crate::avatar::PlayerBodyFrameOutput {
-            reset: Some(crate::avatar::BodyReset {
-                cause: ae::ResetCause::Hazard,
-                origin: impact,
-            }),
-            ..default()
-        },
-    ));
-
-    app.update();
-
-    let deaths: Vec<_> = app
-        .world_mut()
-        .resource_mut::<Messages<ActorDiedMessage>>()
-        .drain()
-        .collect();
-    assert_eq!(deaths.len(), 1);
-    assert_eq!(
-        deaths[0].pos, impact,
-        "the death fact must preserve where the hazard struck, not the spawn destination"
-    );
-}
 
 /// Explicit victim identity outranks the legacy source-direction partition.
 /// This is the downstream half of body-generic melee: a Player-effective fighter

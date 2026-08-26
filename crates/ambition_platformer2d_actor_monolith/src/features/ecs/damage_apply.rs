@@ -19,8 +19,8 @@ use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 
-use crate::actor::BodyAnimFacts;
-use crate::actor::PrimaryPlayerOnly;
+use ambition_characters::actor::BodyAnimFacts;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use ambition_combat::death_rules::ActorDiedMessage;
@@ -1011,62 +1011,11 @@ pub fn incoming_player_damage_multiplier(
     gameplay.difficulty.damage_taken_multiplier() * assist_factor
 }
 
-/// Publish the authoritative death fact for a body the MOVEMENT KERNEL reset.
-///
-/// A pit fall, a drown, or a tile-grid `HazardBlock` never reaches
-/// [`resolve_body_hit`]: the kernel flags `FrameEvents::reset`,
-/// `integrate_home_body` teleports the body to spawn, and no health is ever
-/// touched — `hazard_runtime` says so outright ("tile-grid hazards run through
-/// the engine's reset-to-spawn path and never reach `HazardRuntime`"). So the
-/// most common death in a platformer emitted no death signal at all, and the one
-/// consumer that wanted it — Mary-O's lives — had to infer death from
-/// `BodyLifetime.resets` instead.
-///
-/// Six unrelated callers bump `resets`: two real deaths, a room load, an avatar rebuild, a sandbox
-/// reset, and a room replay's own reset. Mary-O read the replay's bump as a fresh death, spent
-/// another life, and requested another replay — an unbounded loop that drained the whole lives
-/// counter many times a second in the hosted app. A counter cannot carry a reason; a message can.
-///
-/// Scoped to the primary player because "died" here means "the local player's
-/// attempt ended". An actor's own hazard reaction is its business — it never
-/// teleports to the player spawn, so it never sets this flag.
-pub fn publish_kernel_reset_death(
-    mut died: MessageWriter<ActorDiedMessage>,
-    bodies: Query<(Entity, &crate::avatar::PlayerBodyFrameOutput), PrimaryPlayerOnly>,
-) {
-    for (victim, frame_out) in &bodies {
-        let Some(reset) = frame_out.reset else {
-            continue;
-        };
-        died.write(ActorDiedMessage {
-            victim,
-            pos: reset.origin,
-            // The kernel gate now says WHICH world killed her, so this reports
-            // it instead of apologizing for not knowing. No entity claims any
-            // of these kills — `attacker` stays `None` for all of them.
-            cause: ambition_combat::death_rules::DeathCause {
-                source: death_source_of(reset.cause),
-                attacker: None,
-            },
-        });
-    }
-}
+// ⛔ `publish_kernel_reset_death` MOVED TO `avatar::body_integration`, 2026-08-26.
+// It read `PlayerBodyFrameOutput` — the avatar's own per-frame output — and
+// reported "the local player's attempt ended", which is that module's concern.
+// It was the last monolith-owned type this module named.
 
-/// The killing category a kernel reset belongs to.
-///
-/// A voluntary reset is still a death: the run ended, the lives counter should
-/// spend one, and a player who presses the restart verb in a platformer expects
-/// the attempt to be over. It is charged to `Hazard` — the same anonymous
-/// world-killed-you category the spikes use — because no vocabulary exists for
-/// "you asked", and inventing one would only be honest if something read it.
-fn death_source_of(cause: ae::ResetCause) -> ambition_combat::HitSource {
-    match cause {
-        ae::ResetCause::LeftTheWorld => ambition_combat::HitSource::LeftTheWorld,
-        ae::ResetCause::Hazard | ae::ResetCause::Drowned | ae::ResetCause::Requested => {
-            ambition_combat::HitSource::Hazard
-        }
-    }
-}
 
 /// Stage this frame's hits that belong to the controlled-body victim resolver
 /// into its rollback-registered FIFO.
@@ -1200,7 +1149,7 @@ pub fn apply_player_hit_events(
     // SLOT-0 BY DESIGN: the safe-position memory this feeds is slot 0's respawn
     // point. Damage ROUTING itself is body-generic (it runs off factions and the
     // grudge); only "where does the local player wake up" is primary-scoped.
-    primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     // Friendly-fire policy (the DAMAGE side) + a faction lookup for the hit's
     // attacker: damage is physical, so any DIFFERENT-faction attacker's hit lands
     // on the player — including a duel's stray that the observer walked into. Only

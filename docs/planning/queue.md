@@ -2509,6 +2509,25 @@ person should not price it as a move. What would unblock it is a way for a close
 enum to be extended by a crate above without erasure — and nobody has one. ⛔ do
 not reopen it by reaching for the service locator; that answer is already given.
 
+⭐⭐ **AND IT IS NOT THE ONLY ROW HELD BY THAT ONE SHAPE — noticed 2026-08-26,
+which is the argument for solving it ONCE.** D242's flagship item is stuck on the
+same thing wearing a different name:
+
+```text
+D168   StateMachineCfg      a closed enum a crate ABOVE cannot add a policy to
+                            (7 variants; the wire format encodes them)
+D242   Platformer2dInputActionMonolith
+                            a closed enum a crate above cannot add an ACTION to
+                            (35 variants, 288 references, 21 files; `InputMap`
+                             and `ActionState` are keyed by it)
+```
+
+⇒ both have a REGISTRY beside them that already describes the thing
+(`ActionRegistry` / the catalog resolver) and neither can bind it, because the
+KEY is closed. ⇒ **whatever answers one probably answers the other**, and a
+solution that only fits one is the weaker candidate. ⛔ still not the service
+locator, in either place.
+
 ⚠ **`Brain` is a ONE-VARIANT enum now** (`StateMachine(StateMachineCfg)`).
 Collapsing it to a struct is a separate decision and deliberately not taken here:
 the enum is where a future non-state-machine policy attaches, and flattening it

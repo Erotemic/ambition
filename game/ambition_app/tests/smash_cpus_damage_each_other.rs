@@ -662,3 +662,169 @@ fn mirror_bout(
         asked,
     )
 }
+
+/// ⭐ HOW MANY SOUNDS DOES THE GOBLIN / PCA FIGHT ASK FOR?
+///
+/// Jon, 2026-08-25: *"there is a bad sfx problem with goblin and pca"*, and he
+/// wants to know whether the volume of triggers indicates a deeper bug rather
+/// than a mix problem.
+///
+/// ⛔⛔ IT COUNTS THE ASK, NOT WHAT A LISTENER HEARS. `OwnedSfxMessage` is what
+/// mechanics emit, before any volume, ducking or voice limiting decides what
+/// reaches a speaker. If the count is wrong here no mix change can fix it — and
+/// if the count is fine, the problem IS the mix and this says so.
+///
+/// ⛔ IN THE SHIPPED COMPOSITION, not the demo shell. D189: the demo shell's
+/// catalog carries George and two stand-ins, so neither of these two can be
+/// seated there — a rig that tried would measure an empty stage.
+///
+/// The assertion is deliberately structural. A tuned ceiling on total density
+/// would go red on any balance change and teach nobody anything; many of ONE
+/// sound on ONE tick, with two fighters on the stage, cannot be anything but a
+/// duplicate emission.
+#[test]
+fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick() {
+    use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
+    use bevy::ecs::message::Messages;
+    use std::collections::BTreeMap;
+
+    fn variant(request: &SfxMessage) -> &'static str {
+        match request {
+            SfxMessage::Jump { .. } => "jump",
+            SfxMessage::DoubleJump { .. } => "double_jump",
+            SfxMessage::Dash { .. } => "dash",
+            SfxMessage::Blink { .. } => "blink",
+            SfxMessage::Pogo { .. } => "pogo",
+            SfxMessage::Land { .. } => "land",
+            SfxMessage::Slash { .. } => "slash",
+            SfxMessage::Hit { .. } => "hit",
+            SfxMessage::Death { .. } => "death",
+            SfxMessage::Reset { .. } => "reset",
+            SfxMessage::Play { .. } => "play",
+        }
+    }
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let roster = ambition_demo_smash::smash_roster_at_levels(
+        ["goblin", "perfect_cellular_automaton"],
+        &[RUNG, RUNG],
+    );
+    let countdown = roster.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+
+    let mut total: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut worst: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut busiest = (0usize, 0usize);
+    let mut by_id: BTreeMap<String, usize> = BTreeMap::new();
+    let mut worst_by_id: BTreeMap<String, usize> = BTreeMap::new();
+    let mut seated_ticks = 0usize;
+    let mut cursor = None;
+
+    for tick in 0..(countdown + TICKS) {
+        app.update();
+        let world = app.world_mut();
+        let seats = world.query::<&MatchSeat>().iter(world).count();
+        if seats >= 2 {
+            seated_ticks += 1;
+        }
+        let messages = world.resource::<Messages<OwnedSfxMessage>>();
+        let cursor = cursor.get_or_insert_with(|| messages.get_cursor());
+        let mut this_tick: BTreeMap<&'static str, usize> = BTreeMap::new();
+        let mut tick_by_id: BTreeMap<String, usize> = BTreeMap::new();
+        for owned in cursor.read(messages) {
+            let name = variant(&owned.request);
+            *this_tick.entry(name).or_default() += 1;
+            *total.entry(name).or_default() += 1;
+            // ⭐ WHICH authored sound, not just "an authored sound". Nearly every
+            // request in this fight is `Play`, so the variant histogram alone
+            // cannot say whether one emitter is stuck or the fight is simply loud.
+            // ⛔ KEYED BY THE SOUND, NOT BY "an authored sound". A per-tick
+            // ceiling on the `play` AGGREGATE is wrong and was measured wrong:
+            // a george mirror legitimately asks for six DIFFERENT authored
+            // sounds on one tick. Many of ONE id on one tick is the duplicate.
+            let key = match owned.request {
+                SfxMessage::Play { id, .. } => format!("{id:?}"),
+                _ => name.to_string(),
+            };
+            *by_id.entry(key.clone()).or_default() += 1;
+            *tick_by_id.entry(key).or_default() += 1;
+        }
+        let n: usize = this_tick.values().sum();
+        if n > busiest.1 {
+            busiest = (tick, n);
+        }
+        for (name, count) in this_tick {
+            let slot = worst.entry(name).or_default();
+            *slot = (*slot).max(count);
+        }
+        for (key, count) in tick_by_id {
+            let slot = worst_by_id.entry(key).or_default();
+            *slot = (*slot).max(count);
+        }
+    }
+
+    // ⛔ THE PREMISE. A fight that never seated two fighters asks for few sounds
+    // for a reason that has nothing to do with sfx.
+    assert!(
+        seated_ticks > TICKS / 4,
+        "goblin vs PCA shared the stage for only {seated_ticks} ticks, so nothing \
+         below is a measurement of a fight — check this composition can seat both"
+    );
+
+    let asked: usize = total.values().sum();
+    eprintln!(
+        "[sfx-census] goblin vs perfect_cellular_automaton, {seated_ticks} seated ticks: \
+         {asked} requests = {:.1}/s\n  by variant (total, worst single tick): {}\n  \
+         busiest tick: {} with {} requests",
+        asked as f32 / (seated_ticks.max(1) as f32 / 60.0),
+        total
+            .iter()
+            .map(|(k, v)| format!("{k}={v}/{}", worst.get(k).copied().unwrap_or(0)))
+            .collect::<Vec<_>>()
+            .join(" "),
+        busiest.0,
+        busiest.1,
+    );
+    let mut ranked: Vec<(&String, &usize)> = by_id.iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(a.1));
+    eprintln!(
+        "  loudest authored ids: {}",
+        ranked
+            .iter()
+            .take(8)
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+
+    // ⛔⛔ THIS GUARD CANNOT CATCH THE DEFECT THIS TEST FOUND, and saying so is
+    // the point. Measured 2026-08-25: goblin vs PCA asks for `player.hit` 6997
+    // times in 3776 ticks — 111/s — and PASSES here, because it is ~2 per tick,
+    // sustained rather than bursty. A george mirror asks 223 times, 31x fewer.
+    // The signature is the RATE, and the rate guard belongs with the fix (D206);
+    // adding it now would only paint main red without moving the bug.
+    //
+    // What this still catches is a genuine burst: many of ONE sound on ONE tick.
+    // ⚠ keyed by ID, not by the `play` aggregate — a george mirror legitimately
+    // asks for six DIFFERENT authored sounds on one tick, which the aggregate
+    // version called a duplicate.
+    const SAME_SOUND_ONE_TICK_CEILING: usize = 4;
+    let offenders: Vec<String> = worst_by_id
+        .iter()
+        .filter(|(_, w)| **w > SAME_SOUND_ONE_TICK_CEILING)
+        .map(|(name, w)| format!("{name} x{w}"))
+        .collect();
+    assert!(
+        offenders.is_empty(),
+        "one tick asked for the same sound more than {SAME_SOUND_ONE_TICK_CEILING} \
+         times: {} — with two fighters on the stage that is a duplicate emission, \
+         not density, and no mix change can fix it",
+        offenders.join(", ")
+    );
+}

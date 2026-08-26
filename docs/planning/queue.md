@@ -11786,6 +11786,13 @@ monolith              1194 / 1202 (causal)          ⛔ same; ✔ fixed
 ambition_demo_smash    --lib red for days           the gate runs the APP target
 ```
 
+⚠ **AND ONE MORE ROAD THE RUST GATE CANNOT SEE AT ALL: the sprite renderer's
+PYTHON suite**, in the `tools/ambition_sprite2d_renderer` submodule. Run
+2026-08-26: **685 passed, 15 skipped** — green, including the codegen-vs-rigdoc
+comparison D129 had recorded as *"left red on purpose"*. ⇒ no rot there today,
+but nothing in `cargo` would have told anyone: `python -m pytest` in that
+submodule is its own gate and it is not in anybody's habit.
+
 ▢ **WHAT IS STILL UNAUDITED, and it is the expensive half**: the PERSONA
 features — `android_platform`, `web_platform`, `visible_web`, `web_served` — need
 their cross-compilation targets, so a host `cargo check` cannot answer for them.

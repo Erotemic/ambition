@@ -2103,6 +2103,120 @@ fn wait_for_the_round_to_go_live(app: &mut App) {
     );
 }
 
+/// SETTLE THE MATCH THE WAY THE FIGHTERS DO — knock every seat but the first
+/// out until the stocks loop reaches its own verdict, and hand it back.
+///
+/// ⛔⛔ WHY NOT `MatchAbandonRequest`, WHICH IS THIS FILE'S USUAL SHORTCUT: an
+/// abandon settles as a `NoContest`, and a `NoContest` is the one verdict the
+/// simulation does NOT reach. It comes from a latch made outside the sim that
+/// does not rewind, so it cannot be "speculative" in the sense the two guards
+/// below are about — and since 2026-08-26 it deliberately skips the confirmation
+/// wait for exactly that reason. A guard about predicted verdicts settled by the
+/// abandon road would be measuring the carve-out rather than the rule.
+///
+/// ⛔ AND A KNOCKOUT IS NOT ONE `write_message` + ONE `update`. `App::update()`
+/// is a FRAME; the stocks loop runs on SIM TICKS, and a frame can carry none. A
+/// message written and left for two frames is a knockout that never happened, so
+/// this re-writes until the body visibly answers — `PendingRespawn` appearing,
+/// or the match settling.
+///
+/// ⚠ the respawn wait is the rule `stocks.rs::knock_out` documents:
+/// `spend_fighter_stocks` refuses a body that is still `PendingRespawn`, so two
+/// knockouts back to back are ONE spent stock without it.
+fn settle_the_match_by_knockout(app: &mut App) {
+    use ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled;
+
+    // ⛔ HOLD THE CALLER'S BOUNDARY ACROSS OUR OWN TICKS. Nothing in this host
+    // maintains `ConfirmedFrameBoundary`, and an ABSENT one confirms everything
+    // by its own doc — so a helper that ticked without re-inserting it would
+    // hand the caller's "predicted" arm a confirmed world.
+    let boundary = app
+        .world()
+        .get_resource::<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>()
+        .copied();
+    let running = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .cloned()
+        .expect("a live match to settle");
+    let mut tick = |app: &mut App| {
+        app.update();
+        if let Some(boundary) = boundary {
+            app.world_mut().insert_resource(boundary);
+        }
+    };
+    let settled = |app: &App| {
+        app.world()
+            .get_resource::<StocksMatchSettled>()
+            .is_some_and(|s| s.settled(&running))
+    };
+
+    let victims: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            Entity,
+            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        )>();
+        let mut rows: Vec<(usize, Entity)> = q.iter(world).map(|(e, seat)| (seat.0, e)).collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        assert!(
+            rows.len() > 1,
+            "this match seated {} fighters, so knocking out everybody but the \
+             first decides nothing",
+            rows.len()
+        );
+        rows.into_iter().skip(1).map(|(_, e)| e).collect()
+    };
+
+    // Bounded well above any authored stock count; `settled` is what ends it.
+    for _ in 0..60 {
+        if settled(app) {
+            return;
+        }
+        for &body in &victims {
+            if settled(app) {
+                return;
+            }
+            for _ in 0..240 {
+                if app
+                    .world()
+                    .get::<ambition_platformer2d::actor::PendingRespawn>(body)
+                    .is_none()
+                {
+                    break;
+                }
+                tick(app);
+            }
+            app.world_mut()
+                .write_message(ambition_platformer2d::actor::BodyKnockedOut {
+                    body,
+                    cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
+                });
+            // Wait for the sim to ANSWER, not merely for a frame to pass.
+            for _ in 0..30 {
+                tick(app);
+                if settled(app)
+                    || app
+                        .world()
+                        .get::<ambition_platformer2d::actor::PendingRespawn>(body)
+                        .is_some()
+                    || app
+                        .world()
+                        .get::<ambition_platformer2d::actor::FighterEliminated>(body)
+                        .is_some()
+                {
+                    break;
+                }
+            }
+        }
+    }
+    assert!(
+        settled(app),
+        "sixty rounds of knockouts never decided this match, so the guard below \
+         is about nothing"
+    );
+}
+
 /// Every seated fighter's x, in seat order.
 fn seat_positions(app: &mut App) -> Vec<f32> {
     let world = app.world_mut();
@@ -5893,9 +6007,7 @@ fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
         .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
         .cloned()
         .expect("a live match");
-    app.world_mut().insert_resource(
-        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&running),
-    );
+    settle_the_match_by_knockout(&mut app);
 
     for _ in 0..600 {
         app.update();
@@ -6094,9 +6206,7 @@ fn the_winner_card_does_not_show_a_speculative_verdict() {
         .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
         .cloned()
         .expect("a live match");
-    app.world_mut().insert_resource(
-        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&running),
-    );
+    settle_the_match_by_knockout(&mut app);
     for _ in 0..30 {
         app.update();
         app.world_mut().insert_resource(predicted);
@@ -6107,9 +6217,9 @@ fn the_winner_card_does_not_show_a_speculative_verdict() {
             .is_some_and(|settled| settled.settled(&running)),
         "the match never settled, so the refusal below is about nothing"
     );
-    assert_ne!(
-        card(&app).as_deref(),
-        Some("NO CONTEST"),
+    assert_eq!(
+        card(&app),
+        None,
         "a verdict reached on a SPECULATIVE frame was put on the winner card — \
          and a HUD readout cannot be taken back"
     );
@@ -6119,10 +6229,10 @@ fn the_winner_card_does_not_show_a_speculative_verdict() {
         app.update();
         app.world_mut().insert_resource(confirmed);
     }
-    assert_eq!(
-        card(&app).as_deref(),
-        Some("NO CONTEST"),
-        "a CONFIRMED verdict never reached the card, so the guard above is \
-         refusing everything rather than refusing predictions"
+    let shown = card(&app).unwrap_or_default();
+    assert!(
+        shown.starts_with("WINNER"),
+        "a CONFIRMED verdict never reached the card ({shown:?}), so the guard \
+         above is refusing everything rather than refusing predictions"
     );
 }

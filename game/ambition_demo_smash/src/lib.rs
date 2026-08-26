@@ -1712,11 +1712,38 @@ fn return_to_the_select_screen_when_the_match_ends(
 /// The readout remains until the stage is left, so its lifetime follows the
 /// results route rather than a separate timer.
 fn announce_the_winner(
-    mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
+    // ⛔⛔ THE LATCH, NOT THE MESSAGE, and the card is why the latch grew a
+    // verdict. `StocksMatchDecided` can be written on a SPECULATIVE frame, and a
+    // HUD readout is not retractable — a rolled-back verdict left NO CONTEST on
+    // screen over a match that was still being fought. Its sibling (the return
+    // countdown) was fixed by reading `StocksMatchSettled`, which rewinds; this
+    // one could not follow while the latch said only WHETHER.
+    //
+    // ⛔ AND DECLINING TO READ UNTIL CONFIRMED IS NOT THE SAME FIX. A reader that
+    // keeps its cursor is still bounded by a two-frame channel, so a confirmation
+    // arriving later loses the announcement rather than delaying it. State has no
+    // cursor.
+    settled: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled,
+        >,
+    >,
+    active: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
+    >,
+    // ⛔ `Option`: absent means there is no rollback host, and that module's own
+    // doc says the absent case confirms everything.
+    boundary: Option<
+        bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
+    >,
     // Whether a side is a person or a team is a fact about the match that was prepared, and the
     // plan is the only thing that still knows it once fighters start being removed.
     prepared: Option<
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
+    >,
+    // WHICH MATCH has already had its card written — see the rising-edge note.
+    mut announced: bevy::prelude::Local<
+        Option<ambition_platformer2d::actors::character_runtime::MatchInstance>,
     >,
     // Use surviving fighters only to resolve display names for the winning side.
     fighters: bevy::prelude::Query<(
@@ -1726,12 +1753,30 @@ fn announce_the_winner(
     )>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
-    for outcome in decided.read() {
+    let Some((settled, active)) = settled.as_deref().zip(active.as_deref()) else {
+        return;
+    };
+    if !boundary
+        .as_deref()
+        .is_none_or(|boundary| boundary.fully_confirmed())
+    {
+        return;
+    }
+    // ⛔ THE RISING EDGE, not every tick the latch is true. The message this
+    // replaced fired ONCE; a state read writes the readout for the rest of the
+    // match, which is churn on a HUD slot and a second announcement in any log
+    // that records what changed.
+    let this_match = active.instance();
+    if announced.as_ref() == Some(&this_match) {
+        return;
+    }
+    if let Some(verdict) = settled.verdict(active) {
+        *announced = Some(this_match);
         // Keep a team's name unless the winning side has exactly one participant.
         // Resolve participant identity from the match roster, not surviving bodies;
         // simultaneous ring-outs may leave no resident winner body, so the side name
         // remains the fallback.
-        let named = outcome.outcome.winner().map(|side| {
+        let named = verdict.winner().map(|side| {
             // A composition with no prepared plan cannot say how big a side is,
             // and the honest answer for an unknown size is the side's own name.
             let solo = prepared
@@ -1755,7 +1800,7 @@ fn announce_the_winner(
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(victory_banner(
-                &outcome.outcome,
+                verdict,
                 named.as_deref(),
             )),
         );

@@ -5830,3 +5830,89 @@ fn the_sudden_death_card_outlives_the_tick_that_raised_it() {
          announcer is taking the slot back, which is what made it unreadable"
     );
 }
+
+/// ⛔⛔ AND THE WINNER CARD IS NOT RETRACTABLE EITHER.
+///
+/// It read `StocksMatchDecided`, which a SPECULATIVE frame can write — so a
+/// rolled-back verdict left NO CONTEST on screen over a match that was still
+/// being fought, and there is no retraction to write.
+///
+/// ⛔ WAITING FOR CONFIRMATION ON THE MESSAGE WOULD NOT DO IT. A reader that
+/// keeps its cursor is still bounded by a two-frame channel, so a confirmation
+/// arriving later than that loses the announcement rather than delaying it. ⇒
+/// the VERDICT moved onto `StocksMatchSettled`, which is rollback state stamped
+/// with the match it is about — state has no cursor.
+///
+/// ⭐ THE ARMS STRADDLE `fully_confirmed` with everything else held still.
+#[test]
+fn the_winner_card_does_not_show_a_speculative_verdict() {
+    use ambition_platformer2d::engine_core::ConfirmedFrameBoundary;
+
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+    wait_for_the_round_to_go_live(&mut app);
+    assert!(
+        app.world()
+            .get_resource::<ConfirmedFrameBoundary>()
+            .is_none(),
+        "this host publishes a boundary of its own, so the values inserted below \
+         are overwritten and neither arm means anything"
+    );
+
+    let card = |app: &App| -> Option<String> {
+        app.world()
+            .resource::<ambition_platformer2d::presentation::HudReadouts>()
+            .get(&ambition_platformer2d::presentation::HudSlotId::from(
+                ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT,
+            ))
+            .map(|readout| readout.text().to_string())
+    };
+    let predicted = ConfirmedFrameBoundary {
+        current: 120,
+        confirmed: 100,
+        session: 0,
+    };
+    let confirmed = ConfirmedFrameBoundary {
+        current: 120,
+        confirmed: 120,
+        session: 0,
+    };
+
+    app.world_mut().insert_resource(predicted);
+    let running = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .cloned()
+        .expect("a live match");
+    app.world_mut().insert_resource(
+        ambition_platformer2d::actors::features::stocks_match::MatchAbandonRequest::stop(&running),
+    );
+    for _ in 0..30 {
+        app.update();
+        app.world_mut().insert_resource(predicted);
+    }
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled>()
+            .is_some_and(|settled| settled.settled(&running)),
+        "the match never settled, so the refusal below is about nothing"
+    );
+    assert_ne!(
+        card(&app).as_deref(),
+        Some("NO CONTEST"),
+        "a verdict reached on a SPECULATIVE frame was put on the winner card — \
+         and a HUD readout cannot be taken back"
+    );
+
+    app.world_mut().insert_resource(confirmed);
+    for _ in 0..30 {
+        app.update();
+        app.world_mut().insert_resource(confirmed);
+    }
+    assert_eq!(
+        card(&app).as_deref(),
+        Some("NO CONTEST"),
+        "a CONFIRMED verdict never reached the card, so the guard above is \
+         refusing everything rather than refusing predictions"
+    );
+}

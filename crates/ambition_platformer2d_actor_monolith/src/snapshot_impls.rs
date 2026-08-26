@@ -10,8 +10,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_str, put_u8, put_u32,
-    put_u64, put_vec2,
+    put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
+    SnapshotCursor, SnapshotState,
 };
 
 impl SnapshotState for crate::features::ActorStatus {
@@ -196,6 +196,29 @@ impl SnapshotState for crate::character_runtime::live_match_clock::LiveMatchTick
 }
 
 /// The stocks ruleset's verdict, and WHICH MATCH it is about.
+/// One byte of tag plus the winning side's label when there is one.
+fn encode_match_verdict(out: &mut Vec<u8>, verdict: &crate::combat::stocks::MatchVerdict) {
+    use crate::combat::stocks::MatchVerdict;
+    match verdict {
+        MatchVerdict::Winner(side) => {
+            put_u8(out, 0);
+            put_str(out, side);
+        }
+        MatchVerdict::Draw => put_u8(out, 1),
+        MatchVerdict::NoContest => put_u8(out, 2),
+    }
+}
+
+fn decode_match_verdict(r: &mut Reader<'_>) -> Option<crate::combat::stocks::MatchVerdict> {
+    use crate::combat::stocks::MatchVerdict;
+    match r.u8()? {
+        0 => Some(MatchVerdict::Winner(r.str()?.to_string())),
+        1 => Some(MatchVerdict::Draw),
+        2 => Some(MatchVerdict::NoContest),
+        _ => None,
+    }
+}
+
 impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
     fn encode(&self, out: &mut Vec<u8>) {
         match self.decided_match() {
@@ -217,6 +240,13 @@ impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
                         put_u64(out, tick);
                     }
                 }
+                // The VERDICT rides beside the match it is about, so a restore
+                // hands presentation the same outcome it was showing.
+                encode_match_verdict(
+                    out,
+                    self.decided_verdict()
+                        .expect("a stamped match carries its verdict"),
+                );
             }
         }
     }
@@ -234,6 +264,13 @@ impl SnapshotState for crate::features::stocks_match::StocksMatchSettled {
             ))
         } else {
             None
+        };
+        // The VERDICT rides beside the match it is about — presentation reads
+        // it as state rather than as a message, so a speculative outcome cannot
+        // reach the winner card. See `StocksMatchSettled::settle`.
+        let decided = match decided {
+            None => None,
+            Some(instance) => Some((instance, decode_match_verdict(r)?)),
         };
         Some(crate::features::stocks_match::StocksMatchSettled::from_snapshot(decided))
     }

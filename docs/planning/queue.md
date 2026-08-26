@@ -10592,12 +10592,20 @@ settlement can never be simulated again. ⛔ THE STAMP ALSO REPLACED the
 `decided.clear()` on leaving the stage: a previous match's verdict cannot arm the
 next one. Straddling arms; the poison sends the player home on a prediction.
 
-▢ **THE CARD'S HALF IS STILL OPEN, and deliberately.** `announce_the_winner`
-needs the VERDICT, which only the message carries — `StocksMatchSettled` says
-WHETHER, not WHICH — so guarding it the same way risks dropping the announcement
-rather than delaying it, because its reader lives in `Update` and its cursor does
-not rewind. ⚠ the consequence is cosmetic and self-correcting (the readout is
-cleared on leaving the stage), which is why the irreversible half went first.
+⭐⭐ **AND THE CARD'S HALF CLOSED 2026-08-26 — BY MOVING THE VERDICT ONTO THE
+LATCH.** The blocker was real: `announce_the_winner` needs the VERDICT and
+`StocksMatchSettled` said only WHETHER, so guarding it the same way risked
+DROPPING the announcement rather than delaying it — a reader that keeps its
+cursor is still bounded by a two-frame channel. ⇒ **STATE HAS NO CURSOR.**
+`StocksMatchSettled` carries `(MatchInstance, MatchVerdict)` now, which is what
+its own doc always claimed it was (*"the outcome for match X"*), and the card
+reads the latch on the RISING EDGE — the message fired once, and a state read
+would otherwise rewrite the slot every tick.
+
+⛔ THREE `settle` SITES AND THE WIRE: `Copy`/`Eq` had to go (a `Winner` carries a
+side label), the verdict is tagged into the snapshot beside the instance, and the
+schema goes to v112. Blast radius was three call sites, not the twenty-eight
+references the type has.
 
 ▢ LIVE SMASH PARITY: ⭐⭐ **(23) CLOSED 2026-08-25** — the gate
 carried the sentence *"AND IT STILL SPENDS THE LOCKOUT BELOW: a player who mashes

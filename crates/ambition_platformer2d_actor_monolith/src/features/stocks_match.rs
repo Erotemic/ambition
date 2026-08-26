@@ -39,24 +39,45 @@ use ambition_combat::stocks::{
 /// across the deciding frame must be able to un-decide the match. It rewinds
 /// alongside [`ActiveMatch`], which is what makes the comparison below correct
 /// after a rewind rather than merely plausible.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct StocksMatchSettled(Option<MatchInstance>);
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct StocksMatchSettled(Option<(MatchInstance, MatchVerdict)>);
 
 impl StocksMatchSettled {
     /// Has THIS match been decided? A verdict for a different match is not
     /// this match's, which is the whole reason the stamp is here.
     pub fn settled(&self, active: &ActiveMatch) -> bool {
-        self.0 == Some(active.instance())
+        self.decided_match() == Some(active.instance())
     }
 
-    /// Record that this match has been decided.
-    pub fn settle(&mut self, active: &ActiveMatch) {
-        self.0 = Some(active.instance());
+    /// Record that this match has been decided, and HOW.
+    ///
+    /// ⭐⭐ THE VERDICT LIVES HERE BECAUSE PRESENTATION MAY NOT READ A MESSAGE.
+    /// The winner card and the return countdown both reacted to
+    /// `StocksMatchDecided`, which a SPECULATIVE frame can write — and neither
+    /// is retractable. The countdown was fixed by reading this latch, which
+    /// rewinds; the CARD could not follow because the latch said only WHETHER,
+    /// and the outcome it needs was in the message.
+    ///
+    /// ⛔ AND WAITING FOR CONFIRMATION IS NOT ENOUGH ON A MESSAGE. A reader that
+    /// declines to consume until the frame is confirmed keeps its cursor, and a
+    /// message channel is two frames deep — so a confirmation arriving later
+    /// than that loses the announcement rather than delaying it. State has no
+    /// cursor.
+    pub fn settle(&mut self, active: &ActiveMatch, verdict: MatchVerdict) {
+        self.0 = Some((active.instance(), verdict));
+    }
+
+    /// How THIS match ended, or `None` for a match that has not been decided.
+    pub fn verdict(&self, active: &ActiveMatch) -> Option<&MatchVerdict> {
+        self.0
+            .as_ref()
+            .filter(|(instance, _)| *instance == active.instance())
+            .map(|(_, verdict)| verdict)
     }
 
     /// Rebuild from a rollback snapshot. See `snapshot_impls`.
     #[doc(hidden)]
-    pub fn from_snapshot(decided: Option<MatchInstance>) -> Self {
+    pub fn from_snapshot(decided: Option<(MatchInstance, MatchVerdict)>) -> Self {
         Self(decided)
     }
 
@@ -65,7 +86,13 @@ impl StocksMatchSettled {
     /// match to compare against, which is [`Self::settled`].
     #[doc(hidden)]
     pub fn decided_match(&self) -> Option<MatchInstance> {
-        self.0
+        self.0.as_ref().map(|(instance, _)| instance.clone())
+    }
+
+    /// The verdict this latch holds, for the wire format.
+    #[doc(hidden)]
+    pub fn decided_verdict(&self) -> Option<&MatchVerdict> {
+        self.0.as_ref().map(|(_, verdict)| verdict)
     }
 }
 
@@ -244,7 +271,7 @@ pub fn decide_stocks_match(
     // stage that is still seating — and a player who opens the menu during the
     // opening ceremony and picks Exit Match is entitled to an answer.
     if abandoned.is_some_and(|ask| ask.asks_to_stop(&active)) {
-        settled.settle(&active);
+        settled.settle(&active, MatchVerdict::NoContest);
         decided.write(StocksMatchDecided {
             outcome: MatchVerdict::NoContest,
         });
@@ -335,10 +362,9 @@ pub fn decide_stocks_match(
             outcome
         }
     };
-    settled.settle(&active);
-    decided.write(StocksMatchDecided {
-        outcome: outcome.into(),
-    });
+    let verdict: MatchVerdict = outcome.into();
+    settled.settle(&active, verdict.clone());
+    decided.write(StocksMatchDecided { outcome: verdict });
 }
 
 /// Does this timeout CONTINUE as sudden death instead of deciding?
@@ -836,7 +862,7 @@ mod tests {
             !settled.settled(&first),
             "a fresh latch already considered a match decided"
         );
-        settled.settle(&first);
+        settled.settle(&first, MatchVerdict::Draw);
         assert!(
             settled.settled(&first),
             "the match that was just decided does not read as decided"
@@ -852,12 +878,10 @@ mod tests {
     #[test]
     fn a_verdict_from_another_session_does_not_settle_this_match() {
         let mut settled = StocksMatchSettled::default();
-        settled.settle(&ActiveMatch::activated(
-            2,
-            None,
-            Some(SessionScopeId(0)),
-            Some(100),
-        ));
+        settled.settle(
+            &ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(100)),
+            MatchVerdict::Draw,
+        );
         assert!(
             !settled.settled(&ActiveMatch::activated(
                 2,
@@ -881,7 +905,7 @@ mod tests {
     fn adopting_a_seat_topology_does_not_un_decide_the_match() {
         let mut active = match_activated_on(100);
         let mut settled = StocksMatchSettled::default();
-        settled.settle(&active);
+        settled.settle(&active, MatchVerdict::Draw);
         active.adopt_seat_topology(7);
         assert!(
             settled.settled(&active),

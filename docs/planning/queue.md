@@ -12374,8 +12374,11 @@ ledger keeps paying for, and two of the nine are already suspect:
 each — 2026-08-26.** Two were already SHIPPED (per-seat pause ownership, with a
 guard at `pause_menu.rs:788`; pad-specific calibration filtering, on BOTH the
 menu and gameplay roads). Two are partly done with the remainder named
-(`ambition_ui_nav` — adopted by dialogue, not by the shell, and the two menus
-disagree about the end of a list; dialogue-per-seat — the explicit policy
+(`ambition_ui_nav` — ✔ **the SHELL adopted it 2026-08-26**: the launcher had
+hand-rolled `checked_sub(1).unwrap_or(len - 1)` and `(selected + 1) % len`, the
+same wrap `ListCursor` implements and the pause menu had already disagreed with
+by clamping. Two menus agreeing by coincidence is one edit from two menus
+disagreeing. ⚠ what remains is the OTHER adopters; dialogue-per-seat — the explicit policy
 shipped, and the OTHER half is inexpressible because `allows_gameplay` is a bare
 `matches!` that never asks it). Three were sharpened from prose into counts (the
 activation seam has ONE adopter; `ControlContextKind` has four variants and no

@@ -11523,6 +11523,47 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ▢ **D242 — NINE PARTICIPANT/ACTION ARCHITECTURE ITEMS WERE REACHABLE FROM THE
+  INTAKE AND FROM NO LEDGER ROW. (promoted 2026-08-26)**
+
+⭐ **PROMOTED, NOT WRITTEN.** [`engine/participant-action-system.md`](engine/participant-action-system.md)
+carries nine `▢` items and is named by `tracks.md`'s *"Provider-defined actions
+through the full physical/UI seam"* — so it was reachable from the RESERVOIR and
+invisible to the EXECUTION AUTHORITY, which is the same shape as the seven
+Engine 1.0 plans stranded on 2026-08-14. The design is already written; this row
+is the pointer.
+
+⛔⛔ **AND THE DOC'S OWN HEADER SAYS `cecd01ca` (2026-08-13), which is a fortnight
+of HEAD ago. Re-grep every item before working it** — that is the rule this
+ledger keeps paying for, and two of the nine are already suspect:
+
+```text
+"Remove the seat-0 control split"   the split is LIVE and heavily DEFENDED in
+                                    comments now: input_systems.rs carries six
+                                    separate paragraphs on why the primary seat
+                                    is the keyboard's and why GGRS overwrites
+                                    for it. ⇒ re-read as "is this still a
+                                    SPLIT, or is it a stated DESIGN?" before
+                                    removing anything
+"Per-seat pause ownership"          `SeatMenuFrames` shipped and the select
+                                    screen consumes it per seat; what the doc
+                                    calls missing is menu OWNERSHIP state, not
+                                    the channel
+```
+
+⇒ **what a reader should do first**: take one item, grep for the thing it says
+is missing, and either update the doc or work it. ⛔ do not price the nine as a
+campaign — the doc is a list of independent seams, and three of them (dialogue
+per seat, `ambition_ui_nav`, context migration) each touch a different subsystem.
+
+⚠ **the ninth item is the one `tracks.md` actually names** — *"a provider action
+should be registerable, bindable, presentable, and consumable without editing
+core action vocabulary"* — and it is the one with a measured blocker already in
+the doc: the registry exists (`SemanticActionId`, `ActionRegistry`,
+`InstalledActions`, `ModuleDraft::actions`, a tested external `grapple`), and the
+physical input map / cue / touch path still bottoms out in the finite built-in
+platformer action enum. That enum is the deletion gate.
+
 - ▢ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
   THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. (opened 2026-08-25)**
 

@@ -221,11 +221,13 @@ These cards are capability fronts, not a serial mega-campaign.
   prepared references. Use `A9` in
   [`engine/authoring-and-tools.md`](engine/authoring-and-tools.md).
 
-- ▢ **Provider-defined actions through the full physical/UI seam.** Semantic
-  action registration exists. Finish provider-defined actions through physical
-  binding, cues/touch and remaining participant contexts without restoring a
-  seat-0 special path. Use
+- ▢ **Provider-defined actions through the full physical/UI seam — PROMOTED TO
+  THE LEDGER 2026-08-26 as D242.** Semantic action registration exists. Finish
+  provider-defined actions through physical binding, cues/touch and remaining
+  participant contexts without restoring a seat-0 special path. Use
   [`engine/participant-action-system.md`](engine/participant-action-system.md).
+  ⚠ that doc's header verifies against `cecd01ca` (2026-08-13); re-grep each of
+  its nine items before working it.
 
 - ▢ **Authoring diagnostics for declared IDs.** Resolve bad authored references
   during preparation/compiler/schema validation with provenance and useful

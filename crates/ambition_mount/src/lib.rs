@@ -43,10 +43,19 @@ use ambition_platformer2d_shared_tangle::body::MountDied;
 // ⛔ AND `Mass` MOVED FOR THE SAME REASON AND BY THE SAME RULE, 2026-08-26. It
 // was defined here — a generic physics fact with 27 users outside this module,
 // every one of them spelling it `ambition_platformer2d_shared_tangle::body::Mass`, which is a body's
-// weight wearing one mechanic's address. The writer is the character runtime's
-// physical baseline and the reader is the mass-weighted centre below; two
-// domains, so it sits under both. Imported, never re-exported.
-use ambition_platformer2d_shared_tangle::body::Mass;
+// weight wearing one mechanic's address. It stays in `shared_tangle` on the
+// strength of those 27 users.
+//
+// ⛔⛔ BUT THE SECOND HALF OF THAT ARGUMENT IS GONE, AND SAYING SO IS THE POINT.
+// The move was justified here as *"the writer is the character runtime's
+// physical baseline and the reader is the mass-weighted centre below"* — and
+// that reader was the saddle's centre-of-gravity term, which turned out to be a
+// no-op under default gravity and a bug under rotated gravity (see
+// `saddle_world_offset`). Deleting it left this crate reading `Mass` NOWHERE, so
+// the mount domain is not one of the two domains that share it. The conclusion
+// survives its own reasoning by accident, which is worth a sentence rather than
+// a quiet edit.
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
 /// A mount's *class* — the content-defined category a rider must be
@@ -278,7 +287,6 @@ pub fn sync_riders_to_mounts(
             &RidingOn,
             &mut CenteredAabb,
             Option<&MountedSize>,
-            Option<&Mass>,
             // ⭐ THE FOUR COLUMNS THIS SYSTEM ACTUALLY TOUCHES, named one by one
             // instead of borrowed through `ActorClusterQueryData`. That view is
             // twenty-six columns wide and lives in the monolith; every one of
@@ -299,7 +307,6 @@ pub fn sync_riders_to_mounts(
     mounts: Query<
         (
             &Mountable,
-            Option<&Mass>,
             // The mount's per-tick resolved frame: the saddle offset rotates
             // with the PAIR's reference frame (the rider orbits the mount under
             // a gravity flip instead of floating off the saddle in fixed screen
@@ -315,14 +322,13 @@ pub fn sync_riders_to_mounts(
         riding,
         mut rider_aabb,
         mounted_size,
-        rider_mass,
         mut rider_kin,
         mut rider_surface,
         mut rider_ground,
         rider_health,
     ) in &mut riders
     {
-        let Ok((mountable, mount_mass, mount_frame, mount_kin, mount_health)) =
+        let Ok((mountable, mount_frame, mount_kin, mount_health)) =
             mounts.get(riding.mount)
         else {
             continue;
@@ -341,16 +347,10 @@ pub fn sync_riders_to_mounts(
         // next frame; gravity zeroed so a Bevy-side integrator that
         // applies gravity to all hostiles can't pull it down.
         //
-        // Rotate-as-a-unit: the saddle offset is authored in the mount's local frame, so rotate
-        // it into world space by the pair's gravity frame and pivot the rider around the
-        // mass-weighted center of gravity.
+        // The saddle offset is authored in the mount's local frame; rotate it into
+        // world space by the pair's gravity frame. See `saddle_world_offset`.
         let frame = mount_frame.basis();
-        let mass_mount = mount_mass.copied().unwrap_or_default().0.max(0.0001);
-        let mass_rider = rider_mass.copied().unwrap_or_default().0.max(0.0001);
-        let w_rider = mass_rider / (mass_mount + mass_rider);
-        // COG relative to the mount center (mount at 0, rider at `rider_offset`).
-        let cog_local = mountable.rider_offset * w_rider;
-        let rider_local = cog_local + frame.to_world(mountable.rider_offset - cog_local);
+        let rider_local = saddle_world_offset(mountable.rider_offset, frame);
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
         ae::movement::constrain_body_pose(
@@ -635,5 +635,164 @@ impl bevy::ecs::entity::MapEntities for MountSlot {
 impl bevy::ecs::entity::MapEntities for RidingOn {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         self.mount = mapper.get_mapped(self.mount);
+    }
+}
+
+/// Every piece of mount-pair state the simulation rewinds.
+///
+/// ⛔⛔ IT LIVED IN THE ACTOR MONOLITH UNTIL 2026-08-26, WHICH IS A CARVE THAT
+/// STOPPED HALF WAY. The types, the systems and the saddle constraint all moved
+/// here, but `actor_monolith/rollback_registration.rs` — whose own header
+/// promises *"the actor runtime names only state defined in this crate"* — went
+/// on naming seven `ambition_mount::` components and two of their entity
+/// mappings. So adding one mutable field to a mount component meant editing this
+/// crate AND remembering a census in a crate that no longer owns the domain, and
+/// forgetting the second half is a silent desync rather than a compile error.
+///
+/// ⭐ THE RUNTIME'S OWN RULE, applied: *"gameplay domains own their concrete
+/// declarations … adding state to an existing domain edits only that domain."*
+/// This composes beside `ambition_combat`'s and `ambition_characters`'.
+///
+/// ⛔ THE STABLE NAMES DO NOT MOVE. They are identities on the wire, not
+/// addresses — `mount.can_pilot` names the same bytes wherever the registration
+/// is written from — so this is a repoint and NOT a schema change, and
+/// `GGRS_ROLLBACK_SCHEMA_VERSION` deliberately does not move for it. The owner
+/// label does change (it is `CARGO_PKG_NAME`), and the readable baseline omits
+/// owner labels for exactly this reason: ownership is organizational.
+///
+/// ⚠ `Mass`, `SpawnBaseline` and `TemporaryControl` are NOT swept in here. Mount
+/// reads them, which is not the same as owning them — all three moved to
+/// `shared_tangle` precisely because two domains share them, and each is its own
+/// ownership decision rather than something this patch gets to settle by
+/// proximity.
+///
+/// ⛔ THE BOUND IS SPELLED `R: RollbackRegistrar`, WITH THE TRAIT IMPORTED, and
+/// that is load-bearing rather than style. `check_absence_contracts.py` finds
+/// federated registration sites by that exact substring — a file generic over
+/// the registrar is a registration site and nothing else is — so writing the
+/// bound as a fully-qualified path hid this whole file from the ratchet, and
+/// two stable names reported as having LEFT the wire format while they were
+/// still very much in it. The scanner's own comment says it stopped
+/// hand-listing crates for exactly this reason; the price is that the marker
+/// has to be spelled the way every other domain spells it.
+pub fn register_rollback_state<R>(registrar: &mut R)
+where
+    R: RollbackRegistrar,
+{
+    const OWNER: &str = env!("CARGO_PKG_NAME");
+
+    registrar.rollback_component_clone::<CanPilot>(OWNER, "mount.can_pilot");
+    registrar.rollback_component_clone_entity_set::<MountSlot>(OWNER, "mount.slot", |slot| {
+        slot.rider.into_iter().collect()
+    });
+    registrar.rollback_map_entities::<MountSlot>(OWNER, "map.mount_slot");
+    registrar.rollback_component_clone::<Mountable>(OWNER, "mount.mountable");
+    registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
+    registrar.rollback_component_clone_entity_ref::<RidingOn>(OWNER, "mount.riding_on", |riding| {
+        riding.mount
+    });
+    registrar.rollback_map_entities::<RidingOn>(OWNER, "map.riding_on");
+    registrar.rollback_component_clone::<MountedBrainCache>(OWNER, "mount.brain_cache");
+    registrar.rollback_component_clone::<MountedSize>(OWNER, "mount.authored_size");
+}
+
+/// Where the rider sits, relative to the mount's centre, in WORLD units.
+///
+/// `rider_offset` is authored in the mount's LOCAL frame — `+x` toward the
+/// mount's facing side, `+y` toward its feet — so under rotated gravity it has
+/// to be rotated into the world before it can be added to a world position.
+/// That rotation is the whole of this function.
+///
+/// ⛔⛔ IT USED TO CARRY A MASS-WEIGHTED CENTRE-OF-GRAVITY TERM, AND THAT TERM
+/// WAS A NO-OP WHERE IT WORKED AND A BUG WHERE IT DID NOT:
+///
+/// ```text
+/// let cog_local  = rider_offset * w_rider;                        // LOCAL
+/// let rider_local = cog_local + frame.to_world(rider_offset - cog_local);
+/// //                ^^^^^^^^^ local     ^^^^^^^^^^^^^^^^^^^^^^^^^ world
+/// ```
+///
+/// Under default gravity `to_world` is the identity, so the two terms collapse
+/// to `rider_offset` and the masses cancel exactly — the weighting had never
+/// changed a single pixel. Under ROTATED gravity the unrotated `cog_local` term
+/// stays pinned to SCREEN axes while the rest of the pair turns, so the rider
+/// slides off the saddle by an amount that grows with the mass ratio.
+///
+/// ⭐⭐ AND THE INTENT IT WAS REACHING FOR CANNOT BE EXPRESSED HERE AT ALL. A
+/// pair rotating rigidly about a shared centre of mass moves BOTH bodies about
+/// one world-space point. This constraint owns the RIDER's pose and nothing
+/// else — the mount's position is written by the mount's own movement — so
+/// pivoting only the rider is not that rotation under any mass ratio. A
+/// constraint with authority over one body cannot implement a two-body
+/// transform, and the honest thing is to say so rather than approximate it.
+///
+/// ⇒ what this pin means is exactly *"the rider is at the authored mount-local
+/// saddle offset"*, and that is what it now computes.
+pub fn saddle_world_offset(
+    rider_offset: ambition_platformer2d_core::Vec2,
+    frame: ambition_platformer2d_core::AccelerationFrame,
+) -> ambition_platformer2d_core::Vec2 {
+    frame.to_world(rider_offset)
+}
+
+#[cfg(test)]
+mod saddle_tests {
+    use super::*;
+    use ambition_platformer2d_core::{AccelerationFrame, Vec2};
+
+    /// ⛔⛔ THE SADDLE HOLDS UNDER ROTATED GRAVITY, and the offset has BOTH
+    /// components on purpose.
+    ///
+    /// An offset that is purely along one local axis cannot tell a correct
+    /// rotation from a partial one: the missing component is where the error
+    /// lands. This one is `(3, -11)` — beside and above the mount's centre,
+    /// which is what a saddle actually is.
+    ///
+    /// ⭐ THE INVARIANT IS A LENGTH AND TWO PROJECTIONS. Rotating a vector may
+    /// not change how long it is, and the authored components must come back
+    /// out along the frame's own side/up — which is the statement "the rider
+    /// sits in the saddle" said in a way that does not depend on which way the
+    /// world is pointing.
+    #[test]
+    fn the_saddle_offset_rotates_with_the_pair_and_keeps_its_authored_shape() {
+        let offset = Vec2::new(3.0, -11.0);
+        // Feet toward world +x: a wall-walker on a right-hand wall.
+        let sideways = AccelerationFrame::new(Vec2::new(1.0, 0.0));
+        let world = saddle_world_offset(offset, sideways);
+
+        assert!(
+            (world.length() - offset.length()).abs() < 1e-4,
+            "the saddle offset changed LENGTH when the pair rotated, so it is \
+             not a rotation: authored {:?}, world {:?}",
+            offset,
+            world
+        );
+        assert!(
+            (world.dot(sideways.side) - offset.x).abs() < 1e-4,
+            "the authored SIDE component did not come back out along the \
+             frame's side axis"
+        );
+        assert!(
+            (world.dot(sideways.down) - offset.y).abs() < 1e-4,
+            "the authored TOWARD-FEET component did not come back out along the \
+             frame's down axis"
+        );
+    }
+
+    /// ⭐ THE PREMISE GUARD FOR THE ARM ABOVE, and the measurement that
+    /// condemned the mass term: under DEFAULT gravity the rotation is the
+    /// identity. So every arm that only ever ran at default gravity — which is
+    /// every mount arm in the tree — agreed with the broken math exactly, and
+    /// no amount of default-gravity coverage could ever have caught it.
+    #[test]
+    fn default_gravity_leaves_the_authored_offset_alone() {
+        let offset = Vec2::new(3.0, -11.0);
+        assert_eq!(
+            saddle_world_offset(
+                offset,
+                AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR)
+            ),
+            offset
+        );
     }
 }

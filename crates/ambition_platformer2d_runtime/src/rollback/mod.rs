@@ -41,6 +41,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_encounter::register_rollback_state(registrar);
     ambition_combat::register_rollback_state(registrar);
     ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
+    ambition_mount::register_rollback_state(registrar);
     ambition_characters::register_rollback_state(registrar);
     ambition_time::register_rollback_state(registrar);
     ambition_boss_encounter::register_rollback_state(registrar);

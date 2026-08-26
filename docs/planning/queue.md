@@ -11095,7 +11095,9 @@ forbidding an action must not erase the state that reads the next input
                        real wavebounce RECOGNIZER still OPEN — the four outcomes
                        are global rule booleans, not an ordered input reading
 56fb9da settled item   wakes when unsupported CLOSED
-                       dynamic SUPPORT ownership OPEN (rides a moving platform)
+                       rides a moving platform CLOSED — and it needed NO support
+                       identity: `Block::velocity` IS the per-frame displacement
+                       and the support probe already finds the block
 42e894b windbox guard  behaviour fixed; `flinchless ⇒ bypasses shield` is a
                        PROVISIONAL conflation — carry an explicit guard policy
                        when #29b touches that channel

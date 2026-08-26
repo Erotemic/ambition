@@ -645,10 +645,6 @@ mod cognition_stream_tests {
                 ..Default::default()
             },
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-            spawn: crate::features::ActorSpawnState {
-                pos: ambition_platformer2d_core::Vec2::ZERO,
-                size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
-            },
             sprite_override_npc_name: None,
             sprite_character_id: Some(character.to_string()),
             preserves_mirror_symmetry: mirrors,

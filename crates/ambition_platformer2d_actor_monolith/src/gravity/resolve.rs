@@ -16,9 +16,9 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::frame_env::{FrameEnv, ResolvedMotionFrame};
 
-use ambition_boss_encounter::BossConfig;
 use crate::features::ecs::actor_clusters::ActorConfig;
 use crate::features::ActorSurfaceState;
+use ambition_boss_encounter::BossConfig;
 
 /// Resolve and publish the frame for every integrated body.
 ///
@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn actor_response_scales_gravity_but_keeps_orientation_at_zero() {
         use crate::features::ecs::actor_clusters::ActorConfig;
-        use crate::features::ActorSpawnState;
+
         let mut app = resolver_app();
         let mut tuning = crate::features::ecs::actor_tuning::ActorTuning::default();
         tuning.movement.gravity = 800.0;
@@ -158,10 +158,6 @@ mod tests {
             tuning,
             brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-            spawn: ActorSpawnState {
-                pos: ae::Vec2::new(50.0, 50.0),
-                size: ae::Vec2::new(20.0, 20.0),
-            },
             sprite_override_npc_name: None,
             sprite_character_id: None,
             // A fixture body, not a seated CPU twin.

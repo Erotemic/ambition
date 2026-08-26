@@ -599,7 +599,7 @@ impl NpcActorSpawnPlan {
             catalog,
             prepared,
             &interactable,
-            seed.config.spawn.pos.x,
+            seed.spawn.pos.x,
             // The seed is already built, so the body a `BrainProfile` default
             // would be paced against is right here.
             &seed.config,
@@ -797,6 +797,7 @@ fn boss_actor_cluster(
 ) -> (
     super::actor_clusters::ActorStatus,
     super::actor_clusters::ActorConfig,
+    ambition_platformer2d_shared_tangle::body::SpawnBaseline,
     super::actor_clusters::ActorMotionPath,
     super::super::enemies::ActorSurfaceState,
     super::super::components::BodyMelee,
@@ -845,10 +846,6 @@ fn boss_actor_cluster(
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        spawn: super::super::enemies::ActorSpawnState {
-            pos: kin.pos,
-            size: kin.size,
-        },
         sprite_override_npc_name: None,
         sprite_character_id: None,
         // A boss drives a `BossPattern`, never the fighter brain the trait picks
@@ -861,6 +858,13 @@ fn boss_actor_cluster(
             ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
         },
         actor_config,
+        // A boss FLIES, so its authored gravity scale is 0.0 — the same value
+        // its live surface state starts at, three lines down.
+        ambition_platformer2d_shared_tangle::body::SpawnBaseline {
+            pos: kin.pos,
+            size: kin.size,
+            gravity_scale: 0.0,
+        },
         super::actor_clusters::ActorMotionPath::default(),
         super::super::enemies::ActorSurfaceState {
             surface_normal: ae::Vec2::new(0.0, -1.0),

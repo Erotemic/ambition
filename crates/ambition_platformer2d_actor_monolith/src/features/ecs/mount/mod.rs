@@ -31,6 +31,7 @@ use ambition_platformer2d_shared_tangle::body::MountDied;
 // physical baseline and the reader is the mass-weighted centre below; two
 // domains, so it sits under both. Imported, never re-exported.
 use ambition_platformer2d_shared_tangle::body::Mass;
+use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
 /// A mount's *class* — the content-defined category a rider must be
 /// allowed to pilot (a shark-rider cannot pilot a mech). The engine
@@ -407,18 +408,17 @@ pub fn enforce_mount_rider_link(
             Option<&MountedBrainCache>,
             Option<&Mounted>,
             // The same four columns the saddle sync names, plus the rider's
-            // AUTHORED baseline: the dismount restores `spawn.size` and reads
-            // `tuning.is_aerial`, and neither has a live twin that means the
-            // same thing — `BodyBaseSize` follows the stance and `fly_enabled`
-            // is toggled at runtime, so either would give a grown or a landed
-            // rider the wrong body back.
+            // AUTHORED baseline — the body a reset hands back.
             //
-            // ⛔ `ActorConfig` IS THEREFORE THE ONE MONOLITH TYPE LEFT IN THIS
-            // MODULE, and it is two fields of it.
+            // ⭐ THE LIVE COMPONENTS ARE NOT THAT FACT, which is why it has its
+            // own name: `BodyBaseSize` follows the stance, `fly_enabled` is
+            // toggled at runtime, and `gravity_scale` is the value THIS MODULE
+            // zeroes while the rider is in the saddle. Reading any of them here
+            // would hand a grown or a landed rider the wrong body back.
             &mut ae::BodyKinematics,
             &mut ae::ActorSurfaceState,
             &mut ambition_characters::actor::BodyHealth,
-            &super::actor_clusters::ActorConfig,
+            &SpawnBaseline,
         ),
         Without<MountSlot>,
     >,
@@ -457,7 +457,7 @@ pub fn enforce_mount_rider_link(
         mut rider_kin,
         mut rider_surface,
         mut rider_health,
-        rider_config,
+        rider_spawn,
     ) in &mut riders
     {
         if !rider_health.alive() {
@@ -516,12 +516,12 @@ pub fn enforce_mount_rider_link(
                         continue;
                     }
                 }
-                rider_surface.gravity_scale = if rider_config.tuning.is_aerial {
-                    0.0
-                } else {
-                    1.0
-                };
-                rider_kin.size = rider_config.spawn.size;
+                // ⭐ THE AUTHORED SCALE, READ rather than re-derived from
+                // `tuning.is_aerial`. An aerial rider keeps floating; a walker
+                // falls. This module is what zeroed the live value, so the
+                // baseline is the only place the answer survived.
+                rider_surface.gravity_scale = rider_spawn.gravity_scale;
+                rider_kin.size = rider_spawn.size;
                 // Publish immediately so same-frame presentation / combat sees
                 // the rider's grounded pose. This is usually the same size as
                 // MountedSize; keeping the write here makes intentional future

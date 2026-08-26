@@ -181,7 +181,7 @@ impl<'a> ActorMut<'a> {
                 // `transit_body` keeps maneuver state on purpose, which is right
                 // for a blink and wrong for coming back from the dead, and it
                 // does not announce `ae::BodyRestarted` to any provider.
-                let spawn = self.config.spawn.pos;
+                let spawn = self.spawn.pos;
                 ae::reset_body_clusters(
                     motion_model,
                     &mut self.clusters_mut(),
@@ -530,7 +530,7 @@ impl<'a> ActorMut<'a> {
         //
         // `reset_body_clusters` transits internally, so the ADR 0024 property
         // that comment was protecting is not lost by saying the stronger thing.
-        let spawn = self.config.spawn.pos;
+        let spawn = self.spawn.pos;
         ae::reset_body_clusters(
             motion_model,
             &mut self.clusters_mut(),
@@ -559,11 +559,10 @@ impl<'a> ActorMut<'a> {
         self.kin.facing = -1.0;
         *self.surface = ActorSurfaceState {
             surface_normal: ae::Vec2::new(0.0, -1.0),
-            gravity_scale: if self.config.tuning.is_aerial {
-                0.0
-            } else {
-                1.0
-            },
+            // ⭐ THE AUTHORED SCALE, READ rather than re-derived. It used to
+            // spell `if tuning.is_aerial { 0.0 } else { 1.0 }` here, at spawn,
+            // and in the mount dismount — three copies of one authored fact.
+            gravity_scale: self.spawn.gravity_scale,
         };
         // Ground/jump authority is the shared cluster now — reset it too.
         self.ground.on_ground = false;

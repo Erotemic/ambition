@@ -12,18 +12,7 @@ use bevy::prelude::*;
 /// boss-rider dismount tests below check for.
 const AUTHORED_BOSS_LANE_X: f32 = 4242.0;
 
-type ActorClusterBundle = (
-    super::super::actor_clusters::BodyKinematics,
-    super::super::actor_clusters::ActorStatus,
-    ambition_characters::actor::BodyHealth,
-    super::super::actor_clusters::ActorConfig,
-    super::super::actor_clusters::ActorMotionPath,
-    crate::features::ActorSurfaceState,
-    crate::features::BodyMelee,
-    crate::actor::AncillaryMovementBundle,
-    crate::combat::CombatCapabilities,
-    crate::combat::CombatTuning,
-);
+use super::super::actor_clusters::ActorClusterBundle;
 
 fn hostile(
     id: &str,
@@ -187,7 +176,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
     if !rider_alive {
         rider_actor.1 .2.health.current = 0;
     }
-    rider_actor.1 .5.gravity_scale = 0.0;
+    rider_actor.1 .6.gravity_scale = 0.0;
     let rider = app
         .world_mut()
         .spawn((
@@ -399,7 +388,7 @@ fn spawn_dead_mount_with_impact(app: &mut App, death_impact: MountDeathImpact) -
     let rider_pos = ae::Vec2::new(0.0, -40.0);
     let rider_size = ae::Vec2::new(44.0, 78.0);
     let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
-    rider_actor.1 .5.gravity_scale = 0.0;
+    rider_actor.1 .6.gravity_scale = 0.0;
     // Force a known 5-HP pool so splash arithmetic is deterministic
     // regardless of what the seed default resolves to in a minimal test.
     rider_actor.1 .2 = ambition_characters::actor::BodyHealth::new(
@@ -816,7 +805,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let rider_pos = ae::Vec2::new(0.0, -140.0);
     let rider_size = ae::Vec2::new(54.0, 96.0);
     let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
-    rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
+    rider_actor.1 .6.gravity_scale = 0.0; // mounted → gravity off
     let (boss_encounter, _hp) = ambition_boss_encounter::test_support::test_boss_status_with(
         profile.encounter.max_hp,
         BossEncounterPhase::Phase1,
@@ -1211,7 +1200,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         rider_pos,
         ae::Vec2::new(54.0, 96.0),
     );
-    rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
+    rider_actor.1 .6.gravity_scale = 0.0; // mounted → gravity off
     let rider = app
         .world_mut()
         .spawn((

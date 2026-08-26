@@ -844,12 +844,14 @@ exactly as eleven of the boss carve's thirteen did. That ratio is now the
 expectation, not a surprise: **look up the real owner before designing a way
 around a dependency.**
 
-⚠ **What `ActorConfig` still owes is a NAMED AUTHORED BASELINE.** The dismount
-restores `spawn.size` and re-derives gravity from `tuning.is_aerial`; the live
-components (`BodyBaseSize`, `BodyFlightState::fly_enabled`,
-`ActorSurfaceState::gravity_scale`) are all written at runtime and cannot stand
-in. Three sites hand-derive the same authored gravity scale from `is_aerial`
-today. See the D33 row in `queue.md` for the measurement.
+⭐ **AND THE LAST EDGE PAID FOR ITSELF.** The dismount restores `spawn.size` and
+used to re-derive gravity from `tuning.is_aerial`; the live components
+(`BodyBaseSize`, `BodyFlightState::fly_enabled`,
+`ActorSurfaceState::gravity_scale`) are all written at runtime and could not
+stand in — mount ZEROES the last one itself. Naming the baseline also collapsed
+**three** hand-written `if is_aerial { 0.0 } else { 1.0 }` sites into one
+recorded value. Cost: one stable schema name and a declared bump to
+`GGRS_ROLLBACK_SCHEMA_VERSION` 113. See the D33 row in `queue.md`.
 
 ### Wave F — presentation effects and audio
 

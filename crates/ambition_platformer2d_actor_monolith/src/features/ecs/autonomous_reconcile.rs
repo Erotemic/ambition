@@ -191,7 +191,6 @@ pub(crate) fn peaceful_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_core as ae;
 
     fn config_fixture() -> ActorConfig {
         ActorConfig {
@@ -200,10 +199,6 @@ mod tests {
             tuning: ActorTuning::default(),
             brain_profile: BrainProfile::default(),
             brain: CharacterBrain::Passive,
-            spawn: crate::features::enemies::ActorSpawnState {
-                pos: ae::Vec2::ZERO,
-                size: ae::Vec2::splat(8.0),
-            },
             sprite_override_npc_name: None,
             sprite_character_id: Some("npc_x".into()),
             // A fixture body, not a seated CPU twin.
@@ -459,6 +454,5 @@ mod peaceful_body_authority_tests {
              default, so this projection is now answering for creatures nobody \
              authored"
         );
-
     }
 }

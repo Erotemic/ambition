@@ -431,10 +431,6 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
         },
         brain_profile,
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        spawn: crate::features::enemies::ActorSpawnState {
-            pos: ae::Vec2::ZERO,
-            size: ae::Vec2::splat(8.0),
-        },
         sprite_override_npc_name: None,
         sprite_character_id: Some("npc_villager".into()),
         // A fixture body, not a seated CPU twin.

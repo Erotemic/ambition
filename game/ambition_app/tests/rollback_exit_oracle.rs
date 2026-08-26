@@ -441,6 +441,10 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored actor definition; nothing writes it after spawn",
         ),
         (
+            "ambition_platformer2d_shared_tangle::body::SpawnBaseline",
+            "the authored body a reset hands back; written by the SEED before the entity exists",
+        ),
+        (
             "ambition_characters::actor::limb::LimbIntents",
             "republished every tick by the limb router",
         ),

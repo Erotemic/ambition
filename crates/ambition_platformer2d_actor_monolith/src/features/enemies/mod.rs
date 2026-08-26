@@ -7,16 +7,6 @@ use super::*;
 mod integration;
 pub use integration::ContactAttack;
 
-/// Spatial baseline restored by same-room actor reset.
-/// Composite actors remain separate entities, so only position/body size belong here.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ActorSpawnState {
-    /// World position the actor spawned at.
-    pub pos: ae::Vec2,
-    /// Authored body size.
-    pub size: ae::Vec2,
-}
-
 // TODO(compat-remove): migrate remaining `crate::features::ActorSurfaceState` callers to
 // `ambition_platformer2d_core::ActorSurfaceState`, then delete this re-export.
 pub use ambition_platformer2d_core::ActorSurfaceState;

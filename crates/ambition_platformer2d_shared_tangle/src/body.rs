@@ -200,3 +200,33 @@ impl BodyContactSnapshot {
         )
     }
 }
+
+/// The body a RESET hands back: where it started, how big it was, and whether
+/// gravity applies to it.
+///
+/// ⭐⭐ THE LIVE COMPONENTS ARE NOT THIS FACT, and that is the whole reason it
+/// exists as its own name. `BodyBaseSize` follows the STANCE, `BodyFlightState::
+/// fly_enabled` is toggled at runtime, and `ActorSurfaceState::gravity_scale` is
+/// the value a mount ZEROES while it carries a rider. A respawn or a dismount
+/// asking any of them "what body should this be?" gets the answer for the body it
+/// currently is.
+///
+/// ⛔ IT USED TO BE `ActorConfig::spawn`, two of its three fields, inside the
+/// actor monolith — so a mount dissolving a dead shark had to name the monolith's
+/// authored-actor definition in order to hand the rider its own body back, and
+/// THREE separate sites re-derived `gravity_scale` from `tuning.is_aerial` by
+/// hand. The scale is recorded once, where the body is built.
+///
+/// Imported, never re-exported — the same rule [`Mass`] and [`MountDied`] state.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct SpawnBaseline {
+    /// World position a respawn returns the body to.
+    pub pos: ambition_platformer2d_core::Vec2,
+    /// Authored collision size. A body that grew, crouched or rode a mount comes
+    /// back to this one.
+    pub size: ambition_platformer2d_core::Vec2,
+    /// Authored gravity scale: `0.0` for a body whose character flies, `1.0`
+    /// otherwise. Recorded at construction rather than re-derived, because the
+    /// live scale is what other mechanics borrow.
+    pub gravity_scale: f32,
+}

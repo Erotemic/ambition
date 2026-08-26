@@ -9,18 +9,7 @@ use ambition_characters::brain::{ActionSet, RangedActionSpec, RangedCommitment};
 /// attach a [`crate::features::RidingOn`] component to the
 /// spawned entity so the ranged-projectile handler routes the
 /// fire through the lasersword path.
-type ActorClusterBundle = (
-    super::super::actor_clusters::BodyKinematics,
-    super::super::actor_clusters::ActorStatus,
-    ambition_characters::actor::BodyHealth,
-    super::super::actor_clusters::ActorConfig,
-    super::super::actor_clusters::ActorMotionPath,
-    crate::features::ActorSurfaceState,
-    crate::features::BodyMelee,
-    crate::actor::AncillaryMovementBundle,
-    crate::combat::CombatCapabilities,
-    crate::combat::CombatTuning,
-);
+use super::super::actor_clusters::ActorClusterBundle;
 
 /// Spawnable (disposition + clusters) bundle for an enemy test fixture.
 fn enemy_actor(enemy: ActorClusterSeed) -> (crate::features::ActorDisposition, ActorClusterBundle) {
@@ -170,7 +159,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
     // surface_normal points away from the support; gravity_dir is its
     // negative. Here local down is world +X, so local side/right maps to
     // world -Y under the arbitrary AccelerationFrame transform.
-    actor_bundle.1 .5.surface_normal = ae::Vec2::new(-1.0, 0.0);
+    actor_bundle.1 .6.surface_normal = ae::Vec2::new(-1.0, 0.0);
     let actor = app.world_mut().spawn(actor_bundle).id();
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
@@ -267,9 +256,9 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
             &[],
         );
         let mut bundle = enemy_actor(enemy);
-        // The weapon is MID-RECHARGE. `.1 .6` is `BodyMelee` in the cluster
+        // The weapon is MID-RECHARGE. `.1 .7` is `BodyMelee` in the cluster
         // bundle — the body-side authority on the ranged fire rate.
-        bundle.1 .6.ranged_cooldown = 0.9;
+        bundle.1 .7.ranged_cooldown = 0.9;
         let actor = app.world_mut().spawn(bundle).id();
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()

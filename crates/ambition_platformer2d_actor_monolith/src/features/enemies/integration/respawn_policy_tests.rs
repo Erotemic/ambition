@@ -98,7 +98,7 @@ fn a_respawn_announces_a_restart_and_keeps_the_bodys_own_size() {
     seed.config.tuning.respawn = RespawnPolicy::OnRoomReenter;
     let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
-    let spawn_size = em.config.spawn.size;
+    let spawn_size = em.spawn.size;
     assert!(!em.lifetime.restart_pending);
 
     em.reset_to_spawn(&mut model);

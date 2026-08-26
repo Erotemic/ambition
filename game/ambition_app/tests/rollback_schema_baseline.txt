@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v112
+ggrs-rollback-schema-v113
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -53,6 +53,7 @@ actor.render_size	component-clone	ActorRenderSize	bevy_ggrs clone snapshot; stat
 actor.roll	component-canonical	ActorRoll	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.ruleset_owns_death	component-canonical	RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.scripted_control	component-clone	ScriptedControl	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.spawn_baseline	component-clone	SpawnBaseline	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

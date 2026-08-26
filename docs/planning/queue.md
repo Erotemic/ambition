@@ -5237,9 +5237,11 @@ failure mode this repository has already named twice.
 
 - ▢ **D33 — Continue actor-monolith decomposition by coherent ownership.**
 
-⭐⭐ **A COSTED CARVE CANDIDATE, MEASURED 2026-08-26 — and this row asked for
-exactly this: design work backed by measurement rather than another coupling
-table.** The remaining mass is `features` (44k), and 34k of it is `features/ecs`.
+⭐⭐ **A COSTED CARVE CANDIDATE, MEASURED AND THEN UNBLOCKED 2026-08-26 — this
+row asked for exactly this: design work backed by measurement rather than another
+coupling table.** ⇒ **`ecs/mount/mod.rs` now names ZERO monolith paths**; four
+outward edges were removed in one day and the remaining work is its test
+fixtures. The remaining mass is `features` (44k), and 34k of it is `features/ecs`.
 Its subtrees:
 
 ```text
@@ -5351,13 +5353,20 @@ would hand a grown rider, or a rider that had switched flight off, the WRONG BOD
 on dismount. `ActorConfig` is the AUTHORED BASELINE and the live components are
 not it.
 
-⚠ **SO THE LAST STEP IS A BASELINE COMPONENT, NOT ANOTHER MESSAGE.** What mount
-wants is the durable `(size, aerial)` a reset restores — `ActorSpawnState` is
-already half of it (`{pos, size}`, in `features/enemies`) and `is_aerial` is in
-`ActorTuning`. That is the one design question the carve still owes.
+✔✔ **DONE 2026-08-26 — `SpawnBaseline` LANDED, AND `ecs/mount/mod.rs` NOW NAMES
+ZERO MONOLITH PATHS.** `ActorSpawnState` (`{pos, size}`, a plain field of
+`ActorConfig` in `features/enemies`) became
+`shared_tangle::body::SpawnBaseline { pos, size, gravity_scale }` — its own
+component, beside `Mass` and `MountDied`, imported and never re-exported.
 
-⛔⛔ **AND MEASURING IT FOUND SOMETHING BIGGER THAN THE CARVE: THE AUTHORED
-GRAVITY SCALE IS RE-DERIVED FROM `is_aerial` AT THREE SITES, BY HAND, EACH TIME.**
+⭐⭐ **THE THIRD FIELD IS THE POINT.** The authored gravity scale was
+hand-derived from `tuning.is_aerial` at THREE sites — spawn, `reset_to_spawn`,
+and the mount dismount. It is recorded once now, where the body is built, and
+the other two READ it. ⇒ the dismount no longer needs `ActorConfig` at all, and
+two representations of one authored fact became one.
+
+⛔⛔ **WHAT MADE IT WORTH DOING WAS BIGGER THAN THE CARVE: THE AUTHORED GRAVITY
+SCALE WAS RE-DERIVED FROM `is_aerial` AT THREE SITES, BY HAND, EACH TIME.**
 
 ```text
 actor_clusters.rs:847   gravity_scale = if is_aerial {0.0} else {1.0}   spawn
@@ -5374,12 +5383,39 @@ travelling in the opposite direction. The authority underneath all of it is the
 character's own `locomotion.baseline_free_flight`; everything after that is a
 projection.
 
-⇒ **naming the authored baseline ONCE is the fix, and the mount carve is only its
-first customer.** ⛔ THE LIVE COMPONENTS CANNOT BE THAT NAME: mount ZEROES
+⇒ **naming the authored baseline ONCE was the fix, and the mount carve is only its
+first customer.** ⛔ THE LIVE COMPONENTS COULD NOT BE THAT NAME: mount ZEROES
 `gravity_scale` while riding, so the live value is the one thing it definitely is
-not. A durable component costs a new stable schema name and a declared
-`GGRS_ROLLBACK_SCHEMA_VERSION` bump — cheap next to four sites agreeing by
+not. The durable component cost one new stable schema name
+(`actor.spawn_baseline`, `component-clone`, immutable after spawn like
+`actor.config` beside it) and a declared bump to
+`GGRS_ROLLBACK_SCHEMA_VERSION` **113** — cheap next to three sites agreeing by
 convention.
+
+⛔⛔ **AND THE CARVE IS STILL NOT A `git mv`, BECAUSE THE TESTS ARE NOT FREE.**
+`mount/mod.rs` names nothing; `mount/tests.rs` names **41 monolith paths** —
+15 `crate::features::`, 7 `super::super::actor_clusters::`, plus the combat
+moveset, the boss attack systems and the character roster. They build real
+riders through the monolith's construction road, which is exactly what a mount
+crate would not have. ⇒ **the next step is the TEST fixtures, not the module.**
+
+⭐ **AND THE SAME CHANGE THAT FREED THE MODULE MAKES THE FIXTURES TRACTABLE.**
+They call `ActorClusterSeed::new(...)` — the monolith's whole construction road —
+because the old query view demanded all twenty-six columns. Mount now reads
+**nine components in total**: `RidingOn`, `Mounted`/`MountSlot`, `Mountable`,
+`CenteredAabb`, `Mass`, `ResolvedMotionFrame`, `BodyKinematics`,
+`ActorSurfaceState`/`BodyGroundState`, `BodyHealth` and `SpawnBaseline`. A rider
+fixture is those spawned directly, and none of them is a monolith type. ⇒ the
+fixtures CAN be rewritten rather than relocated.
+
+⚠ **BUT CHEAPER IS NOT AUTOMATICALLY RIGHT, and this is the call to make
+deliberately.** Today those arms build riders through the REAL construction road,
+so they also prove a real pirate raider ends up mountable. A hand-spawned
+component bag proves the mount rules and nothing about the bodies the game
+actually makes. ⇒ the likely answer is BOTH: narrow component-level arms travel
+with the carved crate, and the construction-road arms STAY in the monolith as
+integration tests of the pair. Do not delete the second kind to make the first
+kind possible.
 
 ⭐ **AND `TemporaryControl` WAS THE `Mass` SHAPE FOR THE THIRD TIME.** Fifty
 lines, one dependency (`SimId`), and its own doc already said two domains share

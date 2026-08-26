@@ -56,7 +56,7 @@ fn world_with_patrolling_npc(
     let brain = {
         let mut cfg = ambition_characters::brain::PatrolCfg::NPC_DEFAULT;
         cfg.lane = ambition_characters::brain::AuthoredWorldPatrolLane::new(
-            seed.config.spawn.pos.x,
+            seed.spawn.pos.x,
             patrol_radius.max(0.0),
         );
         cfg.aggro_radius = crate::features::NPC_TALK_RADIUS;
@@ -157,7 +157,7 @@ fn tick_peaceful(
 fn npc_falls_to_floor_under_gravity() {
     let (world, mut npc, mut brain, player) = world_with_patrolling_npc(0.0);
     npc.kin.pos.y = 200.0;
-    npc.config.spawn.pos.y = 200.0;
+    npc.spawn.pos.y = 200.0;
     for _ in 0..120 {
         tick_peaceful(
             &mut npc,
@@ -195,7 +195,7 @@ fn patrolling_npc_paces_within_radius() {
             ae::Vec2::new(0.0, 1.0),
         );
     }
-    let spawn_x = npc.config.spawn.pos.x;
+    let spawn_x = npc.spawn.pos.x;
     let mut min_x = npc.kin.pos.x;
     let mut max_x = npc.kin.pos.x;
     for _ in 0..600 {

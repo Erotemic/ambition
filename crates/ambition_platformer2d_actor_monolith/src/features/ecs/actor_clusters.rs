@@ -28,11 +28,14 @@ use bevy::prelude::Component;
 // from its owner; deliberately NOT re-exported.
 
 use super::super::components::BodyMelee;
-use super::super::enemies::{ActorSpawnState, ActorSurfaceState};
+use super::super::enemies::ActorSurfaceState;
+// The body a reset hands back. Below both of the domains that restore it —
+// respawn and the mount dismount — and imported, never re-exported.
 use super::super::path_motion::PathMotion;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
 use crate::actor::{
     AncillaryMovementBundle, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
@@ -75,7 +78,6 @@ pub struct ActorConfig {
     /// reconstruct a brain without naming the roster enum.
     pub brain_profile: crate::features::ecs::actor_tuning::BrainProfile,
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
     /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
     /// uses the default enemy sprite.
@@ -196,6 +198,7 @@ pub struct ActorMut<'a> {
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut BodyMelee,
     pub config: &'a mut ActorConfig,
+    pub spawn: &'a mut SpawnBaseline,
     pub motion: &'a mut ActorMotionPath,
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
     /// the per-frame integration and the damage hook branch on these
@@ -267,6 +270,9 @@ pub struct ActorClusterQueryData {
     pub surface: &'static mut ActorSurfaceState,
     pub attack: &'static mut BodyMelee,
     pub config: &'static mut ActorConfig,
+    /// The body a reset hands back. Read by `reset_to_spawn`; the mount
+    /// dismount reads the same component directly rather than through this view.
+    pub spawn: &'static mut SpawnBaseline,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static crate::combat::CombatCapabilities,
     /// What this body is holding RIGHT NOW, if anything.
@@ -312,6 +318,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             surface: &mut self.surface,
             attack: &mut self.attack,
             config: &mut self.config,
+            spawn: &mut self.spawn,
             motion: &mut self.motion,
             caps: self.caps,
             held_item: self.held_item,
@@ -351,6 +358,11 @@ pub struct ActorClusterSeed {
     pub surface: ActorSurfaceState,
     pub attack: BodyMelee,
     pub config: ActorConfig,
+    /// The body a reset hands back — position, authored size, authored gravity
+    /// scale. ⛔ IT IS NOT PART OF `ActorConfig`: a mount dissolving a dead
+    /// shark restores this and nothing else about the rider's identity, and a
+    /// mount crate cannot name the monolith's authored-actor definition.
+    pub spawn: SpawnBaseline,
     pub motion: ActorMotionPath,
     /// Persistent player-movement ability state, spawned alongside the clusters
     /// by [`Self::into_components`].
@@ -432,11 +444,30 @@ fn actor_hurt_feedback(
     }
 }
 
+/// What [`ActorClusterSeed::into_components`] spawns.
+///
+/// ⛔ NAMED because two test modules hand-wrote this tuple and both went stale
+/// the moment `SpawnBaseline` was added to it. The compiler caught them, which is
+/// the lucky case; a name means there is nothing to keep in step.
+pub type ActorClusterBundle = (
+    BodyKinematics,
+    ActorStatus,
+    ambition_characters::actor::BodyHealth,
+    ActorConfig,
+    SpawnBaseline,
+    ActorMotionPath,
+    ActorSurfaceState,
+    BodyMelee,
+    AncillaryMovementBundle,
+    crate::combat::CombatCapabilities,
+    crate::combat::CombatTuning,
+);
+
 impl ActorClusterSeed {
     /// Put this un-spawned body somewhere, once.
     ///
     /// A seed's placement is TWO fields — where the body starts (`kin.pos`) and where a respawn
-    /// returns it (`config.spawn.pos`) — and they are the same fact.
+    /// returns it (`SpawnBaseline::pos`) — and they are the same fact.
     ///
     /// this is a SEED, not a body, which is the whole reason a bare write
     /// is not the answer even though ADR 0024's pose authority is about live
@@ -448,7 +479,7 @@ impl ActorClusterSeed {
     /// as a bare relocation; see that policy's rationale.
     pub(crate) fn place_at(&mut self, pos: ae::Vec2) {
         self.kin = BodyKinematics { pos, ..self.kin };
-        self.config.spawn.pos = pos;
+        self.spawn.pos = pos;
     }
 
     //  [`Self::new_character_in`] is the only body constructor. A body is what
@@ -663,16 +694,21 @@ impl ActorClusterSeed {
                 gravity_scale,
             },
             attack: BodyMelee::default(),
+            // ⭐ THE AUTHORED GRAVITY SCALE IS RECORDED, not re-derived. Three
+            // sites used to spell `if is_aerial { 0.0 } else { 1.0 }` — here,
+            // `reset_to_spawn`, and the mount dismount — which is two
+            // representations of one authored fact agreeing by convention.
+            spawn: SpawnBaseline {
+                pos,
+                size: collision_size,
+                gravity_scale,
+            },
             config: ActorConfig {
                 id: id.into(),
                 name: name.into(),
                 tuning,
                 brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
                 brain: config_brain,
-                spawn: ActorSpawnState {
-                    pos,
-                    size: collision_size,
-                },
                 sprite_override_npc_name: None,
                 // Peaceful actors already resolved their catalog id above.
                 sprite_character_id: character_id.map(String::from),
@@ -823,6 +859,9 @@ impl ActorClusterSeed {
             ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
             ..Default::default()
         };
+        // ONE spelling of the authored scale, read by the live surface state
+        // AND recorded on the baseline a reset restores.
+        let gravity_scale = if is_aerial { 0.0 } else { 1.0 };
         Self {
             kin: BodyKinematics {
                 pos,
@@ -844,19 +883,24 @@ impl ActorClusterSeed {
             },
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
-                gravity_scale: if is_aerial { 0.0 } else { 1.0 },
+                gravity_scale,
             },
             attack: BodyMelee::default(),
+            // ⭐ THE AUTHORED GRAVITY SCALE IS RECORDED, not re-derived. Three
+            // sites used to spell `if is_aerial { 0.0 } else { 1.0 }` — here,
+            // `reset_to_spawn`, and the mount dismount — which is two
+            // representations of one authored fact agreeing by convention.
+            spawn: SpawnBaseline {
+                pos,
+                size: collision_size,
+                gravity_scale,
+            },
             config: ActorConfig {
                 id: id.into(),
                 name: display_name.to_string(),
                 tuning,
                 brain_profile,
                 brain: config_brain.clone(),
-                spawn: ActorSpawnState {
-                    pos,
-                    size: collision_size,
-                },
                 sprite_override_npc_name: None,
                 // the CHARACTER, stated rather than resolved from a display
                 // name. A seat knows exactly which character it is seating.
@@ -921,6 +965,7 @@ impl ActorClusterSeed {
             surface: &mut self.surface,
             attack: &mut self.attack,
             config: &mut self.config,
+            spawn: &mut self.spawn,
             motion: &mut self.motion,
             caps: &self.caps,
             // A seed is pre-spawn scratch: nothing is holding anything yet.
@@ -985,20 +1030,7 @@ impl ActorClusterSeed {
     /// The authoritative components as a spawnable Bundle. Includes the body's
     /// shared [`ambition_characters::actor::BodyHealth`] (the one health authority — spawned with
     /// the cluster, not the combat bundle).
-    pub fn into_components(
-        self,
-    ) -> (
-        BodyKinematics,
-        ActorStatus,
-        ambition_characters::actor::BodyHealth,
-        ActorConfig,
-        ActorMotionPath,
-        ActorSurfaceState,
-        BodyMelee,
-        AncillaryMovementBundle,
-        crate::combat::CombatCapabilities,
-        crate::combat::CombatTuning,
-    ) {
+    pub fn into_components(self) -> ActorClusterBundle {
         // Project the actor's authored weight onto the combat-owned carrier at
         // spawn (E2 verdict b): the damage paths read `CombatTuning`, never the
         // sim-heart `ActorConfig`.
@@ -1017,6 +1049,7 @@ impl ActorClusterSeed {
             self.status,
             self.health,
             self.config,
+            self.spawn,
             self.motion,
             self.surface,
             self.attack,

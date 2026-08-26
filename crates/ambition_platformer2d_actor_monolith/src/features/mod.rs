@@ -166,9 +166,7 @@ pub(crate) use ecs::{
     publish_actor_decision_frames, ActorDecisionFacts, ActorDecisionFrames,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
-pub use enemies::{
-    ActorSpawnState, ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
-};
+pub use enemies::{ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX};
 pub use events::{
     ActorStimulus, FeatureCombatTuning, GameplayBanner, GameplayBannerRequested,
     GameplaySfxRequested, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,

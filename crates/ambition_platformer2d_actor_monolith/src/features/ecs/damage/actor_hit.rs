@@ -279,25 +279,13 @@ pub(crate) fn apply_actor_hit(
             // supports it generically, but nothing threads a `WornEquipment` here.
             None,
             wallet_shield,
-            // ⛔⛔ A WINDBOX OFFERS NO GUARD — the actor road's half of the same
-            // rule the player road applies. A gust says "no shield", and handing
-            // the resolver a guard made it spend integrity, charge shieldstun
-            // and shove the defender exactly like a strike. The producer already
-            // carries the fact as `flinchless`.
-            if event
-                .knockback
-                .as_ref()
-                .is_some_and(|knockback| knockback.flinchless)
-            {
-                None
-            } else {
-                Some(crate::features::ecs::damage_apply::GuardUnderFire {
-                    state: &mut *em.shield,
-                    tuning: shield_tuning,
-                    vel: &mut em.kin.vel,
-                    body_size: victim_size,
-                })
-            },
+            crate::features::ecs::damage_apply::GuardUnderFire::offered_to(
+                event.knockback.as_ref(),
+                &mut *em.shield,
+                shield_tuning,
+                &mut em.kin.vel,
+                victim_size,
+            ),
             victim_facing,
             victim_pos,
             event.volume.center(),

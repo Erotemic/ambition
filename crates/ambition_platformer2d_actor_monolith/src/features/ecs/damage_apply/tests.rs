@@ -2190,3 +2190,64 @@ fn an_authored_zero_damage_windbox_takes_no_health() {
     );
     assert_eq!(health, 9, "the floored strike took no health");
 }
+/// ⭐⭐ A GUST OFFERS NO GUARD TO SPEND, ON EITHER ROAD.
+///
+/// A windbox authors *"pushes, and nothing else"* — explicitly NO SHIELD — and
+/// both damage roads used to hand `resolve_body_hit` a guard for every contact
+/// alike, so a gust spent shield integrity, charged shieldstun and shoved the
+/// defender exactly like a strike.
+///
+/// ⛔⛔ THIS ARM EXISTS BECAUSE THE ROAD FIXTURES CANNOT SEE IT. Measured
+/// 2026-08-25: they run on `ShieldTuning::OFF`, where an ordinary BLOCK leaves
+/// `depleted`, `stun_timer` and `break_timer` all at zero — so a guard that
+/// declines a gust and a guard that engages it for nothing are the same
+/// observation. What separates them is whether a guard is OFFERED at all, and
+/// that is one decision in one place now: there is nowhere else a
+/// `GuardUnderFire` can be built.
+///
+/// ⭐ THE ARMS STRADDLE `flinchless` AND NOTHING ELSE — same state, same tuning,
+/// same velocity, one flag apart. The `None`-knockback arm is the third legal
+/// case: a damage-only tick still meets a raised guard.
+#[test]
+fn a_windbox_offers_no_guard_and_a_strike_offers_one() {
+    fn knockback(flinchless: bool) -> crate::combat::HitKnockback {
+        crate::combat::HitKnockback {
+            flinchless,
+            dir: 1.0,
+            magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+            source_pos: ae::Vec2::ZERO,
+            impact_pos: ae::Vec2::new(10.0, 0.0),
+            launch_dir: None,
+            follow: None,
+        }
+    }
+
+    let offered = |knockback: Option<crate::combat::HitKnockback>| {
+        let mut state = ae::BodyShieldState::default();
+        let mut vel = ae::Vec2::ZERO;
+        GuardUnderFire::offered_to(
+            knockback.as_ref(),
+            &mut state,
+            ae::ShieldTuning::default(),
+            &mut vel,
+            TEST_BODY,
+        )
+        .is_some()
+    };
+
+    assert!(
+        offered(Some(knockback(false))),
+        "an ordinary strike met no guard at all, so the refusal below is a \
+         constructor that never offers one"
+    );
+    assert!(
+        !offered(Some(knockback(true))),
+        "a GUST was offered a guard to spend — its authored contract says no \
+         shield, and the fact rides the knockback to this exact decision"
+    );
+    assert!(
+        offered(None),
+        "a damage-only tick with no knockback at all was refused a guard — a \
+         hazard tick still meets a raised shield"
+    );
+}

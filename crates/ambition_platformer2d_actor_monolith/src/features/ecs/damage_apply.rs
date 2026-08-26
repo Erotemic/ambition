@@ -80,6 +80,44 @@ pub struct GuardUnderFire<'a> {
     pub body_size: ae::Vec2,
 }
 
+impl<'a> GuardUnderFire<'a> {
+    /// The guard this hit meets — `None` when the hit offers none.
+    ///
+    /// ⛔⛔ A WINDBOX OFFERS NO GUARD TO SPEND. Its authored contract is *"pushes,
+    /// and nothing else"* — explicitly NO SHIELD — and both damage roads handed
+    /// the resolver a guard for every contact alike, so a gust spent shield
+    /// integrity, charged shieldstun and applied pushback exactly like a strike.
+    /// `Option` already meant *"no guard participates in this hit"*; it simply
+    /// was never used to say so.
+    ///
+    /// ⭐ AND THE FACT WAS ALREADY AT THE SITE. The producer sets
+    /// `flinchless: hitbox.windbox.is_some()`, so *"this is a push, not a
+    /// strike"* rides the knockback to both roads. No new channel — the review
+    /// proposed a `DefenseInteraction` enum and it is not needed.
+    ///
+    /// ⭐⭐ ONE COPY, WHICH IS WHY THIS IS A CONSTRUCTOR AND NOT A COMMENT ON
+    /// EACH ROAD. It was written twice, with near-identical prose, in the two
+    /// places D203 exists to stop rules being written twice — and there is now
+    /// nowhere else a `GuardUnderFire` can be built.
+    pub fn offered_to(
+        knockback: Option<&crate::combat::HitKnockback>,
+        state: &'a mut ae::BodyShieldState,
+        tuning: ae::ShieldTuning,
+        vel: &'a mut ae::Vec2,
+        body_size: ae::Vec2,
+    ) -> Option<Self> {
+        if knockback.is_some_and(|knockback| knockback.flinchless) {
+            return None;
+        }
+        Some(Self {
+            state,
+            tuning,
+            vel,
+            body_size,
+        })
+    }
+}
+
 /// What [`resolve_body_hit`] decided about one hit on one body.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BodyHitResolution {
@@ -485,39 +523,13 @@ pub(crate) fn handle_player_damage_events(
         player_health.as_deref_mut(),
         armor,
         wallet_shield,
-        // ⛔⛔ A WINDBOX OFFERS NO GUARD TO SPEND. Its authored contract is
-        // "pushes, and nothing else" — explicitly NO SHIELD — and this handed
-        // the resolver a guard for every contact alike, so a gust spent shield
-        // integrity, charged shieldstun and applied pushback exactly like a
-        // strike. `Option` already means "no guard participates in this hit";
-        // it simply was never used to say so.
-        //
-        // ⭐ AND THE FACT WAS ALREADY HERE: the producer sets
-        // `flinchless: hitbox.windbox.is_some()`, so "this is a push, not a
-        // strike" rides the knockback all the way to this seam. No new channel.
-        //
-        // ⚠ REVIEWED, NOT PROVEN, and saying so is the point. The actor-road
-        // shield fixtures run on a tuning where BLOCKING IS FREE — measured:
-        // an ordinary blocked hit leaves `depleted`, `stun_timer` and
-        // `break_timer` all at zero — so they cannot tell a guard that declines
-        // a gust from one that engages it for nothing. The regression wants a
-        // shield tuning with a real integrity cost and shieldstun; until then
-        // this rests on the producer's own `flinchless` and on the resolver
-        // already treating `None` as "no guard participates".
-        if damage
-            .knockback
-            .as_ref()
-            .is_some_and(|knockback| knockback.flinchless)
-        {
-            None
-        } else {
-            Some(GuardUnderFire {
-                state: clusters.shield,
-                tuning: tuning.shield,
-                vel: &mut clusters.kinematics.vel,
-                body_size: size_now,
-            })
-        },
+        GuardUnderFire::offered_to(
+            damage.knockback.as_ref(),
+            clusters.shield,
+            tuning.shield,
+            &mut clusters.kinematics.vel,
+            size_now,
+        ),
         facing_now,
         pos_now,
         impact_pos,

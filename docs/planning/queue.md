@@ -10665,22 +10665,24 @@ THE KNOCKBACK to both damage roads — and `Option<GuardUnderFire>` already mean
 say so.** ⇒ CHECK THAT FIRST on the remaining gateway items (29b, resolved-hit,
 recovery-helpless, directional melee): the fact may already be at the site.
 
-⚠ THE BLOCK HALF IS REVIEWED, NOT PROVEN, and that was MEASURED rather than
-assumed: I wrote the regression, its CONTROL ARM FAILED, and a probe showed why —
-the actor-road shield fixtures run on a tuning where BLOCKING IS FREE (an
-ordinary blocked hit leaves `depleted`, `stun_timer` and `break_timer` all zero),
-so they cannot tell a guard that declines a gust from one that engages it for
-nothing. ⇒ the regression wants a shield tuning with a real integrity cost and
-shieldstun.
+⭐⭐ **THE BLOCK HALF IS PINNED NOW, AND NOT BY BUILDING THE TUNING.** The
+recorded blocker was real — the road fixtures run on `ShieldTuning::OFF`, where a
+BLOCK leaves `depleted`, `stun_timer` and `break_timer` all zero, so a guard that
+declines a gust and one that engages it for nothing are the same observation. ⇒
+what separates them is whether a guard is OFFERED, and that is now ONE decision
+in one place: `GuardUnderFire::offered_to`. It was written TWICE, with
+near-identical prose, in the two roads D203 exists to stop rules being written
+twice — and there is nowhere else a `GuardUnderFire` can be built, so the
+compiler carries the wiring the fixture could not. Straddling arms plus the
+`None`-knockback case (a damage-only tick still meets a raised guard).
 
 ⭐ **29c PARRY HALF CLOSED 2026-08-25.** A gust could be PARRIED, producing no
 push at all — the producer asked `shield.parrying()` for every strike volume
 alike. THE FACT WAS ALREADY ON THE `Hitbox` (`windbox`), so this was ONE
 CONDITION rather than a new channel: the parry half was cheap precisely because
-nothing had to cross a gateway. ▢ THE BLOCK HALF IS THE GATEWAY ONE and remains:
-`resolve_body_hit` receives no fact identifying the contact, so a gust still
-spends shield integrity, charges shieldstun and applies pushback against an
-authored `no shield`.
+nothing had to cross a gateway. ⭐ THE BLOCK HALF CLOSED THE SAME WAY: the fact
+was already riding the knockback, so it needed one constructor rather than a new
+channel — see above.
 
 ⚠ AUTHORING CLEANUP WHILE IT IS STILL LATENT: the type permits `autolink +
 windbox` together while documenting the combination as contradictory. Reject it

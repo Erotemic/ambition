@@ -4,11 +4,11 @@
 //! strongest stable identity available: seat, then `ActorIdentity`, then an
 //! explicitly unstable entity key.
 
-use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domains};
+use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectKey};
 use ambition_characters::control::DrivingParticipant;
 use bevy::prelude::*;
 
-use crate::stocks::{BodyKnockedOut, FighterStockSpent, StocksMatchDecided};
+use crate::stocks::{BodyKnockedOut, FighterStockSpent, MatchVerdict, StocksMatchDecided};
 
 /// The seat a body is driven from, when it has one.
 fn seat_of(bodies: &Query<&DrivingParticipant>, body: Entity) -> Option<u8> {
@@ -107,17 +107,37 @@ pub fn record_stock_lifecycle(
                 0,
                 FactDetail::new(
                     "match_decided",
-                    match &decision.winner {
-                        Some(winner) => format!("match decided: {winner}"),
-                        None => "match decided: a draw".to_string(),
+                    match &decision.outcome {
+                        MatchVerdict::Winner(winner) => format!("match decided: {winner}"),
+                        MatchVerdict::Draw => "match decided: a draw".to_string(),
+                        MatchVerdict::NoContest => "match stopped: no contest".to_string(),
                     },
                 ),
             )
+            // ⛔⛔ THREE ENDINGS, NOT TWO, and this instrument was still asking
+            // the old binary question — it read `winner: Option<String>` where
+            // `None` meant DRAW, which is precisely the conflation
+            // `MatchVerdict` was introduced to remove: an abandoned match had
+            // nowhere to go but to impersonate a draw. The fields say which of
+            // the three it was, and `draw` now means DRAW rather than
+            // "no winner".
+            .field(
+                "verdict",
+                match &decision.outcome {
+                    MatchVerdict::Winner(_) => "winner",
+                    MatchVerdict::Draw => "draw",
+                    MatchVerdict::NoContest => "no_contest",
+                },
+            )
             .field(
                 "winner",
-                decision.winner.clone().unwrap_or_else(|| "<draw>".into()),
+                match &decision.outcome {
+                    MatchVerdict::Winner(winner) => winner.clone(),
+                    MatchVerdict::Draw => "<draw>".to_string(),
+                    MatchVerdict::NoContest => "<no contest>".to_string(),
+                },
             )
-            .field("draw", decision.winner.is_none()),
+            .field("draw", matches!(decision.outcome, MatchVerdict::Draw)),
         );
     }
 }

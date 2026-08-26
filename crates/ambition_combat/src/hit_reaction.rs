@@ -24,6 +24,13 @@ pub struct BodyReaction {
     /// The DI the victim held, in its local frame. `ZERO` means it did not
     /// steer — which is a different finding from steering and being overruled.
     pub di_input_local: ae::Vec2,
+    /// Seconds of hitstun THIS REACTION CHARGED — not the body's remaining
+    /// timer.
+    ///
+    /// ⛔ `0.0` on the two paths that launch nothing (armor ate it, or the hit
+    /// carried no knockback), because the body may still be serving hitstun from
+    /// an EARLIER hit and reporting that here would credit this reaction with
+    /// somebody else's stun.
     pub hitstun: f32,
     /// `false` when the hit carried no knockback at all: the body was hurt and
     /// not launched, and a reader looking for a launch should stop here.
@@ -151,6 +158,11 @@ pub fn apply_body_hit_reaction(
         return BodyReaction {
             velocity: *vel,
             di_input_local,
+            // ⛔ NONE, and that is the paragraph above in one number: this path
+            // is *"no launch, no carry, no hitstun, no recoil lock"*. The body's
+            // own `hitstun_timer` may be non-zero from an earlier hit, and
+            // reporting it here would credit this reaction with that stun.
+            hitstun: 0.0,
             // TRUE when a launch was authored and armor ate it, FALSE when the
             // hit authored none: a reader looking for a launch needs to tell
             // "absorbed" from "never existed".

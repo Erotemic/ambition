@@ -2,8 +2,8 @@
 
 use super::*;
 use ambition_causal::{FactValue, RecordingPolicy};
-use ambition_characters::brain::{Brain};
-use ambition_characters::control::{PlayerSlot};
+use ambition_characters::brain::Brain;
+use ambition_characters::control::PlayerSlot;
 
 fn app() -> App {
     let mut app = App::new();
@@ -17,9 +17,9 @@ fn app() -> App {
 
 fn seated(app: &mut App, slot: u8) -> Entity {
     app.world_mut()
-        .spawn(ambition_characters::control::DrivingParticipant(PlayerSlot(
-            slot,
-        )))
+        .spawn(ambition_characters::control::DrivingParticipant(
+            PlayerSlot(slot),
+        ))
         .id()
 }
 
@@ -64,7 +64,7 @@ fn the_match_decision_explains_every_seat_because_it_is_about_the_world() {
         .set_policy(RecordingPolicy::All)
         .set_tick(91);
     app.world_mut().write_message(StocksMatchDecided {
-        winner: Some("seat_0".into()),
+        outcome: crate::stocks::MatchVerdict::Winner("seat_0".into()),
     });
     app.update();
 
@@ -110,7 +110,12 @@ fn a_knockout_of_an_unseated_body_is_about_that_body_not_about_the_world() {
     );
     assert_eq!(
         fact.get("cause"),
-        Some(&FactValue::Text("PlayerProjectile".into())),
+        // ⛔ `Projectile`, not `PlayerProjectile`. `HitSource` names WHAT STRUCK,
+        // not whose it was — the owner is a separate fact — and this expectation
+        // was still spelling a variant that no longer exists. It went unnoticed
+        // because this whole module is behind `--features causal`, which no
+        // per-crate `cargo test` turns on.
+        Some(&FactValue::Text("Projectile".into())),
         "a ring-out and a meter death are different findings, so the cause is a FIELD \
          rather than something a reader has to infer from the summary"
     );
@@ -176,7 +181,7 @@ fn a_cpus_stock_loss_stays_out_of_a_participants_explanation() {
         eliminated: false,
     });
     app.world_mut().write_message(StocksMatchDecided {
-        winner: Some("seat_0".to_string()),
+        outcome: crate::stocks::MatchVerdict::Winner("seat_0".to_string()),
     });
     app.update();
 

@@ -34,14 +34,6 @@ use ambition_platformer2d::mount::{
     DismountReason, DismountRequested, RideLease, RiderDismounted, RidingOn,
 };
 
-/// This mount leaves the moment its saddle empties.
-///
-/// ⭐ A PROPERTY OF THE MOUNT, not of the move that made it. A summoned vehicle
-/// departs; an authored one standing in a room does not, and the difference is
-/// which of them carries this.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct DepartsWhenRiderless;
-
 /// A mount on its way out: it holds this heading until the clock runs down and
 /// then despawns.
 ///
@@ -79,7 +71,6 @@ const DEPART_SECONDS: f32 = 2.0;
 /// appearing under the first.
 pub fn translate_shark_summons(
     mut actions: MessageReader<ActorActionMessage>,
-    mut commands: Commands,
     mut effects: MessageWriter<ambition_platformer2d::vfx::EffectRequest>,
     riders: Query<&RidingOn>,
     bodies: Query<&ae::BodyKinematics>,
@@ -128,15 +119,15 @@ pub fn translate_shark_summons(
                     // side in the match. Jon: *"No, the shark doesn't have
                     // contact damage in smash."*
                     faction: ambition_platformer2d::vfx::HitSide::Neutral,
-                    ridden_by_summoner: true,
+                    // ⭐ THE RIDE'S LENGTH TRAVELS WITH THE SUMMON, so the
+                    // spawn, the board and the lease are one transaction inside
+                    // the executor's exclusive command. Installing the lease
+                    // here would leave an orphan behind a refused board.
+                    ridden_by_summoner: Some(ambition_platformer2d::vfx::SummonedRide {
+                        seconds: params.seconds,
+                    }),
                 },
             ),
-        });
-        // The clock rides the RIDER, and it is armed here rather than on the
-        // board because the length of the ride is the MOVE's statement — a
-        // different special could summon the same shark for a different while.
-        commands.entity(message.actor).insert(RideLease {
-            remaining: params.seconds,
         });
     }
 }
@@ -206,7 +197,7 @@ pub fn dismount_launched_riders(
 pub fn depart_when_riderless(
     mut commands: Commands,
     mut left: MessageReader<RiderDismounted>,
-    departs: Query<&ae::BodyKinematics, With<DepartsWhenRiderless>>,
+    departs: Query<&ae::BodyKinematics, With<ambition_platformer2d::mount::MountSlot>>,
 ) {
     for event in left.read() {
         let Ok(kin) = departs.get(event.mount) else {
@@ -215,6 +206,42 @@ pub fn depart_when_riderless(
         commands.entity(event.mount).insert(Departing {
             remaining: DEPART_SECONDS,
             velocity: departure_heading(kin.pos) * DEPART_SPEED,
+        });
+    }
+}
+
+/// A summoned shark that DIES dissolves its rider's transient ride.
+///
+/// ⛔⛔ WITHOUT THIS, KILLING A SHARK PERMANENTLY DISABLES THE UP-B. ADR 0020's
+/// `enforce_mount_rider_link` deliberately KEEPS `RidingOn` attached when a
+/// mount dies — *"keeping the link record lets the same-room reset path re-mount
+/// the rider once the mount is alive again"* — which is exactly right for an
+/// AUTHORED pair whose shark respawns underneath its pirate. A summoned shark
+/// never comes back, so the admiral would be left logically riding a corpse
+/// forever, and `translate_shark_summons` refuses anybody already carrying
+/// `RidingOn`. One dead shark, no more sharks, for the rest of the match.
+///
+/// ⭐ A SMASH BRIDGE RATHER THAN A CHANGE TO ADR 0020. The persistent-pair
+/// behaviour is correct for its own customer; what differs is that THIS ride is
+/// disposable, and the ruleset that made it disposable is the one that knows.
+/// `DismountReason::MountLost` existed with no producer; this is it.
+pub fn dissolve_the_ride_when_the_shark_dies(
+    mut died: MessageReader<ambition_platformer2d::platformer::body::MountDied>,
+    leased: Query<Entity, With<RideLease>>,
+    mut dismounts: MessageWriter<DismountRequested>,
+) {
+    // Only a LEASED ride dissolves. An authored pair carries no lease, so this
+    // cannot reach into the metroidvania's shark riders and take their link.
+    let mut lost: Vec<Entity> = died
+        .read()
+        .filter_map(|event| leased.get(event.rider).ok())
+        .collect();
+    lost.sort();
+    lost.dedup();
+    for rider in lost {
+        dismounts.write(DismountRequested {
+            rider,
+            reason: DismountReason::MountLost,
         });
     }
 }
@@ -234,20 +261,54 @@ fn departure_heading(pos: ae::Vec2) -> ae::Vec2 {
 pub fn tick_departures(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
-    mut departing: Query<(Entity, &mut Departing, &mut ae::BodyKinematics)>,
+    mut departing: Query<(
+        Entity,
+        &mut Departing,
+        &mut ambition_platformer2d::characters::control::ActorControl,
+    )>,
 ) {
     let dt = time.sim_dt();
     let mut gone: Vec<Entity> = Vec::new();
-    for (entity, mut departure, mut kin) in &mut departing {
+    for (entity, mut departure, mut control) in &mut departing {
         departure.remaining -= dt;
-        kin.vel = departure.velocity;
-        kin.pos += departure.velocity * dt;
+        // ⛔⛔ IT WRITES AN INTENT, NOT A POSITION. The first version set
+        // `kin.vel` AND advanced `kin.pos` itself, in `Settle` — after the
+        // ordinary movement pass had already integrated this body. That is two
+        // integrators owning one position: on every tick the shark's own brain
+        // moved it, and then this moved it again.
+        //
+        // ⭐ `velocity_target` IS THE SEAM AND IT IS WORLD-SPACE. The shark is an
+        // aerial body, and an aerial body steers by exactly this — the same
+        // field `steer_mount_from_rider` uses to hand a rider's intent to its
+        // mount, chosen there for the same frame-safety reason.
+        //
+        // ⚠ ONE TICK OF LATENCY, deliberately taken. This runs in `Settle`, so
+        // the intent written now is integrated by the next tick's movement pass.
+        // A departing shark holds still for one frame, which nobody can see, and
+        // the alternative is a second position authority, which everybody
+        // eventually can.
+        control.0.velocity_target =
+            ambition_platformer2d::engine_core::WorldVec2(departure.velocity);
+        control.0.locomotion = Default::default();
         if departure.remaining <= 0.0 {
             gone.push(entity);
         }
     }
+    // Sorted: `Query` order is not guaranteed and a despawn is a world edit.
     gone.sort();
     for entity in gone {
         commands.entity(entity).despawn();
     }
+}
+
+/// The projection a rollback localizer probes `Departing` through.
+///
+/// BOTH FIELDS, because both are positions: `remaining` decides which tick the
+/// shark stops existing on and `velocity` decides where it is when that
+/// happens. A presence-only probe would satisfy the coverage oracle while
+/// seeing nothing of the value.
+pub fn departing_probe(departing: &Departing) -> u64 {
+    let mut hash = departing.remaining.to_bits() as u64;
+    hash = hash.rotate_left(17) ^ departing.velocity.x.to_bits() as u64;
+    hash.rotate_left(17) ^ departing.velocity.y.to_bits() as u64
 }

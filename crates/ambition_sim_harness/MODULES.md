@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_sim_harness** — `ambition_sim_harness` — a programmatic harness for driving the platformer simulation headlessly.
+**ambition_sim_harness** — Programmatic harness for driving a platformer simulation headlessly.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_projectile_spec** — **Authored projectile intent — content-free spawn data, and nothing else.**
+**ambition_projectile_spec** — Authored projectile intent — content-free spawn data, and nothing else.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

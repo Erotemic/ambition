@@ -2,14 +2,15 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_boss_encounter** — Ambition's boss-fight coordinator — the BOSS DOMAIN, carved out of the actor monolith 2026-08-17 (D33).
+**ambition_boss_encounter** — Boss encounter domain.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`attack_geometry`](src/attack_geometry/mod.rs) | Pure attack/body volume math (no ECS, no mutation). |
+| [`anim`](src/anim.rs) | Boss animation-state derivation from boss-owned runtime state. |
+| [`attack_geometry`](src/attack_geometry/mod.rs) | Pure authored attack/body volume math; no ECS access or mutation. |
 | [`behavior`](src/behavior.rs) | Boss behavior-profile vocabulary (data-driven). |
 | [`catalog`](src/catalog.rs) | App-local composition of provider-authored boss data. |
-| [`clusters`](src/clusters.rs) | Authoritative ECS components for a boss actor + the `BossMut` / `BossRef` views the per-tick systems mutate / read in place. |
+| [`clusters`](src/clusters.rs) | Authoritative boss ECS components and `BossMut` / `BossRef` views. |
 | [`encounter_entity`](src/encounter_entity.rs) | The ENCOUNTER as a first-class, OPTIONAL entity. |
 | [`encounter_script`](src/encounter_script.rs) | Encounter-script EXECUTION + its actor-specific mechanics. |
 | [`events`](src/events.rs) | Boss-encounter presentation sink. |
@@ -23,7 +24,7 @@
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems — the per-frame driver. |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

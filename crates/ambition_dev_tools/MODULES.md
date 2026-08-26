@@ -2,12 +2,12 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_dev_tools** — Reusable developer-tooling state + logic (E1d carve out of `ambition_platformer2d_actor_monolith`).
+**ambition_dev_tools** — Reusable developer-tooling state and simulation-side logic.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`dev_tools`](src/dev_tools/mod.rs) | Developer-facing tuning and inspection tools. |
-| [`hot_reload`](src/hot_reload.rs) | **A debounced mtime watch over the authored world file, and the transactional reload it offers the developer controls.** |
+| [`hot_reload`](src/hot_reload.rs) | A debounced mtime watch over the authored world file, and the transactional reload it offers the developer controls. |
 | [`persistence`](src/persistence.rs) | Disk persistence for the [`DeveloperTools`] resource (developer.ron). |
 | [`profiling`](src/profiling.rs) | Lightweight startup profiler. |
 | [`sim_plugin`](src/sim_plugin.rs) | `DevToolsSimPlugin` — the dev-tools DOMAIN plugin for the simulation App. |

@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`page`](src/page.rs) | Cube page-rendering: turns a `MenuPageModel` into the cube's 3D panel / text / control / icon / scrollbar / selection-corner / nav-arrow entities. |
+| [`page`](src/page.rs) | _(no `//!` header — see D-B navigability standard)_ |
 
 _1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

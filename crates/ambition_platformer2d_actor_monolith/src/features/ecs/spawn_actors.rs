@@ -1210,6 +1210,16 @@ pub(crate) fn spawn_runtime_minion_into(
              exists. Register the character."
         );
     };
+    // ⛔⛔ THE MOUNT ROLE, ON THE THIRD ROAD THAT DROPPED IT.
+    // `CharacterBodyBlueprint::mount` is right here and `new_character_in`
+    // swallows it in a `..` — so a summoned `npc_burning_flying_shark`, whose
+    // row authors `class: "shark"`, arrived with no `Mountable` and nobody could
+    // board it. Placement reads the fact off its own definition and seating now
+    // reads it off the prepared seat; this is the same fact on the road that
+    // makes a body at runtime.
+    //
+    // ⚠ TAKEN BEFORE `body` IS MOVED into the seed below.
+    let mount_role = body.mount.cloned();
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
         authored_sheets,
         catalog,
@@ -1244,6 +1254,18 @@ pub(crate) fn spawn_runtime_minion_into(
     commands
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
+    // The authored mount role captured above, on the body that now exists.
+    if let Some(mount) = mount_role.as_ref() {
+        attach_mount_role_from(
+            commands,
+            entity,
+            mount.class.as_deref(),
+            Some(aabb.half_size() * 2.0),
+            mount.death_splash,
+            1.0,
+            &mount.pilotable_classes,
+        );
+    }
     if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
         authored_sheets,
         catalog,
@@ -2036,6 +2058,7 @@ pub fn apply_summon_effects(
     let mut board_after_commit: Vec<(
         bevy::prelude::Entity,
         ambition_platformer2d_shared_tangle::sim_id::SimId,
+        ambition_vfx::SummonedRide,
     )> = Vec::new();
     for req in requests.read() {
         let ambition_vfx::Effect::Summon(s) = &req.effect else {
@@ -2070,10 +2093,11 @@ pub fn apply_summon_effects(
         // what the request below derives, so a summon that asked to be ridden
         // can name its mount now and look it up after the commit — no channel,
         // no follow-up tick, and nothing that could name a DIFFERENT body.
-        if s.ridden_by_summoner {
+        if let Some(ride) = s.ridden_by_summoner {
             board_after_commit.push((
                 req.owner,
                 ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(summoner, taken),
+                ride,
             ));
         }
         planned.push(crate::construction::summoned_minion_request(
@@ -2197,7 +2221,7 @@ pub fn apply_summon_effects(
         // (the registry's only users are toy fixtures), so this resolves the
         // identity directly rather than standing up the relation road for one
         // caller.
-        for (rider, mount_id) in board_after_commit {
+        for (rider, mount_id, ride) in board_after_commit {
             let mount = {
                 let mut q = world.query::<(
                     bevy::prelude::Entity,
@@ -2209,7 +2233,16 @@ pub fn apply_summon_effects(
             };
             match mount {
                 Some(mount) => {
-                    if !ambition_mount::board(world, rider, mount) {
+                    if ambition_mount::board(world, rider, mount) {
+                        // ⭐ THE LEASE IS PART OF THE BOARD, not a separate write
+                        // by whoever asked for the summon. A refused pair must
+                        // leave NOTHING behind: a lease on a body that is not
+                        // riding is one `apply_dismount_requests` will never
+                        // collect, because it skips a rider with no link.
+                        world.entity_mut(rider).insert(ambition_mount::RideLease {
+                            remaining: ride.seconds,
+                        });
+                    } else {
                         bevy::log::warn!(
                             target: "ambition_platformer2d::construction",
                             "summon `{mount_id:?}` asked to be ridden and the pair was refused \

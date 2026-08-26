@@ -23,6 +23,7 @@ reference that drifts is worse than none, because a reader trusts it.
 | `windowed(title)` | a game that opens a window |
 | `headless()` | no display; one `update()` is one sim tick |
 | `without_gpu()` | full render graph, no wgpu backend — for CI and display-less boxes |
+| `offscreen()` | full render graph on a real backend, no window — so no `winit` and no app runner, and the caller steps the app itself |
 | `with_game_assets()` | prepare art on a headless host (a window implies it) |
 | `start_at_launcher()` | boot into a launcher over all mounted experiences, not into the first |
 | `rollback(participants)` | compose for rollback, seating `participants` local players — see [Rollback](#rollback) |

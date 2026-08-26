@@ -6,9 +6,11 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`rollback_registration`](src/rollback_registration.rs) | Domain-owned rollback declarations; the host supplies the backend registrar. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
+| [`time_control`](src/time_control/mod.rs) | Time-control authority as data. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

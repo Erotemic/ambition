@@ -9,31 +9,37 @@
 | [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
 | [`banner`](src/banner.rs) | Gameplay banner ticking and deferred-request application. |
 | [`breakables`](src/breakables.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
-| [`capture`](src/capture.rs) | **CAPTURE — one body holding another, as a relationship rather than a hit.** |
-| [`causal`](src/causal.rs) | This crate's causal facts: **why did a body lose a stock, get eliminated, or end the match?** |
+| [`capture`](src/capture/mod.rs) | Capture is a persistent relationship between two bodies, separate from hit resolution and [`MovePlayback`](crate::moveset::MovePlayback). |
+| [`causal`](src/causal.rs) | Causal facts derived from stock-lifecycle messages. |
+| [`clank`](src/clank.rs) | TWO ATTACKS MEETING — hitbox-vs-hitbox arbitration, before either reaches a victim. |
 | [`components`](src/components/mod.rs) | ECS-native feature components. |
-| [`crowd`](src/crowd.rs) | Where a body contests space when it fights. |
-| [`death_rules`](src/death_rules.rs) | **What a death MEANS for the run** (ADR 0033). |
-| [`events`](src/events.rs) | Combat-kit message/event vocabulary + small shared value types. |
+| [`crowd`](src/crowd.rs) | Crowding classification used by fighter spacing logic. |
+| [`death_rules`](src/death_rules.rs) | Game-scoped consequences of participant death (ADR 0033). |
+| [`events`](src/events.rs) | Combat message/event vocabulary and small shared value types. |
 | [`falling_chest`](src/falling_chest.rs) | Falling-chest physics for ECS reward chests. |
+| [`feel`](src/feel.rs) | Live gameplay-feel tuning owned by the combat domain. |
+| [`footstool`](src/footstool.rs) | Footstool interaction: jumping off another body. |
 | [`hazard_runtime`](src/hazard_runtime.rs) | `HazardRuntime`: the per-hazard runtime blob (id/name/pos/size, its `DamageVolume`, optional patrol `PathMotion`, and resolve `HitMode`) carried by LDtk-entity hazards. |
 | [`hazards`](src/hazards.rs) | Hazard tick: patrol motion and contact damage. |
 | [`held_items`](src/held_items.rs) | ECS-owned held item capability for actors. |
-| [`hitbox`](src/hitbox/mod.rs) | Hitbox-entity lifecycle: spawn → overlap-check → despawn. |
+| [`hit_camera_shake`](src/hit_camera_shake.rs) | Camera-shake intents derived from landed hits. |
+| [`hit_reaction`](src/hit_reaction.rs) | Body-generic hit reaction: knockback, directional influence, and reaction timers. |
+| [`hitbox`](src/hitbox/mod.rs) | Hitbox-entity lifecycle: spawn, resolve overlaps, then despawn. |
+| [`impact_hitstop`](src/impact_hitstop/mod.rs) | The match-level impact freeze: an absolute expiry tick, held in rollback state, that stops the sim clock for a connect nobody is playing. |
 | [`moveset`](src/moveset/mod.rs) | Data-driven move playback — the runtime half of the Smash model. |
 | [`on_hit`](src/on_hit.rs) | On-hit techniques — conditional effects driven by resolved strike facts. |
 | [`path_motion`](src/path_motion.rs) | `PathMotion`: waypoint-following used by moving hazards/platforms. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_combat`. |
-| [`rules`](src/rules.rs) | **The combat rules a match plays under — resolved, not borrowed.** (AE6) |
-| [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
-| [`stale`](src/stale.rs) | **Move staling** — the history that makes a repeated answer worth less. |
-| [`stocks`](src/stocks.rs) | **Stocks: the loop a KO'd fighter actually goes round.** (S4 part 1) |
-| [`strike`](src/strike.rs) | **The live strike: the authoritative damage volume and its lifecycle state.** |
-| [`targeting`](src/targeting.rs) | Per-frame `ActorTarget` selection for non-player actors. |
-| [`util`](src/util.rs) | Grab-bag of small feature-side helpers — not a cohesive subsystem. |
+| [`rules`](src/rules.rs) | The combat rules a match plays under — resolved, not borrowed. |
+| [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire-format implementations for combat-owned types. |
+| [`stale`](src/stale.rs) | Move staling — the history that makes a repeated answer worth less. |
+| [`stocks`](src/stocks.rs) | Ruleset-owned lives/stocks accounting. |
+| [`strike`](src/strike.rs) | Authoritative live strike volume and lifecycle state. |
+| [`targeting`](src/targeting.rs) | Per-frame combat relationship and `ActorTarget` selection. |
+| [`util`](src/util.rs) | Small feature-side helpers that do not own a subsystem. |
 | [`variation`](src/variation.rs) | Stable per-actor variation helpers for ECS feature actors. |
 
-_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

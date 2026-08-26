@@ -742,6 +742,8 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
         character_id: "puppy_slug".into(),
         encounter_id: "enc_1".into(),
         faction: ambition_vfx::HitSide::Enemy,
+        // A minion nobody rides, which is every summon these fixtures are about.
+        ridden_by_summoner: None,
     }
 }
 

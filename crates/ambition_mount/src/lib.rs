@@ -937,7 +937,12 @@ where
     // without restoring how much longer would put the rider down on a different
     // tick than the one being resimulated, and where a rider is put down is a
     // position on the stage.
-    registrar.rollback_component_clone::<RideLease>(OWNER, "mount.ride_lease");
+    // PROBED: the remaining seconds decide which tick the rider is put down, and
+    // where a body is put down is a position. A presence-only probe would
+    // satisfy the coverage oracle while seeing nothing of the value.
+    registrar.rollback_component_clone_probed::<RideLease>(OWNER, "mount.ride_lease", |lease| {
+        lease.remaining.to_bits() as u64
+    });
     // ⛔ BOTH CHANNELS, because a reader's cursor is `Local` state GGRS never
     // rewinds. An abandoned future's cursor would either re-read a consumed
     // `DismountRequested` — dissolving a link that was re-formed — or skip an

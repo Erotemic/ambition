@@ -317,10 +317,15 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     // limited time using the control stick)."* It replaces `grapple_line`, a
     // hauled boarding line whose recovery was almost all horizontal.
     //
-    // ⛔ NO HURTBOX ANYWHERE ON IT — *"There is no hurtbox on this up-b, it's
-    // purely a mobility special"* — which is why it is a `hitless_special` and
-    // not a `strike` carrying an empty volume list. The shark deals no contact
-    // damage either; it is `Neutral` and takes no side in the match.
+    // ⛔ NO ATTACK HITBOX ANYWHERE ON IT — Jon: *"There is no hurtbox on this
+    // up-b, it's purely a mobility special"*, and the thing he means is the
+    // striking half: the move hits nobody. That is why it is a
+    // `hitless_special` rather than a `strike` carrying an empty volume list.
+    //
+    // ⚠ THE SHARK STILL HAS A HURTBOX, and must: Jon asked for it to die to a
+    // damage threshold so an opponent can gimp the recovery by killing it. What
+    // the shark declines is CONTACT damage — it is `Neutral` and takes no side —
+    // not the ability to be hit.
     //
     // ⭐ THE PRICE IS THE BUDGET, NOT FREEFALL. `author_summon_ride` sets both
     // gates together: one shark per airtime like anybody else's recovery, and no

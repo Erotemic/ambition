@@ -5,6 +5,7 @@
 //! `npc_pirate_admiral` cannot be seated there and a rig that tried would
 //! measure an empty stage.
 
+use ambition_platformer2d::characters::control::DrivingParticipant;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
 /// ⭐⭐ THE ADMIRAL CALLS A SHARK, RIDES IT, AND COMES OFF WHEN HE JUMPS.
@@ -56,6 +57,18 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
             .map(|(entity, _)| entity)
             .expect("the match seats a first fighter")
     };
+    // ⛔⛔ THE PREMISE THAT COST A DAY. The first version used
+    // `smash_roster_at_levels`, which overwrites EVERY participant as a CPU —
+    // including seat 0 — so `drive_control_frame` drove `PlayerSlot::PRIMARY`
+    // at a slot nobody owned. Every downstream assertion then reported a
+    // perfectly good up-B as broken. A rig that drives a seat must first say
+    // the seat is drivable.
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven by a participant, so `drive_control_frame` is \
+         talking to nobody and nothing below measures the up-B"
+    );
+
     let sharks = |app: &mut App| -> usize {
         let world = app.world_mut();
         let mut q = world.query_filtered::<Entity, With<Mountable>>();
@@ -73,15 +86,24 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
             app.update();
         }
     };
+    // ⛔ ONE press FRAME, then HELD. `special_pressed` is a rising EDGE: holding
+    // it true for ten frames is ten presses, which repopulates the special
+    // buffer every tick. The direction comes from `axis_y` — the fighter brain
+    // folds it into `attack_axis` and the special resolver reads that — so
+    // `up_pressed` is irrelevant to picking an up-special.
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    press(&mut app, 1, up_special);
     press(
         &mut app,
-        10,
+        9,
         ambition_platformer2d::engine_core::ControlFrame {
-            axis_y: -1.0,
-            up_pressed: true,
-            special_pressed: true,
-            special_held: true,
-            ..Default::default()
+            special_pressed: false,
+            ..up_special
         },
     );
     // Let the summon commit and the saddle weld.

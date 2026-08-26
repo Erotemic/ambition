@@ -2,15 +2,15 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_dialog** — Reusable dialogue runtime (E1c carve out of `ambition_platformer2d_actor_monolith`).
+**ambition_dialog** — Reusable, content-free dialogue runtime.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`bindings`](src/bindings.rs) | Generic Yarn binding machinery — the reusable half of the old `dialog/yarn_bindings.rs`. |
+| [`bindings`](src/bindings.rs) | Content-free Yarn binding state, presentation cues, and vocabulary installers. |
 | [`bridge`](src/bridge.rs) | Yarn↔DialogState bridge. |
-| [`content`](src/content.rs) | Dialogue content types — minimal post-Yarn migration. |
-| [`context`](src/context.rs) | **Who is talking to whom** — the identity context of one conversation. |
-| [`continuity`](src/continuity.rs) | **What ends a conversation that the world keeps running through.** |
+| [`content`](src/content.rs) | Runtime dialogue option data consumed by the UI view model. |
+| [`context`](src/context.rs) | Who is talking to whom — the identity context of one conversation. |
+| [`continuity`](src/continuity.rs) | What ends a conversation that the world keeps running through. |
 | [`runtime`](src/runtime.rs) | `DialogState` — the dialogue UI read model. |
 | [`speech_sfx`](src/speech_sfx.rs) | Dialogue typewriter SFX selection and throttling. |
 | [`systems`](src/systems.rs) | Dialogue Bevy systems: input translation + the typewriter reveal tick. |

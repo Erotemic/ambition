@@ -593,6 +593,8 @@ pub fn spawn_minima_trap_from_special_messages(
                     character_id: MINIMA_TRAP_MINION_CHARACTER.to_string(),
                     encounter_id,
                     faction: ambition_vfx::HitSide::Enemy,
+                    // A boss drops a minion; nobody rides it.
+                    ridden_by_summoner: None,
                 }),
             });
         }
@@ -860,6 +862,8 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     character_id: GRADIENT_CASCADE_MINION_CHARACTER.to_string(),
                     encounter_id: encounter_id.clone(),
                     faction: ambition_vfx::HitSide::Enemy,
+                    // A boss drops a minion; nobody rides it.
+                    ridden_by_summoner: None,
                 }),
             });
         }

@@ -84,8 +84,13 @@ pub fn apply_body_hit_reaction(
     // A fighter that spent its last recovery is helpless until something answers
     // for it. Being hit answers for it: the hit above hands the air dodge back
     // precisely so a launched fighter has an answer to the follow-up, and a body
-    // still forbidden to act cannot use it. ⛔ CLEARING THE EPISODE REFUNDS
-    // NOTHING — `recovery_charges` stays spent, and so does the double jump.
+    // still forbidden to act cannot use it.
+    //
+    // ⭐ AND THE RECOVERY COMES BACK WITH THE EPISODE — see the call site. The
+    // DOUBLE JUMP still does not, which is the distinction the two rules turn
+    // on: a spent midair jump is a resource an edge-guard took from you, and
+    // freefall is a punishment for having spent the recovery. Lifting the
+    // punishment without returning the thing is neither rule.
     jump: Option<&mut ae::BodyJumpState>,
     // ⭐ THE LEDGE HANG A HIT TAKES, for the same reason the budget is here: it
     // is a fact about being HIT, not about which road resolved the hit. It was
@@ -137,13 +142,30 @@ pub fn apply_body_hit_reaction(
             dodge.air_dodge_spent = false;
         }
     }
-    // …and the fighter is allowed to use it. See the parameter's own note for
-    // why this gives back no charge.
-    if let Some(jump) = jump {
-        if !gust {
-            jump.post_recovery_helpless = false;
-        }
-    }
+    // …and the fighter is allowed to use it. THE RECOVERY IT GETS BACK IS
+    // BELOW, past the launch filter, because it is owed to a FLINCH and this
+    // block is everything an accepted hit owes whatever it launches.
+    //
+    // ⛔⛔ THIS USED TO GIVE BACK NO CHARGE, under a comment saying so was
+    // deliberate and must not be undone. It was wrong, and Jon named the rule it
+    // was wrong about (2026-08-26): *"In Smash Ultimate, the normal rule is that
+    // if you have used an up-B that puts you into special fall / helplessness,
+    // then an opponent hits you hard enough to cause flinch, that hit clears
+    // helplessness. Once hitstun ends, you can act again, INCLUDING using your
+    // up-B again."*
+    //
+    // ⭐ THE OLD COMMENT WAS RIGHT ABOUT THE DOUBLE JUMP AND GENERALISED FROM
+    // IT. A spent midair jump genuinely does stay spent through an edge-guard
+    // hit — that is what makes taking somebody's second jump worth doing, and it
+    // is still true two lines up. The recovery is the opposite case: freefall is
+    // a PUNISHMENT for having spent it, and a hit that lifts the punishment
+    // while withholding the thing punished for leaves a fighter free to act with
+    // nothing to act with. The genre gives both back together or neither.
+    //
+    // ⭐ AND THE EPISODE FLAG IS NOW REDUNDANT HERE RATHER THAN LOAD-BEARING —
+    // cleared anyway, because a body whose charge came back must not be reading
+    // as helpless for even one tick, and because the flag is what
+    // `body_is_helpless` actually asks.
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
@@ -211,6 +233,38 @@ pub fn apply_body_hit_reaction(
             return;
         }
     };
+    // ⭐⭐ THE FLINCH REFUND, AND ITS PLACE IS THE RULE. Everything above is what
+    // an ACCEPTED hit owes; this is what a FLINCH owes, and Jon named the
+    // difference: *"an opponent hits you hard enough to cause FLINCH, that hit
+    // clears helplessness"*. Two hits get this far and should not: a damage-only
+    // tick (a hazard, a poison, a chip) authors no knockback at all, and a
+    // strike eaten by SUPER ARMOR is one the body did not answer for. Neither
+    // flinches anybody, and the early return above is precisely the line between
+    // them and a hit that does.
+    //
+    // ⛔⛔ IT WAS ABOVE THAT LINE and therefore fired for both — so a poison tick
+    // handed a helpless fighter its recovery back, and so did a hit its own
+    // armour ate. The first draft of this rule put it beside the air dodge
+    // because they read as one paragraph; they are not, and the reviewer caught
+    // it. The DODGE is owed to any accepted hit by its own contract (*"a
+    // launched fighter that could not dodge would have no answer to the
+    // follow-up"*) and stays where it was.
+    //
+    // ⛔ STILL NOT A GUST. A windbox authors real knockback and so reaches this
+    // line, and *"what a windbox declines is the INJURY, not the physics"* — a
+    // fighter blown out of freefall by wind was the best rescue tool in the game
+    // and nobody authored it to be.
+    //
+    // ⛔ AND STILL NOT THE DOUBLE JUMP. A spent midair jump stays spent through
+    // an edge-guard; freefall is a punishment for spending the RECOVERY, and
+    // lifting the punishment without returning the thing punished for is neither
+    // rule.
+    if let Some(jump) = jump {
+        if !gust {
+            jump.post_recovery_helpless = false;
+            jump.recovery_charges = ae::DEFAULT_RECOVERY_CHARGES;
+        }
+    }
     // ⭐ AN AUTOLINK PULSE HOLDS INSTEAD OF LAUNCHING, and it is the same road:
     // one velocity, written once, under the victim's own body authority. The
     // genre's multi-hit moves work because their intermediate pulses keep the
@@ -736,20 +790,27 @@ mod super_armor_tests {
         );
     }
 
-    /// ⭐⭐ A HIT ENDS THE HELPLESS EPISODE AND REFUNDS NOTHING.
+    /// ⭐⭐ A FLINCHING HIT ENDS THE HELPLESS EPISODE **AND GIVES THE RECOVERY
+    /// BACK** — BUT NOT THE DOUBLE JUMP.
     ///
-    /// The reaction already hands the air dodge back — *"a launched fighter that
-    /// could not dodge would have no answer to the follow-up"* — and until
-    /// 2026-08-25 helplessness was `recovery_charges == 0`, a resource reading
-    /// nothing but a landing-shaped refresh could end. So the dodge came back to
-    /// a fighter still forbidden to use it.
+    /// ⛔⛔ THIS TEST USED TO ASSERT THE OPPOSITE, by name, calling it *"a
+    /// deliberate correction this must not undo"*. It was the wrong rule, and it
+    /// is worth recording that the wrongness was invisible from inside: the
+    /// reasoning — a spent resource stays spent through an edge-guard — is
+    /// exactly right about the double jump and was generalised one resource too
+    /// far. Jon named the genre rule, 2026-08-26: *"if you have used an up-B
+    /// that puts you into special fall / helplessness, then an opponent hits you
+    /// hard enough to cause flinch, that hit clears helplessness. Once hitstun
+    /// ends, you can act again, INCLUDING using your up-B again."*
     ///
-    /// ⛔ THE SECOND ASSERTION IS THE LOAD-BEARING ONE. Ending the episode must
-    /// not restore the CHARGE — a spent recovery stays spent through an
-    /// edge-guard hit, exactly as the spent double jump does, and that is a
-    /// deliberate correction this must not undo.
+    /// ⭐ THE THREE ASSERTIONS ARE THREE DIFFERENT RESOURCES AND ALL THREE ARE
+    /// LOAD-BEARING, because the failure this replaces was one rule swallowing
+    /// its neighbour. Freefall is a PUNISHMENT for spending the recovery, so
+    /// lifting it while withholding the recovery leaves a fighter free to act
+    /// with nothing to act with; a midair jump is not a punishment for anything
+    /// and taking somebody's second jump has to stay worth doing.
     #[test]
-    fn a_hit_ends_the_helpless_episode_without_giving_the_recovery_back() {
+    fn a_flinching_hit_gives_the_recovery_back_but_not_the_double_jump() {
         let mut vel = ae::Vec2::new(120.0, 0.0);
         let mut flight = ae::BodyFlightState::default();
         let mut combat = BodyCombat::default();
@@ -759,6 +820,10 @@ mod super_armor_tests {
         };
         let mut jump = ae::BodyJumpState {
             recovery_charges: 0,
+            // SPENT, so the assertion below has somewhere to fail: a fixture
+            // that arrived with a jump left could not tell "the hit kept its
+            // hands off it" from "the hit handed one back".
+            air_jumps_available: 0,
             post_recovery_helpless: true,
             ..Default::default()
         };
@@ -791,9 +856,112 @@ mod super_armor_tests {
              the dodge it was just handed is one it may not use"
         );
         assert_eq!(
-            jump.recovery_charges, 0,
-            "the hit gave the RECOVERY back — a spent recovery stays spent \
-             through an edge-guard hit, exactly as the double jump does"
+            jump.recovery_charges,
+            ae::DEFAULT_RECOVERY_CHARGES,
+            "the flinching hit did NOT give the recovery back, so the fighter is \
+             out of freefall and still has nothing to recover with"
         );
+        assert_eq!(
+            jump.air_jumps_available, 0,
+            "the hit handed back a spent DOUBLE JUMP — taking somebody's second \
+             jump has to stay worth doing, and that half of the old rule was right"
+        );
+    }
+
+    /// ⛔⛔ AND THREE HITS THAT DO **NOT** FLINCH GIVE IT BACK.
+    ///
+    /// The first draft of the refund sat beside the air-dodge refund, above the
+    /// launch filter, because the two read as one paragraph. They are not one
+    /// paragraph, and the difference is exactly Jon's threshold: the dodge is
+    /// owed to any ACCEPTED hit, the recovery to a FLINCH.
+    ///
+    /// Three arms, because there are three distinct ways past "accepted" that
+    /// are not a flinch, and a single arm would leave the other two open:
+    /// a damage-only tick authors no knockback at all; super armor means the
+    /// body did not answer for the hit it took; and a windbox declines the
+    /// injury while keeping the physics.
+    ///
+    /// ⚠ THE POSITIVE ARM ABOVE CANNOT PROVE THIS. It shows a flinch refunds,
+    /// which is equally true of an implementation that refunds on ANYTHING —
+    /// which is what the first draft did.
+    ///
+    /// PROBED RED: with the refund moved back above the launch filter, the
+    /// damage-only arm fails first.
+    #[test]
+    fn a_hit_that_does_not_flinch_gives_no_recovery_back() {
+        /// One reaction over a spent, helpless fighter. Returns what its budget
+        /// looked like afterwards.
+        fn spent_fighter_after(
+            knockback: Option<ae::hit_response::HitKnockback>,
+            armored: bool,
+        ) -> ae::BodyJumpState {
+            let mut vel = ae::Vec2::new(120.0, 0.0);
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat {
+                armored,
+                ..Default::default()
+            };
+            let mut dodge = ae::BodyDodgeState {
+                air_dodge_spent: true,
+                ..Default::default()
+            };
+            let mut jump = ae::BodyJumpState {
+                recovery_charges: 0,
+                air_jumps_available: 0,
+                post_recovery_helpless: true,
+                ..Default::default()
+            };
+            apply_body_hit_reaction(
+                &mut vel,
+                &mut flight,
+                &mut combat,
+                ae::Vec2::new(20.0, 0.0),
+                1.0,
+                ae::Vec2::new(0.0, 1.0),
+                false,
+                knockback.as_ref(),
+                12,
+                ae::Vec2::ZERO,
+                VictimStance::default(),
+                Some(&mut dodge),
+                Some(&mut jump),
+                None,
+                feel(),
+            );
+            jump
+        }
+
+        // A DAMAGE-ONLY TICK — a hazard, a poison, a chip. It authors no
+        // knockback, so nothing throws the body and nothing flinches it.
+        let poison = spent_fighter_after(None, false);
+        assert_eq!(
+            poison.recovery_charges, 0,
+            "a damage-only tick handed a helpless fighter its recovery back"
+        );
+        assert!(
+            poison.post_recovery_helpless,
+            "and it let the fighter out of freefall, which is the same bug \
+             pointed the other way — free to act with nothing to act with"
+        );
+
+        // SUPER ARMOR — the hit landed and the body did not answer for it.
+        let armored = spent_fighter_after(Some(hard_knockback()), true);
+        assert_eq!(
+            armored.recovery_charges, 0,
+            "a hit the body's own armour ate refreshed its recovery"
+        );
+        assert!(armored.post_recovery_helpless);
+
+        // A GUST — real knockback, declined injury. It reaches the launch filter
+        // and must still be refused, which is why `!gust` survives beside it.
+        let mut wind = hard_knockback();
+        wind.reaction = ae::hit_response::HitReaction::Windbox;
+        let blown = spent_fighter_after(Some(wind), false);
+        assert_eq!(
+            blown.recovery_charges, 0,
+            "wind refreshed a recovery — a windbox would be the best rescue \
+             tool in the game and nobody authored it to be"
+        );
+        assert!(blown.post_recovery_helpless);
     }
 }

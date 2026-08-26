@@ -6,11 +6,11 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`authored_commands`](src/authored_commands.rs) | **`encounter.signal` — the encounter domain's authored verb.** |
+| [`authored_commands`](src/authored_commands.rs) | Authored `encounter.signal` command. |
 | [`content_schema`](src/content_schema.rs) | The `encounter_waves` authored-content schema, owned by this capability. |
 | [`entity`](src/entity.rs) | The encounter as a first-class ENTITY. |
 | [`events`](src/events.rs) | `EncounterEvent` — the output stream of the encounter lifecycle reducer and the wave director. |
-| [`lifecycle`](src/lifecycle.rs) | The ONE encounter lifecycle authority (E8/E9). |
+| [`lifecycle`](src/lifecycle.rs) | Generic encounter lifecycle authority. |
 | [`music`](src/music.rs) | The single encounter→audio music-intent stream. |
 | [`objective`](src/objective.rs) | Generic encounter OBJECTIVES (§5): a small predicate vocabulary over participants, elapsed time, and received signals. |
 | [`participants`](src/participants.rs) | Generic encounter PARTICIPANTS (§3): membership as relations, not boss-specific `Vec<Entity>`. |

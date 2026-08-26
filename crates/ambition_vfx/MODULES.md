@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`fx`](src/fx.rs) | **An effect is a NAME.** |
+| [`fx`](src/fx.rs) | Authored visual effects are named rows. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_vfx`. |
 | [`vfx`](src/vfx.rs) | The visual-effects MESSAGE vocabulary — the presentation-neutral data a simulation system emits to ask for a cue, with NO renderer attached. |
 

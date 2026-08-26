@@ -2,12 +2,12 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_settings_menu** — The renderer-agnostic settings + system menu IR (E1e carve out of `ambition_menu`).
+**ambition_settings_menu** — Renderer-agnostic settings and system-menu IR.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`settings`](src/settings/mod.rs) | Shared settings-menu intermediate representation (IR). |
-| [`system`](src/system/mod.rs) | The SYSTEM-menu intermediate representation (IR). |
+| [`system`](src/system/mod.rs) | Renderer-agnostic SYSTEM-menu intermediate representation. |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

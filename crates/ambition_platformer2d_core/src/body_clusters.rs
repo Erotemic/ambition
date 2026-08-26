@@ -875,9 +875,11 @@ pub fn reset_body_clusters(
 /// ⛔⛔ THIS IS THE **LANDING-CLASS** REFRESH, AND IT IS NOT THE ONLY CAUSE.
 /// "Restores on landing" is a rule about a class of resource, which is why all
 /// three sit here — but a cause that resets the body WITHOUT re-seating it
-/// resets less. An ordinary hit gives back the air dodge and nothing else: a
-/// spent double jump stays spent through an edge-guard, and the traversal dash
-/// is Ambition's own capability that no hit reaction recharges. A caller that
+/// resets less. An ordinary hit gives back the air dodge AND the recovery — a
+/// flinch is what lifts freefall, and lifting the punishment without returning
+/// the thing punished for is neither rule — but a spent double jump stays spent
+/// through an edge-guard, and the traversal dash is Ambition's own capability
+/// that no hit reaction recharges. A caller that
 /// reaches for this function is claiming its cause is landing-shaped — catching
 /// the ledge is, being hit is not.
 pub fn refresh_movement_resources_clusters(

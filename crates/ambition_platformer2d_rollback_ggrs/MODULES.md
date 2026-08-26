@@ -8,10 +8,10 @@
 |---|---|
 | [`codec`](src/codec.rs) | The GGRS bridge over the floor's snapshot vocabulary. |
 | [`lifecycle_commit`](src/lifecycle_commit.rs) | Confirmed-frame lifecycle commit (Track B, Piece 2). |
-| [`local_session`](src/local_session.rs) | **Who owns the local GGRS session** — the engine, not a developer tool. |
-| [`probes`](src/probes.rs) | **Per-component checksum localization across the save/load boundary.** |
+| [`local_session`](src/local_session.rs) | Engine ownership of the local GGRS session. |
+| [`probes`](src/probes.rs) | Per-component checksum localization across rollback save/load. |
 | [`reconcile`](src/reconcile.rs) | GGRS post-load repair for authored brain bindings. |
-| [`registrar`](src/registrar.rs) | **The GGRS side of the domain-owned registration seam.** |
+| [`registrar`](src/registrar.rs) | The GGRS side of the domain-owned registration seam. |
 | [`registration`](src/registration.rs) | GGRS-backed implementation of Ambition's typed rollback registration vocabulary. |
 | [`session`](src/session.rs) | GGRS session/input bridge shared by the harness and future network hosts. |
 

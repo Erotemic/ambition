@@ -2,22 +2,23 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_conversation** — **Conversation continuity: the authority, the hold, and the break rule.**
+**ambition_conversation** — Conversation continuity and rollback authority.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`authority`](src/authority.rs) | **What the simulation believes about the live conversation.** |
+| [`authority`](src/authority.rs) | Rollback-owned authority for the live conversation. |
 | [`dialog`](src/dialog.rs) | Sim-side dialogue glue. |
-| [`hold`](src/hold.rs) | **The hold: a projection of the authority onto the body being talked to.** |
-| [`instance`](src/instance.rs) | **Which conversation this is, in a form a corrected timeline agrees with.** |
-| [`ledger`](src/ledger.rs) | **What the narrative told the simulation, and the tick each fact applies from.** |
-| [`opening`](src/opening.rs) | **Deciding that a conversation happens, and opening it.** |
-| [`plugin`](src/plugin.rs) | **What `conversation` registers, owned by `conversation`.** |
+| [`hold`](src/hold.rs) | Project conversation authority onto participant control. |
+| [`instance`](src/instance.rs) | Deterministic identity for one logical conversation. |
+| [`ledger`](src/ledger.rs) | Bridges narrative inputs from non-rollback dialogue into deterministic simulation ticks. |
+| [`music`](src/music.rs) | Conversation-selected music is presentation state scoped to the current room. |
+| [`opening`](src/opening.rs) | Deciding that a conversation happens, and opening it. |
+| [`plugin`](src/plugin.rs) | Conversation-domain plugin registration and schedule ownership. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_conversation`. |
-| [`rules`](src/rules.rs) | **When a conversation ends, and the bark that says so.** |
-| [`ui_bridge`](src/ui_bridge.rs) | **The seam between the authority and the text box.** |
+| [`rules`](src/rules.rs) | Conversation continuity rules and cut notifications. |
+| [`ui_bridge`](src/ui_bridge.rs) | Bridge conversation simulation authority and the presentation text runner. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

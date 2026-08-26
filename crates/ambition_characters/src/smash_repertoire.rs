@@ -19,6 +19,9 @@ use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
 const GROUNDED: MoveGates = MoveGates {
     grounded: Some(true),
     spends_recovery: false,
+    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
+    // without it.
+    recovery_without_freefall: false,
     // ⭐ A GROUNDED ATTACK ROOTS ITS OWNER. Jon, W8 playtest: *"When I quickly
     // perform a Forward Smash, the fighter currently travels noticeably before
     // the Forward Smash takes over... I should not effectively dash first and
@@ -39,6 +42,9 @@ const GROUNDED: MoveGates = MoveGates {
 const AIRBORNE: MoveGates = MoveGates {
     grounded: Some(false),
     spends_recovery: false,
+    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
+    // without it.
+    recovery_without_freefall: false,
     // ⭐ AND AN AERIAL KEEPS ITS DRIFT, which is the other half of the same
     // rule: the genre trades ground control for air control, and a fighter that
     // could not steer a forward air would lose every edgeguard it has.
@@ -48,6 +54,9 @@ const AIRBORNE: MoveGates = MoveGates {
 const EITHER: MoveGates = MoveGates {
     grounded: None,
     spends_recovery: false,
+    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
+    // without it.
+    recovery_without_freefall: false,
     // A special answers from either stance, so it cannot state a stance rule.
     // What a special does to its owner's motion is the SPECIAL's own business
     // and is authored on its windows.
@@ -289,7 +298,35 @@ impl SmashRepertoire {
 
         let mut contract = MovesetContract::default();
         for (verb, mut spec, gates) in bound {
-            spec.gates = gates;
+            // ⛔⛔ THE POSTURE FIELDS ONLY. This was `spec.gates = gates`, a
+            // wholesale overwrite, and it silently threw away every statement a
+            // MOVE made about its own gates. Measured 2026-08-26: the pointed
+            // polygon authors `up_special.gates.spends_recovery = true` under a
+            // comment explaining that without it *"a fighter could press this
+            // forever and could only be killed by a launch that outran its own
+            // rise"* — and the line below deleted it on the way into the
+            // contract. The only fighter in the tree that had opted into the
+            // recovery budget did not have it.
+            //
+            // ⭐ THE SPLIT IS BY AUTHORITY, and the comment on `GROUNDED` above
+            // already states it: a POSTURE knows whether a slot answers from the
+            // ground and whether that stance roots its owner, and it is right
+            // that one place decides those for every fighter. It knows nothing
+            // about whether a particular move is a recovery — `MoveGates::
+            // spends_recovery`'s own doc says so: *"AUTHORED BY THE MOVE, not
+            // inferred from its name or its impulse."*
+            //
+            // ⚠ an exhaustive destructure rather than two assignments, so a new
+            // gate is a compile error here and somebody has to say which side of
+            // this line it falls on.
+            let MoveGates {
+                grounded,
+                roots_steering,
+                spends_recovery: _,
+                recovery_without_freefall: _,
+            } = gates;
+            spec.gates.grounded = grounded;
+            spec.gates.roots_steering = roots_steering;
             if let Some(clash) = contract.verbs.iter().find(|(_, id)| **id == spec.id) {
                 panic!(
                     "smash repertoire: `{verb}` and `{}` were both given the move id `{}`. \
@@ -326,6 +363,9 @@ mod tests {
                 grounded: Some(true),
                 roots_steering: false,
                 spends_recovery: false,
+    // Nothing to be exempt from — this pairs with `spends_recovery` and is inert
+    // without it.
+    recovery_without_freefall: false,
             },
             start_impulse: None,
             smash_charge_mult: 1.0,

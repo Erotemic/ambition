@@ -969,7 +969,8 @@ pub(crate) fn apply_player_knockback(
         // do NOT come back from an ordinary hit.
         Some(&mut clusters.dodge),
         // …and the helpless EPISODE the hit ends. Not a resource: the spent
-        // recovery charge stays spent, and so does the double jump.
+        // recovery charge comes back with it (a flinch lifts freefall and
+        // returns what freefall was punishing); the double jump does not.
         Some(&mut clusters.jump),
         // The hang, taken by the same rule. It used to be two calls in the two
         // `HitMode::Knockback` arms above this one.

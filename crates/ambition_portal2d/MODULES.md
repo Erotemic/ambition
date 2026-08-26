@@ -14,9 +14,9 @@
 | [`gun_pickup`](src/gun_pickup.rs) | Compatibility pickup for Ambition's portal-gun workflow. |
 | [`gun_projectile`](src/gun_projectile.rs) | Compatibility projectile for portal-gun-style placement. |
 | [`lifecycle`](src/lifecycle.rs) | Portal lifecycle / persistence policy for placed portals and transit cooldowns. |
-| [`link`](src/link.rs) | Explicit portal **linking by id**, plus the min-aperture equalizer. |
-| [`messages`](src/messages.rs) | Reusable portal intent / outcome messages. |
-| [`pieces`](src/pieces.rs) | Pure portal-piece geometry — the **Core invariant** of the portal system. |
+| [`link`](src/link.rs) | Explicit portal linking by id, plus the min-aperture equalizer. |
+| [`messages`](src/messages.rs) | Portal intent and outcome messages. |
+| [`pieces`](src/pieces.rs) | Pure portal-piece geometry — the Core invariant of the portal system. |
 | [`placement`](src/placement.rs) | Portal-aware geometry and the surface-fit / aperture-crossing decision logic. |
 | [`plugin`](src/plugin.rs) | Portal plugin assembly: reusable simulation plus an optional portal-gun opener. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_portal2d`. |
@@ -24,7 +24,7 @@
 | [`transit`](src/transit.rs) | Portal-specific transit systems: drive opted-in actors and in-flight items through a placed portal pair via the shared [`super::placement::transit_step`] aperture machine, plus the carve / input / ability-suppression guards that make a crossing feel right. |
 | [`tuning`](src/tuning.rs) | Runtime-tunable portal feel and convention policy. |
 | [`types`](src/types.rs) | Shared portal types, geometry constants, and small helpers used across the portal submodules (placement, transit, presentation, …). |
-| [`view`](src/view.rs) | Pure through-portal **view** geometry — what a viewer looking into one portal sees of the world at its partner. |
+| [`view`](src/view.rs) | Pure through-portal view geometry. |
 
 _19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

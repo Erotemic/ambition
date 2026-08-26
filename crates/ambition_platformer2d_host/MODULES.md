@@ -2,12 +2,12 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_platformer2d_host** — The windowed-HOST face — [the windowed host] (decomposition E5 step 5): [`PlatformerHostPlugins`], a Bevy [`PluginGroup`] that assembles the wiring only a VISIBLE platformer host needs on top of [`ambition_platformer2d_runtime::PlatformerEnginePlugins`]:
+**ambition_platformer2d_host** — Windowed host composition for the platformer runtime.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`gameplay_presentation`](src/gameplay_presentation.rs) | Visible-host integration for gameplay presentation profiles. |
-| [`portal`](src/portal.rs) | Ambition host adapter for portal presentation. |
+| [`portal`](src/portal.rs) | Ambition-specific host glue for the reusable portal mechanic and renderer. |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

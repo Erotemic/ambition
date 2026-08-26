@@ -20,6 +20,7 @@ pub mod prepared;
 #[cfg(any(test, feature = "test-support"))]
 pub mod prepared_fixtures;
 pub mod smash_capture;
+pub mod smash_ride;
 pub mod smash_fighter;
 pub mod smash_repertoire;
 mod snapshot_impls;

@@ -476,8 +476,10 @@ pub(crate) fn apply_actor_hit(
                 // jump: a spent second jump stays spent through an ordinary
                 // edge-guard hit, which is what makes taking one worth doing.
                 Some(&mut *em.dodge),
-                // …and the helpless EPISODE the hit ends. Not a resource: the
-                // spent recovery charge stays spent.
+                // …and the helpless EPISODE the hit ends, WITH the recovery
+                // charge it was punishing for. The double jump above still does
+                // not come back; the two differ because freefall is a
+                // punishment and a spent midair jump is not.
                 Some(&mut *em.jump),
                 Some((motion_model, em.ledge)),
                 feel,

@@ -383,6 +383,237 @@ pub fn sync_riders_to_mounts(
     }
 }
 
+// ═══ BOARDING AND LEAVING ════════════════════════════════════════════════
+//
+// ⭐⭐ ADR 0020 DEFERRED THIS AND RESERVED THE SEAM: *"defer the ability to mount
+// or board right now, but the authored pairs need to be some state in ldtk that
+// indicates the two actors as linked… that can happen later."* Until now the
+// only way into a saddle was an authored `mounted_on` reference resolved at
+// spawn, and the two places that needed a runtime pair — the player-piloting
+// end-to-end test and the monolith's pair fixtures — hand-inserted the three
+// components each. Two hand-welds are a convention; a third would have been a
+// rule nobody had written down.
+
+/// Why a rider left the saddle. Carried by [`DismountRequested`] so a consumer
+/// can tell a ride that ENDED from one that was INTERRUPTED without inspecting
+/// the world for clues.
+///
+/// ⛔ NOT a severity ordering and not exhaustive of "bad things that happen to
+/// riders": it names the causes that already exist, and a cause that needs a
+/// different consequence adds an arm rather than reusing a near-enough one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DismountReason {
+    /// The ride was for a fixed time and the time is up. See [`RideLease`].
+    LeaseExpired,
+    /// The rider chose to get off — a jump, a dodge, whatever the ruleset
+    /// decided means *"put me down"*.
+    RiderBailed,
+    /// The rider was hit hard enough to be taken off. A rider that merely
+    /// flinches stays aboard; this is the launch.
+    RiderLaunched,
+    /// The mount is gone: killed, despawned, or otherwise no longer carrying
+    /// anybody.
+    MountLost,
+}
+
+/// "Take this rider out of its saddle."
+///
+/// ⭐ A REQUEST RATHER THAN A CALL, because the causes are plural and live in
+/// different crates: a lease expiring is this crate's, a bail-out is a
+/// ruleset's genre statement about which buttons mean *get off*, and a launch is
+/// the damage road's. One system performs the dissolution so the three cannot
+/// drift apart about what leaving means.
+///
+/// ⛔ THE DEATH PATH DOES NOT USE THIS. [`enforce_mount_rider_link`] dissolves a
+/// dead pair on its own and deliberately KEEPS `RidingOn` attached so a
+/// same-room reset can re-mount without a lookup. Leaving voluntarily is the
+/// opposite: the link is gone and nothing is coming back for it.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DismountRequested {
+    pub rider: Entity,
+    pub reason: DismountReason,
+}
+
+/// A ride with a clock on it: this rider comes off when `remaining` reaches
+/// zero, whatever it is doing.
+///
+/// ⭐ SECONDS ON THE SIM CLOCK, like every other gameplay countdown in the tree
+/// (`DeathInterlude`, `RespawnGrace`). ⛔ NOT `Empowered::for_seconds`, which
+/// looks like the generic timed grant and is ONE component — granting it here
+/// would silently overwrite whatever power-up the rider was carrying and
+/// ending the ride would take that power-up with it.
+///
+/// Rides the RIDER rather than the mount: it is a statement about how long this
+/// body may be carried, and a mount that outlives its rider (a summoned vehicle
+/// waiting for the next one) is a thing the model already allows.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct RideLease {
+    /// Seconds of sim time left before the rider is put down.
+    pub remaining: f32,
+}
+
+/// Weld a rider into a mount's saddle — ADR 0020's board action.
+///
+/// Refuses, returning `false`, when the pair is not a legal one: the mount is
+/// not [`Mountable`], the rider's [`CanPilot`] does not cover the mount's class,
+/// either side is already in a link, or the two are the same entity.
+///
+/// ⛔ THE CLASS CHECK IS THE POINT OF THE FUNCTION. *"A shark-rider cannot board
+/// a mech"* is ADR 0020's rule and it only exists if something asks; a caller
+/// that welded the components itself would be authorising its own pairing, and
+/// then the check would be documentation rather than a rule.
+///
+/// ⚠ TAKES A `&mut World` because its first caller is inside the summon
+/// executor's exclusive command, where the mount it is boarding was created
+/// moments earlier and has no `Commands` flush between. A system with `Commands`
+/// reaches the same behaviour by queueing this.
+///
+/// ⛔ `TemporaryControl` IS NOT WRITTEN HERE, and that is deliberate. That
+/// component says *which transient controller is MASKING the body's autonomous
+/// brain*, and boarding only masks a brain when there is a
+/// [`MountedBrainCache`] to swap in — the authored NPC composite. A seated
+/// fighter or a possessing human keeps driving its own body from the saddle, so
+/// stamping `Mounted` there would claim a brain swap that never happened.
+/// `enforce_mount_rider_link` writes it on the arm that does the swap.
+pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> bool {
+    if rider == mount {
+        return false;
+    }
+    let Some(class) = world.get::<Mountable>(mount).map(|m| m.class.clone()) else {
+        return false;
+    };
+    // A rider with no `CanPilot` at all pilots nothing. ⛔ the permissive
+    // reading — "no statement means no restriction" — is the shape that makes a
+    // capability check decorative, and this engine has paid for that before.
+    if !world
+        .get::<CanPilot>(rider)
+        .is_some_and(|can| can.can_pilot(&class))
+    {
+        return false;
+    }
+    if world.get::<RidingOn>(rider).is_some() {
+        return false;
+    }
+    if world
+        .get::<MountSlot>(mount)
+        .is_some_and(|slot| slot.rider.is_some())
+    {
+        return false;
+    }
+    world.entity_mut(rider).insert((RidingOn { mount }, Mounted));
+    world.entity_mut(mount).insert(MountSlot {
+        rider: Some(rider),
+    });
+    true
+}
+
+/// Count down every [`RideLease`] and ask for the dismount when one runs out.
+///
+/// ⛔ IT ASKS RATHER THAN ACTS, so a timed ride and a bail-out leave the saddle
+/// by exactly the same road — see [`DismountRequested`].
+pub fn tick_ride_leases(
+    time: bevy::prelude::Res<ambition_time::WorldTime>,
+    mut leases: Query<(Entity, &mut RideLease)>,
+    mut dismounts: MessageWriter<DismountRequested>,
+) {
+    let dt = time.sim_dt();
+    // Collected and sorted so two leases expiring on one tick ask in a stable
+    // order; `Query` iteration order is not guaranteed and the requests are
+    // consumed in write order.
+    let mut expired: Vec<Entity> = Vec::new();
+    for (rider, mut lease) in &mut leases {
+        if lease.remaining <= 0.0 {
+            continue;
+        }
+        lease.remaining -= dt;
+        if lease.remaining <= 0.0 {
+            lease.remaining = 0.0;
+            expired.push(rider);
+        }
+    }
+    expired.sort();
+    for rider in expired {
+        dismounts.write(DismountRequested {
+            rider,
+            reason: DismountReason::LeaseExpired,
+        });
+    }
+}
+
+/// Perform the dissolutions [`DismountRequested`] asked for.
+///
+/// The rider gets its authored body back — the gravity this module zeroed while
+/// it was carried, and the size the saddle may have snapped — and the mount's
+/// slot is emptied so it can carry somebody else.
+///
+/// ⛔ THE RIDER'S BRAIN IS NOT REBUILT HERE. A dead mount announces `MountDied`
+/// and `rebuild_dismounted_rider_brains` answers it, because that rebuild needs
+/// character-runtime facts this crate does not import. A rider that got off a
+/// LIVE mount never had its brain masked in the first place unless it carries a
+/// [`MountedBrainCache`] — and if it does, `enforce_mount_rider_link` will find
+/// it unmounted next tick and re-arm, which is the behaviour an NPC that walked
+/// off its own shark should have.
+pub fn apply_dismount_requests(
+    mut commands: Commands,
+    mut requests: bevy::prelude::MessageReader<DismountRequested>,
+    mut riders: Query<
+        (
+            &RidingOn,
+            &mut CenteredAabb,
+            &mut ae::BodyKinematics,
+            &mut ae::ActorSurfaceState,
+            &SpawnBaseline,
+        ),
+        Without<MountSlot>,
+    >,
+    mut mounts: Query<&mut MountSlot>,
+    mut left: MessageWriter<RiderDismounted>,
+) {
+    for request in requests.read() {
+        let Ok((riding, mut aabb, mut kin, mut surface, baseline)) =
+            riders.get_mut(request.rider)
+        else {
+            continue;
+        };
+        let mount = riding.mount;
+        // The authored body, from the record that survived the ride — the live
+        // values are exactly the ones the saddle overwrote.
+        surface.gravity_scale = baseline.gravity_scale;
+        kin.size = baseline.size;
+        aabb.center = kin.pos;
+        aabb.half_size = kin.size * 0.5;
+        commands
+            .entity(request.rider)
+            .remove::<(RidingOn, Mounted, RideLease)>();
+        if let Ok(mut slot) = mounts.get_mut(mount) {
+            // Only if it is still THIS rider's slot: a mount already re-crewed
+            // must not be emptied by a stale request.
+            if slot.rider == Some(request.rider) {
+                slot.rider = None;
+            }
+        }
+        left.write(RiderDismounted {
+            rider: request.rider,
+            mount,
+            reason: request.reason,
+        });
+    }
+}
+
+/// A rider left a LIVE mount's saddle. The twin of `MountDied`, which announces
+/// the other way a pair dissolves.
+///
+/// ⭐ IT EXISTS BECAUSE THE MOUNT NEEDS TO KNOW. A summoned vehicle departs when
+/// it loses its rider, and the departure is the ruleset's business rather than
+/// this crate's — so the dissolution is announced and whoever authored the mount
+/// decides what an empty saddle means.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RiderDismounted {
+    pub rider: Entity,
+    pub mount: Entity,
+    pub reason: DismountReason,
+}
+
 /// The set [`enforce_mount_rider_link`] runs in.
 ///
 /// The mount/rider link is re-established here, and the frame's staged victim
@@ -701,6 +932,29 @@ where
     registrar.rollback_map_entities::<RidingOn>(OWNER, "map.riding_on");
     registrar.rollback_component_clone::<MountedBrainCache>(OWNER, "mount.brain_cache");
     registrar.rollback_component_clone::<MountedSize>(OWNER, "mount.authored_size");
+    // The clock on a timed ride. Registered for the same reason every other
+    // gameplay countdown is: a rewind that restored "this body is being carried"
+    // without restoring how much longer would put the rider down on a different
+    // tick than the one being resimulated, and where a rider is put down is a
+    // position on the stage.
+    // PROBED: the remaining seconds decide which tick the rider is put down, and
+    // where a body is put down is a position. A presence-only probe would
+    // satisfy the coverage oracle while seeing nothing of the value.
+    registrar.rollback_component_clone_probed::<RideLease>(OWNER, "mount.ride_lease", |lease| {
+        lease.remaining.to_bits() as u64
+    });
+    // ⛔ BOTH CHANNELS, because a reader's cursor is `Local` state GGRS never
+    // rewinds. An abandoned future's cursor would either re-read a consumed
+    // `DismountRequested` — dissolving a link that was re-formed — or skip an
+    // unread one, leaving a rider welded to a mount whose lease has run out.
+    // Both are positions.
+    //
+    // ⭐ AND CLEARING IS RIGHT FOR BOTH: each is DERIVED every tick from
+    // rollback-registered state (`RideLease` and `RidingOn`), so a resim re-emits
+    // them on the tick it emitted them before. Losing the buffered copy is what
+    // should happen to a message the simulation will say again.
+    registrar.clear_message_on_rollback::<DismountRequested>(OWNER, "message.dismount_requested");
+    registrar.clear_message_on_rollback::<RiderDismounted>(OWNER, "message.rider_dismounted");
 }
 
 /// Where the rider sits, relative to the mount's centre, in WORLD units.

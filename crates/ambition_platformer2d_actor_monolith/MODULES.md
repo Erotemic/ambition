@@ -2,27 +2,26 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_platformer2d_actor_monolith** — Ambition's gameplay-systems ("machinery") layer.
+**ambition_platformer2d_actor_monolith** — Gameplay-system assembly layer for platformer actors, world interaction, abilities, items, sessions, and related Bevy plugins.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | Ambition's player ability / weapon kit. |
-| [`ability_cooldown`](src/ability_cooldown.rs) | Shared cooldown for the movement abilities (Blink, Grapple) so they read as deliberate verbs instead of spammable teleports. |
+| [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
 | [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
-| [`actor`](src/actor.rs) | The neutral **actor vocabulary** home for shared sim-state — components any simulation body may carry, including bodies under participant control. |
-| [`affordances`](src/affordances/mod.rs) | Controlled-body affordances: "what would each input do right now?" |
+| [`actor`](src/actor.rs) | Neutral vocabulary for simulation state any actor body may carry. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
-| [`avatar`](src/avatar/mod.rs) | Historical slot-0/home-body and protagonist integration. |
-| [`body_custody`](src/body_custody.rs) | **WHO IS CARRYING WHOM, for BODIES** — the one owner of [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf) on everything that is not an item. |
+| [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
+| [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
 | [`causal`](src/causal.rs) | This crate's causal facts. |
-| [`character_runtime`](src/character_runtime/mod.rs) | **The engine owns turning a declared character into loaded art.** |
-| [`character_sprites`](src/character_sprites/mod.rs) | Spritesheet metadata, atlas/animation logic, and loading for every animated character (player robot, goblins, sandbag, boss, NPCs). |
+| [`character_runtime`](src/character_runtime/mod.rs) | Engine-owned character loading and materialization. |
+| [`character_sprites`](src/character_sprites/mod.rs) | Character sprite asset loading and actor/content joins. |
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Actor-side contribution to the reset/checkpoint horizon. |
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
-| [`construction`](src/construction/mod.rs) | **The actor construction domain: three origins, one planner.** |
-| [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
+| [`construction`](src/construction/mod.rs) | Actor construction planner for authored, provider-staged, and runtime-dynamic origins. |
+| [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
 | [`encounter`](src/encounter/mod.rs) | Generic, reusable enemy-WAVE / arena-lockdown system (data-driven, not scripted) — distinct from `ambition_boss_encounter`, which is one specific scripted boss fight with hand-authored phases. |
@@ -31,9 +30,8 @@
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
 | [`items`](src/items/mod.rs) | Actor-sim item adapters. |
 | [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
-| [`participant_seat`](src/participant_seat.rs) | **The `ParticipantId` ↔ `PlayerSlot` correspondence, in ONE place.** |
-| [`physics`](src/physics.rs) | Shared world physics facade. |
-| [`platformer_runtime`](src/platformer_runtime/mod.rs) | Proto-runtime facade for reusable platformer systems. |
+| [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
+| [`platformer_runtime`](src/platformer_runtime/mod.rs) | Compatibility facade over extracted platformer-runtime surfaces plus monolith-owned orientation. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
@@ -43,9 +41,9 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
-| [`world_facts`](src/world_facts.rs) | **What the world-fact domain lets authored content ask — and tell — about flags.** |
+| [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_38 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1210,6 +1210,16 @@ pub(crate) fn spawn_runtime_minion_into(
              exists. Register the character."
         );
     };
+    // ⛔⛔ THE MOUNT ROLE, ON THE THIRD ROAD THAT DROPPED IT.
+    // `CharacterBodyBlueprint::mount` is right here and `new_character_in`
+    // swallows it in a `..` — so a summoned `npc_burning_flying_shark`, whose
+    // row authors `class: "shark"`, arrived with no `Mountable` and nobody could
+    // board it. Placement reads the fact off its own definition and seating now
+    // reads it off the prepared seat; this is the same fact on the road that
+    // makes a body at runtime.
+    //
+    // ⚠ TAKEN BEFORE `body` IS MOVED into the seed below.
+    let mount_role = body.mount.cloned();
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
         authored_sheets,
         catalog,
@@ -1244,6 +1254,18 @@ pub(crate) fn spawn_runtime_minion_into(
     commands
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
+    // The authored mount role captured above, on the body that now exists.
+    if let Some(mount) = mount_role.as_ref() {
+        attach_mount_role_from(
+            commands,
+            entity,
+            mount.class.as_deref(),
+            Some(aabb.half_size() * 2.0),
+            mount.death_splash,
+            1.0,
+            &mount.pilotable_classes,
+        );
+    }
     if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
         authored_sheets,
         catalog,
@@ -2031,6 +2053,13 @@ pub fn apply_summon_effects(
         SummonerSequenceReservation,
     > = std::collections::BTreeMap::new();
     let mut planned = Vec::new();
+    // (rider, the mount's derived identity) for the summons that asked to be
+    // ridden. Resolved to entities only after the commit flush.
+    let mut board_after_commit: Vec<(
+        bevy::prelude::Entity,
+        ambition_platformer2d_shared_tangle::sim_id::SimId,
+        ambition_vfx::SummonedRide,
+    )> = Vec::new();
     for req in requests.read() {
         let ambition_vfx::Effect::Summon(s) = &req.effect else {
             continue;
@@ -2060,6 +2089,17 @@ pub fn apply_summon_effects(
                 });
         let taken = reservation.next;
         reservation.next += 1;
+        // ⭐ THE MOUNT'S IDENTITY IS KNOWN BEFORE IT EXISTS. `SimId::spawned` is
+        // what the request below derives, so a summon that asked to be ridden
+        // can name its mount now and look it up after the commit — no channel,
+        // no follow-up tick, and nothing that could name a DIFFERENT body.
+        if let Some(ride) = s.ridden_by_summoner {
+            board_after_commit.push((
+                req.owner,
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(summoner, taken),
+                ride,
+            ));
+        }
         planned.push(crate::construction::summoned_minion_request(
             summoner,
             taken,
@@ -2163,6 +2203,60 @@ pub fn apply_summon_effects(
             plan.commit(&mut ctx);
         }
         world.flush();
+
+        // ⭐ BOARD INSIDE THE SAME EXCLUSIVE COMMAND. This is the only moment
+        // the new mount and its summoner are both in hand: before the flush the
+        // mount does not exist, and after this closure returns the mount would
+        // have been simulated for a tick with an empty saddle — long enough for
+        // its own brain to move it out from under the rider.
+        //
+        // ⛔ THE CLASS CHECK IS STILL `mount::board`'s. A summon that named
+        // something unmountable, or a summoner that cannot pilot the class,
+        // simply spawns the body and nobody gets on — the summon is not an
+        // authority on who may ride what.
+        //
+        // ⚠ the eventual home for this is the `ambition.mount` RELATION ADR 0020
+        // names as planned; the construction request already carries a
+        // `relations` list. Nothing registers a production relation kind yet
+        // (the registry's only users are toy fixtures), so this resolves the
+        // identity directly rather than standing up the relation road for one
+        // caller.
+        for (rider, mount_id, ride) in board_after_commit {
+            let mount = {
+                let mut q = world.query::<(
+                    bevy::prelude::Entity,
+                    &ambition_platformer2d_shared_tangle::sim_id::SimId,
+                )>();
+                q.iter(world)
+                    .find(|(_, id)| **id == mount_id)
+                    .map(|(entity, _)| entity)
+            };
+            match mount {
+                Some(mount) => {
+                    if ambition_mount::board(world, rider, mount) {
+                        // ⭐ THE LEASE IS PART OF THE BOARD, not a separate write
+                        // by whoever asked for the summon. A refused pair must
+                        // leave NOTHING behind: a lease on a body that is not
+                        // riding is one `apply_dismount_requests` will never
+                        // collect, because it skips a rider with no link.
+                        world.entity_mut(rider).insert(ambition_mount::RideLease {
+                            remaining: ride.seconds,
+                        });
+                    } else {
+                        bevy::log::warn!(
+                            target: "ambition_platformer2d::construction",
+                            "summon `{mount_id:?}` asked to be ridden and the pair was refused \
+                             — check the mount's class against the rider's `CanPilot`",
+                        );
+                    }
+                }
+                None => bevy::log::warn!(
+                    target: "ambition_platformer2d::construction",
+                    "summon `{mount_id:?}` asked to be ridden but no body with that identity \
+                     exists after the commit",
+                ),
+            }
+        }
 
         for (owner, reservation) in reservations {
             if let Some(mut counter) = world.get_mut::<SimIdCounter>(owner) {

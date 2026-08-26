@@ -31,6 +31,8 @@ pub(crate) fn grounded_only() -> MoveGates {
         // not feel different from one authored through the repertoire.
         roots_steering: true,
         spends_recovery: false,
+        // Inert without `spends_recovery`; the pair is the statement.
+        recovery_without_freefall: false,
     }
 }
 
@@ -45,6 +47,8 @@ pub(crate) fn airborne_only() -> MoveGates {
         // control above.
         roots_steering: false,
         spends_recovery: false,
+        // Inert without `spends_recovery`; the pair is the statement.
+        recovery_without_freefall: false,
     }
 }
 

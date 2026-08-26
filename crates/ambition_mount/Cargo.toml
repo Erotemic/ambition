@@ -25,3 +25,6 @@ ambition_characters = { path = "../ambition_characters" }
 # `SpawnBaseline` (the body a dismount hands back), `ResolvedMotionFrame` (the
 # pair's gravity frame) and `SimId`.
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The shared sim clock. A ride with a lease on it counts SECONDS, like every
+# other gameplay countdown in the tree, and this is where that clock lives.
+ambition_time = { path = "../ambition_time" }

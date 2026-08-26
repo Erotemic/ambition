@@ -2,27 +2,27 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_platformer2d_runtime** — The platformer ENGINE face — [the sim assembly] (decomposition E5): [`PlatformerEnginePlugins`], a Bevy [`PluginGroup`] that assembles the **content-free simulation plugins** shared by every platformer built on this engine, plus the shared app-foundation helpers every entry point (visible, headless, RL, demo) composes with.
+**ambition_platformer2d_runtime** — Content-free platformer simulation assembly.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`causal`](src/causal.rs) | The ECS side of causal recording. |
+| [`causal`](src/causal.rs) | Bevy host adapter for `ambition_causal` recording and frame stamps. |
 | [`checkpoint_horizon`](src/checkpoint_horizon.rs) | Host wiring for the reset/checkpoint horizon. |
 | [`combat_schedule`](src/combat_schedule.rs) | Combat-phase schedule plugin. |
 | [`content_identity`](src/content_identity.rs) | Immutable prepared-content identity shared by preparation, activation, snapshots, and transactional hot reload. |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
-| [`external_effects`](src/external_effects.rs) | Holding external effects at the confirmed-frame boundary. |
+| [`external_effects`](src/external_effects.rs) | Defers presentation-only simulation effects until their producing frame is confirmed. |
 | [`input_drive`](src/input_drive.rs) | Backend-neutral authored input delivery for simulation drivers. |
-| [`input_stream`](src/input_stream.rs) | **Input-stream capture** (netcode N0.2) — the one place a session's input is recorded. |
-| [`ldtk_world`](src/ldtk_world.rs) | **The LDtk world's runtime install — offered by the engine, accepted by a game that HAS an LDtk world.** |
-| [`mode_scope`](src/mode_scope.rs) | The demo-hosting seam (decomposition D-C, vision §5): **scoped game modes**. |
-| [`player_schedule`](src/player_schedule.rs) | The per-frame PLAYER schedule wiring (E5 step 5) — the engine-generic player-frame lifecycle every platformer built on this engine runs, headless or windowed: time control → input → controlled-subject resolution → brains → body mode → possession → hit events → presentation write-back. |
-| [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly (E5 step 5, behind the `portal` feature): [`ambition_portal2d::PortalPlugin`] plus the schedule placement for portal's internal sets — each mapped to its sandbox phase, cross-set ordering edge, and gameplay run condition. |
+| [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
+| [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
+| [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
+| [`player_schedule`](src/player_schedule.rs) | Engine-generic per-frame player lifecycle and its host extension slots. |
+| [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
-| [`room_schedule`](src/room_schedule.rs) | The engine half of the room-transition phase (E5 step 5): detection emits `RoomTransitionRequested`; the feature-side `reset_ecs_room_features` system tears down per-room ECS state. |
-| [`room_transition`](src/room_transition/mod.rs) | Ordinary room transitions, end to end — the ENGINE's copy. |
+| [`room_schedule`](src/room_schedule.rs) | Room-transition schedule anchors. |
+| [`room_transition`](src/room_transition/mod.rs) | Engine-owned room-transition orchestration. |
 | [`sandbox_reset`](src/sandbox_reset.rs) | The sandbox reset authority and its room-replay consumer. |
 | [`session_world`](src/session_world.rs) | Prepared platformer definitions and canonical live session components. |
 | [`sim_core_resources`](src/sim_core_resources.rs) | The engine-generic simulation messages + resource defaults (E5 step 6). |

@@ -124,6 +124,7 @@ mod sim_phase_pins;
 mod sky_census;
 mod smash_cpu_cognition;
 mod smash_cpus_damage_each_other;
+mod smash_ride;
 mod smash_in_the_host;
 mod smash_roster_movesets;
 mod starting_character_selection;

@@ -6,14 +6,15 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`app`](src/app.rs) | **Standing up a game.** The engine owns composition ordering; the consumer states policy. |
-| [`game_assets`](src/game_assets.rs) | **The asset install a visible game needs before anything draws.** |
+| [`app`](src/app.rs) | High-level platformer application composition. |
+| [`demo_shell`](src/demo_shell.rs) | The launcher conventions a demo's own standalone shell speaks. |
+| [`game_assets`](src/game_assets.rs) | Install the asset resources required by generic platformer presentation. |
 | [`prelude`](src/prelude.rs) | Curated imports for games built on the Ambition engine facade. |
-| [`rollback`](src/rollback.rs) | **Rollback, as a supported promise.** |
-| [`scripted_input`](src/scripted_input.rs) | **Drive the local participant from a script, through the production input pipeline.** |
+| [`rollback`](src/rollback.rs) | Supported rollback session entry points. |
+| [`scripted_input`](src/scripted_input.rs) | Drive scripted local input through the production participant pipeline. |
 | [`session`](src/session.rs) | Canonical live session-world surface. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

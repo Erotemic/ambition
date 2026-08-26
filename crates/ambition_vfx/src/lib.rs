@@ -97,6 +97,35 @@ pub struct SummonSpec {
     pub character_id: String,
     pub encounter_id: String,
     pub faction: HitSide,
+    /// The summoner BOARDS what it just made, if the pair is a legal one.
+    ///
+    /// ⭐ ON THE SUMMON RATHER THAN A FOLLOW-UP, because the only moment the
+    /// spawned entity and its summoner are both in hand is inside the executor's
+    /// own exclusive command. A caller that wanted to board afterwards would
+    /// have to be told which entity was made — a channel this needed no other
+    /// consumer for — and would then be boarding a mount that had already been
+    /// simulated for a tick without a rider.
+    ///
+    /// ⛔ IT IS A REQUEST, NOT A GUARANTEE. The class check is `mount::board`'s
+    /// and it refuses an illegal pair; a summon that names no mountable thing
+    /// simply spawns it and nobody gets on. `None` for every summon that existed
+    /// before this field, which is every minion a boss drops.
+    ///
+    /// ⭐ IT CARRIES THE RIDE'S LENGTH, so the whole ride is ONE transaction.
+    /// The first version installed the lease from the technique and left the
+    /// board to the executor, so a REFUSED board left an orphan lease on a body
+    /// that was not riding anything — and the dismount consumer skips a rider
+    /// with no link, so the orphan never went away.
+    pub ridden_by_summoner: Option<SummonedRide>,
+}
+
+/// The summoner rides what it makes, for this long.
+///
+/// Seconds rather than ticks, because the lease it becomes counts on the sim
+/// clock like every other gameplay countdown.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SummonedRide {
+    pub seconds: f32,
 }
 
 /// A composable non-projectile effect an actor *technique* emits.

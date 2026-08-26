@@ -2,18 +2,19 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_smash** — **The stocks demo — a platform fighter where the world does the killing.**
+**ambition_demo_smash** — Standalone stocks-based platform-fighter demo.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`capture`](src/capture.rs) | **The Smash ruleset's capture adapter: authored effect keys → typed requests.** |
-| [`george_booul_moveset`](src/george_booul_moveset.rs) | **George Booul's repertoire** — the excluded middle, as a fighter. |
-| [`moveset`](src/moveset.rs) | **A platform fighter's actual moves**, authored on the character. |
-| [`select`](src/select.rs) | **Character select: where a match is DECIDED before it is seated.** |
-| [`select_screen`](src/select_screen.rs) | **What the select screen LOOKS like, and how a cursor works it.** |
-| [`smash_pack`](src/smash_pack.rs) | **THIS DEMO'S CHARACTER PACKAGE — George's values, as content.** |
+| [`capture`](src/capture.rs) | The Smash ruleset's capture adapter: authored effect keys → typed requests. |
+| [`george_booul_moveset`](src/george_booul_moveset.rs) | George Booul's authored fighter repertoire. |
+| [`moveset`](src/moveset.rs) | Shared authored platform-fighter repertoire for demo fighters that do not provide a character-owned table. |
+| [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
+| [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
+| [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
+| [`smash_pack`](src/smash_pack.rs) | Smash demo content pack for George Booul. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

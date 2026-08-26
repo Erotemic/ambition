@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v119
+ggrs-rollback-schema-v120
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -292,6 +292,7 @@ message.conversation_cut_bark	message-clear	ConversationCutBark	clear abandoned-
 message.conversation_ended	message-clear	ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.cut_rope_room_replay_requested	message-clear	CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.dismount_requested	message-clear	DismountRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.drop_portal_gun	message-clear	DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.effect_request	message-clear	EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.encounter_command	message-clear	EncounterCommand	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -332,6 +333,7 @@ message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.rider_dismounted	message-clear	RiderDismounted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.run_authored_command	message-clear	RunAuthoredCommand	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -354,6 +356,7 @@ mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; state checksu
 mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.ride_lease	component-clone	RideLease	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -448,6 +451,7 @@ root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot +
 root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback
 scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.session	component-canonical	SessionScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 twintrack.character	component-clone	TwinTrackCharacter	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 twintrack.experiment	component-canonical	TwinTrackExperiment	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

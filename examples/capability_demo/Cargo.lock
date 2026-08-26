@@ -273,6 +273,7 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer2d_shared_tangle",
  "ambition_sfx",
+ "ambition_ui_nav",
  "bevy",
  "tracing",
 ]
@@ -376,6 +377,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_mount"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_time",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_persistence"
 version = "0.1.0"
 dependencies = [
@@ -411,6 +423,7 @@ dependencies = [
  "ambition_load",
  "ambition_load_presentation",
  "ambition_menu",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
@@ -458,6 +471,7 @@ dependencies = [
  "ambition_input",
  "ambition_interaction",
  "ambition_items",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
@@ -550,10 +564,12 @@ dependencies = [
  "ambition_characters",
  "ambition_input",
  "ambition_load",
+ "ambition_mount",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
  "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
  "ambition_sim_view",
  "bevy",
  "bevy_ggrs",
@@ -576,6 +592,7 @@ dependencies = [
  "ambition_items",
  "ambition_load",
  "ambition_menu",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",
@@ -748,6 +765,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_input",
  "ambition_interaction",
+ "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_core",

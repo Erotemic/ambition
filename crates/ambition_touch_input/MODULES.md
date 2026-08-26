@@ -2,12 +2,12 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_touch_input** — Mobile / touch presentation-input adapter for the Android demo path.
+**ambition_touch_input** — Touch input adapter and on-screen controls.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`bevy_plugin`](src/bevy_plugin.rs) | The Bevy wiring: the touch HUD's spawn/despawn lifecycle and the collect step that turns joystick + virtual-button UI state into the virtual device's `MobileTouchState`. |
-| [`layout`](src/layout.rs) | Touch HUD layout: action button identity, fixed positions, and visible-circle hit testing. |
+| [`layout`](src/layout.rs) | Layout values are intentionally bound to the *visible circle*, not to the absolute square `Node` bounds. |
 | [`menu_bridge`](src/menu_bridge.rs) | The touch pointer-GESTURE lane and the touch active-input marker. |
 | [`placement`](src/placement.rs) | The touch HUD's resolved on-screen placement. |
 | [`state`](src/state.rs) | Pure touch input state types — the raw virtual-device state the Bevy collect systems fill and the leafwing input kinds (`crate::virtual_device`) publish through the participant's bindings. |

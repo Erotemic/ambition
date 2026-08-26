@@ -318,6 +318,8 @@ impl Plugin for CombatSchedulePlugin {
         // the rebuilt brain must be inserted before the dismounted body is next
         // simulated. Chaining puts both facts in one line instead of an ordering
         // that happens to hold.
+        app.add_message::<ambition_mount::DismountRequested>();
+        app.add_message::<ambition_mount::RiderDismounted>();
         app.add_systems(
             sim,
             (
@@ -326,6 +328,30 @@ impl Plugin for CombatSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_mount::MountRiderLinkEnforced)
+                .in_set(CombatSet::Settle),
+        );
+        // LEAVING THE SADDLE VOLUNTARILY — the twin of the enforcer above,
+        // which owns leaving it because somebody DIED.
+        //
+        // ⛔ CHAINED, AND AFTER the enforcer. A lease that runs out on the same
+        // tick a mount dies must find the death already handled: the enforcer
+        // keeps `RidingOn` attached on purpose so a reset can re-mount, and a
+        // dismount request landing first would remove the link it is relying on.
+        // The other order is silent — the rider ends up correctly off either
+        // way, and the mount's slot does not.
+        //
+        // ⚠ the tick and the apply are chained for the ordinary in-tick-channel
+        // reason: the request is written and consumed in one frame, so a reader
+        // scheduled merely "in the same set" would read it a frame late and put
+        // riders down one tick after their lease expired.
+        app.add_systems(
+            sim,
+            (
+                ambition_mount::tick_ride_leases,
+                ambition_mount::apply_dismount_requests,
+            )
+                .chain()
+                .after(ambition_mount::MountRiderLinkEnforced)
                 .in_set(CombatSet::Settle),
         );
 

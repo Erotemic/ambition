@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_geometry** — **Shapes, boxes and reference frames — the part of the engine that is not about platformers.**
+**ambition_geometry** — General geometry and reference-frame primitives.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

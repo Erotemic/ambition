@@ -453,6 +453,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_platformer2d",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -658,6 +659,7 @@ dependencies = [
  "ambition_characters",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
+ "ambition_time",
  "bevy",
 ]
 

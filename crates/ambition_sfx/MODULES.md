@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`ids`](src/ids.rs) | Hand-maintained SFX ids for reusable gameplay and presentation semantics. |
+| [`ids`](src/ids.rs) | Hand-maintained ids for reusable gameplay/presentation SFX. Provider-specific cast, story, and named-content ids belong with their provider/content. |
 | [`message`](src/message.rs) | Session-owned SFX requests. |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

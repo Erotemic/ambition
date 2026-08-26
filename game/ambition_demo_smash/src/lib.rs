@@ -14,6 +14,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod shark_ride;
 pub mod capture;
 pub mod george_booul_moveset;
 pub mod moveset;
@@ -57,6 +58,24 @@ pub const SMASH_DUELIST_BRAIN: &str = "duelist";
 /// oldest rule in the genre and it is a rule about SAFETY, not about drama.
 pub const RESPAWN_HEIGHT_PX: f32 = 160.0;
 
+/// Which mount classes THIS STAGE licenses a seat for.
+///
+/// ⛔ ONE FIGHTER, BY ID, AND THAT IS THE POINT. A shark exists on this stage
+/// only because the admiral's up-B makes one; who is allowed to sit on one is
+/// this match's business, and the narrowest true answer is "the fighter whose
+/// move it is". The version that granted it to every seat was a match
+/// manufacturing a capability for a cast that has no way to use it.
+fn seat_mount_licence(character: &str) -> Vec<&'static str> {
+    if character == SMASH_SHARK_RIDER {
+        vec![ambition_platformer2d::characters::smash_ride::SHARK_CLASS]
+    } else {
+        Vec::new()
+    }
+}
+
+/// The one fighter on this grid whose up-B summons a mount.
+pub const SMASH_SHARK_RIDER: &str = "npc_pirate_admiral";
+
 /// Build the roster for a stocks match between `characters`.
 ///
 /// `fighter_stocks` declares BOTH halves at once — the count AND
@@ -75,7 +94,16 @@ where
         .into_iter()
         .enumerate()
         .map(|(index, character)| {
+            let character: ambition_platformer2d::entity_catalog::CharacterId = character.into();
+            // ⭐ THE ADMIRAL'S SEAT MAY RIDE A SHARK; nobody else's may, and his
+            // own character does not — his up-B is Smash-only (D207), and
+            // piloting is half of it. Stated per SEAT rather than by a
+            // route-wide sweep, so the capability arrives with the body instead
+            // of being discovered after construction by a schedule that does not
+            // replay under rollback.
+            let pilots = seat_mount_licence(character.as_str());
             MatchParticipant::new(character)
+                .piloting(pilots)
                 .driven_by(if index == 0 {
                     ControllerBinding::Human {
                         source: ambition_platformer2d::actor::LocalInputSource::FIRST_PAD,
@@ -695,6 +723,69 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // THE PIRATE'S SHARK. ⭐ `ContentSpecials`, which is the seam the runtime
+        // already provides for exactly this: a CONTENT TECHNIQUE that must
+        // produce its effects before the effect executors run
+        // (`ContentSpecials.before(EffectExecutionSet)`, and `apply_effects` is
+        // chained before `apply_summon_effects`).
+        //
+        // ⛔ NOT `Materialize` WITH A LEAF-TO-LEAF EDGE. The first version put
+        // this beside the capture adapter and ordered nothing, so the writer of
+        // an `EffectRequest` and its executor were unordered peers in one set —
+        // a scheduler tie deciding whether a summon lands this tick or next,
+        // which is the shape this repo has already been bitten by. Naming the
+        // set says WHAT this system is instead of who it must beat.
+        // Jostle is a fact the movement kernel reads, so it is established in the
+        // simulation — see the system's own note. `WorldPrep` because it must be
+        // true before anything integrates a body.
+        app.add_systems(
+            sim,
+            smash_fighters_are_solid_to_each_other.in_set(
+                ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
+            ),
+        );
+        app.add_systems(
+            sim,
+            crate::shark_ride::translate_shark_summons
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials)
+                // ⛔⛔ AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY.
+                // `ContentSpecials.before(EffectExecutionSet)` orders this ahead
+                // of `apply_effects`, and `apply_summon_effects` is CHAINED
+                // after that system without being IN the set — so the summon
+                // executor inherited no order from the phase at all. Measured,
+                // not reasoned: with the set alone the executor ran every tick
+                // and read zero requests, and the shark never appeared.
+                .before(ambition_platformer2d::actors::features::apply_summon_effects),
+        );
+        // WHAT ENDS A RIDE, and what the shark does afterwards.
+        //
+        // ⛔ `Settle` and CHAINED, because all three are opinions about a state
+        // the tick has already produced: whether the rider is tumbling, whether
+        // it pressed jump, and whether its saddle emptied. The two that ASK run
+        // before `apply_dismount_requests` (which the runtime schedules in the
+        // same set) and the departure reads the announcement that one makes, so
+        // a shark left riderless this tick is already leaving this tick.
+        app.add_systems(
+            sim,
+            (
+                crate::shark_ride::dissolve_the_ride_when_the_shark_dies,
+                crate::shark_ride::dismount_launched_riders,
+                crate::shark_ride::bail_out_of_the_saddle,
+            )
+                .chain()
+                .before(ambition_platformer2d::mount::apply_dismount_requests)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
+        app.add_systems(
+            sim,
+            (
+                crate::shark_ride::depart_when_riderless,
+                crate::shark_ride::tick_departures,
+            )
+                .chain()
+                .after(ambition_platformer2d::mount::apply_dismount_requests)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
         // it runs in `PlayerInput` and NOT in `Settle`. It shipped in `Settle`
@@ -1630,6 +1721,20 @@ fn the_stage_always_plays_by_smash_rules(
 
 /// SMASH'S FIGHTERS ARE SOLID TO EACH OTHER — this is jostle.
 ///
+/// ⛔⛔ IT RUNS IN THE SIMULATION, NOT `Update`. `BodyContact` is a fact the
+/// movement kernel reads, so granting it from an ordinary `Update` system meant
+/// a schedule that does NOT replay under rollback was establishing simulation
+/// state — a resimulated frame could integrate a cast that had not been made
+/// solid yet. Two more grants copied this shape before a review caught all
+/// three; the other two are gone (the mount role is a seat fact now, and a
+/// summoned mount's departure rides its own registered state).
+///
+/// ⚠ THE HONEST ENDPOINT IS `MatchBody`, which is already where a match states
+/// what it believes about its fighters' bodies — jump squat, air dodge, dodge
+/// staling. Jostle belongs beside them, applied in the same flush that builds
+/// the bodies. That is a wire change to a snapshotted type and is deliberately
+/// not folded into this repair.
+///
 /// The engine therefore owns an unnamed constraint — one body's proposed motion reduced by the
 /// bodies it is touching (`ambition_platformer2d_core::movement::body_contact`) — and this ruleset
 /// grants it to its cast. Nothing in the kernel knows the word jostle.
@@ -1903,6 +2008,22 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 ]),
             );
         }
+        // THE RULESET'S OWN ROLLBACK STATE.
+        //
+        // ⛔⛔ THROUGH `AmbitionRollbackApp`, NOT a `SchemaRollbackRegistrar`.
+        // The schema registrar RECORDS a registration and installs no probe, so
+        // a component registered that way appears in the baseline and is still
+        // invisible to the localizer — `rollback_exit_oracle` fails by name,
+        // which is how this was caught. Same road `ambition_demo_sanic` takes
+        // for its own content state.
+        {
+            use ambition_platformer2d::rollback::AmbitionRollbackApp;
+            app.rollback_component_clone_probed::<crate::shark_ride::Departing>(
+                "ambition_demo_smash",
+                "smash.departing_mount",
+                crate::shark_ride::departing_probe,
+            );
+        }
         app.init_resource::<select::SmashSelect>();
         // The pointer, and the one thing it can ask for that the value does not
         // hold. Both live outside `SmashSelect` on purpose: where a cursor is
@@ -2031,7 +2152,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     // the safety net for every entry that skips the lobby —
                     // the dev bins and the stage tests. See its doc.
                     the_stage_always_plays_by_smash_rules,
-                    smash_fighters_are_solid_to_each_other,
                     // AFTER the driver that sets the flag, and in the same
                     // chain, so a press and the route change it asks for are
                     // one frame apart at most. The screen would otherwise keep

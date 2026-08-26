@@ -2,12 +2,12 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_items** — Canonical finite item catalog — the game's complete set of pickup items.
+**ambition_items** — Canonical 24-slot item catalog and owned-item state.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`content_schema`](src/content_schema.rs) | The items capability's authored-content SCHEMA registration. |
-| [`equipment`](src/equipment.rs) | **Worn equipment → granted actions**, reconciled continuously. |
+| [`equipment`](src/equipment.rs) | Derive granted actions and moves from identity plus worn equipment. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_items`. |
 | [`shop`](src/shop.rs) | Merchant economy primitives: buy/sell transactions over the player's [`BodyWallet`] and the 24-item [`OwnedItems`] catalog. |
 

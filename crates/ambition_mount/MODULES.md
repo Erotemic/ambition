@@ -1,8 +1,8 @@
-# `ambition_binding` — module map
+# `ambition_mount` — module map
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_binding** — Binding resolution for authored cross-layer references.
+**ambition_mount** — THE MOUNT PAIR: two linked bodies where one carries the other.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

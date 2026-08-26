@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_sanic_app** — The Sanic demo's shell, as a function — so the binary and the exit-3 regression test assemble the SAME app.
+**ambition_demo_sanic_app** — See `main.rs` for the doctrine this file encodes.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

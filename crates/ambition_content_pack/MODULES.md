@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_content_pack** — The content-pack compiler.
+**ambition_content_pack** — Content-pack compiler.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

@@ -520,4 +520,98 @@ mod tests {
     fn leak(name: &str) -> &'static str {
         Box::leak(name.to_string().into_boxed_str())
     }
+
+    /// A PROVIDER'S ACTION CAN BE A LEAFWING KEY — checked, not argued.
+    ///
+    /// ⭐⭐ THE OPEN QUESTION THIS ANSWERS is why a registered action is
+    /// describable and neither bindable nor readable: `InputMap` and
+    /// `ActionState` are keyed by the engine's CLOSED enum, and every previous
+    /// escape reached for erasure (`Any`, `TypeId`, a service locator), which the
+    /// reviews refused twice. ⛔ this is not that. `InputMap<A: Actionlike>` is
+    /// already generic, so a composition may install a SECOND map beside the
+    /// engine's — and the only question is whether a key a provider can MINT can
+    /// satisfy `Actionlike`.
+    ///
+    /// ⭐ IT CAN, and the one part that is not derivable is what shapes the type:
+    /// `input_control_kind(&self)` takes `&self`, so the key must CARRY its kind
+    /// rather than look it up. `SemanticActionDef` already holds that kind, so
+    /// the registry mints the key and its own one-kind-per-id rule keeps `Hash`
+    /// and `Eq` from ever disagreeing about the same action.
+    ///
+    /// ⚠ this test compiles the KEY and one map entry. It does not claim the
+    /// carve is done — two maps means two reader paths and a rule for which wins
+    /// — only that the bound is satisfiable without erasure, which is the thing
+    /// that had never been checked.
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_registry_minted_key_satisfies_leafwing_without_erasure() {
+        use bevy::prelude::*;
+        use leafwing_input_manager::prelude::*;
+
+        // ⛔ THE KIND IS MIRRORED, and THAT IS THE COST THIS CHECK FOUND.
+        // Neither the registry's `ActionControlKind` (no `Hash`, no `Reflect`)
+        // nor leafwing's `InputControlKind` (no `Eq`, no `Hash`) can be a field
+        // of a hashed, reflected key. A real implementation carries a small
+        // mirror beside the registry — three variants, derived — rather than
+        // widening either upstream type.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+        enum ProviderControlKind {
+            Button,
+            Axis,
+            DualAxis,
+        }
+
+        impl From<ActionControlKind> for ProviderControlKind {
+            fn from(kind: ActionControlKind) -> Self {
+                match kind {
+                    ActionControlKind::Button => Self::Button,
+                    ActionControlKind::Axis => Self::Axis,
+                    ActionControlKind::DualAxis => Self::DualAxis,
+                }
+            }
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
+        struct ProviderAction {
+            id: String,
+            kind: ProviderControlKind,
+        }
+
+        impl Actionlike for ProviderAction {
+            fn input_control_kind(&self) -> InputControlKind {
+                match self.kind {
+                    ProviderControlKind::Button => InputControlKind::Button,
+                    ProviderControlKind::Axis => InputControlKind::Axis,
+                    ProviderControlKind::DualAxis => InputControlKind::DualAxis,
+                }
+            }
+        }
+
+        // Minted from a registration, exactly as a provider would reach it.
+        const GRAPPLE: SemanticActionDef = SemanticActionDef {
+            id: SemanticActionId("grapple"),
+            capability: "traversal",
+            kind: ActionControlKind::Button,
+            contexts: GAMEPLAY,
+            doc: "Fire the grapple",
+        };
+        let mut registry = ActionRegistry::with_engine_actions();
+        registry.register(GRAPPLE).expect("a fresh id");
+        let def = registry
+            .get(SemanticActionId("grapple"))
+            .expect("just registered");
+        let key = ProviderAction {
+            id: def.id.0.to_string(),
+            kind: def.kind.into(),
+        };
+
+        let mut map = InputMap::default();
+        map.insert(key.clone(), KeyCode::KeyG);
+        assert!(
+            map.get(&key).is_some_and(|bindings| !bindings.is_empty()),
+            "a provider-minted key bound nothing, so the second-map route does \
+             not reach `InputMap` after all"
+        );
+        assert_eq!(key.input_control_kind(), InputControlKind::Button);
+    }
 }

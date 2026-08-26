@@ -223,6 +223,19 @@ struct ProviderAction { id: SemanticActionId, kind: ActionControlKind }
   consistent — one kind per id, so two keys can never disagree about the same
   action.
 
+  ✔ **AND IT IS COMPILED RATHER THAN ARGUED**:
+  `a_registry_minted_key_satisfies_leafwing_without_erasure` (`semantic.rs`)
+  registers `grapple`, mints a key from the registration, binds it in an
+  `InputMap` and reads the binding back. Poisoned by binding a different key: it
+  reports *"a provider-minted key bound nothing"*.
+
+  ⛔ **AND RUNNING IT FOUND A COST THE REASONING MISSED: THE KIND HAS TO BE
+  MIRRORED.** Neither enum can be a field of a hashed, reflected key — the
+  registry's `ActionControlKind` has no `Hash` and no `Reflect`, and leafwing's
+  `InputControlKind` has no `Eq` and no `Hash`. ⇒ a real implementation carries a
+  small three-variant mirror beside the registry rather than widening either
+  upstream type, and that mirror is the honest price of this route.
+
   ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
   service locator, and NO edit to the 35-variant enum**, which is the combination
   every previous attempt failed. ⛔ it is still a carve — two maps means two

@@ -164,6 +164,7 @@
     "entity.sim_id",
     "entity.spawn_origin",
     "entity.transform",
+    "entity:pending_respawn",
     "feature.breakable",
     "feature.chest",
     "feature.collected",

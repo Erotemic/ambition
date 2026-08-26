@@ -104,6 +104,14 @@ where
     // the fighter acted would hand back a grant it had already spent.
     registrar
         .rollback_component_canonical::<crate::stocks::RespawnGrace>(OWNER, "entity:respawn_grace");
+    // D192's return beat. Registered for the same reason the grace is: the
+    // interval decides WHEN a body is placed, so a rewind that dropped it would
+    // resimulate a fighter returning on the wrong tick — and a placement tick is
+    // a position on the stage.
+    registrar.rollback_component_canonical::<crate::stocks::PendingRespawn>(
+        OWNER,
+        "entity:pending_respawn",
+    );
     registrar.rollback_component_canonical::<crate::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",

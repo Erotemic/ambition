@@ -78,6 +78,21 @@ impl SnapshotState for crate::stocks::FighterEliminated {
     }
 }
 
+impl SnapshotState for crate::stocks::PendingRespawn {
+    // The remaining beat rewinds for the same reason `RespawnGrace`'s does: a
+    // branch that restored "this fighter is coming back" without its clock would
+    // place the body on a different tick than the one being resimulated, and a
+    // placement tick is a position.
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.remaining_ticks);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::PendingRespawn {
+            remaining_ticks: r.u32()?,
+        })
+    }
+}
+
 impl SnapshotState for crate::stocks::RespawnGrace {
     // The remaining beat is snapshot state for the same reason every other timer
     // is: a rewind that restored the protection but not its clock resimulates a

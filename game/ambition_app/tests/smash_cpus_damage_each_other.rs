@@ -92,6 +92,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     let mut knockouts = 0usize;
     let mut respawned_this_tick: Vec<bevy::prelude::Entity> = Vec::new();
     let mut spent_cursor = None;
+    let mut due_cursor = None;
     for tick in 0..(countdown + TICKS) {
         app.update();
         let world = app.world_mut();
@@ -101,11 +102,20 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     ambition_platformer2d::actor::FighterStockSpent,
                 >>();
             let cursor = spent_cursor.get_or_insert_with(|| messages.get_cursor());
-            for spent in cursor.read(messages) {
-                knockouts += 1;
-                if !spent.eliminated {
-                    respawned_this_tick.push(spent.body);
-                }
+            knockouts += cursor.read(messages).count();
+        }
+        // ⛔⛔ THE RETURN, NOT THE SPEND. D192 put a beat between them, so the
+        // spend tick is no longer the tick the body is placed — reading the
+        // recovery off `FighterStockSpent` would now sample a fighter that is
+        // still lying where it died, ~60 ticks before the reset this asserts on.
+        {
+            let messages = world
+                .resource::<bevy::ecs::message::Messages<
+                    ambition_platformer2d::actor::FighterRespawnDue,
+                >>();
+            let cursor = due_cursor.get_or_insert_with(|| messages.get_cursor());
+            for due in cursor.read(messages) {
+                respawned_this_tick.push(due.body);
             }
         }
         // ⛔⛔ A RETURNING FIGHTER COMES BACK WITH ITS RECOVERY, checked on the

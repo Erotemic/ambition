@@ -126,9 +126,11 @@ pub struct FighterStockSpent {
 /// so there was no state in which it was out of the match but still returning —
 /// and every consumer that needed that beat invented its own answer. The KO cue
 /// played over a fighter who was already back; the camera was required to frame a
-/// live body that had appeared 500 units away with no travel; and
-/// `KnockoutsView` still keeps a previous-frame cache because by the time
-/// presentation reads the entity, the body has already moved.
+/// live body that had appeared 500 units away with no travel; and the knockout
+/// beat kept a previous-frame position cache because by the time presentation
+/// read the entity, the body had already moved. ⭐ THAT CACHE IS GONE: a body
+/// waiting out its window is not placed, so `spend_fighter_stocks` publishes the
+/// beat from the position it can simply read.
 ///
 /// ⛔⛔ ONE BIT, AND IT CARRIES ONLY WHAT NOTHING ELSE DOES: *which* consequence
 /// this open window owes. D192 spelled the whole beat here — a countdown, its
@@ -373,6 +375,16 @@ pub fn spend_fighter_stocks(
     // swing stayed live for the entire interlude and only got cleaned up a
     // second later. Owned here, by the seam that opens the episode.
     mut swings: Query<&mut crate::moveset::MovePlayback>,
+    // ⭐ WHERE THE BODY IS, READ WHERE THE STOCK IS SPENT. The knockout beat is
+    // drawn at the place the fighter left play, and until D201 that position was
+    // destroyed on the same tick — the respawn teleported the body — so
+    // presentation kept a previous-frame cache in a non-rollback `Local` to
+    // recover it. A body waiting out its death beat is no longer placed until
+    // the window closes, so the position is simply here, and the cache went with
+    // the problem it existed for. An ELIMINATED body still gets despawned by its
+    // ruleset, which is why the beat is published HERE and not later.
+    positions: Query<&ambition_platformer2d_core::BodyKinematics>,
+    mut beat: MessageWriter<ambition_vfx::vfx::KnockoutBeatRequested>,
     interval: Option<Res<RespawnInterval>>,
 ) {
     // Absent resource == zero == the same-tick placement every ruleset had
@@ -390,6 +402,16 @@ pub fn spend_fighter_stocks(
         // over: it belonged to a body that is no longer in the fight.
         if let Ok(mut playback) = swings.get_mut(knockout.body) {
             crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback);
+        }
+        // The beat, at the place it happened. A presentation INTENT, so it rides
+        // the confirmed-effect quarantine with the sfx and the shake beside it
+        // rather than being sampled off a read-model on a different clock.
+        if let Ok(kin) = positions.get(knockout.body) {
+            beat.write(ambition_vfx::vfx::KnockoutBeatRequested {
+                pos: kin.pos,
+                eliminated,
+                speed: kin.vel.length(),
+            });
         }
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
@@ -640,6 +662,9 @@ mod tests {
         app.add_message::<BodyKnockedOut>();
         app.add_message::<FighterStockSpent>();
         app.add_message::<FighterRespawnDue>();
+        // The knockout beat the spend publishes. A presentation intent, but the
+        // channel has to exist or the spend cannot run at all.
+        app.add_message::<ambition_vfx::vfx::KnockoutBeatRequested>();
         app.insert_resource(RespawnInterval {
             seconds: interval_seconds,
         });
@@ -690,6 +715,69 @@ mod tests {
                 crate::components::ActiveCombatant,
             ))
             .id()
+    }
+
+    /// ⛔⛔ THE BEAT IS PUBLISHED WHERE THE BODY LEFT PLAY, AND IT NEEDS NO
+    /// CACHE TO KNOW WHERE THAT WAS.
+    ///
+    /// Presentation used to read a rebuilt `KnockoutsView`, which kept a
+    /// previous-frame `LastSeenBodies` record in a non-rollback `Local` — because
+    /// under D192 the respawn teleported the body onto the platform on the same
+    /// tick the stock was spent, so by the time anything looked, the position was
+    /// already gone. A `Local` a rewind does not restore then answered "where did
+    /// it leave play" from the abandoned branch.
+    ///
+    /// ⭐ D201 RETIRED THE PROBLEM RATHER THAN THE SYMPTOM: a body waiting out
+    /// its death window is not placed until the window closes, so the position is
+    /// simply readable here. This arm is what says so — the beat's position is
+    /// the body's, not the respawn point's.
+    ///
+    /// ⭐ AND EXACTLY ONE beat per knockout, because a duplicate is what a
+    /// read-model sampled on the wrong clock produces.
+    #[test]
+    fn the_knockout_beat_names_the_place_the_body_left_play() {
+        let mut app = respawn_app(0.5);
+        let body = combat_fighter(&mut app, 3);
+        let died_at = ambition_platformer2d_core::Vec2::new(-420.0, 310.0);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::BodyKinematics {
+                pos: died_at,
+                vel: ambition_platformer2d_core::Vec2::new(0.0, -1261.0),
+                size: ambition_platformer2d_core::Vec2::new(16.0, 32.0),
+                facing: 1.0,
+            });
+        app.update();
+        let _ = returned_this_tick(&mut app);
+        knock_out(&mut app, body);
+
+        let beats: Vec<ambition_vfx::vfx::KnockoutBeatRequested> = {
+            let messages = app
+                .world()
+                .resource::<Messages<ambition_vfx::vfx::KnockoutBeatRequested>>();
+            let mut cursor = messages.get_cursor();
+            cursor.read(messages).copied().collect()
+        };
+        assert_eq!(
+            beats.len(),
+            1,
+            "one knockout owes exactly one beat, and got {}",
+            beats.len()
+        );
+        assert_eq!(
+            beats[0].pos, died_at,
+            "the beat was published somewhere other than where the body was when \
+             it lost the stock"
+        );
+        assert!(
+            !beats[0].eliminated,
+            "a fighter with stocks left was reported as eliminated"
+        );
+        assert!(
+            (beats[0].speed - 1261.0).abs() < 1e-3,
+            "the beat did not carry the flight that ended: {}",
+            beats[0].speed
+        );
     }
 
     /// ⛔⛔ THE SWING DOES NOT SURVIVE THE STOCK IT COST.

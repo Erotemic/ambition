@@ -21,11 +21,10 @@ use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 
 use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
-use crate::avatar::PlayerSafetyState;
+use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::{
-    remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
-};
+use ambition_combat::death_rules::ActorDiedMessage;
+use ambition_platformer2d_shared_tangle::safe_position::{remember_safe_player_position, RoomTransitionCooldown, SafePositionContext};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
@@ -695,7 +694,7 @@ pub(crate) fn handle_player_damage_events(
             death_writers.died.write(ActorDiedMessage {
                 victim: player_entity,
                 pos: impact_pos,
-                cause: crate::DeathCause {
+                cause: ambition_combat::death_rules::DeathCause {
                     source: damage.source.clone(),
                     attacker: damage.attacker,
                 },
@@ -1046,7 +1045,7 @@ pub fn publish_kernel_reset_death(
             // The kernel gate now says WHICH world killed her, so this reports
             // it instead of apologizing for not knowing. No entity claims any
             // of these kills — `attacker` stays `None` for all of them.
-            cause: crate::DeathCause {
+            cause: ambition_combat::death_rules::DeathCause {
                 source: death_source_of(reset.cause),
                 attacker: None,
             },

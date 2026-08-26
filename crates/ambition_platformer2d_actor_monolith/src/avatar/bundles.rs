@@ -4,7 +4,8 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 use bevy::prelude::*;
 
-use super::components::{PlayerEntity, PlayerSafetyState, PrimaryPlayer};
+use super::components::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use super::movement_components::BodyKinematics;
 use crate::actor::AncillaryMovementBundle;
 use crate::actor::{BodyAnimFacts, BodyMelee};

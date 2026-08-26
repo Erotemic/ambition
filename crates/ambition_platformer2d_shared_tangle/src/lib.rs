@@ -26,6 +26,7 @@ pub mod math;
 pub mod orientation;
 pub mod prelude;
 pub mod projectile;
+pub mod safe_position;
 pub mod schedule;
 pub mod time;
 pub mod transit;

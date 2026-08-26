@@ -89,105 +89,23 @@ pub use time::move_toward;
 pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
 use ambition_platformer2d_core as ae;
-use bevy::prelude::{Message, Resource};
+use bevy::prelude::{Message};
 
-/// Sandbox-side actor-death notification. Emitted from `death_respawn_player`
-/// the frame a controlled actor's HP drops to zero and it respawns at the room
-/// spawn. The encounter system reads this through `MessageReader` to fail any
-/// in-flight encounter (despawn mobs, drop the lock wall, re-arm the trigger)
-/// without sandbox-runtime polling.
-///
-/// Named for the *actor* role, not "player": the relativity principle wants
-/// death framed as a fact about whichever controlled actor died, so this stays
-/// correct when more than the local player can die (multiplayer / scripted
-/// actors). Today only the controlled player routes through it.
-///
-/// `pos` carries the impact location for downstream consumers (vfx, future
-/// death-replay tooling). `cause` carries the attribution — what dealt the
-/// killing blow — so causality exists for future death-replay / multiplayer
-/// kill-credit without a downstream consumer having to reconstruct it from the
-/// raw [`ambition_combat::HitEvent`] stream. Today the encounter system ignores both.
-///
-/// Replaces the previous `player_died_pending` bool — the Vec-collector →
-/// `MessageWriter` pattern matches the rest of the sim → presentation seam
-/// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
-#[derive(Message, Clone, Debug)]
-pub struct ActorDiedMessage {
-    /// WHO died.
-    ///
-    /// this message carried no victim at all, so a consumer could only take the last death
-    /// and assume it was theirs. Mary-O does exactly that — reads the latest message and
-    /// applies it to the current `ControlledSubject` — and it works only because emission is
-    /// effectively restricted to the one controlled body today.
-    ///
-    /// an `Entity` is a SAME-FRAME identity, not a durable one. Bevy
-    /// recycles indices, so this is right for a consumer filtering "was that my
-    /// body, this tick" and wrong for a replay or a peer. A durable
-    /// victim identity — participant, or the body's stable
-    /// `PresentationSourceId` — is what multiplayer attribution will need, and
-    /// naming that here is the point of writing it down rather than discovering
-    /// it later.
-    pub victim: bevy::prelude::Entity,
-    pub pos: ae::Vec2,
-    pub cause: DeathCause,
-}
+// ⛔ THE ACTOR-DEATH ANNOUNCEMENT LEFT THIS CRATE ROOT, 2026-08-26.
+// `ActorDiedMessage` and `DeathCause` are `ambition_combat::death_rules`', beside
+// `BodyKnockedOut` and the death rules they belong with — the runtime, two demos
+// and five app tests read them, and `DeathCause` is built from combat's own
+// `HitSource`. Imported, never re-exported.
 
-/// Attribution for an actor death — what dealt the killing blow.
-///
-/// Compact by design: the killing hit's [`ambition_combat::HitSource`] category plus the
-/// attacker entity when the source carries one (player-side hits do; enemy /
-/// boss / hazard sources identify by category only today — threading their
-/// dealing entity is the deeper actor-attribution work). Reuses `HitSource`
-/// rather than a parallel enum so a new attack source needs no second edit.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DeathCause {
-    /// The killing hit's source category (melee / projectile / hazard / …).
-    pub source: ambition_combat::HitSource,
-    /// The entity that dealt the killing blow, when known.
-    pub attacker: Option<bevy::prelude::Entity>,
-}
 
-/// Per-frame conditions that gate writes to `RoomTransitionCooldown::last_safe_player_pos`.
-/// We refuse to record a position as "safe" while any of these flags are
-/// set so an in-flight reset / hazard respawn / room transition cannot
-/// pollute the safe spawn point. Construct with [`SafePositionContext::ideal`]
-/// for the "no contraindications" baseline, then flip individual flags as the
-/// frame's events fire.
-#[derive(Clone, Copy, Debug)]
-pub struct SafePositionContext {
-    /// True if the player took damage this frame.
-    pub damaged_this_frame: bool,
-    /// True if hitstun is active (player has reduced control).
-    pub in_hitstun: bool,
-    /// True if a feature requested a player reset this frame.
-    pub feature_requested_reset: bool,
-    /// True if the post-blink grace timer is currently active.
-    pub blink_grace_active: bool,
-    /// True if a room transition fired or is cooling down this frame.
-    pub room_transitioning: bool,
-}
-
-impl SafePositionContext {
-    /// "All safe": no damage, no hitstun, no reset, no blink grace, no
-    /// transition. Useful for tests.
-    pub fn ideal() -> Self {
-        Self {
-            damaged_this_frame: false,
-            in_hitstun: false,
-            feature_requested_reset: false,
-            blink_grace_active: false,
-            room_transitioning: false,
-        }
-    }
-
-    pub fn is_eligible(&self) -> bool {
-        !self.damaged_this_frame
-            && !self.in_hitstun
-            && !self.feature_requested_reset
-            && !self.blink_grace_active
-            && !self.room_transitioning
-    }
-}
+// ⛔ THE SAFE-POSITION MEMORY LEFT THIS CRATE ROOT, 2026-08-26.
+// `SafePositionContext`, `RoomTransitionCooldown`,
+// `remember_safe_player_position` and `PlayerSafetyState` are ONE mechanic, and
+// three of the four were parked here — a mechanic wearing the crate's address,
+// the same shape `Mass` had before the mount carve. They live in
+// `ambition_platformer2d_shared_tangle::safe_position` now, below the runtime's
+// room transition and this crate's damage road alike. Imported, never
+// re-exported: a `pub use` here would let callers keep spelling the old address.
 
 // `RoomGeometry` (the session-root component wrapping the active room's collision
 // geometry) lives in `ambition_platformer2d_core`, next to the `World` it wraps
@@ -197,28 +115,7 @@ impl SafePositionContext {
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
-/// Pure simulation scalars for the running sandbox session.
-/// Holds values that belong to the simulation, not to
-/// developer/debug tools or presentation state.
-///
-/// Multiplayer caveat: each field has different per-player vs.
-/// shared semantics for a future co-op build:
-/// - Per-player "last safe position" lives on each player entity as
-///   `crate::avatar::PlayerSafetyState`.
-/// - `remaining` — global shared-world today
-///   because the whole party shares one active room. If a future
-///   build splits rooms per-player this would need to move per-room
-///   or per-player.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct RoomTransitionCooldown {
-    pub remaining: f32,
-}
 
-impl Default for RoomTransitionCooldown {
-    fn default() -> Self {
-        Self { remaining: 0.0 }
-    }
-}
 
 /// The state of one in-flight player melee swing is now the unified
 /// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor
@@ -226,64 +123,7 @@ impl Default for RoomTransitionCooldown {
 /// `crate::MeleeSwing` / `ambition_platformer2d_actor_monolith::MeleeSwing` paths resolve.
 pub use crate::features::MeleeSwing;
 
-/// Record the current player position as "the last known safe spot"
-/// when (and only when) every predicate of safety holds. Call sites pass
-/// the same augmented collision world the engine simulated against this
-/// frame so the gate matches reality.
-///
-/// The flags allow the caller to suppress this write during damage
-/// resolution, hazard respawn, hitstun, post-blink grace, or room
-/// transitions where the player position is intentionally being
-/// teleported and shouldn't be remembered as safe. See
-/// `dev/journals/lessons_learned.md` for the OOB trace where a wall-cling
-/// teleport polluted `last_safe_player_pos` with `(62, -23)`.
-pub fn remember_safe_player_position(
-    safety: &mut crate::avatar::PlayerSafetyState,
-    clusters: &ae::BodyClustersMut<'_>,
-    world: &ae::World,
-    ctx: SafePositionContext,
-) {
-    remember_safe_player_position_from_kinematics(
-        safety,
-        clusters.kinematics.pos,
-        clusters.kinematics.vel,
-        clusters.kinematics.aabb(),
-        clusters.ground.on_ground,
-        world,
-        ctx,
-    );
-}
 
-/// Tuple-arg variant of [`remember_safe_player_position`] for callers
-/// that already hold the four kinematic facts the safety classifier
-/// reads. The cluster wrapper above is the natural production path;
-/// this tuple form is exposed for tests that build a
-/// `BodyClusterScratch` and pass individual fields.
-pub fn remember_safe_player_position_from_kinematics(
-    safety: &mut crate::avatar::PlayerSafetyState,
-    pos: ae::Vec2,
-    vel: ae::Vec2,
-    aabb: ae::Aabb,
-    on_ground: bool,
-    world: &ae::World,
-    ctx: SafePositionContext,
-) {
-    if !on_ground {
-        return;
-    }
-    if !ctx.is_eligible() {
-        return;
-    }
-    let verdict = ae::classify_safety_from_kinematics(pos, vel, aabb, world, 0.0, |block| {
-        matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        )
-    });
-    if verdict.is_safe() {
-        safety.last_safe_pos = pos;
-    }
-}
 
 #[cfg(test)]
 mod safe_pos_tests;

@@ -5,7 +5,7 @@
 use super::*;
 use crate::actor::BodyMelee;
 use crate::actor::PrimaryPlayerOnly;
-use crate::avatar::PlayerSafetyState;
+use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_platformer2d_core as ae;
 
 fn dummy_attack_spec() -> ambition_combat::AttackSpec {

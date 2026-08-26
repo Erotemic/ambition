@@ -22,7 +22,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::session::data;
-use ambition_platformer2d_actor_monolith::ActorDiedMessage;
+use ambition_combat::death_rules::ActorDiedMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
 
@@ -38,6 +38,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<FxRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
+            .add_message::<ambition_vfx::vfx::KnockoutBeatRequested>()
             .add_message::<ActorDiedMessage>()
             .add_message::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::WalletShieldSpent>()
             .add_message::<ambition_combat::SetFlagRequested>()
@@ -81,7 +82,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
             .init_resource::<ambition_platformer2d_actor_monolith::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
-            .init_resource::<ambition_platformer2d_actor_monolith::RoomTransitionCooldown>()
+            .init_resource::<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>()
             // The session's movement-tuning authority. Engine-owned with a
             // neutral default so EVERY sim composition has one; content seeds
             // the authored values over it, and a developer build's inspector

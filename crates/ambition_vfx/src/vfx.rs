@@ -363,6 +363,42 @@ impl FxRequest {
     }
 }
 
+/// A fighter left play: draw the knockout beat where it went out.
+///
+/// ⛔⛔ A MESSAGE, AND IT USED TO BE A REBUILT READ-MODEL. `KnockoutsView` was a
+/// `Resource` cleared and refilled on every SIMULATION ADVANCE and sampled once
+/// per RENDER FRAME, which is two different clocks: a rollback host can run
+/// several advances before one frame, so a knockout on an intermediate advance
+/// was erased before presentation ever saw it — and a knockout on the latest
+/// SPECULATIVE advance was drawn immediately, walking straight past the
+/// confirmed-effect quarantine every other cue goes through.
+///
+/// ⭐ AS AN INTENT IT RIDES THE SAME PATH AS THE SFX AND THE CAMERA SHAKE THAT
+/// ACCOMPANY IT: journalled by producing frame, replaced on resimulation,
+/// released only when the frame is confirmed, and discarded outright if the
+/// branch is abandoned. That is what the view was imitating badly.
+///
+/// ⭐⭐ AND IT CARRIES THE POSITION RATHER THAN AN `Entity`, which is what
+/// retired the view's other defect. The view kept a `LastSeenBodies` cache in a
+/// non-rollback `Local` because the KO position was destroyed before any
+/// consumer could look — a respawn teleported the body on the same tick. D201
+/// changed that: a body waiting out its death beat is not placed until the
+/// window closes, so its position is simply READABLE where the stock is spent.
+/// The cache had outlived the problem it existed for, and a `Local` that a
+/// rewind does not restore was answering "where did the body leave play" from
+/// the abandoned branch.
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
+pub struct KnockoutBeatRequested {
+    /// Where the body was when it left play, in world space.
+    pub pos: ae::Vec2,
+    /// Whether that was its LAST stock. The simulation's own answer, never a
+    /// comparison of remaining against zero on the presentation side.
+    pub eliminated: bool,
+    /// How fast it was going when it went out — the launch trail's own band, so
+    /// the plume and the burst that ends it agree about the same flight.
+    pub speed: f32,
+}
+
 /// Request a short, spatially distributed sequence of explosion VFX/SFX. Higher
 /// level than several [`FxRequest`]s: callers say "fireworks here" and the
 /// presentation `process_fireworks_requests` owns the temporal spread + variety.

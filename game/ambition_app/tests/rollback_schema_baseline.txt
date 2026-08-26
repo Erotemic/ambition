@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v118
+ggrs-rollback-schema-v119
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -306,6 +306,7 @@ message.gameplay_banner_requested	message-clear	GameplayBannerRequested	clear ab
 message.gameplay_sfx_requested	message-clear	GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.knockout_beat	message-clear	KnockoutBeatRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.landed_body_hit	message-clear	LandedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.light_emission_request_2d	message-clear	LightEmissionRequest2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.mount_died	message-clear	MountDied	clear abandoned-future message buffer in LoadWorld::Mapping

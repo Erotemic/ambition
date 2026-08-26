@@ -9,7 +9,7 @@ use super::*;
 
 /// The world envelope / inside-solid check is delegated to
 /// `ae::classify_player_safety` so the trace recorder and
-/// `crate::remember_safe_player_position` use the same definition.
+/// `ambition_platformer2d_shared_tangle::safe_position::remember_safe_player_position` use the same definition.
 /// The recorder layers the trace-only "absurd velocity" rule on top.
 pub fn detect_oob_scratch(
     scratch: &ae::BodyClusterScratch,
@@ -184,7 +184,7 @@ pub fn build_frame(
     // AC3.1.B: the melee AUTHORITY.
     melee: &crate::actor::BodyMelee,
     clock: &ambition_time::ClockState,
-    safety: &crate::avatar::PlayerSafetyState,
+    safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,

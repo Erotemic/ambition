@@ -23,4 +23,11 @@ where
         "message.fireworks_request",
     );
     registrar.clear_message_on_rollback::<crate::VfxMessage>(OWNER, "message.vfx");
+    // The knockout beat, on the same footing as every other presentation intent
+    // beside it: a reader's cursor is `Local` state GGRS never rewinds, so the
+    // channel is cleared rather than restored.
+    registrar.clear_message_on_rollback::<crate::vfx::KnockoutBeatRequested>(
+        OWNER,
+        "message.knockout_beat",
+    );
 }

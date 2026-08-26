@@ -630,7 +630,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ ALREADY FIXED AT HEAD — `open_the_sudden_death_round` sets `stocks.remaining = 1` for every contender, with a comment naming this exact bug; the review is reading an older tree.
 
 * The same sudden-death sim system writes the persistent "SUDDEN DEATH" `HudReadouts` slot. A rollback before the timeout retracts `BodyHealth` and the message but not `HudReadouts`, so the banner can survive as speculative presentation. Belongs with confirmed-result presentation cleanup, not with the game rules.
-  * ▢
+  * ✔ the sim no longer writes the slot. The banner is DERIVED every frame from `SuddenDeathEntered`, the rollback-registered latch the card system already consulted — so it appears and disappears with the round it names and no retraction has to be remembered anywhere. ⭐ the same shape as the knockout beat above: a presentation fact written from inside the simulation cannot be rewound, because presentation is not rollback state.
 
 * Every `MoveEventKind::Ranged` passes through a hidden 1.1-second body refire cooldown at the effect consumer, while Projectile Polygon's authored Charge Shot is 0.58 seconds long. The move-start authority does not consult that cooldown.
   * ✔ ALREADY FIXED AT HEAD — `weapon_ready` refuses a firing move at ACCEPTANCE on `ranged_cooldown <= 0.0`, `start_move` spends the authored `RangedActionSpec::refire_s`, and `brain_effects.rs` applies the low-level refire rejection only to `RangedCommitment::Attempt`, never to a committed move. ⛔ THIS IS THE THIRD STALE ONE and I called that batch "two" — I checked the two I could reach by grepping a symbol and stopped, which is the partial-sweep error again.
@@ -639,13 +639,13 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ the beat names `ids::SHOCKWAVE` — authored as *"the expanding ring a committed heavy throws"*, which is exactly what the field claimed to draw — through `VfxMessage::Effect`, and `rings: u32` became `ring_scale: f32`. ⭐ THE COUNT WAS NEVER A DOUBLING ANYWAY: two copies of one clip at one position on one tick are coincident, so "an elimination gets a second one" doubled the alpha and never the size; an elimination is now BIGGER. `beat_reach` takes the ring's own extent as a `max` so a bigger ring cannot quietly start spilling off the frame edge. ⛔ IT LANDED IN `bd37e4ddc` WITHOUT BEING MENTIONED IN THAT COMMIT'S MESSAGE — a broad `git add crates` swept up work in progress from a different item. The commit is green and correct; the message is incomplete, and that is the `git commit` takes the WHOLE INDEX trap.
 
 * Stock-loss presentation has no composition policy. The launch-trail module says its flare/plume sit "on top of the hit spark and camera shake", and knockout adds another layer on top of that. Nothing at the stock-spend boundary retires or attenuates the cues whose job was to PREDICT danger, so all three modules can be locally correct and still over-signal.
-  * ▢
+  * ✔ the policy is in the GATE, not in an amplitude. `LaunchedBodiesView` is the sim's resolved "this motion is INVOLUNTARY" fact, and a body the world has its hands off is not moving involuntarily — it is not moving at all. Excluding `OutOfPlay` retires the trail at the instant the thing it was predicting happens, so the knockout owns that beat alone. ⭐ no amplitude was guessed: the predictive cue simply stops when the prediction resolves.
 
 * `KnockoutsView` is a rebuilt read-model used as a one-tick event queue: cleared on every simulation advance but rendered once per frame. Catch-up resimulation can erase an intermediate KO before presentation samples it, and a KO on the latest speculative advance renders immediately, bypassing the confirmed-effect quarantine.
-  * ▢
+  * ✔ the view is DELETED. The beat is a `KnockoutBeatRequested` message on the confirmed-effect quarantine — journalled by producing frame, replaced on resimulation, released only when confirmed, discarded with an abandoned branch — which is what the read-model was imitating badly. The `SimTick` double-draw guard went with it: a reader cursor does not need one.
 
 * `KnockoutsView`'s `LastSeenBodies` history is a non-rollback `Local`, so after a rewind the "where did the body leave play?" lookup can come from the abandoned future branch. This transient event belongs on the confirmed/journaled presentation-event path used by SFX/VFX/camera shake.
-  * ▢
+  * ✔ the cache is DELETED, and D201 is why it could be. It existed because the respawn teleported the body on the tick the stock was spent, so the KO position was gone before any consumer looked; a body waiting out its death window is no longer placed until the window closes, so `spend_fighter_stocks` reads the position directly. ⭐ the fix removed state rather than registering more.
 
 * `guard_covers_hit` shifts the full-width coverage band by `shield_tilt` even though the code promises a full shield can never be poked. At max tilt (0.34 half-heights) a 100% shield covers about -0.66 to +1.34, exposing the opposite outer third; the test misses it because its full-shield control samples only -0.3. Bound the tilt by the amount already exposed — at full coverage the allowed shift is zero.
   * ✔ ALREADY FIXED AT HEAD — `guard_covers_hit` returns `true` on `coverage >= 1.0` before tilt is read, and its doc states that contract; the review is reading an older tree.
@@ -673,7 +673,7 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ ONE BOUNDED RECOIL PER PARTICIPANT (`707871fcc`). The genre has a rebound, not a rebound COUNT, and this repo already fixed the same shape when a 2×2 volume overlap produced four rebounds for one clash. The DIRECTION is the sum of the pair axes — a fighter that clanked two opponents is pushed away from both — and the SPEED is not: being outnumbered is not a reason to fly faster. Accumulated in a `Vec` in message order, because a hash map's iteration is not deterministic. The new arm spreads the three fighters into a line; the existing one stands them all at `Vec2::ZERO` where the rebound axis is deliberately zero, so it could never have measured recoil.
 
 * Hygiene, same window: trailing whitespace in this file and a new blank line at EOF in `game/ambition_app/tests/duel_arena.rs`.
-  * ▢
+  * ✔ both fixed (`df9e887ff`).
 
 ## Follow-up review of HEAD `bd37e4dd`, relayed by Jon 2026-08-26
 
@@ -701,7 +701,7 @@ Its priorities 3 and 4 — the windbox damage rejection and the room rollback mo
 receipts) is done above.
 
 * **The staged-hit checksum does not identify WHO is hitting WHOM.** The windbox omission was one instance of a larger hole: `pending_player_hits_checksum` reduces `attacker` to `is_some()` and `HitTarget::Body(entity)` to the tag `1`, so "A hits X" and "B hits Y" fingerprint identically while every other field is equal. `HitTarget::Body` is documented as the complete victim-routing answer and production uses it for projectiles, contact damage, empowerment, enemy hits and blast-zone events. ⛔ the fix is NOT to hash `Entity` — that is allocator identity and trades one blindness for a false alarm. The queue should carry stable semantic identity across the frame boundary, which would also retire its `MapEntities`.
-  * ▢
+  * ✔ `9352d3255` — the queue's row is a `StagedPlayerHit` carrying both bodies' stable ids, resolved once at staging where a `World` is in hand, because a registered checksum is a bare `fn(&T) -> u64` and can never look an entity up. ⛔ `Entity` is deliberately NOT hashed. Schema 116 → 117.
 
 * **The new `saddle_world_offset` promises facing-relative `+x` and cannot deliver it.** Its doc says the offset is `+x toward the mount's facing side`, but `AccelerationFrame::to_world` knows gravity-relative side/down and nothing about facing — so a saddle authored at `x = +5` stays on the same gravity-relative side when the mount turns around. Invisible today because production saddles author `x = 0`, and the new rotated-gravity arm never flips facing. Either mirror `x` by facing, or stop claiming the axis is facing-relative. ⇒ prefer mirroring, to match the rest of the authored character-local geometry convention.
   * ✔ mirrored, and the decision is settled by the constraint itself: it already hands the rider `mount_kin.facing`, so an offset that did not mirror would put a rider authored on one shoulder onto the other the moment the mount turned. A neutral facing keeps the authored side — `signum(0.0)` would have collapsed the offset.

@@ -10,6 +10,13 @@
 //! Both are a LAYER over the hit spark and camera shake, not a replacement for
 //! either.
 //!
+//! ⛔⛔ …AND THE LAYERING STOPS WHERE THE FLIGHT RESOLVES. These cues PREDICT
+//! danger; the knockout beat ANSWERS it, and for a while both played at once
+//! because each module was locally correct and none of them owned the
+//! composition. The policy lives in the gate rather than in an amplitude: a body
+//! out of play leaves [`LaunchedBodiesView`], so the trail retires at the instant
+//! the thing it was predicting happens and the knockout owns that beat alone.
+//!
 //! ⭐ THE TWO BEATS ARE THE POINT. A body launched this instant and one that
 //! has been tumbling for a second are the same row in the view, at the same
 //! speed, and looked identical until the blast existed: the plume alone says

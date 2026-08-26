@@ -256,7 +256,7 @@ fn min_app() -> App {
     app.insert_resource(crate::construction::engine_construction_registry());
     app.insert_resource(crate::features::RoomContentStagingRegistry::default());
     app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet::default());
-    app.insert_resource(crate::RoomTransitionCooldown::default());
+    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
     app.insert_resource(ambition_time::ClockState::default());
     app.insert_resource(ambition_dev_tools::DeveloperRuntimeState::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(

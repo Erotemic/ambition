@@ -16,16 +16,19 @@
 //!
 //! # Where the body was
 //!
-//! ⭐ THE KO POSITION IS DESTROYED BEFORE ANY CONSUMER CAN LOOK.
-//! `FighterStockSpent` carries an `Entity`; `place_respawning_fighters` reads
-//! the same message inside `CombatSet::Settle` and teleports that body onto the
-//! respawn platform on the same tick, and an eliminated body is despawned
-//! outright. A burst drawn at the entity's position would appear over the
-//! respawn platform — plausible, and wrong.
+//! ⭐ THE INTENT CARRIES THE POSITION; NOTHING HERE RESOLVES AN ENTITY. An
+//! eliminated body is despawned by its ruleset, so a burst drawn at the entity's
+//! position would have nothing to read — and before D201 a RESPAWNING one was
+//! teleported onto the platform on the same tick, so the burst appeared over the
+//! respawn point: plausible, and wrong.
 //!
-//! So the position is captured sim-side, at the seam that still has it:
-//! [`ambition_sim_view::KnockoutsView`] publishes the place the body was on the
-//! tick before the knockout resolved. Nothing here resolves an entity.
+//! ⛔⛔ THAT IS WHY THERE USED TO BE A PREVIOUS-FRAME CACHE, and why there is not
+//! one now. `KnockoutsView` kept `LastSeenBodies` in a non-rollback `Local` to
+//! recover a position the respawn had already overwritten — so after a rewind it
+//! could answer "where did the body leave play" from the abandoned branch. D201
+//! stopped placing a body until its death window closes, so the position is
+//! simply readable where the stock is spent, and the beat is published from
+//! there as a [`ambition_vfx::vfx::KnockoutBeatRequested`].
 //!
 //! # Where the beat is DRAWN
 //!
@@ -55,7 +58,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core::Vec2;
 use ambition_sfx::{ids, SfxMessage, SfxWriter};
-use ambition_time::SimTick;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 /// Sparks thrown by an ordinary stock loss, and by an elimination.
@@ -205,14 +207,24 @@ pub fn beat_anchor(pos: Vec2, reach: f32, centre: Vec2, visible: Vec2) -> Vec2 {
     Vec2::new(axis(pos.x, centre.x, half.x), axis(pos.y, centre.y, half.y))
 }
 
-/// Draw the knockout beat for every knockout published this tick.
+/// Draw the knockout beat for every knockout the simulation published.
 ///
-/// Runs on the render clock and samples on the SIM clock, like the launch
-/// trail: a frame that advanced no tick must not draw the same knockout twice.
+/// ⛔⛔ IT READS A MESSAGE NOW, AND THAT RETIRED TWO CLOCK BUGS AT ONCE. This
+/// used to sample `KnockoutsView` — a resource rebuilt and CLEARED on every
+/// simulation advance — once per RENDER frame, and guard against double-drawing
+/// with a `Local` holding the last `SimTick`. Two different clocks: a rollback
+/// host can run several advances before one frame, so a knockout on an
+/// intermediate advance was erased before this ever saw it, while one on the
+/// latest SPECULATIVE advance was drawn immediately, bypassing the
+/// confirmed-effect quarantine the sfx beside it goes through.
+///
+/// ⭐ AS A QUARANTINED INTENT the delivery rule is the message channel's:
+/// journalled by producing frame, replaced on resimulation, released when
+/// confirmed, discarded with an abandoned branch. Exactly once, and only for a
+/// timeline that happened. The `SimTick` guard went with it — a reader cursor
+/// does not need one.
 pub fn emit_knockout_beat(
-    tick: Res<SimTick>,
-    mut last_sampled: Local<Option<u64>>,
-    knockouts: Res<ambition_sim_view::KnockoutsView>,
+    mut knockouts: MessageReader<ambition_vfx::vfx::KnockoutBeatRequested>,
     // ⛔ THE PRESENTED view, not every view. The beat is world-space vfx, so one
     // knockout owes ONE burst however many views are watching; iterating views
     // would write a burst per view at the same place. `PresentedViewState`
@@ -223,14 +235,10 @@ pub fn emit_knockout_beat(
     mut vfx: MessageWriter<VfxMessage>,
     mut sfx: SfxWriter,
 ) {
-    if *last_sampled == Some(tick.0) {
-        return;
-    }
-    *last_sampled = Some(tick.0);
     let frame = presented
         .get()
         .map(|view| (view.center_world, view.visible_view));
-    for knockout in &knockouts.0 {
+    for knockout in knockouts.read() {
         let beat = knockout_beat(knockout.eliminated, knockout.speed);
         let pos = match frame {
             Some((centre, visible)) => {
@@ -420,18 +428,19 @@ mod tests {
 
     /// Where one knockout's spark burst was asked for, with or without a view.
     fn emitted_burst_pos(with_view: bool) -> Vec2 {
-        use ambition_sim_view::{CameraViewState, KnockoutFact, KnockoutsView, LocalView};
+        use ambition_sim_view::{CameraViewState, LocalView};
+        use ambition_vfx::vfx::KnockoutBeatRequested;
         use bevy::prelude::App;
 
         let mut app = App::new();
-        app.init_resource::<SimTick>();
         app.add_message::<VfxMessage>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.insert_resource(KnockoutsView(vec![KnockoutFact {
+        app.add_message::<KnockoutBeatRequested>();
+        app.world_mut().write_message(KnockoutBeatRequested {
             pos: MEASURED_KO,
             eliminated: false,
             speed: 1261.0,
-        }]));
+        });
         if with_view {
             app.world_mut().spawn((
                 LocalView,

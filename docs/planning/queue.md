@@ -1421,8 +1421,10 @@ both is this ledger's own — grep for the thing a report says is there before
 acting on it, including when the report is a careful review.
 
 
-- ▢ **D179 — ONE CONTACT DEFECT LEFT; THE SPLIT AND THE SCOPING ARE CLOSED.** (found
-  2026-08-21, by GPT review of `f8ad04f9a`)
+- ✔ **D179 — CLOSED 2026-08-26. THE SPLIT AND THE SCOPING SHIPPED; THE LAST ITEM
+  TURNED OUT TO BE A FEEL QUESTION AND IS NOW
+  [decision 34](awaiting-maintainer-decision.md).** (found 2026-08-21, by GPT
+  review of `f8ad04f9a`)
 
 `constrain_motion` now divides a gap between bodies that are both closing on it
 (`79f465e62`). Two things named in the same review are still open, and neither
@@ -1501,9 +1503,13 @@ speed, not one step.
 rather than an unreachable one.** Two grounded bodies at walking speed stopping
 where they meet is what this capability is FOR; ploughing through is the
 exemption. The only open question is whether the DECAYED tail of a knockback is
-locomotion or launch. ⛔ do not answer that by refactor — it belongs in
-`awaiting-maintainer-decision.md` if anyone wants it answered, and nothing in the
-game currently looks wrong because of it.
+locomotion or launch. ⛔ do not answer that by refactor.
+
+✔ **ROUTED 2026-08-26 — it is now
+[decision 34](awaiting-maintainer-decision.md), with both answers costed.**
+Nothing in the game currently looks wrong because of it, so the row closes rather
+than waiting: a feel question parked in the execution ledger reads as unfinished
+work every time somebody scans it.
 
 **(b) ✔ CLOSED 2026-08-21 — and it was WORSE than the doc admitted, which is
 why it did not need the schedule change.** The residual was written down as

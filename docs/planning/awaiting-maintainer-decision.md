@@ -38,6 +38,43 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
+### 34. IS THE DECAYED TAIL OF A KNOCKBACK LOCOMOTION, OR IS IT STILL A LAUNCH?
+
+⭐ **NOTHING LOOKS WRONG TODAY; this is here because a review asked and the
+answer is taste, not correctness.** Two grounded bodies that meet at walking
+speed stop where they meet — that is what body contact is FOR. The question is
+only about the END of a knockback: once a launched body has decayed below walking
+speed, `body_contact` can no longer tell it from someone walking, so a neighbour
+stops it dead.
+
+```text
+today   grounded, |v| <= max_run_speed  ⇒  treated as locomotion  ⇒  resisted
+        at resistance == 1.0 the body stops AT contact — the rest of the
+        slide is cancelled, not slowed
+```
+
+⛔ **THE OBVIOUS FIX WAS MEASURED AND IT DOES NOT COVER THIS.**
+`knockdown::owns_control` is FALSE exactly when this fires — a decayed launch is
+neither a knockdown nor a tumble — so gating on it changes nothing.
+
+⛔ **AND THE KERNEL CANNOT ASK THE QUESTION.** There is no hitstun in
+`AxisManeuverState`; hitstun lives monolith-side in the hit reaction. *"Did this
+motion come from a hit"* is not askable at this seam without threading a new fact
+down, and THAT is the price — not three lines.
+
+⇒ two answers, and either is cheap to live with:
+
+```text
+(a) it is LOCOMOTION      leave it. A slide that has decayed to walking speed
+                          reads as the fighter regaining its feet
+(b) it is still a LAUNCH  thread the hit's provenance down to the movement
+                          kernel so contact can exempt it — a new durable fact
+                          on the body, not a threshold
+```
+
+⚠ **NOT BLOCKING ANYTHING.** Closed out of [D179 in `queue.md`](queue.md), whose
+other half shipped.
+
 ### 33. WHAT DOES A RECHARGING WEAPON LOOK LIKE?
 
 ⭐ **THE MECHANIC IS SHIPPED; THIS IS THE ART.** Your own ruling on the ranged

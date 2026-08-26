@@ -2524,9 +2524,26 @@ D242   Platformer2dInputActionMonolith
 
 ⇒ both have a REGISTRY beside them that already describes the thing
 (`ActionRegistry` / the catalog resolver) and neither can bind it, because the
-KEY is closed. ⇒ **whatever answers one probably answers the other**, and a
-solution that only fits one is the weaker candidate. ⛔ still not the service
-locator, in either place.
+KEY is closed. ⛔ still not the service locator, in either place.
+
+⛔⛔ **AND THE ANSWER THAT WORKS FOR ONE DOES NOT TRANSFER — CORRECTED THE SAME
+DAY, after compiling it.** D242's gate turned out to be reachable: `InputMap` is
+generic, so a SECOND map keyed by a provider-minted type reaches
+`InputMap`/`ActionState` with no erasure (proved by
+`a_registry_minted_key_satisfies_leafwing_without_erasure`). ⇒ **that does not
+help HERE, and the difference is worth stating so nobody tries it:**
+
+```text
+D242's key   an ACTION IDENTITY and nothing else. A string plus its control
+             kind is the whole value; `Hash + Eq + Reflect` is satisfiable.
+D168's key   a POLICY plus its STATE — `Fighter { cfg, state }` — and
+             `snapshot_impls` ENCODES both. A string key cannot carry a state
+             type the wire format has never seen without erasing it.
+```
+
+⇒ **a second keyspace is free where the key is a NAME and expensive where the
+key owns SERIALIZED STATE.** D168 still needs its own answer, and it is the
+harder of the two.
 
 ⚠ **`Brain` is a ONE-VARIANT enum now** (`StateMachine(StateMachineCfg)`).
 Collapsing it to a struct is a separate decision and deliberately not taken here:

@@ -11074,8 +11074,9 @@ fixture that sets `pending_launch` by hand still gets `false`, which is what an
 ordinary knockback means — so the many kernel fixtures that do say what they
 meant. Straddling arms: same speed, same state, one flag apart.
 
-▢ **29c** the parry
-producer and `resolve_body_hit` receive no fact saying the contact is a windbox,
+✔ **29c — CLOSED, and the marker below was left on it. The finding is the
+paragraph after: the fact was already at the site.** ~~the parry
+producer and `resolve_body_hit` receive no fact saying the contact is a windbox,~~
 so a gust can be PARRIED, or blocked for shield integrity and shieldstun and
 pushback — against an authored `no shield`. ⇒ the volume needs a declared
 guard interaction (`NormalStrike` / `IgnoreGuard` / `Unstoppable`), read by both.

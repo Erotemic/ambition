@@ -807,13 +807,40 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
             .join(" ")
     );
 
-    // ⛔⛔ THIS GUARD CANNOT CATCH THE DEFECT THIS TEST FOUND, and saying so is
-    // the point. Measured 2026-08-25: goblin vs PCA asks for `player.hit` 6997
-    // times in 3776 ticks — 111/s — and PASSES here, because it is ~2 per tick,
-    // sustained rather than bursty. A george mirror asks 223 times, 31x fewer.
-    // The signature is the RATE, and the rate guard belongs with the fix (D206);
-    // adding it now would only paint main red without moving the bug.
+    // ⭐⭐ THE RATE GUARD, WHICH IS WHAT ACTUALLY CAUGHT D206 — and it is here
+    // now because the fix is (see the seat gate in `apply_actor_contact_damage`).
+    // The per-tick ceiling below could never see it: goblin vs PCA asked for
+    // `player.hit` 6,997 times in 3,776 ticks, which is ~2 per tick, sustained
+    // rather than bursty, and passed every burst check while being 31x a george
+    // mirror's 223.
     //
+    // ⛔ A SUSTAINED RATE IS A DIFFERENT SHAPE FROM A BURST, and neither
+    // subsumes the other. A duplicate emission on one tick is a stuck emitter;
+    // one sound at 111/s for a whole match is an emitter running on the wrong
+    // clock — here, a hit event written EVERY TICK two bodies overlapped.
+    //
+    // The ceiling is set well above what a loud honest fight asks for and well
+    // below the defect. Measured with the fix in: this fight asks for 751
+    // requests over 3,776 seated ticks — **11.9/s total**, down from 114.2/s —
+    // and its loudest id is `land` at 6.7/s, with `player.hit` down from 6,997
+    // to 27. Anything sustaining 20/s for a whole match is one emitter, not a
+    // busy stage.
+    //
+    // PROBED RED: with the seat gate reverted, this fails naming
+    // `SfxId(1147272914855045707)` — `player.hit` — at **111.2/s**.
+    const ONE_SOUND_PER_SECOND_CEILING: f32 = 20.0;
+    let seconds = seated_ticks.max(1) as f32 / 60.0;
+    let too_often: Vec<String> = by_id
+        .iter()
+        .filter(|(_, count)| **count as f32 / seconds > ONE_SOUND_PER_SECOND_CEILING)
+        .map(|(name, count)| format!("{name} at {:.1}/s", *count as f32 / seconds))
+        .collect();
+    assert!(
+        too_often.is_empty(),
+        "one sound was asked for more than {ONE_SOUND_PER_SECOND_CEILING}/s across          the whole match: {} — that is an emitter on the wrong clock, not a busy          stage, and no mix change can fix it",
+        too_often.join(", ")
+    );
+
     // What this still catches is a genuine burst: many of ONE sound on ONE tick.
     // ⚠ keyed by ID, not by the `play` aggregate — a george mirror legitimately
     // asks for six DIFFERENT authored sounds on one tick, which the aggregate
@@ -831,4 +858,63 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
          not density, and no mix change can fix it",
         offenders.join(", ")
     );
+}
+
+/// PROBE, print-only: WHERE do the goblin/PCA fight's 111 `player.hit`
+/// requests per second come from?
+///
+/// The census above establishes the RATE and the id; it cannot say which
+/// emitter. `player.hit` is the unauthored default for an ENEMY-profile victim
+/// (`ambition_combat::util`), so every hit event on either of these two bodies
+/// that carries no authored strike sound lands on the same id — which means the
+/// sound is downstream of however many HIT EVENTS there are. This counts the
+/// events by `HitSource`, which is the fork: `Melee` is a swing landing (paced
+/// by a move's active window and deduplicated by `HitboxHits`), `Contact` is
+/// `apply_actor_contact_damage`, which writes an event EVERY TICK two bodies
+/// overlap and is gated only by the victim's i-frames.
+#[test]
+#[ignore = "PROBE, print-only: attributes the goblin/PCA hit rate by source"]
+fn probe_where_the_goblin_pca_hit_events_come_from() {
+    use ambition_platformer2d::combat::events::HitEvent;
+    use bevy::ecs::message::Messages;
+    use std::collections::BTreeMap;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let roster = ambition_demo_smash::smash_roster_at_levels(
+        ["goblin", "perfect_cellular_automaton"],
+        &[RUNG, RUNG],
+    );
+    let countdown = roster.rules.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+
+    let mut by_source: BTreeMap<String, usize> = BTreeMap::new();
+    let mut seated_ticks = 0usize;
+    let mut cursor = None;
+    for _ in 0..(countdown + TICKS) {
+        app.update();
+        let world = app.world_mut();
+        let seats = world.query::<&MatchSeat>().iter(world).count();
+        if seats >= 2 {
+            seated_ticks += 1;
+        }
+        let messages = world.resource::<Messages<HitEvent>>();
+        let cursor = cursor.get_or_insert_with(|| messages.get_cursor());
+        for event in cursor.read(messages) {
+            *by_source.entry(format!("{:?}", event.source)).or_default() += 1;
+        }
+    }
+    let total: usize = by_source.values().sum();
+    eprintln!("PROBE seated_ticks={seated_ticks} hit_events={total}");
+    for (source, count) in &by_source {
+        eprintln!(
+            "PROBE   {source:<14} {count:>6}  ({:.1}/s)",
+            *count as f32 * 60.0 / seated_ticks.max(1) as f32
+        );
+    }
 }

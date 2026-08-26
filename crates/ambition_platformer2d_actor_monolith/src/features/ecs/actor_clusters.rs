@@ -1022,6 +1022,8 @@ impl ActorClusterSeed {
                 // A single-body rig: nobody to be solid to.
                 // Not tumbling — a scratch harness body is not in a floor game.
                 false,
+                // In play — a scratch rig has no death window open.
+                false,
                 ae::BodyContactField::NONE,
             )
             .0

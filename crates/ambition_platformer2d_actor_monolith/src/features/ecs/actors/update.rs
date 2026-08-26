@@ -1298,6 +1298,37 @@ pub fn apply_actor_contact_damage(
                 Entity,
                 &super::super::super::components::ActorTarget,
                 Option<&ambition_characters::control::DrivingParticipant>,
+                // ⭐⭐ IS THIS BODY SEATED IN A MATCH? D206. Whether touching a
+                // body hurts is a CHARACTER trait
+                // (`CharacterBodyBlueprint::contact_damage`), and that is right
+                // for the overworld: a goblin you walk into hurts you. It is
+                // wrong for a versus match, where a fighter's body is never a
+                // permanent hazard — the genre puts damage in MOVES.
+                //
+                // MEASURED: goblin vs `perfect_cellular_automaton`, both
+                // authoring a contact-damage block, traded **6,908 Contact hit
+                // events in 3,776 ticks — 109.8/s** against 29.5/s of melee,
+                // because this system writes an event EVERY TICK two bodies
+                // overlap and the only thing pacing it is the victim's i-frames.
+                // That is what Jon heard as *"a bad sfx problem with goblin and
+                // pca"*: every one of those events asks for `player.hit`, the
+                // unauthored default for an enemy-profile victim. A george
+                // mirror was quiet at 223 — not because the engine behaves
+                // differently, but because George authors no contact block.
+                //
+                // ⛔ THE SEAT AND NOT THE TUNING. `actor_clusters` builds this
+                // tuning on the SHARED character→body road, which the overworld
+                // NPC and the seated fighter both take, so it cannot answer a
+                // question about the match. And a ruleset that reached in and
+                // rewrote the tuning would be editing a construction-time fact
+                // that a re-seat puts straight back. The seat is the authority
+                // and this is the read that asks it.
+                //
+                // ⛔ NOT a claim that a fighter can never harm on contact. A
+                // move that wants a damaging body state grants it as a move —
+                // Sanic's ball dash, a super form, a spiked shell — and none of
+                // those flows through this permanent trait.
+                Has<crate::character_runtime::MatchSeat>,
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
@@ -1320,7 +1351,7 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, clusters) in &mut set.p0() {
+    for (actor_entity, target, driver, seated_in_a_match, clusters) in &mut set.p0() {
         let Some(mut cq) = clusters else {
             continue;
         };
@@ -1328,7 +1359,8 @@ pub fn apply_actor_contact_damage(
         // Body-contact hazard is off for any participant-driven body; derived
         // from the DRIVER (no possession special-case), gated by the body's
         // authored `body_contact_damage` tuning.
-        let enabled = driver.is_none() && em.config.tuning.body_contact_damage;
+        let enabled =
+            driver.is_none() && !seated_in_a_match && em.config.tuning.body_contact_damage;
         if !enabled || !em.health.alive() {
             continue;
         }

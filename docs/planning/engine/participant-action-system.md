@@ -102,6 +102,18 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   cue ownership, a `VEHICLE` context, and loading/retry input remain outside the
   normal participant-context path. For loading/retry, fix the schedule ownership
   seam rather than introducing a cycle.
+  ⭐ **BOTH HALVES CONFIRMED AT HEAD 2026-08-26, and one of them needs a question
+  answered before it needs code.** `ControlContextKind` has exactly four
+  variants — `Gameplay`, `Menu`, `Dialogue`, `Empty` — so there is no `VEHICLE`,
+  and mounts DO ship, which means a rider on a shark reads the same prompt as a
+  fighter on foot. ⚠ **but a context earns its place by CHANGING THE PROMPT**:
+  before adding a variant, measure whether a mounted body's verbs actually
+  differ from an unmounted one's. If the same buttons do the same things, the
+  variant buys a label and costs a seam.
+  ⛔ the loading/retry half is confirmed and is not a question: `game_shell`'s
+  `input.rs` maps the raw `MenuControlFrame::select` straight onto
+  `startup_acknowledge` and `loading_continue`, which is the same unadopted-seam
+  finding as the activation item above — one flag answering three questions.
 
 - ✔ **Pad-specific calibration filtering with shared bindings — SHIPPED,
   verified at HEAD 2026-08-26.** Bindings remain machine-wide by decision, and

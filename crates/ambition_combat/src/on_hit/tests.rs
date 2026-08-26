@@ -168,8 +168,8 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
     use crate::components::ActorFaction;
     use crate::events::HitEvent;
     use crate::hitbox::{
-        HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
-        apply_hitbox_damage,
+        apply_hitbox_damage, HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
+        HitboxLifetime,
     };
     use ambition_platformer2d_core::AabbExt;
     use ambition_vfx::vfx::VfxMessage;
@@ -255,8 +255,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
                 knockback: HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
-                autolink: None,
-                windbox: None,
+                reaction: None,
             },
             HitboxLifetime { remaining_s: 0.1 },
             HitboxHits::default(),

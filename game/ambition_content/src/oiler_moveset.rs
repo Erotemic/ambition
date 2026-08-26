@@ -665,7 +665,6 @@ fn converging_term(
         tag: WindowTag::Active,
         volumes: vec![HitVolume {
             // An ordinary hit, not a gust.
-            windbox: None,
             shape: VolumeShape::Rect {
                 offset: (30.0, -2.0),
                 half_extents: (24.0, 18.0),
@@ -680,7 +679,7 @@ fn converging_term(
             on_hit: None,
             vfx: Some(tag.to_string()),
             hit_sfx: None,
-            autolink: None,
+            reaction: None,
         }],
         motion_scale: 0.35,
         sustain_effect: None,

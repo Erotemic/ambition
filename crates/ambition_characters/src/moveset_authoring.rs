@@ -502,8 +502,9 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
                 knockback: 1.0,
                 knockback_growth: Some(0.0),
                 launch_dir: None,
-                autolink: Some(pulse.autolink),
-                windbox: None,
+                reaction: Some(ambition_entity_catalog::VolumeReaction::Autolink(
+                    pulse.autolink,
+                )),
                 on_hit: None,
                 vfx: Some(SLASH_POKE_VFX.to_string()),
                 hit_sfx: None,
@@ -601,8 +602,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
                     // [`strike_tag`].
                     vfx: Some(SLASH_ARC_VFX.to_string()),
                     hit_sfx: None,
-                    autolink: None,
-                    windbox: None,
+                    reaction: None,
                 }],
                 motion_scale: 1.0,
                 sustain_effect: None,
@@ -703,7 +703,7 @@ mod multihit_tests {
         for window in leading {
             let volume = &window.volumes[0];
             assert!(
-                volume.autolink.is_some(),
+                volume.autolink().is_some(),
                 "an intermediate pulse authored no hold, so the victim leaves"
             );
             assert!(
@@ -714,7 +714,7 @@ mod multihit_tests {
         }
         let finish = &last.volumes[0];
         assert!(
-            finish.autolink.is_none(),
+            finish.autolink().is_none(),
             "the FINISHER holds instead of launching, so the move never ends"
         );
         assert_eq!(finish.launch_dir, Some((0.1, -1.0)));

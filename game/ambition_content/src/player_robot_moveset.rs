@@ -658,7 +658,6 @@ pub fn theorem_chain_moveset() -> MovesetContract {
     let volume = |offset: (f32, f32), half_extents: (f32, f32), damage: i32, knockback: f32| {
         HitVolume {
             // An ordinary hit, not a gust.
-            windbox: None,
             shape: VolumeShape::Rect {
                 offset,
                 half_extents,
@@ -671,7 +670,7 @@ pub fn theorem_chain_moveset() -> MovesetContract {
             on_hit: None,
             vfx: None,
             hit_sfx: None,
-            autolink: None,
+            reaction: None,
         }
     };
     let window = |start_s: f32, end_s: f32, tag: WindowTag, volumes: Vec<HitVolume>| MoveWindow {

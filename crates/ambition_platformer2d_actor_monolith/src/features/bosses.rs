@@ -144,7 +144,6 @@ pub fn boss_attack_moveset(
                         let h = aabb.half_size();
                         HitVolume {
                             // An ordinary hit, not a gust.
-                            windbox: None,
                             hit_sfx: None,
                             shape: VolumeShape::Rect {
                                 offset: (c.x, c.y),
@@ -158,7 +157,7 @@ pub fn boss_attack_moveset(
                             // Boss geometry strikes are data-shaped volumes, not
                             // bladed swings: no slash VFX, no manifest override.
                             vfx: None,
-                            autolink: None,
+                            reaction: None,
                         }
                     })
                     .collect();

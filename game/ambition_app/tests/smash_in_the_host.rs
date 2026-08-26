@@ -5330,7 +5330,6 @@ mod launched {
             .spawn((
                 ambition_platformer2d::combat::strike::Hitbox {
                     // An ordinary hit, not a gust.
-                    windbox: None,
                     owner: attacker,
                     source: ambition_platformer2d::combat::strike::HitSide::Enemy,
                     anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
@@ -5348,7 +5347,7 @@ mod launched {
                     launch_dir,
                     frame_down: EVec2::new(0.0, 1.0),
                     strike_sfx: None,
-                    autolink: None,
+                    reaction: None,
                 },
                 ambition_platformer2d::combat::strike::HitboxHits::default(),
                 ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },

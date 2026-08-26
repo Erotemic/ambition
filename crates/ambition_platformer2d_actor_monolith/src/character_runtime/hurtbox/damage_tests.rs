@@ -108,7 +108,6 @@ fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
     app.world_mut().spawn((
         Hitbox {
             // An ordinary hit, not a gust.
-            windbox: None,
             strike_sfx: None,
             owner,
             source: HitSide::Enemy,
@@ -122,7 +121,7 @@ fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
             knockback: ambition_combat::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),

@@ -438,7 +438,6 @@ pub fn george_booul_moveset() -> MovesetContract {
                 tag: ambition_platformer2d::entity_catalog::WindowTag::Active,
                 volumes: vec![ambition_platformer2d::entity_catalog::HitVolume {
                     // An ordinary hit, not a gust.
-                    windbox: None,
                     shape: ambition_platformer2d::entity_catalog::VolumeShape::Circle {
                         offset: (0.0, -4.0),
                         radius: 46.0,
@@ -450,7 +449,7 @@ pub fn george_booul_moveset() -> MovesetContract {
                     on_hit: None,
                     vfx: Some("slash_arc".to_string()),
                     hit_sfx: None,
-                    autolink: None,
+                    reaction: None,
                 }],
                 motion_scale: 0.25,
                 sustain_effect: None,

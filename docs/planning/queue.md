@@ -11656,17 +11656,35 @@ nothing had to cross a gateway. ⭐ THE BLOCK HALF CLOSED THE SAME WAY: the fact
 was already riding the knockback, so it needed one constructor rather than a new
 channel — see above.
 
-⚠ AUTHORING CLEANUP WHILE IT IS STILL LATENT: the type permits `autolink +
-windbox` together while documenting the combination as contradictory. Reject it
-in preparation, or make reaction mode a SUM type. No content authors a windbox
-yet, which is exactly why now is the time.
+✔✔ **AUTHORING CLEANUP — DONE 2026-08-26, AS A SUM TYPE.** The type permitted
+`autolink + windbox` together while its own doc called the combination
+contradictory (*"mutually exclusive in meaning, not in type"*) and the runtime
+resolved the windbox first and said so in a comment. ⛔ **A COMMENT IS NOT A
+SCHEMA.** Both `Option` fields became one
+`reaction: Option<VolumeReaction>` — `Autolink(_) | Windbox(_)` — on the AUTHORED
+`HitVolume` and on the runtime `Hitbox` alike, with `autolink()` / `windbox()`
+accessors so the twelve read sites did not change shape.
 
-▢ ~~(29) THE WINDBOX PRIMITIVE VIOLATES MOST OF ITS OWN CONTRACT~~ — latent, no
-content authors one yet, which is the good time to fix it. Beyond the zero-damage
-half I closed today: it still takes `recoil_lock_timer` (a hard control lock), it
-can JAB-LOCK or TUMBLE its victim because `pending_launch` is a bare `Vec2` with
-no kind, and it can be PARRIED and BLOCKED. ⇒ two facts lost at two gateways, not
-four `if windbox` exceptions.
+⭐ **THE CHANGE IS NET NEGATIVE LINES**: 41 fixture literals wrote the pair
+`autolink: None, windbox: None` and now write one `reaction: None`. ⛔ **AND IT
+COST NO WIRE FORMAT**: `Hitbox` is registered `rollback_component_clone_entity_ref`,
+not encoded, and appears in no `encoded_types` row. Done while it is still latent,
+which is what the paragraph this replaces asked for.
+
+✔✔ **(29) CLOSED — verified at HEAD 2026-08-26, and all four halves are in.**
+The row still listed three of them as open; they are not:
+
+```text
+zero damage      closed 2026-08-25 (damage_apply's `.max(1)` undid the authored 0)
+recoil lock      `hit_reaction.rs:275` is inside `if !knockback.flinchless`
+jab-lock/tumble  `BodyFlightState::stage_launch(velocity, flinchless)` +
+                 `take_launch() -> PendingLaunch{velocity, flinchless}` — the KIND
+                 rides the gateway, and its doc names this review item
+parry + block    `flinchless` was already riding the knockback; one condition each
+```
+
+⇒ **two facts crossing two gateways, exactly as the finding predicted** — not four
+`if windbox` exceptions.
 
 ▢ ALSO: ◐ **(25) HALF CLOSED 2026-08-25 — AN UNSUPPORTED ITEM NOW FALLS.**
 `SettledItem` was lifted only by CUSTODY transitions, so an item that landed on a
@@ -11694,10 +11712,14 @@ both end, A/C and B/C are skipped, and C survives BECAUSE OF `SimId` ORDER.
 Deterministic, not simultaneous. ⇒ THE FIX IS ONE LINE — drop the two
 `ended.contains` terms from the skip; `resolved` stays the dedup and `ended`
 becomes what its own comment already says it is, a COMMIT ledger applied after.
-(27) eligibility asks `BodyGroundState::on_ground` AT COLLISION TIME, so a ground
-attack stops clanking when its owner walks off a ledge and an aerial starts when
-its owner lands — "grounded attack" is a CLASSIFICATION, not a foot contact; latch
-it on the strike volume when the move is accepted.
+✔ **(27) CLOSED — and this paragraph was stale; verified at HEAD 2026-08-26.**
+The finding was that eligibility asked `BodyGroundState::on_ground` AT COLLISION
+TIME, so a ground attack stopped clanking the moment its owner walked off a ledge
+and an aerial started when its owner landed. It reads `MovePlayback::
+started_grounded` now (`clank.rs:190`) — the same stance the SELECTOR used to
+choose the variant, already in that system's hand, so it cost no new channel.
+*"Grounded attack" is a CLASSIFICATION and it is settled when the swing comes
+out.*
 
 ⭐⭐ **(26) CLOSED 2026-08-25 — THE FIXTURE GOT BUILT AND IT REPRODUCED THE
 DEFECT EXACTLY.** Three fighters on one spot, one equal strike volume each, ids

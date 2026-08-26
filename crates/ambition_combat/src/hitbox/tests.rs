@@ -47,8 +47,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
-        autolink: None,
-        windbox: None,
+        reaction: None,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
@@ -76,8 +75,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
-        autolink: None,
-        windbox: None,
+        reaction: None,
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
@@ -123,8 +121,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
-                autolink: None,
-                windbox: None,
+                reaction: None,
             },
             HitboxLifetime { remaining_s: 0.01 },
             HitboxHits::default(),
@@ -161,8 +158,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
-                autolink: None,
-                windbox: None,
+                reaction: None,
             },
             HitboxLifetime { remaining_s: 5.0 },
             HitboxHits::default(),
@@ -302,8 +298,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             knockback: crate::strike::HitboxKnockback::FeelScale(1.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -363,8 +358,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -493,8 +487,7 @@ fn enemy_hitbox_over_player_app_dealing(
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -597,8 +590,7 @@ fn player_faction_hitbox_only_fires_once() {
             knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
@@ -685,8 +677,7 @@ fn player_melee_never_targets_its_owner() {
             },
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -770,8 +761,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
             },
             launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -858,8 +848,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         },
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
-        autolink: None,
-        windbox: None,
+        reaction: None,
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -953,8 +942,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         },
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
-        autolink: None,
-        windbox: None,
+        reaction: None,
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -1055,8 +1043,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1123,8 +1110,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
             knockback: crate::strike::HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1305,7 +1291,9 @@ mod windbox {
             let world = app.world_mut();
             let mut q = world.query::<&mut Hitbox>();
             for mut hitbox in q.iter_mut(world) {
-                hitbox.windbox = Some(ambition_entity_catalog::WindboxVolume { repeating });
+                hitbox.reaction = Some(ambition_entity_catalog::VolumeReaction::Windbox(
+                    ambition_entity_catalog::WindboxVolume { repeating },
+                ));
             }
         }
         for _ in 0..ticks {
@@ -1412,8 +1400,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
             },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
-            windbox: None,
+            reaction: None,
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1427,7 +1414,9 @@ fn windbox_parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
     let mut boxes = app.world_mut().query::<&mut Hitbox>();
     for mut hitbox in boxes.iter_mut(app.world_mut()) {
         hitbox.damage = 0;
-        hitbox.windbox = Some(ambition_entity_catalog::WindboxVolume { repeating: false });
+        hitbox.reaction = Some(ambition_entity_catalog::VolumeReaction::Windbox(
+            ambition_entity_catalog::WindboxVolume { repeating: false },
+        ));
     }
     (app, victim)
 }
@@ -1605,7 +1594,7 @@ fn an_authored_autolink_reaches_the_hit_payload_with_the_attackers_velocity() {
             });
         let mut boxes = app.world_mut().query::<&mut Hitbox>();
         for mut hitbox in boxes.iter_mut(app.world_mut()) {
-            hitbox.autolink = autolink;
+            hitbox.reaction = autolink.map(ambition_entity_catalog::VolumeReaction::Autolink);
         }
         app.update();
         let captured = app.world().resource::<CapturedHits>();

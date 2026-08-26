@@ -2995,8 +2995,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         // exactly the geometry this test varies.
         vfx: None,
         hit_sfx: None,
-        autolink: None,
-        windbox: None,
+        reaction: None,
     };
     spec.windows = vec![MoveWindow {
         start_s: 0.0,
@@ -3936,8 +3935,7 @@ fn charging_smash() -> MoveSpec {
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
-                    autolink: None,
-                    windbox: None,
+                    reaction: None,
                 }],
                 sustain_effect: None,
                 motion_scale: 1.0,
@@ -4912,8 +4910,7 @@ fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
         launch_dir: None,
         on_hit: None,
         vfx: None,
-        autolink: None,
-        windbox: None,
+        reaction: None,
     }
 }
 
@@ -5051,8 +5048,7 @@ fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
         launch_dir: None,
         on_hit: None,
         vfx: None,
-        autolink: None,
-        windbox: None,
+        reaction: None,
     }
 }
 
@@ -5758,8 +5754,7 @@ fn clashing_swing() -> MoveSpec {
             knockback: 100.0,
             knockback_growth: None,
             launch_dir: None,
-            autolink: None,
-            windbox: None,
+            reaction: None,
             on_hit: None,
             vfx: None,
             hit_sfx: None,

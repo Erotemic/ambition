@@ -1811,7 +1811,6 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
 
     let hitbox = ambition_combat::strike::Hitbox {
         // An ordinary hit, not a gust.
-        windbox: None,
         strike_sfx: None,
         owner: player,
         source: ambition_vfx::HitSide::Player,
@@ -1825,7 +1824,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         knockback: ambition_combat::strike::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
-        autolink: None,
+        reaction: None,
     };
     let player_body = app.world().get::<CenteredAabb>(player).unwrap().aabb();
     let enemy_body = app.world().get::<CenteredAabb>(enemy).unwrap().aabb();

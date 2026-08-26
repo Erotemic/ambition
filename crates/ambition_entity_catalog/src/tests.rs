@@ -165,7 +165,6 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
             volumes: vec![
                 HitVolume {
                     // Not a windbox: these fixtures are about authored geometry.
-                    windbox: None,
                     hit_sfx: None,
                     shape: VolumeShape::Rect {
                         offset: (28.0, 0.0),
@@ -177,11 +176,10 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
-                    autolink: None,
+                    reaction: None,
                 },
                 HitVolume {
                     // Not a windbox: these fixtures are about authored geometry.
-                    windbox: None,
                     hit_sfx: None,
                     shape: VolumeShape::Circle {
                         offset: (30.0, 0.0),
@@ -193,7 +191,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     launch_dir: None,
                     on_hit: None,
                     vfx: None,
-                    autolink: None,
+                    reaction: None,
                 },
             ],
             sustain_effect: None,
@@ -1107,7 +1105,6 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
                 tag: WindowTag::Active,
                 volumes: vec![HitVolume {
                     // Not a windbox: these fixtures are about authored geometry.
-                    windbox: None,
                     shape: VolumeShape::Rect {
                         offset: (20.0, 0.0),
                         half_extents: (16.0, 12.0),
@@ -1119,7 +1116,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
                     on_hit: None,
                     vfx: None,
                     hit_sfx: None,
-                    autolink: None,
+                    reaction: None,
                 }],
                 motion_scale: 1.0,
                 sustain_effect: None,

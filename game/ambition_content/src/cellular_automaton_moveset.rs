@@ -68,7 +68,6 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
                 WindowTag::Active,
                 vec![HitVolume {
                     // An ordinary hit, not a gust.
-                    windbox: None,
                     shape: VolumeShape::Rect {
                         offset: (30.0, 0.0),
                         half_extents: (34.0, 28.0),
@@ -82,7 +81,7 @@ pub fn cellular_pulse_moveset() -> MovesetContract {
                     on_hit: None,
                     vfx: None,
                     hit_sfx: None,
-                    autolink: None,
+                    reaction: None,
                 }],
             ),
             window(0.54, 0.85, WindowTag::Recovery, Vec::new()),

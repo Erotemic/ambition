@@ -1274,10 +1274,7 @@ pub fn advance_move_playback(
                             // The authored HOLD rides the same volume the launch
                             // does — an intermediate multi-hit pulse authors it,
                             // the final one does not.
-                            autolink: volume.autolink,
-                            // The authored gust, carried the same way the
-                            // autolink is: one field, one hop, no rule.
-                            windbox: volume.windbox,
+                            reaction: volume.reaction,
                             frame_down,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the

@@ -60,18 +60,18 @@ pub struct Hitbox {
     /// gravity-down). Thus `(0, -1)` launches up and `(0, 1)` spikes down.
     /// `None` uses the standard feel diagonal at the authored speed.
     pub launch_dir: Option<ae::Vec2>,
-    /// AUTOLINK: this volume holds its victim near its owner instead of
-    /// launching it. Carried from the authored volume; the runtime fills the
-    /// attacker's velocity at the pulse, because that is a fact about the
-    /// moment and not about the move. `None` is an ordinary hit.
-    pub autolink: Option<ambition_entity_catalog::AutolinkVolume>,
-    /// WINDBOX: this volume PUSHES its victim and does nothing else — carried
-    /// from the authored volume. `None` is an ordinary hit.
+    /// The volume's REACTION override, carried verbatim from the authored
+    /// volume. `None` is an ordinary hit, which is nearly every hitbox.
     ///
-    /// ⭐ IT SITS BESIDE `autolink` BECAUSE IT IS THE SAME KIND OF FACT: a
-    /// per-volume override of the REACTION, leaving targeting, faction and
-    /// contact exactly as they are for a hit.
-    pub windbox: Option<ambition_entity_catalog::WindboxVolume>,
+    /// ⭐ ONE FIELD BECAUSE THE AUTHORED SIDE IS ONE FIELD: autolink HOLDS and
+    /// windbox SHOVES, so a hitbox carrying both was never a state the game
+    /// could mean. Targeting, faction and contact resolve identically for
+    /// either and for an ordinary hit; only the reaction differs.
+    ///
+    /// ⚠ the autolink arm's ANCHOR is authored but the attacker's velocity at
+    /// the pulse is not — the runtime samples it, because that is a fact about
+    /// the moment and not about the move.
+    pub reaction: Option<ambition_entity_catalog::VolumeReaction>,
     pub frame_down: ae::Vec2,
     /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
     /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin
@@ -79,6 +79,24 @@ pub struct Hitbox {
     /// victim's own [`HurtFeedback`] default sound. A `Copy` `u64` id, so it
     /// rides the GGRS-snapshotted strike-volume entity for free.
     pub strike_sfx: Option<ambition_sfx::SfxId>,
+}
+
+impl Hitbox {
+    /// The autolink this hitbox carries, if its reaction is one.
+    pub fn autolink(&self) -> Option<ambition_entity_catalog::AutolinkVolume> {
+        match self.reaction {
+            Some(ambition_entity_catalog::VolumeReaction::Autolink(link)) => Some(link),
+            _ => None,
+        }
+    }
+
+    /// The windbox this hitbox carries, if its reaction is one.
+    pub fn windbox(&self) -> Option<ambition_entity_catalog::WindboxVolume> {
+        match self.reaction {
+            Some(ambition_entity_catalog::VolumeReaction::Windbox(wind)) => Some(wind),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -186,7 +204,6 @@ pub fn spawn_damage_box(
             strike_sfx: None,
             // A `DamageBox` effect is a hit by construction — the name is the
             // contract. A gust is authored on a move's volume, never here.
-            windbox: None,
             owner,
             source,
             anchor: HitboxAnchor::World { center },
@@ -201,7 +218,7 @@ pub fn spawn_damage_box(
             // World-anchored volumes are authored in world space (arena
             // hazards); screen-down IS their frame.
             frame_down: ae::Vec2::new(0.0, 1.0),
-            autolink: None,
+            reaction: None,
         },
         HitboxLifetime {
             remaining_s: dbox.lifetime_s,
@@ -277,8 +294,7 @@ mod hitbox_shape_tests {
             damage: 1,
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
-            autolink: None,
-            windbox: None,
+            reaction: None,
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
             ae::CombatVolume::Circle { center, radius } => {
@@ -307,8 +323,7 @@ mod hitbox_shape_tests {
             damage: 1,
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
-            autolink: None,
-            windbox: None,
+            reaction: None,
         };
         assert!(matches!(
             hb.world_volume(ae::Vec2::ZERO),

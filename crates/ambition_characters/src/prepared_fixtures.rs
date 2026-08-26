@@ -41,7 +41,6 @@ pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
             tag: WindowTag::Active,
             volumes: vec![HitVolume {
                 // An ordinary hit, not a gust.
-                windbox: None,
                 shape: VolumeShape::Rect {
                     offset: (10.0, 0.0),
                     half_extents: (8.0, 8.0),
@@ -53,7 +52,7 @@ pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
                 on_hit: None,
                 vfx: Some("slash_arc".to_string()),
                 hit_sfx: Some(strike.to_string()),
-                autolink: None,
+                reaction: None,
             }],
             sustain_effect: None,
             motion_scale: 1.0,

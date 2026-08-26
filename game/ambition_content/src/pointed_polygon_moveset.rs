@@ -489,7 +489,7 @@ mod tests {
             .iter()
             .flat_map(|w| w.volumes.iter())
             .filter_map(|v| {
-                let link = v.autolink?;
+                let link = v.autolink()?;
                 match v.shape {
                     ambition_entity_catalog::VolumeShape::Rect {
                         offset,
@@ -642,7 +642,7 @@ mod tests {
             .windows
             .iter()
             .flat_map(|w| w.volumes.iter())
-            .find(|v| v.autolink.is_none())
+            .find(|v| v.autolink().is_none())
             .and_then(|v| match v.shape {
                 ambition_entity_catalog::VolumeShape::Rect {
                     offset,

@@ -462,15 +462,16 @@ pub fn apply_hitbox_damage(
                 // says it does not interact with. Caught here, a gust produced
                 // no push at all, so a defender could simply parry the wind.
                 //
-                // ⭐ THE FACT IS ALREADY ON THE HITBOX (`windbox`), which is why
-                // this reads as one condition rather than a new channel. ⚠ THE
-                // OTHER HALF IS NOT FIXED: ordinary guard resolution happens
-                // later, in `resolve_body_hit`, which receives no fact saying
-                // the contact is a windbox — so a gust can still be BLOCKED for
-                // shield integrity, shieldstun and pushback. That one needs the
-                // volume's guard interaction threaded to the resolver; see the
-                // ledger.
-                if hitbox.windbox.is_none() {
+                // ⭐ THE FACT IS ALREADY ON THE HITBOX (`reaction`), which is
+                // why this reads as one condition rather than a new channel.
+                //
+                // ⭐⭐ AND THE OTHER HALF IS FIXED TOO — this paragraph used to
+                // say it was not. Ordinary guard resolution happens later, and
+                // `GuardUnderFire::offered_to` returns `None` for a flinchless
+                // knockback, so a gust spends no shield integrity, charges no
+                // shieldstun and applies no pushback. The fact rode the
+                // knockback that was already going there; no channel was added.
+                if hitbox.windbox().is_none() {
                     if let Ok(mut shield) = guards.get_mut(victim.entity) {
                         if shield.parrying() {
                             shield.catch_parry();
@@ -533,7 +534,7 @@ pub fn apply_hitbox_damage(
                     // and the only thing it declines to do is stun. That is why
                     // this is one bool here rather than a second push vector on
                     // the authored volume.
-                    flinchless: hitbox.windbox.is_some(),
+                    flinchless: hitbox.windbox().is_some(),
                     dir,
                     magnitude,
                     source_pos: owner_pos,
@@ -550,7 +551,7 @@ pub fn apply_hitbox_damage(
                     // reads as a stationary attacker — the correct answer for a
                     // volume nothing is carrying.
                     follow: hitbox
-                        .autolink
+                        .autolink()
                         .map(|link| ae::hit_response::AutolinkFollow {
                             // ⭐ RESOLVED HERE, against the ATTACKER'S facing and
                             // frame — both of which the hitbox carries from the
@@ -616,7 +617,7 @@ pub fn apply_hitbox_damage(
                 // and it wants the ordinary once-only rule; only a volume that
                 // says `repeating` opts out.
                 if !hitbox
-                    .windbox
+                    .windbox()
                     .is_some_and(|gust: ambition_entity_catalog::WindboxVolume| gust.repeating)
                 {
                     hits.hit.insert(victim.entity);

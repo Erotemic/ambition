@@ -106,7 +106,6 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
     };
     term.volumes.push(HitVolume {
         // An ordinary hit, not a gust.
-        windbox: None,
         shape: VolumeShape::Rect {
             offset: (0.0, 18.0),
             half_extents: (34.0, 20.0),
@@ -118,7 +117,7 @@ fn field_term(start_s: f32, end_s: f32) -> MoveWindow {
         on_hit: None,
         vfx: Some(SLASH_POKE_VFX.to_string()),
         hit_sfx: None,
-        autolink: None,
+        reaction: None,
     });
     term
 }

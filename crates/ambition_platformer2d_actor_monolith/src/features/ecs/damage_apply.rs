@@ -91,7 +91,7 @@ impl<'a> GuardUnderFire<'a> {
     /// was never used to say so.
     ///
     /// ⭐ AND THE FACT WAS ALREADY AT THE SITE. The producer sets
-    /// `flinchless: hitbox.windbox.is_some()`, so *"this is a push, not a
+    /// `flinchless: hitbox.windbox().is_some()`, so *"this is a push, not a
     /// strike"* rides the knockback to both roads. No new channel — the review
     /// proposed a `DefenseInteraction` enum and it is not needed.
     ///

@@ -16,8 +16,8 @@
 // of which sit at or below the destination.
 use crate::brain::action_set::{MeleeActionSpec, RangedActionSpec, RangedStyle, SpecialActionSpec};
 use ambition_entity_catalog::{
-    ATTACK_VERB, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
-    MovesetContract, RANGED_VERB, SMASH_VERB, SPECIAL_VERB, VolumeShape, WindowTag,
+    ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+    MovesetContract, VolumeShape, WindowTag, ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB,
 };
 
 /// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
@@ -155,7 +155,6 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
     let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
         // An ordinary swing: it hurts. A gust is authored, never inherited.
-        windbox: None,
         // CM8: the authored contact sound rides the volume to the victim-side
         // reaction (a sword vs a claw); unauthored swings fall back to the
         // victim's own hurt sound.
@@ -178,7 +177,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         // for this move's clip — swings THAT authored blade instead of this
         // synthetic rect (the rect is the fallback for unmanifested bodies).
         vfx: Some(SLASH_ARC_VFX.to_string()),
-        autolink: None,
+        reaction: None,
     };
     MoveSpec {
         display_name: None,
@@ -466,7 +465,6 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
     let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
         // An ordinary swing: it hurts.
-        windbox: None,
         // CM8: authored contact sound for the charged strike (see simple_melee).
         hit_sfx: p.hit_sfx.clone(),
         shape: VolumeShape::Rect {
@@ -480,7 +478,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         on_hit: None,
         // A charge is a bladed strike too — same slash + authored-blade rules.
         vfx: Some(SLASH_ARC_VFX.to_string()),
-        autolink: None,
+        reaction: None,
     };
     MoveSpec {
         display_name: None,

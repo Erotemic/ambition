@@ -254,6 +254,28 @@ pub enum VolumeShape {
     Circle { offset: (f32, f32), radius: f32 },
 }
 
+/// A per-volume override of what a hit DOES to the body it lands on.
+///
+/// The two arms are the two ways a volume can decline the ordinary
+/// launch-and-hurt reaction, and they are opposites: [`Self::Autolink`] pulls
+/// the victim IN, [`Self::Windbox`] pushes it AWAY. Targeting, faction and
+/// contact resolve identically for both and for an ordinary hit.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum VolumeReaction {
+    /// AUTOLINK: this volume HOLDS its victim near the attacker instead of
+    /// launching it away.
+    ///
+    /// The genre's multi-hit moves work because their intermediate pulses keep
+    /// the victim inside the next hitbox and only the LAST one launches, so a
+    /// move authors this on its intermediate volumes and leaves its final volume
+    /// alone. ⛔ it is not a capture: no relationship, no hold clock, no escape,
+    /// and the victim keeps every verb it has.
+    Autolink(AutolinkVolume),
+    /// WINDBOX: this volume PUSHES its victim and does nothing else — no damage,
+    /// no hitstun, no shield.
+    Windbox(WindboxVolume),
+}
+
 /// One hit volume carried by an [`WindowTag::Active`] window, with its hit
 /// payload. Volumes live on their window — where the timeline says they are —
 /// not in a parallel list.
@@ -294,24 +316,17 @@ pub struct HitVolume {
     /// owner's gravity frame (frame-correct under any gravity), then applies DI (CM2).
     #[serde(default)]
     pub launch_dir: Option<(f32, f32)>,
-    /// AUTOLINK: this volume HOLDS its victim near the attacker instead of
-    /// launching it away. `None` is an ordinary hit.
+    /// How this volume's REACTION differs from an ordinary hit. `None` is an
+    /// ordinary hit, which is nearly every volume in the game.
     ///
-    /// The genre's multi-hit moves work because their intermediate pulses keep
-    /// the victim inside the next hitbox and only the LAST one launches, so a
-    /// move authors this on its intermediate volumes and leaves its final volume
-    /// alone. ⛔ it is not a capture: no relationship, no hold clock, no escape,
-    /// and the victim keeps every verb it has.
+    /// ⛔⛔ A SUM, NOT TWO `Option`s, and that is the whole point. It was
+    /// `autolink: Option<_>` beside `windbox: Option<_>`, documented as
+    /// *"mutually exclusive in meaning, not in type"* — so a volume asking to
+    /// HOLD and to SHOVE at once was writable, and the runtime picked one and
+    /// said so in a comment. A comment is not a schema. Fixed while it was still
+    /// latent: no authored volume has ever set both.
     #[serde(default)]
-    pub autolink: Option<AutolinkVolume>,
-    /// WINDBOX: this volume PUSHES its victim and does nothing else — no damage,
-    /// no hitstun, no shield. `None` is an ordinary hit.
-    ///
-    /// ⛔ MUTUALLY EXCLUSIVE WITH `autolink` in meaning, not in type: both
-    /// override the reaction, and a volume authoring both is asking to hold and
-    /// to shove at once. The runtime resolves the windbox first and says so.
-    #[serde(default)]
-    pub windbox: Option<WindboxVolume>,
+    pub reaction: Option<VolumeReaction>,
     /// Optional technique fired when this volume lands, with owner/victim/contact
     /// context. `None` is an ordinary damage-only volume.
     #[serde(default)]
@@ -337,6 +352,24 @@ pub struct HitVolume {
     /// throws are the VICTIM's, carried on its `HurtFeedback`.
     #[serde(default)]
     pub hit_sfx: Option<String>,
+}
+
+impl HitVolume {
+    /// The autolink this volume authors, if its reaction is one.
+    pub fn autolink(&self) -> Option<AutolinkVolume> {
+        match self.reaction {
+            Some(VolumeReaction::Autolink(link)) => Some(link),
+            _ => None,
+        }
+    }
+
+    /// The windbox this volume authors, if its reaction is one.
+    pub fn windbox(&self) -> Option<WindboxVolume> {
+        match self.reaction {
+            Some(VolumeReaction::Windbox(wind)) => Some(wind),
+            _ => None,
+        }
+    }
 }
 
 /// A WINDBOX: this volume MOVES its victim without hurting it.

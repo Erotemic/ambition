@@ -38,7 +38,37 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
-⭐ **NONE. 2026-08-24: Jon's W8 playtest message closed the last one** and said
+### 33. WHAT DOES A RECHARGING WEAPON LOOK LIKE?
+
+⭐ **THE MECHANIC IS SHIPPED; THIS IS THE ART.** Your own ruling on the ranged
+cadence ended with *"give recharge enough presentation that an unavailable shot is
+legible"*, and that half is not built. `BodyMelee::ranged_cooldown` is now the
+authored, per-weapon truth (`RangedActionSpec::refire_s`) and **nothing draws
+it**.
+
+⛔ **THE "BUTTON DOES NOTHING" HALF IS ALREADY ANSWERED, so this is only about
+seeing it.** A press that arrives during recharge is refused BEFORE
+`proposer.spend`, so the ordinary combat buffer keeps re-proposing and starts the
+move the moment the weapon returns — the normal short buffering you asked for,
+not a queue.
+
+⭐ **THE GENRE PUTS IT ON THE CHARACTER, not on the HUD** — Samus's charge glow,
+ROB's fuel gauge, Mega Man's arm cannon. That is research rather than taste, and
+it narrows the question to WHICH channel:
+
+```text
+(a) a per-character VFX row on the muzzle, driven by the recharge fraction
+    → reads at a glance, costs one authored effect per ranged character
+(b) a tint/overlay pose on the firing limb while the weapon is down
+    → free for every ranged body, weakest read on a busy stage
+(c) a HUD element beside the fighter's percent
+    → strongest read, and the least like the genre
+```
+
+⚠ **NOT BLOCKING ANYTHING.** The cadence is correct without it; a player simply
+cannot see why a press is waiting. ⇒ pick a channel and it is content work.
+
+⭐ **NONE OTHERWISE. 2026-08-24: Jon's W8 playtest message closed the last one** and said
 so explicitly — *"There are no unresolved maintainer design questions in this
 feedback. Continue implementation rather than stopping for another decision
 round."* The answered records follow, newest first.

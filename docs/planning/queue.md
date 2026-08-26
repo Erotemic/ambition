@@ -11581,11 +11581,23 @@ the only one a host can compile.
 `cargo check -p ambition_platformer2d_actor_monolith --no-default-features
 --features visible,desktop_platform` reports ZERO errors.** So the persona road
 is healthy where a host can see it, and `causal` was the one that had rotted.
-⇒ **the host-checkable half of this row is DONE.** What stays open is the half a
-host cannot answer: `android_platform`, `web_platform`, `visible_web`,
-`web_served` need their cross-compilation targets, and nothing in this repository
-builds them on a normal run — which is exactly the condition that let `causal`
-rot for weeks.
+⇒ **the host-checkable half of this row is DONE.**
+
+⭐⭐ **AND THE "EXPENSIVE HALF" IS REACHABLE AFTER ALL — BOTH CROSS TARGETS ARE
+ALREADY INSTALLED.** `rustup target list --installed` reports
+`aarch64-linux-android` and `wasm32-unknown-unknown` beside the host, so the
+persona builds this row called unauditable are a `--target` away:
+
+```text
+cargo check -p ambition_platformer2d_actor_monolith \
+  --target wasm32-unknown-unknown --no-default-features --features web
+cargo check -p ambition_platformer2d_actor_monolith \
+  --target aarch64-linux-android --no-default-features --features android
+```
+
+⚠ each is a COLD build of the whole dependency tree for a new target, so budget
+for it — but *"nothing builds them on a normal run"* was the condition that let
+`causal` rot, and these two commands are the whole answer to it.
 
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is

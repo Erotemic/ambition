@@ -5692,3 +5692,98 @@ fn the_return_countdown_does_not_arm_on_a_speculative_verdict() {
          above is refusing everything rather than refusing predictions"
     );
 }
+
+/// ⭐⭐ "SUDDEN DEATH" STAYS UP, AND THIS IS THE HARNESS THAT WAS MISSING.
+///
+/// The card lasted about ONE SIMULATION TICK. `announce_the_opening_countdown`
+/// owns the slot for any UNSETTLED match, and sudden death deliberately leaves
+/// the match unsettled — it is the match CONTINUING, not a result — so the
+/// announcer cleared the card on the very next tick while `SuddenDeathBegan`
+/// fires once and cannot rewrite it. The fix stands the announcer down on
+/// `SuddenDeathEntered`, the canonical latch.
+///
+/// ⛔⛔ IT WENT IN UNPROVEN, and the reason was written down: `PreparedMatch` has
+/// private fields and no constructor, so a unit fixture could only build a system
+/// that early-returns — a check that cannot fail. What it needed was a REAL
+/// timed match reaching its limit.
+///
+/// ⭐ AND THE CLOCK IS THE SHORTCUT, not the rule. The stage's limit is eight
+/// minutes; nothing about this card depends on how those minutes were spent, and
+/// `LiveMatchTicks` IS the state that says how long a match has been fought. So
+/// the fixture states a match that has been fought nearly to its limit and lets
+/// the real timeout, the real tiebreak and the real announcer do the rest.
+#[test]
+fn the_sudden_death_card_outlives_the_tick_that_raised_it() {
+    use ambition_platformer2d::actors::character_runtime::live_match_clock::LiveMatchTicks;
+    use ambition_platformer2d::actors::features::stocks_match::SuddenDeathEntered;
+
+    let mut app = open_the_lobby();
+    pick_and_start(&mut app, PREPARED_FIGHTER);
+    wait_for_the_round_to_go_live(&mut app);
+
+    let active = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+        .cloned()
+        .expect("a live match");
+    let limit = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedMatch>()
+        .map(|prepared| prepared.rules().time_limit_ticks)
+        .expect("the staged match declares a plan");
+    assert!(
+        limit > 0,
+        "this stage runs no clock at all, so there is no timeout to reach"
+    );
+
+    // Nearly out of time. Microseconds of live gameplay is what the clock
+    // counts; ten ticks short of the limit leaves the timeout to happen for
+    // real.
+    let micros = u64::from(limit.saturating_sub(10)) * 1_000_000 / 60;
+    app.world_mut()
+        .insert_resource(LiveMatchTicks::from_snapshot(
+            Some(active.instance()),
+            micros,
+        ));
+
+    let mut raised_on = None;
+    for frame in 0..600 {
+        app.update();
+        if app
+            .world()
+            .get_resource::<SuddenDeathEntered>()
+            .is_some_and(|entered| entered.entered(&active))
+        {
+            raised_on = Some(frame);
+            break;
+        }
+    }
+    assert!(
+        raised_on.is_some(),
+        "a match ten ticks from its limit never reached sudden death, so this \
+         fixture never gets to the card at all"
+    );
+
+    // ⛔ THE ASSERTION IS THE DURATION. One tick of the right word is exactly
+    // what the bug looked like.
+    let reads_sudden_death = |app: &App| {
+        app.world()
+            .resource::<ambition_platformer2d::presentation::HudReadouts>()
+            .get(&ambition_platformer2d::presentation::HudSlotId::from(
+                ambition_demo_smash::SMASH_ANNOUNCE_HUD_SLOT,
+            ))
+            .is_some_and(|readout| readout.text() == "SUDDEN DEATH")
+    };
+    let mut held = 0;
+    for _ in 0..120 {
+        if reads_sudden_death(&app) {
+            held += 1;
+        }
+        app.update();
+    }
+    assert!(
+        held > 30,
+        "the sudden-death card was up for {held} of 120 frames — the opening \
+         announcer is taking the slot back, which is what made it unreadable"
+    );
+}

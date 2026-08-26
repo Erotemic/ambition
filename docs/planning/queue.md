@@ -10767,6 +10767,16 @@ The timeout path did only the marker — a second, weaker definition of leaving 
 match, with command deferral meaning cleanup cannot cover the gap. Both halves
 poisoned.
 
+⭐⭐ **(34) PROVEN 2026-08-25 — AND THE CLOCK WAS THE WAY IN.** The recorded
+blocker was that `PreparedMatch` has no constructor, so a unit fixture could only
+build a system that early-returns. The answer was not a constructor: the stage's
+limit is eight minutes and NOTHING about this card depends on how those minutes
+were spent, so the harness states a match already fought nearly to its limit
+(`LiveMatchTicks::from_snapshot`) and lets the real timeout, the real tiebreak and
+the real announcer do the rest. ⛔ THE ASSERTION IS THE DURATION — one tick of the
+right word is exactly what the bug looked like — and the poison shows 0 of 120
+frames. The original entry follows.
+
 ◐ **(34) THE SUDDEN-DEATH CARD LASTED ONE TICK — FIXED, NOT PROVEN.**
 `announce_the_opening_countdown` owns that HUD slot for any UNSETTLED match, and
 sudden death is deliberately unsettled (the match CONTINUING, not a result), so

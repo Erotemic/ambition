@@ -735,7 +735,14 @@ mod tests {
             .init_resource::<ShellRouter>()
             .init_resource::<ShellHostConfiguration>()
             .add_plugins(ShellPauseMenuPlugin)
-            .add_message::<ShellCommand>();
+            .add_message::<ShellCommand>()
+            // ⛔⛔ THE ABANDON CHANNEL IS THE SHELL PLUGIN'S, NOT THIS ONE'S, and
+            // leaving it out made this whole fixture a composition that cannot
+            // exist: `drive_shell_pause_menu` writes `ShellAbandonRequested`, so
+            // every test here died on *"Message not initialized"* the moment
+            // anyone built them. `ShellGamePlugin` registers it in production
+            // (`plugin.rs`); a fixture that installs only the menu has to say so.
+            .add_message::<crate::abandon::ShellAbandonRequested>();
         app
     }
 
@@ -1127,5 +1134,42 @@ mod tests {
             .drain()
             .collect();
         assert!(sent.iter().any(|c| matches!(c, ShellCommand::ExitProcess)));
+    }
+
+    /// THE END OF THE LIST IS THE SAME PLACE IN BOTH MENUS.
+    ///
+    /// ⛔⛔ IT WAS NOT. This menu hand-rolled `(cursor + 1).min(len - 1)` while
+    /// `ambition_dialog`'s picker ran on `ListCursor`, whose only movement verbs
+    /// WRAP — so one menu in this game wrapped and the other stopped dead, and
+    /// `ListCursor`'s own doc names *"pause-menu"* FIRST among the callers whose
+    /// rules it exists to own.
+    ///
+    /// ⭐ ASKED WITHOUT THE ROW COUNT, because the row list belongs to the
+    /// CONTEXT and this fixture holds only the resource. *"Up from the top does
+    /// not stay at the top"* is the whole claim, and the clamp fails it.
+    #[test]
+    fn the_pause_cursor_wraps_at_both_ends_like_every_other_list() {
+        let mut app = app();
+        intent(&mut app, |f| f.start = true);
+        assert!(
+            app.world().resource::<ShellPauseMenu>().open,
+            "the menu never opened, so nothing below measures a cursor"
+        );
+        assert_eq!(app.world().resource::<ShellPauseMenu>().cursor, 0);
+
+        intent(&mut app, |f| f.up = true);
+        assert_ne!(
+            app.world().resource::<ShellPauseMenu>().cursor,
+            0,
+            "pressing up on the first row stopped dead instead of wrapping to \
+             the last, which is what the dialogue picker beside it does"
+        );
+
+        intent(&mut app, |f| f.down = true);
+        assert_eq!(
+            app.world().resource::<ShellPauseMenu>().cursor,
+            0,
+            "pressing down from the last row did not come back to the first"
+        );
     }
 }

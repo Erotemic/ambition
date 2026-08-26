@@ -327,6 +327,13 @@ Recorded verbatim from Jon while he played; none of these are triaged yet.
   `Helplessness is an episode, not a count of charges` — the episode may be the
   right home for the once-per-airtime rule rather than a charge count.
 
+* A TELEPORTING UP-B with player-controlled direction, like Mewtwo's in Smash.
+  Jon: *"the author should have this up b. and the robot might have a similar
+  teleport up b similar to its blink in the game."* ⇒ D205. ⭐ the engine already
+  has the mechanic — `blink_aiming` / `blink_aim_offset` / `blink_hold_active` /
+  `blink_hold_timer` in `movement/model.rs` is a hold-aim-release teleport — so
+  this is WIRING an existing verb as a recovery, not inventing one.
+
 * SFX NOISE in a Goblin vs `npc_pirate_admiral` fight — either side triggers far too
   many sounds. Jon wants a test that stages that fight and COUNTS the triggers,
   because the volume of them may be a symptom of a deeper bug, not a mix problem.

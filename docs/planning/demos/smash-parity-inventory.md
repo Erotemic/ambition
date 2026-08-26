@@ -27,11 +27,29 @@ downed       0–0–0      tumbling was constant (121–203–401) and NOBODY l
                         moment the helpless window ends
 ```
 
-⭐ **AND THE COMMON CAUSE IS PROBABLY ONE THING, not four: the fighter brain
-never presses shield.** Shield, parry and shield-grab all hang off that press,
-and the capture kit's other road (the grab button) is equally unpressed. ⇒ **this
-is a BRAIN gap, not four mechanic gaps** — check `brain/smash`'s shield policy
-before touching any of these rows.
+⭐⭐ **AND THE CAUSE IS ONE THING, BUT NOT THE ONE I FIRST WROTE (which was "the
+brain never presses shield" — READ THE SCORER BEFORE BLAMING IT).** The fighter
+brain does offer both verbs; they are valued in a way that collapses the triangle:
+
+```text
+Shield   offered ONLY in Disadvantage AND only while a hostile
+         `phase.is_attacking()` (options.rs:752) — deliberate, and the comment
+         says why: shield used to be an ABSORBING STATE two cornered fighters
+         entered in the opening second and never left
+Grab     `capture_value` = GRAB_BEATS_GUARD (only if the foe's shield is UP)
+         + damage_frac × THROW_CONVERSION
+Parry    needs a shield RAISE at the right moment
+```
+
+⇒ **the legs are valued in terms of each other.** Shield is rare by design →
+`GRAB_BEATS_GUARD` almost never applies → a grab is worth only the percent term,
+which is near zero early and moot late, because by then the KO comes first →
+grabs never happen → the shield is never punished for being rare. ⭐ **the
+rock-paper-scissors triangle is stable at "everybody attacks", and every leg is
+individually well-reasoned.**
+
+⇒ so this is a TUNING question about the scorer, not a wiring gap in shield,
+parry or capture. ⛔ do not "fix" any of those three mechanics on this evidence.
 
 ⚠ **`downed` is the one that might be correct.** A CPU with perfect reactions
 acts out of tumble as soon as it may; a human eating a spike does not. Worth one

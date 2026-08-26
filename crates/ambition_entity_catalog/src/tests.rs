@@ -1542,3 +1542,67 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
         "a legal charge pose inside the windup was refused"
     );
 }
+
+/// ⭐⭐ RENAMING A MOVE RENAMES EVERY REFERENCE TO IT, AND NOTHING ELSE.
+///
+/// A move id lives in THREE places inside a contract, and this walk used to be
+/// written in a CONTENT crate — so every future id-bearing field on a `MoveSpec`
+/// was an obligation on a file that would never hear about it. Missing one is
+/// not a red test: it is one dead button in a match.
+///
+/// ⛔ THE VERB-CLASS ARM IS THE ONE THAT CONSTRAINS. `"any_attack"` is a cancel
+/// CLASS, not a move this table defines, and a rename that touched it would
+/// silently unhook every cancel window that names one.
+#[test]
+fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
+    let mut jab = bare_move("polygon_jab", None);
+    jab.windows.push(MoveWindow {
+        start_s: 0.0,
+        end_s: 0.1,
+        tag: WindowTag::Cancelable {
+            into: vec!["polygon_tilt_up".to_string(), "any_attack".to_string()],
+            condition: CancelCondition::default(),
+        },
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    });
+    let mut contract = MovesetContract {
+        verbs: std::collections::BTreeMap::from([
+            ("attack".to_string(), "polygon_jab".to_string()),
+            ("attack_up".to_string(), "polygon_tilt_up".to_string()),
+        ]),
+        moves: vec![jab, bare_move("polygon_tilt_up", None)],
+    };
+
+    contract.remap_move_ids(|id| id.replace("polygon", "author"));
+
+    assert_eq!(
+        contract
+            .moves
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["author_jab", "author_tilt_up"],
+        "the moves themselves were not renamed"
+    );
+    assert_eq!(
+        contract.verbs.get("attack_up").map(String::as_str),
+        Some("author_tilt_up"),
+        "a verb still resolves to a name no move answers to — one dead button"
+    );
+    let into = contract.moves[0]
+        .windows
+        .iter()
+        .find_map(|w| match &w.tag {
+            WindowTag::Cancelable { into, .. } => Some(into.clone()),
+            _ => None,
+        })
+        .expect("the fixture authored a cancel window");
+    assert_eq!(
+        into,
+        vec!["author_tilt_up".to_string(), "any_attack".to_string()],
+        "a cancel target was left pointing at the old name, or the VERB CLASS \
+         beside it was renamed — which unhooks every window that names one"
+    );
+}

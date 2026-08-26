@@ -1851,6 +1851,52 @@ pub struct MovesetContract {
 }
 
 impl MovesetContract {
+    /// Rename every move this table defines, and every reference to one.
+    ///
+    /// ⭐⭐ THE TRAVERSAL BELONGS TO THE SCHEMA, not to the caller that wants a
+    /// borrowed fighter. A move id appears in THREE places inside a contract —
+    /// `moves[].id`, `verbs`, and a `Cancelable` window's `into` list when it
+    /// names a move rather than a verb class — and a caller that knew about two
+    /// of them produced a table with one dead button. Every future field that
+    /// carries a move id is this function's obligation, and the compiler shows it
+    /// to whoever adds the field.
+    ///
+    /// ⛔ A VERB CLASS IS NOT A MOVE ID. `"attack"`, `"any_attack"` and the rest
+    /// survive untouched: only a name this table itself defines is renamed with
+    /// it, which is why the old→new map is built first.
+    ///
+    /// ⛔ AND `rename` IS NOT ASKED ABOUT ANYTHING BUT A MOVE THIS TABLE OWNS,
+    /// so a caller may panic on an id it does not recognise without having to
+    /// know which of the three places it came from.
+    pub fn remap_move_ids(&mut self, rename: impl Fn(&str) -> String) {
+        let by_old: BTreeMap<String, String> = self
+            .moves
+            .iter()
+            .map(|mv| (mv.id.clone(), rename(&mv.id)))
+            .collect();
+        for mv in &mut self.moves {
+            mv.id = by_old
+                .get(mv.id.as_str())
+                .cloned()
+                .unwrap_or_else(|| rename(&mv.id));
+            for window in &mut mv.windows {
+                if let WindowTag::Cancelable { into, .. } = &mut window.tag {
+                    for target in into.iter_mut() {
+                        if let Some(new) = by_old.get(target.as_str()) {
+                            *target = new.clone();
+                        }
+                    }
+                }
+            }
+        }
+        for target in self.verbs.values_mut() {
+            *target = by_old
+                .get(target.as_str())
+                .cloned()
+                .unwrap_or_else(|| rename(target));
+        }
+    }
+
     pub fn move_by_id(&self, id: &str) -> Option<&MoveSpec> {
         self.moves.iter().find(|m| m.id == id)
     }

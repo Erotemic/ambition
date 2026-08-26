@@ -17,7 +17,7 @@
 //! data stays the archetype's and the NAMES become the borrower's, so a fighter
 //! that later wants its own jab replaces one move rather than forking a file.
 
-use ambition_platformer2d::entity_catalog::{MovesetContract, WindowTag};
+use ambition_platformer2d::entity_catalog::MovesetContract;
 
 /// The archetype's table with every move id re-prefixed for the fighter that
 /// borrows it.
@@ -46,6 +46,13 @@ pub fn under_own_name(
     archetype: &[&str],
     owner: &str,
 ) -> MovesetContract {
+    // ⭐⭐ THE TRAVERSAL IS THE SCHEMA'S, and this function is only the PREFIX
+    // POLICY. It used to walk the three places a move id lives — `moves[].id`,
+    // `verbs`, and a `Cancelable` window's `into` list — from a crate that
+    // authors content, so every future id-bearing field on a `MoveSpec` was an
+    // obligation on a file that would never hear about it.
+    // `MovesetContract::remap_move_ids` owns the walk now, beside the type that
+    // owns the fields.
     // Longest first: `polygon` is a prefix of nothing here, but `polygon` and
     // `polygon_brawler` are one edit away from being each other's problem.
     let mut prefixes: Vec<&str> = archetype.to_vec();
@@ -61,30 +68,7 @@ pub fn under_own_name(
              renaming it for `{owner}` would leave the two fighters sharing a name"
         )
     };
-    // Old id → new id, so a cancel target can be recognised without guessing.
-    let by_old: std::collections::BTreeMap<String, String> = contract
-        .moves
-        .iter()
-        .map(|mv| (mv.id.clone(), rename(&mv.id)))
-        .collect();
-    for mv in &mut contract.moves {
-        mv.id = rename(&mv.id);
-        for window in &mut mv.windows {
-            if let WindowTag::Cancelable { into, .. } = &mut window.tag {
-                for target in into.iter_mut() {
-                    // A verb class (`"attack"`, `"any_attack"`) is NOT a move id
-                    // and must survive untouched; only a name this table itself
-                    // defines is renamed with it.
-                    if let Some(new) = by_old.get(target.as_str()) {
-                        *target = new.clone();
-                    }
-                }
-            }
-        }
-    }
-    for target in contract.verbs.values_mut() {
-        *target = rename(target);
-    }
+    contract.remap_move_ids(rename);
     debug_assert_eq!(
         contract
             .moves

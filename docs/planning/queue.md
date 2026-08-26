@@ -10992,6 +10992,22 @@ from CAUSAL IDENTITY, which the runtime already does (`SubjectKey::Sim(identity)
 + `move_id`). ⚠ THE HELPER'S PREMISE IS QUESTIONABLE: there is no architectural
 requirement that every fighter have globally distinct move keys.
 
+◐ **(36) HALF CLOSED 2026-08-25 — THE TRAVERSAL MOVED TO THE SCHEMA.**
+`MovesetContract::remap_move_ids` owns the walk now, beside the type that owns
+the fields, so a future id-bearing field on a `MoveSpec` is an obligation the
+compiler shows to whoever adds it rather than one on a CONTENT crate that would
+never hear about it. `under_own_name` is the PREFIX POLICY and nothing else, and
+`archetype_moveset.rs` no longer names `WindowTag`. Poisoned on the cancel-target
+arm — missing one is not a red test, it is one dead button in a match.
+
+▢ **THE REMAINING HALF IS THE PREMISE, and the ledger already doubts it.** The
+prefix rename still PANICS on an id carrying none of the archetype's prefixes,
+and move ids also live OUTSIDE the contract (`HurtboxDoc::moves` is keyed by
+one), which `remap_move_ids` cannot reach. ⚠ AND THERE IS NO ARCHITECTURAL
+REQUIREMENT that every fighter have globally distinct move keys — the runtime
+already separates causal identity from the key (`SubjectKey::Sim(identity)` +
+`move_id`). ⇒ the endpoint is archetype-LOCAL keys, not a better renamer.
+
 ⭐ RECHECKED WITH NO DEFECT: HUD punch (the intermediate bug is fixed at HEAD —
 do not report it), held-Special charge propagation, shield-tilt geometry vs
 presentation, trade recoil, deterministic item spawning, the rest of the

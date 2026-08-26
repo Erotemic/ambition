@@ -11492,6 +11492,29 @@ means dashing while carrying momentum no longer produces a fixed speed. The
 shield brake can be fixed the same way with no feel change — brake only the
 speed the brake itself is responsible for.
 
+⛔⛔ **RE-READ 2026-08-26: BOTH BOUNDS ARE ALREADY THERE, AND THEY ARE A THIRD
+COPY OF ONE MISSING FACT.** The dash floor is at `integration.rs:862` and the
+shield brake at `:987`, each with its own comment saying *"anything faster than
+its own run is somebody else's velocity — a LAUNCH"*, each written after a
+measured regression that deleted knockback. ⇒ these are not unbounded; they are
+bounded by a MAGNITUDE, and so is a third site nobody had connected to them —
+`body_contact`'s *"faster than one walk-tick is not walking"*, which D179 closed
+as a feel question the same day.
+
+⭐⭐ **THREE CONSUMERS, ONE MISSING FACT, AND THE GENRE ALREADY NAMES IT.** A
+launch that has DECAYED below the threshold is indistinguishable from walking at
+all three sites, and the thing that would distinguish it is TUMBLE — a state a
+body is IN, at any magnitude. `movement/knockdown.rs::launch_into_tumble` is the
+one entry point and the whole knockdown → tech → getup cycle sits behind it;
+`tumble_speed <= 0.0` (the default, and every shipped body's value) makes it a
+no-op.
+
+⇒ **(20) IS NOT BLOCKED ON A FEEL CHANGE TO THE DASH.** It is blocked on
+[decision 34](awaiting-maintainer-decision.md), which now asks the real question:
+wake tumble and re-tune knockback for the whole cast, or keep three thresholds
+guessing. ⛔ do not fix one of the three sites in isolation — that leaves two
+copies of the same guess and a reviewer will find them next week.
+
 ⭐⭐ **(21) CLOSED 2026-08-25 — AND THE FIX IS THE OPPOSITE OF BOTH OBVIOUS
 ONES.** The registration comment claimed `clear_message_on_rollback` *"restores
 the channel with its cursor, so the resim reads the request again"*; the backend

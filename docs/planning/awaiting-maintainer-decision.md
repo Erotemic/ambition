@@ -38,7 +38,7 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
-### 34. IS THE DECAYED TAIL OF A KNOCKBACK LOCOMOTION, OR IS IT STILL A LAUNCH?
+### 34. DO WE WAKE **TUMBLE**? — THREE MECHANICS ARE PROXYING FOR IT
 
 ⭐ **NOTHING LOOKS WRONG TODAY; this is here because a review asked and the
 answer is taste, not correctness.** Two grounded bodies that meet at walking
@@ -62,18 +62,51 @@ neither a knockdown nor a tumble — so gating on it changes nothing.
 motion come from a hit"* is not askable at this seam without threading a new fact
 down, and THAT is the price — not three lines.
 
-⇒ two answers, and either is cheap to live with:
+⛔⛔ **AND IT IS NOT ONE CONSUMER. MEASURED 2026-08-26 — THREE SITES ASK THE SAME
+QUESTION AND ALL THREE ANSWER IT WITH A MAGNITUDE:**
 
 ```text
-(a) it is LOCOMOTION      leave it. A slide that has decayed to walking speed
-                          reads as the fighter regaining its feet
-(b) it is still a LAUNCH  thread the hit's provenance down to the movement
-                          kernel so contact can exempt it — a new durable fact
-                          on the body, not a threshold
+integration.rs:862   the INITIAL DASH   `if along.abs() > want.abs()` — don't touch
+integration.rs:987   the SHIELD BRAKE   `if along.abs() <= max_run_speed` — brake
+body_contact.rs      CONTACT RESISTANCE  faster than one walk-tick is "not walking"
 ```
 
-⚠ **NOT BLOCKING ANYTHING.** Closed out of [D179 in `queue.md`](queue.md), whose
-other half shipped.
+⇒ each carries its own comment saying *"anything faster than its own run is
+somebody else's velocity — a LAUNCH"*, each was written after a real regression
+that deleted knockback, and **each fails in exactly the same place**: a launch
+that has DECAYED below the threshold is indistinguishable from walking. This is
+one missing fact wearing three thresholds.
+
+⭐⭐ **THE FACT EXISTS, THE GENRE NAMES IT, AND THIS KERNEL ALREADY IMPLEMENTS
+IT: TUMBLE.** A tumbling body is carrying somebody else's velocity BY DEFINITION,
+at any magnitude, which is precisely what all three are guessing at.
+`movement/knockdown.rs::launch_into_tumble` is the one entry point and the whole
+knockdown → tech → getup cycle is built behind it.
+
+⛔ **IT IS DORMANT.** `tumble_speed <= 0.0` — the default, and the value every
+shipped body has — makes `launch_into_tumble` a no-op. The only `500.0` in the
+tree is a render fixture. Neither `ambition_characters` nor `ambition_content`
+names the field.
+
+⇒ **so the question is not "is a decayed tail locomotion". It is:**
+
+```text
+(a) LEAVE THE PROXIES     three thresholds keep guessing; a decayed launch is
+                          resisted, braked and overwritten as if it were walking.
+                          Nothing looks wrong today
+(b) WAKE TUMBLE           author `tumble_speed` on the cast; the three sites read
+                          the STATE instead of a magnitude and the guessing ends
+```
+
+⛔⛔ **(b) RE-TUNES KNOCKBACK FOR THE WHOLE CAST, which is why this is yours and
+not a refactor.** Every launch that clears the threshold starts producing a real
+tumble → knockdown → tech → getup beat that nothing produces today; the animation
+rows and mechanics for it already exist and 9 of 16 fighters have no art for
+them ([see the knockdown row in `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)).
+
+⚠ **NOT BLOCKING ANYTHING.** Closed out of [D179 in `queue.md`](queue.md) (whose
+other half shipped), and it is the same question as **(20)** in D238 / **#20** in
+D241 — those two rows are blocked on this answer, not on a number.
 
 ### 33. WHAT DOES A RECHARGING WEAPON LOOK LIKE?
 

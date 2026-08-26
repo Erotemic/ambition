@@ -2466,8 +2466,22 @@ home.** No trait, no type parameter, no fallback type, no registry — and no
 "what does a fighterless composition pass", because a composition without a
 platform fighter does not link the crate.
 
-⚠ **THE ONE THING STILL UNPRICED IS THE DISPATCHER'S SHAPE**, and it is a choice
-rather than a blocker: either `tick_state_machine` moves WHOLE to its single
+⛔⛔ **AND THE MIGRATION OPENS A COVERAGE GAP THE PRICE ABOVE DOES NOT SHOW.**
+Of the 43 tick calls in `state_machine/tests.rs`, **exactly one** is about the
+DISPATCHER — `dead_actor_brain_emits_neutral_regardless_of_template`, which pins
+the `!snapshot.alive` early return. The other 42 are about an ARM, and the
+natural migration is to have them call `tick_patrol(…)` / `tick_skirmisher(…)`
+directly, which is arguably better: a test of patrol should name patrol.
+
+⚠ **but that unpins the ROUTING.** Today those 42 prove that `Patrol` reaches
+`tick_patrol`; called directly they prove only that `tick_patrol` works, and a
+miswired arm (`Skirmisher => tick_sniper`) would compile and pass. ⇒ **the move
+owes ONE table-driven arm→tick routing test** — twelve variants, each ticked once
+with an output that distinguishes it — written BEFORE the arms are rehomed, so it
+guards the gap rather than the fix.
+
+⚠ **THE OTHER THING STILL UNPRICED IS THE DISPATCHER'S SHAPE**, and it is a
+choice rather than a blocker: either `tick_state_machine` moves WHOLE to its single
 production caller (`features/ecs/actors/update.rs:588`) and calls nine `pub fn
 tick_*` downward plus three upward-moved ones, or `ambition_characters` keeps a
 nine-arm dispatcher and the monolith handles the three. ⛔ **the second is the

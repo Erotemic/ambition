@@ -11654,9 +11654,18 @@ as a feel question the same day.
 launch that has DECAYED below the threshold is indistinguishable from walking at
 all three sites, and the thing that would distinguish it is TUMBLE — a state a
 body is IN, at any magnitude. `movement/knockdown.rs::launch_into_tumble` is the
-one entry point and the whole knockdown → tech → getup cycle sits behind it;
-`tumble_speed <= 0.0` (the default, and every shipped body's value) makes it a
-no-op.
+one entry point and the whole knockdown → tech → getup cycle sits behind it.
+
+⛔⛔ **CORRECTION 2026-08-26: THE FACT IS NOT DORMANT, AND I SAID IT WAS.** The
+Smash stage authors `tumble_speed: 500.0` (`ambition_demo_smash/src/lib.rs:275`)
+and `match_report -- 30 --runs 3` measures **121–203–401 tumbling ticks a run**.
+`DEFAULT_TUNING.tumble_speed` is `0.0` and a test PINS that zero, so the fact is
+live in SMASH and absent in AMBITION — and the three magnitude bounds live in the
+kernel BOTH use. ⇒ the question moved and improved; see
+[decision 34](awaiting-maintainer-decision.md), which now costs three answers
+including a cheap one (read tumble where it exists, keep the magnitude where it
+does not). ⚠ **RUNNING THE GAME IS WHAT CAUGHT IT** — the claim came from another
+row and I repeated it without a match.
 
 ⇒ **(20) IS NOT BLOCKED ON A FEEL CHANGE TO THE DASH.** It is blocked on
 [decision 34](awaiting-maintainer-decision.md), which now asks the real question:
@@ -12609,8 +12618,15 @@ brake to a stop.
 ✔ **ROUTED 2026-08-26 — it is [decision 34](awaiting-maintainer-decision.md),
 and it has THREE consumers, not two.** The same guess is made a third time by
 `body_contact` (*"faster than one walk-tick is not walking"*), which D179 closed
-as a feel question on the same day without either row noticing the other. All
-three are blocked on the one answer below.
+as a feel question on the same day without either row noticing the other.
+
+⛔⛔ **AND THE PARAGRAPH BELOW IS WRONG ABOUT TUMBLE — corrected 2026-08-26 by
+running `match_report`.** `tumble_speed` is **500.0** on the Smash stage
+(`ambition_demo_smash/src/lib.rs:275`) and a real match spends 121–401 ticks
+tumbling. *"The only 500.0 in the tree is a unit-test fixture"* was true of
+`ambition_platformer2d_core` and false of the game. ⇒ #20 is not blocked on
+waking a dormant mechanic; it is blocked on whether the shared kernel may read a
+fact one game authors and the other pins at zero.
 
 ⇒ **AND THE GENRE'S OWN ANSWER TO "you were launched hard" IS TUMBLE, WHICH NO
 SHIPPED BODY AUTHORS.** `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the only

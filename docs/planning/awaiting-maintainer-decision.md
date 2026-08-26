@@ -83,26 +83,50 @@ at any magnitude, which is precisely what all three are guessing at.
 `movement/knockdown.rs::launch_into_tumble` is the one entry point and the whole
 knockdown → tech → getup cycle is built behind it.
 
-⛔ **IT IS DORMANT.** `tumble_speed <= 0.0` — the default, and the value every
-shipped body has — makes `launch_into_tumble` a no-op. The only `500.0` in the
-tree is a render fixture. Neither `ambition_characters` nor `ambition_content`
-names the field.
+⛔⛔ **AND I FIRST WROTE THAT IT IS DORMANT. IT IS NOT — CORRECTED 2026-08-26 BY
+RUNNING THE GAME.** The Smash stage authors `tumble_speed: 500.0`
+(`game/ambition_demo_smash/src/lib.rs:275`), and `match_report -- 30 --runs 3`
+measures **121–203–401 tumbling ticks per run**. The claim came from D241 (*"the
+only 500.0 in the tree is a unit-test fixture"*) and I repeated it without
+running a match. ⇒ **in SMASH the fact is live and the three sites could read it
+today.**
 
-⇒ **so the question is not "is a decayed tail locomotion". It is:**
+⭐ **SO THE REAL SHAPE IS A SPLIT BETWEEN THE TWO GAMES, which is a better
+question than the one this row opened with:**
 
 ```text
-(a) LEAVE THE PROXIES     three thresholds keep guessing; a decayed launch is
-                          resisted, braked and overwritten as if it were walking.
-                          Nothing looks wrong today
-(b) WAKE TUMBLE           author `tumble_speed` on the cast; the three sites read
-                          the STATE instead of a magnitude and the guessing ends
+SMASH      tumble_speed = 500.0, authored by the stage — tumble is REAL
+AMBITION   DEFAULT_TUNING.tumble_speed = 0.0, and a test PINS that zero
+           (`smash_roster_movesets.rs:857`) because moving it would change
+           Mary-O, the explorer and every wandering enemy at once
+KERNEL     the three magnitude bounds live in the SHARED movement kernel,
+           used by both
 ```
 
-⛔⛔ **(b) RE-TUNES KNOCKBACK FOR THE WHOLE CAST, which is why this is yours and
-not a refactor.** Every launch that clears the threshold starts producing a real
-tumble → knockdown → tech → getup beat that nothing produces today; the animation
-rows and mechanics for it already exist and 9 of 16 fighters have no art for
-them ([see the knockdown row in `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)).
+⇒ **the question is whether a kernel ownership bound may read a fact that one
+game authors and the other deliberately does not:**
+
+```text
+(a) LEAVE THE PROXIES      the magnitude works in both games and is wrong in
+                           the same small way in both. Nothing looks wrong today
+(b) READ TUMBLE WHEN IT
+    IS THERE               `tumbling || knockdown` when the body has it, the
+                           magnitude when it does not — correct in Smash
+                           immediately, unchanged in Ambition
+(c) AUTHOR TUMBLE FOR
+    AMBITION TOO           one number, and it re-tunes every wandering enemy;
+                           the pinning test above is the ledger of what breaks
+```
+
+⚠ **(b) is the cheap one and it is NOT a refactor-answer to a feel question** —
+it makes the kernel read the authored fact where the fact exists. It is here
+rather than shipped because *which games get a floor game* is yours.
+
+⭐ **AND A MEASUREMENT WORTH HAVING EITHER WAY: `downed 0–0–0`.** Across three
+30-second matches, tumble happened constantly and **nobody was ever knocked
+down**. A tumbling CPU acts out with jump or attack the moment helplessness ends,
+so it never lands while helpless. That may be correct for CPU-vs-CPU and wrong
+for a human — worth one playtest before anybody tunes the knockdown window.
 
 ⚠ **NOT BLOCKING ANYTHING.** Closed out of [D179 in `queue.md`](queue.md) (whose
 other half shipped), and it is the same question as **(20)** in D238 / **#20** in

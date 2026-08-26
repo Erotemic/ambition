@@ -11523,6 +11523,54 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ▢ **D243 — A NON-DEFAULT FEATURE IS WHERE CODE GOES TO ROT, and one of them
+  had stopped compiling. (opened 2026-08-26)**
+
+⛔⛔ **`--features causal` DID NOT BUILD**, and had not for long enough to collect
+four separate breaks: three references to `StocksMatchDecided.winner` after that
+message became `outcome: MatchVerdict`, a `BodyReaction` construction missing the
+`hitstun` field, two test fixtures on the old field, and an expectation spelling a
+`HitSource` variant that no longer exists. ✔ FIXED — and the winner repair was
+not mechanical: the instrument was still asking `winner: Option<String>` with
+`None` meaning DRAW, which is exactly the conflation `MatchVerdict` exists to
+remove, so an ABANDONED match had nowhere to go but to impersonate a draw.
+
+⭐ **WHY NOTHING SAW IT: the standing gate builds one feature set.**
+`cargo check -p ambition_app --all-targets` compiles what the APP enables, and a
+per-crate `cargo test` compiles that crate's DEFAULTS. Anything behind a
+non-default feature is compiled by neither.
+
+```text
+                    default / with features        note
+ambition_input          56 / 125  (--all-features)  pass — VISIBILITY hole
+ambition_dialog         30 /  42
+ambition_items          27 /  39
+ambition_encounter      34 /  41
+ambition_sfx             8 /   8                    the only one with none
+ambition_game_shell     45 /  72  (basic_presentation)  its 10 pause tests could
+                                  not pass — fixture omitted a message the SHELL
+                                  plugin owns; ✔ fixed, 26 tests came back
+ambition_conversation   25 /  35  (ui)              a poisoned `Truth` arm came
+                                                    back GREEN by default
+ambition_combat        327 / 332  (causal)          ⛔ DID NOT COMPILE; ✔ fixed
+monolith              1194 / 1202 (causal)          ⛔ same; ✔ fixed
+ambition_demo_smash    --lib red for days           the gate runs the APP target
+```
+
+▢ **WHAT IS STILL UNAUDITED, and it is the expensive half**: the PERSONA
+features — `android_platform`, `web_platform`, `visible_web`, `web_served` — need
+their cross-compilation targets, so a host `cargo check` cannot answer for them.
+⚠ they are also the ones a broken build hurts most, because nothing else builds
+them either. ⇒ the honest next step is one host-buildable persona at a time
+(`--no-default-features --features visible` first), not a workspace-wide
+`--all-features` sweep, which enables mutually exclusive platform features and
+fails for reasons that mean nothing.
+
+⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
+guardrails"* is binding and a feature-parity test is exactly that. The answer is
+that whoever edits a type consulted by a gated module has to know the module
+exists — which is why the table above is written down rather than automated.
+
 - ▢ **D242 — NINE PARTICIPANT/ACTION ARCHITECTURE ITEMS WERE REACHABLE FROM THE
   INTAKE AND FROM NO LEDGER ROW. (promoted 2026-08-26)**
 

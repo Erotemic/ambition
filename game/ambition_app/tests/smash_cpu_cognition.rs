@@ -119,7 +119,7 @@ fn play_mirror_match(
     }
 
     let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[RUNG, RUNG]);
-    let countdown = roster.opening_countdown_ticks as usize;
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(

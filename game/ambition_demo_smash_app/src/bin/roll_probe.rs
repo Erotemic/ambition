@@ -142,7 +142,9 @@ fn main() {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    let countdown = ambition_demo_smash::smash_roster(characters)
+        .rules
+        .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
@@ -347,7 +349,7 @@ fn report_binding(app: &mut App, body: Entity) {
     let slot = app
         .world()
         .get::<ambition_platformer2d::characters::control::DrivingParticipant>(body)
-        .map(|d| d.0.0);
+        .map(|d| d.0 .0);
     let has_brain = app
         .world()
         .get::<ambition_platformer2d::characters::brain::Brain>(body)

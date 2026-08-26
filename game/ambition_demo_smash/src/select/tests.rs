@@ -349,8 +349,8 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
         .roster(&fighters(), UNIFIED)
         .expect("three decided slots are a match");
     assert_eq!(roster.participants.len(), 3);
-    assert_eq!(roster.fighter_stocks, Some(STARTING_STOCKS));
-    assert!(roster.opens_suspended);
+    assert_eq!(roster.rules.stocks, Some(STARTING_STOCKS));
+    assert!(roster.rules.opens_suspended);
 
     // Slot 3's device is 3, not 2 — the roster is indexed by the SOURCE
     // somebody holds, not by how many people showed up. A compacted list would

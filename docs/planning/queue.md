@@ -10773,8 +10773,19 @@ choose the variant. ⭐ AND THE CLANK ALREADY HELD THE PLAYBACK: it queries
 duplicate, one fewer query on `advance_move_playback`. **(28) pivot selection and move-facing DISAGREE** —
 the gesture picks the forward move using the turnaround facing, `start_move` then
 snapshots the OLD `kin.facing`, so the move is selected forward and its geometry
-mirrors the old way; **(30) `MatchParticipantRoster` is accumulating match RULES**
-— one new field cost 68 struct initializers.
+mirrors the old way; ⭐⭐ **(30) CLOSED 2026-08-26 — AND THE TYPE IT NEEDED ALREADY EXISTED.** The
+roster carried EIGHT loose rule fields (`opens_suspended`,
+`opening_countdown_ticks`, `time_limit_ticks`, `item_spawns`, `fighter_stocks`,
+`fighter_abilities`, `fighter_body`, `fighter_health_pool`) whose ONLY consumer
+was a transcription block in `prepare_match` copying them one by one into
+`MatchRules` — two representations of one fact. ⇒ the roster carries
+`rules: MatchRules` and the transcription is DELETED. A new rule is now one field
+on `MatchRules`, not a field here plus a line there plus an initializer in every
+roster literal in the tree.
+
+⛔ THE ROSTER STILL OWNS THE QUESTION — the fields' own doc said *"the engine does
+not get an opinion about a match's economy"*, and that is unchanged. What changed
+is that it says so once.
 
 ⭐ REVIEWER CLEARED, after tracing, with no defect: crouch/body-mode scheduling,
 Z-drop's grab edge, the recovery edge-cancel landing-lag writer, route-authored

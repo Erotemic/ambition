@@ -321,7 +321,9 @@ fn run_one(
     // Past the ceremony: every fighter carries scripted control for the whole
     // 3-2-1-GO, so ticks inside the hold measure bodies that are forbidden to
     // act. Read the count from the ruleset rather than restating it.
-    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    let countdown = ambition_demo_smash::smash_roster(characters)
+        .rules
+        .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }

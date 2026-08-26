@@ -68,7 +68,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
     }
 
     let roster = ambition_demo_smash::smash_roster_at_levels([FIGHTER, FIGHTER], &[RUNG, RUNG]);
-    let countdown = roster.opening_countdown_ticks as usize;
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
@@ -107,10 +107,14 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
         app.update();
         {
             let world = app.world_mut();
-            let mut held = world
-                .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::capture::CapturedBy)>();
-            let pairs: Vec<(bevy::prelude::Entity, bevy::prelude::Entity)> =
-                held.iter(world).map(|(body, by)| (body, by.captor)).collect();
+            let mut held = world.query::<(
+                bevy::prelude::Entity,
+                &ambition_platformer2d::combat::capture::CapturedBy,
+            )>();
+            let pairs: Vec<(bevy::prelude::Entity, bevy::prelude::Entity)> = held
+                .iter(world)
+                .map(|(body, by)| (body, by.captor))
+                .collect();
             let captives: Vec<bevy::prelude::Entity> = pairs.iter().map(|(b, _)| *b).collect();
             if pairs.iter().any(|(_, captor)| captives.contains(captor)) {
                 mutual_capture_ticks += 1;
@@ -357,7 +361,7 @@ fn mirror_bout(
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     app.update();
     let roster = ambition_demo_smash::smash_roster_at_levels([fighter, fighter], &[RUNG, RUNG]);
-    let countdown = roster.opening_countdown_ticks as usize;
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
@@ -711,7 +715,7 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
         ["goblin", "perfect_cellular_automaton"],
         &[RUNG, RUNG],
     );
-    let countdown = roster.opening_countdown_ticks as usize;
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(

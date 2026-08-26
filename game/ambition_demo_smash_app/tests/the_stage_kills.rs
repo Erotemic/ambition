@@ -94,7 +94,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
         .expect("locking in published the match the screen decided");
     assert_eq!(roster.participants.len(), 2);
     assert_eq!(
-        roster.fighter_stocks,
+        roster.rules.stocks,
         Some(ambition_demo_smash::STARTING_STOCKS),
         "the decided match is not a stocks match"
     );
@@ -334,6 +334,7 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
         ambition_demo_smash::SMASH_CHARACTER_ID,
         ambition_demo_smash::SMASH_OPPONENT_ID,
     ])
+    .rules
     .opening_countdown_ticks;
     for _ in 0..(countdown + 60) {
         app.update();
@@ -471,6 +472,7 @@ fn the_opening_countdown_is_something_a_player_can_see() {
         ambition_demo_smash::SMASH_CHARACTER_ID,
         ambition_demo_smash::SMASH_OPPONENT_ID,
     ])
+    .rules
     .opening_countdown_ticks as usize;
 
     let mut said: Vec<String> = Vec::new();
@@ -643,7 +645,7 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
         ],
         &[5, 5],
     );
-    roster.fighter_stocks = Some(1);
+    roster.rules.stocks = Some(1);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -906,11 +908,11 @@ fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
     // The ruleset is the shipped stage's, not the rig's — a measurement of a
     // game nobody plays is worth nothing.
     assert_eq!(
-        roster.fighter_stocks,
+        roster.rules.stocks,
         Some(ambition_demo_smash::STARTING_STOCKS)
     );
     assert!(
-        roster.opens_suspended,
+        roster.rules.opens_suspended,
         "a ladder round opens on the countdown too"
     );
 }
@@ -1114,7 +1116,7 @@ fn the_framing_centre_absorbs_an_elimination_instead_of_cutting() {
         ],
         &[5, 5],
     );
-    roster.fighter_stocks = Some(1);
+    roster.rules.stocks = Some(1);
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -1256,8 +1258,8 @@ fn a_second_match_on_the_same_stage_counts_in_and_ends() {
             ],
             &[5, 5],
         );
-        roster.fighter_stocks = Some(1);
-        let countdown = roster.opening_countdown_ticks as usize;
+        roster.rules.stocks = Some(1);
+        let countdown = roster.rules.opening_countdown_ticks as usize;
         app.world_mut().insert_resource(roster);
         app.world_mut()
             .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -1467,8 +1469,8 @@ fn a_four_way_free_for_all_ends_when_one_fighter_is_left() {
         ],
         &[5, 5, 5, 5],
     );
-    roster.fighter_stocks = Some(1);
-    let countdown = roster.opening_countdown_ticks as usize;
+    roster.rules.stocks = Some(1);
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -1621,11 +1623,11 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
         ],
         &[5, 5, 5, 5],
     );
-    roster.fighter_stocks = Some(1);
+    roster.rules.stocks = Some(1);
     for (index, participant) in roster.participants.iter_mut().enumerate() {
         participant.team = Some(if index < 2 { "Red" } else { "Blue" }.to_string());
     }
-    let countdown = roster.opening_countdown_ticks as usize;
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
@@ -1788,7 +1790,7 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
     }
     let character = ambition_demo_smash::SMASH_CHARACTER_ID;
     let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[5, 5]);
-    let countdown = roster.opening_countdown_ticks as usize;
+    let countdown = roster.rules.opening_countdown_ticks as usize;
     app.world_mut().insert_resource(roster);
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(

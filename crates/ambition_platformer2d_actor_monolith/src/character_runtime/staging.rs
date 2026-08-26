@@ -266,126 +266,23 @@ impl MatchItemSpawns {
 #[derive(Resource, Debug, Clone, Default, PartialEq)]
 pub struct MatchParticipantRoster {
     pub participants: Vec<MatchParticipant>,
-    /// Whether a seated fighter may act on the tick it appears.
+    /// WHAT THIS MATCH IS PLAYED UNDER — stocks, abilities, the body, the
+    /// health pool, the opening ceremony, the clock, the items.
     ///
-    /// A ruleset that opens on a countdown wants `true`: the fighters are reset,
-    /// placed and VISIBLE through "3, 2, 1" and none of them — human or CPU —
-    /// may decide anything until it ends.
+    /// ⭐⭐ ONE FIELD, AND IT IS THE TYPE THE PREPARED PLAN ALREADY PUBLISHES.
+    /// These were EIGHT loose fields here whose only consumer was a transcription
+    /// block in `prepare_match` copying them one by one into `MatchRules` — two
+    /// representations of one fact, and a new rule cost a field here, a line
+    /// there, and an initializer in every roster literal in the tree.
     ///
-    /// It lives on the ROSTER because it is a fact about the match, and seating is the only
-    /// place that can act on it without a window.
-    ///
-    /// Taken off by whoever put the countdown up — for versus, the `Starting`
-    /// arm reaching zero, which is the one place a round goes live.
-    pub opens_suspended: bool,
-    /// How long the opening ceremony holds the cast, in simulation ticks.
-    ///
-    /// Meaningless without [`Self::opens_suspended`] — there is nothing to hold
-    /// — and `0` there means the hold ends on the tick the cast is built, which
-    /// is what every roster did before a countdown existed.
-    ///
-    /// the hold is RELEASED by the engine now, keyed on this number and the sim clock.
-    pub opening_countdown_ticks: u32,
-    /// How long the match runs before the clock decides it, in sim ticks.
-    /// `0` (the default) is a match with no clock, which is what every roster
-    /// had before one existed.
-    ///
-    /// it is TICKS and it is DERIVED, so nothing counts down. The phase is
-    /// `now - ActiveMatch::activated_on` against this number — the same shape
-    /// [`opening_countdown_ticks`](Self::opening_countdown_ticks) already uses —
-    /// which means a match clock costs no new mutable state inside the rollback
-    /// window and a rewind recomputes it identically.
-    ///
-    /// On the roster for the same reason as `fighter_stocks`: the engine does
-    /// not get an opinion about what a match's economy is.
-    pub time_limit_ticks: u32,
-    /// ITEMS: how often this match drops one, in simulation ticks, and what it
-    /// may drop. `None` = no items, which is what every match did before this
-    /// existed and what a stage that never declares one keeps doing.
-    ///
-    /// TICKS for the reason `opening_countdown_ticks` is: the schedule is
-    /// compared against the sim clock, so a rollback re-runs it and reaches the
-    /// same answer. A wall-clock interval would drop an item on one peer and not
-    /// the other.
-    pub item_spawns: Option<MatchItemSpawns>,
+    /// ⛔ THE ROSTER STILL OWNS THE QUESTION, which is why the field is here at
+    /// all rather than the rules being decided by construction: the engine does
+    /// not get an opinion about a match's economy. What changed is that it says
+    /// so ONCE.
+    pub rules: super::prepared_match::MatchRules,
     /// Whether anybody has agreed to seat this roster yet. See
     /// [`RosterSeating`].
     pub seating: RosterSeating,
-    /// What every fighter in this match may do, physically.
-    ///
-    /// `None` leaves each body with whatever it already had — the right answer
-    /// for a roster that is not a fair fight (a scripted encounter, a boss).
-    ///
-    /// A versus match sets it, because the two seats arrive by different routes:
-    /// a SPAWNED seat gets the basic run-and-jump floor from its bundle, while the
-    /// ADOPTED primary player brings whatever the session granted it. In the
-    /// shipped host that is the sandbox dev kit, so player one could fly and
-    /// teleport and the opponent could not.
-    ///
-    /// It is a rule of the MATCH rather than something seating decides, for the
-    /// same reason `opens_suspended` is: the engine does not get an opinion about
-    /// what a fighter may do.
-    pub fighter_abilities: Option<ambition_platformer2d_core::MatchAbilities>,
-    /// THE BODY A FIGHTER PLAYS THIS MATCH WITH — the movement feel a mode
-    /// supplies to a character that authored none.
-    ///
-    /// `None` leaves every seat on whatever its character has, which is right
-    /// for a match staged inside one game, where the cast and the physics were
-    /// written together.
-    ///
-    /// The engine's default tuning leaves `air_dodge_time`, `jump_squat_time` and `tumble_speed` at
-    /// zero deliberately — an air dodge that was on by default would steal the airborne burst press
-    /// from every exploration body in the game — so a stage that GRANTS `dodge` to a cast it did
-    /// not author hands out a verb whose window never opens.
-    ///
-    /// it is NOT a whole `MovementTuning`, and that is the design — see
-    /// [`MatchBody`](ambition_platformer2d_core::MatchBody). A mode states the
-    /// handful of numbers a MODE owns and composes them over the body each
-    /// fighter brought, so a gait, a jump arc and a gravity nobody asked it
-    /// about stay the character's. It is applied by
-    /// [`MatchRules::body_over`](super::prepared_match::MatchRules::body_over),
-    /// which is where the composition is stated once.
-    ///
-    /// On the roster for the same reason as `fighter_abilities`: the engine does
-    /// not get an opinion about what a fighter on this stage feels like.
-    pub fighter_body: Option<ambition_platformer2d_core::MatchBody>,
-    /// How many stocks each fighter starts with, if this match runs on
-    /// stocks. (S4)
-    ///
-    /// `None` is a match with no stock economy — every existing roster, and the
-    /// right answer for a scripted encounter or a boss.
-    ///
-    /// `Some(n)` declares BOTH halves at once, and that is deliberate: a fighter gets
-    /// `FighterStocks::new(n)` AND `DeathPolicy::Unbounded`, because the two are not independently
-    /// meaningful. Stocks over a meter that kills at max are never consulted — the body dies of
-    /// damage before the world can throw it out — and an unbounded meter with no stocks is a
-    /// fighter that cannot lose.
-    ///
-    /// On the roster rather than in seating for the same reason as
-    /// `fighter_abilities` and `opens_suspended`: the engine does not get an
-    /// opinion about what a match's economy is.
-    pub fighter_stocks: Option<u32>,
-    /// The health pool every fighter in this match plays with, whatever
-    /// its character authored.
-    ///
-    /// `None` leaves each seat with its CHARACTER's authored pool — the right
-    /// answer for a match staged inside one game, where the cast and the rules
-    /// were written together.
-    ///
-    /// Nothing was accruing on a clock; four fighters were being divided by 1, 1, 60 and 100.
-    ///
-    /// it is the POOL, not a display scale, and that is deliberate: under
-    /// [`fighter_stocks`](Self::fighter_stocks) the pool never drains
-    /// (`DeathPolicy::Unbounded`) so it is purely what 100% means, while a match
-    /// with no stock economy would be declaring literal hit points. One field
-    /// either way, because it is one quantity — a second "percent reference"
-    /// beside `max_health` would be a second authority over the same number,
-    /// which is the shape `PhysicalBaseline` exists to refuse.
-    ///
-    /// On the roster for the same reason as `fighter_abilities` and
-    /// `fighter_stocks`: the engine does not get an opinion about a match's
-    /// economy, and a CHARACTER does not get an opinion about somebody else's.
-    pub fighter_health_pool: Option<i32>,
     /// Which experience published this roster.
     ///
     /// The versus stage's exit rule read *"not on my route and a roster exists → remove it"*,
@@ -716,7 +613,6 @@ mod tests {
         // The same three characters, seated instead of placed — and one seat is a
         // CPU, which must not change what art is needed.
         let match_roster = MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("solid_snake").driven_by(ControllerBinding::Cpu {
                     brain_profile: Some("aggressive".into()),

@@ -711,24 +711,27 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
             .on_team(team)
     };
     sim.world_mut().insert_resource(MatchParticipantRoster {
-        item_spawns: None,
         participants: vec![
             cpu("player_robot_v3", "blue"),
             cpu("player_robot_v2", "red"),
         ],
-        opens_suspended: true,
-        // No ceremony in a rollback fixture: the stage that owns the opening
-        // is not part of what these tests exercise.
-        opening_countdown_ticks: 0,
-        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(7),
-        fighter_abilities: None,
-        fighter_body: None,
-        fighter_stocks: None,
-        fighter_health_pool: None,
         // A fixture's roster has no publisher: nothing else in this App claims
         // one, which is the case `None` is for.
         published_by: None,
+        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+            item_spawns: None,
+            opens_suspended: true,
+            // No ceremony in a rollback fixture: the stage that owns the opening
+            // is not part of what these tests exercise.
+            opening_countdown_ticks: 0,
+            time_limit_ticks: 0,
+            abilities: None,
+            body: None,
+            stocks: None,
+            health_pool: None,
+            ..Default::default()
+        },
     });
     // A direct world mutation is setup, not gameplay: it becomes frame zero.
     sim.rebase_rollback_history()

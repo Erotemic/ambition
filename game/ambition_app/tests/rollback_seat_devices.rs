@@ -109,24 +109,27 @@ fn two_human_roster() -> MatchParticipantRoster {
             .on_team(team)
     };
     MatchParticipantRoster {
-        item_spawns: None,
         participants: vec![
             human("player_robot_v3", 0, "blue"),
             human("player_robot_v2", 1, "red"),
         ],
-        // Not suspended: an opening hold would keep both fighters still and let
-        // every assertion below pass for the wrong reason.
-        opens_suspended: false,
-        // No ceremony in a rollback fixture: the stage that owns the opening
-        // is not part of what these tests exercise.
-        opening_countdown_ticks: 0,
-        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
-        fighter_abilities: None,
-        fighter_body: None,
-        fighter_stocks: None,
-        fighter_health_pool: None,
         published_by: None,
+        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+            item_spawns: None,
+            // Not suspended: an opening hold would keep both fighters still and let
+            // every assertion below pass for the wrong reason.
+            opens_suspended: false,
+            // No ceremony in a rollback fixture: the stage that owns the opening
+            // is not part of what these tests exercise.
+            opening_countdown_ticks: 0,
+            time_limit_ticks: 0,
+            abilities: None,
+            body: None,
+            stocks: None,
+            health_pool: None,
+            ..Default::default()
+        },
     }
 }
 

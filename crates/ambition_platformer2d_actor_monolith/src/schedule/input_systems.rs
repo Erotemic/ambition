@@ -16,16 +16,16 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-use ambition_input::participant::{ContextClaim, context_priority};
+use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
-    CUTSCENE_CONTEXT, ControlFrame, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, InputParticipant,
-    KeyboardPreset, MenuControlFrame, MenuInputState, ParticipantContexts, SeatInputContexts,
-    analog_to_dir,
+    analog_to_dir, ControlFrame, InputParticipant, KeyboardPreset, MenuControlFrame,
+    MenuInputState, ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT,
+    GAMEPLAY_CONTEXT,
 };
 #[cfg(feature = "input")]
 use ambition_input::{
-    Platformer2dInputActionMonolith, read_gameplay_control_frame_with_settings,
-    read_menu_control_frame,
+    read_gameplay_control_frame_with_settings, read_menu_control_frame,
+    Platformer2dInputActionMonolith,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
@@ -980,8 +980,8 @@ mod focus_gate_tests {
         update_cutscene_request_from_menu,
     };
     use ambition_input::{
-        InputParticipant, MenuControlFrame, ParticipantContexts, ParticipantId,
-        Platformer2dInputActionMonolith, SeatInputContexts, resolve_active_input_context,
+        resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
+        ParticipantId, Platformer2dInputActionMonolith, SeatInputContexts,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
@@ -1043,7 +1043,6 @@ mod focus_gate_tests {
                 .chain(),
         );
         app.world_mut().insert_resource(MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     // ⭐ THE KEYBOARD, because this fixture is about a KEYBOARD
@@ -1124,7 +1123,6 @@ mod focus_gate_tests {
                 .chain(),
         );
         app.world_mut().insert_resource(MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     // ⭐ THE KEYBOARD, because this fixture is about a KEYBOARD
@@ -1242,7 +1240,6 @@ mod focus_gate_tests {
         assert_eq!(seat_slots(&mut app), vec![0], "boot seats player one only");
 
         app.world_mut().insert_resource(MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1258,7 +1255,6 @@ mod focus_gate_tests {
 
         // A CPU opponent is not a seat: nobody is holding a controller for it.
         app.world_mut().insert_resource(MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1339,7 +1335,6 @@ mod focus_gate_tests {
         // room, and asking for `SECONDARY` from a one-person roster would be asking for a chair
         // nobody is sitting in.
         app.world_mut().insert_resource(MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(0),
@@ -1400,7 +1395,6 @@ mod focus_gate_tests {
         );
         // Two people, holding the second and fourth controllers in the room.
         app.world_mut().insert_resource(MatchParticipantRoster {
-            item_spawns: None,
             participants: vec![
                 MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
                     source: ambition_input::LocalInputSource::Pad(1),
@@ -2101,12 +2095,11 @@ mod focus_gate_tests {
         // participant entity itself is untouched either way.
         let root = app.world_mut().spawn(SessionRoot(SessionScopeId(7))).id();
         app.update();
-        assert!(
-            app.world()
-                .resource::<SeatInputContexts>()
-                .primary()
-                .gameplay_owned()
-        );
+        assert!(app
+            .world()
+            .resource::<SeatInputContexts>()
+            .primary()
+            .gameplay_owned());
         let participant = {
             let mut q = app
                 .world_mut()

@@ -77,7 +77,6 @@ struct Seat {
 fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
     let mut app = seating_app_with_the_real_cast();
     app.insert_resource(MatchParticipantRoster {
-        item_spawns: None,
         participants,
         ..Default::default()
     });
@@ -230,7 +229,6 @@ fn a_body_that_cannot_jump_is_not_given_a_jump_by_the_stage() {
 fn a_creature_with_one_verb_still_seats_and_simulates() {
     let mut app = seating_app_with_the_real_cast();
     app.insert_resource(MatchParticipantRoster {
-        item_spawns: None,
         participants: vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")],
         ..Default::default()
     });

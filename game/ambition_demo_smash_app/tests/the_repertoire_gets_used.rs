@@ -220,7 +220,7 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     // 3776 undecided — so about half the budget was dead. `STARTING_STOCKS` is the
     // shipped economy; this raises it for the INSTRUMENT only, because what is
     // under test is which move a CPU throws, not how long three stocks last.
-    roster.fighter_stocks = Some(STOCKS_THAT_OUTLAST_THE_WINDOW);
+    roster.rules.stocks = Some(STOCKS_THAT_OUTLAST_THE_WINDOW);
     // Seat → character taken from the roster handed IN. What this cannot prove —
     // that two different fighters were seated — is proved from the world instead,
     // by the two tables differing.
@@ -241,7 +241,9 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     // and every fighter carries scripted control for the whole 3-2-1-GO, so a
     // window inside the hold measures fighters that are correctly forbidden to
     // act. Read from the ruleset rather than restating it.
-    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    let countdown = ambition_demo_smash::smash_roster(characters)
+        .rules
+        .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
@@ -621,7 +623,7 @@ fn every_authored_route_gets_pressed() {
 mod the_decision_log {
     use super::*;
     use ambition_platformer2d::causal::{
-        CausalFact, CausalPlugin, CausalRecording, FactValue, RecordingPolicy, domains,
+        domains, CausalFact, CausalPlugin, CausalRecording, FactValue, RecordingPolicy,
     };
 
     fn text<'a>(fact: &'a CausalFact, key: &str) -> Option<&'a str> {
@@ -846,7 +848,9 @@ fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    let countdown = ambition_demo_smash::smash_roster(characters).opening_countdown_ticks;
+    let countdown = ambition_demo_smash::smash_roster(characters)
+        .rules
+        .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
@@ -929,8 +933,9 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    let countdown =
-        ambition_demo_smash::smash_roster([character, character]).opening_countdown_ticks;
+    let countdown = ambition_demo_smash::smash_roster([character, character])
+        .rules
+        .opening_countdown_ticks;
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
@@ -943,7 +948,7 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
             &ambition_platformer2d::characters::control::DrivingParticipant,
         )>();
         q.iter(world)
-            .min_by_key(|(_, driver)| driver.0.0)
+            .min_by_key(|(_, driver)| driver.0 .0)
             .map(|(entity, _)| entity)
             .expect("the shipped roster seats a human on the first pad")
     };

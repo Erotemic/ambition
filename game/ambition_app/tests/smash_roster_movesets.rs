@@ -405,7 +405,8 @@ fn every_smash_fighter_lands_between_the_stages_floor_and_its_ceiling() {
     // for the match, which is the whole reason the fighters below can be
     // compared against a single kit.
     let rules = ambition_demo_smash::smash_roster(grid.ids().take(2))
-        .fighter_abilities
+        .rules
+        .abilities
         .expect("the smash stage declares what a fighter on it may do");
     assert!(
         rules.is_coherent(),
@@ -831,14 +832,16 @@ fn the_smash_stages_body_reaches_no_game_that_did_not_ask_for_one() {
 
     assert!(
         ambition_platformer2d::actor::MatchParticipantRoster::default()
-            .fighter_body
+            .rules
+            .body
             .is_none(),
         "a roster now supplies a fighter's body by DEFAULT, so every scripted \
          encounter, boss and fixture in the engine just became a platform fighter"
     );
     assert!(
         ambition_app::app::versus::versus_roster(1)
-            .fighter_body
+            .rules
+            .body
             .is_none(),
         "the versus stage supplies a body it never declared — its cast is two \
          characters authored FOR it, and a duel wants none of a platform \
@@ -897,7 +900,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
     // than a literal — the same source the kit census reads.
     let roster = ambition_demo_smash::smash_roster(grid.ids().take(2));
     let rules = ambition_platformer2d::actors::character_runtime::MatchRules {
-        body: roster.fighter_body,
+        body: roster.rules.body,
         ..Default::default()
     };
     assert!(

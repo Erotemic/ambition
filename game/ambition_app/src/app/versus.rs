@@ -24,10 +24,10 @@ use ambition_platformer2d::actors::character_runtime::{
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, RoomSet, StartingCharacter,
 };
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
@@ -158,29 +158,33 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         })
         .collect();
     MatchParticipantRoster {
-        // No items: these rounds are two duelists and a health bar, and an item
-        // needs somewhere authored to land.
-        item_spawns: None,
         participants,
-        // The stage ceremony releases this suspension when the round goes live.
-        opens_suspended: true,
-        // The stage owns its countdown; the engine-level countdown is disabled.
-        opening_countdown_ticks: 0,
-        // Rounds end on health rather than a match clock.
-        time_limit_ticks: 0,
-        // The duel declares one symmetric capability ceiling. `at_most` preserves
-        // character-authored abilities below that ceiling instead of granting a
-        // common floor, so excluded verbs stay excluded.
-        fighter_abilities: Some(ae::MatchAbilities::at_most(
-            super::versus_fighters::VERSUS_FIGHTER_KIT,
-        )),
-        // This duel does not impose platform-fighter body defaults.
-        fighter_body: None,
-        // Health rounds, not stocks. Opting into stocks also changes fighter death policy.
-        fighter_stocks: None,
-        // Preserve the duelists' authored health pools. A host seating foreign
-        // characters must provide its own normalization.
-        fighter_health_pool: None,
+        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+            // No items: these rounds are two duelists and a health bar, and an
+            // item needs somewhere authored to land.
+            item_spawns: None,
+            // The stage ceremony releases this suspension when the round goes live.
+            opens_suspended: true,
+            // The stage owns its countdown; the engine-level countdown is disabled.
+            opening_countdown_ticks: 0,
+            // Rounds end on health rather than a match clock.
+            time_limit_ticks: 0,
+            // The duel declares one symmetric capability ceiling. `at_most`
+            // preserves character-authored abilities below that ceiling instead
+            // of granting a common floor, so excluded verbs stay excluded.
+            abilities: Some(ae::MatchAbilities::at_most(
+                super::versus_fighters::VERSUS_FIGHTER_KIT,
+            )),
+            // This duel does not impose platform-fighter body defaults.
+            body: None,
+            // Health rounds, not stocks. Opting into stocks also changes fighter
+            // death policy.
+            stocks: None,
+            // Preserve the duelists' authored health pools. A host seating
+            // foreign characters must provide its own normalization.
+            health_pool: None,
+            ..Default::default()
+        },
         seating,
         // WHOSE MATCH THIS IS. The exit rule below removes the roster it
         // finds; with a second stage in the same host publishing one from its

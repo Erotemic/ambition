@@ -560,16 +560,11 @@ pub fn prepare_match(
     // loop below.
     home_body: &crate::avatar::starting_character::InitialBodyPolicy,
 ) -> Result<PreparedMatch, MatchPreparationProblems> {
-    let rules = MatchRules {
-        stocks: roster.fighter_stocks,
-        abilities: roster.fighter_abilities,
-        body: roster.fighter_body,
-        health_pool: roster.fighter_health_pool,
-        opens_suspended: roster.opens_suspended,
-        opening_countdown_ticks: roster.opening_countdown_ticks,
-        time_limit_ticks: roster.time_limit_ticks,
-        item_spawns: roster.item_spawns.clone(),
-    };
+    // ⭐ THE ROSTER'S OWN RULES, not a transcription of them. This copied eight
+    // loose roster fields into `MatchRules` one by one — two representations of
+    // one fact, so every new rule cost a field, a line here, and an initializer
+    // in every roster literal in the tree.
+    let rules = roster.rules.clone();
     let death_policy = rules.death_policy();
 
     let mut problems: Vec<RosterProblem> = Vec::new();

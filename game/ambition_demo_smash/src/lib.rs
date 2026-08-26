@@ -101,7 +101,7 @@ where
 
 /// WHAT KIND OF MATCH THIS IS — the Smash ruleset, in one place.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
-    roster.opens_suspended = true;
+    roster.rules.opens_suspended = true;
     // THE OPENING CEREMONY: 3 — 2 — 1 — GO.
     //
     // Three beats at 60Hz. The hold was already here and had nothing to wait
@@ -110,27 +110,27 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     //
     // ticks rather than seconds, because the release is a comparison against
     // the sim clock — see `MatchRules::opening_countdown_ticks`.
-    roster.opening_countdown_ticks = 3 * 60;
+    roster.rules.opening_countdown_ticks = 3 * 60;
     // THE MATCH CLOCK. Ultimate's default stock match runs eight minutes,
     // and the clock exists so a match between two fighters who will not approach
     // each other still ends — the stock economy alone has no answer to that.
     // derived from `ActiveMatch::activated_on`, so it costs no rollback state;
     // see `MatchRules::time_remaining`.
-    roster.time_limit_ticks = 8 * 60 * 60;
-    roster.fighter_stocks = Some(STARTING_STOCKS);
+    roster.rules.time_limit_ticks = 8 * 60 * 60;
+    roster.rules.stocks = Some(STARTING_STOCKS);
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
-    roster.fighter_health_pool = Some(SMASH_PERCENT_REFERENCE);
+    roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
     // Every fighter gets the ruleset's FLOOR, keeps whatever of its own kit the
     // CEILING permits, and brings nothing else from its home game. The gap
     // between the two constants is exactly one verb, and it is the one Jon named:
     // Robot v3 keeps its pogo because Robot v3 authored it.
-    roster.fighter_abilities = Some(ambition_platformer2d::engine_core::MatchAbilities {
+    roster.rules.abilities = Some(ambition_platformer2d::engine_core::MatchAbilities {
         granted: SMASH_FIGHTER_KIT,
         permitted: SMASH_FIGHTER_CEILING,
     });
     // Apply the ruleset's body baseline alongside its ability policy.
-    roster.fighter_body = Some(SMASH_FIGHTER_BODY);
+    roster.rules.body = Some(SMASH_FIGHTER_BODY);
     // ⛔ NO ITEMS, and that is Jon's call rather than a gap. 2026-08-24: *"we
     // don't need items in smash right now. We eventually will, but not right
     // now."* The MACHINERY is built and tested — `MatchItemSpawns`, the
@@ -144,7 +144,7 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     // something on its own. ⛔ not the `UseSystem` items (meteor gauntlet,
     // mark/recall): those are abilities a body wields, which is a different
     // mechanic from an item fight.
-    roster.item_spawns = None;
+    roster.rules.item_spawns = None;
 }
 
 /// SMASH'S READING OF A CHARACTER — a function from what the character
@@ -3369,7 +3369,7 @@ mod tests {
     fn the_roster_supplies_the_fighters_body() {
         let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
         assert_eq!(
-            roster.fighter_body,
+            roster.rules.body,
             Some(SMASH_FIGHTER_BODY),
             "the stage grants a platform fighter's verbs and supplies no body \
              to run them on"
@@ -3380,10 +3380,10 @@ mod tests {
     #[test]
     fn the_roster_declares_stocks_for_every_seat() {
         let roster = smash_roster(["player_robot_v3", "player_robot_v2"]);
-        assert_eq!(roster.fighter_stocks, Some(STARTING_STOCKS));
+        assert_eq!(roster.rules.stocks, Some(STARTING_STOCKS));
         assert_eq!(roster.participants.len(), 2);
         assert!(
-            roster.opens_suspended,
+            roster.rules.opens_suspended,
             "a fighter that can act during the countdown gets a free hit"
         );
     }
@@ -3957,7 +3957,7 @@ mod tests {
             ambition_platformer2d::actor::MatchParticipantRoster::of(["mary_o", "sanic"]);
         apply_smash_match_rules(&mut roster);
         assert_eq!(
-            roster.fighter_health_pool,
+            roster.rules.health_pool,
             Some(SMASH_PERCENT_REFERENCE),
             "a stocks match that does not declare its own pool reads each seat's \
              percent against whatever that character's HOME GAME authored"

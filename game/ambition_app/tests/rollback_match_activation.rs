@@ -39,24 +39,27 @@ fn two_cpu_roster() -> MatchParticipantRoster {
             .on_team(team)
     };
     MatchParticipantRoster {
-        item_spawns: None,
         participants: vec![
             cpu("player_robot_v3", "blue"),
             cpu("player_robot_v2", "red"),
         ],
-        opens_suspended: true,
-        // No ceremony in a rollback fixture: the stage that owns the opening
-        // is not part of what these tests exercise.
-        opening_countdown_ticks: 0,
-        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(11),
-        fighter_abilities: None,
-        fighter_body: None,
-        fighter_stocks: None,
-        fighter_health_pool: None,
         // A fixture's roster has no publisher: nothing else in this App claims
         // one, which is the case `None` is for.
         published_by: None,
+        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+            item_spawns: None,
+            opens_suspended: true,
+            // No ceremony in a rollback fixture: the stage that owns the opening
+            // is not part of what these tests exercise.
+            opening_countdown_ticks: 0,
+            time_limit_ticks: 0,
+            abilities: None,
+            body: None,
+            stocks: None,
+            health_pool: None,
+            ..Default::default()
+        },
     }
 }
 
@@ -569,25 +572,28 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
             .on_team(team)
     };
     sim.world_mut().insert_resource(MatchParticipantRoster {
-        item_spawns: None,
         participants: vec![
             human("player_robot_v3", 0, "blue"),
             human("player_robot_v2", 1, "red"),
         ],
-        // Not suspended: this test is about INPUT reaching a body, and an
-        // opening hold would keep both fighters still and pass for the wrong
-        // reason.
-        opens_suspended: false,
-        // No ceremony in a rollback fixture: the stage that owns the opening
-        // is not part of what these tests exercise.
-        opening_countdown_ticks: 0,
-        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
-        fighter_abilities: None,
-        fighter_body: None,
-        fighter_stocks: None,
-        fighter_health_pool: None,
         published_by: None,
+        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+            item_spawns: None,
+            // Not suspended: this test is about INPUT reaching a body, and an
+            // opening hold would keep both fighters still and pass for the wrong
+            // reason.
+            opens_suspended: false,
+            // No ceremony in a rollback fixture: the stage that owns the opening
+            // is not part of what these tests exercise.
+            opening_countdown_ticks: 0,
+            time_limit_ticks: 0,
+            abilities: None,
+            body: None,
+            stocks: None,
+            health_pool: None,
+            ..Default::default()
+        },
     });
     sim.rebase_rollback_history()
         .expect("the roster insert becomes the rollback baseline");
@@ -704,7 +710,6 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
     let ids = ["player_robot_v3", "player_robot_v2"];
     let teams = ["blue", "red"];
     MatchParticipantRoster {
-        item_spawns: None,
         participants: (0..count)
             .map(|slot| {
                 MatchParticipant::new(ids[slot])
@@ -714,17 +719,21 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
                     .on_team(teams[slot])
             })
             .collect(),
-        opens_suspended: false,
-        // No ceremony in a rollback fixture: the stage that owns the opening
-        // is not part of what these tests exercise.
-        opening_countdown_ticks: 0,
-        time_limit_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
-        fighter_abilities: None,
-        fighter_body: None,
-        fighter_stocks: None,
-        fighter_health_pool: None,
         published_by: None,
+        rules: ambition_platformer2d::actors::character_runtime::MatchRules {
+            item_spawns: None,
+            opens_suspended: false,
+            // No ceremony in a rollback fixture: the stage that owns the opening
+            // is not part of what these tests exercise.
+            opening_countdown_ticks: 0,
+            time_limit_ticks: 0,
+            abilities: None,
+            body: None,
+            stocks: None,
+            health_pool: None,
+            ..Default::default()
+        },
     }
 }
 

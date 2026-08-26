@@ -5872,17 +5872,24 @@ fn two_authored_attacks_that_meet_trade_and_both_moves_end() {
 /// rule was enforced on the road that did not need it.
 ///
 /// ⭐ THE THREE TERMS ARE ASSERTED SEPARATELY, because each alone is a different
-/// legal state: airborne with a charge is every jump; grounded with none is a
-/// fighter between stocks; and airborne-with-none while the RECOVERY still plays
-/// is the recovery itself, which must not cancel the move that spent the charge.
+/// legal state: airborne inside no episode is every jump; grounded is a fighter
+/// between stocks; and airborne-in-episode while the RECOVERY still plays is the
+/// recovery itself, which must not cancel the move that spent the charge.
+///
+/// ⛔⛔ AND THE TERM IS THE EPISODE, NOT THE COUNT. This fixture used to set
+/// `recovery_charges: 0` and call that helpless, which is a resource reading a
+/// hit cannot end — so a fighter handed its air dodge back by a launch was still
+/// forbidden to use it. A body that has zero charges and never spent one THIS
+/// AIRTIME is not helpless, and saying so is the change.
 #[test]
 fn a_helpless_fighter_starts_no_move_through_the_real_trigger() {
-    let started = |charges: u8, grounded: bool, playing: Option<MoveSpec>| {
+    let started = |helpless: bool, grounded: bool, playing: Option<MoveSpec>| {
         let (mut app, body) = smash_charge_app();
         app.world_mut()
             .entity_mut(body)
             .insert(ae::BodyJumpState {
-                recovery_charges: charges,
+                recovery_charges: if helpless { 0 } else { 1 },
+                post_recovery_helpless: helpless,
                 ..Default::default()
             })
             .insert(ae::BodyGroundState {
@@ -5905,15 +5912,15 @@ fn a_helpless_fighter_starts_no_move_through_the_real_trigger() {
     // The control: an ordinary airborne fighter with its recovery still in hand
     // starts its move.
     assert_eq!(
-        started(1, false, None).as_deref(),
+        started(false, false, None).as_deref(),
         Some("fsmash"),
         "an ordinary fighter could not start a move at all, so the refusals \
          below are measuring a broken fixture"
     );
-    // Grounded with a spent charge is not helpless — that is every fighter
-    // between the landing and the refresh.
+    // GROUNDED is not helpless, however the episode stands — that is every
+    // fighter between the landing and the refresh.
     assert_eq!(
-        started(0, true, None).as_deref(),
+        started(true, true, None).as_deref(),
         Some("fsmash"),
         "a fighter STANDING with a spent charge was refused, so nobody can act \
          between landing and the refresh"
@@ -5921,18 +5928,45 @@ fn a_helpless_fighter_starts_no_move_through_the_real_trigger() {
 
     // ⛔ THE ONE THAT WAS BROKEN.
     assert_eq!(
-        started(0, false, None),
+        started(true, false, None),
         None,
         "a fighter that spent its recovery and is still airborne started a move \
          — helplessness gates the movement kernel and not the move authority, \
          which is the whole of what it forbids"
     );
 
+    // ⛔⛔ AND ZERO CHARGES ALONE IS NOT HELPLESSNESS. A fighter can hold no
+    // recovery without being inside the episode — a hit ends the episode and
+    // gives no charge back, which is exactly the state this arm describes.
+    let (mut app, body) = smash_charge_app();
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ae::BodyJumpState {
+            recovery_charges: 0,
+            post_recovery_helpless: false,
+            ..Default::default()
+        })
+        .insert(ae::BodyGroundState {
+            on_ground: false,
+            ..Default::default()
+        });
+    press_smash(&mut app, body, false);
+    assert_eq!(
+        app.world()
+            .get::<MovePlayback>(body)
+            .map(|pb| pb.spec.id.clone())
+            .as_deref(),
+        Some("fsmash"),
+        "a fighter with no recovery left but no OPEN EPISODE was refused — the \
+         gate is reading the resource again, so a hit that ends helplessness \
+         hands back a dodge nobody may use"
+    );
+
     // …and the recovery it is still throwing is not cancelled by its own rule.
     let mut recovery = uncancelable("polygon_up_b");
     recovery.gates.spends_recovery = true;
     assert_eq!(
-        started(0, false, Some(recovery)).as_deref(),
+        started(true, false, Some(recovery)).as_deref(),
         Some("polygon_up_b"),
         "the recovery that spent the charge was interrupted by the helplessness \
          it produces, so a fighter cancels its own way home"

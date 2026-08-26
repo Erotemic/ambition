@@ -8,7 +8,7 @@
 use bevy::math::bounding::IntersectsVolume as _;
 use bevy::prelude::*;
 
-use super::{CaptureAttemptRequested, CapturedBy, captive_of};
+use super::{captive_of, CaptureAttemptRequested, CapturedBy};
 use crate::hitbox::StrikeVictim;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
@@ -2490,6 +2490,11 @@ pub fn apply_capture_throws(
             // it, at `acquire_captures`. A throw hands over what an ordinary hit
             // hands over, and nothing more.
             Some(&mut dodge),
+            // ⛔ NO JUMP STATE THREADED HERE, and the reason is the same as the
+            // comment above: the CATCH already re-seated this body. A captive
+            // cannot be mid-recovery, so there is no helpless episode for the
+            // throw to end.
+            None,
             // A captive is not holding an edge: the hold suspended its gravity
             // and pinned it to the captor.
             None,

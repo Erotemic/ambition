@@ -9,7 +9,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
-use crate::snapshot::{Reader, SnapshotState, put_bool, put_f32, put_u32, put_vec2};
+use crate::snapshot::{put_bool, put_f32, put_u32, put_vec2, Reader, SnapshotState};
 use crate::{snapshot_pod, snapshot_unit_enum};
 
 impl SnapshotState for crate::AbilitySet {
@@ -137,6 +137,7 @@ snapshot_pod!(crate::body_clusters::ActorSurfaceState {
 snapshot_pod!(crate::body_clusters::BodyJumpState {
     air_jumps_available: u8,
     recovery_charges: u8,
+    post_recovery_helpless: bool,
     footstool_claimed: bool,
     ladder_jump_boost: f32,
     ladder_drop_through_timer: f32,

@@ -106,7 +106,7 @@ impl<'a> GuardUnderFire<'a> {
         vel: &'a mut ae::Vec2,
         body_size: ae::Vec2,
     ) -> Option<Self> {
-        if knockback.is_some_and(|knockback| knockback.flinchless) {
+        if knockback.is_some_and(|knockback| knockback.is_windbox()) {
             return None;
         }
         Some(Self {

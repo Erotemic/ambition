@@ -259,7 +259,7 @@ pub fn apply_contact_harm(
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
                     // An ordinary hit: it stuns.
-                    flinchless: false,
+                    reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                     dir,
                     magnitude: HitKnockbackMagnitude::FeelScale(harm.knockback),
                     source_pos: kin.pos,

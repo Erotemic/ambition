@@ -70,16 +70,48 @@ pub struct HitKnockback {
     /// the victim inside the next hitbox; only the LAST one launches. See
     /// [`AutolinkFollow`].
     pub follow: Option<AutolinkFollow>,
-    /// FLINCHLESS: move the victim without stunning it — a gust rather than a
-    /// blow. `false` is every ordinary hit.
+    /// WHAT KIND OF REACTION this pulse asks for — a blow, or a gust.
     ///
-    /// ⭐ IT IS A PROPERTY OF THE PULSE, not a mode the victim enters. The
-    /// launch is computed exactly as it would be for a strike (the wind's
-    /// strength and direction are authored the ordinary way, on `magnitude` and
-    /// `launch_dir`); the single difference is that the victim keeps its
-    /// control. A body being blown off a ledge can still act, which is the whole
-    /// reason the genre has windboxes at all.
-    pub flinchless: bool,
+    /// ⛔⛔ IT WAS A `flinchless: bool`, AND THAT LOST THE THING THE AUTHORING
+    /// PROMISES. `VolumeReaction::Windbox` is documented as *"pushes its victim
+    /// and does nothing else — no damage, no hitstun, no shield"*, but by the
+    /// time the pulse reached the victim all that survived was *don't charge
+    /// stun*. Everything else an accepted hit does still happened: the gust
+    /// refunded the victim's air dodge, cleared its post-recovery helplessness
+    /// and charged hitlag — so a wind pulse could hand a recovering fighter its
+    /// dodge back and freeze the match, which is not "push only".
+    ///
+    /// ⭐ THE KIND SURVIVES; the consequences are read off it once, in
+    /// `apply_body_hit_reaction`, rather than each being remembered separately
+    /// by whoever happens to look.
+    pub reaction: HitReaction,
+}
+
+/// A pulse's KIND: what the victim is owed for having been touched by it.
+///
+/// ⛔ AUTOLINK IS NOT A VARIANT. It is a MODIFIER on an ordinary strike — the
+/// victim is still stunned, still takes the damage, still hitlags, and the only
+/// difference is where the pulse steers it — so it rides on
+/// [`HitKnockback::follow`] beside this. A windbox is a different KIND of thing
+/// happening to the body, which is why it is here.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HitReaction {
+    /// A blow. Every ordinary hit, and the default.
+    #[default]
+    Strike,
+    /// A gust: it MOVES the victim and owes it nothing else.
+    ///
+    /// ⭐ THE LAUNCH IS AN ORDINARY LAUNCH. The wind's strength and direction
+    /// are authored the same way a punch's are, on `magnitude` and `launch_dir`;
+    /// what a windbox declines is the INJURY, not the physics.
+    Windbox,
+}
+
+impl HitKnockback {
+    /// Is this pulse a gust rather than a blow?
+    pub fn is_windbox(&self) -> bool {
+        matches!(self.reaction, HitReaction::Windbox)
+    }
 }
 
 /// How an intermediate multi-hit pulse holds its victim, authored per hit.
@@ -515,7 +547,7 @@ mod hitlag_tests {
     fn launch(speed: f32) -> HitKnockback {
         HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: HitReaction::Strike,
             dir: 1.0,
             magnitude: HitKnockbackMagnitude::LaunchSpeed(speed),
             source_pos: Vec2::ZERO,
@@ -718,7 +750,7 @@ mod launch_direction_tests {
         let frame = AccelerationFrame::new(gravity_dir);
         let knockback = HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: HitReaction::Strike,
             dir: 0.0,
             magnitude: HitKnockbackMagnitude::LaunchSpeed(speed),
             // Struck from the local left, so the away-from-source side is +x.
@@ -805,7 +837,7 @@ mod launch_direction_tests {
             tuning.di_max_angle = budget;
             let knockback = HitKnockback {
                 // An ordinary hit: it stuns.
-                flinchless: false,
+                reaction: HitReaction::Strike,
                 dir: 0.0,
                 magnitude: HitKnockbackMagnitude::LaunchSpeed(400.0),
                 source_pos: victim - Vec2::new(40.0, 0.0),
@@ -994,7 +1026,7 @@ mod autolink_tests {
     fn an_ordinary_hit_still_resolves_through_the_launch_road() {
         let kb = HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: HitReaction::Strike,
             dir: 1.0,
             magnitude: HitKnockbackMagnitude::LaunchSpeed(200.0),
             source_pos: Vec2::ZERO,

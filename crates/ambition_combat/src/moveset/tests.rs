@@ -4519,6 +4519,17 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+    // ⛔⛔ THE PRODUCTION PHASE GRAPH, NOT A BAG OF SYSTEMS. `combat_schedule`
+    // orders `CombatSet::Trigger` — the first three — before
+    // `CombatSet::Playback`, which runs `advance_move_playback` and then
+    // `apply_special_turn_flicks`. This chain is that order.
+    //
+    // ⭐ IT IS THE HARNESS'S JOB BECAUSE AN UNORDERED ARM PROVES THE WRONG
+    // THING. `apply_special_turn_flicks` used to be added by one test into bare
+    // `Update` with no constraint against the chain, so Bevy was free to run the
+    // post-press recognizer BEFORE the press that opens its window — and the
+    // same-frame Back+Special defect (the press counted a second time as its own
+    // post-press flick) was invisible to it for exactly that reason.
     app.add_systems(
         Update,
         (
@@ -4526,6 +4537,7 @@ fn playing_app(moveset: MovesetContract) -> (App, Entity) {
             buffer_combat_action_presses,
             trigger_moveset_moves,
             advance_move_playback,
+            apply_special_turn_flicks,
         )
             .chain(),
     );
@@ -6666,7 +6678,6 @@ fn the_special_turn_techniques_are_chosen_by_the_input_order() {
             moves: vec![gesture_test_move("back_b"), gesture_test_move("neutral_b")],
         };
         let (mut app, body) = playing_app(moveset);
-        app.add_systems(bevy::prelude::Update, apply_special_turn_flicks);
         app.insert_resource(crate::rules::ResolvedCombatTuning {
             special_turn: declared,
             special_turn_reverses_drift: declared,
@@ -6710,6 +6721,14 @@ fn the_special_turn_techniques_are_chosen_by_the_input_order() {
     );
 
     // TURNAROUND-B: back before the press, nothing after.
+    //
+    // ⛔⛔ AND THIS ARM IS THE SAME-FRAME REGRESSION, now that the harness runs
+    // the real Trigger → Playback order. `outcome` presses Back and Special on
+    // ONE tick — the fresh gesture a player actually makes — so the recognizer
+    // sees that same stick later in the same tick. With the press seeding
+    // `prev_lateral_sign`, it is not an edge and nothing more happens. Without
+    // the seed it was: the facing flipped a second time and the drift reversed,
+    // making this `(1.0, -200.0)` — a WAVEBOUNCE out of a plain turnaround.
     assert_eq!(
         outcome(true, -1.0, None),
         (-1.0, 200.0),
@@ -6732,6 +6751,79 @@ fn the_special_turn_techniques_are_chosen_by_the_input_order() {
         "back-then-flick did not compose: a wavebounce reverses momentum and \
          leaves the fighter facing the way it was"
     );
+}
+
+/// THE B-REVERSE WINDOW IS COUNTED IN INPUT TICKS, AT ANY TIME SCALE.
+///
+/// ⛔⛔ IT USED TO BE SECONDS ON THE SCALED CLOCK. `AttackGestureTuning::flick_window_ticks`
+/// was divided by a hardcoded 60.0 into an `f32` and then aged by
+/// `WorldTime::sim_dt()` — which hitstop, pause and bullet time all scale — while
+/// the ordinary attack flick the same knob authors counts integer ticks. So one
+/// authored number meant two different things, and a match running at half speed
+/// handed the player twice the ticks of B-reverse opportunity.
+///
+/// ⭐ THE ARMS STRADDLE THE BOUNDARY, because an arm that only flicks early
+/// passes under both clocks. `flick_window_ticks` is 4 and the press tick spends
+/// one, so a flick on the 3rd tick after the press still turns and a flick on the
+/// 4th does not — and that pair of answers must not move with `scaled_dt`.
+#[test]
+fn the_b_reverse_window_is_the_same_number_of_ticks_at_every_time_scale() {
+    /// Press Special forward, wait `wait` neutral ticks, then flick Back.
+    /// Reports whether the drift reversed — the flick's own half of the turn.
+    fn flick_after(scaled_dt: f32, wait: u32) -> bool {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([(
+                "special".to_string(),
+                "neutral_b".to_string(),
+            )]),
+            moves: vec![gesture_test_move("neutral_b")],
+        };
+        let (mut app, body) = playing_app(moveset);
+        // The SCALED clock only — `raw_dt` is the unscaled one, and a window
+        // that had quietly moved to it would pass this test while still being
+        // the wrong clock for an input window.
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = scaled_dt;
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            special_turn: true,
+            special_turn_reverses_drift: true,
+            ..Default::default()
+        });
+        {
+            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+            kin.facing = 1.0;
+            kin.vel = ae::Vec2::new(200.0, 0.0);
+        }
+        let mut press = ambition_characters::actor::control::ActorControlFrame::neutral();
+        press.special_pressed = true;
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(press);
+        app.update();
+        for _ in 0..wait {
+            let idle = ambition_characters::actor::control::ActorControlFrame::neutral()
+                .damped_by_move_motion(0.0);
+            *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(idle);
+            app.update();
+        }
+        let mut back = ambition_characters::actor::control::ActorControlFrame::neutral();
+        back.locomotion = ae::LocalAxes::new(-1.0, 0.0);
+        let back = back.damped_by_move_motion(0.0);
+        *app.world_mut().get_mut::<ActorControl>(body).unwrap() = ActorControl(back);
+        app.update();
+        app.world().get::<ae::BodyKinematics>(body).unwrap().vel.x < 0.0
+    }
+
+    for (label, dt) in [("full speed", 0.016), ("half speed", 0.008), ("hitstop", 0.0)] {
+        assert!(
+            flick_after(dt, 2),
+            "at {label} a flick on the 3rd tick after the press was refused, and \
+             the window is authored to be open there"
+        );
+        assert!(
+            !flick_after(dt, 3),
+            "at {label} a flick on the 4th tick after the press still turned the \
+             fighter — the window is FOUR authored ticks and the press spends one, \
+             so this one is late however slowly the match is running"
+        );
+    }
 }
 
 /// THE DOUBLE-JUMP CANCEL TAKES BACK WHAT THE JUMP PUT IN — NO MORE.
@@ -6963,7 +7055,6 @@ fn a_wavebounce_reverses_the_bodys_own_side_axis_under_rotated_gravity() {
         moves: vec![gesture_test_move("back_b")],
     };
     let (mut app, body) = playing_app(moveset);
-    app.add_systems(bevy::prelude::Update, apply_special_turn_flicks);
     app.insert_resource(crate::rules::ResolvedCombatTuning {
         special_turn: true,
         special_turn_reverses_drift: true,

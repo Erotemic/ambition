@@ -105,9 +105,26 @@ pub fn apply_body_hit_reaction(
     // trajectory was still hit too. Below the divider is what a LAUNCH does,
     // and only a launch reaches it.
 
+    // ⛔⛔ …EXCEPT FOR A GUST, AND THAT IS THE WHOLE OF THIS BLOCK'S EXCEPTION.
+    // A windbox is authored as *"pushes its victim and does nothing else"*, and
+    // every fact below is an INJURY the victim is owed for having been hurt. A
+    // gust did not hurt anybody. Reducing the pulse to `flinchless` lost that:
+    // the wind still refunded an air dodge, still cleared post-recovery
+    // helplessness and still charged hitlag, so blowing on a recovering fighter
+    // handed it a fresh dodge and a way out of freefall — a windbox was the
+    // best rescue tool in the game and nobody had authored it to be.
+    let gust = knockback.is_some_and(|k| k.is_windbox());
+
     // ⛔ BEFORE any launch, so the hang is gone by the time a velocity is
     // written: dropping it afterwards would let the ledge constraint eat the
     // launch the same hit just handed out.
+    //
+    // ⭐⭐ AND A GUST DOES THIS ONE TOO — BY ITS OWN RULE, not by inheritance.
+    // Blowing a fighter off the edge it is holding is the POINT of a stage
+    // windbox, and the genre's gusts do exactly that. It is stated here rather
+    // than left to fall out of the injury block above, because the reason is
+    // different: the others are things a body is owed for being HURT, and this
+    // one is a thing that happens to a body that is PUSHED.
     if let Some((model, ledge)) = ledge {
         ae::movement::knock_off_ledge(model, ledge);
     }
@@ -116,12 +133,16 @@ pub fn apply_body_hit_reaction(
     // the follow-up. A body without the ability never spent it, so this is a
     // no-op for one.
     if let Some(dodge) = dodge {
-        dodge.air_dodge_spent = false;
+        if !gust {
+            dodge.air_dodge_spent = false;
+        }
     }
     // …and the fighter is allowed to use it. See the parameter's own note for
     // why this gives back no charge.
     if let Some(jump) = jump {
-        jump.post_recovery_helpless = false;
+        if !gust {
+            jump.post_recovery_helpless = false;
+        }
     }
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
@@ -129,9 +150,18 @@ pub fn apply_body_hit_reaction(
     // HITLAG IS THE HIT, not the launch. The freeze on contact is what makes a
     // hit read as a hit at all: an armoured trade or a damage-only tick that
     // passed through in silence would look like a whiff to both players.
-    combat.hitstop_timer = combat
-        .hitstop_timer
-        .max(ae::hit_response::hitlag_duration(damage, &response));
+    //
+    // ⭐⭐ AND A GUST EARNS NONE, WHICH IS ALSO WHAT RETIRES THE MATCH FREEZE.
+    // `request_impact_hitstop_on_resolved_hits` arms the global freeze off the
+    // hitlag the resolver reports and returns early when that is zero — so the
+    // windbox stops stopping the world as a CONSEQUENCE of owing no beat,
+    // rather than by a second rule taught to the freeze about wind. There is
+    // one fact here, not two, and `is_a_connect` never had to learn about it.
+    if !gust {
+        combat.hitstop_timer = combat
+            .hitstop_timer
+            .max(ae::hit_response::hitlag_duration(damage, &response));
+    }
 
     // ═══ THE FACTS OF A LAUNCH ═════════════════════════════════════════════
     //
@@ -228,7 +258,7 @@ pub fn apply_body_hit_reaction(
     // …with the KIND it is, because the gateway that drains this decides the
     // floor game from it: a gust must neither pin a prone body nor start a
     // tumble, and speed alone cannot tell it from a hit.
-    flight.stage_launch(launch, knockback.flinchless);
+    flight.stage_launch(launch, knockback.is_windbox());
     // ⭐⭐ A GUST MOVES YOU AND LEAVES YOU IN CONTROL. The launch above is
     // computed exactly as a strike's is — a windbox authors its strength and
     // direction the ordinary way — and the ONE difference is here: no hitstun,
@@ -239,7 +269,7 @@ pub fn apply_body_hit_reaction(
     // then drifts through a gust must not have its stun CLEARED by it — that
     // would make a windbox the best combo breaker in the game. A flinchless
     // pulse declines to charge stun; it does not discharge it.
-    if !knockback.flinchless {
+    if !knockback.is_windbox() {
         combat.hitstun_timer = ae::hit_response::hitstun_duration(Some(knockback), &response);
     }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
@@ -271,7 +301,7 @@ pub fn apply_body_hit_reaction(
     // ⭐ SAME ASYMMETRY AS THE STUN: it declines to CHARGE the lock, it does not
     // DISCHARGE one. A body already reeling from a real hit that drifts through
     // a gust keeps the beat it was already owed.
-    if !knockback.flinchless {
+    if !knockback.is_windbox() {
         combat.recoil_lock_timer = if meteor {
             feel.knockback_recoil_lock_time.max(feel.meteor_lock_time)
         } else {
@@ -371,7 +401,7 @@ mod super_armor_tests {
 
     fn hard_knockback() -> crate::HitKnockback {
         crate::HitKnockback {
-            flinchless: false,
+            reaction: ae::hit_response::HitReaction::Strike,
             dir: 1.0,
             magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(600.0),
             source_pos: ae::Vec2::new(0.0, 0.0),
@@ -454,7 +484,7 @@ mod super_armor_tests {
     #[test]
     fn a_windbox_launches_the_body_without_stunning_it() {
         let gust = crate::HitKnockback {
-            flinchless: true,
+            reaction: ae::hit_response::HitReaction::Windbox,
             ..hard_knockback()
         };
         let mut vel = ae::Vec2::new(120.0, 0.0);
@@ -502,7 +532,7 @@ mod super_armor_tests {
     #[test]
     fn a_windbox_does_not_clear_stun_the_victim_was_already_in() {
         let gust = crate::HitKnockback {
-            flinchless: true,
+            reaction: ae::hit_response::HitReaction::Windbox,
             ..hard_knockback()
         };
         let mut vel = ae::Vec2::new(120.0, 0.0);
@@ -534,6 +564,108 @@ mod super_armor_tests {
         );
     }
 
+    /// ⛔⛔ A GUST OWES NOTHING AN INJURY OWES — the four facts of being HIT,
+    /// none of which a windbox may hand out.
+    ///
+    /// The authored contract is *"pushes its victim and does nothing else — no
+    /// damage, no hitstun, no shield"*, and it was true of exactly one of them.
+    /// The pulse reached the victim as a `flinchless: bool`, which named the
+    /// stun and nothing more, so `apply_body_hit_reaction`'s accepted-hit block
+    /// still ran in full: the gust REFUNDED the air dodge, CLEARED post-recovery
+    /// helplessness and CHARGED hitlag before the flinchless branch was reached.
+    ///
+    /// ⭐⭐ THE VICTIM HERE IS THE ONE THAT MAKES IT MATTER: a fighter deep in a
+    /// recovery, dodge spent and helpless, is exactly who a windbox is aimed at
+    /// off the ledge — and blowing on them gave them their dodge back and let
+    /// them act out of freefall. A windbox was the best rescue tool in the game
+    /// and nobody authored it to be one.
+    ///
+    /// ⭐ THE STRIKE ARM IS THE PREMISE GUARD. Without it every assertion below
+    /// would pass against a function that had simply stopped granting these to
+    /// ANYBODY, which is a different bug wearing the same green.
+    #[test]
+    fn a_gust_refunds_no_dodge_clears_no_helplessness_and_earns_no_hitlag() {
+        /// Push a fully-spent recovering victim with `reaction` and report
+        /// (dodge spent, still helpless, hitlag charged, moved).
+        fn push(reaction: ae::hit_response::HitReaction) -> (bool, bool, f32, bool) {
+            let pulse = crate::HitKnockback {
+                reaction,
+                ..hard_knockback()
+            };
+            let mut vel = ae::Vec2::new(120.0, 0.0);
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat::default();
+            let mut dodge = ae::BodyDodgeState {
+                air_dodge_spent: true,
+                ..Default::default()
+            };
+            let mut jump = ae::BodyJumpState {
+                post_recovery_helpless: true,
+                ..Default::default()
+            };
+            apply_body_hit_reaction(
+                &mut vel,
+                &mut flight,
+                &mut combat,
+                ae::Vec2::new(20.0, 0.0),
+                1.0,
+                ae::Vec2::new(0.0, 1.0),
+                false,
+                Some(&pulse),
+                // ⭐ NONZERO, because hitlag is charged off the DAMAGE. A gust
+                // authors zero, but asking with zero would make the hitlag
+                // assertion pass for the wrong reason — the arm has to prove the
+                // KIND refuses the beat, not that the number was small.
+                9,
+                ae::Vec2::ZERO,
+                VictimStance::default(),
+                Some(&mut dodge),
+                Some(&mut jump),
+                None,
+                feel(),
+            );
+            (
+                dodge.air_dodge_spent,
+                jump.post_recovery_helpless,
+                combat.hitstop_timer,
+                vel != ae::Vec2::new(120.0, 0.0),
+            )
+        }
+
+        let (gust_dodge, gust_helpless, gust_lag, gust_moved) =
+            push(ae::hit_response::HitReaction::Windbox);
+        let (hit_dodge, hit_helpless, hit_lag, hit_moved) =
+            push(ae::hit_response::HitReaction::Strike);
+
+        // The premise: a real blow DOES grant all three. Without this the arms
+        // below are satisfied by a function that grants them to nobody.
+        assert!(!hit_dodge, "a real hit stopped refunding the air dodge");
+        assert!(
+            !hit_helpless,
+            "a real hit stopped clearing post-recovery helplessness"
+        );
+        assert!(hit_lag > 0.0, "a real hit stopped charging hitlag");
+        assert!(hit_moved && gust_moved, "one of the two pulses did not push at all");
+
+        assert!(
+            gust_dodge,
+            "the gust handed the victim its air dodge back — a windbox is not an \
+             injury and owes no recovery from one"
+        );
+        assert!(
+            gust_helpless,
+            "the gust let a helpless fighter act again, which is the rescue \
+             nobody authored"
+        );
+        assert_eq!(
+            gust_lag, 0.0,
+            "the gust charged hitlag. That is also what armed the whole-match \
+             freeze: `request_impact_hitstop_on_resolved_hits` reads the \
+             resolver's hitlag and returns early at zero, so a gust that earns \
+             no beat stops the world for nobody"
+        );
+    }
+
     /// A WINDBOX PUSHES YOU AND LEAVES YOU PLAYING.
     ///
     /// ⛔⛔ IT TOOK THE HARD CONTROL LOCK ANYWAY. The flinchless arm correctly
@@ -550,7 +682,7 @@ mod super_armor_tests {
     #[test]
     fn a_windbox_neither_charges_nor_clears_the_control_lock() {
         let gust = || crate::HitKnockback {
-            flinchless: true,
+            reaction: ae::hit_response::HitReaction::Windbox,
             ..hard_knockback()
         };
         let push = |already_locked: f32| -> BodyCombat {

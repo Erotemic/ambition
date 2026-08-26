@@ -793,7 +793,7 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
                 );
             }
         }
-        put_f32(out, self.special_turn_window);
+        put_u8(out, self.special_turn_ticks);
         put_f32(out, self.prev_lateral_sign);
     }
 
@@ -837,7 +837,7 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureState {
             active,
             buffered_press,
             buffered_special,
-            special_turn_window: r.f32()?,
+            special_turn_ticks: r.u8()?,
             prev_lateral_sign: r.f32()?,
         })
     }
@@ -1127,7 +1127,7 @@ mod attack_gesture_wire_tests {
             }),
             // Mid-window and mid-flick: a restore that lost either would
             // classify the replayed B-reverse differently.
-            special_turn_window: 0.08,
+            special_turn_ticks: 3,
             prev_lateral_sign: -1.0,
         };
         let bytes = ambition_platformer2d_core::snapshot::encode_state(&state);

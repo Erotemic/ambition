@@ -386,7 +386,7 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let knockback = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: 1.0,
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
@@ -425,7 +425,7 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
     let at = |magnitude| {
         knockback_reaction_scale(Some(&ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
             magnitude,
             source_pos: ae::Vec2::ZERO,
@@ -471,7 +471,7 @@ fn knockback_impulse_is_frame_equivalent() {
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 0.0,
             magnitude: ambition_combat::HitKnockbackMagnitude::FeelScale(1.0),
             source_pos,
@@ -542,7 +542,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 0.0,
             magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(launch_speed),
             source_pos,
@@ -580,7 +580,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     // gravity-down`, ).
     let up = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: 0.0,
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
@@ -610,7 +610,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     // from the left  positive local x  world +x.
     let diag = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: 0.0,
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
@@ -673,7 +673,7 @@ fn authored_launch_dir_conjugates_under_rotated_gravity() {
         let source_pos = victim_pos - frame.side * 40.0;
         let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 0.0,
             magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(speed),
             source_pos,
@@ -708,7 +708,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let base = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: 0.0,
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos,
@@ -1575,7 +1575,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
     let victim_pos = ae::Vec2::new(100.0, 100.0);
     let knockback = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: 1.0,
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
         source_pos: victim_pos - ae::Vec2::new(40.0, 0.0),
@@ -1650,7 +1650,7 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
             false,
             Some(&crate::features::HitKnockback {
                 // An ordinary hit: it stuns.
-                flinchless: false,
+                reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
                 dir: 1.0,
                 magnitude: crate::features::HitKnockbackMagnitude::LaunchSpeed(200.0),
                 source_pos: ATTACKER,
@@ -1976,7 +1976,7 @@ fn meteor_reaction(
     let body = ae::Vec2::new(100.0, 150.0);
     let knockback = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
-        flinchless: false,
+        reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
         dir: 1.0,
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
         source_pos: body,
@@ -2023,7 +2023,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
     let launched = |crouching: bool, scale: f32| {
         let knockback = ambition_combat::HitKnockback {
             // An ordinary hit: it stuns.
-            flinchless: false,
+            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
             dir: 1.0,
             magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
             source_pos: ae::Vec2::ZERO,
@@ -2205,14 +2205,18 @@ fn an_authored_zero_damage_windbox_takes_no_health() {
 /// that is one decision in one place now: there is nowhere else a
 /// `GuardUnderFire` can be built.
 ///
-/// ⭐ THE ARMS STRADDLE `flinchless` AND NOTHING ELSE — same state, same tuning,
-/// same velocity, one flag apart. The `None`-knockback arm is the third legal
-/// case: a damage-only tick still meets a raised guard.
+/// ⭐ THE ARMS STRADDLE THE REACTION KIND AND NOTHING ELSE — same state, same
+/// tuning, same velocity, one variant apart. The `None`-knockback arm is the
+/// third legal case: a damage-only tick still meets a raised guard.
 #[test]
 fn a_windbox_offers_no_guard_and_a_strike_offers_one() {
-    fn knockback(flinchless: bool) -> ambition_combat::HitKnockback {
+    fn knockback(gust: bool) -> ambition_combat::HitKnockback {
         ambition_combat::HitKnockback {
-            flinchless,
+            reaction: if gust {
+                ae::hit_response::HitReaction::Windbox
+            } else {
+                ae::hit_response::HitReaction::Strike
+            },
             dir: 1.0,
             magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
             source_pos: ae::Vec2::ZERO,

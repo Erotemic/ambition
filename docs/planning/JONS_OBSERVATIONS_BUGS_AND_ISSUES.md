@@ -642,3 +642,26 @@ huge regressions, not sure how we didn't have a test to catch these."*
   * ✔ ALREADY FIXED AT HEAD — `guard_covers_hit` returns `true` on `coverage >= 1.0` before tilt is read, and its doc states that contract; the review is reading an older tree.
 
 * Negative result, same pass: camera reset, crouch scheduling, Z-drop, recovery edge-cancel, defense-policy composition and the deterministic item RNG produced no additional defects under the cross-boundary checks.
+
+## Full review of HEAD `f56b5ea`, relayed by Jon 2026-08-26 — worked in the order Jon gave
+
+* **1. Same-frame Back+Special is double-counted as both halves of wavebounce.** Production orders `CombatSet::Trigger` → `CombatSet::Playback`; the accepted Special opens `special_turn_window` but never records the stick sign that belonged to that press, so `apply_special_turn_flicks` in Playback sees `prev_lateral_sign == 0` and calls the SAME tick's Back a fresh post-press flick — facing flips twice and drift reverses. Holding Back a frame first hides it. The accepted Special must set a baseline sign. Also: `flick_window_ticks` is aged in scaled `sim_dt()` seconds here and in integer ticks for ordinary attack flicks — one authored knob, two clock semantics. The regression must run the real Trigger→Playback graph; the existing arm installs the two halves into bare `Update`.
+  * ▢
+
+* **2. Windbox loses its identity before hit resolution.** Lowering reduces it to `HitKnockback { flinchless: true }`, so `apply_body_hit_reaction` still knocks the body off its ledge, refunds `air_dodge_spent`, clears `post_recovery_helpless` and charges `hitstop_timer` before the flinchless branch. `ResolvedBodyHit` carries no reaction kind, so `impact_hitstop::is_a_connect()` sees `HitSource::Melee` and a windbox can freeze the whole match. Carry the reaction kind through resolution and define the windbox policy once; the ledge question needs an explicit rule rather than inherited injury handling.
+  * ▢
+
+* **3. D192 canonicalizes simultaneous respawns with `Entity`.** `tick_pending_respawn` sorts a `Vec<Entity>` under a comment saying query order is not guaranteed and message order decides placement — but `Entity` is allocator identity. The clank work in the same window moved to `SimId` for exactly this reason. Sort on `MatchSeat` (or `SimId`), or remove the sort and correct the comment; a fake canonicalization is worse than none.
+  * ▢
+
+* **4. The mount carve moved implementation but not rollback ownership.** `actor_monolith/rollback_registration.rs` still registers the seven `ambition_mount::` components and their `MapEntities`, while `runtime/rollback/mod.rs` says domains own their own declarations and composes six `register_rollback_state` calls with no mount one. Give `ambition_mount` its own `register_rollback_state`, preserve the wire names, and watch the registrar's owner string.
+  * ▢
+
+* **5. The saddle COG mixes mount-local and world vectors.** `ambition_mount/src/lib.rs` adds `cog_local` (local) to `frame.to_world(rider_offset - cog_local)` (world). Default gravity hides it; rotated gravity with unequal masses and a nonzero saddle offset pins the COG term to screen axes. Predates this window (5c9b11a, 2026-08-24). Either the invariant is just `mount_kin.pos + frame.to_world(rider_offset)`, or a true rigid pair must rotate BOTH bodies about one world COG.
+  * ▢
+
+* **6. Three-way clank applies rebound more than once per fighter.** Arbitration emits `AttacksClanked` per qualifying pair (AB, AC, BC) and `rebound_from_clanks` adds a full impulse per message. The new three-way arm cannot see it: all three bodies sit at `Vec2::ZERO`, where the rebound axis is deliberately zero. Decide the rule — summed pairwise or one bounded recoil per participant — before clanking is enabled (`clank_damage_window` is 0.0 in Smash today).
+  * ▢
+
+* Hygiene, same window: trailing whitespace in this file and a new blank line at EOF in `game/ambition_app/tests/duel_arena.rs`.
+  * ▢

@@ -91,6 +91,13 @@ const ELIMINATION_SPARK_SPEED: f32 = 720.0;
 const STOCK_RGBA: [f32; 4] = [1.0, 0.98, 0.92, 0.95];
 const ELIMINATION_RGBA: [f32; 4] = [1.0, 0.72, 0.34, 1.0];
 
+/// How big the ring is drawn. Against the scales already in the tree — a blink
+/// arrival at 0.35, a grenade at 0.7, a bomb at 1.0 — an ordinary stock loss
+/// sits at the top of the ordinary band and an elimination is the largest thing
+/// the match draws, which is the read the genre gives the last stock.
+const STOCK_RING_SCALE: f32 = 0.8;
+const ELIMINATION_RING_SCALE: f32 = 1.25;
+
 /// What one knockout asks for. Pure, so the whole rule is asserted without a
 /// renderer.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -98,9 +105,21 @@ pub struct KnockoutBeat {
     pub sparks: u32,
     pub speed: f32,
     pub rgba: [f32; 4],
-    /// How many expanding rings. An elimination gets a second one, which is the
-    /// cheapest way to make it read as bigger without a new effect.
-    pub rings: u32,
+    /// How big the expanding ring is drawn, as [`VfxMessage::Effect`] scale.
+    ///
+    /// ⛔⛔ THIS USED TO BE A COUNT OF `VfxMessage::Impact`s, AND THAT WAS TWO
+    /// DEFECTS IN ONE. `Impact` is the ordinary hit-marker API: asset-backed it
+    /// resolves to `GENERIC_HIT_FX` (`hit_soft`), and only the ART-LESS fallback
+    /// is an expanding ring — so a shipped game drew the normal damage marker at
+    /// the blast line and called it a knockout. And "an elimination gets a
+    /// SECOND one" bought nothing: two copies of one clip at one position on one
+    /// tick are coincident, so it doubled the alpha and never the size.
+    ///
+    /// ⭐ THE VOCABULARY ALREADY HAD THE RIGHT NAME. `ids::SHOCKWAVE`
+    /// (`shockwave`) is authored as *"the expanding ring a committed heavy
+    /// throws"*, so the beat NAMES its effect and SCALES it, and an elimination
+    /// reads bigger by being bigger.
+    pub ring_scale: f32,
 }
 
 /// The beat a knockout asks for.
@@ -117,14 +136,14 @@ pub fn knockout_beat(eliminated: bool, flight_speed: f32) -> KnockoutBeat {
             sparks: ELIMINATION_SPARKS,
             speed: ELIMINATION_SPARK_SPEED,
             rgba: ELIMINATION_RGBA,
-            rings: 2,
+            ring_scale: ELIMINATION_RING_SCALE,
         }
     } else {
         KnockoutBeat {
             sparks: STOCK_SPARKS,
             speed: STOCK_SPARK_SPEED,
             rgba: STOCK_RGBA,
-            rings: 1,
+            ring_scale: STOCK_RING_SCALE,
         }
     };
     KnockoutBeat {
@@ -140,7 +159,14 @@ pub fn knockout_beat(eliminated: bool, flight_speed: f32) -> KnockoutBeat {
 /// [`crate::fx::burst_reach`] is that same arithmetic read off those constants —
 /// so a beat that is re-tuned, or a drag that moves, carries this with it.
 pub fn beat_reach(beat: &KnockoutBeat) -> f32 {
-    crate::fx::burst_reach(beat.speed, ParticleKind::Spark)
+    // ⭐ THE RING IS PART OF THE BEAT, so the anchor has to know how wide it is:
+    // an effect clip draws at `FX_DEFAULT_WORLD_SIZE * scale`, so it reaches half
+    // that from its centre. Today the sparks are the wider of the two by a long
+    // way (~150 units against 35 at the elimination scale) and this `max` picks
+    // them; it is written as a max rather than dropped so a bigger ring, or a
+    // slower burst, cannot quietly start spilling off the frame edge.
+    let ring = crate::fx::FX_DEFAULT_WORLD_SIZE * beat.ring_scale / 2.0;
+    crate::fx::burst_reach(beat.speed, ParticleKind::Spark).max(ring)
 }
 
 /// Where the beat is drawn: the death site, held far enough inside the frame
@@ -212,9 +238,12 @@ pub fn emit_knockout_beat(
             }
             None => knockout.pos,
         };
-        for _ in 0..beat.rings {
-            vfx.write(VfxMessage::Impact { pos });
-        }
+        vfx.write(VfxMessage::Effect {
+            pos,
+            fx: ambition_vfx::fx::ids::SHOCKWAVE,
+            scale: beat.ring_scale,
+            pose: ambition_vfx::FxPose::UPRIGHT,
+        });
         vfx.write(VfxMessage::Burst {
             pos,
             count: beat.sparks,
@@ -327,7 +356,7 @@ mod tests {
         let out = knockout_beat(true, 0.0);
         assert!(out.sparks > stock.sparks);
         assert!(out.speed > stock.speed);
-        assert!(out.rings > stock.rings);
+        assert!(out.ring_scale > stock.ring_scale);
         // And it is hotter: the elimination shifts toward the launch trail's
         // ember rather than simply throwing more white.
         assert!(out.rgba[0] - out.rgba[2] > stock.rgba[0] - stock.rgba[2]);

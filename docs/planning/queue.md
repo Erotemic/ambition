@@ -11599,6 +11599,11 @@ cargo check -p ambition_platformer2d_actor_monolith \
 for it — but *"nothing builds them on a normal run"* was the condition that let
 `causal` rot, and these two commands are the whole answer to it.
 
+✔ **THE WEB PERSONA IS CLEAN — run 2026-08-26, zero errors.**
+`--target wasm32-unknown-unknown --no-default-features --features web` compiles.
+⇒ so the browser build Jon ran by hand is not silently rotting between his runs,
+and the persona road holds on two of the three targets a host can reach.
+
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is
 that whoever edits a type consulted by a gated module has to know the module

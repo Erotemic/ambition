@@ -35,6 +35,10 @@ ambition_audio = { path = "../ambition_audio", default-features = false }
 # second device reader per input source. `ambition_input` is a leaf (bevy only,
 # no ambition_* deps), so this stays a clean downward edge.
 ambition_input = { path = "../ambition_input", default-features = false }
+# `ListCursor` — the wrapping/clamping rules this crate's pause menu used to
+# hand-roll. Both crates were already in every footprint closure, so this edge
+# links nothing new.
+ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_load = { path = "../ambition_load" }
 # The persisted user settings the shell's system menu edits. The shell owns only its four
 # universal audio rows and calls `AudioSettings`' canonical mutation helpers directly; the full

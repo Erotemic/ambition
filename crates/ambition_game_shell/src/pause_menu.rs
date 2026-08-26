@@ -430,14 +430,22 @@ fn drive_shell_pause_menu(
         return;
     }
 
-    if edges.previous {
-        menu.cursor = menu.cursor.saturating_sub(1);
+    // ⭐⭐ THE SHARED CURSOR, and this crate's pause menu is the FIRST NAME IN ITS
+    // OWN DOC: *"the boring but easy-to-drift rules shared by pause-menu, radio,
+    // settings, inventory"*. It hand-rolled them anyway, and they HAD drifted —
+    // `ambition_dialog`'s picker runs on `ListCursor`, whose only movement verbs
+    // WRAP, while this one CLAMPED. Two menus in one game disagreed about what
+    // the end of a list does.
+    //
+    // ⭐ AND THE MOVE CUE FOLLOWS THE MOVE NOW. `apply_directional` answers
+    // whether the selection actually changed, so pressing down on the last row
+    // is silent instead of playing a move sound for a cursor that did not move —
+    // which under the clamp was every press at either end.
+    let mut cursor = ambition_ui_nav::ListCursor::new(menu.cursor, rows.len());
+    if cursor.apply_directional(edges.previous, edges.next) {
         play(&mut sfx, ids::UI_MENU_MOVE);
     }
-    if edges.next {
-        menu.cursor = (menu.cursor + 1).min(rows.len() - 1);
-        play(&mut sfx, ids::UI_MENU_MOVE);
-    }
+    menu.cursor = cursor.selected();
 
     // LEFT/RIGHT edit the focused row's value. Only a settings row has one, so
     // this is inert everywhere else rather than being a second confirm.

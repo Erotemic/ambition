@@ -14,7 +14,10 @@ pub use drag::DragScrollState;
 #[cfg(feature = "input")]
 pub use list::apply_vertical_scroll;
 pub use list::scroll_into_view;
+// ⭐ THE PAUSE MENU IS THE FIRST NAME IN `ListCursor`'s OWN DOC and was the last
+// caller still hand-rolling the rules it owns. Exported so it can stop.
 pub use list::visible_window_start;
+pub use list::ListCursor;
 pub use pointer::{
     resolve_selectable_row_interaction, DialogChoiceSlot, MenuFocusOwner, MenuFocusState, PressArm,
     RowPointerOutcome, RowPress, ROW_TAP_SLOP_PX,

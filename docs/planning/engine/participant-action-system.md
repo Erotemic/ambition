@@ -90,9 +90,29 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   (`menu.cursor = (menu.cursor + 1).min(rows.len() - 1)`, `pause_menu.rs:438`).
   ⇒ **two menus in one game disagree about what happens at the end of a list**:
   the dialogue picker is on the shared vocabulary and the pause menu stops dead.
-  ⚠ so this is not purely a refactor — adopting the crate's own verb makes the
-  pause cursor WRAP, which is a visible behaviour change and the reason it has
-  not simply been done. State the wrap rule first, then move the code to it.
+  ✔ **DONE 2026-08-26 — the pause menu is on `ListCursor` now**, and the wrap
+  rule needed no decision: the crate's ONLY movement verbs wrap, the dialogue
+  picker beside it already wrapped, and `ListCursor`'s own doc names
+  *"pause-menu"* FIRST among the callers whose rules it exists to own. ⭐ it also
+  fixed a second thing for free — `apply_directional` answers whether the
+  selection CHANGED, so a press at either end no longer plays a move cue for a
+  cursor that did not move.
+
+  ⛔⛔ **AND THE ADOPTION EXPOSED A HOLE THAT MATTERS MORE THAN THE CHANGE. The
+  ten tests in `pause_menu::tests` never run, and do not pass.** `mod pause_menu`
+  is behind `feature = "basic_presentation"`, which is NOT default, so
+  `cargo test -p ambition_game_shell` compiles neither the module nor its tests —
+  the suite reports 45 and every one of them comes from `src/tests.rs`. Under
+  `--features basic_presentation` the module builds and **every pause test panics
+  the same way**: *"Parameter `::messages` failed validation: Message not
+  initialized"*, including tests nothing touched
+  (`confirming_the_mute_row_toggles_mute`). ⚠ that isolated build is
+  known-awkward — this crate's own `Cargo.toml` says `ui_api` drags in `winit`
+  there — so the honest statement is that these tests have NO configuration in
+  which they are known to run. ⇒ **third feature-gate hole found in one day**
+  (`ambition_demo_smash --lib` was red for days; `ambition_conversation`'s dialog
+  road runs 25 tests by default and 35 with `--features ui`). A per-crate `cargo
+  test` is evidence about a FEATURE SET, not about a crate.
   ⚠ REPEAT is deliberately elsewhere and should probably stay: it lives in
   `MenuInputState::step` in `ambition_input`, driven by the user's
   `menu_repeat_initial_delay` / `menu_repeat_interval` settings — a repeat is an

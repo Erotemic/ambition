@@ -10,8 +10,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_opt_str, put_str,
-    put_u8, put_u32, put_u64, put_vec2,
+    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
+    SnapshotCursor, SnapshotState,
 };
 use ambition_platformer2d_core::{self as ae, snapshot_pod, snapshot_unit_enum};
 
@@ -699,6 +699,11 @@ impl SnapshotState for crate::control::ActorControl {
         }
         Some(crate::control::ActorControl(ActorControlFrame {
             locomotion,
+            // ⛔ NOT ON THE WIRE, and deliberately. `damped_by_move_motion`
+            // records it on a LOCAL COPY at each integrator, after this
+            // component has been read — the stored frame is always the
+            // undamped one, so there is nothing here to restore.
+            undamped_locomotion: None,
             velocity_target,
             facing,
             melee_pressed,

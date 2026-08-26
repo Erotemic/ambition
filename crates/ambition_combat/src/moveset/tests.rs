@@ -7074,6 +7074,101 @@ fn a_move_thrown_out_of_a_turnaround_is_mirrored_the_new_way() {
     );
 }
 
+/// ⛔⛔ THE SWING'S DIRECTION WAS RECONSTRUCTED FROM MOVE-ID SPELLING.
+///
+/// `synth_swing_from_move` matched the id against a seven-entry canonical
+/// vocabulary (`attack_up`, `attack_air_back`, …) and fell through to `Forward`.
+/// No shipped fighter spells its moves that way — Pointed authors
+/// `polygon_tilt_up`, Pugnacious `polygon_brawler_air_back` — so ALL of them
+/// synthesised `Forward`, and animation, the HUD and the gizmos were told the
+/// same wrong thing. The comment above it claimed the opposite.
+///
+/// ⭐ THE DIRECTION IS CAPTURED WHERE IT IS KNOWN and rides the playback. This
+/// drives the REAL gesture chain, so it fails if the capture is dropped anywhere
+/// between the press and the read model.
+///
+/// ⛔ THE MOVE IDS HERE ARE DELIBERATELY UNSPELLABLE by the parser that was
+/// deleted: a fixture using `attack_up` would have passed before the fix.
+#[test]
+fn the_read_model_swing_takes_its_direction_from_the_gesture_not_the_move_id() {
+    let intent_after = |dir: ae::LocalAxes, grounded: bool| -> AttackIntent {
+        let moveset = MovesetContract {
+            verbs: std::collections::BTreeMap::from([
+                ("attack".to_string(), "polygon_jab".to_string()),
+                ("attack_up".to_string(), "polygon_tilt_up".to_string()),
+                (
+                    "attack_air_back".to_string(),
+                    "polygon_brawler_air_back".to_string(),
+                ),
+            ]),
+            moves: vec![
+                gesture_test_move("polygon_jab"),
+                gesture_test_move("polygon_tilt_up"),
+                gesture_test_move("polygon_brawler_air_back"),
+            ],
+        };
+        let (mut app, body) = playing_app(moveset);
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::BodyGroundState {
+                on_ground: grounded,
+                ..Default::default()
+            });
+        // ⭐ THE REAL PROJECTION, not the field. What consumers read is
+        // `BodyMelee.swing.spec.intent`, and asserting on the playback alone
+        // would pin the capture while leaving the read model free to keep
+        // spelling out the move id — which is exactly what it was doing.
+        app.world_mut()
+            .entity_mut(body)
+            .insert((MovesetMelee, BodyMelee::default()));
+        app.add_systems(Update, project_moveset_melee_to_body_melee);
+        set_frame(&mut app, body, |f| {
+            f.attack_axis = dir;
+            f.melee_pressed = true;
+        });
+        app.update();
+        assert!(
+            app.world().get::<MovePlayback>(body).is_some(),
+            "the press started no move, so the read model below is about nothing"
+        );
+        // A second tick, because the projection was added unordered and the
+        // playback has to exist before it can be projected.
+        set_frame(&mut app, body, |f| f.attack_axis = dir);
+        app.update();
+        app.world()
+            .get::<BodyMelee>(body)
+            .expect("the body carries the read-model swing")
+            .swing
+            .as_ref()
+            .expect("a melee move projects a swing")
+            .spec
+            .intent
+    };
+
+    // UP TILT, authored `polygon_tilt_up`.
+    assert_eq!(
+        intent_after(ae::LocalAxes::new(0.0, -1.0), true),
+        AttackIntent::Up,
+        "an up tilt read as {:?} — the read model is still spelling out the \
+         move id, and no shipped fighter names its moves that way",
+        intent_after(ae::LocalAxes::new(0.0, -1.0), true)
+    );
+
+    // BACK AIR, authored `polygon_brawler_air_back`. Facing right, aiming left.
+    assert_eq!(
+        intent_after(ae::LocalAxes::new(-1.0, 0.0), false),
+        AttackIntent::AirBack,
+        "a back air read as something else"
+    );
+
+    // And the plain jab is still the neutral it always was.
+    assert_eq!(
+        intent_after(ae::LocalAxes::ZERO, true),
+        AttackIntent::Neutral,
+        "a neutral jab picked up a direction nobody asked for"
+    );
+}
+
 /// AND THE PIVOT IS NOT A TILT RULE — A SMASH THROWN OUT OF A TURNAROUND ALSO
 /// COMES OUT THE NEW WAY.
 ///

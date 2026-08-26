@@ -10855,9 +10855,25 @@ available, which is what makes this worth doing properly.
    and say which in the type rather than in a fallback
 ```
 
-⚠ NOT STARTED DELIBERATELY: a wire-format change wants a fresh session, and this
-is read-model only — `MovePlayback` stays authoritative for strike geometry, and
-the pose path prefers the authored clip, so nothing is visibly broken today.
+⭐⭐ **CLOSED 2026-08-25, AND STEP 4 WAS WRONG.** `MovePlayback` carries
+`attack_intent`, resolved by `attack_intent_of(dir, posture, running)` from the
+same three facts the move was selected from; `attack_intent_from_move_id` is
+DELETED. ⛔ NO WIRE BUMP: the registration is `component-clone-resolved`, so a
+new field travels with the clone — the baseline test says so, and step 4's
+prediction of a schema bump did not survive being measured.
+
+⇒ **STEP 5 ANSWERED IN THE TYPE, not a fallback.** The field is
+`AttackIntent`, not `Option<AttackIntent>`: a move no directional gesture
+started (a chain successor, a held weapon's action) reports `Forward`, which is
+exactly what the flat swing published for one. Saying it once at construction
+keeps the fallback out of every consumer.
+
+⛔⛔ **AND THE FIRST REGRESSION PINNED THE WRONG HALF.** It read the playback
+field, so restoring the string parser in `synth_swing_from_move` left it GREEN —
+the capture was proven and the read model was free to keep spelling out ids. It
+runs `project_moveset_melee_to_body_melee` and asserts on
+`BodyMelee.swing.spec.intent` now. Same shape as the day's other lesson: a
+hand-listed chain pins the FUNCTION, not the WIRING.
 
 ▢ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
 reviewer found no currently-broken Author/Officer cancel reference, so do not
@@ -10938,6 +10954,33 @@ SHIPPED BODY AUTHORS.** `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the only
 `ambition_content` names the field. So the two bounds are standing in for a
 DORMANT mechanic. Waking it is the real fix and it re-tunes knockback for the
 whole cast — **that** is the decision #20 is blocked on, not a number.
+
+⭐⭐ **CLOSED — #28, THE PIVOT MIRRORED THE MOVE THE OLD WAY.**
+`resolve_attack_gestures` resolves the attack DIRECTION against `-kin.facing`
+while the body is turning — that is what makes a pivot grab need no move of its
+own — but the body still HOLDS the old facing and `start_move` snapshots it into
+the playback, which is what every hit volume is mirrored by and every
+`start_impulse` multiplied by. The right move came out pointing backwards. ⛔ THE
+EXISTING ARM COULD NOT SEE IT: it asserts which move STARTED, which was always
+right. Committed where the move starts, so a refused press turns nobody.
+
+⭐⭐ **CLOSED — #19, A ROOTED MOVE HANDED BACK A FREE DASH.** The initial dash
+remembers direction by comparing this tick's stick with last tick's; a
+`motion_scale: 0.0` window scales the stick to zero, so a player who simply HELD
+a direction through an attack was recorded as neutral for its whole duration and
+the frame it ended read as *"pressed from nothing"* — the exact edge that arms a
+full-speed dash. `InputState` carries `undamped_axes` now: the dash still ARMS on
+what the body may act on (a rooted body cannot dash out of its own recovery) and
+REMEMBERS what the player was holding. Recorded in `damped_by_move_motion`, the
+one function that knows the value is about to be lost, so a third road that
+forgets carries `None` — which is correct. Not on the wire.
+
+⇒ **THE RULE THE LAST FOUR FIXES SHARE, and it is worth more than any of them:**
+
+```text
+proposing an action must not mutate simulation state
+forbidding an action must not erase the state that reads the next input
+```
 
 ◐ **STATUS ADJUSTMENTS GPT ASKED FOR, recorded rather than reopened:**
 

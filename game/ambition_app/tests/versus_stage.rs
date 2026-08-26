@@ -1035,8 +1035,8 @@ fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_platformer2d::characters::control::{ScriptedControl};
-use ambition_platformer2d::characters::control::{ActorControl};
+    use ambition_platformer2d::characters::control::ActorControl;
+    use ambition_platformer2d::characters::control::ScriptedControl;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2710,5 +2710,54 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
         "the disagreement was stamped as agreed. The stamp is the difference \
          between the two arms: correcting it claims the session and the roster \
          describe the same match, and here they do not"
+    );
+}
+
+/// A CEILING NARROWS A KIT; IT CANNOT INVENT ONE.
+///
+/// ⭐⭐ THE DUEL DECLARES `MatchAbilities::at_most(VERSUS_FIGHTER_KIT)`, which
+/// grants nothing and permits that kit — `(authored ∪ NONE) ∩ kit`. That is the
+/// right operator and it has a silent edge: a character that authored NO
+/// abilities intersects to `AbilitySet::NONE` and arrives on the stage unable to
+/// move, attack or jump. Nothing refuses it, because "this fighter may do
+/// nothing" is a legal thing for a ceiling to conclude.
+///
+/// ⛔ SO THE GUARD IS ON THE CAST, NOT ON THE OPERATOR. Both duellists dress
+/// themselves (`with_abilities(VERSUS_FIGHTER_KIT)`), and this asserts that the
+/// day somebody seats a third character here it is dressed too — which is the
+/// only moment the edge above is reachable.
+#[test]
+fn every_fighter_the_duel_can_seat_authors_the_abilities_its_ceiling_narrows() {
+    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    // The registry is filled by a `Startup` system, so a build that has never
+    // updated has no registered characters at all.
+    app.update();
+
+    let roster = ambition_app::app::versus::versus_roster(2);
+    assert!(
+        roster.participants.len() >= 2,
+        "the duel seated {} fighters, so this census cannot fail",
+        roster.participants.len()
+    );
+
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+    let undressed: Vec<String> = roster
+        .participants
+        .iter()
+        .filter(|seat| {
+            registry
+                .get(seat.character.as_str())
+                .is_none_or(|character| character.abilities.is_none())
+        })
+        .map(|seat| seat.character.as_str().to_string())
+        .collect();
+    assert!(
+        undressed.is_empty(),
+        "these duel fighters author no abilities: {undressed:?}. The stage's \
+         ceiling is `at_most`, which GRANTS nothing — so an undressed fighter \
+         intersects to `AbilitySet::NONE` and stands on the stage unable to \
+         move, jump or attack, with nothing anywhere refusing it"
     );
 }

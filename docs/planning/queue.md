@@ -4224,11 +4224,36 @@ the reader, not the code.
   (`VERSUS_FIGHTER_KIT`, `at_most(…)` now referencing that constant), then
   `apply` reads `authored.unwrap_or(AbilitySet::NONE)`. `levelled` is
   untouched, so smash's fourteen fighters are byte-identical.
-  ▢ **still open**: a ceiling must NARROW the body's own kit rather than
-  REPLACE it, which `apply` cannot do because it never receives that kit —
-  that signature is the real remaining work. Then guard that no seated
-  character relies on the bridge, so the next unauthored fighter fails
-  loudly.
+  ✔✔ **CLOSED 2026-08-26, and BOTH halves of this paragraph were stale.**
+  Re-read at HEAD before working it.
+
+  (1) *"`apply` cannot do it because it never receives that kit"* — it does:
+  `MatchAbilities::apply(self, authored: Option<AbilitySet>)`, and the body is
+  `authored.unwrap_or(NONE).union(granted).intersect(permitted)`. The production
+  caller states the same equation in its own doc — `effective = (authored ∪
+  granted) ∩ permitted` (`prepared_match::effective_abilities`). The safe order
+  this paragraph prescribed also happened: both duellists carry
+  `.with_abilities(VERSUS_FIGHTER_KIT)` and `versus.rs` declares
+  `at_most(VERSUS_FIGHTER_KIT)` against that same constant.
+
+  (2) *"guard that no seated character relies on the bridge"* — **the bridge is
+  gone and the ask has REVERSED.** `smash_fighter_kit()` has no definition left
+  in the tree; the adaptation is now `roster_seeded` folding
+  `smash_seating_melee()` into the seat's `ActionSet` at seating time, and the
+  demo states that as a LEGITIMATE layer responsibility rather than scaffolding:
+  most of Ambition's cast authors `default_action_set: "peaceful"` on purpose,
+  and seating one in an arena means adapting it. ⇒ relying on it is no longer a
+  smell to fail loudly on.
+
+  ⚠ **BUT THE OPERATOR HAS A SILENT EDGE, AND THAT IS WHAT GOT GUARDED
+  INSTEAD.** `at_most` GRANTS NOTHING, so a character that authored no abilities
+  intersects to `AbilitySet::NONE` and arrives on the versus stage unable to
+  move, jump or attack — and nothing refuses it, because *"this fighter may do
+  nothing"* is a legal conclusion for a ceiling. The guard therefore sits on the
+  CAST, not the operator:
+  `every_fighter_the_duel_can_seat_authors_the_abilities_its_ceiling_narrows`
+  (`versus_stage.rs`), with a premise guard on the seat count. Poisoned by
+  inverting the predicate — it names both duellists.
 
 - ✔ **D152 — CLOSED 2026-08-17. Empowerment expiry was a per-game scheduling
   footgun** — a game had to install `run_empowerments` itself or a

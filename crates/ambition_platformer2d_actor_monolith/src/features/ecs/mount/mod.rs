@@ -10,8 +10,13 @@
 use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, Res, With, Without};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
-use super::CenteredAabb;
 use ambition_platformer2d_core as ae;
+// ⛔ NAMED FROM ITS REAL OWNER, not through this crate's re-export chain. It was
+// `use super::CenteredAabb`, which made a monolith module look like the source of
+// a geometry type that `ambition_geometry` defines and `_core` re-exports — and
+// this module already imports `_core`. Same rule the `MountDied` note above
+// states: spell whose type it is.
+use ae::CenteredAabb;
 
 // `MountDied` — the `(dead-mount, still-mounted)` dissolution
 // [`enforce_mount_rider_link`] announces — lives in

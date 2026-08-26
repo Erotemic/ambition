@@ -5253,9 +5253,13 @@ ecs/damage_apply  2253      ecs/aggression    646
 whose dependence on the rest of the monolith is countable on one hand:
 
 ```text
-what mount IMPORTS from the monolith    TWO items — `CenteredAabb` (a geometry
-                                        re-export) and `brain_builders::
-                                        dismounted_rider_brain_and_action_set`
+what mount IMPORTS from the monolith    ONE item, after 2026-08-26 —
+                                        `brain_builders::dismounted_rider_
+                                        brain_and_action_set`. `CenteredAabb`
+                                        was reached through this crate's
+                                        re-export chain and is now named from
+                                        its real owner (`ambition_geometry` via
+                                        `_core`, which mount already imports)
 `crate::` references inside mount        4
 module-path references TO mount          3 (2 in `ecs/mod.rs`, 1 in a test)
 everything else it uses                  already in OTHER crates —

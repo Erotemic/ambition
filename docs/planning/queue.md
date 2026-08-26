@@ -10855,9 +10855,25 @@ available, which is what makes this worth doing properly.
    and say which in the type rather than in a fallback
 ```
 
-⚠ NOT STARTED DELIBERATELY: a wire-format change wants a fresh session, and this
-is read-model only — `MovePlayback` stays authoritative for strike geometry, and
-the pose path prefers the authored clip, so nothing is visibly broken today.
+⭐⭐ **CLOSED 2026-08-25, AND STEP 4 WAS WRONG.** `MovePlayback` carries
+`attack_intent`, resolved by `attack_intent_of(dir, posture, running)` from the
+same three facts the move was selected from; `attack_intent_from_move_id` is
+DELETED. ⛔ NO WIRE BUMP: the registration is `component-clone-resolved`, so a
+new field travels with the clone — the baseline test says so, and step 4's
+prediction of a schema bump did not survive being measured.
+
+⇒ **STEP 5 ANSWERED IN THE TYPE, not a fallback.** The field is
+`AttackIntent`, not `Option<AttackIntent>`: a move no directional gesture
+started (a chain successor, a held weapon's action) reports `Forward`, which is
+exactly what the flat swing published for one. Saying it once at construction
+keeps the fallback out of every consumer.
+
+⛔⛔ **AND THE FIRST REGRESSION PINNED THE WRONG HALF.** It read the playback
+field, so restoring the string parser in `synth_swing_from_move` left it GREEN —
+the capture was proven and the read model was free to keep spelling out ids. It
+runs `project_moveset_melee_to_body_melee` and asserts on
+`BodyMelee.swing.spec.intent` now. Same shape as the day's other lesson: a
+hand-listed chain pins the FUNCTION, not the WIRING.
 
 ▢ **(36) COMPLETED: it is a SCHEMA OWNERSHIP problem, not a broken fighter.** The
 reviewer found no currently-broken Author/Officer cancel reference, so do not

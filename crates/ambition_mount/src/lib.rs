@@ -527,6 +527,12 @@ pub fn board_reserved_mounts(
     arrivals.sort_by_key(|(mount, _)| *mount);
     for (mount, reservation) in arrivals {
         commands.entity(mount).remove::<MountReservedFor>();
+        bevy::log::info!(
+            target: "ambition::mount",
+            "reservation reached: mount={mount:?} rider={:?} lease={}s",
+            reservation.rider,
+            reservation.lease_seconds,
+        );
         commands.queue(move |world: &mut bevy::prelude::World| {
             if board(world, reservation.rider, mount) {
                 // ⭐ THE LEASE IS PART OF THE BOARD, never a separate write: a
@@ -536,7 +542,33 @@ pub fn board_reserved_mounts(
                 world.entity_mut(reservation.rider).insert(RideLease {
                     remaining: reservation.lease_seconds,
                 });
+                bevy::log::info!(
+                    target: "ambition::mount",
+                    "boarded: mount={mount:?} rider={:?}",
+                    reservation.rider,
+                );
             } else {
+                // ⛔⛔ THE REFUSAL SAYS WHY, AND IT USED TO SAY NOTHING. Splitting
+                // the summon from the board moved this off the construction road,
+                // which had a `warn!` naming `CanPilot` as the usual cause — and
+                // the replacement was silent, so a player who watched a shark
+                // appear and nobody get on had no evidence to hand back. That is
+                // the exact report this line exists to answer.
+                let class = world.get::<Mountable>(mount).map(|m| m.class.clone());
+                let can = world
+                    .get::<CanPilot>(reservation.rider)
+                    .map(|c| format!("{c:?}"));
+                let already_riding = world.get::<RidingOn>(reservation.rider).is_some();
+                let seat_taken = world
+                    .get::<MountSlot>(mount)
+                    .is_some_and(|slot| slot.rider.is_some());
+                bevy::log::warn!(
+                    target: "ambition::mount",
+                    "board REFUSED: mount={mount:?} rider={:?} mount_class={class:?} \
+                     rider_can_pilot={can:?} rider_already_riding={already_riding} \
+                     saddle_taken={seat_taken}",
+                    reservation.rider,
+                );
                 world.write_message(RideRefused {
                     rider: reservation.rider,
                     mount,
@@ -722,6 +754,12 @@ pub fn apply_dismount_requests(
                 slot.rider = None;
             }
         }
+        bevy::log::info!(
+            target: "ambition::mount",
+            "dismounted: rider={:?} mount={mount:?} reason={:?}",
+            request.rider,
+            request.reason,
+        );
         left.write(RiderDismounted {
             rider: request.rider,
             mount,

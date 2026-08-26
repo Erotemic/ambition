@@ -2233,6 +2233,10 @@ pub fn apply_summon_effects(
             };
             match mount {
                 Some(mount) => {
+                    bevy::log::info!(
+                        target: "ambition::mount",
+                        "summon built, reserved for its summoner: mount={mount:?} rider={rider:?}",
+                    );
                     world
                         .entity_mut(mount)
                         .insert(ambition_mount::MountReservedFor {

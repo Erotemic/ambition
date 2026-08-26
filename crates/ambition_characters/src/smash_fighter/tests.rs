@@ -270,3 +270,65 @@ fn one_effect<'a>(
     );
     first
 }
+
+/// A FIGHTER STATES ITS DIFFERENCES, and everything it does not state it keeps.
+///
+/// ⭐ The patch shape is the whole point: a heavy authors a gravity and a fall
+/// speed and says nothing about its jump, so a later change to the shared
+/// numbers still reaches it. A full body per fighter would freeze every author's
+/// copy of them.
+#[test]
+fn an_authored_fighter_body_replaces_only_what_it_names() {
+    let base = ambition_platformer2d_core::DEFAULT_TUNING;
+    let heavy = super::FighterBodyAuthoring {
+        gravity: Some(3100.0),
+        max_fall_speed: Some(2400.0),
+        ..super::FighterBodyAuthoring::default()
+    };
+    let body = heavy.over(base);
+    assert_eq!(body.gravity, 3100.0);
+    assert_eq!(body.max_fall_speed, 2400.0);
+    assert_eq!(
+        (body.jump_speed, body.run_accel, body.max_run_speed),
+        (base.jump_speed, base.run_accel, base.max_run_speed),
+        "a body that named a gravity and a fall speed also moved a number it \
+         never mentioned, so a fighter cannot state one difference without \
+         freezing the rest of the shared body"
+    );
+}
+
+/// ⛔ A `body:` THAT STATES NOTHING IS A DECLARATION THAT MEANS NOTHING, and it
+/// is worth a diagnostic rather than a silent no-op: an author who wrote the key
+/// meant to say something.
+#[test]
+fn a_fighter_body_must_state_something_and_must_state_it_positive() {
+    let mut facet = facet();
+    facet.body = Some(super::FighterBodyAuthoring::default());
+    let problems = facet.problems();
+    assert!(
+        problems.iter().any(|p| p.contains("states no number")),
+        "an empty authored body passed validation, so a fighter file can \
+         declare a body and get none: {problems:?}"
+    );
+
+    // ⭐ AND THE ARMS STRADDLE THE RULE. Every field here is a magnitude the
+    // kernel multiplies by, so zero is not a slow fighter — it is one that
+    // cannot move.
+    facet.body = Some(super::FighterBodyAuthoring {
+        max_run_speed: Some(0.0),
+        ..super::FighterBodyAuthoring::default()
+    });
+    assert!(
+        facet.problems().iter().any(|p| p.contains("max_run_speed")),
+        "a gait of zero passed validation"
+    );
+    facet.body = Some(super::FighterBodyAuthoring {
+        max_run_speed: Some(240.0),
+        ..super::FighterBodyAuthoring::default()
+    });
+    assert!(
+        facet.problems().is_empty(),
+        "an ordinary authored gait was refused: {:?}",
+        facet.problems()
+    );
+}

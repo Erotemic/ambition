@@ -56,6 +56,30 @@ pub fn fighter_facet(character: &str) -> Option<&'static SmashFighterFacet> {
     lowered_smash_fighters(prepared())?.get(character)
 }
 
+/// The BODY a character's authored facet states for its FIGHTER self, layered
+/// over the body every platform fighter on this stage starts from.
+///
+/// ⭐⭐ THIS IS THE OTHER HALF OF `MatchParticipant::body`. A catalog row's feel
+/// is that character's feel everywhere it appears — a hub, a room, a stage — so
+/// a character that walks around a hub and also fights states its fighter body
+/// in its own package instead, and the roster hands it to the seat.
+///
+/// `None` for a character this pack authors no facet for, and for one whose
+/// facet states no body: both mean *keep whatever body you already had*.
+pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_core::MovementTuning> {
+    fighter_facet(character)?
+        .body
+        .as_ref()
+        // ⛔ THE BASE IS THE PLAYER-GRADE BODY, NOT THE ACTOR BASELINE, and the
+        // difference is the whole reason this road exists: a seat that reaches
+        // preparation with nothing composes over the WANDERING-ENEMY body
+        // (`BodyMovementTuning::BASELINE` — an eighth of the player's ground
+        // acceleration). A fighter that has bothered to author a body is
+        // stating its DIFFERENCES from a fighter, so the differences layer onto
+        // a fighter.
+        .map(|body| body.over(ambition_platformer2d::engine_core::DEFAULT_TUNING))
+}
+
 /// The prepared capture kit for a character this pack authors.
 ///
 /// # Panics

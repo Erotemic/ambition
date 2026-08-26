@@ -3188,12 +3188,60 @@ which seats ONE character TWICE in one match — one seat given a stage body, on
 not — because the claim is a precedence and a single seat cannot show one.
 Poisoned by dropping the `.or`: it reads `[1111, 1111]` and reddens.
 
-▢ **WHAT IS LEFT IS NOW ORDINARY CONTENT WORK, in two steps.** (1) give
-`SmashFighterFacet` a `body` and lower it; (2) have the smash demo fill
-`MatchParticipant::body` from the facet when it builds a roster. Then the census
-test's ratchet falls one authored fighter at a time. ⚠ nothing here decides what
-the numbers ARE — that is per-fighter authoring, and the ratchet is what keeps it
-honest.
+✔ **AND THE WHOLE ROAD IS LIVE, same day.** (1) `SmashFighterFacet.body` — an
+optional PATCH, so a heavy authors a gravity and a fall speed and says nothing
+about its jump, and a later change to the shared numbers still reaches it.
+Validation refuses a `body:` that states no number (an author who wrote the key
+meant something) and refuses a zero or negative magnitude (every field is
+something the kernel multiplies by, so zero is a body that cannot move rather
+than a slow one). (2) `smash_pack::fighter_body` lowers it and `smash_roster`
+hands it to the seat.
+
+```text
+character package   smash_fighter.ron: body: (gravity: .., max_fall_speed: ..)
+smash_pack          fighter_body(id) = body.over(DEFAULT_TUNING)
+smash_roster        participant.with_body(..)
+preparation         body_over(participant.body.or(row), built)
+```
+
+⛔ **THE BASE IS THE PLAYER-GRADE BODY, DELIBERATELY.** A fighter that bothers to
+author a body is stating its DIFFERENCES from a fighter, so they layer onto
+`DEFAULT_TUNING` and not onto the actor baseline the unauthored seats fall to.
+
+▢ **WHAT IS LEFT IS PURE CONTENT: the numbers.** No fighter authors a `body:`
+yet — including George, whose demo still hands him `DEFAULT_TUNING` on a
+hardcoded line. ⚠ **and that is on purpose rather than unfinished**: restating
+`DEFAULT_TUNING`'s values in his facet would make two constants with one value
+and no way to attribute a later divergence, and giving him a DIFFERENT body is a
+feel change his repertoire probes exist to measure. ⇒ the first authored body
+should be a session that runs those probes before and after. The census ratchet
+(`a_grid_fighter_that_authors_no_feel_...`, 17) is what makes the progress
+visible.
+
+⛔⛔ **AND TWO STALE FIXTURES SURFACED ON THE WAY, RED SINCE THE WINNER-CARD FIX
+AND SEEN BY NOTHING THAT WAS BEING RUN.** `announce_the_winner` stopped reading
+`StocksMatchDecided` when a SPECULATIVE frame was caught writing it — a
+rolled-back verdict left NO CONTEST on screen over a match still being fought —
+and moved to the `StocksMatchSettled` latch, which rewinds. Its two unit fixtures
+kept writing the message, so both asserted against a system that had not run and
+both read `None`. Repaired by modelling the production construction (a latch
+stamped against the ACTIVE match, no `ConfirmedFrameBoundary`, which is the eager
+host) rather than by weakening the claim.
+
+⚠ **the reason nobody saw it is worth keeping**: the standing gate is
+`cargo check -p ambition_app --all-targets` plus `cargo test -p
+ambition_demo_smash_app`, and neither builds `-p ambition_demo_smash --lib`. A
+demo's APP target and its LIB target are different test binaries; moving a
+reader's authority reddens the fixtures next to the reader, which live in the
+lib.
+
+⛔ **AND THE CENSUS HAD TO LEARN THE SECOND AUTHORITY THE SAME DAY IT GAINED
+ONE.** Its first version asked `PreparedCharacter::movement_tuning.is_some()` —
+the definition. A facet body reaches the SEAT and never touches the definition,
+so the ratchet would have sat at 17 while the work was being done and reported
+success only when somebody edited a catalog row, which is the road this seam
+exists to avoid. It asks both now. ⚠ an instrument built the day before its own
+fix will ask the pre-fix question; re-read it after the seam lands.
 
 ▢ **AND: smash-correct dodging should eventually come off the SHIELD button,
 not the burst button.** In the genre a dodge is shield + direction. Recorded,
@@ -3294,6 +3342,33 @@ baseline), and `ShieldTuning` is encoded in `motion_codec`, which makes it a
 DECLARED wire-format change under the policy Jon approved 2026-08-23. That is
 the honest price: one input rule, one ruleset knob, one schema bump — not the
 one-liner the table reads as.
+
+✔✔ **AND IT WAS PAID — ROW ONE IS DONE, re-measured at HEAD 2026-08-26 and this
+paragraph was describing work that had already landed.** Every piece the price
+names is in the tree:
+
+```text
+ShieldTuning::air_guard                    tuning.rs:1065
+  BASELINE                     true        tuning.rs:1143   (Ambition's bubble)
+  PLATFORM_FIGHTER             false       tuning.rs:1169
+resolve_shield(.., may_guard_here)         abilities.rs:626
+  fed as on_ground || air_guard            abilities.rs:691
+the air-dodge road reads it                abilities.rs:378
+encoded                                    motion_codec.rs:429 / 547
+F3 inspector                               editable.rs:229
+```
+
+⭐ **and the comment beside the parameter records a defect worth keeping**: the
+gate read `may_guard_here || *active` at first, on the argument that a body which
+left the ground guarding "has not made a new decision" — but under
+`air_guard: false` a held Shield ALSO fills the air-dodge buffer the moment the
+body is airborne, so walking off a ledge with the guard up produced an active
+ground shield and an air dodge in the same tick. ⇒ leaving the ground drops the
+guard, which is what makes jumping out of shield a commitment.
+
+⇒ **so what is left of this whole item is ROW FIVE ONLY**, and that one is parked
+above with a stated trigger (a fighter observed evading when it meant to dash).
+Do not re-price rows one to four.
 
 ✔✔ **SHIPPED. The revert note that stood here is WITHDRAWN — the rule is live.**
 `ShieldTuning::air_guard` (`true` by default so Ambition's deployable bubble is

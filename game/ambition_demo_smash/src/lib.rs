@@ -94,6 +94,20 @@ where
                 // that exercises the loop, and free-for-all is it.
                 .on_team(format!("seat {}", index + 1))
         })
+        // ⭐⭐ THE FIGHTER'S OWN BODY, where its character package authored one.
+        //
+        // A seat that says nothing here composes the stage's six numbers over
+        // the WANDERING-ENEMY baseline, because that is what an unauthored actor
+        // config carries — measured, and it is an eighth of the player's ground
+        // acceleration. A character states its fighter body in its own
+        // `smash_fighter` facet, because a catalog row would state it for the
+        // same character standing in a hub as well.
+        .map(
+            |participant| match crate::smash_pack::fighter_body(participant.character.as_str()) {
+                Some(body) => participant.with_body(body),
+                None => participant,
+            },
+        )
         .collect();
     apply_smash_match_rules(&mut roster);
     roster.published_by(SMASH_EXPERIENCE)
@@ -3715,20 +3729,34 @@ mod tests {
         );
     }
 
-    /// Run `announce_the_winner` over one decision and hand back the announce
-    /// slot's text, or `None` if nothing was written to it.
+    /// Run `announce_the_winner` over one settled match and hand back the
+    /// announce slot's text, or `None` if nothing was written to it.
+    ///
+    /// ⛔⛔ THIS FIXTURE USED TO WRITE `StocksMatchDecided` AND IT MEASURED
+    /// NOTHING. The card stopped reading that message when a speculative frame
+    /// was found writing it — a rolled-back verdict left NO CONTEST on screen
+    /// over a match still being fought — and the reader moved to the
+    /// `StocksMatchSettled` latch, which rewinds. The fixture kept driving the
+    /// message, so both arms asserted against a system that had not run.
+    ///
+    /// ⭐ the repair is to model the PRODUCTION construction: a settled latch
+    /// stamped against the ACTIVE match, which is what makes the instance
+    /// comparison inside the reader answer at all. No `ConfirmedFrameBoundary`
+    /// is inserted on purpose — its own doc says an absent boundary confirms
+    /// everything, which is the eager host.
     fn announced_outcome(outcome: ambition_platformer2d::actor::MatchVerdict) -> Option<String> {
         use bevy::prelude::*;
 
         let mut app = App::new();
-        app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
         app.init_resource::<ambition_platformer2d::presentation::HudReadouts>();
+        let active =
+            ambition_platformer2d::actors::character_runtime::ActiveMatch::for_test(2, None);
+        let mut settled =
+            ambition_platformer2d::actors::features::stocks_match::StocksMatchSettled::default();
+        settled.settle(&active, outcome);
+        app.insert_resource(active);
+        app.insert_resource(settled);
         app.add_systems(Update, announce_the_winner);
-        app.update();
-
-        app.world_mut()
-            .resource_mut::<Messages<ambition_platformer2d::actor::StocksMatchDecided>>()
-            .write(ambition_platformer2d::actor::StocksMatchDecided { outcome });
         app.update();
 
         app.world()

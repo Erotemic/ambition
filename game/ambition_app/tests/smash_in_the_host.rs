@@ -1445,10 +1445,18 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
         let roster = app
             .world()
             .resource::<ambition_demo_smash::select::SmashRoster>();
+        // ⭐⭐ TWO AUTHORITIES, AND THE CENSUS MUST ASK BOTH OR IT CANNOT
+        // MEASURE ITS OWN FIX. A character states its body on its catalog row
+        // (which is its feel everywhere it appears) OR, for its FIGHTER self
+        // only, in its `smash_fighter` facet — which reaches the seat as
+        // `MatchParticipant::body` and never touches the definition. Asking only
+        // the definition would leave this ratchet stuck at 17 while the work
+        // was being done.
         roster.ids().map(str::to_string).partition(|id| {
             registry
                 .get(id)
                 .is_some_and(|character| character.movement_tuning.is_some())
+                || ambition_demo_smash::smash_pack::fighter_body(id).is_some()
         })
     };
     assert!(

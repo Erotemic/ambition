@@ -619,11 +619,24 @@ fn process_launcher_commands(
     }
     for command in commands.read() {
         match command {
-            ShellLauncherCommand::Previous => {
-                state.selected = state.selected.checked_sub(1).unwrap_or(selectable - 1);
-            }
-            ShellLauncherCommand::Next => {
-                state.selected = (state.selected + 1) % selectable;
+            // ⛔ THE SECOND COPY OF THE SAME ARITHMETIC. This wrote
+            // `checked_sub(1).unwrap_or(len - 1)` and `(selected + 1) % len`
+            // by hand, which is exactly `ListCursor`'s wrap — the pause menu
+            // hand-rolled its own answer to the same question and DISAGREED
+            // (it clamped), which is why that crate exists. Two menus agreeing
+            // by coincidence is one edit away from two menus disagreeing.
+            //
+            // ⭐ AND IT CLAMPS FIRST NOW, which the old `Previous` did not: a
+            // `selected` left over from a longer roster (an experience became
+            // unavailable) walked from a stale index. `LaunchSelected` below
+            // already defended against exactly that with `.min(selectable - 1)`.
+            ShellLauncherCommand::Previous | ShellLauncherCommand::Next => {
+                let mut cursor = ambition_ui_nav::ListCursor::new(state.selected, selectable);
+                cursor.apply_directional(
+                    matches!(command, ShellLauncherCommand::Previous),
+                    matches!(command, ShellLauncherCommand::Next),
+                );
+                state.selected = cursor.selected();
             }
             ShellLauncherCommand::LaunchSelected => {
                 let selected = state.selected.min(selectable - 1);

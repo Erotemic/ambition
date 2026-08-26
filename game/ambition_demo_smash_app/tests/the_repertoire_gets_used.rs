@@ -200,6 +200,16 @@ impl MatchReport {
 const STOCKS_THAT_OUTLAST_THE_WINDOW: u32 = 25;
 
 fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
+    run_a_match_at(characters, ticks, &[5, 5])
+}
+
+/// The same match at a NAMED PAIR OF RUNGS.
+///
+/// ⭐ the level was a literal `&[5, 5]` in the body below, and line-for-line the
+/// only thing that had to change to sweep it was this parameter — which is what
+/// `bin/ladder_probe`'s own note means by *"`participant ⊕ level`, and sweeping
+/// it is the whole point"*.
+fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchReport {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -208,7 +218,7 @@ fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     // that seats every slot as a CPU; the sibling test in `the_stage_kills` has
     // the scar from using the one that makes seat 0 a human with no controller,
     // which measures one fighter pacing around a statue.
-    let mut roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
+    let mut roster = ambition_demo_smash::smash_roster_at_levels(characters, levels);
     // ⛔⛔ THE WINDOW MUST BE A WINDOW OF FIGHTING, not of wall clock. These tests
     // are a PATIENCE BUDGET for a CPU to find itself offstage and throw its
     // authored route home; a match that ENDS inside the budget spends the rest of
@@ -1025,4 +1035,57 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
          repeats while the button is down — zero laps means the loop is a \
          decoration on a move that plays once."
     );
+}
+
+/// PROBE: does a HIGHER RUNG REACH FOR MORE OF ITS KIT? Print-only; run with
+/// `--ignored`.
+///
+/// ⭐⭐ THIS IS D244'S DEFINITION-OF-DONE INSTRUMENT. The decision rig
+/// (`brain::fighter::evaluation`) reports `distinct_frames` flat at 19–21 across
+/// every rung — a level 9 fighter pressing the same repertoire as a level 1,
+/// only faster — but that rig never steps a world. This one does: same match,
+/// same character, one number moved, counting the DISTINCT MOVES a seat actually
+/// started.
+///
+/// ⚠ only the REGISTERED rungs (1, 3, 5, 6, 9). The others fall back to a
+/// generic profile that is not a ladder rung, which `ladder_rig`'s header calls
+/// *"invalid for this measurement"*.
+///
+/// ⛔⛔ **THE WINDOW IS 2700 AND THAT IS NOT A ROUND NUMBER — AT 900 THIS PROBE
+/// REPORTS THE OPPOSITE CONCLUSION.** Measured 2026-08-26, same seed, same
+/// character, only the tick budget moved:
+///
+/// ```text
+///          900 ticks        2700 ticks
+/// L1        9 distinct      11 distinct
+/// L9        6 distinct      17 distinct   ← including grabs, pummels, throws
+/// ```
+///
+/// ⇒ at the short window the top rung looked NARROWER than the bottom, which
+/// would have been reported as "difficulty makes a CPU worse". A fast rung needs
+/// LONGER to show its kit, not shorter — it spends more of a short window
+/// committed. **Do not shorten this budget to save seconds; the number it
+/// produces is a function of it.**
+#[test]
+#[ignore = "PROBE, print-only: distinct moves started per ladder rung"]
+fn probe_repertoire_by_rung() {
+    const WINDOW: usize = 2700;
+    for level in [1u8, 3, 5, 6, 9] {
+        let ledger = run_a_match_at(
+            [
+                ambition_demo_smash::SMASH_GEORGE_BOOUL,
+                ambition_demo_smash::SMASH_GEORGE_BOOUL,
+            ],
+            WINDOW,
+            &[level, level],
+        )
+        .ledger;
+        let seen = ledger.every_move_seen();
+        println!(
+            "L{level}: busiest seat {} distinct, {} across both seats — {:?}",
+            ledger.distinct_for_the_busiest_seat(),
+            seen.len(),
+            seen.keys().collect::<Vec<_>>()
+        );
+    }
 }

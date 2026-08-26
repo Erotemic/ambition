@@ -11643,9 +11643,31 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
-- ▢ **D244 — THE DIFFICULTY LADDER IS A TEMPO KNOB, AND ITS CAP FORBIDS NOTHING.
-  (promoted from the intake 2026-08-26, with the measurement that gives it a
-  target)**
+- ◐ **D244 — THE LADDER'S CAP FORBIDS NOTHING; ITS REPERTOIRE DOES RISE, AND THE
+  FIRST VERSION OF THIS ROW SAID OTHERWISE. (promoted from the intake 2026-08-26,
+  corrected within the hour by the measurement that would falsify it)**
+
+⛔⛔ **READ THIS FIRST: THE HEADLINE I OPENED THIS ROW WITH WAS AN ARTIFACT OF A
+WINDOW LENGTH.** I measured `distinct_frames` flat across every rung in the
+DECISION rig, concluded *"difficulty is a tempo knob and nothing else"*, and then
+measured the half that would make it false — the same sweep in a REAL MATCH:
+
+```text
+                       900-tick window      2700-tick window
+L1                      9 distinct moves     11
+L9                      6 distinct moves     17  ← grabs, pummels, throws,
+                                                   smashes L1 never touches
+```
+
+⇒ **at the short window the top rung looked NARROWER than the bottom**, and that
+would have shipped as *"difficulty makes a CPU worse"*. A fast rung needs LONGER
+to show its kit, because it spends more of a short window committed. ⭐ the whole
+sweep at 2700, registered rungs only: **L1 11, L3 15, L5 17, L6 14, L9 17** — the
+ladder broadens, roughly monotonically, with a dip at L6.
+
+⇒ **and that also re-reads the decision rig's flat `distinct_frames`: it is a
+property of a fixture that never steps a world** (a static `WorldView` and an
+expected `Situation`), not a fact about the ladder.
 
 ⭐ **PROMOTED BECAUSE IT STOPPED BEING VAGUE.** `tracks.md`'s *"calibrate the
 difficulty ladder through measured survival/damage/recovery evidence"* had no
@@ -11661,17 +11683,19 @@ L6      34.0 /     308  = 11.0%                     21
 L9      46.0 /     420  = 11.0%                     20
 ```
 
-⛔ **TWO FINDINGS, and the second is the row.** (1) the APM cap never binds and is
-uniformly ~9x the observed rate, so it is a derived number rather than a limit —
-moving one would change nothing. (2) **`distinct_frames` is FLAT.** A level 9
-fighter uses the same ~20 control frames as a level 1, only faster: difficulty is
-cadence and nothing else.
+✔ **WHAT SURVIVES: the APM cap never binds.** Every registered rung runs at
+10.6–11.0% of its own cap, uniformly, so the cap is a derived ~9x multiple of the
+rate rather than a limit — moving one would change nothing. That is measured in
+the decision rig and does not depend on any window.
 
-⭐ **THE TARGET IS GENRE RESEARCH, NOT A MAINTAINER DECISION.** A high-level CPU
-in this genre uses MORE OF ITS KIT and reads better — spacing, shield pressure,
-edgeguards, punishes it never attempts low. ⇒ **the definition of done is that
-`distinct_frames` RISES with level**, and the instrument that would show it
-already exists and already runs.
+⭐ **SO THE REMAINING QUESTION IS NARROWER THAN THE ROW OPENED WITH**: the ladder
+already broadens, so *"calibrate"* is no longer *"make difficulty mean something"*
+— it is whether the broadening is the RIGHT shape (L6 dips below L5 and L3), and
+whether a broader rung actually WINS more, which only `ladder_rig` can answer.
+⇒ the instrument for the first half is
+`probe_repertoire_by_rung` (`the_repertoire_gets_used.rs`), which sweeps the five
+registered rungs in real matches; ⛔ **its window is load-bearing and its doc says
+so** — do not shorten it.
 
 ⚠ **AND THE TWO RIGS ANSWER DIFFERENT QUESTIONS — do not conflate them.**
 `brain::fighter::{evaluation, scenarios}` is a DECISION rig: a static `WorldView`

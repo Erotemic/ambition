@@ -607,7 +607,7 @@ mod tests {
     /// contains a kit where the scalar ordering and the useful ordering
     /// disagree. If a retune ever makes them agree, that fixture stops standing
     /// for anything and this test says so.
-    
+
     // -----------------------------------------------------------------------
     // ⛔⛔ THE ADMIRAL'S RECOVERY-SEARCH FIXTURE LIVED HERE AND IS GONE WITH THE
     // GRAPPLE. Two tests drove the real `RecoveryLens` over this fighter's own
@@ -630,11 +630,11 @@ mod tests {
     ///
     /// the BINDING is not what this fixture measures (a route is identified by
     /// its move id), so every candidate carries the same placeholder press.
-    
+
     /// A 1600x800 stage whose only surface is far off to the right: `x` in
     /// `650..1450`, top face at `y = 500`. A body high and far to the left is
     /// ABOVE that face, so its problem is entirely lateral.
-    
+
     /// THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
     /// route derivation, and the real movement kernel agree that `grapple_line`
     /// is the way home — and they do it without anybody naming him.
@@ -649,7 +649,7 @@ mod tests {
     /// and the ORDER is asserted first, because the order is the trap.
     /// `air_up` sorts above `grapple_line` on the only number a static reader
     /// has. A layer that took the first candidate would take the juggle aerial.
-    
+
     /// FOUR SPECIALS, FOUR MECHANISMS.
     ///
     /// four rotations of one strike would be a re-skin, so the assertion is

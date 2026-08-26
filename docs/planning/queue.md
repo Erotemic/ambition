@@ -9528,11 +9528,25 @@ two bodies doing the same thing. Per-participant decision phase: 488→220fr
 but broke five behavioural guards in `the_stage_kills` (a 0-4 tick offset
 changed whether attacks connect) — reverted, too high a price. Cadence
 drawing from the stream: 220→219fr, nothing — reverted.
-⇒ ▢ **what would actually move it is asymmetric CIRCUMSTANCES — per-seat
-spawn placement (defect 3, already landed)** — two fighters starting
-somewhere different take a genuinely different first decision; it will also
-shorten Emmy's mirror, correctly, since the assertion that would notice
-says so. Not yet re-measured against the landed spawn fix. ⛔ do not build a
+⇒ ✔ **RE-MEASURED 2026-08-26 AND THE SPAWN FIX DID IT — 488 frames became
+188.** `probe_when_the_mirror_breaks` (`the_stage_kills.rs`, print-only) runs
+the same mirrored two-CPU match and reports the FIRST observed tick past 1px of
+reflection error:
+
+```text
+before (ledger, pre-spawn-fix)   488 frames ≈ 8.1s
+now                              188 frames ≈ 3.13s, at 3.56px of error
+```
+
+⇒ **asymmetric CIRCUMSTANCES were the answer, exactly as this paragraph
+predicted**, and the two reverted randomness fixes were right to be reverted: a
+stream with one consumer cannot separate two bodies doing the same thing.
+⚠ Jon's own words were *"the desync for non-Emmy CPUs probably should happen
+sooner"* — 8.1s → 3.1s is a direct answer to that, and whether 3s is soon ENOUGH
+is his call rather than a number to keep chasing.
+⛔ the probe reports WHEN; its sibling assertion
+(`two_cpus_wearing_one_character_stop_being_a_perfect_reflection`) must stay a
+WHETHER-question, because pinning when would pin the tuning of a demo. ⛔ do not build a
 third randomness fix before reading the note at
 `brain_builders::fighter_cognition_seed`.
 

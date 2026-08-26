@@ -1923,3 +1923,74 @@ fn the_stage_grants_body_contact_to_both_seated_fighters() {
          bodies than the stage made solid",
     );
 }
+
+/// PROBE: HOW SOON do two mirrored CPUs stop reflecting? Print-only; run with
+/// `--ignored`.
+///
+/// ⭐⭐ THE RE-MEASUREMENT D129 ASKS FOR. Jon reported the desync taking ~8s of
+/// play (*"it took a while for Booule to desync"*), the ledger recorded 488
+/// frames, and TWO randomness fixes were built, measured and REVERTED — the
+/// jitter stream has one consumer, so a different RNG cannot separate two bodies
+/// doing the same thing. What the row expects to have moved the number is
+/// asymmetric CIRCUMSTANCES: per-seat spawn placement, which has since landed
+/// and was never re-measured against.
+///
+/// ⚠ this reports the FIRST tick past a threshold, which its sibling above
+/// deliberately does not: that one asks WHETHER they diverge (and must stay a
+/// whether-question, because pinning WHEN would pin the tuning of a demo). This
+/// is a probe, so it may report a number the assertion must not.
+#[test]
+#[ignore = "PROBE, print-only: first tick two mirrored CPUs diverge"]
+fn probe_when_the_mirror_breaks() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use bevy::prelude::*;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    let character = ambition_demo_smash::SMASH_CHARACTER_ID;
+    let roster = ambition_demo_smash::smash_roster_at_levels([character, character], &[5, 5]);
+    let countdown = roster.rules.opening_countdown_ticks as usize;
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
+        ));
+
+    let seats = |app: &mut App| -> Option<[ambition_platformer2d::engine_core::Vec2; 2]> {
+        let world = app.world_mut();
+        let mut query = world.query::<(&MatchSeat, &BodyKinematics)>();
+        let mut rows: Vec<_> = query
+            .iter(world)
+            .map(|(seat, kin)| (seat.0, kin.pos))
+            .collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        (rows.len() == 2).then(|| [rows[0].1, rows[1].1])
+    };
+
+    let mut midline: Option<f32> = None;
+    let mut observed = 0usize;
+    let mut first_past: Option<(usize, f32)> = None;
+    for _ in 0..(countdown + 1800) {
+        app.update();
+        let Some([zero, one]) = seats(&mut app) else {
+            continue;
+        };
+        let mid = *midline.get_or_insert((zero.x + one.x) / 2.0);
+        observed += 1;
+        let error = ((zero.x - mid) + (one.x - mid)).abs() + (zero.y - one.y).abs();
+        if first_past.is_none() && error > 1.0 {
+            first_past = Some((observed, error));
+        }
+    }
+    match first_past {
+        Some((tick, error)) => println!(
+            "mirror broke on observed tick {tick} ({:.2}s of play) with {error:.2}px of error",
+            tick as f32 / 60.0
+        ),
+        None => println!("the mirror never broke across {observed} observed ticks"),
+    }
+}

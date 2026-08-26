@@ -12628,12 +12628,20 @@ tumbling. *"The only 500.0 in the tree is a unit-test fixture"* was true of
 waking a dormant mechanic; it is blocked on whether the shared kernel may read a
 fact one game authors and the other pins at zero.
 
-⇒ **AND THE GENRE'S OWN ANSWER TO "you were launched hard" IS TUMBLE, WHICH NO
-SHIPPED BODY AUTHORS.** `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the only
-`500.0` in the tree is a unit-test fixture, and neither `ambition_characters` nor
-`ambition_content` names the field. So the two bounds are standing in for a
-DORMANT mechanic. Waking it is the real fix and it re-tunes knockback for the
-whole cast — **that** is the decision #20 is blocked on, not a number.
+⇒ **AND THE GENRE'S OWN ANSWER TO "you were launched hard" IS TUMBLE.**
+~~WHICH NO SHIPPED BODY AUTHORS. `tumble_speed` is `0.0` in `DEFAULT_TUNING`; the
+only `500.0` in the tree is a unit-test fixture, and neither `ambition_characters`
+nor `ambition_content` names the field. So the two bounds are standing in for a
+DORMANT mechanic.~~
+
+⛔⛔ **STRUCK 2026-08-26 — THE GREP LOOKED IN THE WRONG PLACE.** It searched the
+ENGINE crates for a value the GAME authors: `ambition_demo_smash/src/lib.rs:275`
+sets `tumble_speed: 500.0` on the STAGE, and `match_report -- 30 --runs 3`
+measures 121–203–401 tumbling ticks a run. `DEFAULT_TUNING` really is `0.0` and a
+test really does pin it — for AMBITION, whose wandering enemies would all change.
+⇒ tumble is LIVE in one game and pinned off in the other, and the bounds live in
+the kernel both use. That is [decision 34](awaiting-maintainer-decision.md), and
+it now carries a cheap third answer neither "dormant" nor "wake it" allowed.
 
 ⭐⭐ **CLOSED — #28, THE PIVOT MIRRORED THE MOVE THE OLD WAY.**
 `resolve_attack_gestures` resolves the attack DIRECTION against `-kin.facing`

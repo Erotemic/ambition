@@ -11697,6 +11697,15 @@ whether a broader rung actually WINS more, which only `ladder_rig` can answer.
 registered rungs in real matches; ⛔ **its window is load-bearing and its doc says
 so** — do not shorten it.
 
+⚠ **AND THE L6 DIP IS NOT ESTABLISHED — read the SHAPE, not the steps.** The
+sweep is ONE character over ONE run. The L1→L9 rise (11→17) is large enough to
+survive noise; a single rung sitting three below its neighbour is not. ⛔ and a
+second character cannot settle it in that harness: `build_demo_app` composes only
+the demo's own cast, so `npc_pirate_admiral` fails the seat-count assertion
+rather than reporting anything (measured). ⇒ **sweeping characters needs the
+COMPOSED host** (`game/ambition_app`'s harness), which is where a follow-up
+belongs.
+
 ⚠ **AND THE TWO RIGS ANSWER DIFFERENT QUESTIONS — do not conflate them.**
 `brain::fighter::{evaluation, scenarios}` is a DECISION rig: a static `WorldView`
 plus an expected `Situation`, no world stepping, so survival and damage are

@@ -1066,6 +1066,14 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
 /// LONGER to show its kit, not shorter — it spends more of a short window
 /// committed. **Do not shorten this budget to save seconds; the number it
 /// produces is a function of it.**
+///
+/// ⚠ **AND IT IS ONE CHARACTER AND ONE RUN, so read the SHAPE and not the
+/// steps.** The L1→L9 rise is large enough to survive noise; the L6 dip below L5
+/// and L3 is not established — a second character would settle it, and this
+/// harness cannot seat one: `build_demo_app` composes only the demo's own cast,
+/// so `npc_pirate_admiral` fails the seat-count assertion rather than reporting
+/// anything (measured 2026-08-26). Sweeping characters needs the composed host,
+/// which is `game/ambition_app`'s harness, not this one.
 #[test]
 #[ignore = "PROBE, print-only: distinct moves started per ladder rung"]
 fn probe_repertoire_by_rung() {

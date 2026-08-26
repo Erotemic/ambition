@@ -11463,10 +11463,27 @@ never hear about it. `under_own_name` is the PREFIX POLICY and nothing else, and
 `archetype_moveset.rs` no longer names `WindowTag`. Poisoned on the cancel-target
 arm — missing one is not a red test, it is one dead button in a match.
 
-▢ **THE REMAINING HALF IS THE PREMISE, and the ledger already doubts it.** The
-prefix rename still PANICS on an id carrying none of the archetype's prefixes,
-and move ids also live OUTSIDE the contract (`HurtboxDoc::moves` is keyed by
-one), which `remap_move_ids` cannot reach. ⚠ AND THERE IS NO ARCHITECTURAL
+✔ **THE REMAINING HALF IS THE PREMISE, and the ledger already doubts it —
+MEASURED 2026-08-26 AND IT HAS NO CUSTOMER, so do not build a better renamer.**
+~~The prefix rename still PANICS on an id carrying none of the archetype's
+prefixes, and move ids also live OUTSIDE the contract (`HurtboxDoc::moves` is
+keyed by one), which `remap_move_ids` cannot reach.~~
+
+```text
+under_own_name adopters        author_moveset.rs, officer_moveset.rs   (2)
+do either author a HurtboxDoc? no — `grep -c hurtbox` is 0 on both
+HurtboxDoc::moves populated in PRODUCTION at exactly one site:
+  versus_fighters.rs:146 — the two duellists, who are their OWN characters
+  and are not archetype-renamed at all
+```
+
+⇒ **the unreachable field and the renamed fighters are disjoint populations.**
+⛔ and the PANIC is not a defect either — it is documented as the point:
+*"a half-applied rename … surfaces as one dead button in a match rather than as
+a red test. It fired the first time this ran, on exactly the two ids that break
+the pattern."* Fail-loud is this project's pre-release stance. ⇒ what stays true
+is the row's own conclusion: the endpoint is archetype-LOCAL keys, and until a
+renamed fighter authors per-move hurtboxes there is nothing here to reach. ⚠ AND THERE IS NO ARCHITECTURAL
 REQUIREMENT that every fighter have globally distinct move keys — the runtime
 already separates causal identity from the key (`SubjectKey::Sim(identity)` +
 `move_id`). ⇒ the endpoint is archetype-LOCAL keys, not a better renamer.

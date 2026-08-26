@@ -486,3 +486,108 @@ fn duel_arena_room_is_a_real_neutral_attack_defense_fight() {
         robot.last_hp
     );
 }
+
+/// ⭐ HOW MANY SOUNDS DOES ONE FIGHT ASK FOR?
+///
+/// Jon, 2026-08-25: *"there is some serious sfx noise in that fight with either
+/// of them, and may be an indicator of deeper bug."* This measures the ASK
+/// rather than the mix — `OwnedSfxMessage` is what mechanics emit, before any
+/// volume, ducking or voice-limiting decides what a listener hears. If the count
+/// is wrong here, no mix change can fix it.
+///
+/// ⚠ THIS IS THE PCA HALF ONLY. Jon named a Goblin vs `npc_pirate_admiral`
+/// fight; the goblin lives in `goblin_encounter`, a different room, and staging
+/// the two together is content work. PCA is the fighter both askings share, so
+/// this is the arm that exists today — and the shape of the answer transfers.
+///
+/// ⛔ REPORTS ON EVERY RUN, and the assertion is deliberately loose. The claim is
+/// "one body does not ask for the same sound many times on ONE TICK", which is a
+/// duplicate-emission bug, not a taste judgement about density. A threshold tuned
+/// to today's rate would go red on any balance change and tell nobody anything.
+#[test]
+fn a_duel_does_not_ask_for_the_same_sound_many_times_on_one_tick() {
+    use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
+    use bevy::ecs::message::Messages;
+    use std::collections::BTreeMap;
+
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_required_start_room("duel_arena"),
+    )
+    .expect("sandbox sim builds in the duel arena");
+
+    fn variant(request: &SfxMessage) -> &'static str {
+        match request {
+            SfxMessage::Jump { .. } => "jump",
+            SfxMessage::DoubleJump { .. } => "double_jump",
+            SfxMessage::Dash { .. } => "dash",
+            SfxMessage::Blink { .. } => "blink",
+            SfxMessage::Pogo { .. } => "pogo",
+            SfxMessage::Land { .. } => "land",
+            SfxMessage::Slash { .. } => "slash",
+            SfxMessage::Hit { .. } => "hit",
+            SfxMessage::Death { .. } => "death",
+            SfxMessage::Reset { .. } => "reset",
+            SfxMessage::Play { .. } => "play",
+        }
+    }
+
+    const TICKS: usize = 2400; // ~40s, the same bout the sibling test watches
+    let mut total: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut worst_tick: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut busiest_tick = (0usize, 0usize); // (tick, count)
+    let mut cursor = None;
+
+    for tick in 0..TICKS {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let messages = world.resource::<Messages<OwnedSfxMessage>>();
+        let cursor = cursor.get_or_insert_with(|| messages.get_cursor());
+        let mut this_tick: BTreeMap<&'static str, usize> = BTreeMap::new();
+        for owned in cursor.read(messages) {
+            let name = variant(&owned.request);
+            *this_tick.entry(name).or_default() += 1;
+            *total.entry(name).or_default() += 1;
+        }
+        let n: usize = this_tick.values().sum();
+        if n > busiest_tick.1 {
+            busiest_tick = (tick, n);
+        }
+        for (name, count) in this_tick {
+            let slot = worst_tick.entry(name).or_default();
+            *slot = (*slot).max(count);
+        }
+    }
+
+    let asked: usize = total.values().sum();
+    eprintln!(
+        "[sfx-census] duel_arena, {TICKS} ticks (~{:.0}s): {asked} requests \
+         = {:.1}/s\n  by variant (total, worst single tick): {}\n  busiest tick: {} with {} requests",
+        TICKS as f32 / 60.0,
+        asked as f32 / (TICKS as f32 / 60.0),
+        total
+            .iter()
+            .map(|(k, v)| format!("{k}={v}/{}", worst_tick.get(k).copied().unwrap_or(0)))
+            .collect::<Vec<_>>()
+            .join(" "),
+        busiest_tick.0,
+        busiest_tick.1,
+    );
+
+    // Two fighters can legitimately land, swing and get hit on the same tick.
+    // Many of ONE sound on ONE tick cannot be anything but a duplicate emission.
+    const SAME_SOUND_ONE_TICK_CEILING: usize = 4;
+    let offenders: Vec<String> = worst_tick
+        .iter()
+        .filter(|(_, worst)| **worst > SAME_SOUND_ONE_TICK_CEILING)
+        .map(|(name, worst)| format!("{name} x{worst}"))
+        .collect();
+    assert!(
+        offenders.is_empty(),
+        "one tick asked for the same sound more than {SAME_SOUND_ONE_TICK_CEILING} times: {} \
+         — with two fighters on the stage that is a duplicate emission, not density, \
+         and no mix change can fix it",
+        offenders.join(", ")
+    );
+}

@@ -23,6 +23,8 @@ validate_only=0
 no_default_features=0
 cargo_jobs=""
 cargo_timings=0
+sweep=0
+sweep_apply=0
 extra_features=()
 game_args=()
 
@@ -128,6 +130,10 @@ Options and mode aliases:
   -j, --jobs N            Pass cargo --jobs N.
   --jobs=N                Pass cargo --jobs N.
   --timings               Pass cargo --timings.
+  --sweep                 Report what a sweep would reclaim, keeping ONLY the
+                          graph this invocation builds, then run.
+  --sweep-apply           As --sweep, but delete. ⚠ the test graph and the other
+                          demos are NOT protected and will be rebuilt cold.
   --                      Everything after this is passed to the game binary.
 
 Environment:
@@ -270,6 +276,13 @@ while [[ $# -gt 0 ]]; do
         --headless|headless)
             demo_headless=1
             ;;
+        --sweep)
+            sweep=1
+            ;;
+        --sweep-apply)
+            sweep=1
+            sweep_apply=1
+            ;;
         --features)
             shift
             [[ $# -gt 0 ]] || fail "--features requires a comma-separated feature list"
@@ -402,6 +415,30 @@ if [[ "${#game_args[@]}" -gt 0 ]]; then
 fi
 
 cd "$repo_root"
+
+# ⭐ SWEEP FIRST, RUN SECOND. `sweep_target.py` marks by asking cargo which
+# artifacts THIS graph resolves, which compiles nothing when the graph is warm —
+# so the sweep leaves exactly what the run below needs and the game still starts
+# immediately. Sweeping afterwards would protect the same set a beat too late.
+#
+# ⚠ IT KEEPS THE GRAPH YOU ASKED FOR AND NOTHING ELSE. The other demos, the
+# release and ship profiles, and the test graph all go. `--sweep` alone reports;
+# `--sweep-apply` deletes.
+if [[ "$sweep" -eq 1 ]]; then
+    sweep_cmd=(build)
+    for arg in "${cargo_args[@]}"; do
+        case "$arg" in
+            run|llvm-cov|--no-report|--timings) ;;
+            --) break ;;
+            *) sweep_cmd+=("$arg") ;;
+        esac
+    done
+    sweep_args=(--runs-only --cmd "${sweep_cmd[*]#build }")
+    [[ "$sweep_apply" -eq 1 ]] && sweep_args+=(--apply)
+    printf '⚠ --sweep keeps ONLY this graph; the test graph and other demos will be swept.\n' >&2
+    python3 "$repo_root/scripts/sweep_target.py" "${sweep_args[@]}" || fail "the sweep failed; nothing was run"
+fi
+
 export RUST_BACKTRACE="${RUST_BACKTRACE:-full}"
 print_cmd cargo "${cargo_args[@]}"
 

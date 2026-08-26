@@ -10767,9 +10767,17 @@ comment saying it is at Bevy's param ceiling, twice, and enlarging it is exactly
 what (16) warns against. ⇒ the resolver should PUBLISH a resolved hit carrying
 its hitlag, and a small system turns that into the freeze — which is (4)'s split
 arriving through its first real customer rather than as a refactor. **(7) the INPUT-ORDER recogniser** — the four techniques are declarable now, but
-which one a PLAYER asked for still cannot be read from stick-then-button order; **(11) the turnaround edge shares
+which one a PLAYER asked for still cannot be read from stick-then-button order; ✔ **(11) CLOSED — re-verified at HEAD 2026-08-26: both sides of that comparison
+read ONE threshold now.** The dash writes `prev_steer_dir` through a
+`deadzoned()` helper keyed on `STEER_DEADZONE` (`integration.rs:615`) and the
+turnaround reads `steer_stick.x.abs() > integration::STEER_DEADZONE`
+(`abilities.rs:287`), so the mismatched-threshold edge cannot be true on every
+tick any more. ⭐ and the fix deliberately SHARED the dash's memory rather than
+adding `prev_turn_steer_dir` — a second rollback field bought for a difference
+nothing can observe, since the facing snaps to the stick when the timer expires.
+~~the turnaround edge shares
 `prev_steer_dir` with the initial dash, whose deadzone is 0.5 against the
-turnaround's 0.1** — an analog reversal near -0.2 re-arms forever; **(12) — MEASURED AND
+turnaround's 0.1 — an analog reversal near -0.2 re-arms forever;~~ **(12) — MEASURED AND
 PARKED, NO ADOPTER.** The seam is real and I proved it for the ROLL (107px held
 vs 33px released), where it is fixed directly. But the review's dash-attack
 customer does not exist at HEAD: `dash_attack` sets `roots_steering: false`, and

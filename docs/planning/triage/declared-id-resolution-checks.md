@@ -33,10 +33,30 @@ Do not recreate the old boot-time validation proposal or duplicate these tests.
    the TYPO and cannot answer the fresh-clone question. Measured at the time:
    260 declared paths across the shipped catalog, 0 missing.
 
-2. **Runtime-composed misses.** At concrete resolver call sites that still discard
-   an unexpected `None`, make the miss observable once with the resolver's own
-   provenance/explanation. Re-measure before changing anything; the July count of
-   "roughly six" sites is stale.
+2. ◐ **Runtime-composed misses — RE-MEASURED 2026-08-26 as this item asked, and
+   the count moved in the GOOD direction.** Every `Option`-returning resolver in
+   `crates/` (14 of them, by `fn *resolve*` returning `Option`) was checked at its
+   call sites, and the ones that could discard a miss do not:
+
+   ```text
+   resolve_encounter        `let Some(..) = .. else { .. }`   explicit branch
+   resolve_surface          four call sites, all `let-else` or `?` on a path
+                            whose absence is the answer
+   resolve_key              `.or_else(..)` — a fallback CHAIN, which is the
+                            resolver's own explanation
+   resolve_active_route     no route means no strike; absence IS the value
+   resolved_track_handle    `if let Some(..)` — a track not in the library is not
+                            a startup dependency, and the music registry is
+                            GENERATED so a typo cannot survive to this point
+   ```
+
+   ⛔ **AND THE SILENT-DISCARD SHAPE THE ITEM NAMES IS ABSENT:** grep finds NO
+   `resolve*(..).unwrap_or_default()` and no `resolve*(..).unwrap_or(..)` in the
+   tree.
+
+   ⚠ **so do not build the diagnostic this item proposes without first naming a
+   site that needs it.** The July "roughly six" was a count of a pattern the code
+   has since stopped using; re-run the same two greps before reopening.
 
 3. **Typed/generated ids only when the owning pipeline is already open.** If the
    sprite/content pipeline naturally exposes stable generated symbols, use them

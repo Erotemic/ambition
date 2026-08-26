@@ -11400,8 +11400,17 @@ freeze lifts"), and both places state why. ⛔ do not change the state to satisf
 a sentence that was only ever a description. **(16) the feature-hit gateway grows by SystemParam packing** — guidance
 for the next change to it, not a campaign.
 
-- ▢ **D238 — THE DEEP REVIEW, CHECKPOINT 2 (GPT 5.6): FOURTEEN MORE, AND ONE
-  SENTENCE THAT NAMES THE PATTERN. (opened 2026-08-25)**
+- ✔ **D238 — CLOSED 2026-08-26. THE DEEP REVIEW, CHECKPOINT 2 (GPT 5.6):
+  FOURTEEN MORE, AND ONE SENTENCE THAT NAMES THE PATTERN.** Thirteen shipped;
+  **(20) is the only one left and it is not this row's to answer** — it turned
+  out to be the same missing fact as D179's contact bound and D241's #20, all
+  three now routed to [decision 34](awaiting-maintainer-decision.md). ⚠ two
+  paragraphs below still read as open and were verified DONE at HEAD: (27)
+  latches `MovePlayback::started_grounded` and (29) has all four halves. The
+  authoring cleanup this row asked for — `autolink + windbox` as a SUM — landed
+  the same day. ⚠ (25)'s endpoint (an item that RIDES its platform rather than
+  merely falling off it) is a named future step, not a defect.
+  (opened 2026-08-25; closed 2026-08-26)**
 
 ⭐⭐⭐ **THE REVIEWER'S OWN DIAGNOSIS IS THE MOST VALUABLE LINE IN EITHER REPORT,
 and it matches what I found independently all day:** *"a number of recent

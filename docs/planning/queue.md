@@ -11622,7 +11622,17 @@ Rust; `aarch64-linux-android` needs the NDK's clang, and
 `scripts/setup_android_prereqs.sh` is what installs it (a large download).
 ▢ **so the android persona stays unaudited, and the blocker is a PREREQ RUN
 rather than a code question** — say that rather than reporting our own code as
-broken on Android.
+broken on Android. ⇒ `scripts/setup_android_prereqs.sh` is the repo's own path
+and it installs the NDK; ⚠ it is a large download, so it is a deliberate spend
+rather than something to do in passing.
+
+⭐ **AND THERE IS A CHEAPER ROUTE THAT NEEDS NO NDK AT ALL, already written down
+in `dev/journals/android-what-an-agent-cannot-see-2026-08-08.md`**: to typecheck
+Android-only Rust, retarget its `cfg` gates to the HOST and compile there — then
+POISON the probe (inject a type error and confirm it surfaces) before trusting
+the green, because a `cfg` that silences itself compiles nothing and looks
+identical to a clean build. ⇒ that covers OUR code, which is the half this row
+cares about; the NDK is only needed for the C++ dependency's build script.
 
 ⛔ **AND THE ANSWER IS NOT A CHECKER.** `AGENTS.md`'s *"avoid bullshit
 guardrails"* is binding and a feature-parity test is exactly that. The answer is

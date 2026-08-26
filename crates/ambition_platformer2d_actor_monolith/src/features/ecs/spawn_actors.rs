@@ -746,7 +746,7 @@ impl NpcActorSpawnPlan {
             entity.insert((
                 binding,
                 authored_context,
-                crate::features::TemporaryControl::Autonomous,
+                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous,
             ));
         }
         if let Some(moveset) = npc_moveset {

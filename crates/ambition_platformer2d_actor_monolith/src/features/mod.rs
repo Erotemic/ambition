@@ -40,8 +40,6 @@ pub mod banter;
 pub mod brain_command;
 pub mod combat_rules;
 pub mod stocks_match;
-pub mod temporary_control;
-pub use temporary_control::TemporaryControl;
 // Stable facade for boss attack geometry.
 pub use ambition_boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;

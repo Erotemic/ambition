@@ -360,46 +360,6 @@ impl SnapshotState for crate::features::ecs::perception::PerceptionMemory {
     }
 }
 
-/// Temporary-control state: whether an autonomous body is masked by a player
-/// possession or a mount, by STABLE `SimId`. Registered so a rewind restores the
-/// control MODE across time (not just avoids clobbering a live one): the `Brain`
-/// cursor is a no-op for a body nobody drives, and possession/mount relationships were
-/// re-derived from live components, so without this a rollback across a
-/// possess/release boundary left the body in the wrong mode. Reconciliation
-/// rebuilds the live control (`DrivingParticipant` / `Mounted`) and its relationships
-/// from the restored id.
-impl SnapshotState for crate::features::TemporaryControl {
-    fn encode(&self, out: &mut Vec<u8>) {
-        use crate::features::TemporaryControl as T;
-        match self {
-            T::Autonomous => put_u8(out, 0),
-            T::Player { controller } => {
-                put_u8(out, 1);
-                put_str(out, controller.as_str());
-            }
-            T::Mounted { mount } => {
-                put_u8(out, 2);
-                put_str(out, mount.as_str());
-            }
-        }
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use crate::features::TemporaryControl as T;
-        use ambition_platformer2d_shared_tangle::sim_id::SimId;
-        Some(match r.u8()? {
-            0 => T::Autonomous,
-            1 => T::Player {
-                controller: SimId::from_snapshot(r.str()?.to_string()),
-            },
-            2 => T::Mounted {
-                mount: SimId::from_snapshot(r.str()?.to_string()),
-            },
-            _ => return None,
-        })
-    }
-}
-
 /// An accumulating sim clock, and netcode.md's N3.1 checklist names it: *"`WorldTime`
 /// + every sim clock"*. A brain stamps `RememberedActor.last_seen` with it, so a rewind
 /// that leaves it running makes every memory look older than it is — which is exactly

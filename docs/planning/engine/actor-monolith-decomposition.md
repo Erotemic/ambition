@@ -813,6 +813,44 @@ anything — a carve lengthens the chain only when it inserts a layer BELOW a
 crate that was already deep, which is what happened when `conversation` went
 under `ambition_dialog`.
 
+### Wave H — the mount pair, and what an OUTWARD-EDGE census costs to get right
+
+⭐ **`ecs/mount` (1,871 lines) is the smallest honest carve left inside
+`features`**, and Wave E's rule adjudicates it: only OUTWARD edges block. The
+census, 2026-08-26, after three fixes landed the same day:
+
+```text
+BEFORE                                          AFTER
+brain_builders::dismounted_rider_…    import    ✔ mount ANNOUNCES `MountDied`; the
+                                                  builder answers it. The message
+                                                  already existed for the boss bridge
+crate::physics::ResolvedMotionFrame   re-export ✔ it was in shared_tangle all along
+crate::features::TemporaryControl     real      ✔ moved to shared_tangle beside
+                                                  `body::Mass` — two domains share it
+actor_clusters::ActorClusterQueryData real      ✔ NOT NEEDED: 26 columns, mount
+                                                  touches 5, and 4 are already in
+                                                  `_core` / `ambition_characters`
+actor_clusters::ActorConfig           real      ⛔ THE ONE LEFT, and it is TWO FIELDS
+```
+
+⛔⛔ **THE LESSON IS THAT THE FIRST CENSUS COUNTED `use` LINES.** It reported ONE
+outward edge; there were four, because three were spelled inline
+(`crate::physics::…`, `super::actor_clusters::…`). ⇒ **count the PATHS a module
+names, not the imports it writes.**
+
+⭐ **AND HALF OF WHAT A CENSUS FINDS IS NOT AN EDGE AT ALL.** Two of the four
+resolved to crates already below the monolith — the hub was re-exporting them,
+exactly as eleven of the boss carve's thirteen did. That ratio is now the
+expectation, not a surprise: **look up the real owner before designing a way
+around a dependency.**
+
+⚠ **What `ActorConfig` still owes is a NAMED AUTHORED BASELINE.** The dismount
+restores `spawn.size` and re-derives gravity from `tuning.is_aerial`; the live
+components (`BodyBaseSize`, `BodyFlightState::fly_enabled`,
+`ActorSurfaceState::gravity_scale`) are all written at runtime and cannot stand
+in. Three sites hand-derive the same authored gravity scale from `is_aerial`
+today. See the D33 row in `queue.md` for the measurement.
+
 ### Wave F — presentation effects and audio
 
 Simulation publishes deterministic/confirmed effect intent; audio, SFX, VFX,

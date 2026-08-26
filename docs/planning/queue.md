@@ -5311,18 +5311,98 @@ rebuild block — **and with them the last `Res` in the file**: the dissolution
 system takes no resources at all now.
 
 ⛔ **BUT THE ROW'S "imports nothing from the monolith at all" WAS OPTIMISTIC, and
-the honest remainder is three things**, all inline paths rather than `use` lines,
-which is how the earlier count missed them:
+the honest remainder was three things**, all inline paths rather than `use` lines,
+which is how the earlier count missed them — ⭐ **and all three are now resolved,
+2026-08-26:**
 
 ```text
-super::actor_clusters::ActorClusterQueryData    the shared actor view
-crate::physics::ResolvedMotionFrame             the shared motion frame
-crate::features::TemporaryControl               the snapshot control state
+crate::physics::ResolvedMotionFrame           ✔ ALREADY IN shared_tangle
+                                                (`frame_env`) — mount was reading
+                                                it through a monolith re-export,
+                                                exactly the `CenteredAabb` case
+super::actor_clusters::ActorClusterQueryData  ✔ NOT NEEDED — see below
+crate::features::TemporaryControl             ✔ MOVED to shared_tangle
 ```
 
-⇒ those are SHARED SUBSTRATE, not brain building — a carve resolves them by
-placement, not by another message. The brain rebuild was the one that could not
-travel, and it no longer has to.
+⭐⭐ **THE VIEW WAS THE COUPLING, NOT THE DATA — AND THE CENSUS IS THE WHOLE
+ARGUMENT.** `ActorClusterQueryData` is **twenty-six columns wide**. Mount touches
+**five**, and four of the five are already owned by other crates:
+
+```text
+kin       BodyKinematics       ambition_platformer2d_core
+surface   ActorSurfaceState    ambition_platformer2d_core
+ground    BodyGroundState      ambition_platformer2d_core
+health    BodyHealth           ambition_characters
+config    ActorConfig          ⛔ THE MONOLITH — and TWO FIELDS of it
+```
+
+⇒ both mount systems name their columns one by one now. `sync_riders_to_mounts`
+needs no `config` at all, so **it names no monolith type whatsoever**; the
+enforcer keeps `ActorConfig` alone.
+
+⛔ **AND THE OBVIOUS SHORTCUT IS WRONG, MEASURED RATHER THAN ASSUMED.** The two
+`ActorConfig` fields look like they have live twins already on the entity —
+`spawn.size` beside `BodyBaseSize`, `tuning.is_aerial` beside
+`BodyFlightState::fly_enabled` (`actor_clusters.rs:164` literally assigns it).
+Both twins are WRITTEN AT RUNTIME: `posed_body.rs:127` moves `base_size` with the
+STANCE, `body_clusters.rs:1290` grows it, and `fly_enabled` is toggled by
+`abilities.rs:445` and constrained by `movement::authority`. ⇒ substituting them
+would hand a grown rider, or a rider that had switched flight off, the WRONG BODY
+on dismount. `ActorConfig` is the AUTHORED BASELINE and the live components are
+not it.
+
+⚠ **SO THE LAST STEP IS A BASELINE COMPONENT, NOT ANOTHER MESSAGE.** What mount
+wants is the durable `(size, aerial)` a reset restores — `ActorSpawnState` is
+already half of it (`{pos, size}`, in `features/enemies`) and `is_aerial` is in
+`ActorTuning`. That is the one design question the carve still owes.
+
+⛔⛔ **AND MEASURING IT FOUND SOMETHING BIGGER THAN THE CARVE: THE AUTHORED
+GRAVITY SCALE IS RE-DERIVED FROM `is_aerial` AT THREE SITES, BY HAND, EACH TIME.**
+
+```text
+actor_clusters.rs:847   gravity_scale = if is_aerial {0.0} else {1.0}   spawn
+integration.rs:562      gravity_scale = if is_aerial {0.0} else {1.0}   reset_to_spawn
+mount/mod.rs            gravity_scale = if is_aerial {0.0} else {1.0}   the dismount
+```
+
+⇒ **two representations of one authored fact, agreeing only by convention** —
+the shape that cannot be attributed when one of them is wrong. ⚠ and the OTHER
+construction path spells it the long way round (`actor_clusters.rs:523-528`
+computes `gravity_scale` from the authored boolean and then recovers
+`is_aerial = gravity_scale <= 0.001` from it), which is the same convention
+travelling in the opposite direction. The authority underneath all of it is the
+character's own `locomotion.baseline_free_flight`; everything after that is a
+projection.
+
+⇒ **naming the authored baseline ONCE is the fix, and the mount carve is only its
+first customer.** ⛔ THE LIVE COMPONENTS CANNOT BE THAT NAME: mount ZEROES
+`gravity_scale` while riding, so the live value is the one thing it definitely is
+not. A durable component costs a new stable schema name and a declared
+`GGRS_ROLLBACK_SCHEMA_VERSION` bump — cheap next to four sites agreeing by
+convention.
+
+⭐ **AND `TemporaryControl` WAS THE `Mass` SHAPE FOR THE THIRD TIME.** Fifty
+lines, one dependency (`SimId`), and its own doc already said two domains share
+it — *"the possessed actor / the rider"*. It moved to
+`shared_tangle::temporary_control` beside `body::Mass` and `body::MountDied`,
+imported and never re-exported, and the monolith's `pub use` went with it.
+⛔ TWO of the three path-keyed ledgers moved (the registration turbofish, and the
+`SnapshotState` impl, which the ORPHAN RULE forced into shared_tangle's
+`snapshot_impls.rs` — that file's own doc predicts this: *"if a type moves, this
+stops compiling rather than drifting"*). The stable name `actor.temporary_control`
+did NOT change, and it is not in the exit oracle's immutable list because it is
+mutated at runtime.
+
+⛔⛔ **AND THERE WAS A FOURTH LEDGER, WHICH THE `Mass` MOVE NEVER MET.**
+`scripts/baselines/rollback-schema-baseline.json` keys `encoded_types` by FULL
+PATH, so `check_absence_contracts.py` reported the move as a NEW type entering
+the wire format AND a STALE one leaving it. ⭐ **A MOVE IS THE ONE CASE WHERE
+THAT PAIR IS NOT A WIRE CHANGE**: identical bytes, identical stable name, so
+peers still agree — the baseline is repointed and `GGRS_ROLLBACK_SCHEMA_VERSION`
+deliberately is NOT bumped. `Mass` escaped this ledger only because it is
+registered `component-clone` rather than encoded.
+
+⇒ **so a moved registered type touches THREE ledgers, or FOUR if it is ENCODED.**
 
 ⛔⛔ **AND MAKING IT TWO SYSTEMS OPENED A WIRING GAP THAT NEEDED ITS OWN ARM.**
 Every mount unit test hand-lists its systems, so all 37 keep passing if the

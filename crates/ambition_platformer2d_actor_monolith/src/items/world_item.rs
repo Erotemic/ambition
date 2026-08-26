@@ -38,7 +38,6 @@ pub struct WorldItem {
     /// ≠ equipment id): a game maps it to an image through its own `WorldItemArt`.
     /// `None` keeps the draw-blind quad.
     pub sprite: Option<String>,
-
     // `emerging: bool` LIVED HERE and is GONE. Mary-O set it `true` when a ?-block popped a
     // reward and nothing ever set it back — the comment named a `clear_emerged_powerups` that
     // was never written — so an item finished rising, began its ordinary arc, and stayed drawn
@@ -126,7 +125,7 @@ pub fn collect_world_items(
             Entity,
             &BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Option<&crate::features::TemporaryControl>,
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
             Option<&mut WornEquipment>,
         ),
         (
@@ -346,7 +345,7 @@ mod tests {
             .world_mut()
             .spawn((
                 kin(ae::Vec2::new(400.0, 0.0)),
-                crate::features::TemporaryControl::Player {
+                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Player {
                     controller: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
                 },
             ))
@@ -358,7 +357,7 @@ mod tests {
             .world_mut()
             .spawn((
                 kin(ae::Vec2::new(0.0, 0.0)),
-                crate::features::TemporaryControl::Autonomous,
+                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous,
             ))
             .id();
 

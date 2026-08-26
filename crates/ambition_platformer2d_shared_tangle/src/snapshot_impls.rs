@@ -10,8 +10,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_f32, put_i32, put_str, put_u64, put_u8, put_vec2,
-    Reader, SnapshotState,
+    put_f32, put_i32, put_str, put_u64, put_u8, put_vec2, Reader, SnapshotState,
 };
 use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
@@ -29,13 +28,9 @@ impl SnapshotState for crate::lifecycle::SessionScopedEntity {
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self(
-            crate::lifecycle::SessionScopeId(r.u64()?),
-        ))
+        Some(Self(crate::lifecycle::SessionScopeId(r.u64()?)))
     }
 }
-
-
 
 snapshot_pod!(crate::orientation::ActorRoll { angle: f32 });
 
@@ -117,9 +112,7 @@ impl SnapshotState for crate::sim_id::SimIdCounter {
         put_u64(out, self.0);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::sim_id::SimIdCounter(
-            r.u64()?,
-        ))
+        Some(crate::sim_id::SimIdCounter(r.u64()?))
     }
 }
 
@@ -176,5 +169,45 @@ impl SnapshotState for crate::gravity::GravityField {
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self { dir: r.vec2()? })
+    }
+}
+
+/// Temporary-control state: whether an autonomous body is masked by a player
+/// possession or a mount, by STABLE `SimId`. Registered so a rewind restores the
+/// control MODE across time (not just avoids clobbering a live one): the `Brain`
+/// cursor is a no-op for a body nobody drives, and possession/mount relationships were
+/// re-derived from live components, so without this a rollback across a
+/// possess/release boundary left the body in the wrong mode. Reconciliation
+/// rebuilds the live control (`DrivingParticipant` / `Mounted`) and its relationships
+/// from the restored id.
+impl SnapshotState for crate::temporary_control::TemporaryControl {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use crate::temporary_control::TemporaryControl as T;
+        match self {
+            T::Autonomous => put_u8(out, 0),
+            T::Player { controller } => {
+                put_u8(out, 1);
+                put_str(out, controller.as_str());
+            }
+            T::Mounted { mount } => {
+                put_u8(out, 2);
+                put_str(out, mount.as_str());
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use crate::sim_id::SimId;
+        use crate::temporary_control::TemporaryControl as T;
+        Some(match r.u8()? {
+            0 => T::Autonomous,
+            1 => T::Player {
+                controller: SimId::from_snapshot(r.str()?.to_string()),
+            },
+            2 => T::Mounted {
+                mount: SimId::from_snapshot(r.str()?.to_string()),
+            },
+            _ => return None,
+        })
     }
 }

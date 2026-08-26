@@ -7,13 +7,13 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{Brain};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::brain::Brain;
+use ambition_characters::control::ActorControl;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
-use crate::features::TemporaryControl;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl;
 
 use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};

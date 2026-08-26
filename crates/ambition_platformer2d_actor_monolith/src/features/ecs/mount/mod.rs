@@ -262,7 +262,20 @@ pub fn sync_riders_to_mounts(
             &mut CenteredAabb,
             Option<&MountedSize>,
             Option<&Mass>,
-            Option<super::actor_clusters::ActorClusterQueryData>,
+            // ⭐ THE FOUR COLUMNS THIS SYSTEM ACTUALLY TOUCHES, named one by one
+            // instead of borrowed through `ActorClusterQueryData`. That view is
+            // twenty-six columns wide and lives in the monolith; every one of
+            // these four is owned by `_core` or `ambition_characters`, so the
+            // saddle sync now names no monolith type at all.
+            //
+            // ⛔ IT ALSO WIDENS THE POPULATION, deliberately. The optional view
+            // dropped a body that was missing ANY of the twenty-six — a rider
+            // lacking, say, `BodyComboTrace` silently got no saddle pin. Nothing
+            // about carrying a rider depends on a combo trace.
+            &mut ae::BodyKinematics,
+            &mut ae::ActorSurfaceState,
+            &mut ae::BodyGroundState,
+            &ambition_characters::actor::BodyHealth,
         ),
         Without<MountSlot>,
     >,
@@ -274,35 +287,37 @@ pub fn sync_riders_to_mounts(
             // with the PAIR's reference frame (the rider orbits the mount under
             // a gravity flip instead of floating off the saddle in fixed screen
             // space), and the constraint's frame authority is the carrying body.
-            &crate::physics::ResolvedMotionFrame,
-            Option<super::actor_clusters::ActorClusterQueryData>,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &ae::BodyKinematics,
+            &ambition_characters::actor::BodyHealth,
         ),
         With<MountSlot>,
     >,
 ) {
-    for (riding, mut rider_aabb, mounted_size, rider_mass, rider_clusters) in &mut riders {
-        let Ok((mountable, mount_mass, mount_frame, mount_clusters)) = mounts.get(riding.mount)
+    for (
+        riding,
+        mut rider_aabb,
+        mounted_size,
+        rider_mass,
+        mut rider_kin,
+        mut rider_surface,
+        mut rider_ground,
+        rider_health,
+    ) in &mut riders
+    {
+        let Ok((mountable, mount_mass, mount_frame, mount_kin, mount_health)) =
+            mounts.get(riding.mount)
         else {
             continue;
         };
-        let Some(mount_c) = mount_clusters else {
-            continue;
-        };
-        if !mount_c.health.alive() {
-            continue;
-        }
-        let Some(mut rider_cq) = rider_clusters else {
-            continue;
-        };
-        let rider = rider_cq.as_actor_mut();
-        if !rider.health.alive() {
+        if !mount_health.alive() || !rider_health.alive() {
             continue;
         }
         // Sky-rider size: keep the authored rider footprint stable while the
         // mount is alive. The same footprint remains after dismount; larger
         // cove pirates are separate authored actor spawns.
         if let Some(size) = mounted_size {
-            rider.kin.size = size.0;
+            rider_kin.size = size.0;
         }
         // Snap pose to the mount. Vel zeroed so update_ecs_actors'
         // integrator can't drift the rider off the mount on the
@@ -321,22 +336,26 @@ pub fn sync_riders_to_mounts(
         let rider_local = cog_local + frame.to_world(mountable.rider_offset - cog_local);
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
-        ae::movement::constrain_body_pose(rider.kin, mount_c.kin.pos + rider_local, ae::Vec2::ZERO);
-        rider.kin.facing = mount_c.kin.facing;
-        rider.surface.gravity_scale = 0.0;
+        ae::movement::constrain_body_pose(
+            &mut rider_kin,
+            mount_kin.pos + rider_local,
+            ae::Vec2::ZERO,
+        );
+        rider_kin.facing = mount_kin.facing;
+        rider_surface.gravity_scale = 0.0;
         // ⛔ `invalidate()` for the same reason a captive gets it: the saddle pin
         // is a discrete pose write every tick, so clearing the flag without the
         // BASELINE leaves the kernel believing the rider was airborne — and a
         // saddle that puts a rider against geometry then re-lands it every tick.
         // Latent on `pirate_sky_lookout` only because its riders are in the sky.
-        rider.ground.invalidate();
+        rider_ground.invalidate();
         // Keep the CenteredAabb mirror in sync so damage / spatial
         // queries on the same tick see the rider where it visually
         // sits. update_ecs_actors writes this from rider.kin.pos at the
         // top of the next tick too, but the same-frame consumers
         // (damage application, projectile origin lookups) need it now.
-        rider_aabb.center = rider.kin.pos;
-        rider_aabb.half_size = rider.kin.size * 0.5;
+        rider_aabb.center = rider_kin.pos;
+        rider_aabb.half_size = rider_kin.size * 0.5;
     }
 }
 
@@ -387,7 +406,19 @@ pub fn enforce_mount_rider_link(
             &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
-            Option<super::actor_clusters::ActorClusterQueryData>,
+            // The same four columns the saddle sync names, plus the rider's
+            // AUTHORED baseline: the dismount restores `spawn.size` and reads
+            // `tuning.is_aerial`, and neither has a live twin that means the
+            // same thing — `BodyBaseSize` follows the stance and `fly_enabled`
+            // is toggled at runtime, so either would give a grown or a landed
+            // rider the wrong body back.
+            //
+            // ⛔ `ActorConfig` IS THEREFORE THE ONE MONOLITH TYPE LEFT IN THIS
+            // MODULE, and it is two fields of it.
+            &mut ae::BodyKinematics,
+            &mut ae::ActorSurfaceState,
+            &mut ambition_characters::actor::BodyHealth,
+            &super::actor_clusters::ActorConfig,
         ),
         Without<MountSlot>,
     >,
@@ -417,12 +448,19 @@ pub fn enforce_mount_rider_link(
         );
     }
 
-    for (rider_entity, riding, mut rider_aabb, cache, was_mounted, rider_clusters) in &mut riders {
-        let Some(mut rider_cq) = rider_clusters else {
-            continue;
-        };
-        let rider = rider_cq.as_actor_mut();
-        if !rider.health.alive() {
+    for (
+        rider_entity,
+        riding,
+        mut rider_aabb,
+        cache,
+        was_mounted,
+        mut rider_kin,
+        mut rider_surface,
+        mut rider_health,
+        rider_config,
+    ) in &mut riders
+    {
+        if !rider_health.alive() {
             continue;
         }
         let alive = mount_alive.get(&riding.mount).copied().unwrap_or(false);
@@ -437,7 +475,7 @@ pub fn enforce_mount_rider_link(
             // and zero gravity. Re-arm idempotently.
             (true, false) => {
                 if let Some(cache) = cache {
-                    rider.surface.gravity_scale = 0.0;
+                    rider_surface.gravity_scale = 0.0;
                     commands.entity(rider_entity).insert((
                         cache.brain.clone(),
                         cache.action_set.clone(),
@@ -448,7 +486,7 @@ pub fn enforce_mount_rider_link(
                     // reconstructible); the marker above still tracks live state.
                     if let Ok(mount_id) = sim_ids.get(riding.mount) {
                         commands.entity(rider_entity).insert(
-                            crate::features::TemporaryControl::Mounted {
+                            ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Mounted {
                                 mount: mount_id.clone(),
                             },
                         );
@@ -471,25 +509,25 @@ pub fn enforce_mount_rider_link(
                     .copied()
                     .unwrap_or_default()
                 {
-                    rider.health.damage(amount);
+                    rider_health.damage(amount);
                     // If the splash killed the rider, skip the dismount rebuild —
                     // a dead rider needs no solo brain.
-                    if !rider.health.alive() {
+                    if !rider_health.alive() {
                         continue;
                     }
                 }
-                rider.surface.gravity_scale = if rider.config.tuning.is_aerial {
+                rider_surface.gravity_scale = if rider_config.tuning.is_aerial {
                     0.0
                 } else {
                     1.0
                 };
-                rider.kin.size = rider.config.spawn.size;
+                rider_kin.size = rider_config.spawn.size;
                 // Publish immediately so same-frame presentation / combat sees
                 // the rider's grounded pose. This is usually the same size as
                 // MountedSize; keeping the write here makes intentional future
                 // size overrides explicit and safe.
-                rider_aabb.center = rider.kin.pos;
-                rider_aabb.half_size = rider.kin.size * 0.5;
+                rider_aabb.center = rider_kin.pos;
+                rider_aabb.half_size = rider_kin.size * 0.5;
                 // Announce the dissolution as a body fact (ADR 0020; Q19a). The
                 // boss-encounter bridge turns this into a `mount_died` external
                 // phase trigger for a mounted boss; other consumers may listen
@@ -512,7 +550,7 @@ pub fn enforce_mount_rider_link(
                     .remove::<Mounted>()
                     // Back to autonomous control for snapshot purposes (a boss rider
                     // keeps its authored brain but is no longer mount-controlled).
-                    .insert(crate::features::TemporaryControl::Autonomous)
+                    .insert(ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous)
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
                     .remove::<ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind>(

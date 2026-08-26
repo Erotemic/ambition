@@ -465,7 +465,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "ambition_platformer2d_shared_tangle::body::Mass",
             "authored mass; immutable at runtime",
         ),
-                (
+        (
             "ambition_platformer2d_actor_monolith::features::ecs::mount::Mountable",
             "authored capability payload; immutable at runtime",
         ),

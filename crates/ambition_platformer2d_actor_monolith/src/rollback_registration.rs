@@ -160,7 +160,11 @@ where
         OWNER,
         "actor.perception_memory",
     );
-    registrar.rollback_component_canonical::<crate::features::TemporaryControl>(
+    // ⛔ THE TYPE MOVED to `shared_tangle::temporary_control` (2026-08-26); the
+    // STABLE NAME `actor.temporary_control` deliberately did NOT. It is an
+    // identity on the wire, not an address. The registration stays here because
+    // the monolith is still what installs the control modes it records.
+    registrar.rollback_component_canonical::<ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>(
         OWNER,
         "actor.temporary_control",
     );

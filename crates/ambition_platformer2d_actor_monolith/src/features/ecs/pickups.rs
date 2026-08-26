@@ -12,7 +12,7 @@ use ambition_sfx::{SfxMessage, SfxWriter};
 /// Action-driven held-item pickup uses a separate control path.
 pub type TouchCollectorFilter = bevy::prelude::Or<(
     bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-    bevy::prelude::With<crate::features::TemporaryControl>,
+    bevy::prelude::With<ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
 )>;
 
 /// A body collects on touch when it belongs to the player population or is
@@ -20,12 +20,14 @@ pub type TouchCollectorFilter = bevy::prelude::Or<(
 /// while that body's brain is temporarily absent.
 pub fn body_collects_on_touch(
     in_player_population: bool,
-    control: Option<&crate::features::TemporaryControl>,
+    control: Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
 ) -> bool {
     in_player_population
         || matches!(
             control,
-            Some(crate::features::TemporaryControl::Player { .. })
+            Some(
+                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Player { .. }
+            )
         )
 }
 
@@ -92,7 +94,7 @@ pub fn magnetize_pickups(
         (
             &ambition_platformer2d_core::BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Option<&crate::features::TemporaryControl>,
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
         ),
         TouchCollectorFilter,
     >,
@@ -151,7 +153,7 @@ pub fn collect_ecs_pickups(
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Option<&crate::features::TemporaryControl>,
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
         ),
         TouchCollectorFilter,
     >,

@@ -8,8 +8,8 @@
 //! neither can own it without creating the wrong dependency edge. Being generic,
 //! potentially reusable, or awkward to place is not sufficient.
 
-pub mod authored_logic;
 pub mod app_finalization;
+pub mod authored_logic;
 pub mod binding;
 pub mod body;
 pub mod camera_ease;
@@ -31,8 +31,8 @@ pub mod time;
 pub mod transit;
 pub mod world_log;
 
-pub mod feature_kind;
 pub mod block_nudge;
+pub mod feature_kind;
 pub mod feature_overlay;
 
 pub mod held_item_art;
@@ -45,6 +45,13 @@ pub mod shrine;
 /// The ONE identity vocabulary for snapshot / replay / netcode (N3.1).
 pub mod sim_id;
 mod snapshot_impls;
+/// Whether an autonomous body is currently masked by a transient controller.
+///
+/// ⭐ HERE FOR THE REASON `body::Mass` AND `body::MountDied` ARE: TWO domains
+/// share it — possession and the mount pair — and neither owns the other. It was
+/// in the actor monolith's `features`, which made "who controls this body across
+/// time" read as a features fact.
+pub mod temporary_control;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;

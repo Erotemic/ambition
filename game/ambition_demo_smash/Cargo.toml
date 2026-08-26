@@ -7,6 +7,8 @@ authors.workspace = true
 description = "Stocks-based platform-fighter demo. The first consumer of the S4 stocks loop, and the oracle for whether a stocks game is expressible through the facade."
 
 [dependencies]
+# Authored effect params round-trip through the `ParamValue` seam.
+serde = { workspace = true }
 # The E9 oracle rule, unchanged: `ambition_platformer2d` + `bevy` and nothing else. If authoring
 # a STOCKS match needs a type the umbrella does not re-export, that is an engine leak and it
 # fails to compile HERE, which is the point. A game that never validates its content still must

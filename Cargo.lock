@@ -435,6 +435,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_platformer2d",
  "bevy",
+ "serde",
 ]
 
 [[package]]

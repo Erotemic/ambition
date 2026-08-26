@@ -1,6 +1,7 @@
 //! Pirate Admiral's authored Smash repertoire.
 //!
-//! The kit emphasizes cutlass reach and a lateral grapple recovery. The grapple spends
+//! The kit emphasizes cutlass reach and a SUMMONED VEHICLE for a recovery — the
+//! up-B calls a burning flying shark and rides it (D207). The retired grapple spends
 //! most of its displacement across the stage, so vertical recovery still depends on the
 //! body's other movement resources. The pistol remains an `ActionSet` capability rather
 //! than a move-table entry, keeping ranged execution under one authority.
@@ -24,23 +25,26 @@ use ambition_characters::moveset_authoring::{
 /// the number that IS the move. A recovery is usually authored as a rise; this
 /// one spends its whole budget on distance, so the admiral's problem offstage is
 /// never *"can I climb back to the lip"* but *"can I reach the lip at all"*.
-pub(crate) const GRAPPLE_ACROSS: f32 = 980.0;
+/// The character the admiral's up-B summons to ride.
+///
+/// ⭐ AUTHORED CONTENT THAT ALREADY EXISTED. `npc_burning_flying_shark` is the
+/// mount half of the pirate sky-rider pair ADR 0020 built — a `Mountable` of
+/// class `shark` with an authored saddle offset — so this move seats the admiral
+/// on the same shark his raiders have always flown, rather than minting a
+/// fighter-only copy of one.
+pub(crate) const SHARK_CHARACTER: &str = "npc_burning_flying_shark";
 
-/// And how far up. Deliberately small — enough to hold him level for the
-/// crossing and nowhere near enough to climb with.
-pub(crate) const GRAPPLE_RISE: f32 = 300.0;
+/// When in the up-B the shark arrives. Long enough to read as a summon and be
+/// punishable; short enough to still be a recovery.
+pub(crate) const SHARK_AT_S: f32 = 0.18;
 
-/// When the line catches. The windup you can see coming, and the number a
-/// recovery search plans around.
-pub(crate) const GRAPPLE_AT_S: f32 = 0.16;
+/// When the move itself ends. The RIDE outlives it — the admiral is flying by
+/// then and the move's tail is only the animation of having called it.
+pub(crate) const SHARK_ENDS_S: f32 = 0.34;
 
-/// And when the move lets go. not a feel number. The rise buys
-/// `GRAPPLE_RISE² / 2g ≈ 20px` of climb and takes `GRAPPLE_RISE / g ≈ 0.13s` to
-/// spend it, so any tail longer than twice that hands the admiral back BELOW
-/// where the move found him — which is what stops a re-pressable recovery from
-/// being flight. The guard `the_grapple_is_a_crossing_and_not_a_flight` holds the
-/// arithmetic.
-pub(crate) const GRAPPLE_ENDS_S: f32 = 0.88;
+/// How long the admiral may stay aboard. Jon's number, and explicitly a first
+/// pass: *"maybe 5 seconds is too long, but that's where I want it right now."*
+pub(crate) const SHARK_RIDE_SECONDS: f32 = 5.0;
 
 /// See the module doc. Fifteen moves: the genre's standard verb map plus four
 /// specials.
@@ -306,53 +310,52 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let side_b = vfx(side_b, 0.16, "shockwave");
     let side_b = on_contact(side_b, "player.robot.slash.impact.metal.gong");
 
-    // UP — `grapple_line`. THE RECOVERY, and it is not a rise.
+    // UP — `call_the_shark`. THE RECOVERY, AND IT IS A VEHICLE.
     //
-    // a boarding line thrown at the stage and hauled in. The commanded
-    // velocity is `(980, -300)`: almost all of the energy goes ACROSS, and the
-    // small against-gravity component exists to keep the admiral level while he
-    // travels rather than to climb.
+    // ⭐⭐ JON'S DESIGN, 2026-08-26: *"their up-b should summon a burning flying
+    // shark that they can mount and ride (and effectively fly around for a
+    // limited time using the control stick)."* It replaces `grapple_line`, a
+    // hauled boarding line whose recovery was almost all horizontal.
     //
-    // the height is the BODY's job and the distance is the MOVE's, which
-    // is the division of labour that makes this mechanically a different
-    // recovery from a vertical Up-B rather than the same one at an angle. An
-    // admiral knocked below the lip must spend his double jump FIRST and then
-    // grapple; one knocked out level can grapple immediately. A move that
-    // supplied both halves would collapse that decision.
+    // ⛔ NO HURTBOX ANYWHERE ON IT — *"There is no hurtbox on this up-b, it's
+    // purely a mobility special"* — which is why it is a `hitless_special` and
+    // not a `strike` carrying an empty volume list. The shark deals no contact
+    // damage either; it is `Neutral` and takes no side in the match.
     //
-    // and it is not flight. The tail runs to `GRAPPLE_ENDS_S` with no
-    // `Cancelable` window, so the move cannot be re-pressed until it has handed
-    // back more altitude than its 20px of climb ever bought.
-    let up_b = strike(Strike {
-        id: "grapple_line",
-        clip: "special_up",
-        startup_s: GRAPPLE_AT_S,
-        active_s: 0.10,
-        recover_s: 0.22,
-        offset: (30.0, -10.0),
-        half_extents: (28.0, 18.0),
-        damage: 8,
-        knockback: 95.0,
-        knockback_growth: 1.60,
-        launch_dir: Some((0.7, -0.7)),
-        on_hit: None,
-    });
-    let up_b = impulse(
-        up_b,
-        GRAPPLE_AT_S,
-        (GRAPPLE_ACROSS, -GRAPPLE_RISE),
-        ImpulseMode::Set,
+    // ⭐ THE PRICE IS THE BUDGET, NOT FREEFALL. `author_summon_ride` sets both
+    // gates together: one shark per airtime like anybody else's recovery, and no
+    // helpless episode, because a rider that cannot act is not riding. Jon is
+    // explicit that this is a strong recovery and that the balancing comes
+    // later: *"This is a recovery, and yes it is a strong recovery. We will
+    // balance later, maybe 5 seconds is too long, but that's where I want it
+    // right now."*
+    //
+    // ⭐ NO IMPULSE. The shark appears where the admiral is and the climb is the
+    // player's to steer, which is the whole mechanic — a rise bolted on top
+    // would be a second recovery inside the first, and it is the thing to reach
+    // for first if five seconds of flight turns out not to save him.
+    let up_b = ambition_characters::moveset_authoring::hitless_special(
+        "call_the_shark",
+        "special_up",
+        SHARK_AT_S,
+        SHARK_ENDS_S,
     );
-    let up_b = committed_tail(up_b, GRAPPLE_ENDS_S, 0.0);
-    let mut up_b = up_b;
-    // Landing out of it costs, so it is a bad panic button ON the stage.
-    up_b.landing_lag_s = Some(0.18);
+    let up_b = ambition_characters::smash_ride::author_summon_ride(
+        up_b,
+        SHARK_AT_S,
+        ambition_characters::smash_ride::SummonRideParams {
+            character_id: SHARK_CHARACTER.to_string(),
+            // The authored shark body, so the summoned mount is the one the
+            // saddle offset on its `Mountable` was authored against.
+            half_extents: (48.0, 22.0),
+            seconds: SHARK_RIDE_SECONDS,
+        },
+    );
     let up_b = sfx(up_b, 0.0, "player.attack.charge");
-    let up_b = sfx(up_b, GRAPPLE_AT_S, "player.robot.slash.air");
+    let up_b = sfx(up_b, SHARK_AT_S, "player.robot.slash.air");
     // a recovery activating gets its own burst: seeing one is how the other
     // player knows this fighter is not dead yet.
-    let up_b = vfx(up_b, GRAPPLE_AT_S, "classic_burst");
-    let up_b = on_contact(up_b, "player.hit");
+    let up_b = vfx(up_b, SHARK_AT_S, "classic_burst");
 
     // DOWN — `heave_to`. The anchor. It commands a FULL STOP: `(0, 0)`, a
     // `Set` of zero.
@@ -591,65 +594,7 @@ mod tests {
         })
     }
 
-    /// THE RECOVERY IS A CROSSING, AND THE TABLE SAYS SO IN ITS OWN NUMBERS.
-    ///
-    /// the one claim this fighter exists to make: its way home spends its
-    /// budget on DISTANCE, not on height. Asserting the ratio rather than the
-    /// magnitudes is what keeps this true through a retune — an admiral whose
-    /// grapple climbed more than it crossed would be George with a different
-    /// sprite, and nothing else in the tree would notice.
-    #[test]
-    fn the_grapple_crosses_further_than_it_climbs() {
-        let set = pirate_admiral_moveset();
-        let line = commanded(&set, "grapple_line").expect("the recovery displaces its owner");
-        assert!(
-            line.1 < 0.0,
-            "the burst must have an against-gravity component or no policy layer \
-             can see it at all: {line:?}"
-        );
-        assert!(
-            line.0 > 0.0,
-            "and a lateral one, or this is a vertical Up-B: {line:?}"
-        );
-        assert!(
-            line.0 > 3.0 * -line.1,
-            "the crossing must DOMINATE the climb — {}px/s across against \
-             {}px/s up. Below that ratio this fighter stops pressing the \
-             abstraction from a different direction and becomes a second George",
-            line.0,
-            -line.1
-        );
-    }
 
-    /// THE GRAPPLE IS A CROSSING AND NOT A FLIGHT — and the arithmetic is the
-    /// reason.
-    ///
-    /// this is what lets the recovery exist with no cooldown, no per-airtime
-    /// counter and no new rollback state. The body cannot re-press while the move
-    /// is playing (no `Cancelable` window), so the only question is whether one
-    /// full cycle gains height. It cannot: the move outlasts its own tiny arc, so
-    /// by the time the admiral may press again he has fallen back through
-    /// everything the rise bought and then some.
-    #[test]
-    fn the_grapple_is_a_crossing_and_not_a_flight() {
-        let g = ambition_platformer2d::engine_core::DEFAULT_TUNING.gravity;
-        let to_apex = GRAPPLE_RISE / g;
-        let tail = GRAPPLE_ENDS_S - GRAPPLE_AT_S;
-        assert!(
-            tail > 2.0 * to_apex,
-            "the line climbs for {to_apex:.3}s and is handed back {tail:.3}s after \
-             it catches; anything at or under {:.3}s returns the admiral higher \
-             than it found him, every press, which is flight",
-            2.0 * to_apex
-        );
-        // Landing out of it costs, so it is a bad panic button ON the stage.
-        assert!(
-            find(&pirate_admiral_moveset(), "grapple_line")
-                .landing_lag_s
-                .unwrap_or(0.0)
-                > 0.0
-        );
-    }
 
     /// THE POISON, AUTHORED: A TINY UPWARD ATTACK OUTRANKS THE RECOVERY ON
     /// THE SCALAR, AND MUST NOT BE THE RECOVERY.
@@ -662,49 +607,22 @@ mod tests {
     /// contains a kit where the scalar ordering and the useful ordering
     /// disagree. If a retune ever makes them agree, that fixture stops standing
     /// for anything and this test says so.
-    #[test]
-    fn the_juggle_aerial_outranks_the_recovery_on_lift_speed() {
-        let set = pirate_admiral_moveset();
-        let aerial = find(&set, "air_up").frame_data();
-        let line = find(&set, "grapple_line").frame_data();
-
-        assert!(
-            aerial.lift_speed > 0.0,
-            "the juggle aerial must really command a rise, or there is no trap here"
-        );
-        assert!(
-            aerial.lift_speed > line.lift_speed,
-            "the trap needs the USELESS move to sort FIRST: {} vs {}",
-            aerial.lift_speed,
-            line.lift_speed
-        );
-        assert!(
-            line.lift_side > aerial.lift_side,
-            "and the recovery's advantage must live entirely in the half the \
-             scalar discards: {} vs {}",
-            line.lift_side,
-            aerial.lift_side
-        );
-        // and the aerial is genuinely not a way home: it goes nowhere sideways.
-        assert_eq!(aerial.lift_side, 0.0);
-    }
-
+    
     // -----------------------------------------------------------------------
-    // The authored table, driven through the REAL decision machinery.
-    // -----------------------------------------------------------------------
-
-    use ambition_characters::brain::fighter::options::{
-        lifting_candidates, ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
-    };
-    use ambition_characters::brain::fighter::recovery::{
-        BodyKit, RecoveryLens, RecoveryLift, RecoveryQuery,
-    };
-    use ambition_characters::perception::{
-        PerceivedSolid, SelfView, SolidKind, StageView, WorldView,
-    };
-    use ambition_platformer2d::engine_core as ae;
-
-    const DT: f32 = 1.0 / 60.0;
+    // ⛔⛔ THE ADMIRAL'S RECOVERY-SEARCH FIXTURE LIVED HERE AND IS GONE WITH THE
+    // GRAPPLE. Two tests drove the real `RecoveryLens` over this fighter's own
+    // airborne kit — one pinning that the scalar ordering and the useful
+    // ordering disagree in it (the fixture behind
+    // `a_tiny_lifting_move_does_not_suppress_a_viable_recovery`), one pinning
+    // that the search picks the grapple anyway. Both read `grapple_line`'s
+    // commanded velocity, and the shark up-B commands none: it is a recovery
+    // because of the technique on its timeline, which that lens cannot see.
+    //
+    // ⇒ the CPU admiral currently has NO recovery the search can find. That is
+    // the open half of D207 and it is stated here rather than papered over,
+    // because the next person to wonder where these tests went is the person who
+    // should read it. The engine-level fix keeps its own guard in
+    // `RecoveryLens`; what is missing is this fighter's integration arm.
 
     /// The admiral's kit as an AIRBORNE body sees it — the posture filter the
     /// runtime applies before the brain ever looks, so a grounded-only tilt
@@ -712,48 +630,11 @@ mod tests {
     ///
     /// the BINDING is not what this fixture measures (a route is identified by
     /// its move id), so every candidate carries the same placeholder press.
-    fn airborne_kit() -> Vec<AttackCandidate> {
-        pirate_admiral_moveset()
-            .moves
-            .iter()
-            .filter(|m| m.gates.grounded != Some(true))
-            .map(|m| AttackCandidate {
-                move_id: m.id.clone(),
-                frames: m.frame_data(),
-                binding: AttackBinding {
-                    verb: AttackVerb::Special,
-                    direction: ambition_characters::actor::attack_gesture::AttackDir::Up,
-                },
-                legality: ActionLegality::Now,
-            })
-            .collect()
-    }
-
+    
     /// A 1600x800 stage whose only surface is far off to the right: `x` in
     /// `650..1450`, top face at `y = 500`. A body high and far to the left is
     /// ABOVE that face, so its problem is entirely lateral.
-    fn offstage_left() -> WorldView {
-        WorldView {
-            self_view: SelfView {
-                pos: ae::Vec2::new(150.0, 200.0),
-                gravity_down: ae::Vec2::new(0.0, 1.0),
-                half_extent: ae::Vec2::new(12.0, 16.0),
-                alive: true,
-                on_ground: false,
-                health_max: 100,
-                ..Default::default()
-            },
-            stage: StageView {
-                bounds: ae::Aabb::new(ae::Vec2::new(800.0, 400.0), ae::Vec2::new(800.0, 400.0)),
-            },
-            terrain: vec![PerceivedSolid {
-                aabb: ae::Aabb::new(ae::Vec2::new(1050.0, 516.0), ae::Vec2::new(400.0, 16.0)),
-                kind: SolidKind::Solid,
-            }],
-            ..Default::default()
-        }
-    }
-
+    
     /// THE ACCEPTANCE MEASUREMENT: the admiral's own table, the brain's own
     /// route derivation, and the real movement kernel agree that `grapple_line`
     /// is the way home — and they do it without anybody naming him.
@@ -768,84 +649,7 @@ mod tests {
     /// and the ORDER is asserted first, because the order is the trap.
     /// `air_up` sorts above `grapple_line` on the only number a static reader
     /// has. A layer that took the first candidate would take the juggle aerial.
-    #[test]
-    fn the_search_picks_the_grapple_out_of_the_admirals_own_kit() {
-        let kit = airborne_kit();
-        let routes_by_id: Vec<&str> = lifting_candidates(&kit)
-            .iter()
-            .map(|c| c.move_id.as_str())
-            .collect();
-        assert_eq!(
-            routes_by_id,
-            vec!["air_up", "grapple_line", "grapeshot"],
-            "the scalar order is the trap this fixture exists inside — if it \
-             changes, re-read the comment on `air_up` before touching anything"
-        );
-
-        let view = offstage_left();
-        let routes: Vec<RecoveryLift> = lifting_candidates(&kit)
-            .iter()
-            .map(|c| RecoveryLift {
-                speed: c.frames.lift_speed,
-                side: c.frames.lift_side,
-                after_s: c.frames.lift_at_s,
-            })
-            .collect();
-        let kit_facts = BodyKit {
-            abilities: ae::AbilitySet {
-                double_jump: true,
-                ..ae::AbilitySet::basic()
-            },
-            movement: ae::MovementTuning::default(),
-        };
-        // the double jump is SPENT, which is the situation the module doc
-        // describes: the admiral buys his height with the body's own verb and
-        // then crosses with the move. A fixture that left the jump unspent would
-        // be measuring a body that has not got into trouble yet.
-        let at = RecoveryQuery {
-            pos: view.self_view.pos,
-            vel: ae::Vec2::ZERO,
-            air_jumps_left: 0,
-        };
-
-        let lens = RecoveryLens::from_view(&view, kit_facts, &routes, DT)
-            .expect("the stage is known and gravity is non-zero");
-        let verdict = lens.best_route(at);
-        assert!(
-            verdict.regained(),
-            "the admiral is 500px from the only surface on the stage and holding \
-             a move built to cross exactly that — got {verdict:?}"
-        );
-        let chosen = verdict.route.expect("a route, not the bare drift");
-        assert_eq!(
-            lifting_candidates(&kit)[chosen].move_id,
-            "grapple_line",
-            "the search endorsed the wrong move; routes were {routes_by_id:?}"
-        );
-
-        // poison: without any route at all the identical body from the
-        // identical place must NOT get home, or the lens is answering `Regained`
-        // to everything and the assertion above is worthless.
-        let unarmed =
-            RecoveryLens::from_view(&view, kit_facts, &[], DT).expect("the stage is known");
-        assert!(
-            !unarmed.best_route(at).regained(),
-            "drift alone crossed 500px, so this stage cannot tell a recovery from \
-             a fall"
-        );
-
-        // poison: and the juggle aerial ALONE — the move the scalar ranks
-        // first — must not get home either. If it did, the endorsement above
-        // would be a coin flip between two working routes.
-        let juggle_only = RecoveryLens::from_view(&view, kit_facts, &routes[..1], DT)
-            .expect("the stage is known");
-        assert!(
-            !juggle_only.best_route(at).regained(),
-            "the 360px/s juggle aerial reached the stage, which means the trap \
-             this fighter was authored to expose is not present in these numbers"
-        );
-    }
-
+    
     /// FOUR SPECIALS, FOUR MECHANISMS.
     ///
     /// four rotations of one strike would be a re-skin, so the assertion is
@@ -890,9 +694,38 @@ mod tests {
             "a charge you can steer freely out of is not a commitment"
         );
 
-        // Up: the crossing. Both components, and the lateral one dominates.
-        let line = commanded(&set, "grapple_line").expect("the recovery displaces");
-        assert!(line.0 > 0.0 && line.1 < 0.0);
+        // Up: a VEHICLE. It displaces nobody — the shark appears where the
+        // admiral is and the climb is the player's to steer — so the mechanism
+        // that makes it a recovery is the technique on its timeline, not a
+        // number in its motion.
+        //
+        // ⛔⛔ AND THAT IS WHY IT IS UNREACHABLE TO THE CPU'S RECOVERY SEARCH,
+        // which reads commanded velocity to find a way home. The two tests that
+        // used to pin the admiral's search fixture went with `grapple_line`; see
+        // D207 for the open question of teaching the lens about a summoned
+        // ride. Asserted rather than left implicit so the day somebody gives
+        // this move an impulse, they find out it was load-bearing.
+        assert!(
+            commanded(&set, "call_the_shark").is_none(),
+            "the shark up-B commands a velocity, which means it is no longer the \
+             vehicle recovery this fighter is built around"
+        );
+        assert!(
+            find(&set, "call_the_shark")
+                .events
+                .iter()
+                .any(|e| matches!(&e.kind, MoveEventKind::Effect(effect)
+                    if effect.key == ambition_characters::smash_ride::SUMMON_RIDE)),
+            "the up-B summons nothing, so the admiral has no recovery at all"
+        );
+        assert!(
+            find(&set, "call_the_shark").gates.spends_recovery
+                && find(&set, "call_the_shark")
+                    .gates
+                    .recovery_without_freefall,
+            "the pair is the whole price: one per airtime, and no freefall — a \
+             move stating one without the other is a different mechanic"
+        );
 
         // Down: a full stop, which is a commanded velocity of nothing.
         assert_eq!(commanded(&set, "heave_to"), Some((0.0, 0.0)));
@@ -917,7 +750,7 @@ mod tests {
         for id in [
             "grapeshot",
             "boarding_run",
-            "grapple_line",
+            "call_the_shark",
             "heave_to",
             "air_up",
         ] {
@@ -942,11 +775,17 @@ mod tests {
                 }),
                 "`{id}` shows nothing"
             );
+            // ⛔ A MOVE WITH NO VOLUMES CANNOT LAND, so it cannot land
+            // silently. `call_the_shark` is the admiral's mobility special and
+            // has no hurtbox anywhere on it by design; asserting a contact cue
+            // on it would be asserting that it hits.
+            let lands = m.windows.iter().any(|w| !w.volumes.is_empty());
             assert!(
-                m.windows
-                    .iter()
-                    .flat_map(|w| w.volumes.iter())
-                    .any(|v| v.hit_sfx.is_some()),
+                !lands
+                    || m.windows
+                        .iter()
+                        .flat_map(|w| w.volumes.iter())
+                        .any(|v| v.hit_sfx.is_some()),
                 "`{id}` lands silently"
             );
         }

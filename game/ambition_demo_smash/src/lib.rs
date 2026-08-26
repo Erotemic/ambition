@@ -14,6 +14,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod shark_ride;
 pub mod capture;
 pub mod george_booul_moveset;
 pub mod moveset;
@@ -695,6 +696,43 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // THE PIRATE'S SHARK, and it sits in `Materialize` beside the capture
+        // adapter for that set's own stated reason: *"a thing must EXIST before
+        // it can hit anything"*. A summoned mount is exactly such a thing — the
+        // saddle pin that welds a rider to it runs later in the tick.
+        app.add_systems(
+            sim,
+            crate::shark_ride::translate_shark_summons
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
+        );
+        // WHAT ENDS A RIDE, and what the shark does afterwards.
+        //
+        // ⛔ `Settle` and CHAINED, because all three are opinions about a state
+        // the tick has already produced: whether the rider is tumbling, whether
+        // it pressed jump, and whether its saddle emptied. The two that ASK run
+        // before `apply_dismount_requests` (which the runtime schedules in the
+        // same set) and the departure reads the announcement that one makes, so
+        // a shark left riderless this tick is already leaving this tick.
+        app.add_systems(
+            sim,
+            (
+                crate::shark_ride::dismount_launched_riders,
+                crate::shark_ride::bail_out_of_the_saddle,
+            )
+                .chain()
+                .before(ambition_platformer2d::mount::apply_dismount_requests)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
+        app.add_systems(
+            sim,
+            (
+                crate::shark_ride::depart_when_riderless,
+                crate::shark_ride::tick_departures,
+            )
+                .chain()
+                .after(ambition_platformer2d::mount::apply_dismount_requests)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
         // it runs in `PlayerInput` and NOT in `Settle`. It shipped in `Settle`
@@ -1651,6 +1689,86 @@ fn smash_fighters_are_solid_to_each_other(
     }
 }
 
+/// SMASH'S FIGHTERS MAY RIDE SHARKS — the match's statement, not a character's.
+///
+/// ADR 0020 makes piloting a compatibility check: a rider needs a `CanPilot`
+/// covering the mount's class or `mount::board` refuses. Nothing on the seating
+/// road grants one — mount roles live on the PLACEMENT road that spawns an
+/// authored NPC, and a seated fighter never travels it — so without this the
+/// pirate's shark would spawn and nobody would get on.
+///
+/// ⛔ GRANTED TO THE WHOLE CAST rather than to the pirate by id. Whether a
+/// SHARK exists to be ridden is the pirate's business, and it is the pirate's
+/// move that makes one; who is *allowed* to sit on a shark is the match's. The
+/// id-matching version reads as tighter and is not: it puts a character name in
+/// the ruleset, and it would refuse a second fighter that authored the same
+/// summon for no reason anyone could state.
+///
+/// `Without<CanPilot>` in the filter IS the idempotence, exactly as the jostle
+/// grant beside it: a body that already has it is not in the query, so no change
+/// tick moves on the frames where nothing changed.
+fn smash_fighters_may_ride_sharks(
+    mut commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    fighters: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition_platformer2d::actor::FighterStocks>,
+            bevy::prelude::Without<ambition_platformer2d::mount::CanPilot>,
+        ),
+    >,
+) {
+    let on_stage = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
+    if !on_stage {
+        return;
+    }
+    for fighter in &fighters {
+        commands
+            .entity(fighter)
+            .try_insert(ambition_platformer2d::mount::CanPilot {
+                classes: vec![ambition_platformer2d::mount::MountClass(
+                    ambition_platformer2d::characters::smash_ride::SHARK_CLASS.to_string(),
+                )],
+            });
+    }
+}
+
+/// A mount on THIS stage is a summoned one, so it leaves when its saddle empties.
+///
+/// ⭐ THE MARKER IS THE MOUNT'S PROPERTY, not the summoning move's, because
+/// departing is a thing about this vehicle rather than about how it arrived —
+/// see `shark_ride::DepartsWhenRiderless`. The smash stage authors no standing
+/// mounts, so every `Mountable` here got here by being summoned; a room that
+/// authored a horse in a field would not run this system and its horse would
+/// stay put, which is ADR 0020's default for an unridden mount.
+fn a_summoned_mount_leaves_when_its_rider_does(
+    mut commands: bevy::prelude::Commands,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    mounts: bevy::prelude::Query<
+        bevy::prelude::Entity,
+        (
+            bevy::prelude::With<ambition_platformer2d::mount::Mountable>,
+            bevy::prelude::Without<shark_ride::DepartsWhenRiderless>,
+        ),
+    >,
+) {
+    let on_stage = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
+    if !on_stage {
+        return;
+    }
+    for mount in &mounts {
+        commands
+            .entity(mount)
+            .try_insert(shark_ride::DepartsWhenRiderless);
+    }
+}
+
 /// Return to character select after a decided match has left its winner card
 /// visible for [`RETURN_TO_SELECT_AFTER`].
 ///
@@ -2016,6 +2134,8 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     // the dev bins and the stage tests. See its doc.
                     the_stage_always_plays_by_smash_rules,
                     smash_fighters_are_solid_to_each_other,
+                    smash_fighters_may_ride_sharks,
+                    a_summoned_mount_leaves_when_its_rider_does,
                     // AFTER the driver that sets the flag, and in the same
                     // chain, so a press and the route change it asks for are
                     // one frame apart at most. The screen would otherwise keep

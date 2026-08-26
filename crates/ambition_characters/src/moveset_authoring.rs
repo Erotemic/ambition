@@ -274,6 +274,63 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
     }
 }
 
+/// A special whose whole content is its EFFECT: a timeline, a clip, and no
+/// volume anywhere on it.
+///
+/// ⭐ NOT EVERY SPECIAL HITS. A summon, a transformation, a counter-stance and a
+/// teleport are all moves whose payload is a technique rather than a box, and
+/// [`strike`] cannot express one — its shape is startup / one active volume /
+/// recovery, so authoring a hitless move through it means an active window
+/// carrying an empty volume list, which reads as *"this hits, for nothing"*.
+///
+/// The whole timeline is `Startup` up to `commits_at_s` and `Recovery` after,
+/// because that IS the shape: everything before the effect is the wind-up you
+/// can be punished during, and everything after is the tail you owe for it.
+/// Rooted throughout — a special you can stroll out of is not a commitment.
+pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32) -> MoveSpec {
+    assert!(
+        commits_at_s <= duration_s,
+        "special `{id}` commits at {commits_at_s}s but lasts {duration_s}s"
+    );
+    MoveSpec {
+        display_name: None,
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: clip.to_string(),
+            fallbacks: vec!["idle".to_string()],
+        },
+        duration_s,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: commits_at_s,
+                tag: WindowTag::Startup,
+                volumes: Vec::new(),
+                motion_scale: 0.0,
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: commits_at_s,
+                end_s: duration_s,
+                tag: WindowTag::Recovery,
+                volumes: Vec::new(),
+                motion_scale: 0.0,
+                sustain_effect: None,
+            },
+        ],
+        events: Vec::new(),
+        gates: MoveGates::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+        smash_charge: None,
+        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
+        repeat: None,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+        sprite_spin_hz: None,
+    }
+}
+
 /// One strike on one timeline: startup, one active window carrying one volume,
 /// recovery.
 ///

@@ -197,6 +197,25 @@ Platformer2dInputActionMonolith variants                 35
   path can key on `SemanticActionId` while the leafwing map stays closed —
   presentable and consumable may be reachable well before bindable is.
 
+  ⛔⛔ **AND THAT QUESTION HAS AN ANSWER, MEASURED 2026-08-26: THEY CANNOT, AND
+  IT IS NOT ONE ENUM BUT THREE.** `SemanticActionId` appears NOWHERE in
+  `ambition_sim_view` or `ambition_touch_input` — each road carries its own
+  closed vocabulary:
+
+```text
+binding       Platformer2dInputActionMonolith   35 variants  (leafwing key)
+presentation  ControlSlot                        8 variants  (`PromptEntry.slot`,
+                                                  `action_scheme.rs:20`)
+touch         TouchActionButton                 20 variants  (`layout.rs`, mapped
+                                                  BACK onto the leafwing enum)
+```
+
+  ⇒ a provider action has to appear in THREE closed enums to be bindable,
+  presentable and pressable, and the second map above only opens the first. ⚠ so
+  *"presentable before bindable"* is the wrong order — presentation is the
+  road with its OWN enum AND a hand-written mapping table, and it is the
+  expensive one.
+
   ⭐⭐ **AND THERE IS A CANDIDATE THAT NEEDS NO ERASURE, checked against the
   vendored trait 2026-08-26. A SECOND MAP, NOT A WIDER ENUM.** `InputMap` is
   already generic — `InputMap<A: Actionlike>` — so nothing stops a composition

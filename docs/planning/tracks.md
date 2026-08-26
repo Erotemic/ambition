@@ -481,6 +481,13 @@ docs/patches/llm-doc-cleanup-2026-05-17.md              ⇒ LEFT ALONE
   not the same defect as a DECISION nothing cites.
 ```
 
+⭐ **RE-RUN 2026-08-26, and it found one more: `docs/reviewer-guide.md`** (567
+lines, added the day before in `cab773ccf` — the very commit D237's deep review
+snapshotted). It is what the review checkpoints work from, and a reviewer
+arriving cold could not reach it from `status.md`, `queue.md` or anything else.
+⇒ ROUTED: cited from `status.md`'s header, where a cold start begins. 1 of 274.
+⭐ **the recency rule decided it** — mtime 2026-08-25 means Jon just put it there.
+
 ⇒ **the census's value is the distinction, not the count.** A stranded PLAN or
 DECISION is invisible work; a stranded brainstorm is just a brainstorm. Re-run
 it by scoping to `docs/**` minus `archive/` — scoping to `docs/planning/**`

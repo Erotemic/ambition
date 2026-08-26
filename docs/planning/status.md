@@ -15,6 +15,11 @@ replenish it. Focused plans own technical design.
 If this page disagrees with current source or a focused open plan, update this
 page rather than appending an archaeological correction.
 
+⭐ **Reviewing rather than implementing?** [`../reviewer-guide.md`](../reviewer-guide.md)
+is what the deep-review checkpoints (D237–D241) work from — role, what counts as
+evidence, and how to start from current truth rather than from a previous agent's
+summary. It was reachable from nothing until 2026-08-26.
+
 ## 2026-08-26, LATEST — a fortnight of stale markers, and three feature-gate holes
 
 ⭐⭐⭐ **THE ONE SENTENCE WORTH CARRYING FORWARD: A GREEN PER-CRATE `cargo test`

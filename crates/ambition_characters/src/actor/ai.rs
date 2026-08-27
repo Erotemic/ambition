@@ -203,3 +203,18 @@ pub fn evaluate_character_ai_output(snap: CharacterAiSnapshot) -> CharacterAiOut
 
 #[cfg(test)]
 mod tests;
+
+/// Per-tick actor-control scalars: respawn countdown + last-evaluated AI mode.
+///
+/// ⭐ IT LIVES BESIDE `CharacterAiMode`, WHICH IS THE ONLY THING IT IS MADE OF.
+/// This was a monolith component, and a `Component` holding one f32 and one
+/// enum from this module is a fact about a character's AI wearing another
+/// crate's address — which is also why `ambition_sim_view` and
+/// `ambition_character_sprites` both had to name the monolith to read it.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct ActorStatus {
+    /// Seconds left before this actor respawns.
+    pub respawn_timer: f32,
+    /// The mode the brain last settled on.
+    pub ai_mode: CharacterAiMode,
+}

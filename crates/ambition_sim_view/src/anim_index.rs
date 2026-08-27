@@ -5,9 +5,10 @@
 use bevy::prelude::{Query, ResMut, Resource};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
+use ambition_characters::actor::ai::ActorStatus;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::components::FeatureId;
-use ambition_platformer2d_actor_monolith::features::{ActorConfig, ActorStatus};
+use ambition_platformer2d_actor_monolith::features::ActorConfig;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::BodyKinematics;

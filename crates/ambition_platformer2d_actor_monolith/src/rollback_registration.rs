@@ -127,7 +127,6 @@ where
     );
     registrar
         .rollback_component_cursor::<crate::features::ActorMotionPath>(OWNER, "actor.motion_path");
-    registrar.rollback_component_canonical::<crate::features::ActorStatus>(OWNER, "actor.status");
     registrar.rollback_component_canonical::<crate::features::ecs::perception::Perception>(
         OWNER,
         "actor.perception",

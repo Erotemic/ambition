@@ -14,19 +14,6 @@ use ambition_platformer2d_core::snapshot::{
     SnapshotCursor, SnapshotState,
 };
 
-impl SnapshotState for crate::features::ActorStatus {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.respawn_timer);
-        self.ai_mode.encode(out);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::features::ActorStatus {
-            respawn_timer: r.f32()?,
-            ai_mode: ambition_characters::actor::ai::CharacterAiMode::decode(r)?,
-        })
-    }
-}
-
 // ── A live MATCH's per-body state (AA2 / AC2) ────────────────────────────────
 //
 // Which seat a body is, which team it fights for, and who owns its death. All

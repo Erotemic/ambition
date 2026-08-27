@@ -1144,3 +1144,16 @@ mod attack_gesture_wire_tests {
         );
     }
 }
+
+impl SnapshotState for crate::actor::ai::ActorStatus {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.respawn_timer);
+        self.ai_mode.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::actor::ai::ActorStatus {
+            respawn_timer: r.f32()?,
+            ai_mode: crate::actor::ai::CharacterAiMode::decode(r)?,
+        })
+    }
+}

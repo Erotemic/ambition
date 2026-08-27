@@ -128,7 +128,7 @@ pub use ecs::actor_bundles::{
     FeatureRenderedBundle, PickupBundle,
 };
 pub use ecs::actor_clusters::{
-    ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
+    ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, BodyKinematics,
 };
 pub use ecs::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
 pub use ecs::{

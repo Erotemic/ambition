@@ -807,7 +807,7 @@ fn boss_actor_cluster(
     config: &BossConfig,
     kin: &BodyKinematics,
 ) -> (
-    super::actor_clusters::ActorStatus,
+    ambition_characters::actor::ai::ActorStatus,
     super::actor_clusters::ActorConfig,
     ambition_platformer2d_shared_tangle::body::SpawnBaseline,
     super::actor_clusters::ActorMotionPath,
@@ -865,7 +865,7 @@ fn boss_actor_cluster(
         preserves_mirror_symmetry: false,
     };
     (
-        super::actor_clusters::ActorStatus {
+        ambition_characters::actor::ai::ActorStatus {
             respawn_timer: 0.0,
             ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
         },

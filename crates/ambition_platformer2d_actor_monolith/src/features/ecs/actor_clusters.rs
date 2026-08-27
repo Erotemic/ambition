@@ -17,6 +17,7 @@
 //! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
+use ambition_characters::actor::ai::ActorStatus;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
@@ -44,16 +45,6 @@ use crate::actor::{
     BodyOffense, BodyShieldState, BodyWallState,
 };
 pub use crate::platformer_runtime::body::BodyKinematics;
-
-/// Per-tick actor-control scalars: respawn countdown + last-evaluated AI mode.
-///
-/// What remains here is genuinely actor-only (the player respawns via its own SafetyState; AI
-/// mode is a brain concept).
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct ActorStatus {
-    pub respawn_timer: f32,
-    pub ai_mode: ambition_characters::actor::ai::CharacterAiMode,
-}
 
 /// Deliberately shorter than the player's attack cadence (~0.4 s swipe) so it never eats an
 /// intended combo hit, yet long enough to collapse a 60 fps contact/overlap stream to a single hit

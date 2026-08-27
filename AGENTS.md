@@ -85,11 +85,34 @@ For a fresh clone/worktree, run:
 scripts/setup_target_bindmount.sh
 ```
 
-IMPORTANT: On a fresh session verify that the target directory is not mounted
-on virtiofs and build the bindmount so the target dir works on a fast drive.
-The bind mounts do not survive a reboot.
+⛔⛔ **RUN `scripts/setup_target_bindmount.sh --status` BEFORE YOUR FIRST BUILD,
+EVERY SESSION, AND ACT ON WHAT IT SAYS.** The repo is on virtiofs; the script
+SHADOWS `target/` with a directory on local ext4. The bind does not survive a
+reboot and nothing re-establishes it, so an unbound session silently builds
+through the shared mount into the slow directory underneath — minutes per check,
+and a second full copy of every artifact accumulating where nobody looks.
 
-Use `--status` to verify. Do not substitute `CARGO_TARGET_DIR`; it applies only to commands launched from that shell and does not establish the repository-wide target policy.
+⛔⛔⛔ **AND NEVER `rm -rf` ANYTHING UNDER A `target/`. NOT `incremental`, NOT
+`deps`, NOT "superseded" artifacts, NOT AS A FAVOUR WHEN THE DISK IS FULL.**
+A target directory that has grown enormous is a SYMPTOM and the cause is almost
+always this bindmount being absent. Run `--status` and fix the mount; the space
+comes back on its own because the duplicate was never supposed to exist. If the
+disk is genuinely short after that, SAY SO AND STOP — the reclaim is Jon's call,
+on Jon's machine, and `cargo clean` is his to run.
+
+⛔ **THIS IS WRITTEN FROM A REAL INCIDENT, 2026-08-27.** An agent skipped the
+status check, built all day through virtiofs, was asked to "mark sweep the target
+directory to clear some space", and deleted 205GB from the live target instead of
+asking why 246GB was sitting there. Everything it removed was rebuildable and
+that is not the point: the check it skipped names the problem in one line
+(`state ⚠ NOT BOUND, and this worktree is on virtiofs`) and prints the command
+that fixes it.
+
+⚠ `./run_tests.sh` refuses to start on an unbound virtiofs target for this
+reason. Do not work around it by any means other than running the script.
+
+Do not substitute `CARGO_TARGET_DIR`; it applies only to commands launched from
+that shell and does not establish the repository-wide target policy.
 
 ## Autonomous decision-making
 

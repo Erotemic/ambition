@@ -19,9 +19,7 @@ use ambition_platformer2d::entity_catalog::{
     ImpulseMode, MoveEvent, MoveEventKind, MovesetContract,
 };
 
-use ambition_characters::moveset_authoring::{
-    impulse, on_contact, sfx, strike, vfx, vfx_at,
-};
+use ambition_characters::moveset_authoring::{impulse, on_contact, sfx, strike, vfx, vfx_at};
 
 /// How far across the grapple hauls him, engine units per second along
 /// facing.
@@ -319,9 +317,16 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     //
     // ⭐ THE SHOT is `MoveEventKind::Ranged`, which fires the weapon in the hand
     // — the drawn `admiral_gun_sword`, not the pistol his catalog row gives him.
-    // Everything a gun-sword discharge looks and sounds like is already routed
-    // off the held item at the fire site: the spinning `lasersword` projectile,
-    // the muzzle at his hand, `weapon.lasersword.fire`, the heavier recoil.
+    // Everything a gun-sword discharge looks and sounds like comes off that
+    // weapon's authored `Discharge`: the spinning `lasersword` projectile, the
+    // muzzle at his hand, `weapon.lasersword.fire`, the heavier recoil.
+    //
+    // ⛔⛔ THIS PARAGRAPH WAS FALSE FOR A DAY. Those four choices were made at
+    // the fire site by `held_item_id == Some("gun_sword")`, and the admiral's
+    // sidearm is a different string — so the move his own comment describes
+    // fired a generic shot out of his midriff. A comment stating a rule is a
+    // specification; this one is now checked by
+    // `the_admirals_side_b_fires_the_gun_swords_discharge`.
     //
     // ⭐ THE ANGLE is the weapon's `AimAssist::half_plane`, authored on the
     // gun-sword row. The player picks the side; the weapon picks the angle
@@ -725,13 +730,16 @@ mod tests {
             "the step must ADD to the admiral's momentum, not replace it"
         );
         assert!(
-            find(&set, "run_out_the_guns").events.iter().any(|e| matches!(
-                &e.kind,
-                MoveEventKind::Impulse {
-                    mode: ImpulseMode::Add,
-                    ..
-                }
-            )),
+            find(&set, "run_out_the_guns")
+                .events
+                .iter()
+                .any(|e| matches!(
+                    &e.kind,
+                    MoveEventKind::Impulse {
+                        mode: ImpulseMode::Add,
+                        ..
+                    }
+                )),
             "…and it must still displace him"
         );
         assert_eq!(find(&set, "run_out_the_guns").frame_data().lift_speed, 0.0);

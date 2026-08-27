@@ -399,3 +399,64 @@ fn an_assisted_shot_ignores_an_out_of_play_candidate() {
          and health does not say so because a spent stock resets it"
     );
 }
+
+/// ⭐ THE DISCHARGE'S CUE IS THE WEAPON'S, AND SILENCE IS THE DEFAULT.
+///
+/// The app-level arm (`admiral_gun_sword`) covers the look, the muzzle, the
+/// damage and the recoil through the real move. The CUE is what a headless world
+/// can see and that one cannot, so it is asserted here — both arms, because "the
+/// weapon's cue plays" and "a cue plays" are the same test against a fire site
+/// that always played one.
+#[test]
+fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
+    use ambition_characters::brain::action_set::{gun_sword_discharge, Discharge};
+
+    let cues = |discharge: Option<Discharge>| -> Vec<ambition_sfx::SfxId> {
+        let mut app = build_app();
+        let pos = ae::Vec2::new(100.0, 100.0);
+        let actor = app
+            .world_mut()
+            .spawn(enemy_actor(ActorClusterSeed::new(
+                "gunner",
+                "Gunner",
+                ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0)),
+                ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+                &[],
+            )))
+            .id();
+        let mut spec = RangedActionSpec::bolt(500.0, 2);
+        spec.discharge = discharge;
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Ranged {
+                    spec,
+                    origin: pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    commitment: RangedCommitment::Attempt,
+                },
+            });
+        app.update();
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+            .drain()
+            .filter_map(|owned| match owned.request {
+                ambition_sfx::SfxMessage::Play { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect()
+    };
+
+    assert!(
+        cues(None).is_empty(),
+        "a weapon that authored no discharge still made a noise — the cue was \
+         played by the fire site, which is what keyed it to one weapon's id"
+    );
+    assert_eq!(
+        cues(Some(gun_sword_discharge())),
+        vec![ambition_sfx::SfxId::from_static("weapon.lasersword.fire")],
+        "the gun-sword's discharge did not play the gun-sword's cue"
+    );
+}

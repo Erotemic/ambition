@@ -215,7 +215,11 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             HeldItemSpec {
                 id: "gun_sword".into(),
                 melee: None,
-                ranged: Some(RangedActionSpec::bolt(500.0, 2)),
+                ranged: Some(
+                    RangedActionSpec::bolt(500.0, 2)
+                        .with_visual(LASERSWORD_VISUAL)
+                        .with_discharge(gun_sword_discharge()),
+                ),
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
@@ -285,6 +289,14 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 melee: None,
                 ranged: Some(
                     RangedActionSpec::bolt(620.0, 8)
+                        // ⭐ THE SAME DISCHARGE THE ROW'S OWN COMMENT CLAIMS —
+                        // *"same art, same discharge, same hand"* — and until it
+                        // was authored here that sentence was false: the shot's
+                        // look, muzzle, cue and kick were decided by a compare
+                        // against the string `"gun_sword"`, which this weapon is
+                        // not.
+                        .with_visual(LASERSWORD_VISUAL)
+                        .with_discharge(gun_sword_discharge())
                         // ⭐ THE HALF-PLANE, WHICH IS JON'S RULE VERBATIM: the
                         // player picks a side and the weapon picks the angle
                         // within it. A foe behind the admiral is not a target
@@ -686,7 +698,86 @@ pub struct RangedActionSpec {
     /// aimed, which is every ranged action that has not opted in.
     #[serde(default)]
     pub aim_assist: Option<AimAssist>,
+    /// How this shot LEAVES the weapon — muzzle, cue, kick. `None` = the plain
+    /// discharge every ranged action had before weapons could state one.
+    #[serde(default)]
+    pub discharge: Option<Discharge>,
 }
+
+/// HOW A SHOT LEAVES THE WEAPON — the choices that are about the discharge
+/// rather than about what the shot does on arrival.
+///
+/// ⭐⭐ AUTHORED, BECAUSE IT WAS A STRING COMPARE. `brain_effects` decided the
+/// projectile visual, the muzzle, the fire cue and the recoil from
+/// `held_item_id == Some("gun_sword")`, so the Pirate Admiral's side-B — which
+/// draws `admiral_gun_sword`, a row whose own comment says *"same art, same
+/// discharge, same hand"* — got none of them. A comment stating a rule the code
+/// contradicts is the tell.
+///
+/// ⛔ AND THE ANSWER IS NOT A SECOND STRING COMPARE. Two weapons sharing a
+/// discharge share THIS, and keep their own damage, speed and aim assist; a
+/// third weapon that wants the look and not the kick authors the difference
+/// instead of asking to be added to a list in another crate.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(default)]
+pub struct Discharge {
+    /// Where the shot is born.
+    pub muzzle: Muzzle,
+    /// The cue that plays the moment it fires. `None` = the weapon says nothing
+    /// of its own, which is every ranged action that has not opted in.
+    pub fire_sfx: Option<String>,
+    /// How hard firing shoves the shooter back, in world px/s along the negative
+    /// fire direction.
+    pub recoil: f32,
+}
+
+/// The generic body's recoil. Small on purpose: it is a bit of feedback, not a
+/// movement option.
+pub const DEFAULT_RANGED_RECOIL: f32 = 60.0;
+
+impl Default for Discharge {
+    fn default() -> Self {
+        Self {
+            muzzle: Muzzle::default(),
+            fire_sfx: None,
+            recoil: DEFAULT_RANGED_RECOIL,
+        }
+    }
+}
+
+/// Where a shot is born.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Deserialize)]
+pub enum Muzzle {
+    /// A little above the body's own origin — what a body with no weapon in
+    /// view does, and what every ranged action did before this existed.
+    #[default]
+    BodyOrigin,
+    /// The shooter's HAND, pushed `ahead` px along the shot. What a drawn weapon
+    /// does, so the shot leaves the barrel the player can see rather than the
+    /// fighter's midriff — and it follows the hand whether the pirate is still
+    /// mounted or has fallen off the shark.
+    Hand { ahead: f32 },
+}
+
+/// The gun-sword's discharge: the spinning blade, the hand, the cue and the kick
+/// that made the pirate's shot feel like a cannon.
+///
+/// ⭐ ONE VALUE FOR BOTH GUN-SWORDS. The adventure game's pickup and the
+/// admiral's drawn sidearm are different WEAPONS — different damage, speed and
+/// assist, and balanced for different games — and the same DISCHARGE. That is
+/// exactly the split this type exists to express.
+pub fn gun_sword_discharge() -> Discharge {
+    Discharge {
+        muzzle: Muzzle::Hand { ahead: 18.0 },
+        fire_sfx: Some("weapon.lasersword.fire".into()),
+        // Visibly knocks the rider and shark back together, which is the whole
+        // read on a pirate who fires while mounted.
+        recoil: 380.0,
+    }
+}
+
+/// The gun-sword's shot LOOKS like a spinning blade.
+pub const LASERSWORD_VISUAL: &str = "lasersword";
 
 /// A weapon's willingness to correct the shooter's aim.
 ///
@@ -793,6 +884,7 @@ impl RangedActionSpec {
             charge: None,
             refire_s: DEFAULT_RANGED_REFIRE_S,
             aim_assist: None,
+            discharge: None,
         }
     }
 
@@ -822,6 +914,12 @@ impl RangedActionSpec {
     }
 
     /// Author how far this weapon will bend a shot toward a target.
+    /// State how this shot leaves the weapon. See [`Discharge`].
+    pub fn with_discharge(mut self, discharge: Discharge) -> Self {
+        self.discharge = Some(discharge);
+        self
+    }
+
     pub fn with_aim_assist(mut self, assist: AimAssist) -> Self {
         self.aim_assist = Some(assist);
         self

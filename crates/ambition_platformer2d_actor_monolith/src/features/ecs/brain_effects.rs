@@ -28,12 +28,6 @@ use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_sfx::{SfxMessage, SfxWriter};
 
-/// Recoil applied to the firing enemy along the negative fire
-/// direction. Per-archetype because PirateOnShark visibly knocks
-/// back the rider+shark combo.
-const RANGED_RECOIL_PIRATE: f32 = 380.0;
-const RANGED_RECOIL_DEFAULT: f32 = 60.0;
-
 /// Projectile envelope shared by every ranged enemy. Future
 /// per-archetype overrides (slower arrows, gravity-arc rocks)
 /// will move this into an `ActionSet`-derived parameter.
@@ -68,7 +62,6 @@ pub fn spawn_projectiles_from_brain_actions(
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
-    held_items: Query<&super::HeldItem>,
     // ── AIM ASSIST ── the three reads that turn "the way I was pointing" into
     // "at the one opponent over there". Read-only and disjoint from `actors`,
     // which borrows kinematics mutably for the recoil.
@@ -168,25 +161,20 @@ pub fn spawn_projectiles_from_brain_actions(
         if let Ok(mut anim) = anim_facts.get_mut(msg.actor) {
             anim.shoot_anim_timer = SHOOT_ANIM_HOLD_SECS;
         }
-        // Held-item muzzle: a gun-sword shot should originate at the actor's
-        // hand whether the pirate is still mounted or has fallen off the shark.
-        // Future items can extend this routing by id without changing the brain.
-        let held_item_id = held_items.get(msg.actor).ok().map(|item| item.id());
-        let uses_gun_sword = held_item_id == Some("gun_sword");
-        // The projectile's APPEARANCE is chosen by an OPEN visual id, set here at
-        // the fire site: a gun-sword discharge is the spinning `"lasersword"`;
-        // otherwise the archetype's authored ranged visual (e.g. the PCA's
-        // `"glider"`), defaulting to the empty/generic hostile shot. The render
-        // layer resolves this id through the content catalog — never the owner-id
-        // string. The held-item id → projectile-visual id mapping is game policy;
-        // when a second item needs its own discharge look this table can move to
-        // a content-owned held-item→projectile registration.
-        // Precedence: a held item's discharge, else the ACTION's own authored
-        // visual (an equipment-granted verb brings its look with it), else the
+        // ⭐⭐ HOW THIS SHOT LEAVES THE WEAPON, ASKED OF THE WEAPON. These four
+        // choices — the look, the muzzle, the cue, the kick — were decided here
+        // by `held_item_id == Some("gun_sword")`, so the Pirate Admiral's side-B
+        // got none of them despite drawing a weapon whose own row says *"same
+        // art, same discharge, same hand"*. See
+        // `ambition_characters::brain::action_set::Discharge`; this site no
+        // longer knows any weapon's name.
+        let discharge = spec.discharge.clone().unwrap_or_default();
+        // The projectile's APPEARANCE is an OPEN visual id the render layer
+        // resolves through the content catalog — never the owner-id string.
+        // Precedence: the ACTION's own authored visual (a drawn weapon and an
+        // equipment-granted verb both bring their look with them), else the
         // archetype's default ranged look.
-        let visual_id = if uses_gun_sword {
-            "lasersword".to_string()
-        } else if let Some(authored) = spec.visual.clone() {
+        let visual_id = if let Some(authored) = spec.visual.clone() {
             authored
         } else {
             config
@@ -273,16 +261,21 @@ pub fn spawn_projectiles_from_brain_actions(
                 }
             }
         };
-        let spawn_origin = if uses_gun_sword {
-            let hand = ambition_mount::rider_hand_world_pos_in_frame(
-                kin.pos,
-                kin.facing,
-                kin.size.y,
-                gravity_dir,
-            );
-            hand + world_dir * 18.0
-        } else {
-            origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
+        let spawn_origin = match discharge.muzzle {
+            // A drawn weapon fires from the hand whether the pirate is still
+            // mounted or has fallen off the shark.
+            ambition_characters::brain::action_set::Muzzle::Hand { ahead } => {
+                let hand = ambition_mount::rider_hand_world_pos_in_frame(
+                    kin.pos,
+                    kin.facing,
+                    kin.size.y,
+                    gravity_dir,
+                );
+                hand + world_dir * ahead
+            }
+            ambition_characters::brain::action_set::Muzzle::BodyOrigin => {
+                origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
+            }
         };
         let spawn = ProjectileSpawn {
             origin: spawn_origin,
@@ -297,9 +290,9 @@ pub fn spawn_projectiles_from_brain_actions(
             bounce_on_world_contact: flight.bounce_on_world_contact,
             boomerang_return_s: flight.boomerang_return_s,
         };
-        if uses_gun_sword {
+        if let Some(cue) = discharge.fire_sfx.as_deref() {
             sfx.write(SfxMessage::Play {
-                id: ambition_sfx::SfxId::from_static("weapon.lasersword.fire"),
+                id: ambition_sfx::SfxId::new(cue),
                 pos: spawn.origin,
             });
         }
@@ -310,12 +303,7 @@ pub fn spawn_projectiles_from_brain_actions(
         ));
         // Recoil: push the firing actor backward along the negative
         // fire direction.
-        let recoil_strength = if uses_gun_sword {
-            RANGED_RECOIL_PIRATE
-        } else {
-            RANGED_RECOIL_DEFAULT
-        };
-        let kick = world_dir * -recoil_strength;
+        let kick = world_dir * -discharge.recoil;
         #[cfg(feature = "causal")]
         let before = kin.vel;
         kin.vel += kick;

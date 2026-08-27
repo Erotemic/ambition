@@ -396,6 +396,7 @@ fn an_authored_ranged_move_with_a_payload_prepares_cleanly() {
                 charge: None,
                 refire_s: crate::brain::action_set::DEFAULT_RANGED_REFIRE_S,
                 aim_assist: None,
+                discharge: None,
             }),
             ..ActionSet::default()
         })

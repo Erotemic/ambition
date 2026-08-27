@@ -10,8 +10,11 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::Vec2;
 
 use super::*;
+use crate::character_runtime::{
+    ActiveMatch, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant,
+    MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry,
+};
 use ambition_characters::actor::definition::CharacterDefinition;
-use crate::character_runtime::{ActiveMatch, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry};
 
 /// The fixture's own published CPU policy — see [`fixture_policies`].
 const FIXTURE_CPU_POLICY: &str = "cpu_policy";
@@ -760,6 +763,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
             charge: None,
             refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
             aim_assist: None,
+            discharge: None,
         }),
         ..ActionSet::default()
     };
@@ -1415,9 +1419,11 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
         // type, and these two are exactly the facts under test.
         {
             let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
-            definition.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
-                half_extents: (19.0, 31.0),
-            });
+            definition.body = Some(
+                ambition_characters::actor::definition::BodySource::Explicit {
+                    half_extents: (19.0, 31.0),
+                },
+            );
             definition.vitals.mass = Some(4.5);
             definition
         },
@@ -2295,9 +2301,11 @@ fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
 fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
     let mut app = seating_app();
     let mut chunky = CharacterDefinition::new("chunky", "Chunky", "demo");
-    chunky.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
-        half_extents: (40.0, 60.0),
-    });
+    chunky.body = Some(
+        ambition_characters::actor::definition::BodySource::Explicit {
+            half_extents: (40.0, 60.0),
+        },
+    );
     app.register_character(chunky);
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("chunky")],
@@ -3328,9 +3336,11 @@ fn a_seat_body_outranks_the_character_and_a_seat_without_one_keeps_it() {
     let mut app = seating_app();
     app.register_character({
         let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
-        definition.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
-            half_extents: (19.0, 31.0),
-        });
+        definition.body = Some(
+            ambition_characters::actor::definition::BodySource::Explicit {
+                half_extents: (19.0, 31.0),
+            },
+        );
         // THE HOME SELF: what this character is when it is not on a stage.
         definition.movement_tuning = Some(ambition_platformer2d_core::MovementTuning {
             gravity: 1111.0,

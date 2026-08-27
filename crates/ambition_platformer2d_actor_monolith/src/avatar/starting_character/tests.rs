@@ -800,9 +800,9 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
 /// and a `MovesetVerb` character still loses it.
 #[test]
 fn an_authored_charging_character_keeps_its_projectile_press() {
-    use ambition_characters::actor::definition::CharacterDefinition;
-    use crate::character_runtime::{CharacterBindings};
+    use crate::character_runtime::CharacterBindings;
     use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::actor::definition::CharacterDefinition;
     use ambition_characters::brain::ActionSet;
     use ambition_characters::control::ActorControl;
     use bevy::prelude::*;
@@ -1156,15 +1156,14 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     };
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     let prepared = crate::character_runtime::prepare_and_finalize_for_test(
-        ambition_characters::actor::definition::CharacterDefinition::new("hero", "Hero", "demo").with_moveset(
-            MovesetContract {
+        ambition_characters::actor::definition::CharacterDefinition::new("hero", "Hero", "demo")
+            .with_moveset(MovesetContract {
                 verbs: std::collections::BTreeMap::from([(
                     "attack".to_string(),
                     "swat".to_string(),
                 )]),
                 moves: vec![swat],
-            },
-        ),
+            }),
         &crate::character_runtime::CharacterBindings::default(),
     );
     registry.insert_prepared(prepared.prepared);
@@ -1357,8 +1356,10 @@ fn an_action_set_authored_on_the_definition_beats_the_catalog_row() {
         ..ActionSet::default()
     };
     let registry = prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("duellist", "Duellist", "demo")
-            .with_action_set(authored),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "duellist", "Duellist", "demo",
+        )
+        .with_action_set(authored),
     );
 
     let (set, _) = wear(&catalog, &registry, "duellist");
@@ -1384,8 +1385,12 @@ fn an_authored_empty_action_set_is_not_the_same_as_authoring_nothing() {
     // reason this field is an `Option` is to make that unrepresentable.
     let catalog = catalog_granting_melee("speedster");
     let registry = prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("speedster", "Speedster", "demo")
-            .with_action_set(ActionSet::default()),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "speedster",
+            "Speedster",
+            "demo",
+        )
+        .with_action_set(ActionSet::default()),
     );
 
     let (set, moveset) = wear(&catalog, &registry, "speedster");
@@ -1413,7 +1418,11 @@ fn a_definition_with_no_action_set_still_falls_through_to_the_catalog() {
 
     let catalog = catalog_granting_melee("inheritor");
     let registry = prepared_against(
-        ambition_characters::actor::definition::CharacterDefinition::new("inheritor", "Inheritor", "demo"),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "inheritor",
+            "Inheritor",
+            "demo",
+        ),
         Some(&catalog),
     );
 
@@ -1434,8 +1443,12 @@ fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set()
     // swipe.
     let catalog = catalog_granting_melee("minimalist");
     let registry = prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("minimalist", "Minimalist", "demo")
-            .with_action_set(ActionSet::default()),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "minimalist",
+            "Minimalist",
+            "demo",
+        )
+        .with_action_set(ActionSet::default()),
     );
 
     let (_, moveset) = wear(&catalog, &registry, "minimalist");
@@ -1467,20 +1480,25 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
 
     let catalog = catalog_granting_melee("gunslinger");
     let registry = prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("gunslinger", "Gunslinger", "demo")
-            .with_action_set(ActionSet {
-                ranged: Some(RangedActionSpec {
-                    style: RangedStyle::default(),
-                    speed: 411.0,
-                    damage: 7,
-                    flight: None,
-                    visual: None,
-                    charge: None,
-                    refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
-                    aim_assist: None,
-                }),
-                ..ActionSet::default()
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "gunslinger",
+            "Gunslinger",
+            "demo",
+        )
+        .with_action_set(ActionSet {
+            ranged: Some(RangedActionSpec {
+                style: RangedStyle::default(),
+                speed: 411.0,
+                damage: 7,
+                flight: None,
+                visual: None,
+                charge: None,
+                refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
+                aim_assist: None,
+                discharge: None,
             }),
+            ..ActionSet::default()
+        }),
     );
 
     let (action_set, moveset) = wear(&catalog, &registry, "gunslinger");
@@ -1519,11 +1537,13 @@ fn an_authored_special_action_set_derives_a_special_move() {
 
     let catalog = catalog_granting_melee("mystic");
     let registry = prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("mystic", "Mystic", "demo")
-            .with_action_set(ActionSet {
-                special: Some(SpecialActionSpec::Special("starfall".into())),
-                ..ActionSet::default()
-            }),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "mystic", "Mystic", "demo",
+        )
+        .with_action_set(ActionSet {
+            special: Some(SpecialActionSpec::Special("starfall".into())),
+            ..ActionSet::default()
+        }),
     );
 
     let (action_set, moveset) = wear(&catalog, &registry, "mystic");
@@ -1638,6 +1658,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
             charge: None,
             refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
             aim_assist: None,
+            discharge: None,
         }),
         ..ActionSet::default()
     };
@@ -1646,8 +1667,12 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     app.insert_resource(prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("sanic", "Sanic", "sanic_demo")
-            .with_action_set(authored.clone()),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "sanic",
+            "Sanic",
+            "sanic_demo",
+        )
+        .with_action_set(authored.clone()),
     ));
     app.add_systems(Update, apply_worn_character_gameplay);
 
@@ -1712,8 +1737,11 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    let mut heavy =
-        ambition_characters::actor::definition::CharacterDefinition::new("anvil", "Anvil", "demo_provider");
+    let mut heavy = ambition_characters::actor::definition::CharacterDefinition::new(
+        "anvil",
+        "Anvil",
+        "demo_provider",
+    );
     heavy.vitals = ambition_characters::actor::definition::Vitals {
         max_health: Some(40),
         mass: Some(6.5),
@@ -1793,8 +1821,10 @@ fn a_definition_authored_motion_model_beats_the_catalog_row() {
         ..Default::default()
     });
     let registry = prepared(
-        ambition_characters::actor::definition::CharacterDefinition::new("mary_o", "Mary-O", "demo")
-            .with_motion_model(momentum),
+        ambition_characters::actor::definition::CharacterDefinition::new(
+            "mary_o", "Mary-O", "demo",
+        )
+        .with_motion_model(momentum),
     );
 
     let resolved =
@@ -1909,7 +1939,8 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
             ambition_characters::actor::definition::Vitals::default(),
         ),
     ] {
-        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
+        let mut definition =
+            ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
         definition.vitals = vitals;
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
@@ -2020,7 +2051,8 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
 
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     for (id, mass) in [("heavy_duelist", Some(2.0)), ("silent_persona", None)] {
-        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
+        let mut definition =
+            ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
         definition.vitals = ambition_characters::actor::definition::Vitals {
             max_health: None,
             mass,
@@ -2097,7 +2129,8 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     for id in ["quiet_one", "quiet_two"] {
         // Neither authors health or mass — the ordinary case for most of the cast.
-        let definition = ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
+        let definition =
+            ambition_characters::actor::definition::CharacterDefinition::new(id, id, "demo");
         let prepared = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
             &crate::character_runtime::CharacterBindings::default(),
@@ -2208,12 +2241,14 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     }
 
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
-    registry.insert_prepared(prepared_duelist(ambition_characters::actor::definition::Vitals {
-        max_health: Some(60),
-        mass: Some(2.0),
-        knockback_weight: None,
-        canonical_height: None,
-    }));
+    registry.insert_prepared(prepared_duelist(
+        ambition_characters::actor::definition::Vitals {
+            max_health: Some(60),
+            mass: Some(2.0),
+            knockback_weight: None,
+            canonical_height: None,
+        },
+    ));
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -2262,7 +2297,9 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
     // compares against — the body's `WornCharacter` is never touched.
     app.world_mut()
         .resource_mut::<crate::character_runtime::PreparedCharacterRegistry>()
-        .insert_prepared(prepared_duelist(ambition_characters::actor::definition::Vitals::default()));
+        .insert_prepared(prepared_duelist(
+            ambition_characters::actor::definition::Vitals::default(),
+        ));
     app.update();
 
     assert_eq!(

@@ -56,7 +56,7 @@ answer is the only one a balance decision can be made against.
 The bundle is generated, so it is gitignored. `check_bundle_contract.mjs`
 asserts every field the UI reads is present; run it after changing either side.
 
-## The four views
+## The five views
 
 - **Roster** — every fighter with a real moveset, filterable, grid-only by default.
 - **Fighter** — the moveset as a sortable frame-data table, plus per-move
@@ -64,6 +64,10 @@ asserts every field the UI reads is present; run it after changing either side.
 - **Compare** — one slot across the whole roster. Cells more than two median
   absolute deviations from the roster median for that slot are flagged high or
   low. This is the view that answers *"is this move out of line"*.
+- **Status** — what this server has, where it looked for it, how old each piece
+  is, and the build command for every binary whether or not it is present. Open
+  this FIRST when something is missing: it answers "is it trying", "does it know
+  where it is" and "what do I run" without reading a terminal.
 - **Engine takes** — recorded playback of the real simulation **in the real art**:
   the fighter's own sprite, animated by the move that is playing, with its live
   hitboxes over the top and anything its move spawned drawn beside it. Recorded

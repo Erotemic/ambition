@@ -15,6 +15,7 @@
     <button data-view="fighter">Fighter</button>
     <button data-view="compare">Compare</button>
     <button data-view="takes">Engine takes</button>
+    <button data-view="status">Status</button>
   </nav>
 </header>
 
@@ -92,6 +93,15 @@
       </div>
       <div class="panel"><h2>Frame</h2><div id="take-facts" class="kv"></div></div>
     </div>
+  </section>
+  <!-- STATUS ------------------------------------------------------------ -->
+  <section class="view" id="view-status">
+    <div class="controls">
+      <button class="ghost" id="status-refresh">Refresh</button>
+      <span class="note">What this server has, where it looked, and how old it is.
+        Nothing here is built for you — the commands are copy-paste.</span>
+    </div>
+    <div id="status-body"></div>
   </section>
 </main>
 

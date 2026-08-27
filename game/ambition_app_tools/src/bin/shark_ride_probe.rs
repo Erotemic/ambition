@@ -66,6 +66,67 @@ fn main() {
         );
         app.update();
     }
+    // ⛔⛔ AND SOMEBODY SWINGS. A passive match proves the ride ENDS correctly and
+    // says nothing about the failure Jon actually hit, which was a shark deleted
+    // by a hit. The worst single connection in the game is the admiral's forward
+    // smash at 17 damage x `smash_charge_mult` 1.7 = 29, so that is what lands.
+    //
+    // ⛔ IT WAITS FOR A RIDE RATHER THAN ASSUMING ONE. The first version swung
+    // once, immediately after the press, and the strike never landed because the
+    // board had not happened yet on that frame -- a swing at nobody, reported as
+    // a clean run.
+    let mut struck = false;
+    for _ in 0..120 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+        if struck {
+            continue;
+        }
+        let world = app.world_mut();
+        let mut seats =
+            world.query::<(Entity, &ambition_platformer2d::actor::MatchSeat)>();
+        let rows: Vec<(Entity, usize)> = seats.iter(world).map(|(e, s)| (e, s.0)).collect();
+        let Some(rider) = rows.iter().find(|(_, s)| *s == 0).map(|(e, _)| *e) else {
+            continue;
+        };
+        let Some(rival) = rows.iter().find(|(_, s)| *s == 1).map(|(e, _)| *e) else {
+            continue;
+        };
+        if world
+            .get::<ambition_platformer2d::mount::RidingOn>(rider)
+            .is_none()
+        {
+            continue;
+        }
+        world.spawn((
+            ambition_platformer2d::combat::strike::Hitbox {
+                owner: rival,
+                // The HOSTILE side: a `Player`-sourced strike on a Player-faction
+                // body reads as friendly fire and is refused.
+                source: ambition_platformer2d::vfx::HitSide::Enemy,
+                // Anchored to the RIDER, which is welded to the mount, so a
+                // moving pair cannot outrun a remembered point.
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::FollowOwner {
+                    local_offset: ambition_platformer2d::engine_core::Vec2::ZERO,
+                },
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(400.0, 400.0),
+                shape: None,
+                facing: 1.0,
+                damage: 29,
+                knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(0.0),
+                launch_dir: None,
+                frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+                reaction: None,
+                strike_sfx: None,
+            },
+            ambition_platformer2d::combat::strike::HitboxHits::default(),
+        ));
+        struck = true;
+        eprintln!("shark_ride_probe: landed a 29-damage strike on the ridden pair");
+    }
     // Long enough for the whole ride: board, five seconds of lease, departure.
     for _ in 0..600 {
         ambition_platformer2d::sim::drive_control_frame(

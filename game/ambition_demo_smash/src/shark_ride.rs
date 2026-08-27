@@ -75,6 +75,23 @@ const SUMMON_BOARD_RADIUS: f32 = 200.0;
 /// How long a summoned shark waits for its summoner before it gives up.
 const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
 
+/// How much punishment the RECOVERY shark takes before it dies.
+///
+/// ⛔⛔ THE AUTHORED SHARK HAS 6, AND THAT IS ONE CONNECTION HERE. Six is a fair
+/// pool in the game the burning flying shark was written for; the admiral's own
+/// move table runs 2–17, so nearly every clean hit deleted it — and the summon
+/// places it exactly where its rider is, which mid-fight is exactly where the
+/// hits are. Jon's log showed `boarded` followed by a death about twenty
+/// milliseconds later on EVERY press, which is what a 6 HP body does when it
+/// materialises inside a fight.
+///
+/// ⭐ JON'S NUMBER IS A COUNT, NOT A POOL: *"the rule for the shark is hitting it
+/// 'enough', so some threshold on damage — which effectively is a healthpool"*,
+/// and roughly three hits. Against a 2–17 table with a middle around 8, three
+/// hits is ~24. ⚠ A BALANCE FIGURE, so it is one constant with its derivation
+/// written down rather than a number defended on feel.
+const SUMMON_SHARK_HEALTH: u32 = 24;
+
 /// How fast a dismissed shark leaves.
 const DEPART_SPEED: f32 = 1_400.0;
 
@@ -149,6 +166,11 @@ pub fn translate_shark_summons(
                     // side in the match. Jon: *"No, the shark doesn't have
                     // contact damage in smash."*
                     faction: ambition_platformer2d::vfx::HitSide::Neutral,
+                    // ⛔ NEUTRAL DOES NOT MEAN UNHITTABLE — `damage_lands` is
+                    // true for `Foe | Neutral`, which is right: an opponent must
+                    // be able to gimp the recovery. What it must not do is die
+                    // to the first stray hit. See `SUMMON_SHARK_HEALTH`.
+                    health: Some(SUMMON_SHARK_HEALTH),
                     // ⭐ THE RIDE'S LENGTH TRAVELS WITH THE SUMMON, so the
                     // spawn, the board and the lease are one transaction inside
                     // the executor's exclusive command. Installing the lease

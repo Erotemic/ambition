@@ -595,6 +595,8 @@ pub fn spawn_minima_trap_from_special_messages(
                     faction: ambition_vfx::HitSide::Enemy,
                     // A boss drops a minion; nobody rides it.
                     ridden_by_summoner: None,
+                    // The sentinel's minions keep the vitals their character authors.
+                    health: None,
                 }),
             });
         }
@@ -864,6 +866,8 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     faction: ambition_vfx::HitSide::Enemy,
                     // A boss drops a minion; nobody rides it.
                     ridden_by_summoner: None,
+                    // The sentinel's minions keep the vitals their character authors.
+                    health: None,
                 }),
             });
         }

@@ -9,7 +9,7 @@ use super::*;
 
 fn shark_charge_crashed(
     em: &super::actor_clusters::ActorMut<'_>,
-    is_mounted: bool,
+    is_being_ridden: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,
 ) -> bool {
@@ -19,7 +19,7 @@ fn shark_charge_crashed(
         em.kin.pos,
         em.kin.vel,
         em.config.tuning.chase_speed,
-        is_mounted,
+        is_being_ridden,
         charge_vec,
         previous_pos,
     )
@@ -32,11 +32,11 @@ fn shark_charge_crashed_parts(
     pos: ae::Vec2,
     vel: ae::Vec2,
     chase_speed: f32,
-    is_mounted: bool,
+    is_being_ridden: bool,
     charge_vec: ae::Vec2,
     previous_pos: ae::Vec2,
 ) -> bool {
-    !is_mounted
+    !is_being_ridden
         && caps.charge_crash_explodes
         && alive
         && shark_charge_crashed_geometry(charge_vec, pos, previous_pos, vel, chase_speed)

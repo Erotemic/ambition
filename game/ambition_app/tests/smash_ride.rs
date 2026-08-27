@@ -172,6 +172,12 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
         app.world().get::<RidingOn>(seat0).is_some(),
         "he came off during ordinary steering"
     );
+    // Held so the departure below can be asserted about THIS body.
+    let ridden = app
+        .world()
+        .get::<RidingOn>(seat0)
+        .map(|r| r.mount)
+        .expect("just asserted");
 
     // ── A JUMP PUTS HIM DOWN, and the shark leaves. ──
     press(
@@ -191,12 +197,15 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
     for _ in 0..180 {
         app.update();
     }
-    assert_eq!(
-        sharks(&mut app, seat0),
-        0,
+    // ⛔⛔ THIS SHARK, not "how many sharks exist". Seat 1 is an admiral too and
+    // summons its own; counting the stage measured the CPU's shark and went red
+    // the moment the recovery shark stopped dying on its own. The contract is
+    // that the body THIS rider left is gone.
+    assert!(
+        app.world().get_entity(ridden).is_err(),
         "the shark stayed on the stage after losing its rider — an unridden \
          mount running its own brain around a platform fighter is exactly what \
-         `DepartsWhenRiderless` exists to prevent"
+         the departure exists to prevent"
     );
 }
 
@@ -516,25 +525,57 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
         "a shark exists and the admiral picked off the GRID is not on it"
     );
 
-    // ⭐⭐ AND THE RIDE SURVIVES BEING FLOWN, which is the arm that was missing.
-    // ⛔⛔ Jon's log showed `boarded` followed about twenty milliseconds later by
-    // `dismounted reason=MountLost`, EVERY time: the shark charge-crashed into
-    // the stage and detonated itself while carrying him. The suicide is guarded
-    // by `!is_mounted` and the guard was wired to `Option<&Mounted>` — a marker
-    // `mount::board` puts on the RIDER — so a shark with somebody in its saddle
-    // always read as unmounted. Every existing charge-crash test passed
-    // `is_mounted` as a LITERAL, so they pinned the function while the wiring was
-    // wrong.
+    // ⭐ AND THE RIDE SURVIVES SUSTAINED FLIGHT.
     //
-    // ⛔ SO THIS FLIES IT. A shark parked on a platform never reaches charge
-    // speed and never crashes, which is why the tests above missed this for a
-    // whole session; Jon's presses were airborne (`grounded=false`) and hit
-    // geometry immediately.
-    for _ in 0..90 {
+    // ⚠ WHAT THIS ARM PROVES AND WHAT IT DOES NOT. It exercises a mounted pair
+    // being flown for a second and a half, which no other test here did. It does
+    // NOT pin the charge-crash wiring: forcing that guard off leaves this green,
+    // because a shark being steered by its rider never reaches the
+    // stopped-dead-at-charge-speed geometry the crash predicate wants. The
+    // occupied-versus-riderless wall impact is a separate poison and is owed.
+    // ⭐⭐ AND IT SURVIVES BEING HIT, which is the arm that reproduces the real
+    // failure. Jon's shark died about twenty milliseconds after every board and
+    // no local hypothesis explained it, because this fixture's CPU is not
+    // reliably swinging during the summon window and a real opponent is. The
+    // authored shark carries 6 HP against a move table that runs 2 to 17, and
+    // the summon puts it exactly where its rider is — mid-fight, exactly where
+    // the hits are. One clean connection deleted it.
+    //
+    // ⛔ TEN DAMAGE IS A MIDDLING HIT, not a worst case: the admiral's own table
+    // has several at or above it. At the authored 6 this kills the shark and the
+    // ride ends; at `SUMMON_SHARK_HEALTH` it must not.
+    {
+        let world = app.world_mut();
+        let mount = world
+            .get::<RidingOn>(seat0)
+            .map(|r| r.mount)
+            .expect("just asserted the admiral is aboard");
+        let mut hp = world
+            .get_mut::<ambition_platformer2d::actor::BodyHealth>(mount)
+            .expect("a summoned shark carries its own pool");
+        hp.damage(10);
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "one middling hit killed the recovery shark out from under its rider — \
+         which is what the authored 6 HP does in a platform fighter, and is why \
+         the summon states its own survivability"
+    );
+
+    // ⛔⛔ FLOWN INTO THE STAGE, not merely flown. The shark's self-detonation
+    // fires when a fast charge is stopped dead by geometry, so a pair drifting
+    // in open air never reaches the condition — which is why the earlier version
+    // of this arm stayed green with the guard forced off and proved nothing.
+    // Jon's presses were airborne and hit something immediately.
+    for _ in 0..120 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame {
                 axis_x: 1.0,
+                axis_y: 1.0,
                 ..Default::default()
             },
         );

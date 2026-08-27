@@ -194,6 +194,9 @@ pub struct SummonedMinionParams {
     pub character_id: String,
     pub encounter_id: String,
     pub faction: crate::features::ActorFaction,
+    /// Health for this occurrence, overriding the character's authored vitals.
+    /// See `ambition_vfx::SummonSpec::health`.
+    pub health: Option<u32>,
 }
 
 /// Frozen catalogs the actor recipes read at execution time.
@@ -594,6 +597,7 @@ fn construct_summoned_minion(
         minion.encounter_id.clone(),
         minion.faction,
         crate::features::ActorAggression::hostile(),
+        minion.health,
     );
 }
 

@@ -914,25 +914,23 @@ pub fn enforce_mount_rider_link(
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
     for (mount_entity, mount_health, mountable) in &mounts {
-        // ⛔⛔ NO HEALTH POOL IS NOT A CORPSE. This read `is_some_and(alive)`, so
-        // a mount carrying no `BodyHealth` at all resolved DEAD — and the very
-        // next line hands that to the dissolution arm, which announces
-        // `MountDied` and puts the rider off. A body that cannot die was being
-        // treated as one that already had, on the first tick it was ridden.
-        //
-        // ⭐ ABSENCE MEANS "NOTHING HERE CAN KILL IT". A mount with a pool lives
-        // or dies by it; a mount without one has no way to reach zero, so the
-        // honest answer is alive. The permissive reading is wrong for a
-        // CAPABILITY — see `board`, where "says nothing" must mean "may not" —
-        // and right for a LIVENESS, because the two questions are opposites:
-        // one asks what you are allowed to do, the other what has happened to
-        // you, and nothing has happened to a body with no pool to empty.
-        let alive = mount_health.map_or(true, |h| h.alive());
-        if !alive {
-            bevy::log::info!(
+        // ⛔ A MOUNT WITHOUT A HEALTH POOL IS A BROKEN MOUNT, not an immortal
+        // one. This briefly read `map_or(true, ..)` on the theory that a missing
+        // pool was why a ridden shark kept dying — MEASURED FALSE: the summoned
+        // shark carries 6/6, `new_character_in` sets it from the character's
+        // vitals and `ActorClusterBundle` installs it on the root. ADR 0020 says
+        // a mount is an ordinary actor with its own pool, so absence means
+        // construction failed, and answering "alive" would turn that into
+        // silently indestructible gameplay with nothing pointing at the cause.
+        // An indestructible vehicle would be an authored policy, not a missing
+        // component.
+        let alive = mount_health.is_some_and(|h| h.alive());
+        if mount_health.is_none() {
+            bevy::log::error!(
                 target: "ambition::mount",
-                "mount reads DEAD: mount={mount_entity:?} health={:?}",
-                mount_health.map(|h| h.alive()),
+                "mount {mount_entity:?} carries a saddle and NO BodyHealth — an \
+                 actor that reached `Mountable` without a health pool did not \
+                 finish construction",
             );
         }
         mount_alive.insert(mount_entity, alive);

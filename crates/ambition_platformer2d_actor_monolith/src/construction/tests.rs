@@ -543,6 +543,8 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
         &summoner,
         7,
         SummonedMinionParams {
+            // A fixture keeps the character's authored vitals.
+            health: None,
             feature_id: "slop_add".into(),
             name: "slop".into(),
             pos: ae::Vec2::ZERO,
@@ -589,6 +591,8 @@ fn two_summons_from_one_summoner_do_not_collide() {
     let recipes = engine_construction_registry();
     let summoner = SimId::placement("boss_1");
     let params = || SummonedMinionParams {
+        // A fixture keeps the character's authored vitals.
+        health: None,
         feature_id: "slop_add".into(),
         name: "slop".into(),
         pos: ae::Vec2::ZERO,
@@ -632,6 +636,8 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
             &summoner,
             0,
             SummonedMinionParams {
+                // A fixture keeps the character's authored vitals.
+                health: None,
                 feature_id: "slop_add".into(),
                 name: "slop".into(),
                 pos: ae::Vec2::ZERO,
@@ -744,6 +750,8 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
         faction: ambition_vfx::HitSide::Enemy,
         // A minion nobody rides, which is every summon these fixtures are about.
         ridden_by_summoner: None,
+                    // The sentinel's minions keep the vitals their character authors.
+                    health: None,
     }
 }
 
@@ -1011,6 +1019,8 @@ fn every_parameter_variant_constructs_its_root() {
             &summoner,
             0,
             SummonedMinionParams {
+                // A fixture keeps the character's authored vitals.
+                health: None,
                 feature_id: "slop".into(),
                 name: "slop".into(),
                 pos: ae::Vec2::ZERO,
@@ -1216,6 +1226,8 @@ fn every_parameter_variant_matches_its_descriptor() {
         &SimId::placement("boss_1"),
         0,
         SummonedMinionParams {
+            // A fixture keeps the character's authored vitals.
+            health: None,
             feature_id: "slop".into(),
             name: "slop".into(),
             pos: ae::Vec2::ZERO,
@@ -1865,6 +1877,8 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
         &SimId::placement("summoner"),
         id.bytes().map(u64::from).sum(),
         SummonedMinionParams {
+            // A fixture keeps the character's authored vitals.
+            health: None,
             feature_id: id.to_string(),
             name: id.to_string(),
             pos: ae::Vec2::ZERO,

@@ -31,10 +31,98 @@ use ambition_platformer2d::entity_catalog::{
 const SIM_HZ: f32 = 60.0;
 
 /// The bundle's schema id. Bump the version when a consumer would break.
-const SCHEMA: &str = "ambition.moveset_inspector.v1";
+const SCHEMA: &str = "ambition.moveset_inspector.v2";
 
 fn frames(seconds: f32) -> f32 {
     seconds * SIM_HZ
+}
+
+/// The atlas table for every sheet the exported cast names.
+///
+/// ⭐⭐ ENOUGH TO BLIT A FRAME, and nothing more. Per sheet: the logical frame
+/// size, the page images, the body's own rectangle and feet pixel, and every
+/// row's per-frame sub-rects with their trim offsets. That is exactly the input
+/// `trimmed_render` takes, so the viewer can place a frame the way the engine
+/// does instead of guessing.
+///
+/// ⛔ THE FEET PIXEL IS THE HORIZONTAL ORIGIN, not the frame centre. A frame is a
+/// packed cell sized by the widest pose and the art sits wherever the crop left
+/// it — `projectile_polygon` is 17% of a 377px frame left of centre. Drawing a
+/// frame centred on the body reproduces, in the viewer, the exact defect the
+/// engine's own anchor had until 2026-08-27.
+fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
+    use ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key;
+
+    let mut wanted: std::collections::BTreeSet<String> = Default::default();
+    for c in characters {
+        if let Some(sheet) = c["spritesheet"].as_str() {
+            // The catalog stores `sprites/<name>_spritesheet.png`; the baked
+            // index is keyed by the bare name.
+            let base = sheet
+                .rsplit('/')
+                .next()
+                .unwrap_or(sheet)
+                .trim_end_matches(".png")
+                .trim_end_matches("_spritesheet");
+            wanted.insert(base.to_string());
+        }
+    }
+
+    let mut out = serde_json::Map::new();
+    for key in wanted {
+        let Some(record) = record_for_sheet_key(&key) else {
+            // Not fatal: a fighter may name a sheet this build did not bake
+            // (the quality variants are gitignored). The viewer falls back to
+            // boxes for that fighter and says so.
+            continue;
+        };
+        let metrics = record.body_metrics.as_ref();
+        let rows: Vec<serde_json::Value> = record
+            .rows
+            .iter()
+            .map(|row| {
+                serde_json::json!({
+                    "animation": row.animation,
+                    "row_index": row.row_index,
+                    "frame_count": row.frame_count,
+                    "duration_secs": row.duration_secs,
+                    "page": row.page,
+                    // `[x, y, w, h, page, off_x, off_y]` per frame — a flat
+                    // tuple rather than an object because a big sheet has
+                    // hundreds and the bundle is read by a browser.
+                    "rects": row
+                        .rects
+                        .iter()
+                        .map(|r| serde_json::json!([r.x, r.y, r.w, r.h, r.page, r.off.0, r.off.1]))
+                        .collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        out.insert(
+            key.clone(),
+            serde_json::json!({
+                "image": record.image,
+                "images": if record.images.is_empty() {
+                    vec![record.image.clone()]
+                } else {
+                    record.images.clone()
+                },
+                "frame_width": record.frame_width,
+                "frame_height": record.frame_height,
+                "label_width": record.label_width,
+                "y_offset": record.y_offset,
+                "authored_faces_left": record.authored_faces_left,
+                "body_pixel_bbox": metrics
+                    .and_then(|m| m.body_pixel_bbox)
+                    .map(|b| serde_json::json!([b.x, b.y, b.w, b.h])),
+                "feet_pixel": metrics
+                    .and_then(|m| m.feet_pixel)
+                    .map(|p| serde_json::json!([p.x, p.y])),
+                "rows": rows,
+            }),
+        );
+    }
+    serde_json::Value::Object(out)
 }
 
 /// One authored hit volume, flattened to the rectangle a viewer draws.
@@ -383,12 +471,21 @@ fn main() {
         ));
     }
 
+    // ⭐⭐ AND THE ART, because a balance tool that cannot show the move is half a
+    // tool. Jon, 2026-08-27: *"The UI does not show any art, or how the move looks
+    // animated in game."* The brief said so from the start — *"we will see things
+    // like the pirate flying around on the shark"* — and boxes on a canvas are not
+    // that. One atlas table per sheet the cast actually uses, so the viewer can
+    // blit the same sub-rect the engine does.
+    let sheets = sheet_atlas_json(&characters);
+
     let bundle = serde_json::json!({
         "schema": SCHEMA,
         "sim_hz": SIM_HZ,
         "cast_generation": registry.generation().get(),
         "smash_grid": on_grid,
         "characters": characters,
+        "sheets": sheets,
     });
 
     let path = std::path::Path::new(&out);

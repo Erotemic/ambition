@@ -29,6 +29,22 @@ WEB = HERE / "web"
 DATA = HERE / "data"
 REVIEWS = HERE / "reviews"
 
+# ⭐⭐ THE SPRITE SHEETS, SERVED WHERE THEY LIE. The inspector shows the real art
+# rather than boxes, and the art is tens of megabytes of PNG that already exists
+# in the engine's asset tree. Copying it into `data/` would double it on disk and
+# make every export a sync problem; serving the engine's own directory read-only
+# means the page always shows what the build would draw.
+#
+# ⛔ RESOLVED FROM THIS FILE, not from the working directory, so the wrapper can
+# be run from anywhere.
+SPRITES = (
+    HERE.parent.parent
+    / "crates"
+    / "ambition_platformer2d_actor_monolith"
+    / "assets"
+    / "sprites"
+)
+
 
 class InspectorHandler(SimpleHTTPRequestHandler):
     """Static files out of ``web/``, with ``data/`` and ``api/`` grafted on."""
@@ -59,6 +75,12 @@ class InspectorHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(path).path
         if parsed.startswith("/data/"):
             return str(DATA / parsed[len("/data/"):])
+        if parsed.startswith("/art/"):
+            # ⛔ ONE PATH SEGMENT, NO TRAVERSAL. The name comes out of the
+            # bundle's own sheet table, but this handler serves whatever is
+            # asked for, so it may not be handed `..`.
+            name = Path(parsed[len("/art/"):]).name
+            return str(SPRITES / name)
         return super().translate_path(path)
 
     # ---- routes ----

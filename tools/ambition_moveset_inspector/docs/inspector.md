@@ -32,9 +32,40 @@ asserts every field the UI reads is present; run it after changing either side.
 - **Compare** — one slot across the whole roster. Cells more than two median
   absolute deviations from the roster median for that slot are flagged high or
   low. This is the view that answers *"is this move out of line"*.
-- **Engine takes** — recorded playback of the real simulation: the fighter, its
-  live hitboxes, its projectiles, and anything its move spawned, frame by frame.
-  Recorded by `moveset_takes`; absent until it has been run.
+- **Engine takes** — recorded playback of the real simulation **in the real art**:
+  the fighter's own sprite, animated by the move that is playing, with its live
+  hitboxes over the top and anything its move spawned drawn beside it. Recorded
+  by `moveset_takes`; absent until it has been run. The `Art` button turns the
+  sprites off when a volume is easier to read on its own.
+
+## How the art gets there
+
+`moveset_export` emits an atlas table (`sheets`) beside the fighters: frame size,
+page images, the body rectangle, the feet pixel, and every row's per-frame
+sub-rects with trim offsets. The server exposes the engine's own sprite directory
+read-only at `/art/`, so nothing is copied and the page always shows what the
+build would draw.
+
+A take records `[sheet_key, row_index]` per body per tick. The FRAME within the
+row is derived in the viewer by counting consecutive ticks on that row — one
+clock (the sim tick the take was recorded at) instead of two that can drift.
+
+⛔ Two traps are already paid for here, and both cost a rebuild:
+
+- **`CharacterAnimator` is the wrong source.** It is what the renderer uses, and
+  the render layer only inserts it once a sprite ASSET has loaded — which never
+  happens under `NoWindow`. Asking for it recorded 14446 bodies with art on
+  exactly zero of them.
+- **A summon wears no catalog character.** Joining the sheet on `WornCharacter`
+  alone drew the pirate in full art and his shark as an empty box, which is the
+  one pairing this view exists to show. `ActorConfig::sprite_character_id` is the
+  fallback the renderer itself uses.
+
+The viewer places a frame on the body's own centre (`feet_pixel.x`), not the
+frame's. A sheet cell is sized by the widest pose and the art sits wherever the
+crop left it — `projectile_polygon` is 17% of a 377px frame left of centre — so
+centring the cell would reproduce, in the viewer, the exact defect the engine's
+own sprite anchor had until 2026-08-27.
 
 ```bash
 cargo run -p ambition_app_tools --bin moveset_takes -- --characters npc_pirate_admiral

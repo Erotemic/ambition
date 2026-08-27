@@ -155,10 +155,74 @@ struct Frame {
     gesture: Option<String>,
 }
 
+/// Which sheet ROW this body is being drawn from, as `(sheet key, row index)`.
+///
+/// ⭐ THE CLIP FIRST, THEN THE POSE, which is the order the renderer resolves in
+/// (`CharacterAnimator::drawn_row`). A move that authors a clip its sheet has is
+/// drawn from that row and from no other, and the semantic pose is what every
+/// body without one falls back to.
+///
+/// `None` when the character names no sheet, the sheet is not baked into this
+/// build, or the sheet has no row for the pose — three different absences that
+/// all mean the same thing to a viewer: draw the box and no picture.
+fn drawn_row_of(
+    sheet_keys: &std::collections::HashMap<String, String>,
+    worn: Option<&str>,
+    playing: Option<&ambition_platformer2d::entity_catalog::MoveSpec>,
+    on_ground: Option<bool>,
+) -> Option<(String, u32)> {
+    use ambition_platformer2d::sprite_sheet::character::sheets::{
+        try_load_spec_for_target, SheetTuning,
+    };
+    let key = sheet_keys.get(worn?)?.clone();
+    let spec = try_load_spec_for_target(&key, &SheetTuning::default())?;
+    // ⭐ THE MOVE'S OWN CLIP CHAIN, which is the authored answer to "what does
+    // this look like" and the same chain the renderer resolves. `first_bound_row`
+    // walks it and stops at the first row the sheet actually has, so a fighter
+    // whose sheet lacks `smash_forward` falls back exactly as it does in game.
+    if let Some(spec_move) = playing {
+        let chain: Vec<&str> = std::iter::once(spec_move.clip.clip.as_str())
+            .chain(spec_move.clip.fallbacks.iter().map(String::as_str))
+            .collect();
+        if let Some(slot) = spec.clip_slot(chain) {
+            return Some((key, slot as u32));
+        }
+    }
+    // ⛔ AND A RESTING BODY IS NOT NOTHING. Without this the view would show art
+    // only while a move is playing and a bare box the rest of the time, which
+    // reads as the art being broken rather than the fighter standing still.
+    let resting = if on_ground == Some(false) { "jump" } else { "idle" };
+    spec.clip_slot([resting, "idle"]).map(|slot| (key, slot as u32))
+}
+
 /// Read the world once. Everything here is a read; nothing is mutated, so a
 /// take can never be the reason a run diverges.
 fn sample(world: &mut World, subject_seat: usize) -> Frame {
     let mut frame = Frame::default();
+
+    // ⭐ CHARACTER ID -> SHEET KEY, off the catalog the composed host loaded. The
+    // catalog stores `sprites/<name>_spritesheet.png`; the baked sheet index is
+    // keyed by the bare name, and that reduction is the join.
+    let sheet_keys: std::collections::HashMap<String, String> = world
+        .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
+        .map(|catalog| {
+            catalog
+                .data()
+                .characters
+                .iter()
+                .filter_map(|(id, entry)| {
+                    let base = entry
+                        .spritesheet
+                        .rsplit('/')
+                        .next()?
+                        .trim_end_matches(".png")
+                        .trim_end_matches("_spritesheet")
+                        .to_string();
+                    (!base.is_empty()).then(|| (id.clone(), base))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     let mut bodies = world.query::<(
         Entity,
@@ -175,10 +239,33 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // resolved against facing, a turnaround flips that facing, and none of
         // it is visible from the move id alone.
         Option<&ambition_platformer2d::characters::actor::attack_gesture::ResolvedAttackGesture>,
+        // ⭐⭐ WHICH PICTURE IS ON SCREEN. Jon, 2026-08-27: *"The UI does not show
+        // any art, or how the move looks animated in game."* A take that records
+        // only rectangles can prove a move CAME OUT and can never show what it
+        // LOOKS like — and the brief asked for the second from the start (*"we
+        // will see things like the pirate flying around on the shark"*). Sheet,
+        // row and frame are what a viewer needs to blit the same sub-rect the
+        // engine drew.
+        // ⛔⛔ THE POSE VIEW, NOT THE RENDERER'S ANIMATOR. `CharacterAnimator` is
+        // the obvious component and it is the WRONG ONE HERE: the render layer
+        // inserts it once a sprite ASSET has loaded, and this tool runs
+        // `NoWindow` where that never happens. Measured, not assumed — the first
+        // version asked for the animator and recorded 14446 bodies with art on
+        // exactly ZERO of them. `BodyPoseView` is published by the SIM every tick
+        // and carries the same two facts: the semantic pose, and the CLIP an
+        // active move asked to be drawn as.
+        Option<&ambition_platformer2d::sim_view::BodyPoseView>,
+        // ⛔⛔ A SUMMON WEARS NO CATALOG CHARACTER, and the summon is the one
+        // everybody opens this view to watch — Jon asked to *"see things like the
+        // pirate flying around on the shark"*. The shark has no `WornCharacter`,
+        // so joining the sheet on that alone drew the rider in full art and his
+        // mount as an empty box. `ActorConfig::sprite_character_id` is what the
+        // renderer itself falls back to for exactly these bodies.
+        Option<&ambition_platformer2d::combat::actor_tuning::ActorConfig>,
     )>();
     let rows: Vec<_> = bodies
         .iter(world)
-        .map(|(e, kin, seat, worn, play, riding, slot, ground, gesture)| {
+        .map(|(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config)| {
             (
                 e,
                 (kin.pos.x, kin.pos.y),
@@ -194,6 +281,19 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                 gesture.and_then(|g| g.pressed).map(|i| {
                     format!("{:?}/{:?}/{:?}", i.direction, i.strength, i.posture)
                 }),
+                // ⛔ THE ROW, NOT THE POSE NAME. A clip draws from a row the
+                // semantic pose does not name; asking the pose would blit the
+                // wrong picture for exactly the frames a move is playing, which
+                // is every frame anybody opens this view to look at.
+                drawn_row_of(
+                    &sheet_keys,
+                    worn.map(|w| w.id()).or_else(|| {
+                        config.and_then(|c| c.sprite_character_id.as_deref())
+                    }),
+                    play.map(|p| &p.spec),
+                    ground.map(|g| g.on_ground),
+                ),
+                pose.is_some(),
             )
         })
         .collect();
@@ -203,8 +303,22 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         owner_pos.insert(*entity, *pos);
     }
 
-    for (entity, pos, vel, half, facing, seat, worn, playing, riding, is_mount, on_ground, gesture) in
-        &rows
+    for (
+        entity,
+        pos,
+        vel,
+        half,
+        facing,
+        seat,
+        worn,
+        playing,
+        riding,
+        is_mount,
+        on_ground,
+        gesture,
+        drawn,
+        has_pose,
+    ) in &rows
     {
         let subject = *seat == Some(subject_seat);
         if subject {
@@ -222,7 +336,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             frame.riding = riding.map(|mount| {
                 rows.iter()
                     .find(|(e, ..)| *e == mount)
-                    .and_then(|(.., worn, _, _, _, _, _)| worn.clone())
+                    .and_then(|(.., worn, _, _, _, _, _, _, _)| worn.clone())
                     .unwrap_or_else(|| format!("{mount}"))
             });
         }
@@ -235,6 +349,24 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // could not tell it apart would draw the shark as another fighter.
             "kind": if *is_mount { "summon" } else if seat.is_some() { "fighter" } else { "body" },
             "move": playing.clone(),
+            // Which way the art is mirrored. The sheets are drawn facing one
+            // way and the engine flips them; a viewer that ignored this would
+            // draw every left-moving fighter running backwards.
+            "facing": facing,
+            // `[sheet_key, row_index]`, or absent when this body has no sheet
+            // or the sheet has no row for its pose. The FRAME INDEX is not here
+            // on purpose: the viewer derives it by counting how many consecutive
+            // ticks a body has held the same row, which is exact playback timing
+            // out of the recording itself rather than a second clock to keep in
+            // step with the first.
+            "art": drawn.as_ref().map(|(sheet, row)| serde_json::json!([sheet, row])),
+            // ⭐ WHY THERE IS NO ART, when there is none. "the picture is missing"
+            // has three causes that look identical in a viewer — no pose published,
+            // no sheet joined, or a sheet with no row for this pose — and a take
+            // that does not distinguish them sends the next reader back through
+            // the whole chain. Cheap, and it has already paid for itself once.
+            "has_pose": has_pose,
+            "sheet": drawn.as_ref().map(|(sheet, _)| sheet),
         }));
     }
 

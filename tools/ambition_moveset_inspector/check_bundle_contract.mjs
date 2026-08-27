@@ -37,8 +37,8 @@ const need = (obj, path, keys) => {
 };
 
 need(bundle, "bundle", ["schema", "sim_hz", "cast_generation", "smash_grid", "characters"]);
-if (bundle.schema !== "ambition.moveset_inspector.v1") {
-  problems.push(`schema is ${bundle.schema}; the UI reads ambition.moveset_inspector.v1`);
+if (bundle.schema !== "ambition.moveset_inspector.v2") {
+  problems.push(`schema is ${bundle.schema}; the UI reads ambition.moveset_inspector.v2`);
 }
 if (!Array.isArray(bundle.characters) || bundle.characters.length === 0) {
   problems.push("no characters in the bundle");
@@ -95,6 +95,66 @@ if (gridWithoutVerbs.length) {
   problems.push(`on the grid with no bound verbs: ${gridWithoutVerbs.join(", ")}`);
 }
 
+/* ⭐⭐ THE ART TABLE, because the viewer now BLITS from it. Every field below is
+ * dereferenced while drawing a frame; a sheet missing one draws nothing and the
+ * page silently degrades to the boxes it had before anybody asked for art. */
+let sheetCount = 0;
+let rectCount = 0;
+for (const [key, sheet] of Object.entries(bundle.sheets ?? {})) {
+  sheetCount += 1;
+  need(sheet, `sheet ${key}`, [
+    "image", "images", "frame_width", "frame_height",
+    "body_pixel_bbox", "feet_pixel", "rows",
+  ]);
+  /* ⛔ THE TWO THE PLACEMENT DEPENDS ON. `feet_pixel` is the horizontal origin
+   * and `body_pixel_bbox` is the scale; a sheet with neither can only be drawn
+   * centred on its frame, which is the defect the engine's own anchor had. */
+  if (!sheet.body_pixel_bbox || !sheet.feet_pixel) {
+    problems.push(`sheet ${key}: no body rectangle or feet pixel, so its art cannot be placed`);
+    continue;
+  }
+  if (!(sheet.rows ?? []).length) {
+    problems.push(`sheet ${key}: no rows, so no frame can be drawn`);
+  }
+  for (const row of sheet.rows ?? []) {
+    need(row, `sheet ${key} row`, ["animation", "row_index", "frame_count", "page", "rects"]);
+    for (const r of row.rects ?? []) {
+      rectCount += 1;
+      if (!Array.isArray(r) || r.length !== 7) {
+        problems.push(
+          `sheet ${key} row ${row.animation}: a rect is not [x,y,w,h,page,off_x,off_y]`
+        );
+        break;
+      }
+    }
+    /* A row that declares more frames than it packs would index past its own
+     * rect list on the last frame of every playthrough of that animation. */
+    if ((row.rects ?? []).length && row.rects.length < row.frame_count) {
+      problems.push(
+        `sheet ${key} row ${row.animation}: declares ${row.frame_count} frames and packs ${row.rects.length}`
+      );
+    }
+  }
+}
+
+/* ⛔ A GRID FIGHTER WHOSE SHEET IS NOT IN THE TABLE draws as a box forever, and
+ * that is the difference between "the art is off" and "there is no art". Named
+ * rather than failed: a build with gitignored regen output legitimately has
+ * fewer sheets than the cast. */
+const gridWithoutArt = (bundle.characters ?? [])
+  .filter((c) => c.on_smash_grid)
+  .filter((c) => {
+    const base = String(c.spritesheet ?? "")
+      .split("/").pop().replace(/\.png$/, "").replace(/_spritesheet$/, "");
+    return !base || !(bundle.sheets ?? {})[base];
+  })
+  .map((c) => c.id);
+if (gridWithoutArt.length) {
+  console.warn(
+    `[bundle-contract] WARN — on the grid with no baked sheet (will draw as boxes): ${gridWithoutArt.join(", ")}`
+  );
+}
+
 const unique = [...new Set(problems)];
 if (unique.length) {
   console.error(`[bundle-contract] FAIL — ${unique.length} problem(s):`);
@@ -103,5 +163,6 @@ if (unique.length) {
 }
 console.log(
   `[bundle-contract] PASS — ${bundle.characters.length} fighters, ` +
-  `${moveCount} moves (${boundCount} bound to a verb), schema ${bundle.schema}`
+  `${moveCount} moves (${boundCount} bound to a verb), ` +
+  `${sheetCount} sheets / ${rectCount} frame rects, schema ${bundle.schema}`
 );

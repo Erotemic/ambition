@@ -104,6 +104,25 @@ impl CharacterAnimator {
         self.pages.len() > 1
     }
 
+    /// The sheet ROW this frame is being drawn from, as an index into
+    /// `record.rows`.
+    ///
+    /// ⭐ THE ROW, NOT THE POSE. `current` is one of 56 semantic body states and
+    /// a sheet may draw it from a row whose name is nothing like it — or, while a
+    /// clip is playing, from a row `current` does not name at all. Anything that
+    /// wants to REPRODUCE what is on screen (the moveset inspector blitting the
+    /// same sub-rect) needs the row that was chosen, which is the same question
+    /// `current_page` already answers for pages.
+    ///
+    /// `None` when the sheet has no row for the current pose, which is the case a
+    /// caller must draw nothing for rather than guess a row number.
+    pub fn drawn_row(&self) -> Option<usize> {
+        match self.clip_slot {
+            Some(slot) => Some(slot),
+            None => self.spec.row_for_anim(self.current),
+        }
+    }
+
     /// The page image index the current frame draws from (per-frame, since a
     /// packed animation can span pages).
     pub fn current_page(&self) -> u32 {

@@ -2619,6 +2619,62 @@ constructions, **60 are the nine arms that stay**. `BossPattern` appears twice.
 `Fighter` and `Smash` appear **zero** times — their tests live in their own
 subtrees and travel with the behaviour.
 
+⛔⛔⛔ **RE-MEASURED 2026-08-26 AND THE PLAN BELOW IS NOT EXECUTABLE AS WRITTEN.
+TWO FINDINGS, AND BOTH ARE ABOUT THE DISPATCHER RATHER THAN THE SUBTREES.**
+
+**(A) THE DESTINATIONS DISAGREE ABOUT WHICH WAY THE DISPATCHER FACES.**
+`ambition_boss_encounter` DEPENDS ON `ambition_combat` (`Cargo.toml:28`), so
+combat sits BELOW it. A dispatcher that moved to `ambition_combat` — which is
+what "fighter+smash go to combat" implies, since `tick_state_machine` is one
+match over every variant — could never call `boss_pattern` behaviour living in
+`ambition_boss_encounter`. That is an upward edge, and the row's own instruction
+forbids the escape (*"do NOT dodge it by sending boss thinking to
+`ambition_combat`"*).
+
+⭐⭐ ⇒ **THE DISPATCH BELONGS WHERE THE DISPATCH ALREADY HAPPENS: the actor
+monolith.** It already names `Brain` to tick it, it already depends on all three
+crates (`Cargo.toml` 335 / 370 / 374), and the row's own footprint measurement
+established it is in every capability closure anyway — so putting the match there
+costs nothing the closure has not already paid. Then each behaviour crate is a
+LEAF the monolith calls and no crate reaches upward. ⚠ this is a BETTER answer
+than the row's, not a worse one: it is the same "obtained by deletion instead of
+by a mechanism" argument the entry-point measurement made, applied one crate
+higher.
+
+**(B) THE "44 TEST CALL SITES PRICE IS TWO" DOES NOT TRANSFER, and it is the one
+number that gets worse.** That measurement was taken against the TRAIT design,
+where a test's cost was naming a policy type. Under "the dispatcher moves", the
+cost is different: **50 in-crate test call sites go THROUGH the dispatcher and
+every one of them breaks when it leaves.**
+
+```text
+brain/state_machine/tests.rs   43 tick calls
+brain/tests.rs                  7
+```
+
+⇒ and the fix is not to move them — 60 of their 62 variant constructions are the
+NINE arms that STAY, so those tests belong beside the arms. The fix is to make the
+nine `tick_*` functions `pub` and have each test call the arm it is about. ⭐ that
+is arguably a repair rather than a cost: a test of `tick_patrol` currently reaches
+it by matching an enum, and asking `tick_patrol` directly is what it meant. ⚠ what
+it gives up is incidental coverage of the DISPATCH itself, which for nine trivial
+arms is not what those tests are for — but say so rather than discovering it.
+
+**(C) AND THE ENTRY-POINT COUNT IS STALE BY ONE, IN PRODUCTION.** The row says
+*"callers outside: 3, all in the monolith"*. At HEAD `game/ambition_app/src/app/player_clone.rs:229`
+calls `brain.tick(...)` in production too, and the monolith's own test files add
+three more. The shape of the conclusion survives — the tick is a downward dispatch
+with no in-crate PRODUCTION consumer — but a session that plans against "3, all in
+the monolith" will be surprised by `ambition_app`.
+
+⇒ **ORDERING, THEREFORE: the dispatcher moves to the monolith FIRST and alone**
+(nine arms become `pub`, 50 in-crate tests call arms directly, ~8 external call
+sites change from `brain.tick(…)` to a free function). Only after that is
+"fighter leaves", "smash leaves" and "boss_pattern leaves" three independent
+slices instead of one interlocked move — and each can then land and be gated on
+its own. ⛔ do not start a subtree move before the dispatcher move; the subtree
+cannot go anywhere the dispatcher cannot follow.
+
 ⇒ **so the migration is: three subtrees move to two crates that already depend on
 this one, the dispatcher's three big arms follow them, and two tests need a new
 home.** No trait, no type parameter, no fallback type, no registry — and no

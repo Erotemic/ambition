@@ -102,6 +102,80 @@ pub fn ledge_assisted_arrival(
     best.map_or(destination, |(_, landing)| landing)
 }
 
+/// One candidate for [`TeleportParams::behind_nearest_foe`], gathered before the
+/// mutable pass so the two queries never alias.
+struct FoeCandidate {
+    entity: Entity,
+    pos: ae::Vec2,
+    half: ae::Vec2,
+    faction: ambition_combat::components::ActorFaction,
+    team: Option<ambition_combat::targeting::MatchTeam>,
+    driving: Option<ambition_characters::control::DrivingParticipant>,
+    sim: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+}
+
+/// The far side of the nearest foe, or `None` when there is no foe to get
+/// behind.
+///
+/// ⛔⛔ THE SCAN IS ORDERED BY `SimId`, NOT BY QUERY ORDER. Bevy's iteration
+/// order is not stable and under rollback the raw `Entity` ids are not stable
+/// either, so an exact-distance tie decided by either would resolve differently
+/// on a rewind and desync the match. This is the same discipline
+/// `select_actor_targets` states for the same reason.
+///
+/// ⛔ AND "BEHIND" IS THE FAR SIDE FROM THE TELEPORTER, not the far side from
+/// the foe's facing. A fighter who turns to meet you does not thereby drag you
+/// around to their front; the ambush is decided by where the attacker came
+/// from, which is the thing the attacker controls.
+fn behind_nearest_foe(
+    from: ae::Vec2,
+    my_half: ae::Vec2,
+    me: Entity,
+    my_faction: ambition_combat::components::ActorFaction,
+    my_team: Option<&ambition_combat::targeting::MatchTeam>,
+    my_driving: Option<&ambition_characters::control::DrivingParticipant>,
+    candidates: &[FoeCandidate],
+    gap: f32,
+) -> Option<ae::Vec2> {
+    let mut ordered: Vec<&FoeCandidate> = candidates.iter().filter(|c| c.entity != me).collect();
+    ordered.sort_by(|a, b| match (&a.sim, &b.sim) {
+        (Some(x), Some(y)) => x.cmp(y),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.entity.cmp(&b.entity),
+    });
+    let mut best: Option<(f32, &FoeCandidate)> = None;
+    for candidate in ordered {
+        // THE one relationship policy, the same call the damage side makes.
+        let relation = ambition_combat::targeting::combat_relation(
+            None,
+            my_faction,
+            my_driving,
+            my_team,
+            None,
+            candidate.entity,
+            candidate.faction,
+            candidate.driving.as_ref(),
+            candidate.team.as_ref(),
+        );
+        if relation != ambition_combat::targeting::CombatRelation::Foe {
+            continue;
+        }
+        let distance = from.distance_squared(candidate.pos);
+        // Strictly nearer wins, so the `SimId` order above breaks an exact tie.
+        if best.is_none_or(|(best_distance, _)| distance < best_distance) {
+            best = Some((distance, candidate));
+        }
+    }
+    let (_, foe) = best?;
+    // Behind = further along the line the attacker was already on.
+    let side = if foe.pos.x >= from.x { 1.0 } else { -1.0 };
+    Some(ae::Vec2::new(
+        foe.pos.x + side * (foe.half.x + my_half.x + gap),
+        foe.pos.y,
+    ))
+}
+
 /// Recognise an authored teleport and move the body.
 ///
 /// ⛔ IT RUNS WHERE EVERY OTHER `ActorActionMessage` CONSUMER RUNS, so a
@@ -110,17 +184,49 @@ pub fn ledge_assisted_arrival(
 pub fn apply_authored_teleports(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut actions: MessageReader<ActorActionMessage>,
-    mut bodies: Query<(
-        ae::BodyClusterQueryData,
-        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        &ambition_characters::control::ActorControl,
-        &mut ae::movement::MotionModel,
+    // ⛔ A PARAM SET BECAUSE THE TWO QUERIES ALIAS. `BodyClusterQueryData` takes
+    // `BodyKinematics` mutably and the foe scan reads it, so Bevy refuses them
+    // as two plain queries. Candidates are gathered ONCE up front, which is also
+    // the behaviour a teleport wants: every message in a frame sees the same
+    // stage rather than one that shifts as bodies move.
+    mut set: bevy::ecs::system::ParamSet<(
+        Query<(
+            ae::BodyClusterQueryData,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &ambition_characters::control::ActorControl,
+            &mut ae::movement::MotionModel,
+        )>,
+        Query<(
+            Entity,
+            &ae::BodyKinematics,
+            Option<&ambition_combat::components::ActorFaction>,
+            Option<&ambition_combat::targeting::MatchTeam>,
+            Option<&ambition_characters::control::DrivingParticipant>,
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        )>,
     )>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
     let mut collision = None;
-    for message in actions.read() {
+    // Drained first: the mutable body pass below cannot borrow the reader and
+    // the candidate query at the same time.
+    let requests: Vec<ActorActionMessage> = actions.read().cloned().collect();
+    let candidates: Vec<FoeCandidate> = set
+        .p1()
+        .iter()
+        .map(|(entity, kin, faction, team, driving, sim)| FoeCandidate {
+            entity,
+            pos: kin.pos,
+            half: kin.size * 0.5,
+            faction: faction.copied().unwrap_or_default(),
+            team: team.cloned(),
+            driving: driving.cloned(),
+            sim: sim.cloned(),
+        })
+        .collect();
+    let mut bodies = set.p0();
+    for message in requests.iter() {
         let ActionRequest::Special { spec, params } = &message.request else {
             continue;
         };
@@ -159,16 +265,54 @@ pub fn apply_authored_teleports(
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
         let half = clusters.kinematics.size * 0.5;
+        // WHERE, and how far. An ambush aims at a body rather than along the
+        // stick, and its reach is the distance to that body -- but it is clamped
+        // by exactly the same wall rule, because a teleport that could pass
+        // through a stage to reach someone is a different move.
+        let (dir, distance) = if !params.behind_nearest_foe {
+            (dir, params.distance)
+        } else {
+            {
+                // ⭐ THE TELEPORTER IS IN ITS OWN CANDIDATE LIST, so its
+                // allegiance is read from there rather than by widening the
+                // MUTABLE body query to carry three more components it does not
+                // otherwise touch.
+                let me = candidates.iter().find(|c| c.entity == message.actor);
+                let Some(behind) = behind_nearest_foe(
+                    from,
+                    half,
+                    message.actor,
+                    me.map(|c| c.faction).unwrap_or_default(),
+                    me.and_then(|c| c.team.as_ref()),
+                    me.and_then(|c| c.driving.as_ref()),
+                    &candidates,
+                    params.behind_gap,
+                ) else {
+                    // ⚠ NOBODY TO GET BEHIND, so the fighter stays put. See
+                    // `TeleportParams::behind_nearest_foe` -- firing into empty space
+                    // spends the move to arrive somewhere nobody asked for.
+                    continue;
+                };
+                let offset = behind - from;
+                let length = offset.length();
+                if length <= f32::EPSILON {
+                    continue;
+                }
+                // ⛔ CAPPED BY THE AUTHORED DISTANCE. Without it the move is a
+                // stage-wide snap to whoever exists, which is not a special --
+                // it is a homing missile with the fighter as the payload.
+                (offset / length, length.min(params.distance))
+            }
+        };
         let solids = collision.get_or_insert_with(|| world.solids());
         let target = match solids.as_ref() {
             Some(w) => {
-                let clamped =
-                    super::blink::blink_target(&**w, from, dir, params.distance, half);
+                let clamped = super::blink::blink_target(&**w, from, dir, distance, half);
                 ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist)
             }
             // No collision world (a minimal test app) — the full distance, which
             // is what `blink_system` does in the same situation.
-            None => from + dir * params.distance,
+            None => from + dir * distance,
         };
 
         // THE discrete-transit authority: arrive with momentum kept, departure

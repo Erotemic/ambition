@@ -27,10 +27,44 @@ use ambition_entity_catalog::{EffectRef, MoveEvent, MoveEventKind, MoveSpec, Par
 /// unrecognised key falls through other rulesets untouched.
 pub const TELEPORT: &str = "smash.teleport";
 
+/// WHERE a teleport goes: the thing a fighter's identity actually differs in.
+///
+/// ⭐ THE RECOVERY AND THE AMBUSH ARE ONE TECHNIQUE. Both resolve a destination
+/// against the collision world, both want the wall clamp, both draw a departure
+/// and an arrival; the only thing that differs is how the point is chosen. A
+/// second technique key would have duplicated `blink_target`, the ledge assist
+/// and the VFX plumbing to change one line.
 /// Authored parameters of one teleport.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TeleportParams {
+    /// WHERE this teleport goes: `false` (the default, and what every teleport
+    /// authored before this field meant) is AIMED — the stick, then straight up,
+    /// which is the recovery. `true` puts the fighter on the far side of the
+    /// nearest foe, an ambush rather than an escape.
+    ///
+    /// ⛔⛔ A BOOL AND AN f32, NOT THE ENUM THIS OBVIOUSLY WANTS TO BE. Params
+    /// travel as [`ParamValue`], which is a `ron::Value`, and a `ron::Value`
+    /// CANNOT CARRY AN ENUM: a struct variant round-trips out of one as a map
+    /// and a unit variant as a unit, so `hydrate` fails either way — at the
+    /// moment the move fires, as a logged warning and a special that silently
+    /// does nothing. Every other technique's params in this crate are primitives
+    /// and tuples for the same reason; this comment is that rule written down.
+    ///
+    /// ⚠ WITH NO FOE ON THE STAGE IT DOES NOTHING AT ALL — not "goes somewhere
+    /// default". A teleport that fires into empty space because there was nobody
+    /// to get behind spends the move and puts the fighter somewhere nobody asked
+    /// for; standing still is the honest failure.
+    #[serde(default)]
+    pub behind_nearest_foe: bool,
+    /// World px between the foe's EDGE and the arriving fighter's, when
+    /// [`Self::behind_nearest_foe`]. Ignored by an aimed teleport.
+    ///
+    /// ⛔ FROM THE EDGE, NOT THE CENTRE, so a fighter arrives the same distance
+    /// behind a small body and a large one. Arriving inside a Bowser is not the
+    /// same move as arriving behind him.
+    #[serde(default)]
+    pub behind_gap: f32,
     /// How far the teleport carries, walls permitting, in world px.
     pub distance: f32,
     /// How far from the resolved destination a LEDGE may be and still catch the

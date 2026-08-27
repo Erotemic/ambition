@@ -19,10 +19,10 @@ pub mod observation;
 mod arena;
 
 pub use action::{choose_action, SpecificAction};
-pub use data::{ObsHistory, SmashCfg, SmashState, OBS_HISTORY_LEN};
-pub use difficulty::{apply_difficulty, DifficultyProfile};
+pub use data::{BroadMode, DifficultyProfile, ObsHistory, SmashCfg, SmashState, OBS_HISTORY_LEN};
+pub use difficulty::apply_difficulty;
 pub use emit::emit_inputs;
-pub use mode::{choose_mode, BroadMode};
+pub use mode::choose_mode;
 pub use observation::{observe, CrowdingSignal, ObservationFrame, TerrainAwareness};
 
 /// How long a reactive block is held once triggered (s) — long enough to span a

@@ -16,56 +16,8 @@
 use ambition_platformer2d_core as ae;
 
 use super::action::SpecificAction;
+use super::data::DifficultyProfile;
 use super::SmashState;
-
-/// Per-actor difficulty tuning. Authored today via
-/// [`SmashCfg::difficulty`]; an upcoming pass lifts this into
-/// `character_archetypes.ron` so designers can tune per-archetype
-/// without code edits.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DifficultyProfile {
-    /// Seconds of observation lag on the OPPONENT. `tick_smash` perceives
-    /// the opponent as it was this many seconds ago (via
-    /// [`super::SmashState::obs_history`]) so the brain can't frame-perfectly
-    /// counter. Higher = easier (sees later). Not consumed by the difficulty
-    /// filter itself — it shapes perception upstream, in `observe`.
-    pub reaction_delay_s: f32,
-    /// `[0.0, 1.0]` — probability of committing the chosen action
-    /// this tick. Lower = drops more attempts to Idle.
-    pub commit_probability: f32,
-    /// `[0.0, 1.0]` — `1.0` = no aim jitter; lower values jitter
-    /// the attack axis proportionally. Applied to MeleeAttack /
-    /// RangedAttack only.
-    pub accuracy: f32,
-    /// Hz — informational, for downstream cooldown / mashing
-    /// systems to consult.
-    #[allow(
-        dead_code,
-        reason = "consumer lives in the EFFECTS-stage cooldown gate"
-    )]
-    pub mash_speed_hz: f32,
-}
-
-impl DifficultyProfile {
-    pub const EASY: Self = Self {
-        reaction_delay_s: 0.30,
-        commit_probability: 0.55,
-        accuracy: 0.65,
-        mash_speed_hz: 1.0,
-    };
-    pub const MEDIUM: Self = Self {
-        reaction_delay_s: 0.15,
-        commit_probability: 0.85,
-        accuracy: 0.85,
-        mash_speed_hz: 1.4,
-    };
-    pub const HARD: Self = Self {
-        reaction_delay_s: 0.05,
-        commit_probability: 0.98,
-        accuracy: 0.98,
-        mash_speed_hz: 2.0,
-    };
-}
 
 /// Apply the difficulty filter to a chosen action. Mutates the
 /// actor's RNG seed so consecutive ticks produce different rolls.

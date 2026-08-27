@@ -21,12 +21,11 @@
 //! split that lets the behaviour leave has to be checkable, and D168's estimate
 //! of it ("253 lines") was not.
 //!
-//! ⚠ `DifficultyProfile` and `BroadMode` are pinned too and are NOT here: they
-//! are declared beside their own behaviour in `difficulty.rs` and `mode.rs`.
-//! Moving them is the next slice, not this one — see D168.
+//! ⭐ `BroadMode` and `DifficultyProfile` joined them here, so the pinned set for
+//! this subtree is COMPLETE in one module: `choose_mode` and `apply_difficulty`
+//! stay beside their own behaviour and import the shapes from here, which is the
+//! direction that lets the behaviour leave later.
 
-use super::difficulty::DifficultyProfile;
-use super::mode::BroadMode;
 use ambition_platformer2d_core as ae;
 
 /// Tuning knobs for a [`crate::brain::StateMachineCfg::Smash`] brain. Per-actor
@@ -454,4 +453,75 @@ pub struct SmashState {
     /// out a passive standoff. Reset to `0` on every attack, so it only grows during
     /// a genuine lull. Pure tick-stream bookkeeping → replay-safe.
     pub time_since_offense: f32,
+}
+
+/// Top-level "what should I do right now" decision.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BroadMode {
+    /// No active engagement — patrol / wait. Default.
+    #[default]
+    Idle,
+    /// Close distance to the target.
+    Approach,
+    /// Create distance from the target (player too close).
+    Retreat,
+    /// In melee/range window — commit an attack.
+    Engage,
+    /// Anti-clump: too many allies stacked up; sidestep to spread
+    /// out. Higher priority than Approach so a swarm visibly fans
+    /// out rather than piling on.
+    Reposition,
+    /// Off-stage / suspended over a gap. Today a stub —
+    /// `TerrainAwareness.off_stage` is always false until the
+    /// snapshot builder learns about ledges.
+    Recover,
+}
+
+/// Per-actor difficulty tuning. Authored today via
+/// [`SmashCfg::difficulty`]; an upcoming pass lifts this into
+/// `character_archetypes.ron` so designers can tune per-archetype
+/// without code edits.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DifficultyProfile {
+    /// Seconds of observation lag on the OPPONENT. `tick_smash` perceives
+    /// the opponent as it was this many seconds ago (via
+    /// [`super::SmashState::obs_history`]) so the brain can't frame-perfectly
+    /// counter. Higher = easier (sees later). Not consumed by the difficulty
+    /// filter itself — it shapes perception upstream, in `observe`.
+    pub reaction_delay_s: f32,
+    /// `[0.0, 1.0]` — probability of committing the chosen action
+    /// this tick. Lower = drops more attempts to Idle.
+    pub commit_probability: f32,
+    /// `[0.0, 1.0]` — `1.0` = no aim jitter; lower values jitter
+    /// the attack axis proportionally. Applied to MeleeAttack /
+    /// RangedAttack only.
+    pub accuracy: f32,
+    /// Hz — informational, for downstream cooldown / mashing
+    /// systems to consult.
+    #[allow(
+        dead_code,
+        reason = "consumer lives in the EFFECTS-stage cooldown gate"
+    )]
+    pub mash_speed_hz: f32,
+}
+
+impl DifficultyProfile {
+    pub const EASY: Self = Self {
+        reaction_delay_s: 0.30,
+        commit_probability: 0.55,
+        accuracy: 0.65,
+        mash_speed_hz: 1.0,
+    };
+    pub const MEDIUM: Self = Self {
+        reaction_delay_s: 0.15,
+        commit_probability: 0.85,
+        accuracy: 0.85,
+        mash_speed_hz: 1.4,
+    };
+    pub const HARD: Self = Self {
+        reaction_delay_s: 0.05,
+        commit_probability: 0.98,
+        accuracy: 0.98,
+        mash_speed_hz: 2.0,
+    };
 }

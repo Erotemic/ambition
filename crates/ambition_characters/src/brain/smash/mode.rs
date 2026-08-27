@@ -6,30 +6,9 @@
 //! [`MODE_MIN_DWELL_S`] before another mode can take over (except
 //! for hard overrides like stun / out-of-range → Idle).
 
+use super::data::BroadMode;
 use super::observation::ObservationFrame;
 use super::{SmashCfg, SmashState};
-
-/// Top-level "what should I do right now" decision.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum BroadMode {
-    /// No active engagement — patrol / wait. Default.
-    #[default]
-    Idle,
-    /// Close distance to the target.
-    Approach,
-    /// Create distance from the target (player too close).
-    Retreat,
-    /// In melee/range window — commit an attack.
-    Engage,
-    /// Anti-clump: too many allies stacked up; sidestep to spread
-    /// out. Higher priority than Approach so a swarm visibly fans
-    /// out rather than piling on.
-    Reposition,
-    /// Off-stage / suspended over a gap. Today a stub —
-    /// `TerrainAwareness.off_stage` is always false until the
-    /// snapshot builder learns about ledges.
-    Recover,
-}
 
 /// Minimum time a mode must dwell before another mode can replace
 /// it. Hard overrides (stun, target dead, target out of aggro)

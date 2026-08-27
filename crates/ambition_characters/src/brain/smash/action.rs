@@ -10,7 +10,7 @@
 use ambition_platformer2d_core as ae;
 
 use super::super::action_set::ActionSet;
-use super::mode::BroadMode;
+use super::data::BroadMode;
 use super::observation::ObservationFrame;
 use super::SmashCfg;
 

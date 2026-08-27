@@ -6271,7 +6271,14 @@ fn the_landing_class_refresh_restores_the_recovery_budget() {
         recovery_charges: 0,
         ..Default::default()
     };
-    ae::refresh_movement_resources_clusters(&abilities, &mut dash, &mut jump, &mut dodge, 1);
+    ae::refresh_movement_resources_clusters(
+        &abilities,
+        &mut dash,
+        &mut jump,
+        &mut dodge,
+        1,
+        ae::RecoveryRefresh::Answered,
+    );
     assert_eq!(
         jump.recovery_charges,
         ae::DEFAULT_RECOVERY_CHARGES,

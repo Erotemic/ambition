@@ -135,6 +135,7 @@ impl Probe {
                 dt: DT,
                 contact: ae::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
         let ae::MotionModel::SurfaceMomentum(m) = &self.model else {

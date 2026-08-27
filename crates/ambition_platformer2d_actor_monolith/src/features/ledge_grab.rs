@@ -34,6 +34,7 @@ mod tests {
                 // may be resisted by a body standing somewhere else.
                 contact: ambition_platformer2d_core::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         )
         .events

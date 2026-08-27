@@ -143,6 +143,10 @@ pub fn integrate_home_body(
             dt: scaled_dt,
             contact: contact_field,
             pose_owned_externally: false,
+            // See the actor road's note: the same playback, asked whether this
+            // body is mid-recovery so the grounded refresh does not refund it.
+            recovery_commitment_outstanding:
+                ambition_combat::moveset::recovery_commitment_outstanding(playing_a_move),
         },
     );
 
@@ -208,7 +212,10 @@ pub fn integrate_home_body(
 /// `v_t += run * accel * dt`), so "against travel" is exactly a negative
 /// product. Published beside the ridden-surface fact after every movement step;
 /// axis walkers don't ride a tangent and stay non-skidding.
-pub fn surface_skidding(motion_model: &ambition_platformer2d_core::movement::MotionModel, run: f32) -> bool {
+pub fn surface_skidding(
+    motion_model: &ambition_platformer2d_core::movement::MotionModel,
+    run: f32,
+) -> bool {
     /// Below this tangential speed a direction change is a step, not a skid.
     /// Sits just above the picker's run threshold so the pose only interrupts
     /// a genuine run.
@@ -283,7 +290,10 @@ mod platform_advance_tests;
 /// teleports to the player spawn, so it never sets this flag.
 pub fn publish_kernel_reset_death(
     mut died: MessageWriter<ambition_combat::death_rules::ActorDiedMessage>,
-    bodies: Query<(Entity, &PlayerBodyFrameOutput), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
+    bodies: Query<
+        (Entity, &PlayerBodyFrameOutput),
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
 ) {
     for (victim, frame_out) in &bodies {
         let Some(reset) = frame_out.reset else {

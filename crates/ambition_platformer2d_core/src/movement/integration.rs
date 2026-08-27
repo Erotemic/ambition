@@ -126,6 +126,8 @@ pub(super) fn integrate_velocity_clusters(
     frame: MotionFrame,
     tuning: AxisSweptParams,
     contact: super::body_contact::BodyContactField<'_>,
+    // See `MotionStepContext::recovery_commitment_outstanding`.
+    recovery_commitment_outstanding: bool,
     events: &mut FrameEvents,
 ) {
     use crate::player_state::BodyMode;
@@ -342,6 +344,7 @@ pub(super) fn integrate_velocity_clusters(
             &mut *clusters.jump,
             &mut *clusters.dodge,
             tuning.locomotion.air_jumps,
+            super::recovery_refresh(recovery_commitment_outstanding),
         );
         state.blink_grace_timer = 0.0;
         state.fast_falling = false;
@@ -372,6 +375,10 @@ pub(super) fn integrate_velocity_clusters(
                 &mut *clusters.jump,
                 &mut *clusters.dodge,
                 tuning.locomotion.air_jumps,
+                // A rebound pad throws the body: it re-seats it the way a ledge
+                // does, and it is an EVENT rather than a per-tick truth, so it
+                // answers for the recovery outright.
+                crate::body_clusters::RecoveryRefresh::Answered,
             );
             clusters.ground.on_ground = false;
             state.phased_jump.clear();

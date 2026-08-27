@@ -819,6 +819,9 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         clusters.jump,
         clusters.dodge,
         tuning.locomotion.air_jumps,
+        // Catching the lip IS the re-seating — the whole reason this call moved
+        // to the latch. It answers for the recovery outright.
+        crate::body_clusters::RecoveryRefresh::Answered,
     );
     events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
     true

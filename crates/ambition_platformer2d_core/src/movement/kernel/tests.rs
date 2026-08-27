@@ -60,6 +60,7 @@ fn step(
             dt: DT,
             contact: crate::movement::body_contact::BodyContactField::NONE,
             pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
         },
     )
 }
@@ -1072,6 +1073,7 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
                         own_velocity,
                     ),
                     pose_owned_externally: false,
+                    recovery_commitment_outstanding: false,
                 },
             );
         }
@@ -1189,6 +1191,7 @@ fn walk_a_pair(
                         snapshot[which].entry_velocity,
                     ),
                     pose_owned_externally: false,
+                    recovery_commitment_outstanding: false,
                 },
             );
         }
@@ -1336,6 +1339,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
                 dt: DT,
                 contact: crate::movement::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     }
@@ -1364,6 +1368,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
                 dt: DT,
                 contact: crate::movement::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     }
@@ -1384,6 +1389,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
                 dt: DT,
                 contact: crate::movement::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     }
@@ -1447,6 +1453,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
                     dt: DT,
                     contact: crate::movement::body_contact::BodyContactField::NONE,
                     pose_owned_externally: true,
+                    recovery_commitment_outstanding: false,
                 },
             );
         }
@@ -1489,6 +1496,7 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
                 dt: DT,
                 contact: crate::movement::body_contact::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     };

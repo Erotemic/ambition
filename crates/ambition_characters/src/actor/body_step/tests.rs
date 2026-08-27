@@ -52,6 +52,7 @@ fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat
                 dt: DT,
                 contact: ae::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     }
@@ -97,6 +98,7 @@ fn stepped(
                 dt: DT,
                 contact: ae::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     }

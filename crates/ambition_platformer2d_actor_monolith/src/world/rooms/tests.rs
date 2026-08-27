@@ -950,6 +950,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
                     dt: 1.0 / 60.0,
                     contact: ambition_platformer2d_core::BodyContactField::NONE,
                     pose_owned_externally: false,
+                    recovery_commitment_outstanding: false,
                 },
             );
         }

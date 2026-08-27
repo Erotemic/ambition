@@ -482,6 +482,7 @@ impl MomentumRig {
                 dt: 1.0 / 60.0,
                 contact: ae::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
     }

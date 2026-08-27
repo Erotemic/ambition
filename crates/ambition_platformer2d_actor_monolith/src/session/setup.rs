@@ -12,12 +12,12 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
-use ambition_platformer2d_world::rooms::RoomSet;
 use ambition_dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_world::rooms::RoomSet;
 
 /// The health pool a playable body gets when its worn character authors none.
 ///
@@ -182,6 +182,8 @@ pub fn simulation_world(
         &mut initial_scratch.jump,
         &mut initial_scratch.dodge,
         tuning.air_jumps,
+        // A body being built has nothing outstanding.
+        ae::RecoveryRefresh::Answered,
     );
 
     // The player is a control box that WEARS a character. The protagonist takes

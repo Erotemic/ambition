@@ -2235,6 +2235,25 @@ fn weapon_ready(spec: &ambition_entity_catalog::MoveSpec, melee: Option<&BodyMel
     !move_fires_ranged(spec) || melee.is_none_or(|m| m.ranged_cooldown <= 0.0)
 }
 
+/// IS THIS BODY IN THE MIDDLE OF A RECOVERY IT HAS ALREADY PAID FOR?
+///
+/// ⭐⭐ ONE PLACE, BECAUSE THE ANSWER GATES A REFRESH IN ANOTHER CRATE. The
+/// movement kernel restores the recovery charge on every GROUNDED TICK, which is
+/// written for landing and is asked of a body that has not landed — so a
+/// recovery spent while still standing came back on the next frame. Measured on
+/// the pirate's `call_the_shark`: spent on the press frame, full again one frame
+/// later, and the fighter boarded the shark carrying a recovery they had bought.
+///
+/// ⛔ THE PLAYBACK IS THE AUTHORITY, so this is derived rather than stored. A
+/// second copy on `BodyJumpState` would be rollback state that can disagree with
+/// the move it describes; this cannot.
+///
+/// ⚠ IT SAYS NOTHING ABOUT WHETHER THE BODY IS GROUNDED. The caller that cares
+/// is the grounded branch itself — see `MotionStepContext`.
+pub fn recovery_commitment_outstanding(playing: Option<&MovePlayback>) -> bool {
+    playing.is_some_and(|playback| playback.spec.gates.recovery.spends())
+}
+
 /// A fighter that spent its recovery, is still in the air, and whose RECOVERY
 /// move has ended.
 ///
@@ -2259,7 +2278,7 @@ pub fn body_is_helpless(
     grounded: bool,
     playing: Option<&MovePlayback>,
 ) -> bool {
-    let still_recovering = playing.is_some_and(|pb| pb.spec.gates.recovery.spends());
+    let still_recovering = recovery_commitment_outstanding(playing);
     // ⛔⛔ THE EPISODE, NOT THE COUNT. `recovery_charges == 0` is a resource
     // reading, and a resource reading cannot be ENDED by anything short of a
     // refresh — refreshes are landing-shaped, which being hit deliberately is

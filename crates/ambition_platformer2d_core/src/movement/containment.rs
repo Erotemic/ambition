@@ -130,6 +130,7 @@ pub fn probe_containment(
                 // bodies are not part of that question.
                 contact: crate::movement::body_contact::BodyContactField::NONE,
                 pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
             },
         );
         let pos = scratch.kinematics.pos;

@@ -912,15 +912,45 @@ pub fn refresh_movement_resources_clusters(
     jump: &mut BodyJumpState,
     dodge: &mut BodyDodgeState,
     base_air_jumps: u8,
+    recovery: RecoveryRefresh,
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
     jump.air_jumps_available = abilities.abilities.air_jump_count(base_air_jumps);
-    jump.recovery_charges = DEFAULT_RECOVERY_CHARGES;
-    // The episode ends with the resource that opened it — this helper is the
-    // landing-shaped refresh, and being re-seated is exactly what answers for a
-    // spent recovery.
-    jump.post_recovery_helpless = false;
+    if recovery == RecoveryRefresh::Answered {
+        jump.recovery_charges = DEFAULT_RECOVERY_CHARGES;
+        // The episode ends with the resource that opened it — this helper is the
+        // landing-shaped refresh, and being re-seated is exactly what answers for a
+        // spent recovery.
+        jump.post_recovery_helpless = false;
+    }
     dodge.air_dodge_spent = false;
+}
+
+/// May this refresh answer for a spent recovery?
+///
+/// ⭐⭐ BECAUSE "GROUNDED" IS ASKED EVERY TICK AND "LANDED" IS AN EVENT, and the
+/// refresh above is written for the second while two of its callers run on the
+/// first. That is harmless for the aerial resources — a body standing on the
+/// floor cannot spend an air jump — and it is NOT harmless for the recovery,
+/// which is the one resource a fighter spends WHILE STILL GROUNDED. Measured on
+/// the pirate: `call_the_shark` spends the charge on the press frame and the
+/// grounded refresh hands it straight back on the next one, so the fighter
+/// boards the shark carrying a full recovery and the rule that a flinch
+/// refreshes it cannot be tested at all.
+///
+/// ⛔ THE FIX IS NOT "STOP REFRESHING WHILE GROUNDED". A grounded up-B that gets
+/// stuffed and stays on the floor still wants ordinary landing-class semantics;
+/// the genre lets a standing fighter press it again. What must not happen is the
+/// floor answering for a recovery whose move is still running.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryRefresh {
+    /// This cause re-seated the body: landing, catching the ledge, a respawn, a
+    /// rebound. The charge comes back and the helpless episode ends.
+    Answered,
+    /// This cause is a grounded TICK during a recovery the body has already
+    /// committed. The aerial resources refresh; the recovery does not, because
+    /// the move that spent it has not finished happening yet.
+    Withheld,
 }
 
 /// Recovery uses a body gets back when it is re-seated — landing, catching the
@@ -1672,6 +1702,67 @@ mod fresh_budget_tests {
         assert_eq!(
             scratch.jump.recovery_charges, DEFAULT_RECOVERY_CHARGES,
             "a freshly constructed body has no recovery"
+        );
+    }
+
+    /// ⭐⭐ THE AERIAL RESOURCES ARE ANSWERED BY THE FLOOR; THE RECOVERY IS
+    /// ANSWERED BY LANDING — and the difference only shows for a resource a
+    /// fighter can spend WHILE STANDING ON IT.
+    ///
+    /// ⛔ THE WITHHELD ARM IS NOT "REFRESH NOTHING". If it were, this could be
+    /// implemented by skipping the call, and a grounded fighter mid-recovery
+    /// would also keep a spent air jump and a spent air dodge — neither of which
+    /// this rule is about. Both halves are asserted in the same arm precisely so
+    /// a future "just don't call it" simplification fails here.
+    #[test]
+    fn a_withheld_refresh_answers_for_the_air_and_not_for_the_recovery() {
+        let abilities = BodyAbilities {
+            abilities: crate::AbilitySet::sandbox_all(),
+        };
+        let spent = |recovery: RecoveryRefresh| {
+            let mut dash = BodyDashState {
+                charges_available: 0,
+                ..Default::default()
+            };
+            let mut jump = BodyJumpState {
+                air_jumps_available: 0,
+                recovery_charges: 0,
+                post_recovery_helpless: true,
+                ..Default::default()
+            };
+            let mut dodge = BodyDodgeState {
+                air_dodge_spent: true,
+                ..Default::default()
+            };
+            refresh_movement_resources_clusters(
+                &abilities, &mut dash, &mut jump, &mut dodge, 2, recovery,
+            );
+            (dash.charges_available, jump, dodge.air_dodge_spent)
+        };
+
+        let (dash_answered, jump_answered, dodge_answered) = spent(RecoveryRefresh::Answered);
+        assert_eq!(jump_answered.recovery_charges, DEFAULT_RECOVERY_CHARGES);
+        assert!(!jump_answered.post_recovery_helpless);
+        assert_eq!(jump_answered.air_jumps_available, 2);
+        assert!(!dodge_answered);
+        assert!(
+            dash_answered > 0,
+            "poison: this body's kit grants no dash charges, so the withheld arm              below would agree with the answered one for the wrong reason"
+        );
+
+        let (dash_withheld, jump_withheld, dodge_withheld) = spent(RecoveryRefresh::Withheld);
+        assert_eq!(
+            jump_withheld.recovery_charges, 0,
+            "the floor answered for a recovery whose move has not finished"
+        );
+        assert!(
+            jump_withheld.post_recovery_helpless,
+            "the episode ended without the resource that opened it coming back"
+        );
+        assert_eq!(
+            (dash_withheld, jump_withheld.air_jumps_available, dodge_withheld),
+            (dash_answered, 2, false),
+            "withholding the recovery also withheld the AERIAL resources — this              rule is about the one thing a fighter spends with its feet down"
         );
     }
 }

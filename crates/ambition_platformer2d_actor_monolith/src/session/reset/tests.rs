@@ -241,6 +241,7 @@ fn min_app() -> App {
             &mut initial.jump,
             &mut initial.dodge,
             ae::DEFAULT_TUNING.air_jumps,
+            ae::RecoveryRefresh::Answered,
         );
         let health = ambition_characters::actor::Health::new(20);
         app.world_mut()
@@ -249,7 +250,9 @@ fn min_app() -> App {
             ));
         let _ = PlayerBlinkCameraState::default();
     }
-    app.insert_resource(ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings::default());
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings::default(),
+    );
     // The reset processor re-stages the start room through the App-installed
     // placement-lowering authority (7d972b6); the minimal app must provide it.
     app.insert_resource(crate::world::placements::PlacementLoweringRegistry::default());

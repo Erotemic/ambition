@@ -105,6 +105,7 @@ pub(crate) fn update_player_with_tuning_clusters(
             dt: raw_dt,
             contact: crate::movement::body_contact::BodyContactField::NONE,
             pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
         },
     );
     if result.events.reset.is_some() {
@@ -201,6 +202,7 @@ pub(crate) fn update_player_simulation_with_clusters(
         tuning.frame(),
         tuning.params(),
         crate::movement::body_contact::BodyContactField::NONE,
+        false,
     );
     if events.reset.is_some() {
         reset_body_clusters(

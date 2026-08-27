@@ -433,6 +433,7 @@ fn run_effort(
                     // A recovery probe, not this body's real motion.
                     contact: crate::movement::body_contact::BodyContactField::NONE,
                     pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
                 },
             )
         };

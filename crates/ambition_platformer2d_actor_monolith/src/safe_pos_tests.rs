@@ -25,7 +25,10 @@ fn dummy_world() -> ae::World {
 fn player_at(
     world: &ae::World,
     pos: ae::Vec2,
-) -> (ae::BodyClusterScratch, ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState) {
+) -> (
+    ae::BodyClusterScratch,
+    ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
+) {
     let mut scratch =
         crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
     ae::refresh_movement_resources_clusters(
@@ -34,11 +37,14 @@ fn player_at(
         &mut scratch.jump,
         &mut scratch.dodge,
         ae::DEFAULT_TUNING.air_jumps,
+        ae::RecoveryRefresh::Answered,
     );
     scratch.kinematics.pos = pos;
     scratch.ground.on_ground = true;
     // Force a known starting "safe pos" we can detect changes from.
-    let safety = ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::new(ae::Vec2::new(170.0, 1695.0));
+    let safety = ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::new(
+        ae::Vec2::new(170.0, 1695.0),
+    );
     (scratch, safety)
 }
 

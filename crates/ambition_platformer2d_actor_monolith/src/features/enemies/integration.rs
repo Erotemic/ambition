@@ -414,6 +414,13 @@ impl<'a> ActorMut<'a> {
                 dt,
                 contact: contact_field,
                 pose_owned_externally: false,
+                // ⭐ THE SAME PLAYBACK THE HELPLESS DERIVATION READS, asked a
+                // second question. A recovery spent on the floor must not be
+                // handed back by the grounded refresh while the move that spent
+                // it is still running — see
+                // `MotionStepContext::recovery_commitment_outstanding`.
+                recovery_commitment_outstanding:
+                    ambition_combat::moveset::recovery_commitment_outstanding(playing_a_move),
             },
         );
         drop(clusters);

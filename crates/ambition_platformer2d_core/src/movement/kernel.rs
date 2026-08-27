@@ -59,6 +59,25 @@ pub struct MotionStepContext<'a> {
     /// defaulted `false` is how a constrained body silently gets two authorities
     /// again.
     pub pose_owned_externally: bool,
+    /// THIS BODY HAS COMMITTED A RECOVERY THAT IS STILL HAPPENING.
+    ///
+    /// ⭐⭐ IT GATES THE GROUNDED REFRESH, and only that. A recovery is the one
+    /// movement resource a fighter spends while still standing on the floor, and
+    /// the landing-class refresh runs on every grounded TICK rather than on the
+    /// landing EVENT — so the charge went back the frame after it was spent, for
+    /// every fighter, contradicting the rule `start_move` states in its own
+    /// comment. It is invisible for an ordinary up-B, which leaves the ground
+    /// immediately; it is the whole story for one that hands its owner a vehicle,
+    /// because that fighter is still grounded when the mount takes over.
+    ///
+    /// ⛔ DERIVED, NOT STORED. The authority is the `MovePlayback` the body is
+    /// running — already rollback state — so asking it every tick cannot desync
+    /// the way a second copy on `BodyJumpState` would. See
+    /// `ambition_combat::moveset::recovery_commitment_outstanding`, which is the
+    /// one place the question is answered.
+    ///
+    /// ⚠ A REQUIRED FIELD for the same reason as the one above it.
+    pub recovery_commitment_outstanding: bool,
 }
 
 /// The tick's SEMANTIC support fact, selected from contact KINDS — never from
@@ -192,6 +211,7 @@ pub fn step_motion(
                 ctx.frame,
                 ctx.dt,
                 ctx.contact,
+                ctx.recovery_commitment_outstanding,
             );
             MotionStepResult::from_events(events, ctx.frame)
         }

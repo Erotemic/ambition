@@ -907,10 +907,6 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     // earlier attempt differed some other way that was never isolated, and the
     // conclusion drawn from it went into this file as fact for a day.
     //
-    // ⛔ THE SECOND BLOCKER IS STILL REAL AND STILL UNCLAIMED: a mounted admiral
-    // holds a FULL recovery charge, so "the flinch refunded the charge" remains
-    // a check that cannot fail and is deliberately NOT asserted here. That is
-    // D204/D250 territory.
     // A REAL HIT, built exactly like the launch box below and differing only in
     // the two numbers that decide whether it launches. If it does not land, the
     // probe below says so rather than the arm passing on an undisturbed rider.
@@ -920,6 +916,29 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
             .get::<ambition_platformer2d::characters::actor::BodyHealth>(body)
             .map_or(0, |h| h.damage_taken())
     };
+    let charges = |app: &App, body: Entity| -> u8 {
+        app.world()
+            .get::<ambition_platformer2d::engine_core::BodyJumpState>(body)
+            .map_or(255, |jump| jump.recovery_charges)
+    };
+    // ⭐⭐ THE PREMISE THIS ARM COULD NOT STATE UNTIL NOW, and its absence is
+    // what made the refund below a check that could not fail. `call_the_shark`
+    // spends the recovery on the press frame, and the movement kernel's
+    // landing-class refresh — asked on every GROUNDED TICK rather than on the
+    // landing event — handed it straight back on the next one, because the move
+    // begins with the pirate still standing on the floor. He boarded carrying a
+    // full charge, so "the flinch refreshed it" was true before the flinch.
+    //
+    // ⛔ IT IS NOT A VEHICLE RULE. `MotionStepContext::recovery_commitment_outstanding`
+    // withholds the recovery from ANY body whose recovery move is still running;
+    // the shark is simply the only move that is still running while its owner is
+    // still grounded.
+    assert_eq!(
+        charges(&app, seat0),
+        0,
+        "the mounted admiral is holding a recovery he already paid for, so the \
+         refund asserted below would pass without the flinch doing anything"
+    );
     let before = damage_taken(&mut app, seat0);
     {
         let world = app.world_mut();
@@ -963,6 +982,15 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     assert!(
         app.world().get::<RidingOn>(seat0).is_some(),
         "a flinch took the admiral off the shark — only a launch may do that"
+    );
+    // ⭐ AND THE FLINCH GAVE THE RECOVERY BACK. Jon: *"an opponent hits you hard
+    // enough to cause FLINCH, that hit clears helplessness"* — and the charge
+    // comes back with it, which is the half this test exists to measure and
+    // could not, for as long as the charge was never spent.
+    assert_eq!(
+        charges(&app, seat0),
+        1,
+        "the flinch left the admiral aboard without refreshing his recovery"
     );
 
     // ── AND A LAUNCH TAKES HIM OFF. ──
@@ -1188,17 +1216,48 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
     );
 
     // ── AND OFF WELL AFTER IT. ──
+    //
+    // Sampled ON THE TICK THE RIDE ENDS rather than after the loop: the charge
+    // assertion below is about a body that has just been dropped, and a pirate
+    // who has since touched the stage is a body the floor has legitimately
+    // answered for.
+    let mut at_release = None;
     for _ in 0..300 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame::default(),
         );
         app.update();
+        if app.world().get::<RidingOn>(seat0).is_none() {
+            at_release = Some((
+                app.world()
+                    .get::<ambition_platformer2d::engine_core::BodyJumpState>(seat0)
+                    .map_or(255, |jump| jump.recovery_charges),
+                app.world()
+                    .get::<ambition_platformer2d::engine_core::BodyGroundState>(seat0)
+                    .is_some_and(|ground| ground.on_ground),
+            ));
+            break;
+        }
     }
     assert!(
         app.world().get::<RidingOn>(seat0).is_none(),
         "the lease ran out and the admiral is still aboard — the ride has no end, \
          which is flight rather than a recovery"
+    );
+    // ⭐⭐ AND THE RIDE ENDING GAVE HIM NOTHING. The recovery was spent to summon
+    // the shark and only two things may return it: a flinching hit, or the floor.
+    // A lease that simply ran out is neither, and a pirate who could dismount
+    // into a fresh up-B would have a recovery that renews itself.
+    let (charges, grounded) = at_release.expect("the ride ended inside the loop above");
+    assert!(
+        !grounded,
+        "the admiral was standing on the stage the moment the ride ended, so the \
+         charge below was answered by the FLOOR and this arm measures nothing"
+    );
+    assert_eq!(
+        charges, 0,
+        "leaving the ride manufactured a recovery nobody paid for"
     );
     // ⭐ AND THE SHARK GOES. Jon asked for it to fly away when the ride ends;
     // asserted about THIS body, because seat 1 is an admiral too and summons its
@@ -1592,26 +1651,35 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
         );
         app.update();
     }
-    // Long enough for the CPU to take its own turn.
-    for _ in 0..240 {
+    // ⛔⛔ STOPPED AT THE TICK BOTH ARE ABOARD, not at a fixed frame count. This
+    // loop used to run 240 frames and sample once at the end, which is a bet
+    // that the CPU's ride is still running then — and the CPU summons on its own
+    // schedule, boards, and can be off again inside twenty frames. Anything that
+    // shifts its timeline by a hair (a movement resource it now keeps, a
+    // different move chosen one frame earlier) turns "two riders" into "one",
+    // and the failure reads as a mount defect rather than a sampling one.
+    //
+    // ⭐ THE CONDITION IS OBSERVABLE, so ask it every tick: SIMULTANEOUS is what
+    // the name says and what the assertions below need — every one of them reads
+    // state that is only coherent while both pairs are welded.
+    let mut both_aboard = None;
+    for _ in 0..600 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame::default(),
         );
         app.update();
+        let pair = [human, cpu].map(|rider| app.world().get::<RidingOn>(rider).map(|r| r.mount));
+        if let [Some(a), Some(b)] = pair {
+            both_aboard = Some([a, b]);
+            break;
+        }
     }
-
-    let mounts: Vec<(usize, Option<Entity>)> = [human, cpu]
-        .iter()
-        .enumerate()
-        .map(|(seat, rider)| (seat, app.world().get::<RidingOn>(*rider).map(|r| r.mount)))
-        .collect();
-    let ridden: Vec<Entity> = mounts.iter().filter_map(|(_, m)| *m).collect();
-    assert!(
-        ridden.len() >= 2,
-        "fewer than two admirals were aboard a shark at once ({mounts:?}), so \
-         this measures nothing about simultaneous rides"
+    let ridden = both_aboard.expect(
+        "the two admirals were never aboard a shark on the same tick, so this \
+         measures nothing about simultaneous rides",
     );
+    let mounts: Vec<(usize, Option<Entity>)> = vec![(0, Some(ridden[0])), (1, Some(ridden[1]))];
     // ⛔ AND THEY ARE DIFFERENT SHARKS, each holding its own rider.
     //
     // ⚠ THIS ARM IS A GUARD, NOT A PROOF, and the difference is worth stating:
@@ -1757,9 +1825,7 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
         grid.0
             .iter()
             .position(|id| id == ambition_demo_smash::SMASH_SHARK_RIDER)
-            .unwrap_or_else(|| {
-                panic!("the shark rider is not on the grid: {:?}", grid.0)
-            })
+            .unwrap_or_else(|| panic!("the shark rider is not on the grid: {:?}", grid.0))
     };
     {
         let mut select = app
@@ -1770,7 +1836,10 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
         select.set_pick(0, admiral_index);
         select.set_occupant(1, SlotOccupant::Cpu);
         select.set_pick(1, admiral_index);
-        assert!(select.ready(), "two decided seats did not make a startable match");
+        assert!(
+            select.ready(),
+            "two decided seats did not make a startable match"
+        );
     }
     app.world_mut()
         .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
@@ -1811,13 +1880,20 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     // ── UP-B FROM THE AIR, which is how a recovery is pressed. ──
     ambition_platformer2d::sim::drive_control_frame(
         app.world_mut(),
-        ControlFrame { jump_pressed: true, jump_held: true, ..Default::default() },
+        ControlFrame {
+            jump_pressed: true,
+            jump_held: true,
+            ..Default::default()
+        },
     );
     app.update();
     for _ in 0..12 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
-            ControlFrame { jump_held: true, ..Default::default() },
+            ControlFrame {
+                jump_held: true,
+                ..Default::default()
+            },
         );
         app.update();
     }
@@ -1832,7 +1908,10 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     for _ in 0..9 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
-            ControlFrame { special_pressed: false, ..up_special },
+            ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
         );
         app.update();
     }
@@ -1856,7 +1935,11 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     // ⛔ THE RIDER'S POSITION, NOT THE MOUNT'S, because the rider is what the
     // player is: a mount that flies away from underneath its rider is a failed
     // weld, not a flight, and reading the mount would call it a success.
-    let fly = |app: &mut App, leg: &str, ticks: usize, frame: ControlFrame| -> ambition_platformer2d::engine_core::Vec2 {
+    let fly = |app: &mut App,
+               leg: &str,
+               ticks: usize,
+               frame: ControlFrame|
+     -> ambition_platformer2d::engine_core::Vec2 {
         let from = app
             .world()
             .get::<BodyKinematics>(seat0)
@@ -1872,7 +1955,14 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
                 let pool = app
                     .world()
                     .get::<BodyHealth>(mount)
-                    .map(|h| format!("{}/{} ({} damage taken)", h.current(), h.max(), h.damage_taken()))
+                    .map(|h| {
+                        format!(
+                            "{}/{} ({} damage taken)",
+                            h.current(),
+                            h.max(),
+                            h.damage_taken()
+                        )
+                    })
                     .unwrap_or_else(|| "the mount no longer exists".to_string());
                 panic!(
                     "the ride ended {tick} tick(s) into the `{leg}` leg — the \
@@ -1900,14 +1990,30 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     // spends part of its budget reversing momentum the first leg built, so a bar
     // tuned to the outbound number would be a bar the return leg fails for a
     // reason that is physics rather than a defect.
-    let right = fly(&mut app, "hold right", 45, ControlFrame { axis_x: 1.0, ..Default::default() });
+    let right = fly(
+        &mut app,
+        "hold right",
+        45,
+        ControlFrame {
+            axis_x: 1.0,
+            ..Default::default()
+        },
+    );
     assert!(
         right.x > 40.0,
         "holding right moved the pair {:.1}px on x — the mount is not answering \
          the rider's stick, which is the whole of 'fly around'",
         right.x
     );
-    let left = fly(&mut app, "hold left", 45, ControlFrame { axis_x: -1.0, ..Default::default() });
+    let left = fly(
+        &mut app,
+        "hold left",
+        45,
+        ControlFrame {
+            axis_x: -1.0,
+            ..Default::default()
+        },
+    );
     assert!(
         left.x < -40.0,
         "holding left moved the pair {:.1}px on x after holding right moved it \
@@ -1921,7 +2027,15 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     //    recovers makes y SMALLER. This is the arm that separates a mount from a
     //    fancy fall: everything above is true of a body drifting sideways as it
     //    sinks. ──
-    let up = fly(&mut app, "hold up", 60, ControlFrame { axis_y: -1.0, ..Default::default() });
+    let up = fly(
+        &mut app,
+        "hold up",
+        60,
+        ControlFrame {
+            axis_y: -1.0,
+            ..Default::default()
+        },
+    );
     assert!(
         up.y < -40.0,
         "holding up moved the pair {:.1}px on y (`+y` is gravity-down, so a climb \
@@ -1950,7 +2064,9 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
     }
     // ── AND IT IS THE SAME SHARK, not a second one summoned mid-flight. ──
     assert_eq!(
-        app.world().get::<RidingOn>(seat0).map(|riding| riding.mount),
+        app.world()
+            .get::<RidingOn>(seat0)
+            .map(|riding| riding.mount),
         Some(mount),
         "the admiral finished the trip on a DIFFERENT shark than he started it \
          on, so the legs above measured two rides rather than one flight"
@@ -2030,7 +2146,10 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
             .get_resource_mut::<AmbitionGameSave>()
             .expect("the shipped composition carries a save");
         save.data_mut().set_flag(
-            &format!("enemy_{}_dead", ambition_demo_smash::shark_ride::SUMMON_SHARK_ID),
+            &format!(
+                "enemy_{}_dead",
+                ambition_demo_smash::shark_ride::SUMMON_SHARK_ID
+            ),
             true,
         );
     }
@@ -2061,7 +2180,10 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
         select.set_pick(0, admiral_index);
         select.set_occupant(1, SlotOccupant::Cpu);
         select.set_pick(1, admiral_index);
-        assert!(select.ready(), "two decided seats did not make a startable match");
+        assert!(
+            select.ready(),
+            "two decided seats did not make a startable match"
+        );
     }
     app.world_mut()
         .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
@@ -2121,7 +2243,10 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
     for _ in 0..9 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
-            ControlFrame { special_pressed: false, ..up_special },
+            ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
         );
         app.update();
     }
@@ -2158,10 +2283,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
     // be killed on tick two, and asserting only at the moment of boarding would
     // pass against a bug that arrives one frame later.
     for _ in 0..90 {
-        ambition_platformer2d::sim::drive_control_frame(
-            app.world_mut(),
-            ControlFrame::default(),
-        );
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), ControlFrame::default());
         app.update();
     }
     assert!(
@@ -2181,4 +2303,107 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
          being written by something that is not combat",
         pool.damage_taken()
     );
+}
+
+/// PROBE — where the shark's recovery charge goes, tick by tick.
+///
+/// The question is D254/R1's: `call_the_shark` is
+/// `RecoveryUse::SpendWithoutFreefall` and `start_move` spends the charge, but
+/// the move begins on the FLOOR and the landing-class refresh runs on every
+/// grounded tick. This prints the four facts that decide whether the spend
+/// survives the handoff — grounded, charges, the move still playing, and the
+/// saddle — so the rule can be written against what actually happens rather
+/// than against a reading of the systems.
+#[test]
+#[ignore = "PROBE, print-only: the recovery charge across the shark handoff"]
+fn probe_the_recovery_charge_across_the_shark_handoff() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::RidingOn;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..900 {
+        app.update();
+        let (seated, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            let seated = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (seated, q.iter(world).count())
+        };
+        if seated > 0 && held == 0 {
+            break;
+        }
+    }
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+
+    let report = |app: &App, tag: &str, i: usize| {
+        let jump = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyJumpState>(seat0);
+        let ground = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyGroundState>(seat0);
+        let play = app
+            .world()
+            .get::<ambition_platformer2d::combat::moveset::MovePlayback>(seat0);
+        println!(
+            "{tag} {i:>3}  grounded={:<5} charges={:<3} helpless={:<5} move={:<22} spends={:<5} riding={}",
+            ground.map_or(false, |g| g.on_ground),
+            jump.map_or(255, |j| j.recovery_charges),
+            jump.map_or(false, |j| j.post_recovery_helpless),
+            play.map_or("-".to_string(), |p| p.spec.id.to_string()),
+            play.map_or(false, |p| p.spec.gates.recovery.spends()),
+            app.world().get::<RidingOn>(seat0).is_some(),
+        );
+    };
+
+    report(&app, "pre ", 0);
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    report(&app, "press", 0);
+    for i in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+        report(&app, "hold ", i);
+    }
+    for i in 0..60 {
+        app.update();
+        report(&app, "free ", i);
+    }
 }

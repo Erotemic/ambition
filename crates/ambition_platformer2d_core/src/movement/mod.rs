@@ -18,8 +18,8 @@
 //! kernel-private implementation vocabulary — production integration calls
 //! [`step_motion`], never an individual solver arm.
 
-use crate::MotionFrame;
 use crate::world::World;
+use crate::MotionFrame;
 
 mod abilities;
 mod adhesive_crawler;
@@ -49,16 +49,16 @@ pub use surface_momentum::{
 };
 
 pub use abilities::{
-    BurstManeuver, OutOfShieldAction, OutOfShieldGate, resolve_burst_maneuver, resolve_shield,
-    spend_out_of_shield,
+    resolve_burst_maneuver, resolve_shield, spend_out_of_shield, BurstManeuver, OutOfShieldAction,
+    OutOfShieldGate,
 };
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
-pub use body_contact::{BodyContactBlocker, BodyContactField, constrain_motion};
+pub use body_contact::{constrain_motion, BodyContactBlocker, BodyContactField};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.
 pub use authority::{
-    ArrivalMomentum, TransitVelocity, arrive_body_in_room, carry_body, constrain_body_pose,
-    halt_body, reconcile_transit, shift_frozen_body, transit_body,
+    arrive_body_in_room, carry_body, constrain_body_pose, halt_body, reconcile_transit,
+    shift_frozen_body, transit_body, ArrivalMomentum, TransitVelocity,
 };
 pub use collision::{touching_hazard_aabb, touching_rebound_aabb};
 pub use events::{BlinkEvent, FrameEvents, GroundContactTransition, ResetCause};
@@ -78,29 +78,29 @@ pub use integration::set_jump_velocity;
 /// fast-fall/glide gates, and the fall cap. The player feeds it its rich ability
 /// clusters; enemies/NPCs feed it [`NormalSpineCtx::bare`] + per-actor tuning, so
 /// every actor falls + runs through the SAME core (the non-player-centric seam).
-pub use integration::{NormalSpineCtx, integrate_normal_spine};
-pub use kernel::{MotionStepContext, MotionStepResult, SupportFact, step_motion};
+pub use integration::{integrate_normal_spine, NormalSpineCtx};
+pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
-    AxisManeuverState, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
-    PhasedJumpState, SurfaceMomentumMotion, footstool_victim, knock_off_ledge, switch_motion_model,
+    footstool_victim, knock_off_ledge, switch_motion_model, AxisManeuverState, AxisSweptMotion,
+    MotionModel, MotionModelKind, MotionModelSpec, PhasedJumpState, SurfaceMomentumMotion,
 };
 pub use ops::{ComboMark, MovementOp};
-pub use player::{DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, default_player_body_size};
+pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
-    AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS,
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
+    FlightTuning, FootstoolTuning, LedgeMomentumTuning, MomentumHorizontalTuning, MovementTuning,
+    OutOfShield, ParryTiming, PhasedGravityJumpTuning, ShieldTuning, TraversalAbilityTuning,
+    AIR_ACCEL, AIR_DODGE_ENDLAG, AIR_DODGE_SPEED, AIR_DODGE_TIME, AIR_FRICTION, AIR_JUMPS,
     BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD,
     BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,
     DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
     DODGE_ROLL_ENDLAG, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL,
     FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED,
-    FLIGHT_TERMINAL_SPEED, FlightTuning, FootstoolTuning, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED,
-    GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, LedgeMomentumTuning, MAX_FALL_SPEED,
-    MAX_RUN_SPEED, MomentumHorizontalTuning, MovementTuning, ONE_WAY_DROP_THROUGH_GRACE,
-    OutOfShield, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
-    PRECISION_BLINK_DISTANCE, PRECISION_BLINK_MAX_DOWNWARD_SPEED, ParryTiming,
-    PhasedGravityJumpTuning, RUN_ACCEL, SLASH_RECOIL, SPOT_DODGE_STICK, SPOT_DODGE_TIME,
-    ShieldTuning, TraversalAbilityTuning, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
+    FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY, GROUND_FRICTION,
+    JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, ONE_WAY_DROP_THROUGH_GRACE,
+    PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE,
+    PRECISION_BLINK_MAX_DOWNWARD_SPEED, RUN_ACCEL, SLASH_RECOIL, SPOT_DODGE_STICK, SPOT_DODGE_TIME,
+    WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
 };
 
 #[cfg(test)]
@@ -261,6 +261,8 @@ pub(crate) fn update_body_simulation_in_frame(
     frame: MotionFrame,
     tuning: AxisSweptParams,
     contact: body_contact::BodyContactField<'_>,
+    // See `MotionStepContext::recovery_commitment_outstanding`.
+    recovery_commitment_outstanding: bool,
 ) -> FrameEvents {
     // §3.1 SweepSample: both endpoints are captured INSIDE the kernel —
     // `prev` at sim-phase entry, `curr` at exit — so any position change
@@ -272,7 +274,15 @@ pub(crate) fn update_body_simulation_in_frame(
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
     let events = update_body_simulation_inner(
-        world, clusters, state, input, raw_dt, frame, tuning, contact,
+        world,
+        clusters,
+        state,
+        input,
+        raw_dt,
+        frame,
+        tuning,
+        contact,
+        recovery_commitment_outstanding,
     );
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = crate::body_clusters::SweepSample {
@@ -328,6 +338,19 @@ fn shed_dodge_roll_push(
     kinematics.vel -= side * along;
 }
 
+/// The grounded per-tick refresh's answer to
+/// [`crate::body_clusters::RecoveryRefresh`]: a body standing on the floor is
+/// re-seated UNLESS it is in the middle of a recovery it has already paid for.
+pub(super) fn recovery_refresh(
+    commitment_outstanding: bool,
+) -> crate::body_clusters::RecoveryRefresh {
+    if commitment_outstanding {
+        crate::body_clusters::RecoveryRefresh::Withheld
+    } else {
+        crate::body_clusters::RecoveryRefresh::Answered
+    }
+}
+
 fn update_body_simulation_inner(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -337,6 +360,8 @@ fn update_body_simulation_inner(
     frame: MotionFrame,
     tuning: AxisSweptParams,
     contact: body_contact::BodyContactField<'_>,
+    // See `MotionStepContext::recovery_commitment_outstanding`.
+    recovery_commitment_outstanding: bool,
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
@@ -554,6 +579,7 @@ fn update_body_simulation_inner(
                 clusters.jump,
                 clusters.dodge,
                 tuning.locomotion.air_jumps,
+                recovery_refresh(recovery_commitment_outstanding),
             );
         }
     }
@@ -618,6 +644,7 @@ fn update_body_simulation_inner(
         frame,
         tuning,
         contact,
+        recovery_commitment_outstanding,
         &mut events,
     );
 
@@ -658,6 +685,9 @@ pub(crate) fn update_body_with_frame_clusters(
     frame: MotionFrame,
     raw_dt: f32,
     contact: body_contact::BodyContactField<'_>,
+    // See `MotionStepContext::recovery_commitment_outstanding`: the grounded
+    // refresh below may not answer for a recovery whose move is still running.
+    recovery_commitment_outstanding: bool,
 ) -> FrameEvents {
     let tuning = axis.params;
     let state = &mut axis.state;
@@ -690,7 +720,15 @@ pub(crate) fn update_body_with_frame_clusters(
     // when it matters.
     let arriving_out_of_a_launch = state.tumble_until_landing;
     let mut sim_events = update_body_simulation_in_frame(
-        world, clusters, state, input, raw_dt, frame, tuning, contact,
+        world,
+        clusters,
+        state,
+        input,
+        raw_dt,
+        frame,
+        tuning,
+        contact,
+        recovery_commitment_outstanding,
     );
     if arriving_out_of_a_launch {
         for contact in &mut sim_events.contacts {

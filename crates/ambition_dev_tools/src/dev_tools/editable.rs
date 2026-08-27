@@ -549,7 +549,16 @@ pub fn apply_movement_profile(
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);
     if let Some((abilities, dash, jump, dodge)) = live_movement_refs {
-        ae::refresh_movement_resources_clusters(abilities, dash, jump, dodge, tuning.air_jumps);
+        ae::refresh_movement_resources_clusters(
+            abilities,
+            dash,
+            jump,
+            dodge,
+            tuning.air_jumps,
+            // A dev-tools profile swap rebuilds the body's resources outright;
+            // there is no move in flight for it to be interrupting.
+            ae::RecoveryRefresh::Answered,
+        );
     }
 }
 

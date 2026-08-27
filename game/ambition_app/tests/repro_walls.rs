@@ -44,6 +44,7 @@ fn step_axis_for_test(
             dt,
             contact: ae::BodyContactField::NONE,
             pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
         },
     )
     .events

@@ -45,8 +45,37 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat0 = {
@@ -242,8 +271,37 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat = |app: &mut App, want: usize| -> Entity {
@@ -444,9 +502,41 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     // ── AND PRESS START, through the screen's own request. ──
     app.world_mut()
         .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
-    for _ in 0..300 {
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for 300 frames. The fixed count was
+    // a number that happened to be a little longer than the 3-second opening
+    // ceremony, so it silently encoded the ceremony's LENGTH: shortening the
+    // ceremony (D248's dev mode) handed every CPU on the stage ~2.7 extra
+    // seconds of free play before the press below, and the charge-crash NPC
+    // used them to kill the shark this test is about.
+    //
+    // ⭐ the condition is observable — a fighter still held by the ceremony
+    // carries `ScriptedControl` — so the press now happens right after GO
+    // however long GO takes.
+    let mut live = false;
+    for _ in 0..900 {
         app.update();
+        let (seated, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            let seated = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (seated, q.iter(world).count())
+        };
+        // BOTH halves: a cast that does not exist yet is not a cast whose hold
+        // has come off.
+        if seated > 0 && held == 0 {
+            live = true;
+            break;
+        }
     }
+    assert!(
+        live,
+        "the opening ceremony never released the cast, so nothing below is \
+         about a live round"
+    );
 
     let seat0 = {
         let world = app.world_mut();
@@ -468,11 +558,10 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
         .get::<ambition_platformer2d::mount::CanPilot>(seat0)
         .cloned();
     assert!(
-        can.as_ref().is_some_and(|c| c.can_pilot(
-            &ambition_platformer2d::mount::MountClass(
+        can.as_ref()
+            .is_some_and(|c| c.can_pilot(&ambition_platformer2d::mount::MountClass(
                 ambition_platformer2d::characters::smash_ride::SHARK_CLASS.to_string()
-            )
-        )),
+            ))),
         "an admiral seated FROM THE GRID cannot pilot a shark: {can:?}"
     );
 
@@ -675,7 +764,6 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     );
 }
 
-
 /// ⭐⭐ TWO THRESHOLDS, AND THEY ARE NOT THE SAME ONE.
 ///
 /// Jon named both and they are easy to conflate: a hit that FLINCHES refreshes
@@ -708,8 +796,37 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat0 = {
@@ -837,7 +954,6 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     );
 }
 
-
 /// ⭐⭐ THE RIDE ENDS ON ITS OWN CLOCK, and the shark leaves when it does.
 ///
 /// Jon: *"Let's say the move lasts for 5 seconds before the shark forces the
@@ -869,8 +985,37 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat0 = {
@@ -969,7 +1114,6 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
     };
 }
 
-
 /// ⭐⭐ THE RECOVERY SHARK IS NOT A HAZARD, AND `Neutral` IS NOT WHAT SAYS SO.
 ///
 /// Jon: *"No, the shark doesn't have contact damage in smash."* The code claimed
@@ -1002,8 +1146,37 @@ fn the_summoned_shark_carries_no_contact_hazard() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat0 = {
@@ -1062,7 +1235,6 @@ fn the_summoned_shark_carries_no_contact_hazard() {
     }
 }
 
-
 /// ⭐⭐ KILL THE SHARK AND THE ADMIRAL FALLS OFF — and can summon another.
 ///
 /// Jon: *"If the shark is hit 3 times, then the shark dies and the rider would
@@ -1092,8 +1264,37 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat0 = {
@@ -1190,7 +1391,6 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
     );
 }
 
-
 /// ⭐⭐ TWO ADMIRALS, TWO SHARKS, EACH ON ITS OWN.
 ///
 /// Jon: *"If a shark is flying away and the pirate has met all of the conditions
@@ -1224,8 +1424,37 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND TO GO LIVE, not for a fixed 240 frames. That count
+    // was a little longer than the 3-second opening ceremony, so it encoded the
+    // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
+    // turned every one of these settles into a different starting world. The
+    // condition is observable: a cast exists, and nothing in it is still held by
+    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // not a cast whose hold has come off.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(
+            live,
+            "the opening ceremony never released the cast, so nothing below is \
+             about a live round"
+        );
     }
 
     let seat = |app: &mut App, want: usize| -> Entity {
@@ -1271,12 +1500,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     let mounts: Vec<(usize, Option<Entity>)> = [human, cpu]
         .iter()
         .enumerate()
-        .map(|(seat, rider)| {
-            (
-                seat,
-                app.world().get::<RidingOn>(*rider).map(|r| r.mount),
-            )
-        })
+        .map(|(seat, rider)| (seat, app.world().get::<RidingOn>(*rider).map(|r| r.mount)))
         .collect();
     let ridden: Vec<Entity> = mounts.iter().filter_map(|(_, m)| *m).collect();
     assert!(

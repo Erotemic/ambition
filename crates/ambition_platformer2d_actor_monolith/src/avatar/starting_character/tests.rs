@@ -2571,3 +2571,154 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
         "a body holding an item lost the shield half of the throw gesture"
     );
 }
+
+/// A robot-shaped repertoire: `bubble_shield` on the neutral special, and a real
+/// directional kit around it.
+///
+/// ⭐ THE SHAPE IS THE SUBJECT, not this fighter's numbers. `player_robot_v3`'s
+/// actual repertoire lives in `ambition_content`, which this crate cannot see;
+/// the end-to-end proof that the real robot throws all five is
+/// `moveset_takes --characters player_robot_v3`. What is reproduced here is the
+/// only property that mattered: a body whose BODY KIT special is
+/// `bubble_shield` while its MOVESET says a direction means something else.
+fn a_robot_shaped_repertoire() -> ambition_entity_catalog::MovesetContract {
+    use ambition_characters::moveset_authoring::hitless_special;
+    let mut contract = ambition_entity_catalog::MovesetContract::default();
+    for (verb, id) in [
+        ("special", "bubble_shield"),
+        ("special_forward", "rocket_dash"),
+        ("special_up", "phase_shift"),
+        ("special_down", "stabilizer_slam"),
+        ("special_air_down", "stabilizer_dive"),
+    ] {
+        contract
+            .moves
+            .push(hitless_special(id, "special", 0.1, 0.4));
+        contract.verbs.insert(verb.to_string(), id.to_string());
+    }
+    contract
+}
+
+/// ⭐⭐ A RAW SPECIAL EDGE IS NOT A BUBBLE-SHIELD PRESS.
+///
+/// ⛔⛔ D253: `player_robot_v3` NAMES `bubble_shield` as its body-kit special
+/// AND authors four directional specials. `sustain_bubble_shield` runs in
+/// `PlayerInputSet::ControlGate` on the bare `special_pressed` edge, so it
+/// raised the guard before anything resolved WHICH special the press meant —
+/// grounded shield plus a direction is an evade, airborne it arms the air dodge,
+/// and by the time `Combat` asked, the move was refused from the state this
+/// layer had just created. ONE shared authority error, reported as five broken
+/// moves.
+///
+/// ⭐ FIVE ARMS FROM ONE TABLE, because the defect is not per-direction: the
+/// neutral case must still shield (that is the whole feature), and every case
+/// that resolves to a DIFFERENT move must not. A body with no repertoire at all
+/// shields on any press, which is the ordinary body kit this compatibility layer
+/// was written for.
+///
+/// ⚠ THE AIR-DODGE HALF IS THIS ARM'S AIRBORNE ROWS. `shield_held` is what arms
+/// and spends the air dodge; a press that does not synthesize it cannot spend
+/// one, so the cause is what is asserted rather than the symptom.
+#[test]
+fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
+
+    let action_set = crate::avatar::bundles::default_player_action_set(
+        ambition_platformer2d_core::AbilitySet::sandbox_all(),
+    );
+    assert!(
+        matches!(
+            action_set.special.as_ref(),
+            Some(ambition_characters::brain::SpecialActionSpec::Special(key)) if key == "bubble_shield"
+        ),
+        "poison: this body kit's special is not `bubble_shield`, so nothing \
+         below is about the seam that broke"
+    );
+
+    // (label, stick, grounded, must the guard come up?)
+    let cases: [(&str, ambition_platformer2d_core::LocalAxes, bool, bool); 5] = [
+        (
+            "neutral, grounded — the bubble itself",
+            ambition_platformer2d_core::LocalAxes::default(),
+            true,
+            true,
+        ),
+        (
+            "side — rocket_dash",
+            ambition_platformer2d_core::LocalAxes::new(1.0, 0.0),
+            true,
+            false,
+        ),
+        (
+            "down — stabilizer_slam",
+            ambition_platformer2d_core::LocalAxes::new(0.0, 1.0),
+            true,
+            false,
+        ),
+        (
+            "up — phase_shift",
+            ambition_platformer2d_core::LocalAxes::new(0.0, -1.0),
+            true,
+            false,
+        ),
+        (
+            "airborne down — stabilizer_dive, and it must not arm the air dodge",
+            ambition_platformer2d_core::LocalAxes::new(0.0, 1.0),
+            false,
+            false,
+        ),
+    ];
+
+    for (label, axes, grounded, expect_guard) in cases {
+        let mut app = App::new();
+        app.add_systems(Update, sustain_bubble_shield);
+        let mut control = ActorControl::default();
+        control.0.special_pressed = true;
+        control.0.attack_axis = axes;
+        let body = app
+            .world_mut()
+            .spawn((
+                action_set.clone(),
+                ambition_combat::moveset::ActorMoveset(a_robot_shaped_repertoire()),
+                ambition_platformer2d_core::BodyKinematics {
+                    facing: 1.0,
+                    ..Default::default()
+                },
+                ambition_platformer2d_core::BodyGroundState {
+                    on_ground: grounded,
+                    ..Default::default()
+                },
+                control,
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().get::<ActorControl>(body).unwrap().0.shield_held,
+            expect_guard,
+            "{label}: the guard came up {} — a press that means another special \
+             must reach `Combat` with the state that special starts from",
+            if expect_guard { "not at all" } else { "anyway" }
+        );
+    }
+
+    // ⛔ AND THE COMPATIBILITY BODY IS UNCHANGED. Without a moveset there is no
+    // other special a direction could mean, so every press is the bubble.
+    let mut app = App::new();
+    app.add_systems(Update, sustain_bubble_shield);
+    let mut control = ActorControl::default();
+    control.0.special_pressed = true;
+    control.0.attack_axis = ambition_platformer2d_core::LocalAxes::new(1.0, 0.0);
+    let plain = app.world_mut().spawn((action_set, control)).id();
+    app.update();
+    assert!(
+        app.world()
+            .get::<ActorControl>(plain)
+            .unwrap()
+            .0
+            .shield_held,
+        "a body with no repertoire stopped shielding — this layer exists for \
+         exactly that body, where Special means one thing and a direction \
+         cannot select anything else"
+    );
+}

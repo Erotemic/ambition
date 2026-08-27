@@ -5618,6 +5618,34 @@ went from an apparent ~70 references to zero without a single system being
 rewritten.
 
 ⛔ **THE TELL, EVERY TIME: ONE MODULE SPELLING ONE TYPE TWO WAYS.**
+
+✔✔ **EIGHT MORE LEFT `features/mod.rs` ON 2026-08-26, AND FOUR HAD NO CONSUMER
+AT ALL.** Six were whole MODULES forwarded under the monolith's address —
+`events`, `hazard_runtime as hazards`, `path_motion`, `util`,
+`collision as world_overlay`, `effect_bus as bus` — plus `PathMotion` and
+`HazardRuntime` as bare types. `hazards`, `path_motion`, `world_overlay` and
+`bus` were named by nothing in the tree.
+
+⛔⛔ **AND THE GREP THAT FOUND FOUR OF THEM WAS WRONG ABOUT THE OTHER FOUR.**
+`grep -rn 'features::util'` returns ONE hit and it is a doc comment; the real
+consumers reach the facade through `use super::*` and
+`use super::super::util::midpoint` — RELATIVE paths that no search for the
+declared spelling can match. ⇒ **for a facade, the compiler is the census**:
+delete the `pub use` and read the errors. This is the same lesson as the
+import-block one above wearing a different hat — a name is not reliably spelled
+the way it was declared.
+
+⭐ **NEXT CANDIDATE MEASURED AT HEAD: `features/movement_fx.rs`, 1,108 lines and
+TWO outward items, both removable.** `crate::actor::BodyAnimFacts` is a re-export
+of `ambition_characters::actor` — which the file ALREADY imports directly for
+`BodyCombat`, so it is the tell again — and `crate::BLINK_IN_ANIM_TIME` is one
+`f32` at the monolith root whose only consumer in the whole tree is this file.
+⚠ ITS DESTINATION IS THE OPEN QUESTION, not its coupling: it needs `ambition_vfx`,
+`ambition_sfx`, `ambition_characters` AND `shared_tangle::camera_ease`, and
+`ambition_characters` has already REFUSED the shared_tangle edge in its own
+`Cargo.toml` (*"the edge was LEGAL… and legality is not the same question as
+floor"*). So it is a new crate or it is shared_tangle, and shared_tangle's
+admission test wants two consuming domains.
 `damage_apply` held `ae::MotionModel` twice and `crate::features::MotionModel`
 twice. Grep a suspect module for a type it names by two paths before designing
 anything.

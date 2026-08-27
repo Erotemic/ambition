@@ -20,10 +20,8 @@
 use bevy::prelude::*;
 
 fn main() {
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::NoWindow,
-        true,
-    );
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // ⭐ ONE APP, ONE PROCESS: the exact condition that makes a global tracing
     // subscriber safe here and unsafe in the test binary.
     app.add_plugins(bevy::log::LogPlugin::default());
@@ -42,8 +40,32 @@ fn main() {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    for _ in 0..240 {
-        app.update();
+    // ⛔⛔ WAIT FOR THE ROUND, NOT FOR A NUMBER. 240 was a count a little longer
+    // than the 3-second opening ceremony, so it silently encoded the ceremony's
+    // LENGTH — and D248's dev mode runs that ceremony 10x fast, which has now
+    // broken four fixture families the same way. The condition is observable: a
+    // cast exists, and nothing in it is still held by `ScriptedControl`.
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all =
+                    world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                    bevy::prelude::With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(live, "the opening ceremony never released the cast");
     }
 
     // ⛔ ONE press FRAME, then HELD. `special_pressed` is a rising EDGE: holding
@@ -86,8 +108,7 @@ fn main() {
             continue;
         }
         let world = app.world_mut();
-        let mut seats =
-            world.query::<(Entity, &ambition_platformer2d::actor::MatchSeat)>();
+        let mut seats = world.query::<(Entity, &ambition_platformer2d::actor::MatchSeat)>();
         let rows: Vec<(Entity, usize)> = seats.iter(world).map(|(e, s)| (e, s.0)).collect();
         let Some(rider) = rows.iter().find(|(_, s)| *s == 0).map(|(e, _)| *e) else {
             continue;
@@ -140,10 +161,8 @@ fn main() {
     // the reading back on them. ⛔ It is still not a TEST — nothing here fails a
     // build — it just says plainly what it saw.
     let world = app.world_mut();
-    let mut mounts = world.query_filtered::<
-        Entity,
-        bevy::prelude::With<ambition_platformer2d::mount::Mountable>,
-    >();
+    let mut mounts = world
+        .query_filtered::<Entity, bevy::prelude::With<ambition_platformer2d::mount::Mountable>>();
     let all: Vec<Entity> = mounts.iter(world).collect();
     let left_over = all.len();
     // A shark on its way out and a shark loitering look the same in a count, and

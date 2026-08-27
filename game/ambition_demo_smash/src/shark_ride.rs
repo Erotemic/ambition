@@ -28,8 +28,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d::characters::brain::ActorActionMessage;
-use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::characters::smash_ride::{SummonRideParams, SUMMON_RIDE};
+use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::mount::{
     DismountReason, DismountRequested, RideLease, RiderDismounted, RidingOn,
 };
@@ -225,7 +225,10 @@ pub fn translate_shark_summons(
 /// so a bail-out reads a press nothing else is consuming.
 pub fn bail_out_of_the_saddle(
     riders: Query<
-        (Entity, &ambition_platformer2d::characters::control::ActorControl),
+        (
+            Entity,
+            &ambition_platformer2d::characters::control::ActorControl,
+        ),
         With<RidingOn>,
     >,
     mut dismounts: MessageWriter<DismountRequested>,
@@ -465,11 +468,15 @@ pub fn tick_departures(
         // field `steer_mount_from_rider` uses to hand a rider's intent to its
         // mount, chosen there for the same frame-safety reason.
         //
-        // ⚠ ONE TICK OF LATENCY, deliberately taken. This runs in `Settle`, so
-        // the intent written now is integrated by the next tick's movement pass.
-        // A departing shark holds still for one frame, which nobody can see, and
-        // the alternative is a second position authority, which everybody
-        // eventually can.
+        // ⚠ AND THE LATENCY IS GONE, which is why this note no longer says a
+        // tick is taken. It DID run in `Settle`, writing an intent the next
+        // tick's movement pass integrated; it runs in
+        // `WorldPrepSet::BeforeIntegrate` now, so the intent written here is
+        // read by THIS tick's pass and a departing shark moves immediately.
+        // (Stale prose caught by a GPT review, 2026-08-27.)
+        //
+        // ⭐ what has not changed is the reason for the seam: the alternative is
+        // a second position authority, which everybody eventually can see.
         control.0.velocity_target =
             ambition_platformer2d::engine_core::WorldVec2(departure.velocity);
         control.0.locomotion = Default::default();

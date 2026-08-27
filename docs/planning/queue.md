@@ -12973,9 +12973,35 @@ CONTROLLED SUBJECT can pick one up today.
 codec-shape file was re-recorded — absorbing two files STALE ON MAIN that this
 branch never touches, said out loud in that commit rather than laundered.
 
-- ▢ **D253 — `player_robot_v3` HAS FIVE SPECIALS AND CANNOT THROW ANY OF THEM.
-  (found 2026-08-27 by the moveset take recorder, on the run that re-seated
-  before every take)**
+- ▣ **D253 — `player_robot_v3` HAS FIVE SPECIALS AND CANNOT THROW ANY OF THEM.
+  CLOSED 2026-08-27 (`22361bab3`).**
+
+✔✔ **AND THE DIAGNOSIS BELOW WAS WRONG — it is not flight posture.** GPT 5.6
+found the real one and the take recorder confirms it: `sustain_bubble_shield`
+(`avatar/starting_character.rs`) read the RAW `special_pressed` edge in
+`PlayerInputSet::ControlGate` and forced `shield_held` because Robot's BODY KIT
+names `bubble_shield` — before anything resolved WHICH directional special the
+press meant. Grounded shield plus a direction is an evade; airborne on a Smash
+body with no air guard arms the air dodge; and by the time `Combat` asked for the
+special, the move was refused from the state that layer had just created. ONE
+shared authority error reported as five broken moves.
+
+⭐ IT ASKS NOW, WITH THE SAME TWO CALLS THE RESOLVER USES — `attack_dir_from_axis`
+folds a facing into an aim, `move_for_directional_verb` picks the special.
+Reimplementing either would have replaced one authority problem with two. A body
+with NO repertoire still shields on any press: that is the ordinary body kit this
+compatibility layer was written for.
+
+```text
+special           moves={"bubble_shield"}
+special_forward   moves={"rocket_dash"}
+special_up        moves={"phase_shift"}
+special_down      moves={"stabilizer_slam"}
+special_air_down  moves={"stabilizer_dive"}
+```
+
+Zero mismatches, against five that produced nothing. ⛔ THE ORIGINAL ROW AND ITS
+FLIGHT-POSTURE SUSPICION FOLLOW, kept as the record of what the recorder saw:
 
 Nineteen presses, driven through the real control frame into a real seated
 match, one fresh match per take. Fourteen work. The five that do not are the
@@ -13017,9 +13043,29 @@ hypotheses D207 cost are the reason it is written down as one.
 ⭐ THE ACCEPTANCE TEST EXISTS: `moveset_takes --characters player_robot_v3`, and
 the report line is `MISMATCH: drove <id> but the engine played {}`.
 
-- ▢ **D252 — THE BACK AIR IS UNREACHABLE FOR THE WHOLE CAST. (found 2026-08-27
-  by the moveset take recorder, on the first run that recorded the resolved
-  gesture)**
+- ▣ **D252 — THE BACK AIR IS UNREACHABLE FOR THE WHOLE CAST. CLOSED 2026-08-27
+  (`1eb50e6e3`).**
+
+✔✔ **FIXED AT THE PRODUCER, NOT IN THE KERNEL — which is what this row asked
+for.** `brain/player.rs` wrote a facing EVERY tick, grounded or not; it reaches
+the movement kernel as `MotionStepContext::facing_intent` and is applied there
+unconditionally, so an airborne fighter turned to face the back input before the
+press was read. The human translator now steers facing only when the body may
+actually turn (`actor_on_ground || actor_aerial`), which is the same carve-out
+`movement/abilities.rs` already made with `ground.on_ground || flight.fly_enabled`
+— the rule was written down one layer down and this contradicted it.
+
+⛔ THE KERNEL IS UNTOUCHED, as the row required: `facing_intent` reaches
+crawlers, bosses, surface-momentum riders and the recovery search whose own
+comment deliberately says a body that cannot turn in the air still points where
+it is trying to go.
+
+Acceptance is this row's own instrument. Before:
+`MISMATCH: drove air_back but the engine played {"air_forward"}`. After:
+`moves={"air_back"}`, zero mismatches across all 19 takes.
+
+⚠ GPT 5.6 reached the same diagnosis independently the same day. ⛔ THE ORIGINAL
+ROW FOLLOWS:
 
 Every fighter authors an `attack_air_back`. None of them can throw one.
 

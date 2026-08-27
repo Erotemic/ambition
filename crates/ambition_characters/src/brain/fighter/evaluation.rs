@@ -20,7 +20,8 @@
 //! Same for ladder ordering. Building the kit fixture is this rig's next slice and is what also
 //! unlocks survival/damage.
 
-use super::decision::{tick_fighter, FighterCfg, FighterState};
+use super::data::{FighterCfg, FighterState};
+use super::decision::tick_fighter;
 use super::options::{ActionLegality, AttackBinding, AttackCandidate, AttackVerb};
 use super::profile::FighterBrainProfile;
 use super::scenarios::{suite, Scenario};

@@ -955,5 +955,5 @@ mod momentum_spec_tests {
 }
 
 fn default_fighter_decision_interval() -> u32 {
-    crate::brain::fighter::decision::DEFAULT_DECISION_INTERVAL_TICKS
+    crate::brain::fighter::data::DEFAULT_DECISION_INTERVAL_TICKS
 }

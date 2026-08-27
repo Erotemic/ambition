@@ -6,11 +6,12 @@
 //! probing, and bounded forward rollouts are split into dedicated submodules. Rollouts
 //! use shadow state; authoritative movement remains in the engine kernel.
 
+pub mod charge;
 /// The `fighter_brain_ladder` schema this capability owns. Behind `content_pack`:
 /// a game that never validates its content must not link a compiler.
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
-pub mod charge;
+pub mod data;
 pub mod decision;
 pub mod evaluation;
 pub mod habit;
@@ -23,7 +24,8 @@ pub mod scenarios;
 pub mod situation;
 
 pub use charge::{charge_ticks_for, hold_ticks};
-pub use decision::{tick_fighter, ApmLedger, FighterCfg, FighterState};
+pub use data::{ApmLedger, FighterCfg, FighterState, FoeSample, PendingAttack};
+pub use decision::tick_fighter;
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use profile::{

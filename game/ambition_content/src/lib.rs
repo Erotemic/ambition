@@ -78,6 +78,7 @@ pub mod intro;
 pub mod items;
 /// Test-only: it owns the cross-table invariant no single fighter's module can state — that an
 /// authored burst is heard exactly once.
+pub mod authored_movesets;
 #[cfg(test)]
 mod moveset_sound;
 #[cfg(feature = "audio")]
@@ -85,6 +86,7 @@ pub mod music;
 pub mod ninja_shadow_oni_leader_moveset;
 pub mod medic_moveset;
 pub mod officer_moveset;
+pub mod special_slots;
 pub mod oiler_moveset;
 pub mod patent_clerk_moveset;
 pub mod pirate_admiral_moveset;

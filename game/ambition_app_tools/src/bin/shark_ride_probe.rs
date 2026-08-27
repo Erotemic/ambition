@@ -90,8 +90,17 @@ fn main() {
     }
     // ⛔⛔ AND SOMEBODY SWINGS. A passive match proves the ride ENDS correctly and
     // says nothing about the failure Jon actually hit, which was a shark deleted
-    // by a hit. The worst single connection in the game is the admiral's forward
-    // smash at 17 damage x `smash_charge_mult` 1.7 = 29, so that is what lands.
+    // by a hit. What lands here is the admiral's forward smash — 17 damage x
+    // `smash_charge_mult` 1.7 = 29.
+    //
+    // ⚠ IT IS NOT THE WORST CONNECTION IN THE GAME, and this comment said it was
+    // until 2026-08-27. George Booul's forward smash is 21 x 1.7 = 36. The claim
+    // came from censusing the admiral's own moveset, which is the same mistake
+    // `a_recovery_mount_cannot_be_deleted_by_one_hit` was making — that test
+    // reads the whole cast now and is where the real floor is enforced. 29 is
+    // still the right thing for THIS probe to throw: it is the hardest hit the
+    // fighter under test can produce on himself, which is what a self-contained
+    // ride probe can stage.
     //
     // ⛔ IT WAITS FOR A RIDE RATHER THAN ASSUMING ONE. The first version swung
     // once, immediately after the press, and the strike never landed because the

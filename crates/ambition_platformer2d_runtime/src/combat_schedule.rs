@@ -221,6 +221,14 @@ impl Plugin for CombatSchedulePlugin {
                 // later would move the body after the frame it was authored for.
                 ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
                     .run_if(gameplay_allowed),
+                // EFFECTS-stage consumer, beside the teleport and for the same
+                // reason: a health change authored on a move's timeline must
+                // land on the frame the move named. It sits AHEAD of
+                // `apply_effects` so a fighter who paid for a move is already
+                // poorer when this frame's hits resolve — a price that settled
+                // afterwards would let her be launched at the percent she had
+                // before she bought the tempo.
+                ambition_combat::vitality::apply_authored_vitality.run_if(gameplay_allowed),
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)

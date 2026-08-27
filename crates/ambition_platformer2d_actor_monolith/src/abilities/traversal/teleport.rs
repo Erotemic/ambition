@@ -51,17 +51,31 @@ pub fn ledge_assisted_arrival(
     destination: ae::Vec2,
     half: ae::Vec2,
     radius: f32,
+    gravity_dir: ae::Vec2,
 ) -> ae::Vec2 {
     if radius <= 0.0 {
         return destination;
     }
+    // The two axes of the frame this arrival is happening in. `along` is the
+    // support axis (gravity), `across` the face it lands on.
+    let down = gravity_dir.normalize_or_zero();
+    let down = if down == ae::Vec2::ZERO {
+        ae::Vec2::new(0.0, 1.0)
+    } else {
+        down
+    };
+    let across = ae::Vec2::new(-down.y, down.x);
+
     let standing = ae::Aabb::new(destination, half);
+    let overlaps_across = |b: &ae::Aabb| {
+        let (b_lo, b_hi) = span_across(*b, across);
+        let (s_lo, s_hi) = span_across(standing, across);
+        b_hi > s_lo && b_lo < s_hi
+    };
     let already_supported = world.blocks.iter().any(|b| {
         matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::OneWay)
-            && b.aabb.top() >= standing.bottom() - 2.0
-            && b.aabb.top() <= standing.bottom() + 2.0
-            && b.aabb.right() > standing.left()
-            && b.aabb.left() < standing.right()
+            && ae::collision_semantics::support_face_separation(standing, b.aabb, down).abs() <= 2.0
+            && overlaps_across(&b.aabb)
     });
     if already_supported {
         return destination;
@@ -72,21 +86,29 @@ pub fn ledge_assisted_arrival(
         if !matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::OneWay) {
             continue;
         }
-        // The point on this block's TOP face nearest the destination.
-        let x = destination.x.clamp(block.aabb.left(), block.aabb.right());
-        let surface = ae::Vec2::new(x, block.aabb.top());
-        // ⛔ ABOVE THE DESTINATION ONLY (`+y` is gravity-down, so "above" is a
-        // SMALLER y). A surface below the arrival is one the fighter cleared,
-        // and dragging them down onto it would end a recovery that worked.
-        if surface.y > destination.y {
+        // The point on this block's SUPPORT face nearest the destination: its
+        // head face (the anti-gravity one a falling body lands on), clamped to
+        // the block's own extent across that face.
+        let (b_lo, b_hi) = span_across(block.aabb, across);
+        let want = destination.dot(across).clamp(b_lo, b_hi);
+        let surface = across * want + down * block.aabb.head_coord(down);
+        // ⛔ TOWARD THE ANTI-GRAVITY SIDE ONLY. A surface further along gravity
+        // than the arrival is one the fighter CLEARED, and dragging them onto it
+        // would end a recovery that had already worked. Written against the
+        // gravity axis rather than `y`: the teleport itself has always aimed in
+        // the resolved frame, and this half searched the world's `+y` faces —
+        // so under flipped or sideways gravity the ability aimed one way and
+        // its assist looked the other (GPT 5.6, 2026-08-27).
+        if surface.dot(down) > destination.dot(down) {
             continue;
         }
-        let offset = surface - destination;
-        let distance = offset.length();
+        let distance = (surface - destination).length();
         if distance > radius {
             continue;
         }
-        let landing = ae::Vec2::new(x, block.aabb.top() - half.y);
+        // Feet exactly on that face, body centred across it.
+        let landing =
+            across * want + down * (block.aabb.head_coord(down) - half.dot(down.abs()).abs());
         let box_at = ae::Aabb::new(landing, half);
         let embeds = world.blocks.iter().any(|b| {
             matches!(
@@ -104,6 +126,147 @@ pub fn ledge_assisted_arrival(
     best.map_or(destination, |(_, landing)| landing)
 }
 
+/// A box's extent projected onto the ACROSS axis, low first.
+///
+/// ⛔ BOTH CORNERS, because `across` may point either way along a world axis
+/// and a min/max read off `.left()`/`.right()` is only correct for one of them.
+fn span_across(b: ae::Aabb, across: ae::Vec2) -> (f32, f32) {
+    let c = b.center().dot(across);
+    let half = (b.half_size().x * across.x).abs() + (b.half_size().y * across.y).abs();
+    (c - half, c + half)
+}
+
+/// One body the ambush can see: everything [`ambush_arrival`] needs to decide
+/// whether it may be targeted and where behind it lands.
+///
+/// ⭐ THE TELEPORTER IS IN THIS LIST TOO, and that is why the chooser below
+/// takes two of these rather than eight loose arguments. Its faction, team and
+/// driver are read from its own row instead of by widening the MUTABLE body
+/// query to carry three components a teleport does not otherwise touch, and
+/// "who may I ambush" then reads as one call between two peers.
+struct FoeCandidate {
+    entity: Entity,
+    pos: ae::Vec2,
+    half: ae::Vec2,
+    faction: ambition_combat::components::ActorFaction,
+    team: Option<ambition_combat::targeting::MatchTeam>,
+    driving: Option<ambition_characters::control::DrivingParticipant>,
+    sim: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+}
+
+impl FoeCandidate {
+    /// May this body ambush `other`?
+    ///
+    /// ⛔ THE ONE RELATIONSHIP POLICY — the same `combat_relation` call the
+    /// damage side makes, so a teammate cannot become a target here after
+    /// ceasing to be one there. `Neutral` is not a foe: a body that is merely
+    /// *hittable* is not someone this move was aimed at.
+    fn may_ambush(&self, other: &FoeCandidate) -> bool {
+        other.entity != self.entity
+            && ambition_combat::targeting::combat_relation(
+                None,
+                self.faction,
+                self.driving.as_ref(),
+                self.team.as_ref(),
+                None,
+                other.entity,
+                other.faction,
+                other.driving.as_ref(),
+                other.team.as_ref(),
+            ) == ambition_combat::targeting::CombatRelation::Foe
+    }
+
+    /// The world y of this body's FEET (`+y` is gravity-down).
+    fn feet_y(&self) -> f32 {
+        self.pos.y + self.half.y
+    }
+}
+
+/// Where an ambush arrives, and which way it looks once there.
+struct Ambush {
+    arrival: ae::Vec2,
+    /// ⭐ TURNED TO FACE HIM. Arriving behind someone still looking the way you
+    /// were thrown is an ambush that lands with its back to the fight, and every
+    /// follow-up the move exists to set up would come out backwards.
+    facing: f32,
+}
+
+/// Get behind the nearest foe within `reach`, or `None` when there is nobody to
+/// get behind.
+///
+/// ⛔⛔ `reach` IS A RANGE, NOT A LEASH. It used to be a cap on how far the
+/// teleport travelled, which sounds like the same rule and is not: a foe 900px
+/// away with a 320px reach put the fighter 320px along the line to him —
+/// *in front of* him, or inside him, having spent the move to walk into the
+/// worst position on the stage. A foe past the reach is not a target, and the
+/// move refuses exactly as it refuses when the stage is empty.
+///
+/// ⛔ EDGES, NOT CENTRES, ON BOTH AXES. `gap` is measured between the two
+/// bodies' near faces, so the same authored number reads the same behind a
+/// small body and a large one; and the arrival's FEET are placed at the foe's
+/// feet rather than its centre, so ambushing someone twice her height does not
+/// leave her buried to the waist or standing on his shoulders.
+///
+/// ⛔⛔ THE SCAN IS ORDERED BY `SimId`, NOT BY QUERY ORDER. Bevy's iteration
+/// order is not stable and under rollback the raw `Entity` ids are not stable
+/// either, so an exact-distance tie decided by either would resolve differently
+/// on a rewind and desync the match. This is the same discipline
+/// `select_actor_targets` states for the same reason.
+///
+/// ⛔ AND "BEHIND" IS THE FAR SIDE FROM THE TELEPORTER, not the far side from
+/// the foe's facing. A fighter who turns to meet you does not thereby drag you
+/// around to their front; the ambush is decided by where the attacker came
+/// from, which is the thing the attacker controls.
+fn ambush_arrival(
+    me: &FoeCandidate,
+    candidates: &[FoeCandidate],
+    reach: f32,
+    gap: f32,
+    facing: f32,
+) -> Option<Ambush> {
+    let mut ordered: Vec<&FoeCandidate> = candidates.iter().filter(|c| me.may_ambush(c)).collect();
+    ordered.sort_by(|a, b| match (&a.sim, &b.sim) {
+        (Some(x), Some(y)) => x.cmp(y),
+        // A body with no `SimId` is not in the rollback sweep at all, so it
+        // cannot be the source of a desync — but it still has to sort somewhere,
+        // and last is the choice that leaves the tracked bodies' order untouched.
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.entity.cmp(&b.entity),
+    });
+    let mut best: Option<(f32, &FoeCandidate)> = None;
+    for foe in ordered {
+        let distance = me.pos.distance_squared(foe.pos);
+        if distance > reach * reach {
+            continue;
+        }
+        // Strictly nearer wins, so the `SimId` order above breaks an exact tie.
+        if best.is_none_or(|(nearest, _)| distance < nearest) {
+            best = Some((distance, foe));
+        }
+    }
+    let (_, foe) = best?;
+    // Behind = further along the line the attacker was already on. Directly
+    // above or below him there is no such line, and the tiebreak is where she is
+    // LOOKING: an ambush carries past him the way she was already facing.
+    let side = if foe.pos.x > me.pos.x {
+        1.0
+    } else if foe.pos.x < me.pos.x {
+        -1.0
+    } else if facing != 0.0 {
+        facing.signum()
+    } else {
+        1.0
+    };
+    Some(Ambush {
+        arrival: ae::Vec2::new(
+            foe.pos.x + side * (foe.half.x + me.half.x + gap),
+            foe.feet_y() - me.half.y,
+        ),
+        facing: -side,
+    })
+}
+
 /// Recognise an authored teleport and move the body.
 ///
 /// ⛔ IT RUNS WHERE EVERY OTHER `ActorActionMessage` CONSUMER RUNS, so a
@@ -112,11 +275,26 @@ pub fn ledge_assisted_arrival(
 pub fn apply_authored_teleports(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut actions: MessageReader<ActorActionMessage>,
-    mut bodies: Query<(
-        ae::BodyClusterQueryData,
-        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        &ambition_characters::control::ActorControl,
-        &mut ae::movement::MotionModel,
+    // ⛔ A PARAM SET BECAUSE THE TWO QUERIES ALIAS. `BodyClusterQueryData` takes
+    // `BodyKinematics` mutably and the foe scan reads it, so Bevy refuses them
+    // as two plain queries. Candidates are gathered ONCE up front, which is also
+    // the behaviour a teleport wants: every message in a frame sees the same
+    // stage rather than one that shifts as bodies move.
+    mut set: bevy::ecs::system::ParamSet<(
+        Query<(
+            ae::BodyClusterQueryData,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &ambition_characters::control::ActorControl,
+            &mut ae::movement::MotionModel,
+        )>,
+        Query<(
+            Entity,
+            &ae::BodyKinematics,
+            Option<&ambition_combat::components::ActorFaction>,
+            Option<&ambition_combat::targeting::MatchTeam>,
+            Option<&ambition_characters::control::DrivingParticipant>,
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        )>,
     )>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
@@ -125,7 +303,24 @@ pub fn apply_authored_teleports(
     mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
     let mut collision = None;
-    for message in actions.read() {
+    // Drained first: the mutable body pass below cannot borrow the reader and
+    // the candidate query at the same time.
+    let requests: Vec<ActorActionMessage> = actions.read().cloned().collect();
+    let candidates: Vec<FoeCandidate> = set
+        .p1()
+        .iter()
+        .map(|(entity, kin, faction, team, driving, sim)| FoeCandidate {
+            entity,
+            pos: kin.pos,
+            half: kin.size * 0.5,
+            faction: faction.copied().unwrap_or_default(),
+            team: team.cloned(),
+            driving: driving.cloned(),
+            sim: sim.cloned(),
+        })
+        .collect();
+    let mut bodies = set.p0();
+    for message in requests.iter() {
         let ActionRequest::Special { spec, params } = &message.request else {
             continue;
         };
@@ -164,15 +359,42 @@ pub fn apply_authored_teleports(
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
         let half = clusters.kinematics.size * 0.5;
+        // WHERE, and how far. An ambush aims at a BODY rather than along the
+        // stick, and it travels the whole way to the far side of him — but it is
+        // clamped by exactly the same wall rule, because a teleport that could
+        // pass through a stage to reach someone is a different move.
+        let (dir, distance, turn_to) = if !params.behind_nearest_foe {
+            (dir, params.distance, None)
+        } else {
+            // ⭐ HER OWN ROW IN THE CANDIDATE LIST carries the allegiance the
+            // relation check needs; see [`FoeCandidate`].
+            let Some(me) = candidates.iter().find(|c| c.entity == message.actor) else {
+                continue;
+            };
+            // ⚠ NOBODY IN REACH, so the fighter stays put. See
+            // `TeleportParams::behind_nearest_foe` — firing into empty space
+            // spends the move to arrive somewhere nobody asked for.
+            let Some(ambush) =
+                ambush_arrival(me, &candidates, params.distance, params.behind_gap, facing)
+            else {
+                continue;
+            };
+            let offset = ambush.arrival - from;
+            let length = offset.length();
+            if length <= f32::EPSILON {
+                continue;
+            }
+            (offset / length, length, Some(ambush.facing))
+        };
         let solids = collision.get_or_insert_with(|| world.solids());
         let target = match solids.as_ref() {
             Some(w) => {
-                let clamped = super::blink::blink_target(&**w, from, dir, params.distance, half);
-                ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist)
+                let clamped = super::blink::blink_target(&**w, from, dir, distance, half);
+                ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist, gravity_dir)
             }
             // No collision world (a minimal test app) — the full distance, which
             // is what `blink_system` does in the same situation.
-            None => from + dir * params.distance,
+            None => from + dir * distance,
         };
 
         // THE discrete-transit authority: arrive with momentum kept, departure
@@ -188,6 +410,13 @@ pub fn apply_authored_teleports(
             target,
             ae::movement::TransitVelocity::Zero,
         );
+        // ⭐ AND SHE TURNS. An ambush is a setup for the move that follows it;
+        // landing behind him still facing the way she left would point every one
+        // of those the wrong way. Only an ambush turns — an aimed recovery keeps
+        // the facing the player was holding.
+        if let Some(facing) = turn_to {
+            clusters.kinematics.facing = facing;
+        }
         // ⛔⛔ AND THE LEDGER HEARS ABOUT IT, at the write rather than near it.
         // A body that moves discontinuously without an entry reads to the
         // collision oracle as unexplained clipping, and a SECOND Class-B

@@ -595,7 +595,16 @@ function renderCompare() {
    * finding that outlier is the whole point of the view. */
   const stats = {};
   for (const [key, , get] of COMPARE_COLUMNS) {
-    const vals = rows.map((r) => Number(get(r))).filter(Number.isFinite);
+    /* ⛔⛔ FILTER ABSENCE BEFORE CONVERTING, because `Number(null)` is 0 and
+     * `Number.isFinite(0)` is true. A row the table draws as an em dash was
+     * contributing a ZERO to this median, pulling it down and making genuinely
+     * small values read as ordinary. Projectile-only moves currently have a
+     * null startup, so this is not hypothetical (GPT 5.6, 2026-08-27). */
+    const vals = rows
+      .map(get)
+      .filter((v) => v !== null && v !== undefined)
+      .map(Number)
+      .filter(Number.isFinite);
     const med = median(vals);
     const spread = med === null ? null
       : median(vals.map((v) => Math.abs(v - med))) || (med * 0.15) || 1;
@@ -626,7 +635,10 @@ function renderCompare() {
     el("tr", { onclick: () => { openFighter(r.c.id); state.move = r.m.id; renderFighter(); renderMoveDetail(r.c, r.m); } },
       ...COMPARE_COLUMNS.map(([key, , get, fmt]) => {
         const raw = get(r);
-        const num = Number(raw);
+        /* Absent is ABSENT, not zero — see the median above. Without this a
+         * cell showing an em dash still took a hot/cold class and drew a
+         * zero-width bar, both computed from a value it does not have. */
+        const num = raw === null || raw === undefined ? NaN : Number(raw);
         const s = stats[key];
         let cls = fmt ? "mono bar" : "";
         if (fmt && s && s.med !== null && Number.isFinite(num) && s.spread > 0) {
@@ -785,13 +797,41 @@ function drawTake() {
     }
   }
 
-  ctx.strokeStyle = "#e2564a";
-  ctx.fillStyle = "rgba(226,86,74,.22)";
+  /* Hit volumes. The SUBJECT's are solid red; the opponent's are dimmed — the
+   * take deliberately runs a live CPU, so a box on screen is not necessarily
+   * the move's, and drawing them identically is what let the recorder's counts
+   * be misread for so long. */
   ctx.lineWidth = 1.5;
   for (const h of frame.hitboxes || []) {
+    const mine = h.subject_owned !== false;
+    ctx.strokeStyle = mine ? "#e2564a" : "rgba(226,86,74,.35)";
+    ctx.fillStyle = mine ? "rgba(226,86,74,.22)" : "rgba(226,86,74,.07)";
     ctx.beginPath();
     ctx.rect(X(h.pos[0] - h.half[0]), Y(h.pos[1] - h.half[1]), h.half[0] * 2 * scale, h.half[1] * 2 * scale);
     ctx.fill(); ctx.stroke();
+  }
+
+  /* ⛔⛔ PROJECTILES WERE RECORDED AND NEVER DRAWN. The take carries
+   * `frame.projectiles` and the inspector's own documentation promises "the
+   * fighter, its live hitboxes, its projectiles, and anything its move spawned"
+   * — so a ranged move played back as a fighter standing still doing nothing
+   * (GPT 5.6, 2026-08-27). A shot is drawn as its body plus a velocity whisker,
+   * because where it is going is the half a still frame cannot show. */
+  for (const s of frame.projectiles || []) {
+    const mine = s.subject_owned !== false;
+    ctx.strokeStyle = mine ? "#e8c15a" : "rgba(232,193,90,.35)";
+    ctx.fillStyle = mine ? "rgba(232,193,90,.30)" : "rgba(232,193,90,.08)";
+    ctx.beginPath();
+    ctx.rect(X(s.pos[0] - s.half[0]), Y(s.pos[1] - s.half[1]), s.half[0] * 2 * scale, s.half[1] * 2 * scale);
+    ctx.fill(); ctx.stroke();
+    if (s.vel && (s.vel[0] || s.vel[1])) {
+      /* A tenth of a second of travel: long enough to read direction, short
+       * enough not to leave the shot behind on a fast one. */
+      ctx.beginPath();
+      ctx.moveTo(X(s.pos[0]), Y(s.pos[1]));
+      ctx.lineTo(X(s.pos[0] + s.vel[0] * 0.1), Y(s.pos[1] + s.vel[1] * 0.1));
+      ctx.stroke();
+    }
   }
 
   $("#take-frame").textContent = `${state.takeFrame} / ${t.frames.length - 1}`;
@@ -804,7 +844,16 @@ function drawTake() {
   row("Grounded", frame.grounded === null ? "—" : frame.grounded ? "yes" : "no");
   row("Position", `(${int(frame.subject_pos?.[0])}, ${int(frame.subject_pos?.[1])})`);
   row("Velocity", `(${int(frame.subject_vel?.[0])}, ${int(frame.subject_vel?.[1])})`);
-  row("Live hitboxes", int((frame.hitboxes || []).length));
+  /* WHOSE, not how many. The opponent is live and swinging; a count that mixes
+   * the two answers a question nobody asked. */
+  const mineOnly = (xs) => (xs || []).filter((x) => x.subject_owned !== false).length;
+  const theirs = (xs) => (xs || []).length - mineOnly(xs);
+  const owned = (xs) => {
+    const t = theirs(xs);
+    return t ? `${mineOnly(xs)}  (+${t} opponent)` : String(mineOnly(xs));
+  };
+  row("Live hitboxes", owned(frame.hitboxes));
+  row("Projectiles", owned(frame.projectiles));
   row("Bodies", int(frame.bodies.length));
   if (frame.riding) row("Riding", frame.riding);
   $("#take-facts").replaceChildren(kv);

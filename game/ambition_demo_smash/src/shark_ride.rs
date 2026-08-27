@@ -92,12 +92,25 @@ const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
 /// ⭐ JON'S RULE IS A COUNT: *"the rule for the shark is hitting it 'enough', so
 /// some threshold on damage — which effectively is a healthpool"*, roughly three
 /// hits. Against a 2–17 table whose middle is near 8, three ordinary hits is
-/// ~24; but the pool must also survive ONE maximum hit, and 36 does both — four
-/// typical connections, or two charged smashes. ⚠ A BALANCE FIGURE with its
-/// derivation attached, not a number defended on feel, and
-/// `a_recovery_mount_cannot_be_deleted_by_one_hit` keeps the FLOOR honest if the
-/// move table ever grows.
-pub const SUMMON_SHARK_HEALTH: u32 = 36;
+/// ~24; but the pool must also survive ONE MAXIMUM hit.
+///
+/// ⛔⛔ AND THE MAXIMUM WAS MEASURED AGAINST THE WRONG SUBJECT — 36 → 40 on
+/// 2026-08-27 (GPT 5.6). The floor was derived from the PIRATE ADMIRAL's own
+/// moveset, because that is all
+/// `a_recovery_mount_cannot_be_deleted_by_one_hit` scanned; his worst is 29 and
+/// 36 cleared it comfortably. The cast's worst is George Booul's forward smash —
+/// `damage: 21` at `smash_charge_mult = 1.7`, which is **36 exactly**. So the
+/// pool equalled the biggest hit in the game and George could delete the
+/// recovery in ONE connection, which is the precise thing this number exists to
+/// prevent.
+///
+/// ⇒ 40 clears the measured floor with room that is not luck: five typical
+/// connections, or one charged George smash plus half a second of anything else.
+/// ⚠ A BALANCE FIGURE with its derivation attached, not a number defended on
+/// feel — and the census behind it now reads the WHOLE selectable cast across
+/// both authoring crates, so the next fighter with a bigger smash trips it
+/// rather than silently invalidating it.
+pub const SUMMON_SHARK_HEALTH: u32 = 40;
 
 /// The summoned shark's actor id — ONE string for every shark this move ever
 /// makes, which is what makes it worth naming.

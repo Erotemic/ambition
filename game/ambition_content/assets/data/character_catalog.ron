@@ -2810,8 +2810,8 @@
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             tags: ["humanoid", "brawler", "easter_egg", "playable_candidate", "svg_rigged"],
-            authoring_description: "A broad, plainly drawn law officer in a dark t-shirt, work jeans, boots and a grey campaign hat -- out of uniform from the neck down and entirely in character from the neck up. He follows the Pugnacious Polygon brawler template: no weapon part, no held props, and swings read by what they do to the AIR rather than by a blade catching light.",
-            gameplay_description: "A medium-weight close-range fundamentals brawler. Tilts throw a pale whoosh and smashes open a re-entry plume that leads with its tip, so an unarmed hitbox stays as legible as an armed one. The timings are the brawler archetype's.",
+            authoring_description: "A broad, plainly drawn law officer in a dark t-shirt, work jeans, boots and a grey campaign hat -- out of uniform from the neck down and entirely in character from the neck up. He follows the Pugnacious Polygon brawler template for every normal: no held props, and swings read by what they do to the AIR rather than by a blade catching light. The one exception is his sidearm, which is drawn on his own sheet -- a duty holster on his back and a service pistol his shoot clip puts in his fist -- not a held prop.",
+            gameplay_description: "A medium-weight close-range fundamentals brawler with one ranged answer. Tilts throw a pale whoosh and smashes open a re-entry plume that leads with its tip, so an unarmed hitbox stays as legible as an armed one. His side special is the draw: he plants, clears the holster and fires one round down the side he was pointed, which is his only way to touch someone he cannot reach. The rest of the timings are the brawler archetype's.",
             fallback_dialogue: [
                 "I'm not here for you. Yet.",
                 "Everybody's a civilian until they aren't.",
@@ -2840,7 +2840,7 @@
             default_action_set: "striker_swipe",
             tags: ["humanoid", "brawler", "support", "easter_egg", "playable_candidate", "svg_rigged"],
             authoring_description: "A field paramedic off duty: black fitted top, black leggings, trainers, a high ponytail. Hand-drawn and rigged by program. Her whole vocabulary is the PALM -- heel strikes, lifts, compressions -- because a medic's trained motion is push, lift, carry, and never close the fist; anything heavy she does with both hands. Her swings read clinical: a cold white-cyan trace for tilts and a defibrillator discharge for smashes.",
-            gameplay_description: "A light, fast two-handed brawler on the Pugnacious Polygon's timings, retimed shorter. Low raw KO power, long combo strings, and every heavy commitment is a TWO-HANDED one -- which is what makes her smashes slow and her tilts quick. She is the only fighter here who can PUT SOMETHING BACK: her neutral special spends a slice of her own margin for tempo and her down special kneels and repays it. Those rules are not written yet; she borrows the archetype's specials until they are.",
+            gameplay_description: "A light, fast two-handed brawler on the Pugnacious Polygon's timings, retimed shorter. Low raw KO power, long combo strings, and every heavy commitment is a TWO-HANDED one -- which is what makes her smashes slow and her tilts quick. She is the only fighter here who can PUT SOMETHING BACK: her neutral spends a point of her own margin and buys frame advantage with it, her down special kneels and repays two, her side special throws a strap that drags what it catches into her range, and her up special is the one move in the kit that costs her nothing.",
             fallback_dialogue: [
                 "I don't fight people. I move them.",
                 "Whatever you did to your shoulder, that wasn't me.",

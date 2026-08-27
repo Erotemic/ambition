@@ -8,8 +8,8 @@ use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, State
 use ambition_characters::control::ActorControl;
 use ambition_combat::events::HitEvent;
 use ambition_platformer2d_core::AabbExt;
-use bevy::prelude::{Commands, Entity};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use bevy::prelude::{Commands, Entity};
 
 /// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
 /// fire intent — the controller→verb→move map.
@@ -186,7 +186,12 @@ pub fn trigger_boss_attack_moves(
             let in_windup = pb.t < active_start(&pb.spec);
             let intent_wants_this = intent.is_some_and(|(p, _)| *p == move_profile);
             if in_windup && !intent_wants_this {
-                ambition_combat::moveset::cancel_move_playback(&mut commands, entity, &mut pb);
+                ambition_combat::moveset::cancel_move_playback(
+                    &mut commands,
+                    entity,
+                    &mut pb,
+                    ambition_combat::moveset::MoveEnd::Interrupted,
+                );
             }
             continue;
         }

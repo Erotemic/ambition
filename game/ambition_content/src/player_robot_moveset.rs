@@ -350,6 +350,9 @@ pub fn player_robot_moveset() -> MovesetContract {
         up_b,
         BLINK_AT_S,
         ambition_characters::smash_teleport::TeleportParams {
+            // Aimed, like every recovery: the stick, then straight up.
+            behind_nearest_foe: false,
+            behind_gap: 0.0,
             // Comparable to a good double jump's height, so it recovers from a
             // real edgeguard and does not cross the stage.
             distance: 210.0,

@@ -447,6 +447,6 @@ pub fn end_moves_for_bodies_out_of_play(
     >,
 ) {
     for (body, mut playback) in &mut out_of_play {
-        crate::moveset::cancel_move_playback(&mut commands, body, &mut playback);
+        crate::moveset::cancel_move_playback(&mut commands, body, &mut playback, crate::moveset::MoveEnd::LeftPlay);
     }
 }

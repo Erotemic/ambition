@@ -190,6 +190,40 @@ fn window_json(window: &ambition_platformer2d::entity_catalog::MoveWindow) -> se
 /// same for a move whose timeline has a gap, a multi-hit, or an `Invuln` window
 /// wedged in — and "how long until this can hit me" is the question the genre
 /// asks.
+/// The move's Active windows grouped into PULSES: one continuous stretch of
+/// Active time each, in start order.
+///
+/// ⛔ CONTIGUITY IS THE RULE THE RUNTIME USES, so it is the rule here. Windows
+/// that touch or overlap are one pulse and share one per-victim ledger; a real
+/// GAP between them earns a second connection. Deriving a carry any other way
+/// makes a sweetspot pair look like a multihit and a genuine multihit look the
+/// same as one.
+fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_catalog::MoveWindow>> {
+    let mut actives: Vec<&ambition_platformer2d::entity_catalog::MoveWindow> = spec
+        .windows
+        .iter()
+        .filter(|w| matches!(w.tag, WindowTag::Active))
+        .collect();
+    actives.sort_by(|a, b| a.start_s.total_cmp(&b.start_s));
+
+    let mut pulses: Vec<Vec<&ambition_platformer2d::entity_catalog::MoveWindow>> = Vec::new();
+    let mut open_until = f32::NEG_INFINITY;
+    for window in actives {
+        // `>` and not `>=`: windows that merely TOUCH leave no Active gap, so
+        // the fighter never stopped swinging and the ledger never reset.
+        if window.start_s > open_until {
+            pulses.push(Vec::new());
+            open_until = f32::NEG_INFINITY;
+        }
+        open_until = open_until.max(window.end_s);
+        pulses
+            .last_mut()
+            .expect("a pulse was opened above")
+            .push(window);
+    }
+    pulses
+}
+
 fn derived_json(spec: &MoveSpec) -> serde_json::Value {
     let actives: Vec<_> = spec
         .windows
@@ -203,20 +237,35 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         .map(|w| w.end_s - w.start_s)
         .sum::<f32>()
         .max(0.0);
-    let volumes: Vec<_> = spec
-        .windows
-        .iter()
-        .flat_map(|w| w.volumes.iter())
-        .collect();
+    let volumes: Vec<_> = spec.windows.iter().flat_map(|w| w.volumes.iter()).collect();
     // The biggest single connection, which is what a kill-power comparison
     // wants; the SUM is what a multi-hit's full carry is worth, and they are
     // different questions, so both ship.
     let max_damage = volumes.iter().map(|v| v.damage).max().unwrap_or(0);
-    let sum_damage: i32 = volumes.iter().map(|v| v.damage).sum();
-    let max_knockback = volumes
+    // ⛔⛔ THE CARRY IS BY PULSE, NOT BY VOLUME, and flattening every volume into
+    // one sum reported a SWEETSPOT/SOURSPOT attack as a multihit — the UI drew
+    // `21 (32 all hits)` for a move that can only ever land one of them. The
+    // runtime is explicit: *"A pulse is ONE continuous stretch of Active time,
+    // and it owns ONE per-victim ledger shared by every sibling volume in it. A
+    // GAP in Active time starts a new pulse and earns a second hit"* — so
+    // siblings inside a pulse are ALTERNATIVES and only separated pulses
+    // accumulate (GPT 5.6, 2026-08-27).
+    //
+    // ⭐ THE STATIC UPPER BOUND, said as what it is: the best reachable outcome
+    // of each pulse, summed over the pulses. A file cannot know which volume
+    // connects; it can know that at most one of them does.
+    let sum_damage: i32 = active_pulses(spec)
         .iter()
-        .map(|v| v.knockback)
-        .fold(0.0f32, f32::max);
+        .map(|pulse| {
+            pulse
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .map(|v| v.damage)
+                .max()
+                .unwrap_or(0)
+        })
+        .sum();
+    let max_knockback = volumes.iter().map(|v| v.knockback).fold(0.0f32, f32::max);
     // Reach is measured to the FAR EDGE of the volume along the facing axis:
     // a box centred at 34 with a 26 half-extent reaches 60, and that is the
     // spacing a player actually feels.
@@ -240,17 +289,48 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
             VolumeShape::Circle { offset, radius } => offset.1.abs() + radius,
         })
         .fold(0.0f32, f32::max);
-    let fires_projectile = spec
+    // ⛔⛔ A RANGED MOVE WAS EXPORTED AS A BOOLEAN AND NOTHING ELSE, so every
+    // number beside it described a move that does not exist: no startup (it has
+    // no Active melee window), zero damage, zero knockback, zero reach, and its
+    // WHOLE DURATION as endlag. The admiral's side-B and Projectile Polygon's
+    // charged neutral-B both read as harmless (GPT 5.6, 2026-08-27).
+    //
+    // ⭐ THE SCHEMA SAYS WHAT A RANGED MOVE IS instead of coercing it into melee
+    // terminology: WHEN it fires, and what the shot it fires is worth. A move
+    // can have body-strike damage AND projectile damage; they are different
+    // questions and both ship.
+    let fire_at_s = spec
         .events
         .iter()
-        .any(|e| matches!(e.kind, MoveEventKind::Ranged));
+        .filter(|e| matches!(e.kind, MoveEventKind::Ranged))
+        .map(|e| e.at_s)
+        .fold(f32::NAN, f32::min);
+    let fires_projectile = !fire_at_s.is_nan();
+    // The shot's own numbers, from the ranged action this move EQUIPS. A move
+    // that equips nothing fires the body's standing ranged kit, which is not a
+    // property of the move and is deliberately not reported here.
+    let shot = spec
+        .equips
+        .as_deref()
+        .and_then(ambition_platformer2d::characters::brain::held_item_by_id)
+        .and_then(|item| item.ranged);
     // Endlag: from the last hittable instant to the end of the move. A move
     // with no active window owes its whole duration, which is the honest answer
     // for a pure-mobility special.
-    let endlag_s = if actives.is_empty() {
-        spec.duration_s
+    // ⭐ AND A MOVE WHOSE OFFENCE IS A SHOT OWES ENDLAG FROM THE SHOT, not from
+    // its whole length. "No Active window" means "nothing hittable ON THE BODY",
+    // which for a ranged move is true and irrelevant — the fire frame is its
+    // last committed instant.
+    let last_committed = if actives.is_empty() {
+        (!fire_at_s.is_nan()).then_some(fire_at_s)
     } else {
-        (spec.duration_s - last_active_end).max(0.0)
+        Some(last_active_end)
+    };
+    let endlag_s = match last_committed {
+        Some(at) => (spec.duration_s - at).max(0.0),
+        // A pure-mobility special really does owe its whole duration, which is
+        // the honest answer for it.
+        None => spec.duration_s,
     };
     serde_json::json!({
         "startup_s": (!startup_s.is_nan()).then_some(startup_s),
@@ -266,6 +346,11 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         "vertical_reach": vertical_reach,
         "hits": volumes.len(),
         "fires_projectile": fires_projectile,
+        // The ranged analogue of startup: the instant the shot leaves.
+        "fire_at_s": fires_projectile.then_some(fire_at_s),
+        "fire_f": fires_projectile.then(|| frames(fire_at_s)),
+        "projectile_damage": shot.as_ref().map(|r| r.damage),
+        "projectile_speed": shot.as_ref().map(|r| r.speed),
         // The charge payoff a fully held release applies, so a smash's real
         // ceiling is one multiplication away rather than folklore.
         "max_damage_charged": (max_damage as f32 * spec.smash_charge_mult).round() as i32,
@@ -280,10 +365,9 @@ fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde
         // ⭐ EXHAUSTIVE ON PURPOSE. A new event kind is a new thing a move can
         // do, and a catch-all would report it as `"other"` in a tool whose whole
         // job is to show what a move does. The compiler names the gap instead.
-        MoveEventKind::Impulse { local, mode, .. } => (
-            "impulse",
-            format!("{mode:?} ({}, {})", local.0, local.1),
-        ),
+        MoveEventKind::Impulse { local, mode, .. } => {
+            ("impulse", format!("{mode:?} ({}, {})", local.0, local.1))
+        }
         MoveEventKind::Ranged => ("ranged", String::new()),
     };
     serde_json::json!({
@@ -335,7 +419,10 @@ fn move_json(spec: &MoveSpec, verbs: &[String]) -> serde_json::Value {
 fn verbs_by_move(contract: &MovesetContract) -> BTreeMap<String, Vec<String>> {
     let mut by_move: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (verb, move_id) in &contract.verbs {
-        by_move.entry(move_id.clone()).or_default().push(verb.clone());
+        by_move
+            .entry(move_id.clone())
+            .or_default()
+            .push(verb.clone());
     }
     by_move
 }
@@ -343,7 +430,9 @@ fn verbs_by_move(contract: &MovesetContract) -> BTreeMap<String, Vec<String>> {
 fn character_json(
     id: &str,
     prepared: &ambition_platformer2d::actors::character_runtime::PreparedCharacterDefinition,
-    catalog: Option<&ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogEntry>,
+    catalog: Option<
+        &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogEntry,
+    >,
     on_grid: bool,
 ) -> serde_json::Value {
     let contract = prepared.kit.projectable_moveset();
@@ -427,10 +516,8 @@ fn main() {
         .map(|w| w[1].clone())
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/moveset_bundle.json".to_string());
 
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::NoWindow,
-        true,
-    );
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // ⛔ THE REGISTRY IS FILLED BY A `Startup` SYSTEM, so a build that has never
     // updated has a catalog and no registry at all — the exact trap
     // `smash_roster_movesets` records. One frame is enough; several are cheap.

@@ -578,12 +578,26 @@ impl ProjectileFlight {
 
     /// A shot that goes out, stops, and comes back — `out_s` to the turnaround.
     ///
-    /// The lifetime is the round trip plus a little, so the tail expires just
-    /// past the hand that threw it rather than sailing off behind her.
+    /// The lifetime is the ROUND TRIP EXACTLY, so the tail expires at the hand
+    /// that threw it rather than sailing off behind her.
+    ///
+    /// ⭐⭐ AND THE ROUND TRIP IS ANALYTIC, not a guess. The return is a constant
+    /// acceleration `-v0 / out_s` (resolved at spawn from the launch velocity),
+    /// so the shot's displacement is `v0·t − v0·t²/2·out_s` and it is back at
+    /// the throw point at exactly `t = 2·out_s`. There is nothing to tune.
+    ///
+    /// ⛔⛔ IT USED TO CARRY `+ 0.15` FOR "just past the hand", and 0.15s of a
+    /// shot that is accelerating backwards is not a little — measured against the
+    /// real 60Hz integrator at the ponytail's own 430 px/s and `out_s = 0.34`,
+    /// the tail expired **79.2 px BEHIND the launch point travelling 603 px/s
+    /// backwards** (GPT 5.6, 2026-08-27). A fast rearward projectile, where the
+    /// doc said "caught". Deleting the term lands it 1.4 px past the hand, and
+    /// the same deletion holds across the range: `out_s` 0.25 → 7.2 px, 0.5 →
+    /// 0.0 px, against 82 and 73 before.
     pub const fn boomerang(out_s: f32) -> Self {
         Self {
             boomerang_return_s: Some(out_s),
-            max_lifetime: out_s * 2.0 + 0.15,
+            max_lifetime: out_s * 2.0,
             ..Self::STRAIGHT
         }
     }

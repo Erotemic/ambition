@@ -65,28 +65,161 @@ enum Button {
 /// The full press table. Directions follow the engine's own convention:
 /// `axis_y = -1` is UP (the same value `shark_ride_probe` drives for the up-B).
 const VERBS: &[Verb] = &[
-    Verb { verb: "attack", label: "Jab", axis_x: 0.0, axis_y: 0.0, button: Button::Attack, airborne: false },
-    Verb { verb: "attack_forward", label: "F-tilt", axis_x: 1.0, axis_y: 0.0, button: Button::Attack, airborne: false },
-    Verb { verb: "attack_up", label: "U-tilt", axis_x: 0.0, axis_y: -1.0, button: Button::Attack, airborne: false },
-    Verb { verb: "attack_down", label: "D-tilt", axis_x: 0.0, axis_y: 1.0, button: Button::Attack, airborne: false },
-    Verb { verb: "smash_forward", label: "F-smash", axis_x: 1.0, axis_y: 0.0, button: Button::Smash, airborne: false },
-    Verb { verb: "smash_up", label: "U-smash", axis_x: 0.0, axis_y: -1.0, button: Button::Smash, airborne: false },
-    Verb { verb: "smash_down", label: "D-smash", axis_x: 0.0, axis_y: 1.0, button: Button::Smash, airborne: false },
-    Verb { verb: "attack_air", label: "N-air", axis_x: 0.0, axis_y: 0.0, button: Button::Attack, airborne: true },
-    Verb { verb: "attack_air_forward", label: "F-air", axis_x: 1.0, axis_y: 0.0, button: Button::Attack, airborne: true },
-    Verb { verb: "attack_air_back", label: "B-air", axis_x: -1.0, axis_y: 0.0, button: Button::Attack, airborne: true },
-    Verb { verb: "attack_air_up", label: "U-air", axis_x: 0.0, axis_y: -1.0, button: Button::Attack, airborne: true },
-    Verb { verb: "attack_air_down", label: "D-air", axis_x: 0.0, axis_y: 1.0, button: Button::Attack, airborne: true },
-    Verb { verb: "special", label: "Neutral B", axis_x: 0.0, axis_y: 0.0, button: Button::Special, airborne: false },
-    Verb { verb: "special_forward", label: "Side B", axis_x: 1.0, axis_y: 0.0, button: Button::Special, airborne: false },
+    Verb {
+        verb: "attack",
+        label: "Jab",
+        axis_x: 0.0,
+        axis_y: 0.0,
+        button: Button::Attack,
+        airborne: false,
+    },
+    Verb {
+        verb: "attack_forward",
+        label: "F-tilt",
+        axis_x: 1.0,
+        axis_y: 0.0,
+        button: Button::Attack,
+        airborne: false,
+    },
+    Verb {
+        verb: "attack_up",
+        label: "U-tilt",
+        axis_x: 0.0,
+        axis_y: -1.0,
+        button: Button::Attack,
+        airborne: false,
+    },
+    Verb {
+        verb: "attack_down",
+        label: "D-tilt",
+        axis_x: 0.0,
+        axis_y: 1.0,
+        button: Button::Attack,
+        airborne: false,
+    },
+    Verb {
+        verb: "smash_forward",
+        label: "F-smash",
+        axis_x: 1.0,
+        axis_y: 0.0,
+        button: Button::Smash,
+        airborne: false,
+    },
+    Verb {
+        verb: "smash_up",
+        label: "U-smash",
+        axis_x: 0.0,
+        axis_y: -1.0,
+        button: Button::Smash,
+        airborne: false,
+    },
+    Verb {
+        verb: "smash_down",
+        label: "D-smash",
+        axis_x: 0.0,
+        axis_y: 1.0,
+        button: Button::Smash,
+        airborne: false,
+    },
+    Verb {
+        verb: "attack_air",
+        label: "N-air",
+        axis_x: 0.0,
+        axis_y: 0.0,
+        button: Button::Attack,
+        airborne: true,
+    },
+    Verb {
+        verb: "attack_air_forward",
+        label: "F-air",
+        axis_x: 1.0,
+        axis_y: 0.0,
+        button: Button::Attack,
+        airborne: true,
+    },
+    Verb {
+        verb: "attack_air_back",
+        label: "B-air",
+        axis_x: -1.0,
+        axis_y: 0.0,
+        button: Button::Attack,
+        airborne: true,
+    },
+    Verb {
+        verb: "attack_air_up",
+        label: "U-air",
+        axis_x: 0.0,
+        axis_y: -1.0,
+        button: Button::Attack,
+        airborne: true,
+    },
+    Verb {
+        verb: "attack_air_down",
+        label: "D-air",
+        axis_x: 0.0,
+        axis_y: 1.0,
+        button: Button::Attack,
+        airborne: true,
+    },
+    Verb {
+        verb: "special",
+        label: "Neutral B",
+        axis_x: 0.0,
+        axis_y: 0.0,
+        button: Button::Special,
+        airborne: false,
+    },
+    Verb {
+        verb: "special_forward",
+        label: "Side B",
+        axis_x: 1.0,
+        axis_y: 0.0,
+        button: Button::Special,
+        airborne: false,
+    },
     // ⭐ THE UP-B IS RECORDED FROM THE AIR, which is the only place it is the
     // move Jon is asking about. A grounded up-B answers the same press and shows
     // none of the recovery.
-    Verb { verb: "special_up", label: "Up B (airborne)", axis_x: 0.0, axis_y: -1.0, button: Button::Special, airborne: true },
-    Verb { verb: "special_down", label: "Down B", axis_x: 0.0, axis_y: 1.0, button: Button::Special, airborne: false },
-    Verb { verb: "special_air_down", label: "Down B (air)", axis_x: 0.0, axis_y: 1.0, button: Button::Special, airborne: true },
-    Verb { verb: "grab", label: "Grab", axis_x: 0.0, axis_y: 0.0, button: Button::Grab, airborne: false },
-    Verb { verb: "taunt", label: "Taunt", axis_x: 0.0, axis_y: 0.0, button: Button::Taunt, airborne: false },
+    Verb {
+        verb: "special_up",
+        label: "Up B (airborne)",
+        axis_x: 0.0,
+        axis_y: -1.0,
+        button: Button::Special,
+        airborne: true,
+    },
+    Verb {
+        verb: "special_down",
+        label: "Down B",
+        axis_x: 0.0,
+        axis_y: 1.0,
+        button: Button::Special,
+        airborne: false,
+    },
+    Verb {
+        verb: "special_air_down",
+        label: "Down B (air)",
+        axis_x: 0.0,
+        axis_y: 1.0,
+        button: Button::Special,
+        airborne: true,
+    },
+    Verb {
+        verb: "grab",
+        label: "Grab",
+        axis_x: 0.0,
+        axis_y: 0.0,
+        button: Button::Grab,
+        airborne: false,
+    },
+    Verb {
+        verb: "taunt",
+        label: "Taunt",
+        axis_x: 0.0,
+        axis_y: 0.0,
+        button: Button::Taunt,
+        airborne: false,
+    },
 ];
 
 /// How far the stick goes for a TILT.
@@ -108,7 +241,11 @@ const TILT_AXIS: f32 = 0.65;
 /// take reported it as a back-air. The facing is a fact the world publishes;
 /// this reads it rather than assuming the body starts pointing right.
 fn press(v: &Verb, edge: bool, facing: f32) -> ControlFrame {
-    let reach = if v.button == Button::Smash { 1.0 } else { TILT_AXIS };
+    let reach = if v.button == Button::Smash {
+        1.0
+    } else {
+        TILT_AXIS
+    };
     let mut frame = ControlFrame {
         axis_x: v.axis_x * reach * facing.signum(),
         axis_y: v.axis_y * reach,
@@ -362,6 +499,21 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     for (entity, pos, ..) in &rows {
         owner_pos.insert(*entity, *pos);
     }
+    // ⛔⛔ WHO THE OUTPUT BELONGS TO. The take seats a real CPU opponent on
+    // purpose — a move recorded against an inert stage is a move recorded in a
+    // game nobody plays — but that opponent SWINGS AND FIRES, and this sampler
+    // collected every live hitbox and every projectile in the world. So a
+    // hitless movement special could show a hitbox and a ranged move could
+    // report more shots than it fires: the opponent's offence, credited to the
+    // subject (GPT 5.6, 2026-08-27).
+    //
+    // ⭐ THE FIX IS PROVENANCE, NOT AN INERT OPPONENT. Both are still recorded —
+    // the viewer wants to see what was happening — but each carries whose it is,
+    // and the move's own statistics count only the subject's.
+    let subject_entity = rows
+        .iter()
+        .find(|(_, _, _, _, _, seat, ..)| *seat == Some(subject_seat))
+        .map(|(entity, ..)| *entity);
 
     for (
         entity,
@@ -443,35 +595,48 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     let mut shots = world.query::<(
         &ambition_platformer2d::engine_core::BodyKinematics,
         &ambition_platformer2d::platformer::projectile::ProjectileGameplay,
+        Option<&ambition_platformer2d::projectiles::ProjectileOwner>,
     )>();
     let flying: Vec<_> = shots
         .iter(world)
-        .map(|(kin, shot)| (kin.pos, kin.vel, kin.size, shot.damage))
+        .map(|(kin, shot, owner)| {
+            (
+                kin.pos,
+                kin.vel,
+                kin.size,
+                shot.damage,
+                owner.map(|owner| owner.0),
+            )
+        })
         .collect();
-    for (pos, vel, size, damage) in flying {
+    for (pos, vel, size, damage, owner) in flying {
         frame.projectiles.push(serde_json::json!({
             "pos": [pos.x, pos.y],
             "vel": [vel.x, vel.y],
             "half": [size.x * 0.5, size.y * 0.5],
             "damage": damage,
+            // A shot with no owner belongs to nobody in particular — a hazard,
+            // a stage emitter — and is not the subject's either way.
+            "subject_owned": owner.is_some() && owner == subject_entity,
         }));
     }
 
     let mut hitboxes = world.query::<&ambition_platformer2d::combat::strike::Hitbox>();
     let boxes: Vec<_> = hitboxes.iter(world).cloned().collect();
     for hitbox in boxes {
-        let anchor = owner_pos
-            .get(&hitbox.owner)
-            .copied()
-            .unwrap_or((0.0, 0.0));
+        let anchor = owner_pos.get(&hitbox.owner).copied().unwrap_or((0.0, 0.0));
         // The SAME resolution the combat runtime uses, so a recorded box is the
         // box that could hit somebody rather than a redrawn approximation.
-        let aabb =
-            hitbox.world_aabb(ambition_platformer2d::engine_core::Vec2::new(anchor.0, anchor.1));
+        let aabb = hitbox.world_aabb(ambition_platformer2d::engine_core::Vec2::new(
+            anchor.0, anchor.1,
+        ));
         frame.hitboxes.push(serde_json::json!({
             "pos": [(aabb.min.x + aabb.max.x) * 0.5, (aabb.min.y + aabb.max.y) * 0.5],
             "half": [(aabb.max.x - aabb.min.x) * 0.5, (aabb.max.y - aabb.min.y) * 0.5],
             "damage": hitbox.damage,
+            // Already read for the anchor above and then thrown away, which is
+            // how the opponent's swings got counted as the subject's.
+            "subject_owned": Some(hitbox.owner) == subject_entity,
         }));
     }
 
@@ -630,11 +795,7 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let arg = |name: &str| {
-        args.windows(2)
-            .find(|w| w[0] == name)
-            .map(|w| w[1].clone())
-    };
+    let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
     let out = arg("--out")
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/takes/takes.json".to_string());
     let who: Vec<String> = arg("--characters")
@@ -755,26 +916,44 @@ fn main() {
                 .filter_map(|f| f["move"].as_str().map(str::to_string))
                 .collect();
             let rode = frames.iter().any(|f| !f["riding"].is_null());
+            // ⭐ THE SUBJECT'S OWN OUTPUT. Everything in the world is still in
+            // the frame for the viewer; what the MOVE is credited with is only
+            // what the move's owner produced. See `subject_owned`.
+            let subject_owned = |f: &serde_json::Value, key: &str| {
+                f[key].as_array().map_or(0, |xs| {
+                    xs.iter()
+                        .filter(|x| x["subject_owned"].as_bool().unwrap_or(false))
+                        .count()
+                })
+            };
             let live = frames
                 .iter()
-                .map(|f| f["hitboxes"].as_array().map_or(0, Vec::len))
+                .map(|f| subject_owned(f, "hitboxes"))
                 .max()
                 .unwrap_or(0);
             let shots = frames
                 .iter()
-                .map(|f| f["projectiles"].as_array().map_or(0, Vec::len))
+                .map(|f| subject_owned(f, "projectiles"))
                 .max()
                 .unwrap_or(0);
 
             // The view: the stage plus everything this take reached, padded.
             // Computed per take rather than per frame, so scrubbing does not
             // make a rising fighter look stationary while the world slides.
-            let (mut x0, mut y0, mut x1, mut y1) =
-                (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+            let (mut x0, mut y0, mut x1, mut y1) = (
+                f32::INFINITY,
+                f32::INFINITY,
+                f32::NEG_INFINITY,
+                f32::NEG_INFINITY,
+            );
             for block in &stage {
                 let v: Vec<f32> = block
                     .as_array()
-                    .map(|a| a.iter().filter_map(|n| n.as_f64().map(|f| f as f32)).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|n| n.as_f64().map(|f| f as f32))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 if v.len() == 4 {
                     x0 = x0.min(v[0] - v[2]);
@@ -852,8 +1031,11 @@ fn main() {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).expect("the output directory is creatable");
     }
-    std::fs::write(path, serde_json::to_string(&bundle).expect("the takes serialize"))
-        .expect("the takes are writable");
+    std::fs::write(
+        path,
+        serde_json::to_string(&bundle).expect("the takes serialize"),
+    )
+    .expect("the takes are writable");
     println!("{}", presentation_census(app.world_mut()));
     println!(
         "[moveset-takes] {} take(s) -> {out}",

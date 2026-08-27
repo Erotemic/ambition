@@ -157,9 +157,7 @@ pub fn ensure_projectile_portal_bodies(
 /// The transfer ROTATES momentum; it must not reclassify it. A fall's gravity-earned speed is
 /// world-imparted, so a genuine fling (fall in, wall out) still floors at full strength.
 pub fn apply_portal_carried_momentum(
-    gravity: Option<
-        Res<ambition_platformer2d_shared_tangle::gravity::GravityField>,
-    >,
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
         &BodyKinematics,
@@ -168,9 +166,7 @@ pub fn apply_portal_carried_momentum(
 ) {
     use ambition_portal2d::pieces::portal_map_vec;
     let gravity_dir =
-        ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
-            gravity.as_deref(),
-        );
+        ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref());
     let side = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir).side;
     for ev in transited.read() {
         let Ok((kin, mut flight)) = bodies.get_mut(ev.body) else {
@@ -183,6 +179,42 @@ pub fn apply_portal_carried_momentum(
         let mapped_controller =
             portal_map_vec(controller_run * side, ev.enter_normal, ev.exit_normal);
         flight.carried_run = kin.vel.dot(side) - mapped_controller.dot(side);
+    }
+}
+
+/// Rotate a projectile's CARRIED WORLD ACCELERATION through the portal, the way
+/// its velocity already is.
+///
+/// ⛔⛔ THE VELOCITY WAS MAPPED AND THIS WAS NOT. Every projectile opts into
+/// portals with `carry_velocity: true`, and `ProjectileGameplay::accel` is
+/// documented as a constant WORLD acceleration the shot carries. Portal transit
+/// maps `BodyKinematics::vel` by the entry/exit normals and never touched
+/// `accel` — so the ponytail boomerang, the only shot that authors a non-zero
+/// one, exited a rotated portal travelling the mapped way while its "come home"
+/// pull still pointed along the pre-portal world axis. It stopped decelerating
+/// along the path it had just emerged on and traced a different arc entirely
+/// (GPT 5.6, 2026-08-27).
+///
+/// ⭐ HERE RATHER THAN IN THE PORTAL CORE, which knows nothing about projectiles
+/// and should not: this is the same adapter shape the carried-momentum and
+/// kernel-body reconciliations already use, reading the core's own
+/// `PortalBodyTransited` and its two normals.
+///
+/// ⚠ A SHOT WITH NO AUTHORED ACCELERATION IS UNAFFECTED — mapping `ZERO` is
+/// `ZERO`, so this is inert for every projectile but the tail.
+pub fn rotate_projectile_acceleration_after_portal_transit(
+    mut transited: MessageReader<PortalBodyTransited>,
+    mut shots: Query<&mut ProjectileGameplay>,
+) {
+    use ambition_portal2d::pieces::portal_map_vec;
+    for ev in transited.read() {
+        let Ok(mut shot) = shots.get_mut(ev.body) else {
+            continue;
+        };
+        if shot.accel == ambition_platformer2d_core::Vec2::ZERO {
+            continue;
+        }
+        shot.accel = portal_map_vec(shot.accel, ev.enter_normal, ev.exit_normal);
     }
 }
 

@@ -243,7 +243,7 @@ pub fn arbitrate_attack_clanks(
 
     for owner in ended {
         if let Ok(mut playback) = playing.get_mut(owner) {
-            crate::moveset::cancel_move_playback(&mut commands, owner, &mut playback);
+            crate::moveset::cancel_move_playback(&mut commands, owner, &mut playback, crate::moveset::MoveEnd::Interrupted);
         }
     }
 }

@@ -1382,3 +1382,77 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
          assertion above is reading a live value rather than a published one",
     );
 }
+
+/// A move that draws its own weapon does NOT drop what the body was carrying.
+///
+/// ⛔⛔ ONE OBJECT, TWO OWNERS. `brandish_the_playing_move_s_weapon` overwrites
+/// `HeldItem` with a temporary move weapon and remembers what it displaced;
+/// `return_released_items` compared the physical object's spec id against
+/// whatever is visibly IN THE HAND, so during those frames the real object
+/// looked abandoned and was returned to the world. The move then ended and
+/// rebuilt `HeldItem` from its remembered id — a body logically holding an item
+/// that was also lying on the floor (GPT 5.6, 2026-08-27).
+///
+/// ⛔ THE OLD BRANDISH TESTS COULD NOT SEE IT: they use a bare `HeldItem` and
+/// never construct the physical `GroundItem` + `ItemCustody::Held` pair, which
+/// is the only thing `return_released_items` looks at.
+#[test]
+fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
+    let mut app = App::new();
+    app.add_systems(Update, return_released_items);
+
+    let body = app
+        .world_mut()
+        .spawn((BodyKinematics::default(), HeldItem::new(axe_spec())))
+        .id();
+    let item = app
+        .world_mut()
+        .spawn((
+            GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::ZERO,
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(18.0),
+            },
+            ItemCustody::Held { holder: body },
+        ))
+        .id();
+
+    app.update();
+    assert!(
+        matches!(
+            app.world().get::<ItemCustody>(item),
+            Some(ItemCustody::Held { .. })
+        ),
+        "premise: an ordinary carried object stays carried, or the arm below \
+         proves nothing about brandishing"
+    );
+
+    // THE MOVE DRAWS. The hand now names a weapon the body has no custody of,
+    // and the brandish records what it displaced — the real production shape.
+    let drawn = HeldItemSpec {
+        id: "admiral_gun_sword".to_string(),
+        ..axe_spec()
+    };
+    app.world_mut().entity_mut(body).insert((
+        HeldItem::new(drawn),
+        ambition_combat::held_items::MoveBrandishedItem {
+            move_id: "admiral_side_special".to_string(),
+            previous: Some(axe_spec().id.clone()),
+        },
+    ));
+    for _ in 0..3 {
+        app.update();
+    }
+
+    match app.world().get::<ItemCustody>(item) {
+        Some(ItemCustody::Held { holder }) => {
+            assert_eq!(*holder, body, "the object changed hands during a brandish")
+        }
+        other => panic!(
+            "the body drew a move weapon and the object it was CARRYING fell to \
+             the floor ({other:?}) — the move will hand it back at the end and \
+             there will be two of it"
+        ),
+    }
+}

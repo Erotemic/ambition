@@ -515,7 +515,11 @@ fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
     const DT: f32 = 1.0 / 60.0;
     let mut spec = ProjectileKind::Hadouken.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     spec.boomerang_return_s = Some(OUT_S);
-    spec.max_lifetime = OUT_S * 2.0 + 0.15;
+    // The ROUND TRIP, which is what `ProjectileFlight::boomerang` authors — the
+    // return acceleration is `-v0 / out_s`, so the shot is back at the throw
+    // point at exactly `2 * out_s`. ⛔ This used to restate the old `+ 0.15`
+    // and so agreed with a tail that expired 79px behind the hand.
+    spec.max_lifetime = OUT_S * 2.0;
     let mut body = ProjectileBody::from_spec(spec);
 
     // OUT: half the outbound leg in, it is moving away.
@@ -556,6 +560,21 @@ fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
         body.kin.pos.x
     );
     assert!(body.kin.vel.x < 0.0, "…still travelling homeward");
+
+    // ⛔⛔ AND IT IS CAUGHT, NOT MERELY PASSING. "Eventually crossed zero" is
+    // satisfied by a tail that sails on through and expires as a fast rearward
+    // projectile — which is exactly what it did: 79.2px behind the hand at
+    // 603 px/s (GPT 5.6, 2026-08-27). Run it to despawn and BOUND the overshoot.
+    let mut last = body.kin.pos.x;
+    while body.tick(DT, Vec2::new(0.0, 1.0)) {
+        last = body.kin.pos.x;
+    }
+    let overshoot = -last;
+    assert!(
+        overshoot < 16.0,
+        "the tail expired {overshoot:.1}px BEHIND the hand that threw it — a \
+         boomerang that keeps going is a second projectile nobody aimed"
+    );
 }
 
 /// ⛔ THE PAIRED ARM. The same shot without a turnaround keeps going, so the

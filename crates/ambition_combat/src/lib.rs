@@ -46,6 +46,7 @@ pub mod hitbox;
 pub mod impact_hitstop;
 pub mod moveset;
 pub mod on_hit;
+pub mod vitality;
 pub mod path_motion;
 pub mod rules;
 mod snapshot_impls;

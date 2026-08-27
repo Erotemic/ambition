@@ -251,8 +251,19 @@ where
     // rewind past the frame an object landed must also un-settle it — otherwise
     // the replay steps a resting item on one peer and not the other, and the
     // divergence is silent until the positions have drifted apart.
-    registrar
-        .rollback_component_clone::<crate::items::pickup::SettledItem>(OWNER, "item.settled_item");
+    //
+    // ⭐⭐ PROBED, NOT PRESENCE-ONLY, since it stopped being a marker. It carries
+    // `impact_speed` now — the speed the step that settled it was travelling —
+    // and the Smash bomb detonates on that value. A presence probe satisfies the
+    // coverage test while seeing NOTHING of it, so a rewind that restored the
+    // component with a stale speed would be invisible: the item is settled on
+    // both peers and the bomb goes off on one. `rollback_exit_oracle` is what
+    // said so, on the run after the field was added.
+    registrar.rollback_component_clone_probed::<crate::items::pickup::SettledItem>(
+        OWNER,
+        "item.settled_item",
+        |settled| settled.impact_speed.to_bits() as u64,
+    );
     // CUSTODY IS SIMULATION STATE, not a cache. It decides on every later
     // frame whether the item is drawn, stepped by `ground_item_physics`, and
     // grabbable — so a rewind that restored the wrong value leaves the same axe

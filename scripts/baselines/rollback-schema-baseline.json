@@ -60,6 +60,7 @@
     "actor.sprite_posed_body",
     "actor.stashed_action_set",
     "actor.status",
+    "actor.stored_move_charge",
     "actor.surface_state",
     "actor.target",
     "actor.temporary_control",

@@ -336,11 +336,47 @@ pub struct MoveCharge {
     pub released_fraction: Option<f32>,
 }
 
+/// A charge a fighter banked by being interrupted, waiting for the next use of
+/// the same move.
+///
+/// ⭐⭐ THE GENRE'S STORED SHOT, and the half of it Jon asked for: *"parity with
+/// samus / mewtwo 'b'… it needs to be able to store a charge and fire at
+/// different sizes."* Firing at different sizes was already there.
+///
+/// ⛔ KEYED BY MOVE ID, so a banked power ball cannot come out of a forward
+/// smash. A fighter has one bank because a fighter has one chargeable move that
+/// stores; a second one simply overwrites, which is the honest answer — you
+/// cannot hold two charges at once and the last thing you charged is the thing
+/// you are holding.
+///
+/// ⛔ ROLLBACK STATE. It outlives the move that made it, which is the whole
+/// point, so a rewind that un-does the interruption must un-do the bank with it.
+#[derive(bevy::prelude::Component, Clone, Debug, PartialEq)]
+pub struct StoredMoveCharge {
+    /// Which move banked it. A use of any other move ignores it entirely.
+    pub move_id: String,
+    /// Seconds of hold already accrued, resumed by the next use.
+    pub held_s: f32,
+}
+
 impl MoveCharge {
     fn new(policy: ambition_entity_catalog::SmashChargeSpec) -> Self {
         Self {
             policy,
             held_s: 0.0,
+            released_fraction: None,
+        }
+    }
+
+    /// A charge that starts where an interrupted one left off.
+    ///
+    /// ⛔ CLAMPED TO THE POLICY'S OWN MAXIMUM. A bank made under a longer
+    /// authored hold — a content edit between the interruption and the resume —
+    /// must not hand back more charge than this policy can reach.
+    fn resumed(policy: ambition_entity_catalog::SmashChargeSpec, held_s: f32) -> Self {
+        Self {
+            held_s: held_s.clamp(0.0, policy.max_hold_s),
+            policy,
             released_fraction: None,
         }
     }
@@ -448,6 +484,26 @@ pub fn cancel_move_playback(
     playback: &mut MovePlayback,
 ) {
     despawn_live_boxes(commands, playback);
+    // ⭐⭐ THE BANK IS DECIDED HERE BECAUSE THIS IS THE ONE TEARDOWN PATH, and
+    // the two outcomes are told apart by a fact the playback already carries:
+    // a charge that never RELEASED is a shot that never went off, so the move
+    // was interrupted and what it had is banked. A released one fired, and
+    // firing is what spends a stored charge.
+    //
+    // ⛔ SO THERE IS NO "was this a cancel or a completion" flag to keep true.
+    // Adding one would be a second answer to a question `MoveCharge::charging`
+    // already answers, and the four hand-copies this function replaced are the
+    // record of what happens to a rule with more than one home.
+    if let Some(charge) = playback.charge.filter(|charge| charge.policy.stores) {
+        if charge.charging() {
+            commands.entity(owner).insert(StoredMoveCharge {
+                move_id: playback.spec.id.clone(),
+                held_s: charge.held_s,
+            });
+        } else {
+            commands.entity(owner).remove::<StoredMoveCharge>();
+        }
+    }
     commands.entity(owner).remove::<MovePlayback>();
 }
 
@@ -546,10 +602,26 @@ impl MovePlayback {
         mut self,
         started_by: Option<ambition_entity_catalog::ChargeGesture>,
     ) -> Self {
+        self.charged_by_gesture_resuming(started_by, None)
+    }
+
+    /// As [`Self::charged_by_gesture`], resuming a charge this body banked.
+    ///
+    /// `banked` is the bank's seconds when it belongs to THIS move and the
+    /// policy stores; `None` otherwise, which is the whole cast but one.
+    #[must_use]
+    pub fn charged_by_gesture_resuming(
+        mut self,
+        started_by: Option<ambition_entity_catalog::ChargeGesture>,
+        banked: Option<f32>,
+    ) -> Self {
         self.charge = started_by
             .filter(|gesture| *gesture == self.spec.charge_gesture)
             .and_then(|_| self.spec.charge_policy())
-            .map(MoveCharge::new);
+            .map(|policy| match banked.filter(|_| policy.stores) {
+                Some(held_s) => MoveCharge::resumed(policy, held_s),
+                None => MoveCharge::new(policy),
+            });
         self
     }
 
@@ -918,9 +990,16 @@ pub fn advance_move_playback(
                     if still_held {
                         let accrued = spare.min(charge.policy.max_hold_s - charge.held_s);
                         charge.held_s += accrued;
-                        if charge.held_s >= charge.policy.max_hold_s {
+                        if charge.held_s >= charge.policy.max_hold_s && !charge.policy.stores {
                             // Maximum fires the move whether or not the button
                             // is down: a full charge is LOADED, not stored.
+                            //
+                            // ⛔ UNLESS THE POLICY STORES, and that exception is
+                            // the mechanic. A stored shot at maximum WAITS —
+                            // for the button to come up, or for something to
+                            // interrupt it and bank it — because "charge it now,
+                            // throw it later" is only a plan if holding full is
+                            // a state you can sit in.
                             charge.release();
                         }
                         // Whatever the hold could not absorb — only non-zero on
@@ -1924,6 +2003,9 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// melee cluster or no ranged action, which is every move that fires
     /// nothing.
     weapon: Option<(&'a mut BodyMelee, f32)>,
+    /// Seconds this body has BANKED for the move about to start, when it banked
+    /// them for THIS move. See [`StoredMoveCharge`].
+    banked_charge: Option<f32>,
 }
 
 fn start_move(m: StartingMove<'_, '_, '_>) {
@@ -1956,6 +2038,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         jump,
         weapon,
         gesture_window,
+        banked_charge,
     } = m;
     // Asked before `spec` is handed to the playback below.
     let fires_ranged = move_fires_ranged(&spec);
@@ -2003,7 +2086,7 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
             .with_aim(aim)
             .with_attack_intent(attack_intent)
             .started_in_stance(started_grounded)
-            .charged_by_gesture(started_by),
+            .charged_by_gesture_resuming(started_by, banked_charge),
     );
     // ACCEPTED — the proposal is over. A buffered press that starts a move must
     // not start the next one behind it.
@@ -2229,6 +2312,10 @@ pub fn trigger_moveset_moves(
     // carries its shield tuning. `None` for a bare test body, which then has no
     // rule and behaves exactly as it did.
     shield_policies: Query<&ae::MotionModel>,
+    // What this body banked by being interrupted mid-charge. See
+    // `StoredMoveCharge`; empty for every fighter that has never charged a
+    // storing move.
+    banked: Query<&StoredMoveCharge>,
     // This is the second writer to name itself.
     //
     // `Option` on both: the FEATURE and the PLUGIN are two switches, and a
@@ -2805,6 +2892,16 @@ pub fn trigger_moveset_moves(
             let Some(spec) = successor.or(spec) else {
                 continue;
             };
+            // ⛔ READ BEFORE `spec` MOVES INTO THE START, and only when the
+            // bank belongs to THIS move: a body carries one bank, and handing it
+            // to any chargeable move would let a stored power ball come out of a
+            // forward smash.
+            let banked_for_this_move = banked
+                .get(entity)
+                .ok()
+                .filter(|stored| stored.move_id == spec.id)
+                .map(|stored| stored.held_s);
+
             // ⛔ ASKED BEFORE THE TEARDOWN BELOW. Refusing a move the body cannot
             // afford AFTER cancelling the one it was playing would leave it with
             // neither, which is worse than the free recovery this prevents.
@@ -2910,6 +3007,10 @@ pub fn trigger_moveset_moves(
                             .map(|g| (g, special_turn_ticks, press_lateral_sign))
                     })
                     .flatten(),
+                // ⛔ ONLY WHEN THE BANK IS FOR THIS MOVE. A body carries one
+                // bank; handing it to any chargeable move would let a stored
+                // power ball come out of a forward smash.
+                banked_charge: banked_for_this_move,
             });
             continue;
         }
@@ -2975,6 +3076,15 @@ pub fn trigger_moveset_moves(
                 );
                 let _ = before;
             }
+            // ⛔ READ BEFORE `spec` MOVES INTO THE START, and only when the
+            // bank belongs to THIS move: a body carries one bank, and handing it
+            // to any chargeable move would let a stored power ball come out of a
+            // forward smash.
+            let banked_for_this_move = banked
+                .get(entity)
+                .ok()
+                .filter(|stored| stored.move_id == spec.id)
+                .map(|stored| stored.held_s);
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
@@ -2999,6 +3109,10 @@ pub fn trigger_moveset_moves(
                             .map(|g| (g, special_turn_ticks, press_lateral_sign))
                     })
                     .flatten(),
+                // ⛔ ONLY WHEN THE BANK IS FOR THIS MOVE. A body carries one
+                // bank; handing it to any chargeable move would let a stored
+                // power ball come out of a forward smash.
+                banked_charge: banked_for_this_move,
             });
         }
     }

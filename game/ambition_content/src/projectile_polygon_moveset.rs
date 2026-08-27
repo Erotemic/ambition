@@ -54,6 +54,10 @@ const CHARGE_FIRE_AT_S: f32 = 0.26;
 /// the shot. What comes out is scaled by how long it was held: see
 /// `crate::authored::projectile_polygon`'s `charged_cannon`.
 ///
+/// ⭐ AND IT STORES. See `stores` on the policy below: a full charge WAITS
+/// rather than firing itself, and an interrupted one is banked for the next
+/// press. That is Samus/Mewtwo parity and it is what makes the ball a plan.
+///
 /// ⛔ NO `smash_charge_mult`. That number scales the damage of a melee volume
 /// this move does not have — the payoff is entirely in the projectile — so
 /// setting one here would be a multiplier that multiplies nothing. The
@@ -144,6 +148,20 @@ fn charge_shot() -> MoveSpec {
         smash_charge: Some(SmashChargeSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_FILL_S,
+            // ⭐⭐ IT STORES, AND THAT IS THE OTHER HALF OF THE CHARACTER. Jon,
+            // 2026-08-27: *"This should have parity with samus / mewtwo 'b', so
+            // that means it needs to be able to store a charge and fire at
+            // different sizes."* Firing at different sizes was already here —
+            // `charged_cannon`'s `RangedCharge` ladder and the sheet's five
+            // tiers. Storing was not, and without it the only way to reach a
+            // full ball was to stand still for the whole fill with nobody
+            // touching you, which on a platform-fighter stage is never.
+            //
+            // ⛔ AND IT REPLACES A COMMENT THAT SAID THE OPPOSITE. The doc above
+            // read *"a full charge is LOADED, not stored"*, which was true of the
+            // engine and wrong for this character: at maximum the shot now
+            // WAITS, and getting hit banks it instead of wasting it.
+            stores: true,
         }),
         charge_gesture: ChargeGesture::Special,
         repeat: None,

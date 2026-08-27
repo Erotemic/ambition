@@ -133,7 +133,30 @@ pub fn brandish_the_playing_move_s_weapon(
 mod tests {
     use super::*;
     use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec};
+    use bevy::ecs::system::RunSystemOnce as _;
     use bevy::prelude::*;
+
+    /// End the move the way the engine does.
+    ///
+    /// ⛔ THROUGH `cancel_move_playback`, NOT BY STRIPPING THE COMPONENT. The
+    /// absence contract `ending-a-move-goes-through-the-one-teardown-path`
+    /// caught the first version of these tests doing the latter, and it is right
+    /// to: a playback removed on its own orphans the move's live strike boxes,
+    /// and a test that ends a move by a route the game never takes is measuring
+    /// a different situation from the one it names.
+    fn end_the_move(app: &mut App, body: Entity) {
+        let mut playback = app
+            .world()
+            .entity(body)
+            .get::<crate::moveset::MovePlayback>()
+            .expect("the move is playing")
+            .clone();
+        app.world_mut()
+            .run_system_once(move |mut commands: Commands| {
+                crate::moveset::cancel_move_playback(&mut commands, body, &mut playback);
+            })
+            .expect("the teardown runs");
+    }
 
     /// A move that draws `item`, or nothing.
     fn drawing(id: &str, item: Option<&str>) -> MoveSpec {
@@ -188,9 +211,7 @@ mod tests {
 
         // The move ends. The hand goes back to empty, and the brandish's own
         // memory goes with it.
-        app.world_mut()
-            .entity_mut(body)
-            .remove::<crate::moveset::MovePlayback>();
+        end_the_move(&mut app, body);
         app.update();
         assert_eq!(held(&app, body), None, "the gun-sword must be put away");
         assert!(app
@@ -222,9 +243,7 @@ mod tests {
         app.update();
         assert_eq!(held(&app, body).as_deref(), Some("admiral_gun_sword"));
 
-        app.world_mut()
-            .entity_mut(body)
-            .remove::<crate::moveset::MovePlayback>();
+        end_the_move(&mut app, body);
         app.update();
         assert_eq!(
             held(&app, body).as_deref(),
@@ -258,9 +277,7 @@ mod tests {
         app.update();
         assert_eq!(held(&app, body).as_deref(), Some("gun_sword_heavy"));
 
-        app.world_mut()
-            .entity_mut(body)
-            .remove::<crate::moveset::MovePlayback>();
+        end_the_move(&mut app, body);
         app.update();
         assert_eq!(
             held(&app, body).as_deref(),

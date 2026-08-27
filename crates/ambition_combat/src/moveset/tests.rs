@@ -3962,6 +3962,7 @@ fn charging_smash() -> MoveSpec {
         smash_charge: Some(ambition_entity_catalog::SmashChargeSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
+            stores: false,
         }),
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -7484,5 +7485,171 @@ fn a_roll_recovery_refuses_a_move_and_a_spot_dodge_owes_nothing() {
         None,
         "a fighter attacked out of the roll recovery it had just bought — the \
          punish window is published and nothing refuses on it"
+    );
+}
+
+// ── THE STORED CHARGE ────────────────────────────────────────────────────
+//
+// Samus/Mewtwo parity, which is two properties: a full charge WAITS instead of
+// firing itself, and an interrupted one is BANKED for the next press. Both are
+// off by default, so each arm below has to author `stores: true` — and the
+// paired arm that leaves it false is what stops these from passing against an
+// implementation that always stores.
+
+/// The charging smash, but with a policy that banks.
+use bevy::ecs::system::RunSystemOnce as _;
+
+fn storing_smash() -> MoveSpec {
+    let mut spec = charging_smash();
+    spec.smash_charge = Some(ambition_entity_catalog::SmashChargeSpec {
+        hold_at_s: CHARGE_HOLD_AT_S,
+        max_hold_s: CHARGE_MAX_HOLD_S,
+        stores: true,
+    });
+    spec
+}
+
+fn storing_charge_app() -> (App, Entity) {
+    let (mut app, body) = smash_charge_app();
+    let mut moveset = app
+        .world_mut()
+        .get_mut::<ActorMoveset>(body)
+        .expect("the harness body carries a moveset");
+    for spec in &mut moveset.0.moves {
+        if spec.id == "fsmash" {
+            *spec = storing_smash();
+        }
+    }
+    (app, body)
+}
+
+fn banked(app: &App, body: Entity) -> Option<f32> {
+    app.world()
+        .get::<super::StoredMoveCharge>(body)
+        .map(|stored| stored.held_s)
+}
+
+/// Hold past the maximum and the shot does NOT go off by itself.
+#[test]
+fn a_storing_charge_waits_at_maximum_instead_of_firing_itself() {
+    let (mut app, body) = storing_charge_app();
+    press_smash(&mut app, body, true);
+    // Well past `CHARGE_MAX_HOLD_S` — the point at which an ordinary smash
+    // releases whether or not the button is down.
+    for _ in 0..90 {
+        app.update();
+    }
+    let charge = charge_of(&app, body);
+    assert!(
+        charge.charging(),
+        "a stored shot at maximum must WAIT for the button, and this one fired \
+         itself"
+    );
+    assert!(
+        (charge.fraction() - 1.0).abs() < 1e-3,
+        "…at a FULL charge, and it is at {}",
+        charge.fraction()
+    );
+}
+
+/// ⛔ THE PAIRED ARM. The same hold on a policy that does NOT store still fires
+/// itself at the maximum — so the test above is about `stores` and not about
+/// the maximum having quietly stopped working.
+#[test]
+fn a_non_storing_charge_still_fires_itself_at_maximum() {
+    let (mut app, body) = smash_charge_app();
+    press_smash(&mut app, body, true);
+    for _ in 0..90 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<MovePlayback>(body).is_none()
+            || !charge_of(&app, body).charging(),
+        "an ordinary smash held past its maximum must release on its own"
+    );
+}
+
+/// Interrupted mid-charge, the hold is banked and the NEXT press resumes it.
+#[test]
+fn an_interrupted_charge_is_banked_and_the_next_press_resumes_it() {
+    let (mut app, body) = storing_charge_app();
+    press_smash(&mut app, body, true);
+    // Long enough to be well into the fill and nowhere near full.
+    for _ in 0..12 {
+        app.update();
+    }
+    let accrued = charge_of(&app, body).held_s;
+    assert!(accrued > 0.0, "the hold must have accrued something to bank");
+
+    // INTERRUPTED — the move is torn down through the one teardown path, which
+    // is what a hit, a grab or a landing does to it.
+    let mut playback = app
+        .world_mut()
+        .get_mut::<MovePlayback>(body)
+        .expect("the smash is still playing")
+        .clone();
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            super::cancel_move_playback(&mut commands, body, &mut playback);
+        })
+        .expect("the teardown runs");
+    assert_eq!(
+        banked(&app, body),
+        Some(accrued),
+        "an interrupted charge must be banked, not lost"
+    );
+
+    // The next press starts from the bank rather than from zero.
+    press_smash(&mut app, body, true);
+    let resumed = charge_of(&app, body);
+    assert!(
+        resumed.held_s >= accrued,
+        "the next press must resume from the bank ({accrued}), and it started \
+         at {}",
+        resumed.held_s
+    );
+}
+
+/// ⛔ FIRING SPENDS IT. A shot that went off is the payoff; leaving the bank
+/// behind would hand the fighter a permanently full charge after one hold.
+#[test]
+fn firing_the_shot_spends_the_bank() {
+    let (mut app, body) = storing_charge_app();
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    // Let go: the charge RELEASES and the move plays out to its end, which
+    // tears it down through the same path.
+    set_frame(&mut app, body, |f| {
+        f.melee_held = false;
+        f.melee_released = true;
+    });
+    for _ in 0..90 {
+        app.update();
+    }
+    assert_eq!(
+        banked(&app, body),
+        None,
+        "a shot that went off must leave no bank behind"
+    );
+}
+
+/// ⛔ THE BANK IS KEYED BY MOVE ID, so a stored power ball cannot come out of a
+/// forward smash.
+#[test]
+fn a_bank_made_by_one_move_does_not_feed_another() {
+    let (mut app, body) = storing_charge_app();
+    app.world_mut().entity_mut(body).insert(super::StoredMoveCharge {
+        move_id: "some_other_move".to_string(),
+        held_s: CHARGE_MAX_HOLD_S,
+    });
+    press_smash(&mut app, body, true);
+    let charge = charge_of(&app, body);
+    assert!(
+        charge.held_s < CHARGE_MAX_HOLD_S,
+        "a bank belonging to another move must not seed this one, and this \
+         charge started at {}",
+        charge.held_s
     );
 }

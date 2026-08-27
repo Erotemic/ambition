@@ -216,6 +216,12 @@ where
         OWNER,
         "actor.move_brandished_item",
     );
+    // The banked charge. It OUTLIVES the move that made it, which is the whole
+    // point of it, so a rewind that un-does the interruption must un-do the bank.
+    registrar.rollback_component_clone::<crate::moveset::StoredMoveCharge>(
+        OWNER,
+        "actor.stored_move_charge",
+    );
     registrar.rollback_component_clone::<crate::moveset::ActorMoveset>(OWNER, "actor.moveset");
     registrar
         .rollback_component_clone::<crate::moveset::MovesetMelee>(OWNER, "actor.moveset_melee");

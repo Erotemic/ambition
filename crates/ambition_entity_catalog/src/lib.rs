@@ -1147,9 +1147,36 @@ pub struct SmashChargeSpec {
     /// The instant the timeline freezes while Attack is held.
     pub hold_at_s: f32,
     /// The longest that freeze may last. Reaching it releases the move whether
-    /// or not the button is still down, which is what stops a held smash from
-    /// being a stall.
+    /// or not the button is still down — UNLESS [`Self::stores`], for which see
+    /// there. That auto-release is what stops a held smash from being a stall.
     pub max_hold_s: f32,
+    /// Does a charge SURVIVE being interrupted, and resume the next use?
+    ///
+    /// ⭐⭐ THE GENRE'S STORED SHOT. Jon, 2026-08-27, on the Projectile
+    /// Polygon's neutral-B: *"This should have parity with samus / mewtwo 'b',
+    /// so that means it needs to be able to store a charge and fire at different
+    /// sizes."* Firing at different sizes was already there; STORING was not —
+    /// the charge died with the move, so the only way to reach a full one was to
+    /// stand still for the whole hold with nobody hitting you.
+    ///
+    /// `true` changes two things and nothing else:
+    ///
+    /// - reaching [`Self::max_hold_s`] no longer fires the move. A full charge
+    ///   is LOADED and stays loaded until the button comes up or the move is
+    ///   interrupted, which is what makes "charge it now, throw it later" a plan
+    ///   rather than a race;
+    /// - a use interrupted while still charging banks what it had, and the next
+    ///   use of the SAME move resumes from there.
+    ///
+    /// ⛔ IT IS NOT A RESOURCE THE FIGHTER SPENDS. Firing consumes the charge
+    /// because the shot IS the payoff; nothing else refunds it, and it does not
+    /// leak between moves — the bank is keyed by move id, so a stored power ball
+    /// cannot come out of a forward smash.
+    ///
+    /// DEFAULT `false` — every smash in the game, and byte-parity for each of
+    /// them.
+    #[serde(default)]
+    pub stores: bool,
 }
 
 /// Which press holds a move's charge.
@@ -1388,6 +1415,11 @@ impl MoveSpec {
                 // release, which is the beat that makes a charge readable.
                 hold_at_s: self.derived_charge_hold_at_s(),
                 max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+                // ⛔ A DERIVED POLICY NEVER STORES. This arm exists for the
+                // smashes, whose charge is a commitment inside one swing; a
+                // smash you could bank and throw later is a different mechanic
+                // and would arrive here by accident rather than by authoring.
+                stores: false,
             })
         }) else {
             return None;

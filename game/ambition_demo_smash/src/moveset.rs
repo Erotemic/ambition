@@ -411,6 +411,7 @@ pub fn fighter_moveset() -> MovesetContract {
     f_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        stores: false,
     });
     // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
     // it is the one a body reached by both takes. This is the base: the same
@@ -463,6 +464,7 @@ pub fn fighter_moveset() -> MovesetContract {
     up_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        stores: false,
     });
     moves.push(up_smash);
 
@@ -486,6 +488,7 @@ pub fn fighter_moveset() -> MovesetContract {
     down_smash.smash_charge = Some(ambition_platformer2d::entity_catalog::SmashChargeSpec {
         hold_at_s: CHARGE_POSE_AT_S,
         max_hold_s: ambition_platformer2d::entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+        stores: false,
     });
     moves.push(down_smash);
 

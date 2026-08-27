@@ -5,8 +5,8 @@
 //! audio cues. Replaces the former single `GameplayEffect` enum bus; schedule
 //! composition stays content-side, not here.
 
-use crate::encounter::SwitchActivated;
 use ambition_combat::events::{GameplaySfxRequested, SetFlagRequested};
+use ambition_encounter::switches::SwitchActivated;
 use ambition_persistence::quest::QuestAdvanceRequested;
 use bevy::prelude::{MessageReader, ResMut};
 
@@ -44,7 +44,7 @@ pub fn apply_quest_effects(
 /// click SFX.
 pub fn apply_switch_effects(
     mut effects: MessageReader<SwitchActivated>,
-    mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
+    mut switch_activations: ResMut<ambition_encounter::switches::SwitchActivationQueue>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {

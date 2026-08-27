@@ -157,7 +157,7 @@ fn calibrate_targets(sim: &mut Platformer2dSimHarness) -> OracleTargets {
     let switches: Vec<(String, bool)> = {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::actors::encounter::SwitchOn,
+            &ambition_platformer2d::encounter::switches::SwitchOn,
         )>();
         q.iter(world).map(|(id, on)| (id.0.clone(), on.0)).collect()
     };
@@ -242,7 +242,7 @@ fn observe(
     {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::actors::encounter::SwitchOn,
+            &ambition_platformer2d::encounter::switches::SwitchOn,
         )>();
         if q.iter(world).any(|(id, on)| id.0 == targets.switch && on.0) {
             events.switch_flipped = true;
@@ -335,7 +335,7 @@ fn target_positions(
     let switch = {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::actors::encounter::SwitchFeature,
+            &ambition_platformer2d::encounter::switches::SwitchFeature,
             &ambition_platformer2d::engine_core::geometry::CenteredAabb,
         )>();
         q.iter(world)
@@ -429,11 +429,11 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored per-pose body table; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::encounter::switches::SwitchActivationQueue",
+            "ambition_encounter::switches::SwitchActivationQueue",
             "queued activations are (id, action, target) STRINGS — already stable identities, no handle to remap",
         ),
         (
-            "ambition_platformer2d_actor_monolith::encounter::switches::SwitchFeature",
+            "ambition_encounter::switches::SwitchFeature",
             "authored switch payload; the mutable half is SwitchOn, value-probed",
         ),
         (
@@ -1376,7 +1376,7 @@ fn which_population_does_the_rollback_divergence_need() {
                 }
                 "no_switch" => {
                     let mut q = world
-                        .query_filtered::<Entity, With<ambition_platformer2d::actors::encounter::SwitchFeature>>(
+                        .query_filtered::<Entity, With<ambition_platformer2d::encounter::switches::SwitchFeature>>(
                         );
                     q.iter(world).collect()
                 }

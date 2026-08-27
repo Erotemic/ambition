@@ -19,15 +19,12 @@ use ambition_encounter::{Encounter, EncounterLifecycleSet};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 mod loading;
 mod lock_walls;
-mod switches;
+mod switch_index;
 mod systems;
 
 pub use loading::load_encounter_specs_from_rooms;
 pub use lock_walls::contribute_encounter_lock_walls;
-pub use switches::{
-    rebuild_encounter_switch_index, EncounterSwitchIndex, SwitchActivated, SwitchActivationQueue,
-    SwitchFeature, SwitchOn,
-};
+pub use switch_index::rebuild_encounter_switch_index;
 pub use systems::{
     apply_encounter_cleanup, apply_wave_encounter_effects, drive_wave_encounters,
     populate_encounter_registry, WaveEncounterDriven,

@@ -91,7 +91,8 @@ impl Plugin for FallingSandRoomPlugin {
         // `AmbitionContentPlugin` in every composition). This plugin is the
         // water/oil bridge + presentation, ordered after the sim half.
         {
-            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            let mut registrar =
+                ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
             register_rollback_state(&mut registrar);
         }
         app.init_resource::<FallingSandProjectionReport>()
@@ -419,8 +420,8 @@ fn sync_falling_sand_switch_visuals(
         ambition_platformer2d::world::rooms::RoomSet,
     >,
     mut switches: Query<(
-        &ambition_platformer2d_actor_monolith::features::SwitchFeature,
-        &mut ambition_platformer2d_actor_monolith::features::SwitchOn,
+        &ambition_encounter::switches::SwitchFeature,
+        &mut ambition_encounter::switches::SwitchOn,
     )>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {

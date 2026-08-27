@@ -18,9 +18,9 @@ use bevy::prelude::*;
 
 use super::variants::InteractVariant;
 use ambition_combat::{ActorDisposition, ActorInteraction, ChestFeature, Opened};
+use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
-use ambition_platformer2d_actor_monolith::encounter::SwitchFeature;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// Resource: the nearest live interactable overlapping the controlled

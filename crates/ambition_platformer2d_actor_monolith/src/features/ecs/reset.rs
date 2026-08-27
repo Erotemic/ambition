@@ -8,6 +8,7 @@
 use super::*;
 use ambition_combat::events::ResetRoomFeaturesEvent;
 use ambition_combat::path_motion::PathMotion;
+use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 
 /// Spawned by THIS attempt at the room, and cleared when the attempt is.
 ///

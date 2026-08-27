@@ -79,7 +79,9 @@ impl AuthoredSwitchCommands {
 /// dropped with a warning naming the switch — the alternative is a switch that
 /// silently does nothing, which is how an author spends an afternoon on a typo.
 pub fn prepare_authored_switch_commands(
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >,
     catalog: Option<Res<CommandCatalog>>,
     mut prepared: ResMut<AuthoredSwitchCommands>,
 ) {
@@ -123,7 +125,7 @@ pub fn prepare_authored_switch_commands(
 /// already had — and the channel is cleared on rollback, which bounds it.
 pub fn request_authored_switch_commands(
     prepared: Res<AuthoredSwitchCommands>,
-    mut activations: MessageReader<crate::encounter::SwitchActivated>,
+    mut activations: MessageReader<ambition_encounter::switches::SwitchActivated>,
     mut requests: MessageWriter<RunAuthoredCommand>,
 ) {
     for activation in activations.read() {

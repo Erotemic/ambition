@@ -115,7 +115,7 @@ pub use ambition_combat::components::{
 };
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
-pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
+
 pub use crate::world::rooms::LastConstructionVerification;
 pub use ambition_persistence::quest::QuestAdvanceRequested;
 pub use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};

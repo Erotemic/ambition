@@ -10,11 +10,12 @@
 //! `features`.
 
 use super::*;
+use ambition_encounter::switches::{SwitchActivated, SwitchFeature, SwitchOn};
 
 // the ONLY dialogue name this module has left, and it is a port rather than a
 // type from `ambition_dialog`. See `ambition_conversation::opening`.
-use ambition_conversation::DialogueDispatch;
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
+use ambition_conversation::DialogueDispatch;
 
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.

@@ -180,7 +180,7 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
     app.insert_resource(ActiveLdtkProject(project_with_one_switch(on_activate)));
     app.init_resource::<Bell>()
         .init_resource::<AuthoredSwitchCommands>()
-        .add_message::<crate::encounter::SwitchActivated>()
+        .add_message::<ambition_encounter::switches::SwitchActivated>()
         .add_message::<RunAuthoredCommand>()
         .publish_command(ring_descriptor(), ring);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -205,7 +205,7 @@ fn world_with_one_authored_switch(on_activate: Option<&str>) -> App {
 
 fn press(app: &mut App, switch_id: &str) {
     app.world_mut()
-        .write_message(crate::encounter::SwitchActivated {
+        .write_message(ambition_encounter::switches::SwitchActivated {
             activation: ambition_encounter::SwitchActivation {
                 id: switch_id.to_string(),
                 action: "SetGravityDown".to_string(),

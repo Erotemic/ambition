@@ -17,8 +17,10 @@ use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 
-use ambition_platformer2d::encounter::{Encounter, EncounterLifecycle, EncounterPhase, SwitchActivation};
 use ambition_content::encounters::{SYMMETRY_ATTUNEMENT_FLAG, SYMMETRY_ATTUNEMENT_ID};
+use ambition_platformer2d::encounter::{
+    Encounter, EncounterLifecycle, EncounterPhase, SwitchActivation,
+};
 
 fn attunement_phase(sim: &mut Platformer2dSimHarness) -> EncounterPhase {
     let mut q = sim
@@ -32,15 +34,16 @@ fn attunement_phase(sim: &mut Platformer2dSimHarness) -> EncounterPhase {
 }
 
 fn flip_kernel_face(sim: &mut Platformer2dSimHarness, switch_id: &str, action: &str) {
-    sim.world_mut()
-        .write_message(ambition_platformer2d::actors::features::SwitchActivated {
+    sim.world_mut().write_message(
+        ambition_platformer2d::encounter::switches::SwitchActivated {
             activation: SwitchActivation {
                 id: switch_id.to_string(),
                 action: action.to_string(),
                 target_encounter: String::new(),
             },
             pos: ambition_platformer2d::engine_core::Vec2::ZERO,
-        });
+        },
+    );
 }
 
 #[test]

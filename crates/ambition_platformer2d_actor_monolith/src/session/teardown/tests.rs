@@ -6,11 +6,11 @@ use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScop
 
 use super::*;
 use crate::abilities::traversal::possession::PossessionState;
-use ambition_characters::control::SlotInteractionState;
-use crate::encounter::SwitchActivationQueue;
-use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_boss_encounter::BossEncounterRegistry;
+use ambition_characters::control::SlotInteractionState;
+use ambition_encounter::switches::SwitchActivationQueue;
 use ambition_encounter::{EncounterRegistry, SwitchActivation};
+use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 
 fn app_with_populated_mirrors() -> App {

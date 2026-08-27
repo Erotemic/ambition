@@ -3,8 +3,8 @@
 //! The actor runtime names only state defined in this crate. The host supplies GGRS machinery
 //! through [`RollbackRegistrar`].
 
-use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use ambition_platformer2d_core::snapshot::checksum_bytes;
+use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 const OWNER: &str = env!("CARGO_PKG_NAME");
 
@@ -25,11 +25,10 @@ where
             OWNER,
             "message.causal_body_hit_resolved",
         );
-        registrar
-            .clear_message_on_rollback::<ambition_damage::BodyReactionApplied>(
-                OWNER,
-                "message.causal_body_reaction_applied",
-            );
+        registrar.clear_message_on_rollback::<ambition_damage::BodyReactionApplied>(
+            OWNER,
+            "message.causal_body_reaction_applied",
+        );
     }
 
     registrar.require_rollback::<crate::features::transform_beat::TransformBeat>(
@@ -122,10 +121,6 @@ where
             OWNER,
             "map.resource.possession_state",
         );
-    registrar.rollback_resource_clone::<crate::encounter::SwitchActivationQueue>(
-        OWNER,
-        "resource.switch_activation_queue",
-    );
     registrar.rollback_component_canonical::<crate::character_runtime::MatchSeat>(
         OWNER,
         "actor.match_seat",
@@ -246,12 +241,6 @@ where
         OWNER,
         "actor.authored_hurtboxes",
     );
-    registrar.rollback_component_clone_probed::<crate::encounter::SwitchOn>(
-        OWNER,
-        "feature.switch_on",
-        |on| u64::from(on.0),
-    );
-    registrar.rollback_component_clone::<crate::encounter::SwitchFeature>(OWNER, "feature.switch");
     registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
         OWNER,
         "feature.pickup_collect_lock",
@@ -475,11 +464,6 @@ where
         "derived.perception_projectiles",
         "perception snapshot rebuilt every tick before brains read it",
     );
-    registrar.declare_rollback_derived_resource::<crate::encounter::EncounterSwitchIndex>(
-        OWNER,
-        "derived.encounter_switch_index",
-        "rebuilt from SwitchFeature + SwitchOn components each frame",
-    );
     registrar
         .clear_message_on_rollback::<crate::features::BrainCommand>(OWNER, "message.brain_command");
     // What a conversation asked the simulation for, released by the
@@ -514,10 +498,6 @@ where
     registrar.clear_message_on_rollback::<crate::avatar::trail::TrailContinuityBreak>(
         OWNER,
         "message.trail_continuity_break",
-    );
-    registrar.clear_message_on_rollback::<crate::encounter::SwitchActivated>(
-        OWNER,
-        "message.switch_activated",
     );
     registrar.clear_message_on_rollback::<crate::session::reset::RoomReplayRequested>(
         OWNER,

@@ -447,15 +447,14 @@ pub fn capture_falling_sand_switch_interactions(
     >,
     mut state: ResMut<FallingSandRoomState>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    mut effects: MessageReader<ambition_platformer2d_actor_monolith::features::SwitchActivated>,
+    mut effects: MessageReader<ambition_encounter::switches::SwitchActivated>,
 ) {
     if room_set.active_spec().id != ROOM_ID {
         return;
     }
 
     for effect in effects.read() {
-        let ambition_platformer2d_actor_monolith::features::SwitchActivated { activation, .. } =
-            effect;
+        let ambition_encounter::switches::SwitchActivated { activation, .. } = effect;
         if state.spouts.toggle(activation.id.as_str()) {
             // Mirror the in-memory toggle into the save so the spout
             // state survives a reset / room re-entry. Without this

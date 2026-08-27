@@ -1,7 +1,6 @@
 use super::*;
-use crate::features::{
-    CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, SwitchFeature, SwitchOn,
-};
+use crate::features::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity};
+use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, NextState, Update};
 
@@ -466,9 +465,9 @@ fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
                 facing: 1.0,
             },
             crate::actor::BodyAnimFacts::default(),
-            ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(
-                slot,
-            )),
+            ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot(slot),
+            ),
         ))
         .id()
 }

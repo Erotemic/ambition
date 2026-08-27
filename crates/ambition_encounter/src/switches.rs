@@ -5,9 +5,9 @@
 //! `SwitchActivationQueue` is the per-frame FIFO of activations the encounter
 //! tick drains to apply resets.
 
-use bevy::prelude::{Query, ResMut, Resource};
+use bevy::prelude::Resource;
 
-use ambition_encounter::SwitchActivation;
+use crate::registry::SwitchActivation;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EncounterSwitchLink {
@@ -51,25 +51,12 @@ impl EncounterSwitchIndex {
     }
 }
 
-pub fn rebuild_encounter_switch_index(
-    mut index: ResMut<EncounterSwitchIndex>,
-    switches: Query<(&crate::features::FeatureId, &SwitchFeature, &SwitchOn)>,
-) {
-    index.links.clear();
-    for (feature_id, switch, switch_on) in &switches {
-        let activation = &switch.activation;
-        let switch_id = if activation.id.is_empty() {
-            feature_id.as_str().to_string()
-        } else {
-            activation.id.clone()
-        };
-        index.links.push(EncounterSwitchLink {
-            switch_id,
-            target_encounter: activation.target_encounter.clone(),
-            on: switch_on.0,
-        });
-    }
-}
+// ⛔ `rebuild_encounter_switch_index` DID NOT COME WITH THESE TYPES, and the
+// reason is the only interesting thing about this move: it reads a switch's
+// `FeatureId`, which belongs to `ambition_combat`, and this crate does not
+// depend on combat. Taking the system would have bought a dependency edge to
+// carry one field read. It stays where the vocabulary it reads lives — see
+// `encounter/switch_index.rs` in the actor monolith.
 
 /// FIFO queue of switch activations produced by the feature systems each frame.
 /// The encounter system drains it and applies the matching reset.

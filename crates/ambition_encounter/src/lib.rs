@@ -21,6 +21,7 @@ pub mod rewards;
 mod snapshot_impls;
 pub mod spec;
 pub mod staging;
+pub mod switches;
 pub mod timeline;
 pub mod waves;
 

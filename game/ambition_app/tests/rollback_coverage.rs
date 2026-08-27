@@ -600,8 +600,8 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
 /// waiting for one is how a population stays unswept.
 #[test]
 fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
-    use ambition_platformer2d::mount::{MountSlot, Mounted, RidingOn};
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::mount::{MountSlot, Mounted, RidingOn};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
@@ -811,16 +811,19 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
     }
     {
         let world = sim.world_mut();
-        let mut switches = world.query::<&ambition_platformer2d::actors::features::SwitchFeature>();
+        let mut switches =
+            world.query::<&ambition_platformer2d::encounter::switches::SwitchFeature>();
         let activation = switches
             .iter(world)
             .map(|feature| feature.activation.clone())
             .find(|activation| activation.id == SAND_SWITCH)
             .unwrap_or_else(|| panic!("authored switch `{SAND_SWITCH}` exists in {ROOM_ID}"));
-        world.write_message(ambition_platformer2d::actors::features::SwitchActivated {
-            activation,
-            pos: ambition_platformer2d::engine_core::Vec2::ZERO,
-        });
+        world.write_message(
+            ambition_platformer2d::encounter::switches::SwitchActivated {
+                activation,
+                pos: ambition_platformer2d::engine_core::Vec2::ZERO,
+            },
+        );
     }
     for _ in 0..60 {
         sim.step(crate::common::base());

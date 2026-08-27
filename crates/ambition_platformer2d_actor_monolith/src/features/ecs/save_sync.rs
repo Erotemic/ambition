@@ -6,6 +6,7 @@
 //! cleared bosses, flipped switches) before gameplay resumes.
 
 use super::*;
+use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 
 /// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
 ///

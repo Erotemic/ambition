@@ -6,8 +6,9 @@
 //! file focused on systems.
 
 use super::*;
-use bevy::prelude::{App, IntoScheduleConfigs, Update};
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
+use ambition_encounter::switches::SwitchActivated;
+use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
 /// Spawn the canonical player entity used by interaction system tests.
 ///
@@ -156,10 +157,7 @@ fn explicit_pogo_contributor_lowers_published_world_surface() {
 
 #[test]
 fn explicit_pogo_contributor_without_published_surface_uses_its_envelope() {
-    let coarse_surface = ae::Aabb::new(
-        ae::Vec2::new(300.0, 260.0),
-        ae::Vec2::new(24.0, 10.0),
-    );
+    let coarse_surface = ae::Aabb::new(ae::Vec2::new(300.0, 260.0), ae::Vec2::new(24.0, 10.0));
 
     let mut app = App::new();
     app.insert_resource(FeatureEcsWorldOverlay::default());
@@ -179,7 +177,11 @@ fn explicit_pogo_contributor_without_published_surface_uses_its_envelope() {
         .iter()
         .filter(|block| matches!(block.kind, ae::BlockKind::PogoOrb))
         .collect();
-    assert_eq!(pogo_blocks.len(), 1, "one contributor lowers one fallback surface");
+    assert_eq!(
+        pogo_blocks.len(),
+        1,
+        "one contributor lowers one fallback surface"
+    );
     assert_eq!(pogo_blocks[0].aabb, coarse_surface);
 }
 

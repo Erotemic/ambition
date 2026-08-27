@@ -3,8 +3,8 @@
 //! sub-spawn timing, switch arming, LDtk loading of the `goblin_encounter`
 //! fixture, reward-chest placement, and lock-wall sync.
 
-use super::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use super::*;
+use ambition_encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use ambition_encounter::{
     active_encounter_camera_zoom, encounter_reward_chest_pos, Encounter, EncounterCommandKind,
     EncounterEvent, EncounterLifecycle, EncounterMobSpec, EncounterParticipant,

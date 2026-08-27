@@ -21,8 +21,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::session::data;
 use ambition_combat::death_rules::ActorDiedMessage;
+use ambition_platformer2d_actor_monolith::session::data;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{FireworksRequest, FxRequest, VfxMessage};
 
@@ -43,7 +43,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_damage::WalletShieldSpent>()
             .add_message::<ambition_combat::SetFlagRequested>()
             .add_message::<ambition_platformer2d_actor_monolith::features::QuestAdvanceRequested>()
-            .add_message::<ambition_platformer2d_actor_monolith::features::SwitchActivated>()
+            .add_message::<ambition_encounter::switches::SwitchActivated>()
             .add_message::<ambition_combat::GameplaySfxRequested>()
             .add_message::<ambition_combat::HitEvent>()
             // ⭐⭐ AND THE HIT'S RESULT, beside the hit itself. `HitEvent` and
@@ -118,8 +118,8 @@ impl Plugin for SimCoreResourcesPlugin {
             // Every in-flight projectile is an ECS entity; one monotonic
             // spawn-id source orders the unified live-projectile population.
             .init_resource::<ambition_projectiles::ProjectileSeqCounter>()
-            .init_resource::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>()
-            .init_resource::<ambition_platformer2d_actor_monolith::encounter::EncounterSwitchIndex>()
+            .init_resource::<ambition_encounter::switches::SwitchActivationQueue>()
+            .init_resource::<ambition_encounter::switches::EncounterSwitchIndex>()
             // Victim-side hits staged in Combat, drained by the player resolver
             // NEXT frame — cross-frame combat truth, so a registered FIFO
             // rather than a message buffer (see `PendingPlayerHitEvents`).

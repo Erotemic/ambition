@@ -28,7 +28,8 @@ use ambition_encounter::{
     EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
 
-use super::{load_encounter_specs_from_rooms, EncounterSwitchIndex, SwitchActivationQueue};
+use super::load_encounter_specs_from_rooms;
+use ambition_encounter::switches::{EncounterSwitchIndex, SwitchActivationQueue};
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
 /// project, spawn one encounter entity per spec carrying the generic
@@ -51,7 +52,9 @@ pub fn populate_encounter_registry(
     // Optional because a composition may have no rooms installed — a headless
     // fixture, a shell at a non-gameplay route.
     rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     // the App's authored wave book. Optional for the same reason the project is: a composition
     // with no authored encounters is an empty set, not an error.
@@ -152,7 +155,9 @@ pub fn drive_wave_encounters(
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
     session_content: (
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         // The prepared cast: a wave names a character, and as of AC6 that is
         // the only thing it can name.
@@ -372,7 +377,8 @@ pub fn drive_wave_encounters(
         ));
         if activation.action.as_str() == "FlipGravity" {
             commands.queue(|world: &mut bevy::prelude::World| {
-                let mut base = world.resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
+                let mut base = world
+                    .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>();
                 base.dir = -base.dir;
             });
             let new_on = !save.data().switch(&activation.id);
@@ -395,7 +401,9 @@ pub fn drive_wave_encounters(
                 _ => bevy::prelude::Vec2::new(0.0, 1.0), // "Down" / fallback
             };
             commands.queue(move |world: &mut bevy::prelude::World| {
-                world.resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>().dir = dir;
+                world
+                    .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>()
+                    .dir = dir;
             });
             save.data_mut().set_switch(&activation.id, true);
             continue;

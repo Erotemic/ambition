@@ -99,6 +99,16 @@ const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
 /// move table ever grows.
 pub const SUMMON_SHARK_HEALTH: u32 = 36;
 
+/// The summoned shark's actor id — ONE string for every shark this move ever
+/// makes, which is what makes it worth naming.
+///
+/// ⛔⛔ IT IS A SAVE KEY AS WELL AS A NAME. The world's death path persists a
+/// defeated actor as `enemy_<id>_dead`, so a shared id means a shared death: one
+/// shark dying used to make every later summon spawn with a zeroed pool, in that
+/// save, forever. Summons decline persisted liveness at construction
+/// (`RespawnPolicy::OnRoomReenter`) and that is what keeps this id safe to share.
+pub const SUMMON_SHARK_ID: &str = "smash_ride_shark";
+
 /// How fast a dismissed shark leaves.
 const DEPART_SPEED: f32 = 1_400.0;
 
@@ -163,7 +173,7 @@ pub fn translate_shark_summons(
                     // The identity suffix comes from the summoner's own
                     // sequence counter, so two sharks from one pirate are two
                     // bodies and not one id claimed twice.
-                    id: "smash_ride_shark".to_string(),
+                    id: SUMMON_SHARK_ID.to_string(),
                     name: "Burning Flying Shark".to_string(),
                     pos: kin.pos,
                     half_size: ae::Vec2::new(params.half_extents.0, params.half_extents.1),

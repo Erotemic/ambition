@@ -140,11 +140,13 @@ mod tests {
                 crate::actor_moveset::actor_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "actor",
+                &["polygon", "pointed_polygon"][..],
             ),
             (
                 crate::medic_moveset::medic_moveset(),
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "medic",
+                &["polygon_brawler", "pugnacious_polygon"][..],
             ),
         ] {
             assert_eq!(

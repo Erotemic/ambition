@@ -78,11 +78,30 @@ pub fn sync_ecs_actors_with_save(
     {
         let practice_target = body_combat.training_dummy;
         let id = cq.as_actor_mut().config.id.clone();
-        let dead_on_load = data.flag(&format!("enemy_{id}_dead"))
-            || data.flag(&format!(
-                "enemy_{id}{}",
-                crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
-            ));
+        // ⛔⛔ ONLY A POLICY THAT WRITES A FLAG MAY READ ONE, and this asked the
+        // flag of every actor alive. The death path writes `enemy_<id>_dead` for
+        // `DeadStaysDead` and `enemy_<id>_dead_until_rest` for `OnRest` and NOTHING
+        // for the other two — so a body under `OnRoomReenter` or `InPlace` was
+        // having its liveness decided by a record its own kind never keeps.
+        //
+        // ⭐⭐ WHICH IS HOW ONE DEATH KILLED EVERY LATER SUMMON. A summoned body
+        // shares ONE `config.id` with every instance ever made of it (the pirate's
+        // recovery shark is always `smash_ride_shark`), so the first one that died
+        // under the old default wrote a flag that this sweep — which runs EVERY SIM
+        // TICK, not at load — then applied to all its successors, zeroing the pool
+        // on their first tick. Declining to WRITE the flag fixes tomorrow's saves;
+        // declining to READ it is what rescues the ones already carrying it.
+        let persists_its_death = matches!(
+            cq.as_actor_mut().config.tuning.respawn,
+            ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead
+                | ambition_entity_catalog::placements::RespawnPolicy::OnRest
+        );
+        let dead_on_load = persists_its_death
+            && (data.flag(&format!("enemy_{id}_dead"))
+                || data.flag(&format!(
+                    "enemy_{id}{}",
+                    crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
+                )));
 
         if interaction.is_some() && data.flag(&super::super::npcs::npc_flag_id(&id)) {
             // Persisted-hostile NPC: flip it hostile IN PLACE on load (no cluster

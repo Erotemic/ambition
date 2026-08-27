@@ -788,3 +788,135 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
          whole of the rule that takes a rider off"
     );
 }
+
+
+/// ⭐⭐ THE RIDE ENDS ON ITS OWN CLOCK, and the shark leaves when it does.
+///
+/// Jon: *"Let's say the move lasts for 5 seconds before the shark forces the
+/// pirate to jump off and it flys away."* That is the whole shape of the
+/// ability's cost, and nothing tested it: the lease was authored, the tick
+/// system had a unit test, and no arm ever asked whether a ride actually ENDS.
+///
+/// ⛔ FIVE SECONDS IS NOT ASSERTED AS A NUMBER, it is asserted as a boundary:
+/// still aboard well before it, off well after. Pinning the exact tick would
+/// make this a test of the frame clock, and the rule is "about five seconds",
+/// not "at frame 300".
+#[test]
+fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RideLease, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+
+    let ridden = app
+        .world()
+        .get::<RidingOn>(seat0)
+        .map(|r| r.mount)
+        .expect("the admiral boarded, so there is a ride to time");
+    let lease = app
+        .world()
+        .get::<RideLease>(seat0)
+        .map(|l| l.remaining)
+        .expect("a summoned ride carries a clock");
+    assert!(
+        lease > 3.0,
+        "the ride opened with {lease:.2}s left, which is not the five seconds \
+         the ability is designed around"
+    );
+
+    // ── STILL ABOARD WELL INSIDE THE LEASE. ──
+    for _ in 0..120 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the ride ended about two seconds in — a lease that expires early is a \
+         recovery that does not reach the ledge"
+    );
+
+    // ── AND OFF WELL AFTER IT. ──
+    for _ in 0..300 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "the lease ran out and the admiral is still aboard — the ride has no end, \
+         which is flight rather than a recovery"
+    );
+    // ⭐ AND THE SHARK GOES. Jon asked for it to fly away when the ride ends;
+    // asserted about THIS body, because seat 1 is an admiral too and summons its
+    // own.
+    for _ in 0..240 {
+        app.update();
+    }
+    assert!(
+        app.world().get_entity(ridden).is_err(),
+        "the shark that carried the admiral is still on the stage after its \
+         lease expired"
+    );
+    let _ = |app: &mut App| -> usize {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+}

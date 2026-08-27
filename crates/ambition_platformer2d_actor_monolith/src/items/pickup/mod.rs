@@ -503,7 +503,19 @@ pub fn return_released_items(
     // `Has<..>`: an equip-SWAP leaves the body holding a DIFFERENT item, so
     // "there is a hand" is not the question — "is this object the thing in it"
     // is, and only the spec id can answer that.
-    holders: Query<(&BodyKinematics, Option<&HeldItem>)>,
+    // ⛔⛔ AND WHETHER A MOVE IS HOLDING SOMETHING ELSE FOR A MOMENT. A brandish
+    // OVERWRITES `HeldItem` with a temporary move weapon (the admiral's
+    // gun-sword) and remembers what it displaced — so during those frames the
+    // hand does not name the object this body has CUSTODY of, and comparing
+    // against it dropped the real object on the floor. The move then ended and
+    // rebuilt `HeldItem` from its remembered id, leaving the body logically
+    // holding an item that was also lying in the world: ONE object, two owners
+    // (GPT 5.6, 2026-08-27).
+    holders: Query<(
+        &BodyKinematics,
+        Option<&HeldItem>,
+        Option<&ambition_combat::held_items::MoveBrandishedItem>,
+    )>,
     mut carried: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
 ) {
     for (entity, mut item, mut custody) in &mut carried {
@@ -512,14 +524,23 @@ pub fn return_released_items(
         };
         // A holder that no longer exists is the death-drop resolver's question,
         // not this one's — see the above.
-        let Ok((kin, held)) = holders.get(holder) else {
+        let Ok((kin, held, brandished)) = holders.get(holder) else {
             continue;
         };
         // Still the object in that hand — nothing to do. Compared by SPEC ID
         // rather than by "is there a hand at all", because an equip-SWAP leaves
         // the body holding a DIFFERENT item and orphans the old one just as
         // thoroughly as a Stow does.
-        if held.is_some_and(|held| held.id() == item.spec.id.as_str()) {
+        // ⭐ THE QUESTION IS CUSTODY, NOT WHAT IS VISIBLY IN THE HAND. While a
+        // move is brandishing, the body's custody answer is what the brandish
+        // DISPLACED; the drawn weapon is an overlay with no custody of its own.
+        // Outside a brandish the two are the same string, which is why this read
+        // like a hand comparison for so long.
+        let in_custody = match brandished {
+            Some(brandish) => brandish.previous.as_deref(),
+            None => held.map(|held| held.id()),
+        };
+        if in_custody == Some(item.spec.id.as_str()) {
             continue;
         }
         // The body let go: the object lands where that body is standing.

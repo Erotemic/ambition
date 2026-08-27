@@ -173,7 +173,12 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
 ## Priority 5 — proof and bookkeeping
 
-- ▢ **R14 — pin the production boomerang constructor.**
+- ▣ **R14 — CLOSED. Pin the production boomerang constructor.** The dynamics
+  test lives in `ambition_projectiles`, which does not depend on
+  `ambition_characters`, so it restates the values it drives. The new arm
+  asserts the RULE (`max_lifetime == 2 · out_s`) across a range — one sample
+  cannot tell `2·out_s` from `out_s + 0.34` — and each test says which half the
+  other owns. Poisoned: `+ 0.15` fails it.
   `a_boomerang_turns_around_and_returns_to_where_it_was_thrown` hand-writes
   `boomerang_return_s = OUT_S` and `max_lifetime = OUT_S * 2`, so restoring the
   old `+0.15` in `ProjectileFlight::boomerang` leaves it green. Read the real
@@ -186,7 +191,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   fires. Require: the opponent's output IS present in contextual frame data,
   and the subject-owned hitbox/projectile maxima stay ZERO.
 
-- ▢ **R16 — direct Robot special regressions at the seam.** Behaviour is fixed
+- ▣ **R16 — CLOSED. Direct Robot special regressions at the seam.** Five arms
+  from one table: neutral shields, side/up/down/airborne-down do not. Plus the
+  compatibility body, which has no repertoire and must still shield on any press
+  — that is what the layer was written for. ⚠ The air-dodge half IS the airborne
+  row: `shield_held` is what arms and spends one, so the cause is asserted rather
+  than the symptom. Poisoned. ⛔ There is ONE resolver: the fix calls
+  `attack_dir_from_axis` + `move_for_directional_verb`, the same two the combat
+  road uses. Behaviour is fixed
   (`22361bab3`) but only `moveset_takes` proves it. Add poisons at the seam:
   neutral Special raises the bubble shield · side Special synthesizes no
   `shield_held` · down Special likewise · an airborne directional Special does
@@ -194,11 +206,15 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   ⛔ If this is refactored, do not end with two independent directional-Special
   resolvers — extract one pure semantic.
 
-- ▢ **R17 — one blink per Author teleport.** The duplicate `player.blink`
+- ▣ **R17 — CLOSED. One blink per Author teleport.** Counted through the real
+  move in the shipped composition, for that body only, with a premise that he
+  crossed 250px. Poisoned: restoring the authored cue reads 2. The duplicate `player.blink`
   request is gone from the code; add the regression through the real teleport
   that counts EXACTLY one cue.
 
-- ▢ **R18 — repair stale review and planning status.** D253 and D252 are closed
+- ◐ **R18 — repair stale review and planning status.** `queue.md` (D252, D253,
+  D254) and `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current as of this push.
+  What remains is whatever the OPEN rows below close. D253 and D252 are closed
   as of `4a551ccc5`. Still to correct: the Author double-blink row (fixed at
   `947b97b`), `tick_departures` docs (already corrected), the `shark_ride_probe`
   fixed-frame-240 wait (already condition-based). REOPEN: shark health (R3),

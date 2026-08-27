@@ -97,6 +97,26 @@ fn apply_side_contact(
     }
 }
 
+/// A SUBMERGED body passes through everything, because it is not in the world.
+///
+/// ⛔⛔ UNCONDITIONAL, AND THAT IS THE DIFFERENCE FROM THE CLIMB RULE BELOW.
+/// A climbing body is still on the stage and only ignores the blocks its
+/// climbable region overlaps — lose the region and the floor is a floor again.
+/// There is no region under the stage to lose contact with, and a submerged
+/// body that could be stopped by geometry would be a fighter wedged inside the
+/// floor she went under, with nothing to push her out.
+///
+/// ⛔ HAZARDS TOO. The climb rule deliberately keeps hazards solid so a ladder
+/// cannot be used to walk through a spike; a submerged body is intangible for
+/// the same beats it is invisible, and a hazard that could touch her would
+/// contradict the `Invuln` window the move authors over the same span.
+fn block_passable_while_submerged(body_mode: &crate::body_clusters::BodyModeState) -> bool {
+    matches!(
+        body_mode.body_mode,
+        crate::player_state::BodyMode::Submerged
+    )
+}
+
 fn block_passable_during_climb_clusters(
     body_mode: &crate::body_clusters::BodyModeState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
@@ -265,6 +285,9 @@ pub(super) fn sweep_player_axis_clusters(
     let start_body = kinematics.aabb_oriented(gravity_dir);
     if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+            return false;
+        }
+        if block_passable_while_submerged(body_mode) {
             return false;
         }
         if block_passable_during_climb_clusters(body_mode, env_contact, block) {

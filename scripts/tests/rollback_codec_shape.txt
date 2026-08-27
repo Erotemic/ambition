@@ -6,7 +6,7 @@ crates/ambition_encounter/src/snapshot_impls.rs	35	bb87c343bf3d9ffd
 crates/ambition_platformer2d_actor_monolith/src/snapshot_impls.rs	121	6acb7152dd255cc4
 crates/ambition_platformer2d_core/src/motion_codec.rs	420	0f9ae07f9c6dcb5c
 crates/ambition_platformer2d_core/src/snapshot.rs	17	075822b7876cabb6
-crates/ambition_platformer2d_core/src/snapshot_impls.rs	109	91d7429c902f5866
+crates/ambition_platformer2d_core/src/snapshot_impls.rs	109	6a2962df52672507
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/round.rs	6	ebfd75dd6ce790b8
 crates/ambition_platformer2d_shared_tangle/src/snapshot_impls.rs	59	0f491e960a7880d0
 crates/ambition_platformer2d_world/src/snapshot_impls.rs	2	f571bd2cf345bda8

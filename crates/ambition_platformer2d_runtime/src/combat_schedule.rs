@@ -229,6 +229,13 @@ impl Plugin for CombatSchedulePlugin {
                 // afterwards would let her be launched at the percent she had
                 // before she bought the tempo.
                 ambition_combat::vitality::apply_authored_vitality.run_if(gameplay_allowed),
+                // EFFECTS-stage consumer, beside the teleport and for the same
+                // reason. ⛔ AND IT MUST NOT BE ORDERED AGAINST THE TELEPORT:
+                // the two never act on one body on one frame (a move authors
+                // one technique or the other), so a `.chain()` here would be a
+                // constraint stating a relationship that does not exist.
+                ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
+                    .run_if(gameplay_allowed),
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)

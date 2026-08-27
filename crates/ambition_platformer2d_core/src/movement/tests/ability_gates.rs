@@ -578,7 +578,7 @@ fn the_foxtrot_and_the_dash_dance_fall_out_of_the_same_edge() {
         );
     }
     assert!(scratch.ground.on_ground, "the fixture never landed");
-    let mut step = |input: InputState, scratch: &mut crate::body_clusters::BodyClusterScratch| {
+    let step = |input: InputState, scratch: &mut crate::body_clusters::BodyClusterScratch| {
         super::update_player_with_tuning_scratch(&world, scratch, input, 1.0 / 60.0, tuning);
     };
 

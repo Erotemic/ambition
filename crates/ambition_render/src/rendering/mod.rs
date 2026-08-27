@@ -29,6 +29,7 @@ pub mod knockout;
 pub mod launch_trail;
 pub mod mark_beacon;
 pub mod morph_ball;
+pub mod submerged;
 pub mod moving_platforms;
 mod nameplates;
 mod parallax;
@@ -188,6 +189,11 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     morph_ball::spawn_morph_ball_visual,
                     morph_ball::sync_morph_ball_visual.in_set(SpriteVisualSync),
+                    // ⛔ AFTER THE MORPH-BALL SYNC, and `chain()` below is what
+                    // makes that true. Both restore a hidden body to
+                    // `Inherited`; whichever runs last wins, and only one of
+                    // them knows the body is under the stage.
+                    submerged::sync_submerged_visibility.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)

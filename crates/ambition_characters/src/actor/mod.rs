@@ -117,6 +117,17 @@ impl Invulnerability {
     /// reason bit is the type that already solves this — "take or release ONE
     /// reason, leaving every other reason alone" is what it says of itself.
     pub const RESPAWN: u32 = 1 << 4;
+    /// The body is not in the world at all — see
+    /// [`BodyMode::Submerged`](ambition_platformer2d_core::player_state::BodyMode::Submerged).
+    ///
+    /// ⛔⛔ THE MODE'S OWN REASON, NOT THE MOVE'S. A trapdoor authors an
+    /// `Invuln` window over the same beats, and that would have been enough for
+    /// the one move that exists today — but then the MODE's contract ("nothing
+    /// can hit it") would be true only for callers who remembered to author the
+    /// window, and the second user of it would be struck under the stage with
+    /// nothing in the code saying why it was allowed. A body that is absent is
+    /// untouchable because it is absent.
+    pub const SUBMERGED: u32 = 1 << 5;
 
     /// Nothing is holding it.
     pub const fn none() -> Self {

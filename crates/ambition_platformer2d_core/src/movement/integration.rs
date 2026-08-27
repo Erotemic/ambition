@@ -138,7 +138,13 @@ pub(super) fn integrate_velocity_clusters(
         clusters.jump.ladder_jump_boost = 0.0;
     }
 
-    if state.dash_timer > 0.0 {
+    // ⭐⭐ AHEAD OF EVERY OTHER MODE, INCLUDING THE DASH TIMER. A body under the
+    // stage is not doing anything else: a dash that survived the drop would
+    // carry her out from under it, and flight would fight the mode for the same
+    // velocity. Being absent outranks being busy.
+    if clusters.body_mode.body_mode == BodyMode::Submerged {
+        integrate_submerged_clusters(clusters.kinematics, state, input, dt, frame, tuning);
+    } else if state.dash_timer > 0.0 {
         state.dash_timer = dec(state.dash_timer, dt);
     } else if climbing {
         integrate_climb_clusters(
@@ -1021,6 +1027,60 @@ pub fn integrate_normal_spine(
         cap_fall_speed(kin_vel, g, effective_cap);
     }
 }
+
+/// Travel under the stage: no gravity, no geometry, and the stick still steers.
+///
+/// ⭐⭐ SHE STEERS, WHICH IS THE WHOLE REASON THIS IS A MODE. Jon, 2026-08-27:
+/// *"I do want the player to be able to control where they move."* A trapdoor
+/// that dropped her at a computed destination would be a teleport with a longer
+/// animation; what makes it a different KIND of mobility move is that the time
+/// under the stage is time she is playing.
+///
+/// ⛔ HORIZONTAL ONLY. Under the stage there is no up and no down to mean
+/// anything — the floor she left is the ceiling of where she is — so vertical
+/// stick does nothing and vertical velocity is pinned to zero. A body that
+/// drifted vertically would surface through a different floor than the one it
+/// entered, or through none.
+///
+/// ⛔ AND THE VELOCITY IS SET, NOT ACCELERATED. She has no traction against
+/// anything down there; carrying her run's momentum in would make the move's
+/// reach depend on how she entered it, which is a thing the player cannot see
+/// and would have to learn.
+pub(super) fn integrate_submerged_clusters(
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    state: &mut AxisManeuverState,
+    input: InputState,
+    dt: f32,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
+) {
+    // Under the stage a dash is over: nothing down here to dash against, and a
+    // timer still running would resume on the way out.
+    state.dash_timer = 0.0;
+    let local_stick = input.local_axis();
+    let body_frame = frame.basis();
+    let world_stick = body_frame.to_world(Vec2::new(local_stick.x, 0.0));
+    // Her own top speed, so a fast character travels under the stage the way she
+    // travels over it. `SUBMERGED_SPEED_FRAC` is the one number this mode adds.
+    let speed = tuning.locomotion.max_run_speed * SUBMERGED_SPEED_FRAC;
+    kinematics.vel = world_stick * speed;
+    kinematics.pos += kinematics.vel * dt;
+}
+
+/// How fast a submerged body travels, as a fraction of its own run speed.
+///
+/// ⛔ NOT A CONSTANT SPEED IN PIXELS. A shared number would make the trapdoor a
+/// different move for a fast character than for a slow one, and this mode is
+/// meant to be reusable — the mole, the burrower and the diver all want "like
+/// running, but under things".
+///
+/// ⭐⭐ FASTER THAN RUNNING, WHICH IS A BALANCE POSITION AND NOT A PHYSICAL
+/// CLAIM. Jon, 2026-08-27: *"1.2x run speed. I'm biasing towards making moves
+/// too powerful to start."* Nothing about being under a stage makes a body
+/// quicker; the number is here to make the trip worth taking while the move is
+/// being judged, and it is the first knob to turn when it turns out to be too
+/// good. The earlier 0.82 was the opposite instinct and was mine, not authored.
+const SUBMERGED_SPEED_FRAC: f32 = 1.2;
 
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,

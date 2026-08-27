@@ -6,24 +6,60 @@
 //! as the swing's own axis extended past her hand, so the reach the table
 //! assumes is the reach the sheet draws.
 //!
-//! ⭐⭐ HER SPECIALS ARE STAGE MACHINERY, and two of them are the same technique
-//! pointed at different destinations. The TRAP puts her behind whoever she is
-//! fighting; the FLYLINE takes her straight up out of the scene. Both are
-//! `smash.teleport`, which is why neither needed an engine of its own — see
-//! [`ambition_characters::smash_teleport::TeleportAim`] for why one technique
-//! answers both.
+//! ⭐⭐ HER SPECIALS ARE STAGE MACHINERY, and the two that move her move her in
+//! two different ways. The FLYLINE is a wire: one beat, aimed, straight up out
+//! of the scene — `smash.teleport`, the technique the Author's revision already
+//! used. The TRAP is not. She goes THROUGH the floor and travels under it, and
+//! that is `smash.trapdoor` plus a body mode, because Jon was explicit that it
+//! is *"not a blink. It's a different kind of mobility move"* and that *"I do
+//! want the player to be able to control where they move."*
+//!
+//! ⭐ THE OTHER TWO ARE STAGECRAFT WITHOUT MACHINERY. The MONOLOGUE and THE
+//! LINE are plain strikes; what makes them hers is the SHAPE the art gave them,
+//! and neither needed a technique to say it.
 //!
 //! See [`crate::archetype_moveset`] for why the borrowed ids are renamed rather
 //! than shared or copied.
 
+use ambition_characters::moveset_authoring::{fixed_knockback, on_contact, sfx, strike, Strike};
 use ambition_characters::smash_teleport::{author_teleport, TeleportParams};
+use ambition_characters::smash_trapdoor::{author_trapdoor, TrapdoorParams};
 use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
 
-/// When the trap opens, and when the move lets go of her. The boards give on
-/// frame 2 of `blink_out` at 52ms a frame, so the teleport fires where the art
-/// says she has already gone through the floor.
-const TRAP_AT_S: f32 = 0.10;
-const TRAP_ENDS_S: f32 = 0.42;
+/// THE TRAP'S FOUR BEATS, and they are four because Jon asked for four:
+/// *"press down-b, a trap door opens, the actor jumps into it, small pause, the
+/// exit trapdoor opens, and she jumps / pops out of it."*
+///
+/// `blink_out` runs at 52ms a frame. The boards give on frame 2 and she is
+/// through them by frame 3, which is when she stops being in the world.
+///
+/// ⭐⭐ THE PAUSE IS NOT A PAUSE. It is `SURFACE_AT_S - SINK_AT_S` of
+/// `BodyMode::Submerged`, and she is STEERING for all of it — Jon: *"I do want
+/// the player to be able to control where they move."*
+///
+/// ⭐ A FULL SECOND, WHICH IS A LOT, AND DELIBERATELY. Jon, 2026-08-27: *"Give
+/// them 1 second under the stage at 1.2x run speed. I'm biasing towards making
+/// moves too powerful to start."* At 1.2× her 204 run speed that is roughly 245
+/// world px of travel — most of a smash stage — and it is meant to be obviously
+/// strong so the tuning conversation starts from "how much do we take away"
+/// rather than from "is this move worth pressing".
+const DOOR_OPENS_S: f32 = 0.10;
+const SINK_AT_S: f32 = 0.16;
+const SURFACE_AT_S: f32 = 1.16;
+const TRAP_ENDS_S: f32 = 1.32;
+
+/// How far above her the engine looks for a floor to come up through.
+///
+/// ⛔ GENEROUS, BECAUSE SHE CANNOT SEE THE BOARDS. She has been steering blind
+/// under the stage; a tight radius would drop her into open air for being a few
+/// pixels below a platform she was plainly under. Past this there genuinely is
+/// no floor above her — she wandered off the end of the stage — and coming up
+/// into open air and falling is the honest outcome.
+const SURFACE_REACH: f32 = 140.0;
+
+/// The door itself. ⛔ NOT `four_point_glint`, which is the Author's blink
+/// and the whole complaint: a trapdoor is wood and hinges, not a star flash.
+const TRAPDOOR_VFX: &str = "trapdoor_boards";
 
 /// The flyline catches her later than the trap drops her: the wire goes taut
 /// before it pulls, which is the beat `fly`'s first two frames draw.
@@ -41,7 +77,96 @@ pub fn actor_moveset() -> MovesetContract {
     crate::special_slots::replace_special(&mut set, "special_down", the_trap());
     crate::special_slots::replace_special(&mut set, "special_air_down", the_trap_airborne());
     crate::special_slots::replace_special(&mut set, "special_up", the_flyline());
+    crate::special_slots::replace_special(&mut set, "special", the_monologue());
+    crate::special_slots::replace_special(&mut set, "special_forward", the_line());
     set
+}
+
+/// Neutral special: she plants, opens both arms and DELIVERS.
+///
+/// ⭐⭐ *"It holds her still for as long as it holds everyone else"* — the
+/// caption `special.spec.json` has carried since her library was forked, and the
+/// two halves of it are authored separately because the engine says them
+/// separately. She is held by `hitless_special`'s rooting, which every special
+/// gets; everyone ELSE is held by FIXED KNOCKBACK.
+///
+/// ⛔⛔ `knockback_growth: Some(0.0)` IS THE MOVE, and it is not the same as
+/// leaving the field alone. Unauthored means *the stage decides*, and the
+/// stage's rule scales a launch with the victim's percent — so the monologue
+/// would land differently on the fighter it was aimed at depending on how the
+/// match had gone, which is the one thing a speech that holds EVERYONE must not
+/// do. `Some(0.0)` is a hit that does exactly this at 0% and at 200%.
+///
+/// ⛔ AND THE LAUNCH IS SHALLOW ON PURPOSE. Hitstun scales off knockback
+/// magnitude, so a hold is bought with enough launch to buy the frames and a
+/// direction that spends them going nowhere in particular — the genre has no
+/// separate stun channel and inventing one for a neutral-B would be a mechanic
+/// bolted to a single move.
+fn the_monologue() -> MoveSpec {
+    let mut spec = strike(Strike {
+        id: "actor_monologue",
+        clip: "special",
+        // Frames 3, 4 and 5 of 8 at 75ms — the window the art marks live.
+        startup_s: 0.225,
+        active_s: 0.225,
+        recover_s: 0.15,
+        // Wide and centred: she is addressing the room, not pointing at one
+        // person. The spec inflates its drawn hull by 7px for the same reason.
+        offset: (10.0, -6.0),
+        half_extents: (58.0, 34.0),
+        damage: 6,
+        knockback: 74.0,
+        // ⛔ THE BUILDER CANNOT SAY WHAT THIS MOVE IS. Its `f32` reads zero as
+        // "this stage decides", so the fixed knockback goes on the VOLUME —
+        // `fixed_knockback` below, which is the builder's own instruction.
+        knockback_growth: 0.0,
+        launch_dir: Some((0.35, -0.5)),
+        on_hit: None,
+    });
+    spec.display_name = Some("Monologue".to_string());
+    let spec = fixed_knockback(spec);
+    let spec = sfx(spec, 0.0, "player.attack.charge");
+    let spec = sfx(spec, 0.225, "player.slash");
+    on_contact(spec, "player.hit")
+}
+
+/// Side special: she throws one, overhand, and it carries.
+///
+/// ⭐⭐ *"Nothing leaves her hand that anyone can see leaving it."* The line is
+/// a DISJOINTED HITBOX and not a projectile, and that is the whole reading of
+/// the move: the danger is out past her arm where nothing is drawn, so an
+/// opponent who reads the animation reads it wrong. `shoot.spec.json` extends
+/// the strike axis to 2.9 for the same reason — the art and the table agree
+/// about where the reach ends.
+///
+/// ⛔ NOT `MoveEventKind::Ranged`, WHICH IS WHAT THE WORD "THROWS" SUGGESTS. A
+/// ranged event fires the owner's ranged action, and she has none — she would
+/// need a weapon to state one, and the point of the move is that there is
+/// nothing in her hand.
+fn the_line() -> MoveSpec {
+    let mut spec = strike(Strike {
+        id: "actor_the_line",
+        clip: "shoot",
+        // Frames 3 and 4 of 8 at 60ms.
+        startup_s: 0.18,
+        active_s: 0.12,
+        recover_s: 0.18,
+        // Far out and thin — the reach IS the move, and a fat volume would give
+        // away in silhouette what the animation deliberately does not.
+        offset: (62.0, -10.0),
+        half_extents: (30.0, 9.0),
+        damage: 9,
+        knockback: 128.0,
+        // ⭐ THIS ONE GROWS. It is an ordinary spacing tool and scales with its
+        // victim's damage like every other normal; the monologue is the
+        // exception, not the pattern.
+        knockback_growth: 1.9,
+        launch_dir: Some((1.0, -0.34)),
+        on_hit: None,
+    });
+    spec.display_name = Some("The Line".to_string());
+    let spec = sfx(spec, 0.18, "player.slash");
+    on_contact(spec, "player.hit")
 }
 
 /// ⛔ TWO IDS FOR ONE MOVE, because the archetype's down special is a
@@ -57,39 +182,69 @@ fn the_trap_airborne() -> MoveSpec {
     trapdoor("actor_trapdoor_air", "blink_out")
 }
 
-/// Down special: she goes through the boards and comes up behind you.
+/// Down special: the boards give, she drops through, and she comes up somewhere
+/// else entirely.
+///
+/// ⭐⭐ JON, 2026-08-27, ON WHAT THIS IS NOT: *"the trapdoor move doesn't
+/// actually look like a trap door. It looks like a blink… It's not a blink.
+/// It's a different kind of mobility move."* The first version was
+/// `smash.teleport` with a glint on each end — one instantaneous beat, she never
+/// left the stage, and the effect belonged to the Author. This is four beats and
+/// a body mode.
+///
+/// ⛔⛔ AND THE MIDDLE BEAT IS THE MOVE. Between `SINK_AT_S` and
+/// `SURFACE_AT_S` she is in `BodyMode::Submerged`: not drawn, not hittable, no
+/// gravity, no geometry — and still steering. That is why this is a technique
+/// and a kernel mode rather than a longer animation on a teleport; a computed
+/// destination would have taken the decision away from the player, which is the
+/// thing Jon asked for last.
+///
+/// ⛔ THE `Invuln` WINDOW IS AUTHORED ANYWAY, over the same span the mode
+/// covers. It is not redundant belt-and-braces: the window is what the CANCEL
+/// and scoring layers read off the timeline without looking at a live body, and
+/// a move whose timeline claimed she was vulnerable under the stage would be
+/// scored as a punishable commitment it is not.
 fn trapdoor(id: &str, clip: &str) -> MoveSpec {
-    let mut spec =
-        ambition_characters::moveset_authoring::hitless_special(id, clip, TRAP_AT_S, TRAP_ENDS_S);
+    let mut spec = ambition_characters::moveset_authoring::hitless_special(
+        id,
+        clip,
+        SINK_AT_S,
+        TRAP_ENDS_S,
+    );
     spec.display_name = Some("The Trap".to_string());
-    let spec = author_teleport(
+    // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
+    // the second one is the half whose absence is a fighter gone for the match.
+    let spec = author_trapdoor(
         spec,
-        TRAP_AT_S,
-        TeleportParams {
-            // ⭐ JON, 2026-08-27: *"The down special can just teleport behind the
-            // nearest enemy, that is fine. We can improve it later."* So the
-            // destination is a BODY, not a direction.
-            behind_nearest_foe: true,
-            // A stride, not a hair's breadth: she arrives in range to act and
-            // not already overlapping him.
-            behind_gap: 18.0,
-            // ⛔ THE RANGE IS WHAT KEEPS IT A SPECIAL. Without it the move is a
-            // stage-wide snap to whoever exists; with it, an opponent who keeps
-            // his distance is simply not a target and she has spent the frames.
-            // About four body-lengths — far enough to punish someone spacing
-            // her out, short enough that he can leave.
-            distance: 320.0,
-            // ⛔ NO LEDGE ASSIST. That radius exists to save a RECOVERY aimed at
-            // a platform edge; an ambush that quietly hopped onto a ledge she
-            // did not aim at would be the assist choosing her position for her.
-            ledge_assist: 0.0,
-            depart_vfx: "four_point_glint".to_string(),
-            arrive_vfx: "four_point_glint".to_string(),
+        SINK_AT_S,
+        TrapdoorParams {
+            submerge: true,
+            surface_reach: 0.0,
+            vfx: TRAPDOOR_VFX.to_string(),
+            sfx: "world.door.heavy_open".to_string(),
         },
     );
-    let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
-    let spec = ambition_characters::moveset_authoring::sfx(spec, TRAP_AT_S, "player.blink");
-    spec
+    let spec = author_trapdoor(
+        spec,
+        SURFACE_AT_S,
+        TrapdoorParams {
+            submerge: false,
+            surface_reach: SURFACE_REACH,
+            vfx: TRAPDOOR_VFX.to_string(),
+            sfx: "world.door.heavy_open".to_string(),
+        },
+    );
+    // ⛔ NOT A BLINK CUE ANYWHERE ON IT. The trap is carpentry: the boards give,
+    // they bang shut behind her, and they give again somewhere else.
+    let spec = ambition_characters::moveset_authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
+    let spec = ambition_characters::moveset_authoring::sfx(
+        spec,
+        SINK_AT_S + 0.06,
+        "world.door.close",
+    );
+    let spec =
+        ambition_characters::moveset_authoring::sfx(spec, TRAP_ENDS_S - 0.06, "world.door.close");
+    ambition_characters::moveset_authoring::invuln(spec, SINK_AT_S, SURFACE_AT_S)
 }
 
 /// Up special: a wire catches her at the waist and takes her out of the scene.
@@ -167,42 +322,127 @@ mod tests {
         }
     }
 
-    /// The trap aims at a BODY. A teleport authored `Aimed` would send her
-    /// wherever the stick happened to be, which is the recovery's rule and not
-    /// this move's.
+    /// ⛔⛔ SHE GOES UNDER AND SHE COMES BACK. Two beats of `smash.trapdoor`,
+    /// and the second is the half whose absence is a fighter in
+    /// `BodyMode::Submerged` for the rest of the match — invisible, intangible,
+    /// and unable to be hit out of it. `author_trapdoor` cannot see the rest of
+    /// the timeline, so this is where that guard lives.
     #[test]
-    fn the_trap_aims_behind_the_nearest_foe_and_the_flyline_does_not() {
-        use ambition_characters::smash_teleport::{TeleportParams, TELEPORT};
+    fn the_trap_puts_her_under_the_stage_and_brings_her_back() {
+        use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_platformer2d::entity_catalog::MoveEventKind;
 
         let set = actor_moveset();
-        let params_of = |id: &str| -> TeleportParams {
+        for id in ["actor_trapdoor", "actor_trapdoor_air"] {
             let mv = set
                 .moves
                 .iter()
                 .find(|m| m.id == id)
                 .unwrap_or_else(|| panic!("`{id}` is in her table"));
-            let event = mv
+            let beats: Vec<(f32, TrapdoorParams)> = mv
                 .events
                 .iter()
-                .find_map(|e| match &e.kind {
-                    MoveEventKind::Effect(effect) if effect.key == TELEPORT => Some(effect),
+                .filter_map(|ev| match &ev.kind {
+                    MoveEventKind::Effect(effect) if effect.key == TRAPDOOR => Some((
+                        ev.at_s,
+                        effect.params.hydrate().expect("trapdoor params hydrate"),
+                    )),
                     _ => None,
                 })
-                .unwrap_or_else(|| panic!("`{id}` authors a teleport"));
-            event.params.hydrate().expect("teleport params hydrate")
+                .collect();
+            assert_eq!(beats.len(), 2, "`{id}` is a round trip, not a one-way door");
+            assert!(beats[0].1.submerge, "the first beat drops her through");
+            assert!(!beats[1].1.submerge, "the second beat brings her back");
+            assert!(
+                beats[0].0 < beats[1].0,
+                "`{id}` surfaces at {}s before it submerges at {}s",
+                beats[1].0,
+                beats[0].0
+            );
+            assert!(
+                beats[1].0 < mv.duration_s,
+                "`{id}` surfaces after the move ends, so it never surfaces"
+            );
+            assert!(
+                beats[1].1.surface_reach > 0.0,
+                "`{id}` comes up through a FLOOR; a zero reach disables the \
+                 search and drops her wherever she happened to be"
+            );
+        }
+    }
+
+    /// ⛔⛔ IT IS NOT A BLINK, WHICH IS THE WHOLE COMPLAINT THIS MOVE WAS
+    /// REWRITTEN FOR. Jon, 2026-08-27: *"It looks like a blink… It's not a
+    /// blink."* The old version was `smash.teleport` with the Author's
+    /// `four_point_glint` on each end, and the thing that would quietly bring it
+    /// back is a copy-paste from his table.
+    #[test]
+    fn the_trap_carries_no_teleport_and_no_blink_dressing() {
+        use ambition_characters::smash_teleport::TELEPORT;
+        use ambition_platformer2d::entity_catalog::MoveEventKind;
+
+        let set = actor_moveset();
+        for id in ["actor_trapdoor", "actor_trapdoor_air"] {
+            let mv = set.moves.iter().find(|m| m.id == id).expect("her trap");
+            for event in &mv.events {
+                match &event.kind {
+                    MoveEventKind::Effect(effect) => assert_ne!(
+                        effect.key, TELEPORT,
+                        "`{id}` is a trapdoor, not a teleport with a longer clip"
+                    ),
+                    MoveEventKind::Sfx { cue } => assert!(
+                        !cue.contains("blink"),
+                        "`{id}` plays `{cue}`; the trap is carpentry"
+                    ),
+                    MoveEventKind::Vfx { effect, .. } => assert!(
+                        !effect.contains("glint"),
+                        "`{id}` draws `{effect}`, which is the Author's blink"
+                    ),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    /// ⛔ AND SHE CANNOT BE HIT UNDER THE STAGE, stated on the TIMELINE as well
+    /// as by the mode. The mode is what actually protects her; the window is
+    /// what the cancel and scoring layers read without looking at a live body,
+    /// and a timeline claiming she is vulnerable down there would score the move
+    /// as a punishable commitment it is not.
+    #[test]
+    fn the_timeline_says_she_is_untouchable_for_the_whole_trip() {
+        use ambition_characters::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
+        use ambition_platformer2d::entity_catalog::{MoveEventKind, WindowTag};
+
+        let set = actor_moveset();
+        let mv = set
+            .moves
+            .iter()
+            .find(|m| m.id == "actor_trapdoor")
+            .expect("her trap");
+        let beat = |submerge: bool| -> f32 {
+            mv.events
+                .iter()
+                .find_map(|ev| match &ev.kind {
+                    MoveEventKind::Effect(effect) if effect.key == TRAPDOOR => {
+                        let params: TrapdoorParams =
+                            effect.params.hydrate().expect("trapdoor params");
+                        (params.submerge == submerge).then_some(ev.at_s)
+                    }
+                    _ => None,
+                })
+                .expect("both beats")
         };
+        let (under, up) = (beat(true), beat(false));
         assert!(
-            params_of("actor_trapdoor").behind_nearest_foe,
-            "the trap puts her behind somebody"
-        );
-        assert!(
-            !params_of("actor_curtain_call").behind_nearest_foe,
-            "the flyline is a recovery and is aimed"
+            mv.windows.iter().any(|w| matches!(w.tag, WindowTag::Invuln)
+                && w.start_s <= under + 1e-4
+                && w.end_s >= up - 1e-4),
+            "no Invuln window covers {under}s..{up}s, the span she is not in the world"
         );
     }
 
-    /// ⛔ AND THE RECOVERY STILL COSTS AN AIRTIME. `UpSpecial::Standard` stamps
+    /// ⛔ AND THE RECOVERY STILL COSTS AN AIRTIME.    /// ⛔ AND THE RECOVERY STILL COSTS AN AIRTIME. `UpSpecial::Standard` stamps
     /// `gates.recovery` on the move it lowers; a replacement inserted after that
     /// lowering carries the cost itself or she gets unlimited flight.
     #[test]

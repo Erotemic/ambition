@@ -151,6 +151,27 @@ pub enum BodyMode {
     /// Jump falls off the ladder with a short re-grab grace. Dash
     /// still clears the mode, as does losing contact.
     Climbing,
+    /// The body is UNDER the stage and not in the world: nothing draws it,
+    /// nothing can hit it, gravity does not reach it, and geometry does not
+    /// stop it. It still STEERS — this is a way of travelling, not a pause.
+    ///
+    /// ⭐⭐ JON, 2026-08-27, on the Actor's trapdoor: *"a trap door opens, the
+    /// actor jumps into it, small pause, the exit trapdoor opens, and she jumps
+    /// / pops out of it… I do want the player to be able to control where they
+    /// move."* Every one of those clauses is a property of a BODY MODE and not
+    /// of a move: the move decides when she goes under and when she comes back,
+    /// and this decides what being under the stage MEANS.
+    ///
+    /// ⛔⛔ IT IS NOT `Climbing` WITH THE ART OFF. Climbing suspends gravity but
+    /// stays in the world — it collides, it is drawn, it can be hit, and it is
+    /// anchored to a climbable region it must keep touching. A submerged body is
+    /// absent: the passable rule is unconditional rather than region-scoped,
+    /// because there is no ladder under the stage to lose contact with.
+    ///
+    /// ⛔ AND THE MOVE MUST BRING HER BACK. Nothing here ends the mode — a body
+    /// left in it is a fighter who never returns, which is why the only thing
+    /// that sets it also schedules the beat that clears it.
+    Submerged,
 }
 
 impl BodyMode {
@@ -162,6 +183,7 @@ impl BodyMode {
             BodyMode::Sliding => "Sliding",
             BodyMode::MorphBall => "MorphBall",
             BodyMode::Climbing => "Climbing",
+            BodyMode::Submerged => "Submerged",
         }
     }
 
@@ -237,6 +259,16 @@ impl BodyMode {
                 // across the transition. Future-proof: if we add a
                 // "hugging the ladder" pose with reduced width, change
                 // it here without touching call sites.
+                size: base_size,
+            },
+            BodyMode::Submerged => BodyShape {
+                mode: self,
+                // ⛔ THE STANDING SILHOUETTE, and it is not laziness. A
+                // submerged body collides with nothing, so its box decides
+                // nothing while it is under there — but the box is what she is
+                // RESTORED to on the way out, and a mode that shrank her would
+                // have to grow her again inside a floor. Climbing keeps the
+                // standing size for a version of the same reason.
                 size: base_size,
             },
         }

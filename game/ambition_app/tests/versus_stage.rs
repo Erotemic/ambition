@@ -1722,6 +1722,7 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
                         bounces: 0,
                         world_hit: ambition_platformer2d::projectiles::WorldHitPolicy::Bouncing,
                         charge_tier: 0,
+                        boomerang_return_s: None,
                     },
                 ),
             },

@@ -181,6 +181,13 @@ impl Plugin for CombatSchedulePlugin {
                 // the press, not a B-reverse.
                 ambition_combat::moveset::apply_special_turn_flicks
                     .run_if(gameplay_allowed),
+                // ⛔ BEFORE `dispatch_move_events`, and that ordering is the
+                // whole mechanic: the move's `Ranged` event is dispatched there
+                // and `spawn_projectiles_from_brain_actions` routes the shot by
+                // WHAT IS IN THE HAND. A brandish that landed after would fire
+                // the fighter's bare-handed shot on the frame it drew the gun.
+                ambition_combat::held_items::brandish_the_playing_move_s_weapon
+                    .run_if(gameplay_allowed),
                 ambition_combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
                 // Writes no gameplay — the real strike is the move's own hitbox.
                 ambition_combat::moveset::project_moveset_melee_to_body_melee
@@ -207,6 +214,12 @@ impl Plugin for CombatSchedulePlugin {
                 // by `dispatch_move_events` ABOVE for moveset-ranged bodies — and emits open
                 // projectile requests.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
+                    .run_if(gameplay_allowed),
+                // EFFECTS-stage consumer, beside the shot spawner and for the same
+                // reason: a move's timed technique is dispatched as an
+                // `ActorActionMessage` above, and a teleport that ran a phase
+                // later would move the body after the frame it was authored for.
+                ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
                     .run_if(gameplay_allowed),
                 (
                     ambition_combat::strike::apply_effects

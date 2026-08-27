@@ -271,6 +271,7 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -328,6 +329,7 @@ pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32)
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -683,6 +685,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 

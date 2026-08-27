@@ -69,6 +69,28 @@ pub fn spawn_projectiles_from_brain_actions(
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
+    // ── AIM ASSIST ── the three reads that turn "the way I was pointing" into
+    // "at the one opponent over there". Read-only and disjoint from `actors`,
+    // which borrows kinematics mutably for the recoil.
+    relations: Option<Res<ambition_combat::targeting::FactionRelations>>,
+    shooters: Query<(
+        &ambition_characters::actor::ActorFaction,
+        Option<&ambition_combat::targeting::MatchTeam>,
+        Option<&ambition_characters::control::DrivingParticipant>,
+    )>,
+    candidates: Query<(
+        Entity,
+        &ae::CenteredAabb,
+        &ambition_characters::actor::ActorFaction,
+        &ambition_characters::actor::BodyHealth,
+        Option<&ambition_combat::targeting::MatchTeam>,
+        Option<&ambition_characters::control::DrivingParticipant>,
+        // ⛔ THE STABLE IDENTITY, because an exact distance tie decided by
+        // `Entity` is a desync: bevy_ggrs destroys and recreates rollback
+        // entities, so the raw id a resimulation sees is not the one the
+        // confirmed timeline saw.
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    )>,
     // WHO WROTE THIS BODY'S VELOCITY. The causal log answers "what is the
     // velocity" and never "who set it", so a body that moves without asking to
     // costs a survey of all 70 velocity writers to explain — measured, six
@@ -171,6 +193,9 @@ pub fn spawn_projectiles_from_brain_actions(
             bounce_on_world_contact: false,
             max_lifetime: PROJECTILE_MAX_LIFETIME,
             half_extent: PROJECTILE_HALF_EXTENT,
+            // The pool's own straight envelope never turns around; a shot that
+            // does says so on its authored flight.
+            boomerang_return_s: None,
         });
         let gravity_dir = -surface
             .map(|s| s.surface_normal)
@@ -182,7 +207,49 @@ pub fn spawn_projectiles_from_brain_actions(
             dir_policy,
             speed: spec.speed(),
         };
-        let world_dir = request.dir_to_world(frame).normalize_or_zero();
+        let commanded = request.dir_to_world(frame).normalize_or_zero();
+        // ⭐ THE ONE PLACE A SHOT'S DIRECTION BECOMES WORLD-SPACE, which is the
+        // only place an assist can be applied once and hold for every path that
+        // fires — a move's timed `Ranged` event, a flat brain fire, a possessed
+        // body, a replay. Bending it upstream would have to bend a
+        // frame-relative vector and would miss half of them.
+        let world_dir = match spec.aim_assist {
+            None => commanded,
+            Some(assist) => {
+                let muzzle = kin.pos;
+                let matrix = relations.as_deref();
+                let foes = shooters.get(msg.actor).ok().map(|(faction, team, driver)| {
+                    candidates
+                        .iter()
+                        .filter(move |(candidate, _, candidate_faction, health, candidate_team, candidate_driver, _)| {
+                            *candidate != msg.actor
+                                && health.alive()
+                                && ambition_combat::targeting::combat_relation(
+                                    matrix,
+                                    *faction,
+                                    driver,
+                                    team,
+                                    None,
+                                    *candidate,
+                                    **candidate_faction,
+                                    *candidate_driver,
+                                    *candidate_team,
+                                )
+                                .is_target()
+                        })
+                        .map(|(candidate, aabb, _, _, _, _, sim_id)| {
+                            (candidate, sim_id.cloned(), aabb.center)
+                        })
+                        .collect::<Vec<_>>()
+                });
+                match foes {
+                    Some(foes) => ambition_combat::targeting::assisted_fire_direction(
+                        muzzle, commanded, assist, foes,
+                    ),
+                    None => commanded,
+                }
+            }
+        };
         let spawn_origin = if uses_gun_sword {
             let hand = ambition_mount::rider_hand_world_pos_in_frame(
                 kin.pos,
@@ -205,6 +272,7 @@ pub fn spawn_projectiles_from_brain_actions(
             visual_id,
             bounces: flight.bounces,
             bounce_on_world_contact: flight.bounce_on_world_contact,
+            boomerang_return_s: flight.boomerang_return_s,
         };
         if uses_gun_sword {
             sfx.write(SfxMessage::Play {

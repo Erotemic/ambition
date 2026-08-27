@@ -21,6 +21,7 @@ pub mod george_booul_moveset;
 pub mod moveset;
 pub mod select;
 pub mod select_screen;
+pub mod bomb;
 pub mod shark_ride;
 pub mod smash_pack;
 
@@ -766,6 +767,21 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 // not reasoned: with the set alone the executor ran every tick
                 // and read zero requests, and the shark never appeared.
                 .before(ambition_platformer2d::actors::features::apply_summon_effects),
+        );
+        // THE BOMB. Recognised where the shark's summon is, for the same reason
+        // — both are authored techniques dispatched as `ActorActionMessage` —
+        // and burnt in `Settle`, after the item physics has had its say about
+        // whether the object hit anything this tick.
+        app.add_systems(
+            sim,
+            crate::bomb::translate_bomb_drops
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
+        );
+        app.add_systems(
+            sim,
+            crate::bomb::burn_fuses_and_answer_impacts
+                .after(ambition_platformer2d::actors::items::pickup::ItemPickupSet::CoreHeldItems)
+                .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
         // WHAT ENDS A RIDE, and what the shark does afterwards.
         //
@@ -2127,6 +2143,15 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "ambition_demo_smash",
                 "smash.departing_mount",
                 crate::shark_ride::departing_probe,
+            );
+            // The bomb's fuse and its remembered speed. Both outlive the tick
+            // that made them, so a rewind that put the bomb back without putting
+            // its fuse back would give the resimulated timeline a different
+            // explosion from the confirmed one.
+            app.rollback_component_clone_probed::<crate::bomb::LiveBomb>(
+                "ambition_demo_smash",
+                "smash.live_bomb",
+                crate::bomb::live_bomb_probe,
             );
         }
         app.init_resource::<select::SmashSelect>();

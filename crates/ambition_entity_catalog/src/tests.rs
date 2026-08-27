@@ -110,6 +110,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),
@@ -1132,6 +1133,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -1383,6 +1385,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     };
     let derived = spec.charge_policy().expect("a paying smash charges");
     // ⭐ THE HOLD SITS WHERE THE WINDUP BEGINS, and this assertion read `0.3` —
@@ -1426,6 +1429,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     spec.smash_charge = Some(SmashChargeSpec {
         hold_at_s: 0.12,
         max_hold_s: 0.8,
+        stores: false,
     });
     assert_eq!(spec.charge_policy().unwrap().hold_at_s, 0.12);
 
@@ -1433,6 +1437,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     spec.smash_charge = Some(SmashChargeSpec {
         hold_at_s: 0.12,
         max_hold_s: 0.0,
+        stores: false,
     });
     assert!(
         spec.charge_policy().is_none(),
@@ -1494,6 +1499,7 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
         m.smash_charge = Some(SmashChargeSpec {
             hold_at_s,
             max_hold_s: 0.8,
+            stores: false,
         });
         m
     };

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v122
+ggrs-rollback-schema-v126
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -36,6 +36,7 @@ actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapsho
 actor.match_team	component-canonical	MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_model	component-canonical	MotionModel	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_path	component-clone-cursor	ActorMotionPath	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+actor.move_brandished_item	component-clone	MoveBrandishedItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
 actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -58,6 +59,7 @@ actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; 
 actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.temporary_control	component-canonical	TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -457,6 +459,7 @@ scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapsh
 scope.session	component-canonical	SessionScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 smash.departing_mount	component-clone	Departing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 smash.hold_state	component-canonical	SmashHoldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+smash.live_bomb	component-clone	LiveBomb	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 twintrack.character	component-clone	TwinTrackCharacter	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 twintrack.experiment	component-canonical	TwinTrackExperiment	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 twintrack.laboratory	component-clone	LaboratoryTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

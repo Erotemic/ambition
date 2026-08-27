@@ -82,6 +82,35 @@ pub fn under_own_name(
     contract
 }
 
+/// The move id with any owner prefix removed, so a borrowed move can be found
+/// beside the archetype's own.
+///
+/// Ids are `<owner>_<slot>`; the archetype's are `polygon_<slot>`. Taking
+/// everything after the FIRST underscore is enough to pair them and is what the
+/// rename itself does in reverse.
+/// A move id with its owner prefix removed, so a renamed move can be recognised
+/// as the same SLOT its archetype named.
+///
+/// ⛔⛔ THE PREFIXES ARE THE BORROWER'S OWN, PASSED IN. A hardcoded list paired
+/// 23 of the Author's 26 moves (his archetype carries `polygon_` AND
+/// `pointed_polygon_`) and 0 of the Officer's (whose archetype carries
+/// `polygon_brawler_`). The prefixes each borrower renames are stated once, in
+/// that borrower's own file, and asking for them is the only way this cannot
+/// drift.
+///
+/// Longest first, so `pointed_polygon_` is not eaten by `polygon_`.
+#[cfg(test)]
+fn strip_owner_prefix<'a>(id: &'a str, prefixes: &[&str]) -> &'a str {
+    let mut sorted: Vec<&str> = prefixes.to_vec();
+    sorted.sort_by_key(|p| std::cmp::Reverse(p.len()));
+    for prefix in sorted {
+        if let Some(rest) = id.strip_prefix(&format!("{prefix}_")) {
+            return rest;
+        }
+    }
+    id
+}
+
 #[cfg(test)]
 mod tests {
     /// EVERY BORROWED TABLE RENAMES CLEAN, and no easter egg answers to a name
@@ -94,16 +123,18 @@ mod tests {
     /// the panic fired inside a headless boot, nineteen tests deep.
     #[test]
     fn a_borrowed_table_renames_every_id_and_collides_with_nothing() {
-        for (borrowed, archetype, owner) in [
+        for (borrowed, archetype, owner, prefixes) in [
             (
                 crate::author_moveset::author_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "author",
+                &["polygon", "pointed_polygon"][..],
             ),
             (
                 crate::officer_moveset::officer_moveset(),
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
+                &["polygon_brawler", "pugnacious_polygon"][..],
             ),
             (
                 crate::actor_moveset::actor_moveset(),
@@ -154,13 +185,53 @@ mod tests {
             }
             // ...and the FRAME DATA is the archetype's, which is the whole point
             // of borrowing rather than copying.
-            for (mine, theirs) in borrowed.moves.iter().zip(archetype.moves.iter()) {
+            //
+            // ⛔⛔ MATCHED BY THE VERB, NOT BY POSITION AND NOT BY ID. This used
+            // to `zip` the two move lists, which reads as "the same moves in the
+            // same order" and is only true while the borrower changes NOTHING:
+            // the Author replaced his up-B with a teleport (2026-08-27) and every
+            // move after the one he removed compared against its neighbour,
+            // reporting a drift in `author_low_arc`, a move nobody touched.
+            //
+            // ⛔ AND NOT BY STRIPPED ID EITHER, which was the next thing tried:
+            // the archetype's own ids carry two different owner prefixes
+            // (`polygon_` and `pointed_polygon_`), so cutting at the first
+            // underscore paired 23 of 26 and silently skipped the rest.
+            //
+            // ⭐ THE VERB IS THE EXACT PAIRING and it is a better statement
+            // besides: the same BUTTON gives you the same frame data. A slot the
+            // borrower deliberately owns is exempt by construction — its move has
+            // nothing to have drifted from — and that is what "a fighter who
+            // borrows a table may still own a slot in it" means.
+            let mut compared = 0usize;
+            for (verb, target) in &borrowed.verbs {
+                let (Some(mine), Some(theirs)) = (
+                    borrowed.moves.iter().find(|mv| mv.id == *target),
+                    archetype
+                        .verbs
+                        .get(verb)
+                        .and_then(|id| archetype.moves.iter().find(|mv| mv.id == *id)),
+                ) else {
+                    continue;
+                };
+                // The borrower's OWN move for this slot: a different move, not a
+                // renamed one, so there is nothing to compare.
+                if !mine.id.ends_with(super::strip_owner_prefix(&theirs.id, prefixes)) {
+                    continue;
+                }
+                compared += 1;
                 assert_eq!(
                     mine.duration_s, theirs.duration_s,
-                    "{owner}'s `{}` drifted from the archetype's timing",
+                    "{owner}'s `{verb}` (`{}`) drifted from the archetype's timing",
                     mine.id
                 );
             }
+            assert!(
+                compared + 2 >= archetype.verbs.len(),
+                "{owner} matched only {compared} of the archetype's {} bound \
+                 verbs — a rename that stopped lining up makes this check vacuous",
+                archetype.verbs.len()
+            );
         }
     }
 }

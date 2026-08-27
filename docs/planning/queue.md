@@ -12923,6 +12923,144 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ✔ **D254 — THE OVERNIGHT BRIEF: A BALANCE INSPECTOR AND FIVE SPECIALS.
+  (2026-08-27, `overnight-agent3-moveset-and-specials`)**
+
+`docs/planning/overnight-goal-agent3.md`, all six items. What landed, and what
+each one is worth reading for:
+
+**The moveset balance inspector** — `tools/ambition_moveset_inspector/`, plus two
+binaries. `moveset_export` boots the composed host and reports what the SHIPPED
+cast resolves to (46 fighters, 881 moves), not what an authoring file writes;
+`moveset_takes` drives the nineteen repertoire presses through the real control
+frame into a real seated match and records what the ENGINE did with them. Four
+views: roster, one fighter's frame data with a timeline and a hitbox diagram, one
+SLOT across the whole roster with median-absolute-deviation outlier flags, and
+take playback. Durable feedback under `reviews/<character>/<move>.yaml`, keyed by
+the stable id so *"the pirate's forward smash is too strong"* survives the tuning
+pass it asks for; `--report` prints the standing notes for an agent told to
+address them.
+
+⭐⭐ AND IT IMMEDIATELY FOUND TWO THINGS NOTHING ELSE HAD: **D252** (the back air
+is unreachable for the whole cast) and **D253** (`player_robot_v3` cannot throw
+any of its five specials). Both are open rows above.
+
+**Pirate side-B** — `run_out_the_guns`. Draws the gun-sword (`MoveSpec::equips`,
+whose timer is the MOVE'S OWN CLOCK), fires it (`MoveEventKind::Ranged` now
+prefers the weapon a move drew), and bends the shot toward the nearest foe in the
+commanded half-plane (`AimAssist`, a property of the WEAPON, applied at the one
+place a shot's direction becomes world-space).
+
+**Power ball** — `SmashChargeSpec::stores`. A full charge WAITS instead of firing
+itself, and an interrupted one is banked for the next press. Decided in
+`cancel_move_playback`, the one teardown path, from a fact the playback already
+carries.
+
+**Ponytail boomerang** — `ProjectileGameplay::accel`, one new primitive: a
+constant world acceleration pointed back along the launch axis, which needs no
+reference to the thrower and so stays inside the stepper's pure signature.
+
+**Two teleports** — `smash.teleport` with a LEDGE ASSIST, the robot's and the
+Author's, same technique and assist radius, different effect ids.
+
+**Bomb down-B** — a `GroundItem` with a fuse, so the pick-up-and-throw half is
+machinery the engine already installs. ⚠ its own module records the gap: only the
+CONTROLLED SUBJECT can pick one up today.
+
+⛔⛔ FOUR SCHEMA BUMPS IN ONE BRANCH, v122 → v126: `actor.move_brandished_item`,
+`actor.stored_move_charge`, the projectile codec's `accel`, and
+`smash.live_bomb`. Every one is declared in the baseline it belongs to, and the
+codec-shape file was re-recorded — absorbing two files STALE ON MAIN that this
+branch never touches, said out loud in that commit rather than laundered.
+
+- ▢ **D253 — `player_robot_v3` HAS FIVE SPECIALS AND CANNOT THROW ANY OF THEM.
+  (found 2026-08-27 by the moveset take recorder, on the run that re-seated
+  before every take)**
+
+Nineteen presses, driven through the real control frame into a real seated
+match, one fresh match per take. Fourteen work. The five that do not are the
+five specials, and they are ALL of them:
+
+```text
+attack .. smash_down .. attack_air_* .. grab .. taunt      all reach their move
+special           intended=bubble_shield        got=None   grounded=true
+special_forward   intended=rocket_dash          got=None   grounded=true
+special_up        intended=phase_shift          got=None   grounded=false
+special_down      intended=stabilizer_slam      got=None   grounded=true
+special_air_down  intended=stabilizer_dive      got=None   grounded=false
+```
+
+⛔ NOT THE ENGINE, AND NOT THE PRESS. The same driver, the same tick budget and
+the same re-seat get every special out of the other two fighters measured:
+
+```text
+npc_pirate_admiral   5 of 5 specials fire   (grapeshot, run_out_the_guns,
+                                             call_the_shark, heave_to, heave_to)
+author               5 of 5 specials fire   (…, author_revision)
+player_robot_v3      0 of 5
+```
+
+⛔ AND FOUR OF THE FIVE ARE UNTOUCHED BY THE RUN THAT FOUND THEM. This branch
+replaced the robot's `special_up` only; `bubble_shield`, `rocket_dash`,
+`stabilizer_slam` and `stabilizer_dive` are as main has them, and they fail
+identically. Whatever this is, it predates the change that surfaced it.
+
+⭐ THE STANDING SUSPECT, unmeasured: this body can FLY, and a flying body is
+never grounded by construction (`integration.rs`: *"a flying body is never
+grounded — the collision sweep can still find support under a hovering
+flyer"*). The take recorder had to be taught the same thing about its own
+settle. A special resolves its posture at the press
+(`SpecialGestureIntent`), and a body whose ground state is a permanent lie is
+the obvious place to look first — but that is a hypothesis, and the four wrong
+hypotheses D207 cost are the reason it is written down as one.
+
+⭐ THE ACCEPTANCE TEST EXISTS: `moveset_takes --characters player_robot_v3`, and
+the report line is `MISMATCH: drove <id> but the engine played {}`.
+
+- ▢ **D252 — THE BACK AIR IS UNREACHABLE FOR THE WHOLE CAST. (found 2026-08-27
+  by the moveset take recorder, on the first run that recorded the resolved
+  gesture)**
+
+Every fighter authors an `attack_air_back`. None of them can throw one.
+
+`moveset_takes` drives the nineteen repertoire presses through the real control
+frame into a real seated match and records what the engine did. Eighteen reach
+the move they drove. The nineteenth reports:
+
+```text
+[take] npc_pirate_admiral  attack_air_back  moves={"air_forward"}
+       MISMATCH: drove air_back but the engine played {"air_forward"}
+       frame 0: facing=-1.0  gesture=Forward/Tilt/Airborne
+```
+
+⇒ the fighter TURNS TO FACE the back input before the press is read, so
+`attack_dir_from_axis(axis, facing)` folds the reversal away and every back-air
+press resolves as `Forward`. The move exists, is bound
+(`attack_air_back -> air_back` in the verb table), has frame data, and is dead
+content for all fourteen fighters.
+
+⛔ TWO AUTHORITIES DISAGREE ABOUT AIR FACING, and the code says so out loud in
+both places:
+
+- `movement/abilities.rs` — `let can_turn = ground.on_ground || flight.fly_enabled;`
+  i.e. an airborne body may NOT turn from the stick.
+- `movement/recovery.rs:383` — *"The effort's own steering IS its facing intent:
+  a body that cannot turn in the air still points where it is trying to go."*
+  and `MotionStepContext::facing_intent` is applied unconditionally in
+  `movement/kernel.rs:368`.
+
+Both are defensible; they cannot both hold. The genre's answer is that an
+airborne body keeps its facing and a back input is a BACK ATTACK — that is the
+whole reason the slot exists — while the reverse aerial rush stays a GROUNDED
+pivot resolved by the jump.
+
+⛔ NOT FIXED IN THE RUN THAT FOUND IT. `facing_intent` is a shared movement
+kernel input reaching every body in the game (crawlers, bosses, surface-momentum
+riders, the recovery probe), and re-tuning air facing at 5am on an unattended run
+would change how every character points while attacking. The finding is recorded
+with its instrument: rerun `moveset_takes` after any change and the MISMATCH line
+is the acceptance test.
+
 - ◐ **D244 — THE LADDER'S CAP FORBIDS NOTHING; ITS REPERTOIRE DOES RISE, AND THE
   FIRST VERSION OF THIS ROW SAID OTHERWISE. (promoted from the intake 2026-08-26,
   corrected within the hour by the measurement that would falsify it)**

@@ -311,6 +311,7 @@ mod tests {
             landing_lag_s: None,
             autocancel_after_s: None,
             sprite_spin_hz: None,
+            equips: None,
             id: id.to_string(),
             clip: ClipBinding {
                 clip: id.to_string(),

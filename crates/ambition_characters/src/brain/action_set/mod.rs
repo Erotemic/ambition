@@ -219,6 +219,91 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // ⭐ THE BOMB SHE LAYS. A held item with no verb of its own — the whole
+        // point of it is that it is a THING somebody carries, and its behaviour
+        // lives on the object's own fuse rather than on a button.
+        //
+        // ⛔ IT MUST BE REGISTERED OR THE MOVE IS HALF A MOVE. `pickup_held_item_system`
+        // resolves a ground item to the spec it becomes in a hand, and an
+        // unregistered id is an object nobody can pick up — which is exactly
+        // half of what Jon asked the down-B for.
+        items.insert(
+            "polygon_bomb",
+            HeldItemSpec {
+                id: "polygon_bomb".into(),
+                melee: None,
+                ranged: None,
+                // ⛔ `Auto`, NOT `UseSystem`. A pure throwable is released by
+                // the ordinary throw road (`throw_held_item_system`); a
+                // `UseSystem` item would have Attack intercepted by a fire
+                // system that does not exist for it, and pressing Attack with a
+                // bomb in hand would do nothing at all.
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
+        // ⭐ THE POLYGON'S PONYTAIL, taken hold of for one move and let go again.
+        //
+        // ⛔ A HELD ITEM FOR A THING THAT IS PART OF HER, and that is the point
+        // rather than a compromise: the seam `MoveSpec::equips` opens is "while
+        // this move plays, the fighter is WIELDING this, and its ranged verb is
+        // the shot" — and grabbing your own tail and throwing it is exactly
+        // that. The alternative was a second ranged slot on the character, which
+        // would have made every fighter's action set carry a field one of them
+        // uses.
+        items.insert(
+            "polygon_ponytail",
+            HeldItemSpec {
+                id: "polygon_ponytail".into(),
+                melee: None,
+                ranged: Some(
+                    RangedActionSpec::bolt(430.0, 7)
+                        // ⭐ IT COMES BACK. `0.34` to the turnaround means it is
+                        // home at `0.68` — long enough to cross the spacing she
+                        // fights at, short enough that throwing it is a
+                        // commitment rather than a zoning wall.
+                        .with_flight(ProjectileFlight::boomerang(0.34))
+                        .with_visual("polygon_bolt")
+                        // The move's own recovery is the cadence: a second
+                        // recharge would refuse a shot the move was already
+                        // accepted to fire.
+                        .with_refire(0.0),
+                ),
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
+        // ⭐ THE ADMIRAL'S OWN GUN-SWORD, drawn for one move and put away again.
+        //
+        // ⛔ A ROW OF ITS OWN RATHER THAN A LOUDER `gun_sword`, because the
+        // shared one is a PICKUP in the adventure game and a raider's sidearm,
+        // and a side-special's payoff is not the number either of those should
+        // be balanced around. Same art, same discharge, same hand — a different
+        // weapon.
+        items.insert(
+            "admiral_gun_sword",
+            HeldItemSpec {
+                id: "admiral_gun_sword".into(),
+                melee: None,
+                ranged: Some(
+                    RangedActionSpec::bolt(620.0, 8)
+                        // ⭐ THE HALF-PLANE, WHICH IS JON'S RULE VERBATIM: the
+                        // player picks a side and the weapon picks the angle
+                        // within it. A foe behind the admiral is not a target
+                        // for a shot he aimed forwards.
+                        //
+                        // The range is a little over half the smash stage's
+                        // width, so the assist reaches across a normal spacing
+                        // exchange and not across the whole room.
+                        .with_aim_assist(AimAssist::half_plane(360.0))
+                        // ⛔ THE MOVE'S OWN RECOVERY IS THE CADENCE HERE. This
+                        // weapon is drawn by a special and put away with it, so
+                        // a second recharge on top would refuse a shot the move
+                        // had already been accepted to fire — the exact
+                        // accept-then-veto `refire_s`'s own doc warns about.
+                        .with_refire(0.0),
+                ),
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         items.insert(
             "gun_sword_heavy",
             HeldItemSpec {
@@ -462,6 +547,21 @@ pub struct ProjectileFlight {
     pub max_lifetime: f32,
     /// Half-extent of the shot's body.
     pub half_extent: ae::Vec2,
+    /// Seconds until this shot has stopped and starts coming BACK, or `None`
+    /// for a shot that flies on — which is every shot in the game but one.
+    ///
+    /// ⭐ THE BOOMERANG, AS ONE NUMBER. Jon, 2026-08-27: *"I think the
+    /// projectile polygon should be able to use her ponytail as a boomarang for
+    /// her side-b."* It is resolved into a constant acceleration back along the
+    /// launch axis at spawn, so a thrown tail slows, stops, and comes home the
+    /// way it went out — and needs no reference to the thrower, which is what
+    /// keeps a returning shot inside the projectile stepper's pure signature.
+    ///
+    /// ⛔ THE TIME TO THE TURNAROUND, NOT THE TIME HOME. The return leg costs
+    /// the same as the outbound one, so a shot authored at `0.4` passes back
+    /// through the launch point at `0.8` and wants a lifetime a little past
+    /// that. [`Self::boomerang`] does that arithmetic.
+    pub boomerang_return_s: Option<f32>,
 }
 
 impl ProjectileFlight {
@@ -473,7 +573,20 @@ impl ProjectileFlight {
         bounce_on_world_contact: false,
         max_lifetime: 2.4,
         half_extent: ae::Vec2::new(10.0, 8.0),
+        boomerang_return_s: None,
     };
+
+    /// A shot that goes out, stops, and comes back — `out_s` to the turnaround.
+    ///
+    /// The lifetime is the round trip plus a little, so the tail expires just
+    /// past the hand that threw it rather than sailing off behind her.
+    pub const fn boomerang(out_s: f32) -> Self {
+        Self {
+            boomerang_return_s: Some(out_s),
+            max_lifetime: out_s * 2.0 + 0.15,
+            ..Self::STRAIGHT
+        }
+    }
 
     /// An arcing shot that skips off floors — gravity plus a bounce budget.
     pub const fn arcing(gravity: f32, bounces: u8) -> Self {
@@ -554,6 +667,44 @@ pub struct RangedActionSpec {
     /// nothing came out.
     #[serde(default = "default_ranged_refire_s")]
     pub refire_s: f32,
+    /// How far this weapon will BEND a shot toward a target the shooter was
+    /// already pointing at. `None` = a shot that goes exactly where it was
+    /// aimed, which is every ranged action that has not opted in.
+    #[serde(default)]
+    pub aim_assist: Option<AimAssist>,
+}
+
+/// A weapon's willingness to correct the shooter's aim.
+///
+/// ⭐ THE COMMANDED DIRECTION IS STILL THE DECISION. Jon, 2026-08-27, on the
+/// pirate's gun-sword: *"When the side-b resolves it should locate the nearest
+/// opponent and angle the equipped gun and shot so it fires in their direction
+/// IF THEY ARE IN THE HALF PLANE the side-b was directed towards."* The player
+/// chooses a side; the weapon chooses an angle within it. A fighter behind you
+/// is not a target for a shot you aimed forwards, and that is what makes the
+/// move a read rather than a homing missile.
+///
+/// ⛔ IT BENDS THE DIRECTION AND NOTHING ELSE. The shot still travels, can still
+/// be shielded, still misses a target that moves — this is a firing ANGLE, not a
+/// guarantee of contact.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub struct AimAssist {
+    /// The widest angle from the commanded direction that still counts as "the
+    /// way I was pointing", in radians. `FRAC_PI_2` is Jon's half-plane.
+    pub max_angle_rad: f32,
+    /// How far a target may be and still attract the shot, in world px. Past
+    /// this the shot goes where it was aimed.
+    pub max_range: f32,
+}
+
+impl AimAssist {
+    /// The half-plane the commanded direction faces, out to `max_range`.
+    pub const fn half_plane(max_range: f32) -> Self {
+        Self {
+            max_angle_rad: std::f32::consts::FRAC_PI_2,
+            max_range,
+        }
+    }
 }
 
 /// The recharge a ranged action gets when it authors none.
@@ -627,6 +778,7 @@ impl RangedActionSpec {
             visual: None,
             charge: None,
             refire_s: DEFAULT_RANGED_REFIRE_S,
+            aim_assist: None,
         }
     }
 
@@ -652,6 +804,12 @@ impl RangedActionSpec {
     /// Author the `ProjectileVisualId` this action's shot carries.
     pub fn with_visual(mut self, visual: impl Into<String>) -> Self {
         self.visual = Some(visual.into());
+        self
+    }
+
+    /// Author how far this weapon will bend a shot toward a target.
+    pub fn with_aim_assist(mut self, assist: AimAssist) -> Self {
+        self.aim_assist = Some(assist);
         self
     }
 

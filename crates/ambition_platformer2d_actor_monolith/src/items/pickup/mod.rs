@@ -1684,6 +1684,7 @@ pub fn fire_held_ranged_system(
             // the ECS projectile world-collision path, so this is inert here; a
             // detonate-on-contact bolt is `ExpireOnContact` in spirit.
             world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
+            accel: ae::Vec2::ZERO,
         },
         HeldProjectile {
             damage: ranged.damage(),

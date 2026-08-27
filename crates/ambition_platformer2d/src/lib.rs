@@ -228,7 +228,9 @@ pub mod participant {
 #[cfg(feature = "ambition_items")]
 pub mod item {
     pub use ambition_items::{Item, ItemGrantRequested, OwnedItems};
-    pub use ambition_platformer2d_actor_monolith::items::pickup::{GroundItem, ItemCustody};
+    pub use ambition_platformer2d_actor_monolith::items::pickup::{
+        GroundItem, ItemCustody, SettledItem,
+    };
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.

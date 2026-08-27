@@ -129,6 +129,9 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
         put_i32(out, self.damage);
         put_u8(out, self.bounces_remaining);
         self.world_hit.encode(out);
+        // A boomerang's whole trajectory is this vector; a peer that decoded a
+        // shot without it would fly the outbound leg forever.
+        put_vec2(out, self.accel);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
@@ -138,6 +141,7 @@ impl SnapshotState for crate::projectile::ProjectileGameplay {
             damage: r.i32()?,
             bounces_remaining: r.u8()?,
             world_hit: crate::projectile::WorldHitPolicy::decode(r)?,
+            accel: r.vec2()?,
         })
     }
 }

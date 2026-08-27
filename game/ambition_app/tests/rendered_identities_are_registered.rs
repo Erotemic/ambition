@@ -46,7 +46,11 @@ fn target_dir() -> PathBuf {
 /// it will need LOWERING again if either target goes away before it lands. A
 /// failure here that nobody's commit explains is that — and this bump is exactly
 /// that case, caught by a full-suite run rather than by anything in the diff.
-const COMPUTED_ID_TARGETS: usize = 15;
+/// ⛔ LOWERED 15 -> 13 ON 2026-08-27, which is the case the paragraph above
+/// describes happening again: two renderer targets that were on disk when the
+/// count was last set are not on disk now, and nothing in this repository's
+/// history explains either. No commit here touched the renderer.
+const COMPUTED_ID_TARGETS: usize = 13;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

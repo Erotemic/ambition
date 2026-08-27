@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ambition — Moveset Balance Inspector</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Moveset Balance Inspector</h1>
+  <span class="meta" id="bundle-meta">loading…</span>
+  <nav class="tabs">
+    <button data-view="roster" class="on">Roster</button>
+    <button data-view="fighter">Fighter</button>
+    <button data-view="compare">Compare</button>
+    <button data-view="takes">Engine takes</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ROSTER ------------------------------------------------------------- -->
+  <section class="view on" id="view-roster">
+    <div class="controls">
+      <input type="search" id="roster-search" placeholder="filter fighters…" size="26">
+      <button class="ghost on" id="grid-only">Smash grid only</button>
+      <span class="note" id="roster-count"></span>
+    </div>
+    <div class="roster" id="roster"></div>
+  </section>
+
+  <!-- FIGHTER ------------------------------------------------------------ -->
+  <section class="view" id="view-fighter">
+    <div class="controls">
+      <select id="fighter-pick"></select>
+      <span class="note" id="fighter-note"></span>
+    </div>
+    <div class="cols">
+      <div>
+        <div class="panel">
+          <h2>Moveset</h2>
+          <div class="scroll"><table id="moves"></table></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel" id="vitals-panel"><h2>Body</h2><div id="vitals"></div></div>
+        <div class="panel" id="move-panel">
+          <h2 id="move-title">Move</h2>
+          <div id="move-detail"><p class="note">Pick a move to see its frame data and hitboxes.</p></div>
+        </div>
+        <div class="panel" id="review-panel">
+          <h2>Feedback</h2>
+          <div id="review"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARE ------------------------------------------------------------ -->
+  <section class="view" id="view-compare">
+    <div class="controls">
+      <label class="note">Slot</label>
+      <select id="slot-pick"></select>
+      <button class="ghost on" id="compare-grid-only">Smash grid only</button>
+      <span class="note">Cells far from this slot's roster median are flagged
+        <span style="color:var(--hot)">high</span> /
+        <span style="color:var(--cold)">low</span>.</span>
+    </div>
+    <div class="panel scroll"><table id="compare"></table></div>
+  </section>
+
+  <!-- TAKES -------------------------------------------------------------- -->
+  <section class="view" id="view-takes">
+    <div class="controls">
+      <select id="take-pick"></select>
+      <button class="ghost" id="take-play">Play</button>
+      <input type="range" id="take-scrub" min="0" max="0" value="0" style="flex:1;min-width:220px">
+      <span class="note mono" id="take-frame"></span>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h2>What the engine did</h2>
+        <canvas class="hitboxes" id="take-canvas" width="1000" height="560"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--active)"></i>live hitbox</span>
+          <span><i style="background:var(--accent)"></i>fighter</span>
+          <span><i style="background:#7d8598"></i>other bodies</span>
+          <span><i style="background:var(--invuln)"></i>projectile / summon</span>
+        </div>
+      </div>
+      <div class="panel"><h2>Frame</h2><div id="take-facts" class="kv"></div></div>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

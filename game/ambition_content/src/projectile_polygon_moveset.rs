@@ -6,7 +6,7 @@
 //! remains useful as a bestial pose reference rather than a one-off gimmick.
 
 use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
+use ambition_characters::moveset_authoring::{impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,
@@ -46,6 +46,32 @@ const MUZZLE: (f32, f32) = (0.0, -8.0);
 /// windup that plays out on release.
 const CHARGE_FIRE_AT_S: f32 = 0.26;
 
+/// The held-item id her side-B takes hold of. See `polygon_ponytail` in the
+/// held-item registry: a held item for a thing that is part of her, because the
+/// seam is "while this move plays the fighter is WIELDING this, and its ranged
+/// verb is the shot" — which is what throwing your own tail is.
+const PONYTAIL: &str = "polygon_ponytail";
+
+/// When the tail leaves her hand. Late enough to read as a wind-up and be
+/// punishable on reaction.
+const PONYTAIL_THROWN_AT_S: f32 = 0.16;
+
+/// When the move ends — and with it the grip. Shorter than the tail's round
+/// trip on purpose: she is free to act while it is still out, which is the
+/// whole reason a boomerang is worth throwing.
+const PONYTAIL_ENDS_S: f32 = 0.40;
+
+/// The held-item id her down-B lays. It has to be a REGISTERED held item or
+/// nobody can pick the bomb up, which is half the move.
+const BOMB_ITEM: &str = "polygon_bomb";
+
+/// When the bomb reaches the floor.
+const BOMB_LAID_AT_S: f32 = 0.18;
+
+/// When the move ends. She is committed for a beat afterwards, which is the
+/// cost of putting a live thing on the stage.
+const BOMB_ENDS_S: f32 = 0.46;
+
 /// THE CHARGE BALL — the genre's held neutral-B, and this fighter's identity.
 ///
 /// Hold Special and the timeline freezes at [`CHARGE_HOLD_AT_S`] while the ball
@@ -53,6 +79,10 @@ const CHARGE_FIRE_AT_S: f32 = 0.26;
 /// a full charge is LOADED, not stored) and the rest of the windup plays into
 /// the shot. What comes out is scaled by how long it was held: see
 /// `crate::authored::projectile_polygon`'s `charged_cannon`.
+///
+/// ⭐ AND IT STORES. See `stores` on the policy below: a full charge WAITS
+/// rather than firing itself, and an interrupted one is banked for the next
+/// press. That is Samus/Mewtwo parity and it is what makes the ball a plan.
 ///
 /// ⛔ NO `smash_charge_mult`. That number scales the damage of a melee volume
 /// this move does not have — the payoff is entirely in the projectile — so
@@ -144,12 +174,27 @@ fn charge_shot() -> MoveSpec {
         smash_charge: Some(SmashChargeSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_FILL_S,
+            // ⭐⭐ IT STORES, AND THAT IS THE OTHER HALF OF THE CHARACTER. Jon,
+            // 2026-08-27: *"This should have parity with samus / mewtwo 'b', so
+            // that means it needs to be able to store a charge and fire at
+            // different sizes."* Firing at different sizes was already here —
+            // `charged_cannon`'s `RangedCharge` ladder and the sheet's five
+            // tiers. Storing was not, and without it the only way to reach a
+            // full ball was to stand still for the whole fill with nobody
+            // touching you, which on a platform-fighter stage is never.
+            //
+            // ⛔ AND IT REPLACES A COMMENT THAT SAID THE OPPOSITE. The doc above
+            // read *"a full charge is LOADED, not stored"*, which was true of the
+            // engine and wrong for this character: at maximum the shot now
+            // WAITS, and getting hit banks it instead of wasting it.
+            stores: true,
         }),
         charge_gesture: ChargeGesture::Special,
         repeat: None,
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -331,29 +376,44 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
 
     let neutral_special = charge_shot();
 
-    let side_special = impulse(
-        committed_tail(
-            strike(Strike {
-                id: "polygon_projectile_vector_rush",
-                clip: "attack_side",
-                startup_s: 0.11,
-                active_s: 0.11,
-                recover_s: 0.23,
-                offset: (24.0, -2.0),
-                half_extents: (26.0, 22.0),
-                damage: 11,
-                knockback: 116.0,
-                knockback_growth: 2.18,
-                launch_dir: Some((1.0, -0.23)),
-                on_hit: None,
-            }),
-            0.55,
-            0.10,
-        ),
-        0.11,
-        (590.0, 0.0),
-        ImpulseMode::Set,
+    // SIDE — `polygon_ponytail_boomerang`. SHE THROWS HER OWN TAIL.
+    //
+    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"I think the projectile polygon should be
+    // able to use her ponytail as a boomarang for her side-b."* It replaces
+    // `polygon_projectile_vector_rush`, a lunging body-check that said nothing
+    // about the ranged member of the trio being ranged.
+    //
+    // ⭐ THE THROW IS THE SAME SEAM THE ADMIRAL'S GUN-SWORD USES.
+    // `MoveSpec::equips` puts a thing in the fighter's hands for exactly as long
+    // as the move's own clock runs and fires ITS ranged verb — so "grab your
+    // ponytail and throw it" is one move rather than an equip the player has to
+    // sequence, and the tail's flight is authored on the tail rather than on
+    // her.
+    //
+    // ⛔ NO MELEE VOLUME. The tail IS the damage, going out and coming back;
+    // a move that also carried a strike would be two moves on one button.
+    let side_special = ambition_characters::moveset_authoring::hitless_special(
+        "polygon_ponytail_boomerang",
+        "attack_side",
+        PONYTAIL_THROWN_AT_S,
+        PONYTAIL_ENDS_S,
     );
+    let mut side_special = side_special;
+    side_special.display_name = Some("Ponytail".to_string());
+    side_special.equips = Some(PONYTAIL.to_string());
+    side_special.events.push(MoveEvent {
+        at_s: PONYTAIL_THROWN_AT_S,
+        kind: MoveEventKind::Ranged,
+    });
+    // A small forward step on the throw — additive, so it is a lean rather than
+    // a lunge and advertises no route to a recovery search.
+    let side_special = impulse(
+        side_special,
+        PONYTAIL_THROWN_AT_S,
+        (140.0, 0.0),
+        ImpulseMode::Add,
+    );
+
     let mut uppercut = strike(Strike {
         id: "polygon_projectile_recoil_lift",
         clip: "attack_up",
@@ -371,24 +431,56 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     uppercut.landing_lag_s = Some(0.25);
     let up_special = impulse(uppercut, 0.08, (0.0, -745.0), ImpulseMode::Set);
 
-    let grounded_down_special = committed_tail(
-        strike(Strike {
-            id: "polygon_projectile_low_burst",
-            clip: "attack_down",
-            startup_s: 0.13,
-            active_s: 0.10,
-            recover_s: 0.25,
-            offset: (0.0, 15.0),
-            half_extents: (31.0, 13.0),
-            damage: 11,
-            knockback: 105.0,
-            knockback_growth: 1.95,
-            launch_dir: Some((0.70, -0.72)),
-            on_hit: None,
-        }),
-        0.54,
-        0.05,
+    // DOWN (grounded) — `polygon_lay_bomb`. SHE PUTS A LIVE BOMB ON THE FLOOR.
+    //
+    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"The projectile polygon should poop a bomb
+    // onto the stage, they should be able to pick it up and throw it. The bomb
+    // should detonate in 4 seconds or if it hits something with enough velocity,
+    // whichever comes first."*
+    //
+    // ⭐ THE OBJECT IS A GROUND ITEM, which is what makes the second sentence
+    // free: picking things up and throwing them is machinery the engine already
+    // installs in every game. See `ambition_demo_smash::bomb`.
+    //
+    // ⛔ NO MELEE VOLUME. Laying a bomb is not a hit — the bomb is — and a
+    // down-B that also struck would be two moves on one button. It replaces
+    // `polygon_low_burst`, an ordinary low arc that said nothing about her.
+    let grounded_down_special = ambition_characters::moveset_authoring::hitless_special(
+        "polygon_lay_bomb",
+        "attack_down",
+        BOMB_LAID_AT_S,
+        BOMB_ENDS_S,
     );
+    let mut grounded_down_special = grounded_down_special;
+    grounded_down_special.display_name = Some("Lay a Bomb".to_string());
+    let grounded_down_special = ambition_characters::smash_bomb::author_drop_bomb(
+        grounded_down_special,
+        BOMB_LAID_AT_S,
+        ambition_characters::smash_bomb::DropBombParams {
+            item_id: BOMB_ITEM.to_string(),
+            // ⭐ JON'S NUMBER, verbatim: *"detonate in 4 seconds"*.
+            fuse_s: 4.0,
+            damage: 12,
+            blast_radius: 56.0,
+            // ⭐ "ENOUGH VELOCITY" IS A NUMBER, and this one sits between the two
+            // ways a bomb stops moving: `THROW_SPEED_X` is 320, so a THROWN bomb
+            // detonates on what it hits, and a bomb that merely fell out of her
+            // hands does not.
+            impact_speed: 260.0,
+            half_extents: (9.0, 9.0),
+            // Just behind and below her, so laying one does not put it inside
+            // her own body where nobody can pick it up.
+            offset: (-16.0, 14.0),
+        },
+    );
+    let grounded_down_special =
+        ambition_characters::moveset_authoring::sfx(grounded_down_special, BOMB_LAID_AT_S, "player.land.heavy");
+    let grounded_down_special = ambition_characters::moveset_authoring::vfx(
+        grounded_down_special,
+        BOMB_LAID_AT_S,
+        "poof_small",
+    );
+
     let mut airborne_down_special = strike(Strike {
         id: "polygon_projectile_downward_vector",
         clip: "air_down",
@@ -529,9 +621,9 @@ mod tests {
             // special, and the id exists nowhere else in the tree — the list was
             // the last reference to a move that had been renamed out.
             "polygon_projectile_charge_shot",
-            "polygon_projectile_vector_rush",
+            "polygon_ponytail_boomerang",
             "polygon_projectile_recoil_lift",
-            "polygon_projectile_low_burst",
+            "polygon_lay_bomb",
             "polygon_projectile_downward_vector",
             "polygon_projectile_grab",
             "polygon_projectile_pummel",

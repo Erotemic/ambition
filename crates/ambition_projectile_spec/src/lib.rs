@@ -39,4 +39,8 @@ pub struct ProjectileSpawn {
     pub bounces: u8,
     /// Whether world contact bounces this shot (vs. expiring it).
     pub bounce_on_world_contact: bool,
+    /// Seconds until this shot turns around and comes back, or `None` for one
+    /// that never does. See `ProjectileGameplay::accel`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub boomerang_return_s: Option<f32>,
 }

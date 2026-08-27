@@ -208,6 +208,22 @@ where
         "feature.pogo_target_volumes",
     );
     registrar.rollback_component_clone::<crate::held_items::HeldItem>(OWNER, "actor.held_item");
+    // The brandish's own memory. Derived from `MovePlayback` on the tick a move
+    // that equips something starts, and it OUTLIVES that tick — which is the
+    // definition of state a rewind has to carry. Unregistered, a body rolled
+    // back to before the draw would keep the sword forever.
+    registrar.rollback_component_clone_probed::<crate::held_items::MoveBrandishedItem>(
+        OWNER,
+        "actor.move_brandished_item",
+        crate::held_items::move_brandished_item_probe,
+    );
+    // The banked charge. It OUTLIVES the move that made it, which is the whole
+    // point of it, so a rewind that un-does the interruption must un-do the bank.
+    registrar.rollback_component_clone_probed::<crate::moveset::StoredMoveCharge>(
+        OWNER,
+        "actor.stored_move_charge",
+        crate::moveset::stored_move_charge_probe,
+    );
     registrar.rollback_component_clone::<crate::moveset::ActorMoveset>(OWNER, "actor.moveset");
     registrar
         .rollback_component_clone::<crate::moveset::MovesetMelee>(OWNER, "actor.moveset_melee");

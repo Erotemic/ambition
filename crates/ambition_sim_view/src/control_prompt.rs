@@ -22,12 +22,12 @@
 //! `ActiveBindings` source in P1/P5; the touch overlay keeps its own glyph
 //! subtitle in the meantime, so this model is label-first.
 
-use ambition_characters::action_scheme::{ActorTechniques, derive_action_scheme};
+use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
-use ambition_input::{ActiveUiCues, GAMEPLAY_CONTEXT, SeatInputContexts, UiCue};
-use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
+use ambition_input::{ActiveUiCues, SeatInputContexts, UiCue, GAMEPLAY_CONTEXT};
+use ambition_platformer2d_core::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::{
     ControlledSubject, PlayerEntity, PrimaryPlayer,
 };
@@ -770,10 +770,10 @@ mod tests {
     /// overlay gets a labeled confirm control at the title screen.
     #[test]
     fn a_frontend_context_owns_the_prompt_with_its_own_cue() {
-        use ambition_input::participant::{ContextClaim, context_priority};
+        use ambition_input::participant::{context_priority, ContextClaim};
         use ambition_input::{
-            InputParticipant, LAUNCHER_CONTEXT, ParticipantContexts, SeatInputContexts,
-            resolve_active_input_context,
+            resolve_active_input_context, InputParticipant, ParticipantContexts, SeatInputContexts,
+            LAUNCHER_CONTEXT,
         };
 
         let mut app = app();
@@ -865,9 +865,9 @@ mod tests {
     #[test]
     fn a_same_tick_kit_swap_cannot_drift_the_prompt_from_the_gate() {
         use ambition_characters::action_scheme::ResolvedTechniqueEdges;
-        use ambition_characters::actor::WornCharacter;
         use ambition_characters::actor::character_catalog::CharacterCatalog;
         use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_characters::actor::WornCharacter;
         use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
         use ambition_characters::control::ActorControl;
 
@@ -1044,10 +1044,10 @@ mod tests {
     /// pre-yield cache key.
     #[test]
     fn a_removed_input_context_hands_the_prompt_back_to_the_sim() {
-        use ambition_input::participant::{ContextClaim, context_priority};
+        use ambition_input::participant::{context_priority, ContextClaim};
         use ambition_input::{
-            InputParticipant, LAUNCHER_CONTEXT, ParticipantContexts, SeatInputContexts,
-            resolve_active_input_context,
+            resolve_active_input_context, InputParticipant, ParticipantContexts, SeatInputContexts,
+            LAUNCHER_CONTEXT,
         };
         use bevy::ecs::system::RunSystemOnce;
 

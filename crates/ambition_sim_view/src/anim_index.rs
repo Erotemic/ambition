@@ -4,11 +4,13 @@
 
 use bevy::prelude::{Query, ResMut, Resource};
 
-use ambition_platformer2d_actor_monolith::features::{
-    boss_anim_state_for, ActorConfig, ActorStatus, BodyKinematics, BodyMelee, FeatureId,
-};
+use ambition_boss_encounter::anim::boss_anim_state_for;
+use ambition_combat::components::BodyMelee;
+use ambition_combat::components::FeatureId;
+use ambition_platformer2d_actor_monolith::features::{ActorConfig, ActorStatus};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 /// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,

@@ -642,34 +642,35 @@ pub struct LaunchedBodiesView(pub Vec<LaunchedBodyFact>);
 
 pub fn rebuild_launched_bodies_view(
     mut view: ResMut<LaunchedBodiesView>,
-    bodies: Query<(
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        Option<&ambition_platformer2d_core::BodyMotionFacts>,
-        Option<&BodyCombat>,
-        // The presented position, so the plume leaves the body where the
-        // sprite is drawn rather than at the tick position it is interpolating
-        // away from.
-        Option<&crate::presented_pose::PresentedPose>,
-        // The body's own motion policy, which is where its launch threshold is
-        // authored. Read for that ONE value; the maneuver state behind it is
-        // model-private (ADR 0024) and stays that way.
-        Option<&ambition_platformer2d_core::movement::MotionModel>,
-    ),
-    // ⛔⛔ A BODY OUT OF PLAY IS NOT IN A FLIGHT, AND THIS IS THE KO COMPOSITION
-    // POLICY RATHER THAN AN AMPLITUDE TWEAK. The launch trail's own header says
-    // its blast and plume are *"a LAYER over the hit spark and camera shake"*,
-    // and the knockout beat then layers on top of that — three modules each
-    // locally correct, and nothing anywhere saying *"the flight has RESOLVED;
-    // the cues whose job was to predict danger are done"*. So an elimination
-    // drew the trail that was still predicting the launch underneath the beat
-    // that answered it.
-    //
-    // ⭐ THE SEAM WAS ALREADY HERE. This view is the sim's resolved "this motion
-    // is INVOLUNTARY" fact, and a body the world has its hands off is not moving
-    // involuntarily — it is not moving at all. Retiring the row is the whole
-    // policy: the predictive cue stops at the instant the thing it predicted
-    // happens, and the knockout owns the beat alone.
-    bevy::prelude::Without<ambition_combat::death_rules::OutOfPlay>,
+    bodies: Query<
+        (
+            &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+            Option<&ambition_platformer2d_core::BodyMotionFacts>,
+            Option<&BodyCombat>,
+            // The presented position, so the plume leaves the body where the
+            // sprite is drawn rather than at the tick position it is interpolating
+            // away from.
+            Option<&crate::presented_pose::PresentedPose>,
+            // The body's own motion policy, which is where its launch threshold is
+            // authored. Read for that ONE value; the maneuver state behind it is
+            // model-private (ADR 0024) and stays that way.
+            Option<&ambition_platformer2d_core::movement::MotionModel>,
+        ),
+        // ⛔⛔ A BODY OUT OF PLAY IS NOT IN A FLIGHT, AND THIS IS THE KO COMPOSITION
+        // POLICY RATHER THAN AN AMPLITUDE TWEAK. The launch trail's own header says
+        // its blast and plume are *"a LAYER over the hit spark and camera shake"*,
+        // and the knockout beat then layers on top of that — three modules each
+        // locally correct, and nothing anywhere saying *"the flight has RESOLVED;
+        // the cues whose job was to predict danger are done"*. So an elimination
+        // drew the trail that was still predicting the launch underneath the beat
+        // that answered it.
+        //
+        // ⭐ THE SEAM WAS ALREADY HERE. This view is the sim's resolved "this motion
+        // is INVOLUNTARY" fact, and a body the world has its hands off is not moving
+        // involuntarily — it is not moving at all. Retiring the row is the whole
+        // policy: the predictive cue stops at the instant the thing it predicted
+        // happens, and the knockout owns the beat alone.
+        bevy::prelude::Without<ambition_combat::death_rules::OutOfPlay>,
     >,
 ) {
     view.0.clear();
@@ -803,7 +804,7 @@ mod pose_view_tests {
     /// field is wired at all.
     #[test]
     fn only_a_sheet_authored_body_reports_an_authored_quad() {
-        use ambition_platformer2d_actor_monolith::features::ActorRenderSize;
+        use ambition_combat::components::ActorRenderSize;
         use ambition_sprite_sheet::character::SpritePosedBody;
 
         let mut app = bevy::prelude::App::new();
@@ -928,7 +929,6 @@ mod pose_view_tests {
              would make every trailing body flash forever"
         );
     }
-
 
     /// A content pose pin reaches the PLAYER's view, not only an actor's.
     ///

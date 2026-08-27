@@ -5635,6 +5635,35 @@ delete the `pub use` and read the errors. This is the same lesson as the
 import-block one above wearing a different hat — a name is not reliably spelled
 the way it was declared.
 
+✔ **BOTH OF `movement_fx`'s EDGES DELETED 2026-08-26** — the `BodyAnimFacts`
+facade use (the file already named `ambition_characters::actor` directly for
+`BodyCombat`) and `BLINK_IN_ANIM_TIME`, a root constant with exactly one consumer
+in the whole tree. 1,116 lines and it says `crate::` nowhere. ⚠ ITS CONSUMERS
+ARE THE MONOLITH'S OWN TICK AND THE APP's phase list — one of them is the crate
+it lives in — so `shared_tangle`'s two-domain admission test does NOT pass and a
+new crate would relocate lines rather than remove a representation. ⇒ PARKED as
+carve-ready, not carved.
+
+⭐⭐ **AND THE REAL PRIZE THE FACADES WERE HIDING: `ambition_sim_view`'s
+DEPENDENCY ON THE MONOLITH IS 20/24 FACADE.** Of the 24 names it imported from
+`actor_monolith`, **twenty** are re-exports of `ambition_combat` (13),
+`ambition_platformer2d_core` (4), `shared_tangle` (2), `ambition_geometry` (1) and
+`ambition_boss_encounter` (1). All twenty now name their owning crate.
+
+⛔ **THE DELETION GATE FOR THE EDGE ITSELF IS FOUR TYPES AND ONE FUNCTION:**
+
+```text
+ActorConfig · ActorStatus     features/ecs/actor_clusters.rs
+SwitchFeature · SwitchOn      encounter/switches.rs
+configure_platformer2d_simulation_phases   schedule/ — TEST-only reach
+```
+
+⇒ move those four types and `ambition_sim_view` can drop
+`ambition_platformer2d_actor_monolith` from its `Cargo.toml` outright — a CRATE
+EDGE deleted, which is a different and larger thing than a carve. ⚠ they are
+rollback-registered, so the move owes the FOUR things a move owes, the fourth
+being the declaration nothing checks.
+
 ⭐ **NEXT CANDIDATE MEASURED AT HEAD: `features/movement_fx.rs`, 1,108 lines and
 TWO outward items, both removable.** `crate::actor::BodyAnimFacts` is a re-export
 of `ambition_characters::actor` — which the file ALREADY imports directly for

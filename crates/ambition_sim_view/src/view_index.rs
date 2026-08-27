@@ -7,13 +7,24 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteData;
+use ambition_combat::components::ActorDisposition;
+use ambition_combat::components::ActorIdentity;
+use ambition_combat::components::ActorRenderSize;
+use ambition_combat::components::BodyMelee;
+use ambition_combat::components::BossDeathAnimation;
+use ambition_combat::components::BossPhase;
+use ambition_combat::components::BreakableFeature;
+use ambition_combat::components::ChestFeature;
+use ambition_combat::components::Collected;
+use ambition_combat::components::FeatureId;
+use ambition_combat::components::Opened;
+use ambition_combat::components::PickupFeature;
 use ambition_platformer2d_actor_monolith::features::HazardFeature;
-use ambition_platformer2d_actor_monolith::features::{
-    ActorConfig, ActorDisposition, ActorIdentity, ActorRenderSize, ActorSurfaceState, BodyMelee,
-    BossDeathAnimation, BossPhase, BreakableFeature, CenteredAabb, ChestFeature, Collected,
-    FeatureId, FeatureSimEntity, Opened, PickupFeature, SwitchFeature, SwitchOn,
-};
+use ambition_platformer2d_actor_monolith::features::{ActorConfig, SwitchFeature, SwitchOn};
+use ambition_platformer2d_core::ActorSurfaceState;
+use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// One feature's per-frame render snapshot — THE read-model row of [`FeatureViewIndex`].
 #[derive(Clone, Copy, Debug)]

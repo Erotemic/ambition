@@ -15,15 +15,15 @@ pub mod minted_horizon;
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
-use crate::features::HeldItem;
-use crate::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };
 use ambition_characters::control::ActorControl;
+use ambition_combat::held_items::HeldItem;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
+use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(feature = "portal")]
 use ambition_portal2d::PortalGun;
@@ -438,7 +438,12 @@ pub fn ground_item_physics(
         let local = ambition_platformer2d_shared_tangle::gravity::GravityField {
             dir: gravity.dir_for(ae::Aabb::new(item.pos, item.half_extent)),
         };
-        ambition_platformer2d_shared_tangle::gravity::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &local, dt);
+        ambition_platformer2d_shared_tangle::gravity::apply_world_forces(
+            &mut item.vel,
+            GROUND_ITEM_GRAVITY,
+            &local,
+            dt,
+        );
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
         let blocked = world.blocks.iter().any(|block| {
@@ -585,7 +590,9 @@ pub fn restore_custody_to_checkpoint(
     // body can carry an object any distance before putting it down, so the room
     // holding the record is not reachable by adjacency.
     world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     // The checkpoint's own DESCRIPTIONS of what the simulation minted, for
     // the occurrences no record in any room can describe. See
@@ -906,7 +913,9 @@ pub fn restore_custody_to_checkpoint(
 /// that have one. Room transition still knows nothing about items.
 pub fn record_placed_ground_items(
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     items: Query<
         (
@@ -1713,57 +1722,57 @@ pub fn held_projectile_step(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    overlay: Res<crate::features::FeatureEcsWorldOverlay>,
+    overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     mut commands: Commands,
     // `Without<FeatureSimEntity>` keeps this `&mut BodyKinematics` disjoint from
     // the boss cluster query below (which reads `BodyKinematics` via
     // `BossClusterRef`) — a held bolt is never a feature-sim entity (B0001).
     mut projectiles: Query<
         (Entity, &mut BodyKinematics, &mut HeldProjectile),
-        Without<crate::features::FeatureSimEntity>,
+        Without<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
     >,
     // SLOT-0 SCOPE, NOT BY DESIGN — a held-bolt fold candidate the S5/S6 fold
     // did not reach. A held projectile belongs to whichever body picked it up, so
     // this should key off `ControlledSubject` like `blink`/`grapple` do. Left as-is
     // because retargeting a thrown bolt's owner changes hit attribution (feel), and
     // that never ships blind. Tracked in refactor-chain.md R6.
-    player: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    player: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
     ecs_breakables: Query<
         (
-            &crate::features::FeatureId,
-            &crate::features::CenteredAabb,
-            &crate::features::BreakableFeature,
+            &ambition_combat::components::FeatureId,
+            &ambition_platformer2d_core::CenteredAabb,
+            &ambition_combat::components::BreakableFeature,
         ),
-        With<crate::features::FeatureSimEntity>,
+        With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
     >,
     // `Option<&DamageableVolumes>` so a thrown bolt does not terminate on a body
     // that published no hurtbox and would take no damage. Optional, never required:
     // requiring it would drop every actor without one from the query.
     ecs_actors: Query<
         (
-            &crate::features::FeatureId,
-            &crate::features::CenteredAabb,
-            &crate::features::ActorDisposition,
+            &ambition_combat::components::FeatureId,
+            &ambition_platformer2d_core::CenteredAabb,
+            &ambition_combat::components::ActorDisposition,
             // AC3.1.A: the liveness authority, not the once-per-frame mirror.
             &ambition_characters::actor::BodyHealth,
-            Option<&crate::features::DamageableVolumes>,
+            Option<&ambition_combat::components::DamageableVolumes>,
         ),
         (
-            With<crate::features::FeatureSimEntity>,
+            With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
             Without<ambition_boss_encounter::BossConfig>,
         ),
     >,
     ecs_bosses: Query<
         (
-            &crate::features::FeatureId,
-            &crate::features::CenteredAabb,
+            &ambition_combat::components::FeatureId,
+            &ambition_platformer2d_core::CenteredAabb,
             ambition_boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
+            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
-        With<crate::features::FeatureSimEntity>,
+        With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
     >,
     mut feature_damage: MessageWriter<ambition_combat::events::HitEvent>,
     mut sfx: ambition_sfx::SfxWriter,
@@ -1826,7 +1835,7 @@ pub fn held_projectile_step(
         // Solid wall in this step → impact + expire (Fireball detonates here too).
         // Uses the carved world, so a portal opening is NOT a wall.
         let step = (vel * dt).length().max(1.0);
-        if let Some((hit_pos, _normal)) = crate::platformer_runtime::collision::raycast_solids(
+        if let Some((hit_pos, _normal)) = ambition_platformer2d_core::cast::raycast_solids(
             &*collision_world,
             pos,
             vel,

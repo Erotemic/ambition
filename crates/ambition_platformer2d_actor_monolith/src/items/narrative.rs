@@ -40,7 +40,10 @@ pub fn apply_item_grants(
 pub fn apply_shop_transactions(
     mut requests: MessageReader<ShopTransactionRequested>,
     mut owned: ResMut<OwnedItems>,
-    mut wallets: Query<&mut BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    mut wallets: Query<
+        &mut BodyWallet,
+        With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+    >,
 ) {
     let Ok(mut wallet) = wallets.single_mut() else {
         return;
@@ -91,8 +94,10 @@ mod tests {
         app.init_resource::<OwnedItems>();
         app.add_message::<ShopTransactionRequested>();
         app.add_systems(Update, apply_shop_transactions);
-        app.world_mut()
-            .spawn((crate::actor::PrimaryPlayer, BodyWallet { balance: 30 }));
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            BodyWallet { balance: 30 },
+        ));
 
         app.world_mut().write_message(ShopTransactionRequested {
             item: Item::HealthCell,

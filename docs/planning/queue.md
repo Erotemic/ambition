@@ -5915,6 +5915,29 @@ DEPENDENCY ON THE MONOLITH IS 20/24 FACADE.** Of the 24 names it imported from
 `ambition_platformer2d_core` (4), `shared_tangle` (2), `ambition_geometry` (1) and
 `ambition_boss_encounter` (1). All twenty now name their owning crate.
 
+⭐⭐ **ITEMS IS THE NEXT BLOCK AND IT IS NOT A FREE CARVE — CENSUSED 2026-08-27
+AFTER DELETING ITS FACADE USES.** `items/` is 5,466 lines. Its apparent outward
+coupling was ~40 references; repointing every FACADE use at the crate that owns
+it (markers, `FeatureSimEntity`, `FeatureId`, `CenteredAabb`, `BodyKinematics`,
+`HeldItem`, `BreakableFeature`, `ActorDisposition`, `DamageableVolumes`,
+`FeatureEcsWorldOverlay`, `BossAnimationFrameSample`, and BOTH
+`platformer_runtime::prelude` and `::collision`, which are re-exports of
+`shared_tangle::prelude` and `_core::cast`) leaves this:
+
+```text
+crate::abilities          17   ranged · traversal · thrown   ← the real weight
+crate::features            5   what is LEFT after the facades
+crate::character_runtime   5   ActiveMatch · PreparedMatch · MatchItemSpawns · live clock
+crate::construction        2 · crate::session 2 · crate::shrine 2
+crate::world_facts 1 · crate::schedule 1 · crate::ability_cooldown 1
+```
+
+⇒ **items is genuinely the monolith's**, unlike `damage_apply` — which the same
+treatment took from ~70 to zero. ⛔ do NOT price it as a move; the abilities
+coupling alone is a design question about who owns a thrown/ranged item's verb.
+⚠ THE FACADE DELETION IS STILL WORTH IT ON ITS OWN: the census is now honest, and
+the next session argues with 35 real references instead of 40 mixed ones.
+
 ⛔⛔⛔ **AND THE "FOUR TYPES" GATE BELOW IS WRONG — CORRECTED 2026-08-27 BY THE
 SESSION THAT WROTE IT.** That measurement read only the `features::{…}` brace
 imports in `anim_index.rs` and `view_index.rs`. `ambition_sim_view` also names the

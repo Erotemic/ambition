@@ -17,11 +17,11 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
 use crate::features::ecs::pickups::TouchCollectorFilter;
-use crate::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_characters::equipment::{EquipmentRow, WornEquipment};
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
+use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
 
 /// A collectible resting in the world. Touch it (AABB overlap) and its
 /// [`payload`](WorldItem::payload) is applied to the collecting body, then it

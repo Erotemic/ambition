@@ -73,7 +73,10 @@ fn a_pickup_with_no_plan_is_exactly_where_it_was_put() {
 fn the_rise_lifts_it_clear_and_then_hands_over_to_travel() {
     let plan = ItemMotionPlan::walker(60.0).emerging(32.0, 0.4);
     let (item, motion) = run(plan, 12);
-    assert!(motion.emerging(), "still climbing out at 0.2s of a 0.4s rise");
+    assert!(
+        motion.emerging(),
+        "still climbing out at 0.2s of a 0.4s rise"
+    );
     assert!(item.pos.y < 480.0, "and it has risen (screen up is -y)");
     assert_eq!(item.pos.x, 200.0, "a rising pickup does not travel yet");
 

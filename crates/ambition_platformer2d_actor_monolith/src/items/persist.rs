@@ -44,7 +44,10 @@ pub fn restore_inventory_from_save(
     // SLOT-0 BY DESIGN: the SAVE FILE belongs to the local player. `BodyWallet` is
     // body vocabulary (a currency-dropping NPC carries one), but only slot 0's
     // balance round-trips through the save.
-    mut wallet_q: Query<&mut BodyWallet, crate::actor::PrimaryPlayerOnly>,
+    mut wallet_q: Query<
+        &mut BodyWallet,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
 ) {
     if restored.0 {
         return;
@@ -77,7 +80,7 @@ pub fn persist_inventory_to_save(
     owned: Res<OwnedItems>,
     // SLOT-0 BY DESIGN: see `restore_inventory_from_save` — the save file is the
     // local player's, so only slot 0's wallet is persisted.
-    wallet_q: Query<&BodyWallet, crate::actor::PrimaryPlayerOnly>,
+    wallet_q: Query<&BodyWallet, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     mut save: ResMut<AmbitionGameSave>,
 ) {
     if !restored.0 {

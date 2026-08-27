@@ -178,7 +178,10 @@ fn move_axis(world: &ae::World, pos: ae::Vec2, half: ae::Vec2, delta: ae::Vec2) 
             moved.y = b.center().y + b.half_size().y + half.y;
         }
     }
-    AxisResolve { pos: moved, blocked }
+    AxisResolve {
+        pos: moved,
+        blocked,
+    }
 }
 
 /// Step every pickup that has a plan.
@@ -236,24 +239,14 @@ fn step_one_item(world: &ae::World, item: &mut WorldItem, motion: &mut ItemMotio
         motion.vel.x = motion.facing * plan.speed;
 
         let half = item.half_extent;
-        let horizontal = move_axis(
-            world,
-            item.pos,
-            half,
-            ae::Vec2::new(motion.vel.x * dt, 0.0),
-        );
+        let horizontal = move_axis(world, item.pos, half, ae::Vec2::new(motion.vel.x * dt, 0.0));
         item.pos = horizontal.pos;
         if horizontal.blocked && plan.turns_at_walls {
             motion.facing = -motion.facing;
         }
 
         let falling = motion.vel.y > 0.0;
-        let vertical = move_axis(
-            world,
-            item.pos,
-            half,
-            ae::Vec2::new(0.0, motion.vel.y * dt),
-        );
+        let vertical = move_axis(world, item.pos, half, ae::Vec2::new(0.0, motion.vel.y * dt));
         item.pos = vertical.pos;
         if vertical.blocked {
             // Landing is the only place `bounce` is read: a pickup that gives

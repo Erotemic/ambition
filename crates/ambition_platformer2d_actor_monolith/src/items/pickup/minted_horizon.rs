@@ -249,21 +249,20 @@ impl Plugin for ItemCheckpointHorizonPlugin {
             sim,
             CheckpointCapture.after(super::ItemPickupSet::CoreHeldItems),
         )
-            .init_resource::<MintedItemBaseline>()
-            .init_resource::<OwnedItemsBaseline>()
-            .add_systems(
-                sim,
-                (capture_minted_item_baseline, capture_owned_items_baseline)
-                    .in_set(CheckpointCapture),
+        .init_resource::<MintedItemBaseline>()
+        .init_resource::<OwnedItemsBaseline>()
+        .add_systems(
+            sim,
+            (capture_minted_item_baseline, capture_owned_items_baseline).in_set(CheckpointCapture),
+        )
+        .add_systems(
+            sim,
+            (
+                super::restore_custody_to_checkpoint,
+                restore_owned_items_to_checkpoint,
             )
-            .add_systems(
-                sim,
-                (
-                    super::restore_custody_to_checkpoint,
-                    restore_owned_items_to_checkpoint,
-                )
-                    .in_set(CheckpointRestore),
-            );
+                .in_set(CheckpointRestore),
+        );
     }
 }
 
@@ -473,7 +472,11 @@ mod tests {
         app.update();
 
         let baseline = app.world().resource::<MintedItemBaseline>();
-        assert_eq!(baseline.len(), 1, "only the runtime mint owes a description");
+        assert_eq!(
+            baseline.len(),
+            1,
+            "only the runtime mint owes a description"
+        );
         assert_eq!(
             baseline.description_of(&mint),
             Some(&MintedItemDescription {

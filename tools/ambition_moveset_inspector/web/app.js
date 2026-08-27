@@ -461,7 +461,16 @@ function renderCompare() {
    * finding that outlier is the whole point of the view. */
   const stats = {};
   for (const [key, , get] of COMPARE_COLUMNS) {
-    const vals = rows.map((r) => Number(get(r))).filter(Number.isFinite);
+    /* ⛔⛔ FILTER ABSENCE BEFORE CONVERTING, because `Number(null)` is 0 and
+     * `Number.isFinite(0)` is true. A row the table draws as an em dash was
+     * contributing a ZERO to this median, pulling it down and making genuinely
+     * small values read as ordinary. Projectile-only moves currently have a
+     * null startup, so this is not hypothetical (GPT 5.6, 2026-08-27). */
+    const vals = rows
+      .map(get)
+      .filter((v) => v !== null && v !== undefined)
+      .map(Number)
+      .filter(Number.isFinite);
     const med = median(vals);
     const spread = med === null ? null
       : median(vals.map((v) => Math.abs(v - med))) || (med * 0.15) || 1;
@@ -492,7 +501,10 @@ function renderCompare() {
     el("tr", { onclick: () => { openFighter(r.c.id); state.move = r.m.id; renderFighter(); renderMoveDetail(r.c, r.m); } },
       ...COMPARE_COLUMNS.map(([key, , get, fmt]) => {
         const raw = get(r);
-        const num = Number(raw);
+        /* Absent is ABSENT, not zero — see the median above. Without this a
+         * cell showing an em dash still took a hot/cold class and drew a
+         * zero-width bar, both computed from a value it does not have. */
+        const num = raw === null || raw === undefined ? NaN : Number(raw);
         const s = stats[key];
         let cls = fmt ? "mono bar" : "";
         if (fmt && s && s.med !== null && Number.isFinite(num) && s.spread > 0) {

@@ -89,8 +89,10 @@ pub fn ledge_assisted_arrival(
         let landing = ae::Vec2::new(x, block.aabb.top() - half.y);
         let box_at = ae::Aabb::new(landing, half);
         let embeds = world.blocks.iter().any(|b| {
-            matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. })
-                && box_at.strict_intersects(b.aabb)
+            matches!(
+                b.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            ) && box_at.strict_intersects(b.aabb)
         });
         if embeds {
             continue;
@@ -118,6 +120,9 @@ pub fn apply_authored_teleports(
     )>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
+    // THE CLASS-B LEDGER. `Option` for the same reason blink's is: a bare
+    // fixture installs no log, and a teleport is still a teleport without one.
+    mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
     let mut collision = None;
     for message in actions.read() {
@@ -162,8 +167,7 @@ pub fn apply_authored_teleports(
         let solids = collision.get_or_insert_with(|| world.solids());
         let target = match solids.as_ref() {
             Some(w) => {
-                let clamped =
-                    super::blink::blink_target(&**w, from, dir, params.distance, half);
+                let clamped = super::blink::blink_target(&**w, from, dir, params.distance, half);
                 ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist)
             }
             // No collision world (a minimal test app) — the full distance, which
@@ -184,6 +188,19 @@ pub fn apply_authored_teleports(
             target,
             ae::movement::TransitVelocity::Zero,
         );
+        // ⛔⛔ AND THE LEDGER HEARS ABOUT IT, at the write rather than near it.
+        // A body that moves discontinuously without an entry reads to the
+        // collision oracle as unexplained clipping, and a SECOND Class-B
+        // authority remapping this body on the same frame becomes invisible to
+        // the contention check — the two things that ledger exists for. Blink
+        // has always recorded here; this road was added without it (GPT 5.6,
+        // 2026-08-27).
+        if let Some(log) = class_b.as_mut() {
+            log.record(
+                message.actor,
+                ambition_platformer2d_shared_tangle::class_b::ClassBRemap::ScriptedTeleport,
+            );
+        }
 
         // The look is the MOVE's, not this system's — see `TeleportParams`.
         vfx.write(ambition_vfx::vfx::VfxMessage::Effect {

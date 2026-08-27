@@ -71,7 +71,8 @@ from it:
 - **the frame cursor.** `CharacterAnimator` does not exist headless, so the
   viewer re-derives the frame from ticks-on-row. It follows the animator's rules
   (`duration_secs` is PER FRAME; a clip holds its last frame, a pose loops) but
-  it is a reimplementation and can drift from the real one.
+  it is a reimplementation and can drift from the real one. See
+  "Deleting the reimplementation" below for exactly what stands in the way.
 - **⚠ every non-move pose.** The game picks from 56 semantic body states — walk,
   run, fall, land, crouch, shield, hitstun, tumble. This picks `jump` when
   airborne and `idle` otherwise. A fighter walking or in hitstun therefore shows
@@ -127,3 +128,30 @@ python3 -m ambition_moveset_inspector.server --report
 ```
 
 prints every standing note that asks for a change (scored below 6, or tagged).
+
+## Deleting the reimplementation
+
+The frame cursor is the one part of this tool that duplicates engine logic, and a
+duplicate drifts. `moveset_takes` prints a `[presentation]` census on every run so
+the gap stays visible instead of being rediscovered; measured 2026-08-27 it reads
+`PlayerVisual=0 CharacterAnimator=0 BodyPoseView=0`.
+
+TWO blockers, and neither is "headless cannot animate":
+
+1. **`BodyPoseView` is unavailable to a smash fighter in ANY mode.**
+   `rebuild_body_pose_views` is filtered `With<PlayerVisual>`, and `PlayerVisual`
+   is granted in exactly one production place — `session/setup.rs`, to the
+   exploration player's avatar. A seated `MatchSeat` fighter never carries it,
+   windowed or not. The pose read-model is simply not built for match fighters,
+   so this was never a tooling limitation.
+2. **`CharacterAnimator` needs a render app.** It is built by the render layer
+   from a loaded `CharacterSpriteAsset`, and `NoWindow` sets `backends: None`,
+   which omits the render app by design.
+
+The route out is `OffscreenGpu` — it HAS a render app, and `capture_scene` already
+runs it headlessly on this machine. Switching this tool's mode alone is NOT
+enough: measured, it panics inside `bevy_pbr`'s skin batching, because
+`capture_scene` boots through `build_visible_app_with` plus its own camera and
+render-target setup. Giving `moveset_takes` that same boot is the bounded piece of
+work that would let it read `CharacterAnimator::frame` directly and delete the
+derivation here.

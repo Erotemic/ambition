@@ -674,3 +674,518 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
          is exactly what Jon reported in play while the shortcut tests stayed green"
     );
 }
+
+
+/// ⭐⭐ TWO THRESHOLDS, AND THEY ARE NOT THE SAME ONE.
+///
+/// Jon named both and they are easy to conflate: a hit that FLINCHES refreshes
+/// the up-B, and a hit that LAUNCHES takes you off the shark. A jab that flinches
+/// a rider leaves it aboard. `BodyMotionFacts::tumbling` is the engine's own word
+/// for *"launched with no control"*, which is why `dismount_launched_riders`
+/// reads it rather than a knockback magnitude somebody would have to defend.
+///
+/// ⛔⛔ NEITHER HALF WAS TESTED. The rule shipped as an authored condition and a
+/// comment; nothing asked whether a flinching hit leaves the rider aboard, and
+/// nothing asked whether a launch takes it off. A rule with no arm on either side
+/// of its threshold is a rule the next refactor is free to move.
+#[test]
+fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+    // ⛔ THE ATTACKER MUST NOT BE THE VICTIM. A hitbox skips self-hits, so a
+    // strike owned by the rider cannot land on the rider — the first version of
+    // this test did exactly that and measured a fighter at full health.
+    let rival = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a second fighter")
+    };
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral never boarded, so neither threshold below is being measured"
+    );
+    let sharks = |app: &mut App| -> usize {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    assert!(sharks(&mut app) >= 1, "no shark to be thrown off");
+
+    // ── A HIT THAT DOES NOT LAUNCH LEAVES HIM ABOARD. ──
+    // ⛔ Written as the published FACT rather than by staging a jab: `tumbling`
+    // is what the rule reads, so setting anything else would test a different
+    // rule and pass for the wrong reason.
+    for _ in 0..20 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral came off the shark without ever being launched"
+    );
+
+    // ── AND A LAUNCH TAKES HIM OFF. ──
+    // ⛔⛔ LAUNCHED FOR REAL, NOT BY SETTING THE FACT. The first version wrote
+    // `BodyMotionFacts::tumbling = true` by hand and failed — because that fact
+    // is DERIVED by the movement pass every tick, so the write was recomputed
+    // away before the rule ever read it. A test that sets a derived value is
+    // testing its own assignment.
+    {
+        let world = app.world_mut();
+        let rider_pos = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos;
+        world.spawn((
+            ambition_platformer2d::combat::strike::Hitbox {
+                owner: rival,
+                // ⛔ THE HOSTILE SIDE. A `Player`-sourced strike against a
+                // Player-faction rider reads as friendly fire and is refused;
+                // the shark took one only because `Neutral` always does.
+                source: ambition_platformer2d::vfx::HitSide::Enemy,
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                    center: rider_pos,
+                },
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
+                shape: None,
+                facing: 1.0,
+                damage: 14,
+                // Hard enough to tumble: this is the launch half of Jon's pair.
+                knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(6.0),
+                launch_dir: Some(ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0)),
+                frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+                reaction: None,
+                strike_sfx: None,
+            },
+            ambition_platformer2d::combat::strike::HitboxHits::default(),
+        ));
+    }
+    for _ in 0..10 {
+        app.update();
+    }
+    // ⛔ THE PREMISE: the hit actually LAUNCHED him. `tumbling` is what the rule
+    // reads, so a strike that damaged without launching would make the assertion
+    // below pass for the wrong reason — or fail for one.
+    assert!(
+        app.world()
+            .get::<ambition_platformer2d::engine_core::BodyMotionFacts>(seat0)
+            .is_some_and(|facts| facts.tumbling),
+        "the strike did not launch the admiral, so this measures nothing about \
+         the launch threshold"
+    );
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "the admiral was launched and stayed in the saddle — `tumbling` is the \
+         engine's word for 'hit hard enough to lose control', and it is the \
+         whole of the rule that takes a rider off"
+    );
+}
+
+
+/// ⭐⭐ THE RIDE ENDS ON ITS OWN CLOCK, and the shark leaves when it does.
+///
+/// Jon: *"Let's say the move lasts for 5 seconds before the shark forces the
+/// pirate to jump off and it flys away."* That is the whole shape of the
+/// ability's cost, and nothing tested it: the lease was authored, the tick
+/// system had a unit test, and no arm ever asked whether a ride actually ENDS.
+///
+/// ⛔ FIVE SECONDS IS NOT ASSERTED AS A NUMBER, it is asserted as a boundary:
+/// still aboard well before it, off well after. Pinning the exact tick would
+/// make this a test of the frame clock, and the rule is "about five seconds",
+/// not "at frame 300".
+#[test]
+fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RideLease, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+
+    let ridden = app
+        .world()
+        .get::<RidingOn>(seat0)
+        .map(|r| r.mount)
+        .expect("the admiral boarded, so there is a ride to time");
+    let lease = app
+        .world()
+        .get::<RideLease>(seat0)
+        .map(|l| l.remaining)
+        .expect("a summoned ride carries a clock");
+    assert!(
+        lease > 3.0,
+        "the ride opened with {lease:.2}s left, which is not the five seconds \
+         the ability is designed around"
+    );
+
+    // ── STILL ABOARD WELL INSIDE THE LEASE. ──
+    for _ in 0..120 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the ride ended about two seconds in — a lease that expires early is a \
+         recovery that does not reach the ledge"
+    );
+
+    // ── AND OFF WELL AFTER IT. ──
+    for _ in 0..300 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "the lease ran out and the admiral is still aboard — the ride has no end, \
+         which is flight rather than a recovery"
+    );
+    // ⭐ AND THE SHARK GOES. Jon asked for it to fly away when the ride ends;
+    // asserted about THIS body, because seat 1 is an admiral too and summons its
+    // own.
+    for _ in 0..240 {
+        app.update();
+    }
+    assert!(
+        app.world().get_entity(ridden).is_err(),
+        "the shark that carried the admiral is still on the stage after its \
+         lease expired"
+    );
+    let _ = |app: &mut App| -> usize {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+}
+
+
+/// ⭐⭐ THE RECOVERY SHARK IS NOT A HAZARD, AND `Neutral` IS NOT WHAT SAYS SO.
+///
+/// Jon: *"No, the shark doesn't have contact damage in smash."* The code claimed
+/// `HitSide::Neutral` delivered that and it does not: `damage_lands` is true for
+/// `Foe | Neutral` — correctly, because an opponent must be able to gimp a
+/// recovery. What kept the hazard quiet was that a neutral body acquires no
+/// target, so it had nobody to touch: a coincidence of the targeting rules, and
+/// one a future grudge rule could undo without anybody noticing.
+///
+/// ⛔ SO THE TUNING IS ASSERTED, not the absence of observed damage. "No hits
+/// happened" is what the old accident already produced; what changed is that the
+/// occurrence DECLINES the trait, and that is the thing worth pinning.
+#[test]
+fn the_summoned_shark_carries_no_contact_hazard() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::Mountable;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut q = world.query_filtered::<Entity, With<Mountable>>();
+    let sharks: Vec<Entity> = q.iter(world).collect();
+    assert!(
+        !sharks.is_empty(),
+        "the up-B summoned no shark, so there is no occurrence to inspect"
+    );
+    for shark in sharks {
+        let config = world
+            .get::<ambition_platformer2d::actors::features::ActorConfig>(shark)
+            .expect("a summoned actor carries its config");
+        assert!(
+            !config.tuning.body_contact_damage,
+            "the summoned shark still carries the contact hazard its character \
+             authors — `Neutral` never removed it, and a targeting rule that ever \
+             hands this body a foe would make an old hazard live under a design \
+             that says it should not exist"
+        );
+    }
+}
+
+
+/// ⭐⭐ KILL THE SHARK AND THE ADMIRAL FALLS OFF — and can summon another.
+///
+/// Jon: *"If the shark is hit 3 times, then the shark dies and the rider would
+/// fall off."* Two halves, and the second is the one with teeth: ADR 0020
+/// deliberately KEEPS `RidingOn` attached when a mount dies, so a same-room reset
+/// can re-mount an authored pair. A summoned shark never comes back, so without
+/// `dissolve_the_ride_when_the_shark_dies` the admiral would be left logically
+/// riding a corpse forever — and `translate_shark_summons` refuses anybody
+/// already carrying `RidingOn`. One dead shark, no more sharks, for the match.
+#[test]
+fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+
+    let press_up_b = |app: &mut App| {
+        let up_special = ambition_platformer2d::engine_core::ControlFrame {
+            axis_y: -1.0,
+            special_pressed: true,
+            special_held: true,
+            ..Default::default()
+        };
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+        app.update();
+        for _ in 0..9 {
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    special_pressed: false,
+                    ..up_special
+                },
+            );
+            app.update();
+        }
+        for _ in 0..20 {
+            app.update();
+        }
+    };
+    press_up_b(&mut app);
+    let ridden = app
+        .world()
+        .get::<RidingOn>(seat0)
+        .map(|r| r.mount)
+        .expect("the admiral boarded, so there is a shark to kill");
+
+    // ── KILL IT. Enough damage that the pool is emptied whatever it is. ──
+    {
+        let world = app.world_mut();
+        let mut hp = world
+            .get_mut::<ambition_platformer2d::actor::BodyHealth>(ridden)
+            .expect("the shark carries its own pool");
+        hp.damage(9_999);
+    }
+    for _ in 0..30 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "the shark died and the admiral is still logically riding it — ADR 0020 \
+         keeps the link across a mount's death on purpose, which is right for an \
+         authored pair whose shark respawns and wrong for a summon that never \
+         comes back"
+    );
+    // ⭐ AND THE UP-B IS FREE AGAIN. Without the dissolution above,
+    // `translate_shark_summons` would refuse forever: one dead shark, no more
+    // sharks, for the rest of the match.
+    let before = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    for _ in 0..180 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+    press_up_b(&mut app);
+    let after = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    assert!(
+        after > before || app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral could not summon again after its shark died ({before} \
+         before, {after} after) — a dead mount had taken the ability with it"
+    );
+}

@@ -10,4 +10,5 @@
 //! pinned to `ambition_characters` by the orphan rule, since that crate owns
 //! `Brain` and this one depends on it. `SmashCfg`, `SmashState` and `BroadMode`
 //! are therefore still down there and named from here — the legal direction.
+pub mod fighter;
 pub mod smash;

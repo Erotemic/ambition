@@ -89,7 +89,7 @@ pub mod content {
             .expect("the engine's own schemas are registered once");
         registry
             .register(
-                crate::characters::brain::fighter::content_schema::fighter_brain_ladder_schema(),
+                ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema(),
             )
             .expect("the engine's own schemas are registered once");
         registry

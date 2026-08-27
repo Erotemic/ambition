@@ -61,7 +61,7 @@ pub fn tick_brain_with_actions(
             cfg, state, actions, snapshot, perception, out,
         ),
         StateMachineCfg::Fighter { cfg, state } => {
-            ambition_characters::brain::fighter::tick_fighter(cfg, state, snapshot, perception, out)
+            ambition_combat::brain::fighter::tick_fighter(cfg, state, snapshot, perception, out)
         }
         StateMachineCfg::StandStill
         | StateMachineCfg::Patrol { .. }

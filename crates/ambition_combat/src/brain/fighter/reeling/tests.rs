@@ -1,7 +1,9 @@
 use super::*;
 
-use crate::actor::ActorFaction;
-use crate::perception::{Perceived, PerceivedSolid, SelfView, SolidKind, StageView, WorldView};
+use ambition_characters::actor::ActorFaction;
+use ambition_characters::perception::{
+    Perceived, PerceivedSolid, SelfView, SolidKind, StageView, WorldView,
+};
 
 /// The same 800×600 envelope the classifier's tests use, origin at its corner.
 fn stage() -> StageView {
@@ -230,7 +232,7 @@ fn with_survival_secured_the_stick_steers_away_from_the_foe() {
     // that both deflections clear it and the survival term saturates.
     view.self_view.phase_remaining = 0.25;
     let foe = ae::Vec2::new(200.0, 300.0);
-    view.actors = vec![crate::perception::PerceivedActor {
+    view.actors = vec![ambition_characters::perception::PerceivedActor {
         pos: foe,
         hostile_to_self: true,
         alive: true,
@@ -274,7 +276,7 @@ fn survival_outranks_escape_when_the_blastzone_is_close() {
     view.self_view.phase_remaining = 0.25;
     // The foe is placed so that escaping it means steering FURTHER toward the
     // wall this body is about to cross.
-    view.actors = vec![crate::perception::PerceivedActor {
+    view.actors = vec![ambition_characters::perception::PerceivedActor {
         pos: ae::Vec2::new(400.0, 300.0),
         hostile_to_self: true,
         alive: true,
@@ -311,7 +313,7 @@ fn the_survival_cap_is_what_lets_the_foe_decide_a_safe_launch() {
     let mut view = reeling(ae::Vec2::new(400.0, 300.0), ae::Vec2::new(300.0, -500.0));
     view.self_view.phase_remaining = 0.25;
     let foe = ae::Vec2::new(700.0, 200.0);
-    view.actors = vec![crate::perception::PerceivedActor {
+    view.actors = vec![ambition_characters::perception::PerceivedActor {
         pos: foe,
         hostile_to_self: true,
         alive: true,

@@ -6,10 +6,10 @@
 //! ladder and FB6e's fidelity instrument.
 
 use super::*;
-use crate::actor::ActorFaction;
-use crate::brain::fighter::habit::Choice;
-use crate::brain::fighter::options::AttackOption;
-use crate::perception::WorldView;
+use ambition_characters::actor::ActorFaction;
+use ambition_characters::brain::fighter::habit::Choice;
+use ambition_characters::brain::fighter::options::AttackOption;
+use ambition_characters::perception::WorldView;
 
 fn frames(startup_s: f32, reach: f32, max_damage: i32, max_knockback: f32) -> MoveFrameData {
     MoveFrameData {
@@ -82,15 +82,15 @@ fn profile(rollout_k: u32, rollout_depth: u32, read_weight: f32) -> FighterBrain
         rollout_depth,
         rollout_k,
         read_weight,
-        utility_weights: crate::brain::fighter::options::UtilityWeights::v1(),
+        utility_weights: ambition_characters::brain::fighter::options::UtilityWeights::v1(),
     }
 }
 
 fn attack(id: &str, frames: MoveFrameData) -> AttackOption {
     AttackOption {
-        binding: crate::brain::fighter::options::AttackBinding {
-            verb: crate::brain::fighter::options::AttackVerb::Basic,
-            direction: crate::actor::attack_gesture::AttackDir::Forward,
+        binding: ambition_characters::brain::fighter::options::AttackBinding {
+            verb: ambition_characters::brain::fighter::options::AttackVerb::Basic,
+            direction: ambition_characters::actor::attack_gesture::AttackDir::Forward,
         },
         move_id: id.to_string(),
         frames,
@@ -535,9 +535,9 @@ fn l3_decides_identically_twice() {
 /// viewer, with the stage envelope well outside it — a smash stage, not a room.
 fn view_on_platform(me_x: f32, half_width: f32) -> WorldView {
     let mut view = view_with(me_x, me_x + 400.0);
-    view.terrain = vec![crate::perception::PerceivedSolid {
+    view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 332.0), ae::Vec2::new(half_width, 16.0)),
-        kind: crate::perception::SolidKind::Solid,
+        kind: ambition_characters::perception::SolidKind::Solid,
     }];
     view
 }
@@ -629,10 +629,10 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
     // `OptionSet::attacks` is empty in exactly one situation, and its own doc
     // names it: `Recovery` — "a body past the blastzone has exactly one
     // problem". That body was the one the veto skipped.
-    let options = crate::brain::fighter::options::OptionSet {
+    let options = ambition_characters::brain::fighter::options::OptionSet {
         attacks: Vec::new(),
-        movement: vec![crate::brain::fighter::options::MoveOption {
-            verb: crate::brain::fighter::options::MovementVerb::Approach,
+        movement: vec![ambition_characters::brain::fighter::options::MoveOption {
+            verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
             score: 1.0,
         }],
     };
@@ -658,7 +658,7 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
     );
     assert_eq!(
         refined.suicidal_movement,
-        vec![crate::brain::fighter::options::MovementVerb::Approach],
+        vec![ambition_characters::brain::fighter::options::MovementVerb::Approach],
         "approaching a foe 400 px away off the right end of a 120 px platform \
          walks this body out of the world; the veto has to say so"
     );
@@ -819,7 +819,7 @@ fn an_authored_body_is_predicted_with_its_own_movement_law() {
 #[test]
 fn a_snapshot_without_a_movement_law_changes_nothing() {
     let cfg = ShadowTuning::default();
-    let snapshot = crate::brain::BrainSnapshot::idle();
+    let snapshot = ambition_characters::brain::BrainSnapshot::idle();
     assert!(
         snapshot.movement_tuning.is_none(),
         "an idle snapshot claims a movement law it never resolved"
@@ -889,14 +889,14 @@ fn lens_for(
 #[test]
 fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
     let view = view_falling_beside_the_platform();
-    let options = crate::brain::fighter::options::OptionSet {
+    let options = ambition_characters::brain::fighter::options::OptionSet {
         attacks: Vec::new(),
-        movement: vec![crate::brain::fighter::options::MoveOption {
-            verb: crate::brain::fighter::options::MovementVerb::Approach,
+        movement: vec![ambition_characters::brain::fighter::options::MoveOption {
+            verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
             score: 1.0,
         }],
     };
-    let approach = vec![crate::brain::fighter::options::MovementVerb::Approach];
+    let approach = vec![ambition_characters::brain::fighter::options::MovementVerb::Approach];
     let refine = |lens: Option<&crate::brain::fighter::recovery::RecoveryLens>| {
         refine_by_rollout(
             Perceived::cheating(&view),
@@ -950,10 +950,10 @@ fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
 #[test]
 fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
     let view = view_on_platform(440.0, 60.0);
-    let options = crate::brain::fighter::options::OptionSet {
+    let options = ambition_characters::brain::fighter::options::OptionSet {
         attacks: Vec::new(),
-        movement: vec![crate::brain::fighter::options::MoveOption {
-            verb: crate::brain::fighter::options::MovementVerb::Shield,
+        movement: vec![ambition_characters::brain::fighter::options::MoveOption {
+            verb: ambition_characters::brain::fighter::options::MovementVerb::Shield,
             score: 1.0,
         }],
     };
@@ -989,15 +989,15 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
 #[test]
 fn a_decision_taken_through_the_lens_repeats_exactly() {
     let view = view_falling_beside_the_platform();
-    let options = crate::brain::fighter::options::OptionSet {
+    let options = ambition_characters::brain::fighter::options::OptionSet {
         attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
         movement: vec![
-            crate::brain::fighter::options::MoveOption {
-                verb: crate::brain::fighter::options::MovementVerb::Approach,
+            ambition_characters::brain::fighter::options::MoveOption {
+                verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
                 score: 1.0,
             },
-            crate::brain::fighter::options::MoveOption {
-                verb: crate::brain::fighter::options::MovementVerb::Retreat,
+            ambition_characters::brain::fighter::options::MoveOption {
+                verb: ambition_characters::brain::fighter::options::MovementVerb::Retreat,
                 score: 0.5,
             },
         ],
@@ -1108,14 +1108,14 @@ fn the_shadow_lets_go_of_the_lip_where_the_kernel_does() {
 /// in the flight path, opposite verdict.
 #[test]
 fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
-    let options = crate::brain::fighter::options::OptionSet {
+    let options = ambition_characters::brain::fighter::options::OptionSet {
         attacks: Vec::new(),
-        movement: vec![crate::brain::fighter::options::MoveOption {
-            verb: crate::brain::fighter::options::MovementVerb::Approach,
+        movement: vec![ambition_characters::brain::fighter::options::MoveOption {
+            verb: ambition_characters::brain::fighter::options::MovementVerb::Approach,
             score: 1.0,
         }],
     };
-    let approach = vec![crate::brain::fighter::options::MovementVerb::Approach];
+    let approach = vec![ambition_characters::brain::fighter::options::MovementVerb::Approach];
     let refine = |view: &WorldView| {
         let lens = lens_for(view, ae::AbilitySet::basic());
         refine_by_rollout(
@@ -1147,10 +1147,12 @@ fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
     // right of this body's footprint), so the shadow's line is byte-identical
     // and only the kernel's world changed.
     let mut caught = view_standing_at_the_lip();
-    caught.terrain.push(crate::perception::PerceivedSolid {
-        aabb: ae::Aabb::new(ae::Vec2::new(572.5, 436.0), ae::Vec2::new(117.5, 16.0)),
-        kind: crate::perception::SolidKind::Solid,
-    });
+    caught
+        .terrain
+        .push(ambition_characters::perception::PerceivedSolid {
+            aabb: ae::Aabb::new(ae::Vec2::new(572.5, 436.0), ae::Vec2::new(117.5, 16.0)),
+            kind: ambition_characters::perception::SolidKind::Solid,
+        });
     assert!(
         refine(&caught).is_empty(),
         "the SAME walk, with something to land on, is a walk — condemning it \

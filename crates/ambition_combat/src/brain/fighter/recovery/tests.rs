@@ -3,7 +3,7 @@
 //! nowhere else.
 
 use super::*;
-use crate::perception::{PerceivedSolid, SelfView, StageView};
+use ambition_characters::perception::{PerceivedSolid, SelfView, StageView};
 
 const DT: f32 = 1.0 / 60.0;
 

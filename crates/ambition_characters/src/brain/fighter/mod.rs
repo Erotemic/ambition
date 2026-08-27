@@ -1,41 +1,32 @@
-//! Deterministic fighter brain built on delayed perception.
+//! THE FIGHTER BRAIN'S SHAPE — and only its shape, since 2026-08-27.
 //!
-//! The brain reads only [`crate::perception::WorldView`] through
-//! [`crate::perception::DelayedPerception`] and acts through `ActorControl`. Tactical
-//! classification, option scoring, difficulty profiles, opponent habits, recovery
-//! probing, and bounded forward rollouts are split into dedicated submodules. Rollouts
-//! use shadow state; authoritative movement remains in the engine kernel.
+//! ⛔⛔ THE THINKING LEFT (D168). The decision tick, the option scoring, the
+//! shadow rollout, the recovery probe, the reeling response, the charge maths,
+//! the scenario suite and the content schema are `ambition_combat::brain::fighter`
+//! now: a floor crate owns what a character IS, and the layer above owns how it
+//! THINKS.
+//!
+//! ⭐ WHAT COULD NOT FOLLOW is everything here. `Brain`'s snapshot encoder is
+//! bound to this crate by the orphan rule and `ambition_combat` depends on this
+//! crate, so a type the encoder reads can never move up — and `BrainSnapshot`
+//! pins more on top of that: `attack_kit` is a `Vec<AttackCandidate>` BY VALUE,
+//! which is why the whole option vocabulary stayed while its scoring went.
+//!
+//! ⚠ `habit`, `options`, `profile` and `situation` stayed WHOLE rather than being
+//! split again. Each is majority-shape with a little behaviour ON that shape —
+//! `HabitModel` learning, `classify`, `profile_for_level` — and splitting them
+//! would buy a boundary nobody is asking for.
 
-pub mod charge;
-/// The `fighter_brain_ladder` schema this capability owns. Behind `content_pack`:
-/// a game that never validates its content must not link a compiler.
-#[cfg(feature = "content_pack")]
-pub mod content_schema;
 pub mod data;
-pub mod decision;
-pub mod evaluation;
 pub mod habit;
 pub mod options;
 pub mod profile;
-pub mod recovery;
-pub mod reeling;
-pub mod rollout;
-pub mod scenarios;
 pub mod situation;
 
-pub use charge::{charge_ticks_for, hold_ticks};
-pub use data::{ApmLedger, FighterCfg, FighterState, FoeSample, PendingAttack};
-pub use decision::tick_fighter;
+pub use data::{ApmLedger, FighterCfg, FighterState, FoeSample, PendingAttack, ShadowTuning};
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use profile::{
     profile_for_level, AuthoredFighterLadder, FighterBrainLadder, FighterBrainProfile,
 };
-pub use recovery::{BodyKit, RecoveryLens, RecoveryQuery};
-pub use reeling::survival_stick;
-pub use rollout::{
-    refine_by_rollout, shadow_step, RefinedChoice, ShadowEvent, ShadowIntent, ShadowState,
-    ShadowTuning,
-};
-pub use scenarios::{suite, Scenario};
 pub use situation::{classify, Situation};

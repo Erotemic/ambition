@@ -189,7 +189,7 @@ fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
 /// Scenarios requiring velocity, phases, projectiles, or other explicit state are
 /// skipped using `Scenario::unreproduced_by_placement`.
 fn run_scenarios(seeds: usize) {
-    let suite = ambition_platformer2d::characters::brain::fighter::scenarios::suite();
+    let suite = ambition_platformer2d::combat::brain::fighter::scenarios::suite();
     let playable: Vec<_> = suite
         .iter()
         .filter(|s| s.starting_positions().is_some() && s.is_reproduced_by_placement())
@@ -423,7 +423,7 @@ fn run_bout_at(
     higher: u8,
     lower: u8,
     seed: u64,
-    start: Option<ambition_platformer2d::characters::brain::fighter::scenarios::Scenario>,
+    start: Option<ambition_platformer2d::combat::brain::fighter::scenarios::Scenario>,
 ) -> Bout {
     let mut app = build_demo_app();
     for _ in 0..30 {

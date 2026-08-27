@@ -29,7 +29,7 @@ use ambition_content_pack::{
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
-use super::FighterBrainLadder;
+use ambition_characters::brain::fighter::FighterBrainLadder;
 
 /// The capability that owns this schema.
 pub const FIGHTER_BRAIN_CAPABILITY: &str = "fighter_brain";

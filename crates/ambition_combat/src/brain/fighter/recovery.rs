@@ -9,7 +9,7 @@
 //! the fighter cannot observe.
 use ambition_platformer2d_core as ae;
 
-use crate::perception::{SolidKind, WorldView};
+use ambition_characters::perception::{SolidKind, WorldView};
 
 /// How long the probe watches.
 pub const RECOVERY_PROBE_SECONDS: f32 = 2.0;
@@ -27,7 +27,7 @@ pub struct BodyKit {
 /// [`RecoveryProbe`](ae::movement::recovery::RecoveryProbe) needs.
 ///
 /// Derived from a move's frame data by
-/// [`lifting_candidates`](super::options::lifting_candidates); nothing here
+/// [`lifting_candidates`](ambition_characters::brain::fighter::options::lifting_candidates); nothing here
 /// names a move, a verb or a character.
 ///
 /// a route is a PROPOSAL, never a claim. Holding one says the body can
@@ -73,7 +73,7 @@ pub struct RecoveryQuery {
 /// with a real repertoire needs (a recovery, a stall, and one more) and far
 /// short of the dozen a full kit would offer.
 ///
-/// the routes are ordered by [`super::options::lifting_candidates`] and the
+/// the routes are ordered by [`ambition_characters::brain::fighter::options::lifting_candidates`] and the
 /// cut is a prefix of that order, so which three get probed never depends on
 /// iteration luck (ADR 0023).
 pub const MAX_PROBED_ROUTES: usize = 3;
@@ -108,7 +108,7 @@ impl RouteVerdict {
 pub struct RecoveryLens {
     world: ae::World,
     /// The stage box's own origin, subtracted from everything. `ae::World` is a
-    /// `0..size` box while a [`crate::perception::StageView`] is an AABB
+    /// `0..size` box while a [`ambition_characters::perception::StageView`] is an AABB
     /// anywhere, so the lowering TRANSLATES rather than assuming the two agree.
     /// Translation changes no distance, no velocity and no gravity direction, so
     /// the verdict is unchanged by it.

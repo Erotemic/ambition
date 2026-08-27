@@ -22,153 +22,14 @@
 
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::hit_response::{
-    self, HitKnockback, HitKnockbackMagnitude, HitResponseTuning,
-};
+use ambition_platformer2d_core::hit_response::{self, HitKnockback, HitKnockbackMagnitude};
 
-use super::habit::HabitModel;
-use super::options::OptionSet;
-use super::profile::FighterBrainProfile;
-use super::situation::Situation;
-use crate::perception::{BodyPhase, Perceived, PerceivedActor, SelfView, StageView};
-
-/// Public knowledge about the game a rollout runs in: physics constants and
-/// the standard hit response. A player who has played ten minutes knows all of
-/// these numbers by feel; passing them in keeps the module pure while letting
-/// the decision tick supply the game's true values. [`ShadowTuning::default`]
-/// is a reasonable platformer, good enough for fixtures and tests.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ShadowTuning {
-    /// The victim-side hit response (launch + hitstun). The SAME kernel row
-    /// shape `damage_apply` uses; the caller picks which feel row applies.
-    pub response: HitResponseTuning,
-    /// Gravity along `gravity_down`, engine units/s².
-    pub gravity: f32,
-    /// Grounded locomotion speed a driving fighter holds, units/s.
-    pub ground_speed: f32,
-    /// Dash speed, which is not a faster walk. The engine's dash SETS
-    /// velocity outright (`abilities.rs`: `kinematics.vel = aim * dash_speed`)
-    /// and does it airborne as readily as grounded.
-    pub dash_speed: f32,
-    /// How long that velocity is held (`DASH_TIME`). The dash is an impulse with
-    /// a duration, not a sustained input, and the difference is what decides
-    /// whether a dash near an edge is a step or a launch.
-    pub dash_time: f32,
-    /// Instant rise speed a predicted jump imparts, units/s.
-    pub jump_speed: f32,
-    /// How fast a GROUNDED body that stopped driving loses its speed, px/s².
-    ///
-    /// `ae::GROUND_FRICTION`, restated here for the same reason `dash_speed` is:
-    /// the constant lives above this crate and is public knowledge rather than
-    /// hidden state.
-    pub ground_coast_decel: f32,
-    /// Airborne lateral deceleration, matching `ae::AIR_FRICTION`.
-    pub air_coast_decel: f32,
-    /// Backward velocity applied by a melee swing (`ae::SLASH_RECOIL`); rollouts must
-    /// include it because repeated attacks materially change trajectory.
-    pub slash_recoil: f32,
-    /// Reach assumed for the FOE's attacks. The view names their phase and
-    /// clock but not their move, so their range is a model assumption —
-    /// stated, authored, and calibrated by FB6e's fidelity instrument.
-    pub assumed_foe_reach: f32,
-    /// Damage assumed for the foe's generic predicted attack.
-    pub assumed_foe_damage: i32,
-    /// Startup/active timings for that generic predicted attack, seconds.
-    pub assumed_foe_startup_s: f32,
-    pub assumed_foe_active_s: f32,
-}
-
-/// Default shadow movement is derived from the engine's canonical [`ae::MovementTuning`];
-/// opponent attack properties remain explicit model assumptions.
-impl Default for ShadowTuning {
-    /// The engine's canonical movement defaults, plus the foe assumptions the
-    /// perception view genuinely cannot supply.
-    fn default() -> Self {
-        Self::for_body(&ae::MovementTuning::default())
-    }
-}
-
-impl ShadowTuning {
-    /// Predict this body from its [`ae::MovementTuning`]. Opponent range, damage, and
-    /// timing remain assumptions because the observation does not expose the opponent's move.
-    pub fn for_body(movement: &ae::MovementTuning) -> Self {
-        Self {
-            response: HitResponseTuning {
-                knockback_x: 220.0,
-                knockback_y: 260.0,
-                hitstun_time: 0.35,
-                hitstun_reference_launch:
-                    ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
-                hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
-                // The shadow rollout predicts the victim's LAUNCH; hitlag is a
-                // clock beat it does not simulate, so the row carries the
-                // engine default rather than a second opinion about feel.
-                hitlag_time: 0.070,
-                di_max_angle: 0.0,
-            },
-            assumed_foe_reach: 60.0,
-            assumed_foe_damage: 5,
-            // The engine's standard enemy swing timings (combat events
-            // vocabulary); restated here because those constants live above
-            // this crate, and they are public knowledge, not hidden state.
-            assumed_foe_startup_s: 0.36,
-            assumed_foe_active_s: 0.20,
-            ..Self::from_movement_only(movement)
-        }
-    }
-
-    /// Re-derive the movement half from `movement`, keeping every assumption.
-    ///
-    /// The fold a decision uses: a config may carry authored foe assumptions or
-    /// a tuned hit response, and only the body's own motion is replaced.
-    pub fn with_movement(self, movement: &ae::MovementTuning) -> Self {
-        Self {
-            response: self.response,
-            assumed_foe_reach: self.assumed_foe_reach,
-            assumed_foe_damage: self.assumed_foe_damage,
-            assumed_foe_startup_s: self.assumed_foe_startup_s,
-            assumed_foe_active_s: self.assumed_foe_active_s,
-            ..Self::from_movement_only(movement)
-        }
-    }
-
-    /// The movement half alone. The assumption fields are placeholders here and
-    /// are always overwritten by the two callers above — this exists so the
-    /// mapping from a body's tuning onto the shadow's fields is written ONCE.
-    fn from_movement_only(movement: &ae::MovementTuning) -> Self {
-        Self {
-            response: HitResponseTuning {
-                knockback_x: 0.0,
-                knockback_y: 0.0,
-                hitstun_time: 0.0,
-                hitstun_reference_launch:
-                    ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
-                hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
-                // The shadow rollout predicts the victim's LAUNCH; hitlag is a
-                // clock beat it does not simulate, so the row carries the
-                // engine default rather than a second opinion about feel.
-                hitlag_time: 0.070,
-                di_max_angle: 0.0,
-            },
-            gravity: movement.gravity,
-            ground_speed: movement.max_run_speed,
-            dash_speed: movement.dash_speed,
-            dash_time: movement.dash_time,
-            jump_speed: movement.jump_speed,
-            ground_coast_decel: movement.ground_friction,
-            air_coast_decel: movement.air_friction,
-            // Every melee press shoves the attacker along `-facing` by this
-            // much, and the brain presses an attack on most decisions, so the
-            // recoils RATCHET. It is the single biggest force acting on a
-            // fighter's body and the model had no term for it at all.
-            slash_recoil: movement.slash_recoil,
-            assumed_foe_reach: 0.0,
-            assumed_foe_damage: 0,
-            assumed_foe_startup_s: 0.0,
-            assumed_foe_active_s: 0.0,
-        }
-    }
-}
+use ambition_characters::brain::fighter::data::ShadowTuning;
+use ambition_characters::brain::fighter::habit::HabitModel;
+use ambition_characters::brain::fighter::options::OptionSet;
+use ambition_characters::brain::fighter::profile::FighterBrainProfile;
+use ambition_characters::brain::fighter::situation::Situation;
+use ambition_characters::perception::{BodyPhase, Perceived, PerceivedActor, SelfView, StageView};
 
 /// What a shadow fighter is doing. The asymmetry is honest: MY candidate move
 /// has full frame data (I am deciding whether to throw it); the FOE's
@@ -917,7 +778,7 @@ fn strike(
 /// * Mid-move: nothing — a commitment completes on its own clock, and
 ///   `shadow_step` ignores intents from non-Idle bodies anyway.
 /// * A genuine read (`read_weight > 0`, and the modal choice strictly beats
-///   the uniform prior): the modal [`Choice`](super::habit::Choice), mapped
+///   the uniform prior): the modal [`Choice`](ambition_characters::brain::fighter::habit::Choice), mapped
 ///   to an intent.
 /// * Otherwise: inertia. Ignorance predicts a body keeps doing what it is
 ///   doing, not that it starts doing something new.
@@ -928,7 +789,7 @@ pub fn predicted_foe_intent(
     read_weight: f32,
     tuning: &ShadowTuning,
 ) -> ShadowIntent {
-    use super::habit::Choice;
+    use ambition_characters::brain::fighter::habit::Choice;
     if !matches!(state.foe.phase, ShadowPhase::Idle) {
         return ShadowIntent::Hold;
     }
@@ -977,14 +838,14 @@ pub fn predicted_foe_intent(
 pub struct RefinedChoice {
     /// When every offered movement verb is fatal, the option with the latest
     /// predicted death. Standing still is only a fallback where it is survivable.
-    pub least_bad_movement: Option<crate::brain::fighter::options::MovementVerb>,
+    pub least_bad_movement: Option<ambition_characters::brain::fighter::options::MovementVerb>,
     /// Preferred attack, or `None` when L2 offered none. This is independent
     /// from the movement-suicide veto.
     pub move_id: Option<String>,
     /// The press that reaches [`Self::move_id`], carried beside it so the
     /// refinement's winner can be EXECUTED as the move it won with. `None`
     /// exactly when `move_id` is.
-    pub binding: Option<super::options::AttackBinding>,
+    pub binding: Option<ambition_characters::brain::fighter::options::AttackBinding>,
     /// Movement lines the rollout found SUICIDAL, by L2 verb.
     ///
     /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in
@@ -1000,7 +861,7 @@ pub struct RefinedChoice {
     ///   which made a self-inflicted exit free. It now fires on leaving the
     ///   envelope at all; "offstage and reeling" is the recoverable case and it
     ///   is INSIDE the envelope, which is what `distance_to_edge` scores.
-    pub suicidal_movement: Vec<crate::brain::fighter::options::MovementVerb>,
+    pub suicidal_movement: Vec<ambition_characters::brain::fighter::options::MovementVerb>,
     /// Rollout score of the chosen line MINUS the do-nothing baseline, in the
     /// same units as L2's dot product. Positive means the rollouts saw the
     /// move buy something real.
@@ -1170,7 +1031,10 @@ pub fn refine_by_rollout(
     // floor is NOW, and this is the only thing in the brain that knows where the
     // body will BE.
     let horizon = profile.rollout_depth * MOVEMENT_HORIZON_MULTIPLE;
-    let mut longest_lived: Option<(crate::brain::fighter::options::MovementVerb, u32)> = None;
+    let mut longest_lived: Option<(
+        ambition_characters::brain::fighter::options::MovementVerb,
+        u32,
+    )> = None;
     let suicidal_movement = options
         .movement
         .iter()
@@ -1347,10 +1211,10 @@ pub const AIR_DRIFT_FRACTION: f32 = 0.6;
 /// — an unmodelled verb is not judged, because a rollout that reported every
 /// unknown as safe or as fatal would be lying in one direction or the other.
 fn movement_intent(
-    verb: crate::brain::fighter::options::MovementVerb,
+    verb: ambition_characters::brain::fighter::options::MovementVerb,
     start: &ShadowState,
 ) -> Option<ShadowIntent> {
-    use crate::brain::fighter::options::MovementVerb;
+    use ambition_characters::brain::fighter::options::MovementVerb;
     let frame = ae::AccelerationFrame::new(start.gravity_down);
     let toward = (start.foe.pos - start.me.pos).dot(frame.side).signum();
     Some(match verb {

@@ -29,8 +29,9 @@
 use crate::actor::control::ActorControlFrame;
 use crate::brain::fighter::habit::HabitModel;
 use crate::brain::fighter::profile::FighterBrainProfile;
-use crate::brain::fighter::rollout::ShadowTuning;
 use crate::perception::DelayedPerception;
+use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::hit_response::HitResponseTuning;
 
 /// Sim rate the cadence and reaction conversions assume when nothing says
 /// otherwise. The rig takes `tick_hz` explicitly everywhere it matters; this is
@@ -61,7 +62,7 @@ impl FighterCfg {
         }
     }
 
-    pub(super) fn interval(&self) -> u32 {
+    pub fn interval(&self) -> u32 {
         self.decision_interval_ticks.max(1)
     }
 }
@@ -97,7 +98,7 @@ impl ApmLedger {
     /// rather than one it crosses and then sits above. A non-positive cap means
     /// "uncapped" — a fixture that wants a frame-perfect brain says `0.0` rather
     /// than an enormous number.
-    pub(super) fn may_press(self, cap: f32, tick_hz: f32) -> bool {
+    pub fn may_press(self, cap: f32, tick_hz: f32) -> bool {
         if cap <= 0.0 {
             return true;
         }
@@ -197,6 +198,153 @@ impl FighterState {
             last_foe: None,
             charge_hold_ticks: 0,
             charge_hold_gesture: ambition_entity_catalog::ChargeGesture::Smash,
+        }
+    }
+}
+
+// ⛔⛔ `ShadowTuning` CAME BACK FROM `rollout.rs` (D168, 2026-08-27) because
+// `FighterCfg` names it BY VALUE, which makes it part of what the `Brain`
+// snapshot encoder reaches — pinned to this crate by the orphan rule, whatever
+// happens to the rollout engine that reads it.
+//
+// ⭐ THE ENGINE ITSELF DID NOT COME. `refine_by_rollout`, the shadow step and the
+// scoring stay in `rollout.rs`, which is free to leave; what stays is the SHAPE
+// they are configured by.
+
+/// Public knowledge about the game a rollout runs in: physics constants and
+/// the standard hit response. A player who has played ten minutes knows all of
+/// these numbers by feel; passing them in keeps the module pure while letting
+/// the decision tick supply the game's true values. [`ShadowTuning::default`]
+/// is a reasonable platformer, good enough for fixtures and tests.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ShadowTuning {
+    /// The victim-side hit response (launch + hitstun). The SAME kernel row
+    /// shape `damage_apply` uses; the caller picks which feel row applies.
+    pub response: HitResponseTuning,
+    /// Gravity along `gravity_down`, engine units/s².
+    pub gravity: f32,
+    /// Grounded locomotion speed a driving fighter holds, units/s.
+    pub ground_speed: f32,
+    /// Dash speed, which is not a faster walk. The engine's dash SETS
+    /// velocity outright (`abilities.rs`: `kinematics.vel = aim * dash_speed`)
+    /// and does it airborne as readily as grounded.
+    pub dash_speed: f32,
+    /// How long that velocity is held (`DASH_TIME`). The dash is an impulse with
+    /// a duration, not a sustained input, and the difference is what decides
+    /// whether a dash near an edge is a step or a launch.
+    pub dash_time: f32,
+    /// Instant rise speed a predicted jump imparts, units/s.
+    pub jump_speed: f32,
+    /// How fast a GROUNDED body that stopped driving loses its speed, px/s².
+    ///
+    /// `ae::GROUND_FRICTION`, restated here for the same reason `dash_speed` is:
+    /// the constant lives above this crate and is public knowledge rather than
+    /// hidden state.
+    pub ground_coast_decel: f32,
+    /// Airborne lateral deceleration, matching `ae::AIR_FRICTION`.
+    pub air_coast_decel: f32,
+    /// Backward velocity applied by a melee swing (`ae::SLASH_RECOIL`); rollouts must
+    /// include it because repeated attacks materially change trajectory.
+    pub slash_recoil: f32,
+    /// Reach assumed for the FOE's attacks. The view names their phase and
+    /// clock but not their move, so their range is a model assumption —
+    /// stated, authored, and calibrated by FB6e's fidelity instrument.
+    pub assumed_foe_reach: f32,
+    /// Damage assumed for the foe's generic predicted attack.
+    pub assumed_foe_damage: i32,
+    /// Startup/active timings for that generic predicted attack, seconds.
+    pub assumed_foe_startup_s: f32,
+    pub assumed_foe_active_s: f32,
+}
+
+/// Default shadow movement is derived from the engine's canonical [`ae::MovementTuning`];
+/// opponent attack properties remain explicit model assumptions.
+impl Default for ShadowTuning {
+    /// The engine's canonical movement defaults, plus the foe assumptions the
+    /// perception view genuinely cannot supply.
+    fn default() -> Self {
+        Self::for_body(&ae::MovementTuning::default())
+    }
+}
+
+impl ShadowTuning {
+    /// Predict this body from its [`ae::MovementTuning`]. Opponent range, damage, and
+    /// timing remain assumptions because the observation does not expose the opponent's move.
+    pub fn for_body(movement: &ae::MovementTuning) -> Self {
+        Self {
+            response: HitResponseTuning {
+                knockback_x: 220.0,
+                knockback_y: 260.0,
+                hitstun_time: 0.35,
+                hitstun_reference_launch:
+                    ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
+                hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
+                // The shadow rollout predicts the victim's LAUNCH; hitlag is a
+                // clock beat it does not simulate, so the row carries the
+                // engine default rather than a second opinion about feel.
+                hitlag_time: 0.070,
+                di_max_angle: 0.0,
+            },
+            assumed_foe_reach: 60.0,
+            assumed_foe_damage: 5,
+            // The engine's standard enemy swing timings (combat events
+            // vocabulary); restated here because those constants live above
+            // this crate, and they are public knowledge, not hidden state.
+            assumed_foe_startup_s: 0.36,
+            assumed_foe_active_s: 0.20,
+            ..Self::from_movement_only(movement)
+        }
+    }
+
+    /// Re-derive the movement half from `movement`, keeping every assumption.
+    ///
+    /// The fold a decision uses: a config may carry authored foe assumptions or
+    /// a tuned hit response, and only the body's own motion is replaced.
+    pub fn with_movement(self, movement: &ae::MovementTuning) -> Self {
+        Self {
+            response: self.response,
+            assumed_foe_reach: self.assumed_foe_reach,
+            assumed_foe_damage: self.assumed_foe_damage,
+            assumed_foe_startup_s: self.assumed_foe_startup_s,
+            assumed_foe_active_s: self.assumed_foe_active_s,
+            ..Self::from_movement_only(movement)
+        }
+    }
+
+    /// The movement half alone. The assumption fields are placeholders here and
+    /// are always overwritten by the two callers above — this exists so the
+    /// mapping from a body's tuning onto the shadow's fields is written ONCE.
+    fn from_movement_only(movement: &ae::MovementTuning) -> Self {
+        Self {
+            response: HitResponseTuning {
+                knockback_x: 0.0,
+                knockback_y: 0.0,
+                hitstun_time: 0.0,
+                hitstun_reference_launch:
+                    ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
+                hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
+                // The shadow rollout predicts the victim's LAUNCH; hitlag is a
+                // clock beat it does not simulate, so the row carries the
+                // engine default rather than a second opinion about feel.
+                hitlag_time: 0.070,
+                di_max_angle: 0.0,
+            },
+            gravity: movement.gravity,
+            ground_speed: movement.max_run_speed,
+            dash_speed: movement.dash_speed,
+            dash_time: movement.dash_time,
+            jump_speed: movement.jump_speed,
+            ground_coast_decel: movement.ground_friction,
+            air_coast_decel: movement.air_friction,
+            // Every melee press shoves the attacker along `-facing` by this
+            // much, and the brain presses an attack on most decisions, so the
+            // recoils RATCHET. It is the single biggest force acting on a
+            // fighter's body and the model had no term for it at all.
+            slash_recoil: movement.slash_recoil,
+            assumed_foe_reach: 0.0,
+            assumed_foe_damage: 0,
+            assumed_foe_startup_s: 0.0,
+            assumed_foe_active_s: 0.0,
         }
     }
 }

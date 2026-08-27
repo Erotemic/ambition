@@ -32,15 +32,16 @@ use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::actors::actor::BodyKinematics;
-use ambition_platformer2d::combat::moveset::MovePlayback;
 use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
-use ambition_platformer2d::characters::brain::fighter::{
-    shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning,
-};
+use ambition_platformer2d::characters::brain::fighter::ShadowTuning;
 use ambition_platformer2d::characters::control::DrivingParticipant;
 use ambition_platformer2d::characters::perception::{
     Perceived, PerceivedActor, SelfView, StageView, WorldView,
 };
+use ambition_platformer2d::combat::brain::fighter::rollout::{
+    shadow_step, ShadowEvent, ShadowIntent, ShadowState,
+};
+use ambition_platformer2d::combat::moveset::MovePlayback;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::MoveFrameData;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};

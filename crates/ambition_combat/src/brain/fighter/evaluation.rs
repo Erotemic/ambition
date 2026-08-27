@@ -20,14 +20,16 @@
 //! Same for ladder ordering. Building the kit fixture is this rig's next slice and is what also
 //! unlocks survival/damage.
 
-use super::data::{FighterCfg, FighterState};
 use super::decision::tick_fighter;
-use super::options::{ActionLegality, AttackBinding, AttackCandidate, AttackVerb};
-use super::profile::FighterBrainProfile;
 use super::scenarios::{suite, Scenario};
-use crate::actor::attack_gesture::AttackDir;
-use crate::actor::control::ActorControlFrame;
-use crate::brain::BrainSnapshot;
+use ambition_characters::actor::attack_gesture::AttackDir;
+use ambition_characters::actor::control::ActorControlFrame;
+use ambition_characters::brain::fighter::data::{FighterCfg, FighterState};
+use ambition_characters::brain::fighter::options::{
+    ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
+};
+use ambition_characters::brain::fighter::profile::FighterBrainProfile;
+use ambition_characters::brain::BrainSnapshot;
 
 /// Ticks per second the rig scores against — the sim's fixed rate, so an APM
 /// reading here means the same thing it would in a match.

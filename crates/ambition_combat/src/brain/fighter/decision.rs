@@ -6,17 +6,19 @@
 
 use ambition_platformer2d_core::{self as ae, Vec2};
 
-use crate::actor::control::ActorControlFrame;
-use crate::brain::fighter::data::{FighterCfg, FighterState, FoeSample, PendingAttack};
-use crate::brain::fighter::habit::Choice;
-use crate::brain::fighter::options::{
+use super::recovery::{BodyKit, RecoveryLens};
+use super::rollout::refine_by_rollout;
+use ambition_characters::actor::control::ActorControlFrame;
+use ambition_characters::brain::fighter::data::{
+    FighterCfg, FighterState, FoeSample, PendingAttack,
+};
+use ambition_characters::brain::fighter::habit::Choice;
+use ambition_characters::brain::fighter::options::{
     generate_options, AttackCandidate, MovementVerb, UtilityWeights,
 };
-use crate::brain::fighter::recovery::{BodyKit, RecoveryLens};
-use crate::brain::fighter::rollout::refine_by_rollout;
-use crate::brain::fighter::situation::{classify, Situation};
-use crate::brain::BrainSnapshot;
-use crate::perception::WorldView;
+use ambition_characters::brain::fighter::situation::{classify, Situation};
+use ambition_characters::brain::BrainSnapshot;
+use ambition_characters::perception::WorldView;
 
 /// SplitMix64. One step per CONSUMED sample, which is what makes the stream
 /// reproducible under rollback: a tick that reads no noise leaves the seed
@@ -175,7 +177,7 @@ fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> 
         // no APM token. Mashing out of a grab is the one thing a person
         // really does at machine speed, and spending the decision budget on it
         // would make a fighter's escape compete with its next attack.
-        if crate::control::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
+        if ambition_characters::control::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
             frame.melee_pressed = true;
         }
         return Some(frame);
@@ -196,7 +198,10 @@ fn capture_context_frame(snapshot: &BrainSnapshot) -> Option<ActorControlFrame> 
         } else {
             1.0
         };
-        ae::LocalAxes::new(crate::actor::attack_gesture::TILT_DEFLECTION * facing, 0.0)
+        ae::LocalAxes::new(
+            ambition_characters::actor::attack_gesture::TILT_DEFLECTION * facing,
+            0.0,
+        )
     } else {
         ae::LocalAxes::ZERO
     };
@@ -286,7 +291,8 @@ fn decide(
     // LENS decides which of them is useful from where the body actually is. Nothing here knows
     // whose body it is; the affordance is still derived from move geometry and never from an
     // identity.
-    let route_moves = super::options::lifting_candidates(&snapshot.attack_kit);
+    let route_moves =
+        ambition_characters::brain::fighter::options::lifting_candidates(&snapshot.attack_kit);
     let routes: Vec<super::recovery::RecoveryLift> = route_moves
         .iter()
         .map(|c| super::recovery::RecoveryLift {
@@ -385,7 +391,10 @@ fn decide(
     };
     // Keep the authored move id with the physical binding so traces can identify
     // the selected action even when multiple moves share a button/direction.
-    let wants_attack: Option<(super::options::AttackBinding, String)> = match endorsed_recovery {
+    let wants_attack: Option<(
+        ambition_characters::brain::fighter::options::AttackBinding,
+        String,
+    )> = match endorsed_recovery {
         Some(verdict) if verdict.regained() => verdict
             .route
             .and_then(|index| route_moves.get(index))
@@ -441,28 +450,30 @@ fn decide(
             ticks: jitter,
             binding: *binding,
             hold_ticks: match binding.verb {
-                super::options::AttackVerb::Smash => super::charge::hold_ticks(
-                    situation,
-                    // ⛔ THE MOVE'S OWN HOLD POINT, not its startup. The charge
-                    // begins where the timeline FREEZES, and a move that
-                    // resolves no policy never freezes at all — its whole
-                    // startup is the honest fallback, and holding a move that
-                    // cannot charge is a no-op the same way a string hold on a
-                    // move with no chain is.
-                    options
-                        .attacks
-                        .iter()
-                        .find(|attack| {
-                            Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
-                        })
-                        .map_or(0.0, |attack| {
-                            attack
-                                .frames
-                                .charge_hold_at_s
-                                .unwrap_or(attack.frames.startup_s)
-                        }),
-                    cfg.tick_hz,
-                ),
+                ambition_characters::brain::fighter::options::AttackVerb::Smash => {
+                    super::charge::hold_ticks(
+                        situation,
+                        // ⛔ THE MOVE'S OWN HOLD POINT, not its startup. The charge
+                        // begins where the timeline FREEZES, and a move that
+                        // resolves no policy never freezes at all — its whole
+                        // startup is the honest fallback, and holding a move that
+                        // cannot charge is a no-op the same way a string hold on a
+                        // move with no chain is.
+                        options
+                            .attacks
+                            .iter()
+                            .find(|attack| {
+                                Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
+                            })
+                            .map_or(0.0, |attack| {
+                                attack
+                                    .frames
+                                    .charge_hold_at_s
+                                    .unwrap_or(attack.frames.startup_s)
+                            }),
+                        cfg.tick_hz,
+                    )
+                }
                 // ⭐ A BASIC ATTACK HOLDS TOO, and for a different gesture: a
                 // held Smash is a CHARGE, a held anything-else CONTINUES A
                 // STRING. Both are the same button and the engine tells them
@@ -473,40 +484,44 @@ fn decide(
                 // window already NAMES, so holding a move that authors no chain
                 // is a no-op. Asking the brain which moves have chains would put
                 // a second copy of the cancel table in the scorer.
-                super::options::AttackVerb::Basic => super::charge::string_hold_ticks(
-                    situation,
-                    options
-                        .attacks
-                        .iter()
-                        .find(|attack| {
-                            Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
-                        })
-                        .map_or(0.0, |attack| attack.frames.startup_s),
-                    cfg.tick_hz,
-                ),
+                ambition_characters::brain::fighter::options::AttackVerb::Basic => {
+                    super::charge::string_hold_ticks(
+                        situation,
+                        options
+                            .attacks
+                            .iter()
+                            .find(|attack| {
+                                Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
+                            })
+                            .map_or(0.0, |attack| attack.frames.startup_s),
+                        cfg.tick_hz,
+                    )
+                }
                 // ⭐ A SPECIAL HOLDS FOR THE SAME REASON A SMASH DOES, and
                 // reaches the same decision: how long is worth holding HERE.
                 // A move that resolves no charge policy reports no hold point
                 // and the fallback holds through its startup, which for a
                 // special that does not charge is a no-op — exactly as it is
                 // for a smash that does not.
-                super::options::AttackVerb::Special => super::charge::hold_ticks(
-                    situation,
-                    options
-                        .attacks
-                        .iter()
-                        .find(|attack| {
-                            Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
-                        })
-                        .map_or(0.0, |attack| {
-                            attack
-                                .frames
-                                .charge_hold_at_s
-                                .unwrap_or(attack.frames.startup_s)
-                        }),
-                    cfg.tick_hz,
-                ),
-                super::options::AttackVerb::Grab => 0,
+                ambition_characters::brain::fighter::options::AttackVerb::Special => {
+                    super::charge::hold_ticks(
+                        situation,
+                        options
+                            .attacks
+                            .iter()
+                            .find(|attack| {
+                                Some(&attack.move_id) == wants_attack.as_ref().map(|(_, id)| id)
+                            })
+                            .map_or(0.0, |attack| {
+                                attack
+                                    .frames
+                                    .charge_hold_at_s
+                                    .unwrap_or(attack.frames.startup_s)
+                            }),
+                        cfg.tick_hz,
+                    )
+                }
+                ambition_characters::brain::fighter::options::AttackVerb::Grab => 0,
             },
         });
     }
@@ -559,7 +574,7 @@ struct DecisionSummary<'a, 'k> {
     /// search that found nothing, which is why both are published.
     recovery_move: Option<&'a str>,
     /// Every route the repertoire PROPOSED, in the order the lens probes
-    /// them ([`super::options::lifting_candidates`]). this is what separates
+    /// them ([`ambition_characters::brain::fighter::options::lifting_candidates`]). this is what separates
     /// *"the search rejected the grapple"* from *"the grapple was never
     /// proposed"*, and those two want opposite fixes. Held as candidates rather
     /// than strings so a run that is not tracing allocates nothing.
@@ -587,18 +602,18 @@ struct DecisionSummary<'a, 'k> {
 ///   why the move ledger recorded two `bivalence` presses the decision log never
 ///   selected. That disagreement is the falsifier; nothing else produces it.
 /// * the accidental smash. See
-///   [`crate::actor::attack_gesture::TILT_DEFLECTION`].
+///   [`ambition_characters::actor::attack_gesture::TILT_DEFLECTION`].
 ///
 /// a `Neutral` direction is a CENTRED stick, and centring it re-arms the
 /// flick detector — which is correct: the next directional press is then a fresh
 /// gesture rather than the tail of this one.
 fn aim_the_stick(
-    binding: super::options::AttackBinding,
+    binding: ambition_characters::brain::fighter::options::AttackBinding,
     facing: f32,
     frame: &mut ActorControlFrame,
 ) {
-    use super::options::AttackVerb;
-    use crate::actor::attack_gesture::AttackDir;
+    use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::fighter::options::AttackVerb;
 
     // A body whose facing has not been established yet still has to aim
     // somewhere; `+1` keeps `Forward` meaning `+x` rather than collapsing the
@@ -616,7 +631,9 @@ fn aim_the_stick(
         // only needs the direction to clear the deadzone — but it takes the same
         // partial deflection so that a special press can never leave a flick
         // armed behind it and turn the FOLLOWING tilt into a smash.
-        AttackVerb::Basic | AttackVerb::Special => crate::actor::attack_gesture::TILT_DEFLECTION,
+        AttackVerb::Basic | AttackVerb::Special => {
+            ambition_characters::actor::attack_gesture::TILT_DEFLECTION
+        }
     };
     frame.attack_axis = match binding.direction {
         AttackDir::Neutral => ae::LocalAxes::ZERO,
@@ -634,8 +651,11 @@ fn aim_the_stick(
 /// exactly what `resolve_attack_gesture` reads and `move_for_directional_verb`
 /// resolves — so a fighter reaches its up-tilt the same way a player does, and a
 /// move with no binding was never in the kit to be chosen.
-fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut ActorControlFrame) {
-    use super::options::AttackVerb;
+fn press_the_chosen_attack(
+    binding: ambition_characters::brain::fighter::options::AttackBinding,
+    frame: &mut ActorControlFrame,
+) {
+    use ambition_characters::brain::fighter::options::AttackVerb;
 
     match binding.verb {
         AttackVerb::Basic => {
@@ -659,13 +679,17 @@ fn press_the_chosen_attack(binding: super::options::AttackBinding, frame: &mut A
 }
 
 /// Which button a chosen verb holds down while it charges.
-fn charge_gesture_of(verb: super::options::AttackVerb) -> ambition_entity_catalog::ChargeGesture {
+fn charge_gesture_of(
+    verb: ambition_characters::brain::fighter::options::AttackVerb,
+) -> ambition_entity_catalog::ChargeGesture {
     match verb {
         // A held Special is a charge shot. Every other verb holds Attack — a
         // smash charges on it and a basic continues a string on it — or holds
         // nothing at all, in which case the counter is zero and neither field
         // goes down.
-        super::options::AttackVerb::Special => ambition_entity_catalog::ChargeGesture::Special,
+        ambition_characters::brain::fighter::options::AttackVerb::Special => {
+            ambition_entity_catalog::ChargeGesture::Special
+        }
         _ => ambition_entity_catalog::ChargeGesture::Smash,
     }
 }
@@ -702,8 +726,8 @@ fn hold_the_committed_button(state: &FighterState, frame: &mut ActorControlFrame
 /// counter guessed here would be a second clock that no other domain could join
 /// against. `CausalLog::set_tick` is the one place with the answer.
 fn trace_decision(
-    view: crate::perception::Perceived<'_>,
-    options: &crate::brain::fighter::options::OptionSet,
+    view: ambition_characters::perception::Perceived<'_>,
+    options: &ambition_characters::brain::fighter::options::OptionSet,
     frame: &ActorControlFrame,
     // Which body this is, from the snapshot's world-in port. `None` publishes an
     // unattributed fact — honest for a fixture, and useless on a stage with two
@@ -852,14 +876,14 @@ fn trace_decision(
 }
 
 /// What the foe looks like from across the stage, or `None` when there is no foe.
-fn foe_sample(view: crate::perception::Perceived<'_>) -> Option<FoeSample> {
+fn foe_sample(view: ambition_characters::perception::Perceived<'_>) -> Option<FoeSample> {
     let foe = view.nearest_hostile()?;
     let toward = foe.pos - view.self_view.pos;
     Some(FoeSample {
         attacking: matches!(
             foe.phase,
-            crate::perception::BodyPhase::AttackStartup
-                | crate::perception::BodyPhase::AttackActive
+            ambition_characters::perception::BodyPhase::AttackStartup
+                | ambition_characters::perception::BodyPhase::AttackActive
         ),
         on_ground: foe.on_ground,
         shielding: foe.shield_raised,
@@ -893,7 +917,7 @@ fn infer_choice(previous: FoeSample, current: FoeSample) -> Choice {
 /// approached.
 fn apply_movement(
     verb: MovementVerb,
-    view: crate::perception::Perceived<'_>,
+    view: ambition_characters::perception::Perceived<'_>,
     frame: &mut ActorControlFrame,
 ) {
     // nothing caught it because the conversion is a REINTERPRETATION:

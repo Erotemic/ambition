@@ -1,4 +1,5 @@
 use super::*;
+use crate::brain::fighter::decision::tick_fighter;
 // Named here because this is where they are used.
 use crate::events::HitEvent;
 use crate::hitbox::apply_hitbox_damage;
@@ -6057,9 +6058,7 @@ fn an_authored_spin_mirrors_on_the_move_clock_and_an_unauthored_one_never_does()
 #[test]
 fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::fighter::{
-        decision::tick_fighter, FighterBrainProfile, FighterCfg, FighterState,
-    };
+    use ambition_characters::brain::fighter::{FighterBrainProfile, FighterCfg, FighterState};
     use ambition_characters::perception::{BodyPhase, PerceivedActor, SelfView, WorldView};
 
     // No reaction delay, no APM cap, no execution noise: every tick of this is

@@ -14,7 +14,7 @@
 
 use ambition_platformer2d_core::{self as ae, Vec2};
 
-use crate::perception::{BodyPhase, Perceived};
+use ambition_characters::perception::{BodyPhase, Perceived};
 
 /// Comparison probe, in radians. The match's real DI budget is a rule of the
 /// match (`DeclaredCombatRules::di_max_angle`) and the brain does not read it:

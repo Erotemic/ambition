@@ -9,7 +9,7 @@
 //! is not out yet, and what it costs is the window the opponent has to answer.
 //! So the length of the hold is the length of the opening.
 
-use super::situation::Situation;
+use ambition_characters::brain::fighter::situation::Situation;
 
 /// Ticks of hold for an opening wide enough to finish the charge.
 ///

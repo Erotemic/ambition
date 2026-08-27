@@ -65,15 +65,14 @@ fn the_whole_shipped_ladder_plays_without_l3() {
 /// if lowering breaks — none of which the parse tests can see.
 #[test]
 fn the_prepared_pack_lowers_the_shipped_ladder() {
-    let lowered =
-        ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-            ambition_content::pack::prepared(),
-        )
-        .expect(
-            "the prepared pack lowers no fighter ladder — the game is back on the \
+    let lowered = ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+        ambition_content::pack::prepared(),
+    )
+    .expect(
+        "the prepared pack lowers no fighter ladder — the game is back on the \
          engine floor, where every difficulty scores moves with the level-9 \
          weight set",
-        );
+    );
 
     assert_eq!(
         lowered.rungs().len(),

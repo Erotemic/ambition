@@ -26,9 +26,7 @@ pub fn default_registry() -> SchemaRegistry {
         .register(ambition_items::content_schema::item_catalog_schema())
         .expect("the default registry installs each schema once");
     registry
-        .register(
-            ambition_characters::brain::fighter::content_schema::fighter_brain_ladder_schema(),
-        )
+        .register(ambition_combat::brain::fighter::content_schema::fighter_brain_ladder_schema())
         .expect("the default registry installs each schema once");
     registry
         .register(ambition_characters::smash_fighter::content_schema::smash_fighter_schema())

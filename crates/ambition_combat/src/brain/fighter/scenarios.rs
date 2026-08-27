@@ -4,9 +4,9 @@
 
 use ambition_platformer2d_core as ae;
 
-use super::situation::Situation;
-use crate::actor::ActorFaction;
-use crate::perception::{BodyPhase, PerceivedActor, SelfView, StageView, WorldView};
+use ambition_characters::actor::ActorFaction;
+use ambition_characters::brain::fighter::situation::Situation;
+use ambition_characters::perception::{BodyPhase, PerceivedActor, SelfView, StageView, WorldView};
 
 /// The stage every fixture is played on: 800 × 600, origin at zero. Its bounds are
 /// the room's world AABB — the same envelope CC3's invariant 3 polices, so
@@ -180,7 +180,7 @@ pub fn suite() -> Vec<Scenario> {
             self_view: body(ae::Vec2::new(200.0, 300.0)),
             stage: stage(),
             actors: vec![foe(ae::Vec2::new(700.0, 300.0))],
-            projectiles: vec![crate::perception::PerceivedProjectile {
+            projectiles: vec![ambition_characters::perception::PerceivedProjectile {
                 pos: ae::Vec2::new(600.0, 300.0),
                 vel: ae::Vec2::new(-400.0, 0.0),
                 damage: 3,
@@ -381,8 +381,8 @@ mod tests {
         );
     }
     use super::*;
-    use crate::brain::fighter::situation::classify;
-    use crate::perception::Perceived;
+    use ambition_characters::brain::fighter::situation::classify;
+    use ambition_characters::perception::Perceived;
 
     /// The suite, classified. Every fixture reads out as the situation its name
     /// claims. A failure here is a disagreement about the GAME, not about the CPU.

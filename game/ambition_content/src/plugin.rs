@@ -59,7 +59,7 @@ impl Plugin for AmbitionContentPlugin {
 
         // Game-authored CPU difficulty ladder consumed during fighter construction.
         app.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
-            ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
                 crate::pack::prepared(),
             )
             .cloned()

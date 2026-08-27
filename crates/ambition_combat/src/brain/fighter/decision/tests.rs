@@ -5,12 +5,12 @@
 //! APM ceiling, and a noise stream that does not reproduce.
 
 use super::*;
-use crate::actor::attack_gesture::AttackDir;
-use crate::actor::ActorFaction;
-use crate::brain::fighter::options::UtilityWeights;
-use crate::brain::fighter::options::{AttackBinding, AttackVerb};
-use crate::brain::fighter::profile::FighterBrainProfile;
-use crate::perception::{PerceivedActor, SelfView, StageView, WorldView};
+use ambition_characters::actor::attack_gesture::AttackDir;
+use ambition_characters::actor::ActorFaction;
+use ambition_characters::brain::fighter::options::UtilityWeights;
+use ambition_characters::brain::fighter::options::{AttackBinding, AttackVerb};
+use ambition_characters::brain::fighter::profile::FighterBrainProfile;
+use ambition_characters::perception::{PerceivedActor, SelfView, StageView, WorldView};
 use ambition_platformer2d_core as ae;
 
 fn stage() -> StageView {
@@ -139,11 +139,11 @@ fn a_fighter_in_a_capture_struggles_or_spends_the_hold() {
         snapshot.actor_facing = -1.0;
         tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
         assert!(out.melee_pressed, "a captor did nothing with its captive");
-        let asked_forward = crate::actor::attack_gesture::attack_dir_from_axis(
+        let asked_forward = ambition_characters::actor::attack_gesture::attack_dir_from_axis(
             out.attack_axis,
             snapshot.actor_facing,
             0.2,
-        ) == crate::actor::attack_gesture::AttackDir::Forward;
+        ) == ambition_characters::actor::attack_gesture::AttackDir::Forward;
         assert_eq!(
             asked_forward, expect_forward,
             "with {pummels} pummel(s) landed and the body facing LEFT, the press \
@@ -390,9 +390,9 @@ fn a_brain_that_has_seen_nothing_emits_neutral() {
 /// veto working. 20 px is inside the commitment window in both directions.
 fn on_a_ledge(me_x: f32) -> WorldView {
     let mut view = scene(me_x, me_x + 400.0);
-    view.terrain = vec![crate::perception::PerceivedSolid {
+    view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(me_x, 316.0), ae::Vec2::new(10.0, 16.0)),
-        kind: crate::perception::SolidKind::Solid,
+        kind: ambition_characters::perception::SolidKind::Solid,
     }];
     view
 }
@@ -442,9 +442,9 @@ fn the_same_brain_on_solid_ground_still_walks() {
     };
     let (cfg, mut state) = rig(profile);
     let mut view = scene(300.0, 500.0);
-    view.terrain = vec![crate::perception::PerceivedSolid {
+    view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 316.0), ae::Vec2::new(400.0, 16.0)),
-        kind: crate::perception::SolidKind::Solid,
+        kind: ambition_characters::perception::SolidKind::Solid,
     }];
 
     let snapshot = BrainSnapshot::idle();
@@ -520,9 +520,9 @@ fn the_jump_button_does_not_stay_held_after_the_jump() {
     let snapshot = BrainSnapshot::idle();
     // Solid ground and a foe in reach: L2 answers with an approach, not a jump.
     let mut view = scene(300.0, 340.0);
-    view.terrain = vec![crate::perception::PerceivedSolid {
+    view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 316.0), ae::Vec2::new(400.0, 16.0)),
-        kind: crate::perception::SolidKind::Solid,
+        kind: ambition_characters::perception::SolidKind::Solid,
     }];
 
     let mut out = ActorControlFrame::neutral();
@@ -766,7 +766,7 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
 /// and the assertion is on what came out the far side.
 #[test]
 fn the_aimed_stick_round_trips_through_the_bodys_own_resolver() {
-    use crate::actor::attack_gesture::{
+    use ambition_characters::actor::attack_gesture::{
         resolve_attack_gesture, AttackGestureState, AttackGestureTuning, AttackStrength,
     };
 

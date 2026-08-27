@@ -457,9 +457,7 @@ fn mirror_bout(
                 ) = brain
                 {
                     if let Some(situation) =
-                        ambition_platformer2d::characters::brain::fighter::decision::situation_of(
-                            state,
-                        )
+                        ambition_platformer2d::combat::brain::fighter::decision::situation_of(state)
                     {
                         *situations.entry(format!("{situation:?}")).or_default() += 1;
                     }

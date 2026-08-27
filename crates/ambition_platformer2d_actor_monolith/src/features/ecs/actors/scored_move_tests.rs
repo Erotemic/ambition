@@ -218,7 +218,7 @@ fn frame_when_the_fighter_attacks(
     snapshot.attack_kit = kit;
     for _ in 0..240 {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        ambition_characters::brain::fighter::tick_fighter(
+        ambition_combat::brain::fighter::tick_fighter(
             cfg,
             state,
             &snapshot,
@@ -420,13 +420,14 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
 #[test]
 fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
     use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::fighter::data::ShadowTuning;
     use ambition_characters::brain::fighter::habit::{Choice, HabitModel};
     use ambition_characters::brain::fighter::options::{
         generate_options, ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
     };
-    use ambition_characters::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
     use ambition_characters::brain::fighter::situation::classify;
     use ambition_characters::brain::fighter::FighterBrainProfile;
+    use ambition_combat::brain::fighter::rollout::refine_by_rollout;
 
     // Close enough that both reach. At range the shadow's whiff decides instead,
     // which is a different question with the same answer shape — measured, and

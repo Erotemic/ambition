@@ -475,6 +475,20 @@ impl BodyFlightState {
         self.pending_launch_flinchless = flinchless;
     }
 
+    /// READ the waiting launch without spending it.
+    ///
+    /// ⛔ FOR ONE CALLER AND ONE REASON: a body whose pose another authority owns
+    /// must still learn what the hit MEANT (does it tumble?) on the tick it
+    /// lands, while the TRAVEL waits for a tick the body can actually move. See
+    /// `MotionStepContext::pose_owned_externally`. Anything that means to spend
+    /// the launch calls [`Self::take_launch`].
+    pub fn pending_launch_state(&self) -> PendingLaunch {
+        PendingLaunch {
+            velocity: self.pending_launch,
+            flinchless: self.pending_launch_flinchless,
+        }
+    }
+
     /// Take the waiting launch, clearing both halves together.
     pub fn take_launch(&mut self) -> PendingLaunch {
         PendingLaunch {

@@ -409,6 +409,7 @@ impl<'a> ActorMut<'a> {
                 facing_intent: frame.facing,
                 dt,
                 contact: contact_field,
+                pose_owned_externally: false,
             },
         );
         drop(clusters);

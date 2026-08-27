@@ -481,6 +481,7 @@ impl MomentumRig {
                 facing_intent: 0.0,
                 dt: 1.0 / 60.0,
                 contact: ae::BodyContactField::NONE,
+                pose_owned_externally: false,
             },
         );
     }

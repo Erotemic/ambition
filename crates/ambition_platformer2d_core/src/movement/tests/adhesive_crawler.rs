@@ -125,6 +125,7 @@ fn crawl(
                 facing_intent: facing,
                 dt: DT,
                 contact: crate::movement::body_contact::BodyContactField::NONE,
+                pose_owned_externally: false,
             },
         );
         track.push(clusters.kinematics.pos);

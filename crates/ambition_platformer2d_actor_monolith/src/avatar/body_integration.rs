@@ -142,6 +142,7 @@ pub fn integrate_home_body(
             facing_intent: actor_control.facing,
             dt: scaled_dt,
             contact: contact_field,
+            pose_owned_externally: false,
         },
     );
 

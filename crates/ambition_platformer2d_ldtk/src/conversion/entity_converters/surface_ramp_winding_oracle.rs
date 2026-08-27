@@ -134,6 +134,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
                 // A winding oracle traces ONE body against authored geometry;
                 // there is nobody else in it to be solid to.
                 contact: ae::BodyContactField::NONE,
+                pose_owned_externally: false,
             },
         );
         if (scratch.kinematics.pos.y - corner.y) * room.y > R * 1.25 {

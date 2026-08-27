@@ -59,6 +59,7 @@ fn step(
             facing_intent: 0.0,
             dt: DT,
             contact: crate::movement::body_contact::BodyContactField::NONE,
+            pose_owned_externally: false,
         },
     )
 }
@@ -1070,6 +1071,7 @@ fn a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep() {
                         1.0,
                         own_velocity,
                     ),
+                    pose_owned_externally: false,
                 },
             );
         }
@@ -1186,6 +1188,7 @@ fn walk_a_pair(
                         1.0,
                         snapshot[which].entry_velocity,
                     ),
+                    pose_owned_externally: false,
                 },
             );
         }
@@ -1332,6 +1335,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
                 facing_intent: 0.0,
                 dt: DT,
                 contact: crate::movement::BodyContactField::NONE,
+                pose_owned_externally: false,
             },
         );
     }
@@ -1359,6 +1363,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
                 facing_intent: 0.0,
                 dt: DT,
                 contact: crate::movement::BodyContactField::NONE,
+                pose_owned_externally: false,
             },
         );
     }
@@ -1378,6 +1383,7 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
                 facing_intent: 1.0,
                 dt: DT,
                 contact: crate::movement::BodyContactField::NONE,
+                pose_owned_externally: false,
             },
         );
     }
@@ -1388,5 +1394,86 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
         "a body set down flush with the ground walked {walked:.2}px in a second \
          of held input — a transit that arrives at rest on flat ground must not \
          leave the body inert",
+    );
+}
+
+/// ⭐⭐ A HELD BODY DOES NOT SPEND ITS LAUNCH, and gets it in full once released.
+///
+/// ⛔⛔ THE DEFECT THIS PINS, measured on the pirate's shark 2026-08-27: the
+/// kernel drained the pending launch on every step, including steps where a
+/// saddle owned the rider's pose and overwrote `vel` with zero straight after.
+/// So a hit strong enough to end the ride was CONSUMED — the rider tumbled, the
+/// dismount fired a stage later, and the body dropped out of the saddle at zero
+/// velocity. The knockback had already been spent into a value somebody else
+/// was about to erase.
+///
+/// ⭐ THE ARMS STRADDLE THE OWNERSHIP FLAG with everything else held still: same
+/// staged launch, same body, same tick budget. Held, the launch survives and the
+/// body has not moved; released, the same staged launch is spent and the body
+/// carries it.
+#[test]
+fn a_pose_owned_body_keeps_its_pending_launch_until_it_is_released() {
+    let world = empty_world();
+    let launch = Vec2::new(400.0, -300.0);
+
+    let mut held_scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::default());
+    let mut held_model = MotionModel::default();
+    {
+        let mut clusters = held_scratch.as_mut();
+        clusters.flight.stage_launch(launch, false);
+        step_motion(
+            &mut held_model,
+            &mut clusters,
+            MotionStepContext {
+                world: &world,
+                input: InputState::default(),
+                frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
+                facing_intent: 0.0,
+                dt: DT,
+                contact: crate::movement::body_contact::BodyContactField::NONE,
+                pose_owned_externally: true,
+            },
+        );
+    }
+    assert_eq!(
+        held_scratch.as_mut().flight.pending_launch,
+        launch,
+        "a body whose pose another authority owns spent its launch anyway — the \
+         knockback goes into a velocity the constraint overwrites this same tick, \
+         so the hit lands and the body never moves"
+    );
+
+    // ...AND THE SAME STAGED LAUNCH IS SPENT THE MOMENT NOBODY OWNS THE POSE.
+    // Without this arm the assertion above is satisfied by a kernel that never
+    // accepts a launch at all.
+    {
+        let mut clusters = held_scratch.as_mut();
+        step_motion(
+            &mut held_model,
+            &mut clusters,
+            MotionStepContext {
+                world: &world,
+                input: InputState::default(),
+                frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
+                facing_intent: 0.0,
+                dt: DT,
+                contact: crate::movement::body_contact::BodyContactField::NONE,
+                pose_owned_externally: false,
+            },
+        );
+    }
+    let mut released = held_scratch.as_mut();
+    assert_eq!(
+        released.flight.pending_launch,
+        Vec2::ZERO,
+        "the launch was still staged after a free tick, so it is not being spent \
+         at all rather than being deferred"
+    );
+    assert!(
+        released.kinematics.vel.x > 1.0,
+        "the released body carries no lateral knockback ({:?}), so the launch was \
+         dropped rather than deferred",
+        released.kinematics.vel
     );
 }

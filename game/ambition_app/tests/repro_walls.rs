@@ -43,6 +43,7 @@ fn step_axis_for_test(
             facing_intent: input.axes.x,
             dt,
             contact: ae::BodyContactField::NONE,
+            pose_owned_externally: false,
         },
     )
     .events

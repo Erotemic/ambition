@@ -960,6 +960,42 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
          engine's word for 'hit hard enough to lose control', and it is the \
          whole of the rule that takes a rider off"
     );
+    // ⭐ AND HE ACTUALLY TRAVELS — the half the launch arm never asserted.
+    //
+    // ⛔⛔ THIS DOES NOT GUARD THE KERNEL RULE, and saying so is the point.
+    // The defect a review reported here — the saddle pin writes the rider's
+    // velocity to ZERO every tick, and the kernel used to spend the launch into
+    // that same velocity — is real, and it is fixed in
+    // `MotionStepContext::pose_owned_externally`. But POISON-CHECKED both ways,
+    // this arm stays GREEN with the fix reverted: the admiral leaves at about
+    // (-1884, -1690) either way, so whatever produces that travel is not the
+    // launch this hit staged. The guard that actually fails without the fix is
+    // `a_pose_owned_body_keeps_its_pending_launch_until_it_is_released` in the
+    // kernel's own tests.
+    //
+    // ⚠ SO WHAT THIS ARM IS FOR: a launched rider must come off MOVING. It would
+    // catch a future change that zeroed a released body outright, which the
+    // `tumbling` and `RidingOn` assertions above cannot — they were both true
+    // throughout the reported bug.
+    //
+    // ⛔ THE LATERAL SPEED, NOT THE MAGNITUDE AND NOT THE SIGN. `length() > 50`
+    // passes on GRAVITY alone four frames after a dismount, so it was a check
+    // that could not fail; and the authored `launch_dir` of (1, -1) does not
+    // mean the body ends up moving +x. Nothing but knockback moves the x axis.
+    for _ in 0..4 {
+        app.update();
+    }
+    let released = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(seat0)
+        .map(|kin| kin.vel)
+        .expect("the released admiral has kinematics");
+    assert!(
+        released.x.abs() > 50.0,
+        "the admiral came off the shark carrying {released:?} — no lateral \
+         travel means the launch was spent into a velocity the saddle then \
+         erased, so the hit ended the ride and moved nobody"
+    );
 }
 
 /// ⭐⭐ THE RIDE ENDS ON ITS OWN CLOCK, and the shark leaves when it does.
@@ -1555,7 +1591,6 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
         "only {sharks} shark(s) on a stage carrying two riders"
     );
 }
-
 
 /// ⭐⭐ A RECOVERY MOUNT MAY BE GIMPED, BUT NOT DELETED IN ONE HIT.
 ///

@@ -36,6 +36,29 @@ pub struct MotionStepContext<'a> {
     /// did. See [`super::body_contact`] for why an acceleration term cannot do
     /// this job and why the field is a snapshot rather than a query.
     pub contact: super::body_contact::BodyContactField<'a>,
+    /// ANOTHER AUTHORITY OWNS THIS BODY'S POSE THIS TICK — a saddle, a capture,
+    /// any constraint that writes position and velocity after the kernel runs.
+    ///
+    /// ⛔⛔ IT GATES THE LAUNCH DRAIN, and that is the whole reason it exists.
+    /// A pending launch is INVOLUNTARY DISPLACEMENT, and displacement is exactly
+    /// what the external owner has taken over. Draining it here would apply
+    /// knockback to `vel` that the constraint then overwrites with zero on the
+    /// same tick — the hit is spent, the body never moves, and every downstream
+    /// reader sees a fighter that was launched and went nowhere. Measured on the
+    /// pirate's shark: a launch strong enough to end the ride put him off the
+    /// saddle at ZERO velocity, because `sync_riders_to_mounts` pins the rider
+    /// after `step_motion` has already consumed the launch.
+    ///
+    /// ⭐ SO THE LAUNCH STAYS STAGED. `PendingLaunch` survives until a tick on
+    /// which nobody else owns the pose, and the kernel spends it then — which is
+    /// the tick the body is actually free to fly. Nothing needs to know WHY the
+    /// pose was held or WHO released it.
+    ///
+    /// ⚠ A REQUIRED FIELD, not a default. "Who owns this body's displacement" is
+    /// a question a caller building a motion step should have to answer; a
+    /// defaulted `false` is how a constrained body silently gets two authorities
+    /// again.
+    pub pose_owned_externally: bool,
 }
 
 /// The tick's SEMANTIC support fact, selected from contact KINDS — never from
@@ -125,8 +148,25 @@ pub fn step_motion(
     // which sets the velocity, goes airborne, and then takes its substep.
     //
     // and it is drained in ONE place on purpose.
-    let launch = clusters.flight.take_launch();
-    accept_external_launch(model, clusters, &ctx, launch);
+    // ⛔⛔ A HELD BODY TAKES THE HIT BUT NOT THE TRAVEL. See
+    // `MotionStepContext::pose_owned_externally`. The launch's two halves are
+    // separable and only one of them belongs to the external authority: deciding
+    // that this hit sends the body tumbling is about the HIT, and it has to
+    // happen now because the policy that ends the ride reads `tumbling`.
+    // Assigning the velocity is about DISPLACEMENT, which is exactly what the
+    // constraint has taken over — writing it here would hand knockback to a
+    // `vel` the saddle overwrites with zero on this same tick.
+    //
+    // ⭐ SO THE VELOCITY STAYS STAGED while the floor-game answer lands
+    // immediately. `PendingLaunch` survives to the first tick nobody owns the
+    // pose, which is the tick the body is free to fly.
+    if ctx.pose_owned_externally {
+        let staged = clusters.flight.pending_launch_state();
+        accept_external_launch(model, clusters, &ctx, staged, LaunchTravel::Deferred);
+    } else {
+        let launch = clusters.flight.take_launch();
+        accept_external_launch(model, clusters, &ctx, launch, LaunchTravel::Applied);
+    }
     match model {
         MotionModel::AxisSwept(axis) => {
             let events = super::update_body_with_frame_clusters(
@@ -248,11 +288,24 @@ pub(super) fn establish_axis_ground_contact_baseline(
 ///
 /// Zero is the empty state (see [`BodyFlightState::pending_launch`]), so the
 /// common path is one comparison.
+/// Whether this acceptance may move the body, or only decide what the hit MEANT.
+///
+/// ⛔ `Deferred` exists for one case and it is named on `pose_owned_externally`:
+/// a body another authority is posing takes the floor-game consequence now and
+/// the travel later, because the authority that owns its position would erase
+/// the travel this tick.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LaunchTravel {
+    Applied,
+    Deferred,
+}
+
 fn accept_external_launch(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: &MotionStepContext<'_>,
     launch: crate::body_clusters::PendingLaunch,
+    travel: LaunchTravel,
 ) {
     if launch.is_empty() {
         return;
@@ -279,7 +332,9 @@ fn accept_external_launch(
             {
                 return;
             }
-            clusters.kinematics.vel = launch;
+            if travel == LaunchTravel::Applied {
+                clusters.kinematics.vel = launch;
+            }
             // and the floor game starts HERE, for the same reason the drain
             // is here. "Was this launch big enough to send the body tumbling"
             // is a question only the model can answer — the threshold is authored
@@ -317,12 +372,16 @@ fn accept_external_launch(
                 occlusions: momentum.occlusions,
             };
             surface_momentum::apply_external_launch(ctx.world, &mut body, launch, ctx.dt);
-            clusters.kinematics.vel = body.vel;
-            momentum.state = body.motion;
-            momentum.occlusions = body.occlusions;
+            if travel == LaunchTravel::Applied {
+                clusters.kinematics.vel = body.vel;
+                momentum.state = body.motion;
+                momentum.occlusions = body.occlusions;
+            }
         }
         MotionModel::AdhesiveCrawler(_) => {
-            clusters.kinematics.vel = launch;
+            if travel == LaunchTravel::Applied {
+                clusters.kinematics.vel = launch;
+            }
         }
     }
 }

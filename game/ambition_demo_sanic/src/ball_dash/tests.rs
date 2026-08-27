@@ -1,4 +1,3 @@
-
 use super::*;
 
 fn tuning() -> BallDashTuning {
@@ -162,8 +161,11 @@ fn leaving_the_ground_past_the_grace_loses_the_charge() {
 // ── The ECS half: a real body, the real components, the real systems ──
 
 use ae::SurfaceMotion;
-use ambition_platformer2d::actors::features::{MomentumMotion, MotionModel};
+// ⛔ NAMED FROM `_core`, not through the actor crate. `features` re-exported
+// both of these — a facade that made the monolith look like their owner —
+// and it was deleted; nothing rebuilt this test target to say so.
 use ambition_platformer2d::characters::control::ActorControl;
+use ambition_platformer2d::engine_core::movement::{MotionModel, SurfaceMomentumMotion};
 
 fn body_app() -> (App, Entity) {
     let mut app = App::new();
@@ -178,7 +180,7 @@ fn body_app() -> (App, Entity) {
     let mut kin = ae::BodyKinematics::default();
     kin.size = ae::Vec2::new(24.0, 40.0);
     kin.facing = 1.0;
-    let mut motion = MotionModel::SurfaceMomentum(MomentumMotion::new(Default::default()));
+    let mut motion = MotionModel::SurfaceMomentum(SurfaceMomentumMotion::new(Default::default()));
     if let MotionModel::SurfaceMomentum(m) = &mut motion {
         m.state = SurfaceMotion::Riding {
             on: ae::SurfaceRef::Chain(0),
@@ -237,7 +239,7 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
     app.insert_resource(BallDashTuning::default());
     // Reproduce the flat-floor seam: the generic ground cluster still reports
     // support while the momentum state has transiently fallen back to Airborne.
-    let motion = MotionModel::SurfaceMomentum(MomentumMotion::new(Default::default()));
+    let motion = MotionModel::SurfaceMomentum(SurfaceMomentumMotion::new(Default::default()));
     let entity = app
         .world_mut()
         .spawn((
@@ -253,9 +255,9 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
             ResolvedTechniqueEdges::default(),
         ))
         .id();
-    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(
-        entity,
-    )));
+    app.insert_resource(
+        ambition_platformer2d::platformer::markers::ControlledSubject(Some(entity)),
+    );
     app.add_systems(bevy::app::Update, capture_ball_dash_input);
 
     let press_spin_dash = |app: &mut App| {

@@ -104,6 +104,7 @@ pub(crate) fn update_player_with_tuning_clusters(
             facing_intent: 0.0,
             dt: raw_dt,
             contact: crate::movement::body_contact::BodyContactField::NONE,
+            pose_owned_externally: false,
         },
     );
     if result.events.reset.is_some() {

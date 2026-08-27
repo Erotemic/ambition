@@ -49,6 +49,7 @@ fn step_axis_body(
             facing_intent: 0.0,
             dt,
             contact: ambition_platformer2d_core::BodyContactField::NONE,
+            pose_owned_externally: false,
         },
     );
     if result.events.reset.is_some() {

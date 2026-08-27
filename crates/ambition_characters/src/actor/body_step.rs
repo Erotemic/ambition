@@ -42,6 +42,14 @@ pub fn step_body(
         ctx.input.axes = Default::default();
         ctx.input.undamped_axes = None;
         ctx.input.movement = Default::default();
+        // ⛔⛔ AND THE KERNEL IS TOLD, because zeroing the STICK is not the same
+        // as saying who owns DISPLACEMENT. Without this the kernel drains the
+        // pending launch and writes knockback into `vel` that the external
+        // constraint overwrites with zero on the same tick: measured on the
+        // pirate's shark, a launch strong enough to end the ride put him off the
+        // saddle at zero velocity, because the saddle pin runs after the step.
+        // The launch now stays staged until a tick nobody else owns the pose.
+        ctx.pose_owned_externally = true;
     }
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
         axis.params = axis_tuning.axis_swept_params();

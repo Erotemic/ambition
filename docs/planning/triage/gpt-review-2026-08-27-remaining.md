@@ -13,7 +13,15 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
 ## Priority 1 — recovery and the shark
 
-- ▢ **R1 — the shark recovery episode's cost is refunded before it is paid.**
+- ▣ **R1 — CLOSED `533bd9a05`. The shark recovery episode's cost is refunded
+  before it is paid.** Measured frame by frame: spent on the press frame, full
+  again on the next one, because the landing-class refresh asks `on_ground`
+  every TICK and a body that never left the floor answers yes. Not a vehicle
+  rule — every fighter's grounded up-B was refunded the same way.
+  `MotionStepContext::recovery_commitment_outstanding` is derived each tick from
+  the `MovePlayback` (no second copy to desync) and `RecoveryRefresh::Withheld`
+  holds the recovery back while still refreshing the aerial resources. Poisoned:
+  forcing `Answered` fails the flinch refund and the lease-release arm.
   `call_the_shark` is `RecoveryUse::SpendWithoutFreefall`; `start_move` spends
   the charge; but the move begins GROUNDED, and ordinary grounded movement
   refreshes `recovery_charges` before the shark takes movement authority. So the
@@ -30,7 +38,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   hit in `smash_ride.rs::a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off`,
   which lands correctly as of `a945c1d`.
 
-- ▢ **R2 — the assembled mounted-launch test is green with the fix reverted.**
+- ▣ **R2 — CLOSED `65b89da85`. The assembled mounted-launch test is green with
+  the fix reverted.** Replaced with EQUIVALENCE: the same strike on the same
+  admiral, airborne under his own jump and airborne on the shark, must leave him
+  with the same velocity. Both roads produce `(-1884.0382, -1884.0382)` to the
+  last decimal. Poisoned: reverting the deferral releases the mounted arm at
+  exactly `(0, 0)`. Sampled on the RELEASE TICK — four frames of gravity is what
+  buried the difference before.
   The kernel regression covers the deferred-launch behaviour honestly. The
   ASSEMBLED shark test does not: its lateral-velocity assertion survives
   reverting the fix because something else produces lateral motion. Build the
@@ -40,7 +54,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
 ## Priority 2 — two inspector proofs that are falsely closed
 
-- ▢ **R3 — the shark-health census scans a hand-kept table, not the roster.**
+- ▣ **R3 — CLOSED `630411c89`. The shark-health census scans a hand-kept table,
+  not the roster.** `SmashRoster::assemble` against a live registry: 21 fighters,
+  21 movesets. Ranged resolved the way `trigger_moveset_moves` resolves it, at a
+  full charge. Worst melee 36 (George Booul's forward smash), worst ranged 14
+  (Projectile Polygon's charge shot). The shark's 40 holds — the census was the
+  defect. The ranged maximum is asserted non-zero as a premise.
+  `authored_movesets.rs` no longer claims to be the cast.
   `a_recovery_mount_cannot_be_deleted_by_one_hit` claims the whole selectable
   cast and actually builds `ambition_content::authored_movesets::tables()` plus
   George Booul by hand. That helper is INCOMPLETE — Pointed / Projectile /

@@ -47,6 +47,29 @@ pub struct MoveBrandishedItem {
     pub previous: Option<String>,
 }
 
+/// The localizer's window on a brandish: WHICH move drew it and WHAT it
+/// displaced.
+///
+/// ⛔ A PRESENCE PROBE SEES NOTHING OF THE VALUE, and `rollback_exit_oracle`
+/// says so by name. Both fields are strings that decide what ends up in a
+/// fighter's hand when the move stops, so a rewind that restored the component
+/// with the wrong `previous` would be invisible without this.
+pub fn move_brandished_item_probe(item: &MoveBrandishedItem) -> u64 {
+    fn hash(text: &str) -> u64 {
+        // FNV-1a: stable across builds and platforms, which `DefaultHasher` is
+        // explicitly not.
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for byte in text.as_bytes() {
+            h ^= u64::from(*byte);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        h
+    }
+    let mut out = hash(&item.move_id);
+    out = out.rotate_left(17) ^ item.previous.as_deref().map_or(0, hash);
+    out
+}
+
 /// Put a move's authored weapon in its owner's hand while it plays, and put
 /// back what it displaced when it stops.
 ///

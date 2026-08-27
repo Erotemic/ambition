@@ -359,6 +359,20 @@ pub struct StoredMoveCharge {
     pub held_s: f32,
 }
 
+/// The localizer's window on a banked charge: whose it is and how much.
+///
+/// ⛔ A PRESENCE PROBE SEES NOTHING OF THE VALUE, and `rollback_exit_oracle`
+/// says so by name. `held_s` is the whole payoff of the next shot, so a rewind
+/// that restored the bank at the wrong level would be invisible without this.
+pub fn stored_move_charge_probe(stored: &StoredMoveCharge) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in stored.move_id.as_bytes() {
+        h ^= u64::from(*byte);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h.rotate_left(17) ^ stored.held_s.to_bits() as u64
+}
+
 impl MoveCharge {
     fn new(policy: ambition_entity_catalog::SmashChargeSpec) -> Self {
         Self {

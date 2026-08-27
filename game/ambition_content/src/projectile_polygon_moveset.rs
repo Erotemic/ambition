@@ -6,7 +6,7 @@
 //! remains useful as a bestial pose reference rather than a one-off gimmick.
 
 use ambition_characters::moveset_authoring::Strike;
-use ambition_characters::moveset_authoring::{committed_tail, impulse, strike};
+use ambition_characters::moveset_authoring::{impulse, strike};
 use ambition_characters::smash_capture::{
     author_pummel, author_standing_grab, author_throw, capture_beat, grab_shell,
     CaptureAttemptParams, CaptureCues, CapturePummelParams, CaptureThrowParams,

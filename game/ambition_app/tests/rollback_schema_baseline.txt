@@ -36,7 +36,7 @@ actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapsho
 actor.match_team	component-canonical	MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_model	component-canonical	MotionModel	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_path	component-clone-cursor	ActorMotionPath	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.move_brandished_item	component-clone	MoveBrandishedItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.move_brandished_item	component-clone	MoveBrandishedItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
 actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -59,7 +59,7 @@ actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; 
 actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.temporary_control	component-canonical	TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

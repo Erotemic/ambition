@@ -2621,6 +2621,42 @@ constructions, **60 are the nine arms that stay**. `BossPattern` appears twice.
 `Fighter` and `Smash` appear **zero** times — their tests live in their own
 subtrees and travel with the behaviour.
 
+✔✔✔ **AND THE FIRST BEHAVIOUR ACTUALLY LEFT, 2026-08-27: `smash` IS
+`ambition_combat::brain::smash`.** 4,542 lines — the tick, the mode/action/emit/
+difficulty stages, the observation builder, the arena harness and their tests.
+`ambition_characters` keeps 585 lines of shape in `brain/smash.rs`. Tests
+travelled with it: characters 637 → 589, combat 342 → 417.
+
+⭐ **THE ORDER MATTERED AND IS THE REUSABLE PART**: the dispatcher had to move up
+before any arm could move at all, and the data had to be PROVED separable before
+the behaviour could be told apart from it. Neither is optional and neither is
+visible from a line count.
+
+⛔⛔ **THE COMPILER MOVED TWO TYPES BACK, which is the split's check doing its
+job.** `CrowdingSignal` and `TerrainAwareness` read like observation stages, but
+`BrainSnapshot` — the brain's INPUT, and the floor crate's — carries both BY
+VALUE, so `ambition_characters` stopped compiling the moment they left. ⇒ **the
+pinned set is not just what the ENCODER reads; it is what the SNAPSHOT names
+too.** Add that to the rule above before pricing the next subtree.
+
+⛔⛔⛔ **AND THAT MAKES `fighter` A CAMPAIGN, NOT A SLICE — measured 2026-08-27
+before starting it.** Its pinned set spans SIX files, because the snapshot pins
+one more:
+
+```text
+data.rs      FighterCfg · ApmLedger · PendingAttack · FighterState · FoeSample  (encoder)
+options.rs   AttackVerb (encoder) · AttackCandidate — `BrainSnapshot.attack_kit`
+             is a `Vec<AttackCandidate>` BY VALUE (snapshot.rs:87)
+habit.rs     HabitModel, and `Choice`/`Situation` through `habits.rows()`
+profile.rs   FighterBrainProfile — `FighterCfg` names it
+rollout.rs   ShadowTuning — likewise
+situation.rs Situation
+```
+
+⇒ so five more data extractions are owed before `fighter`'s behaviour can go, one
+per file, each provable the same way. ⚠ do them as separate slices; the smash
+subtree needed only ONE because its shape happened to sit in two files.
+
 ✔✔ **THE FORCED SPLIT IS DONE FOR TWO OF THE THREE SUBTREES, 2026-08-26/27.**
 
 ```text

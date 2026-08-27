@@ -1189,3 +1189,137 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
          before, {after} after) — a dead mount had taken the ability with it"
     );
 }
+
+
+/// ⭐⭐ TWO ADMIRALS, TWO SHARKS, EACH ON ITS OWN.
+///
+/// Jon: *"If a shark is flying away and the pirate has met all of the conditions
+/// to be able to use the move again, an additional shark can be summoned, i.e.
+/// multiple sharks are allowed on the screen at once."* Nothing tested that the
+/// feature is per-RIDER rather than per-STAGE: a lease, a reservation or a
+/// departure keyed to "the shark" instead of "this shark" would work perfectly
+/// in every single-rider test in this file and fall apart the first time two
+/// admirals pressed up-B.
+///
+/// ⛔ IT ASSERTS THE PAIRINGS, not the count. Two sharks existing proves nothing
+/// if both riders ended up on the same one, or if one rider's lease put the
+/// other down.
+#[test]
+fn two_admirals_ride_their_own_sharks_at_the_same_time() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{MountSlot, Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat = |app: &mut App, want: usize| -> Entity {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, s)| s.0 == want)
+            .map(|(entity, _)| entity)
+            .expect("the match seats this fighter")
+    };
+    let human = seat(&mut app, 0);
+    let cpu = seat(&mut app, 1);
+
+    // The human presses; the CPU admiral summons on its own, which is what makes
+    // this two riders rather than one pressing twice.
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    // Long enough for the CPU to take its own turn.
+    for _ in 0..240 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+
+    let mounts: Vec<(usize, Option<Entity>)> = [human, cpu]
+        .iter()
+        .enumerate()
+        .map(|(seat, rider)| {
+            (
+                seat,
+                app.world().get::<RidingOn>(*rider).map(|r| r.mount),
+            )
+        })
+        .collect();
+    let ridden: Vec<Entity> = mounts.iter().filter_map(|(_, m)| *m).collect();
+    assert!(
+        ridden.len() >= 2,
+        "fewer than two admirals were aboard a shark at once ({mounts:?}), so \
+         this measures nothing about simultaneous rides"
+    );
+    // ⛔ AND THEY ARE DIFFERENT SHARKS, each holding its own rider.
+    //
+    // ⚠ THIS ARM IS A GUARD, NOT A PROOF, and the difference is worth stating:
+    // removing `board`'s occupied-saddle refusal leaves this test GREEN, because
+    // each admiral summons and boards its own reservation and neither ever
+    // reaches for the other's. The refusal itself is pinned by
+    // `a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match`, which asks
+    // for it directly. What this arm catches is a lease, a reservation or a
+    // departure keyed to "the shark" rather than "this shark" — state that would
+    // work in every single-rider test in this file and collapse the moment two
+    // admirals are aboard.
+    assert_ne!(
+        ridden[0], ridden[1],
+        "both admirals are riding the SAME shark — a mount holds one rider, and \
+         a second board should have been refused"
+    );
+    for (seat, mount) in mounts.iter().filter_map(|(s, m)| m.map(|m| (*s, m))) {
+        let rider = if seat == 0 { human } else { cpu };
+        let slot = app
+            .world()
+            .get::<MountSlot>(mount)
+            .and_then(|slot| slot.rider);
+        assert_eq!(
+            slot,
+            Some(rider),
+            "seat {seat}'s shark does not name it as the occupant, so the pair is \
+             welded one way only"
+        );
+    }
+    let sharks = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    assert!(
+        sharks >= 2,
+        "only {sharks} shark(s) on a stage carrying two riders"
+    );
+}

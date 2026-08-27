@@ -1055,11 +1055,15 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     // velocity to ZERO every tick, and the kernel used to spend the launch into
     // that same velocity — is real, and it is fixed in
     // `MotionStepContext::pose_owned_externally`. But POISON-CHECKED both ways,
-    // this arm stays GREEN with the fix reverted: the admiral leaves at about
-    // (-1884, -1690) either way, so whatever produces that travel is not the
-    // launch this hit staged. The guard that actually fails without the fix is
-    // `a_pose_owned_body_keeps_its_pending_launch_until_it_is_released` in the
-    // kernel's own tests.
+    // this arm stays GREEN with the fix reverted, because it samples FOUR FRAMES
+    // after the dismount and four frames of gravity clear fifty on their own.
+    //
+    // ⭐ THE ASSEMBLED PROOF IS `a_mounted_launch_carries_the_same_travel_as_an
+    // _unmounted_one`, which asks for equivalence instead of for a magnitude:
+    // the same strike on the same admiral, airborne under his own jump and
+    // airborne on the shark, must leave him with the SAME velocity. Sampled on
+    // the release tick, before gravity buries the difference — the reverted
+    // kernel releases him at exactly (0, 0) there.
     //
     // ⚠ SO WHAT THIS ARM IS FOR: a launched rider must come off MOVING. It would
     // catch a future change that zeroed a released body outright, which the
@@ -2500,4 +2504,223 @@ fn probe_the_recovery_charge_across_the_shark_handoff() {
         app.update();
         report(&app, "free ", i);
     }
+}
+
+/// ⭐⭐ THE MOUNTED ROAD CARRIES THE HIT'S OWN LAUNCH, NOT SOME LAUNCH.
+///
+/// ⛔⛔ THE ARM THAT USED TO STAND HERE COULD NOT FAIL. The launch half of
+/// `a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off` asserts
+/// `released.x.abs() > 50` four frames after the dismount — and four frames of
+/// gravity plus whatever the release itself imparts clears fifty comfortably, so
+/// it stayed green with the deferral reverted. Its own comment says so. That
+/// left the kernel's rule proven only inside the kernel, where the assembled
+/// game could still be wiring it up wrong and nothing would say.
+///
+/// ⭐ SO ASK FOR EQUIVALENCE, WHICH IS THE ACTUAL CLAIM. The same admiral takes
+/// the same strike, once airborne under his own jump and once airborne on the
+/// shark, and the velocity he owns on the first tick he owns his displacement
+/// must be the SAME velocity. Not "nonzero", not "lateral" — the same. Measured,
+/// both roads produce `(-1884.04, -1884.04)` to the last decimal, because a
+/// launch is ASSIGNED rather than accumulated and the deferral changes only
+/// WHICH TICK it is assigned on.
+///
+/// ⛔ AND SAMPLED ON THE RELEASE TICK, which is what makes it discriminating.
+/// Gravity adds about fifteen per frame; wait four and the difference between a
+/// preserved launch and an erased one is buried. With
+/// `MotionStepContext::pose_owned_externally`'s deferral reverted the mounted arm
+/// releases at exactly `(0, 0)` — the saddle pinned the velocity the kernel had
+/// already spent — and this fails on the first component it compares.
+#[test]
+fn a_mounted_launch_carries_the_same_travel_as_an_unmounted_one() {
+    let (free, free_damage, _) = one_strong_hit(false);
+    let (ridden, ridden_damage, frames) = one_strong_hit(true);
+    // ⛔ THE SAME HIT ON THE SAME BODY, or the two velocities are answers to
+    // different questions: knockback scales with the damage the victim is
+    // already carrying.
+    assert_eq!(
+        free_damage, ridden_damage,
+        "the two arms took different damage ({free_damage} vs {ridden_damage}), \
+         so their launches are not comparable"
+    );
+    assert!(
+        free.x.abs() > 500.0 && free.y.abs() > 500.0,
+        "the unmounted arm did not take a real launch ({free:?}), so the \
+         comparison below has no reference"
+    );
+    assert!(
+        frames > 0,
+        "the mounted admiral was never in the saddle when the strike landed, so \
+         this is two copies of the unmounted road"
+    );
+    let apart = (ridden - free).length() / free.length();
+    assert!(
+        apart < 0.01,
+        "the mounted admiral came off carrying {ridden:?} where the unmounted one \
+         took {free:?} — {:.0}% apart. A launch is ASSIGNED, so the saddle may \
+         change WHEN the body flies and never HOW FAR: a mounted road that \
+         produces its own number has spent the hit into a velocity something \
+         else overwrote.",
+        apart * 100.0
+    );
+}
+
+/// Drive one admiral to the same strong hit, mounted or not, and report the
+/// velocity he carries once he is nobody's passenger.
+///
+/// ⭐ ONE FUNCTION FOR BOTH ARMS so the roads differ in exactly one thing. The
+/// hit is byte-identical; the only statement the caller makes is whether the
+/// admiral pressed up-B first.
+fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i32, usize) {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::RidingOn;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..900 {
+        app.update();
+        let (seated, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            let seated = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (seated, q.iter(world).count())
+        };
+        if seated > 0 && held == 0 {
+            break;
+        }
+    }
+    let seat = |app: &mut App, want: usize| -> Entity {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, s)| s.0 == want)
+            .map(|(entity, _)| entity)
+            .expect("the match seats this fighter")
+    };
+    let victim = seat(&mut app, 0);
+    let rival = seat(&mut app, 1);
+
+    if mounted {
+        let up_special = ambition_platformer2d::engine_core::ControlFrame {
+            axis_y: -1.0,
+            special_pressed: true,
+            special_held: true,
+            ..Default::default()
+        };
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+        app.update();
+        for _ in 0..9 {
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    special_pressed: false,
+                    ..up_special
+                },
+            );
+            app.update();
+        }
+        for _ in 0..20 {
+            app.update();
+        }
+        assert!(
+            app.world().get::<RidingOn>(victim).is_some(),
+            "the mounted arm never boarded"
+        );
+    } else {
+        // ⭐ AIRBORNE EITHER WAY, so the two arms differ by the SADDLE and not by
+        // the floor. A grounded body answers a launch through its support; the
+        // mounted one is in the air, and comparing those two would be comparing
+        // the ground game.
+        let jump = ambition_platformer2d::engine_core::ControlFrame {
+            jump_pressed: true,
+            jump_held: true,
+            ..Default::default()
+        };
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), jump);
+        app.update();
+        for _ in 0..20 {
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    jump_pressed: false,
+                    ..jump
+                },
+            );
+            app.update();
+        }
+        assert!(
+            !app.world()
+                .get::<ambition_platformer2d::engine_core::BodyGroundState>(victim)
+                .is_some_and(|g| g.on_ground),
+            "the unmounted arm never left the floor"
+        );
+    }
+
+    let before = app
+        .world()
+        .get::<ambition_platformer2d::characters::actor::BodyHealth>(victim)
+        .map_or(0, |h| h.damage_taken());
+    {
+        let world = app.world_mut();
+        let pos = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(victim)
+            .expect("the victim has kinematics")
+            .pos;
+        world.spawn((
+            ambition_platformer2d::combat::strike::Hitbox {
+                owner: rival,
+                source: ambition_platformer2d::vfx::HitSide::Enemy,
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World { center: pos },
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
+                shape: None,
+                facing: 1.0,
+                damage: 14,
+                knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(6.0),
+                launch_dir: Some(ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0)),
+                frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+                reaction: None,
+                strike_sfx: None,
+            },
+            ambition_platformer2d::combat::strike::HitboxHits::default(),
+        ));
+    }
+    // Sampled on the tick the admiral is FREE and moving: for the unmounted arm
+    // that is the tick after the hit; for the mounted one it is the tick after
+    // the saddle lets go. Both are "the first tick this body owns its own
+    // displacement", which is what the kernel's deferral is about.
+    let mut frames = 0usize;
+    for i in 0..60 {
+        app.update();
+        if app.world().get::<RidingOn>(victim).is_none() {
+            frames = i;
+            break;
+        }
+    }
+    app.update();
+    let vel = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(victim)
+        .map(|kin| kin.vel)
+        .expect("the victim has kinematics");
+    let after = app
+        .world()
+        .get::<ambition_platformer2d::characters::actor::BodyHealth>(victim)
+        .map_or(0, |h| h.damage_taken());
+    (vel, after - before, frames)
 }

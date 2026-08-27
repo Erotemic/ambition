@@ -5915,8 +5915,25 @@ DEPENDENCY ON THE MONOLITH IS 20/24 FACADE.** Of the 24 names it imported from
 `ambition_platformer2d_core` (4), `shared_tangle` (2), `ambition_geometry` (1) and
 `ambition_boss_encounter` (1). All twenty now name their owning crate.
 
-⛔ **THE DELETION GATE FOR THE EDGE ITSELF WAS FOUR TYPES AND ONE FUNCTION, AND
-IS NOW TWO:**
+⛔⛔⛔ **AND THE "FOUR TYPES" GATE BELOW IS WRONG — CORRECTED 2026-08-27 BY THE
+SESSION THAT WROTE IT.** That measurement read only the `features::{…}` brace
+imports in `anim_index.rs` and `view_index.rs`. `ambition_sim_view` also names the
+monolith from `facts.rs` (held items, ground items, item custody, world items,
+item motion, held projectiles), `local_view.rs` (`control::body_driving_seat`) and
+`lib.rs` (`features::advance_actor_anim_overlays`). ⇒ **the edge is smaller than
+it was and is nowhere near closing**; ITEMS are the next real block, not a
+leftover type. ⚠ THE LESSON IS THE ONE THIS ROW KEEPS TEACHING: a census that
+reads one import FORM measures that form, and `grep` for a brace import cannot see
+a fully-qualified path in a query type.
+
+✔ **`ActorConfig` + `ActorTuning` + `BrainProfile` MOVED ANYWAY, 2026-08-27**, to
+`ambition_combat::actor_tuning` — 47 files changed a path. ⛔ AND THE OBVIOUS
+DESTINATION WAS WRONG: `ambition_characters` owns "what a character IS", and
+`ActorTuning.movement` is an `ambition_combat::BodyMovementTuning`, so the floor
+crate cannot name it. **A type follows the vocabulary it is built from** — the
+same rule that sent switches to `ambition_encounter`.
+
+⛔ **THE DELETION GATE AS ORIGINALLY (AND WRONGLY) STATED:**
 
 ```text
 ✔ SwitchFeature · SwitchOn    MOVED to ambition_encounter::switches 2026-08-26

@@ -557,6 +557,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
             WorldHitPolicy::ExpireOnContact
         },
         charge_tier: 0,
+        boomerang_return_s: None,
     };
     assert_eq!(
         spec.world_hit,
@@ -739,6 +740,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         bounces: flight.bounces,
         world_hit: WorldHitPolicy::Bouncing,
         charge_tier: 0,
+        boomerang_return_s: None,
     });
     // Aim it flat at the snake so the hit does not depend on arc tuning.
     body.kin.pos = ae::Vec2::new(370.0, SNAKE_POS.y);

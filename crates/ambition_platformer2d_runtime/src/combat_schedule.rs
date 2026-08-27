@@ -215,6 +215,12 @@ impl Plugin for CombatSchedulePlugin {
                 // projectile requests.
                 ambition_platformer2d_actor_monolith::features::spawn_projectiles_from_brain_actions
                     .run_if(gameplay_allowed),
+                // EFFECTS-stage consumer, beside the shot spawner and for the same
+                // reason: a move's timed technique is dispatched as an
+                // `ActorActionMessage` above, and a teleport that ran a phase
+                // later would move the body after the frame it was authored for.
+                ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
+                    .run_if(gameplay_allowed),
                 (
                     ambition_combat::strike::apply_effects
                         .in_set(ambition_combat::strike::EffectExecutionSet)

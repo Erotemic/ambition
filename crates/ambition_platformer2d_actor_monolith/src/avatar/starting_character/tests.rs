@@ -1470,6 +1470,7 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
                     visual: None,
                     charge: None,
                     refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
+                    aim_assist: None,
                 }),
                 ..ActionSet::default()
             }),
@@ -1629,6 +1630,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
             visual: None,
             charge: None,
             refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
+            aim_assist: None,
         }),
         ..ActionSet::default()
     };

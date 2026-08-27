@@ -761,6 +761,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
             visual: None,
             charge: None,
             refire_s: ambition_characters::brain::action_set::DEFAULT_RANGED_REFIRE_S,
+            aim_assist: None,
         }),
         ..ActionSet::default()
     };

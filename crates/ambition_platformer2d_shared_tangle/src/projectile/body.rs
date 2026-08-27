@@ -368,7 +368,7 @@ mod tests {
                 damage: 2,
                 bounces_remaining: bounces,
                 world_hit: crate::projectile::WorldHitPolicy::Bouncing,
-                accel: ae::Vec2::ZERO,
+                accel: Vec2::ZERO,
             },
         }
     }

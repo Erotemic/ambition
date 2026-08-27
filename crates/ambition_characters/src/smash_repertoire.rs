@@ -169,7 +169,14 @@ impl UpSpecial {
     /// field: a posture cannot know whether a move is a recovery, but a slot
     /// whose NAME is "the up-B" can, and letting a moveset quietly disagree with
     /// its own repertoire slot would put the default back where it started.
-    fn into_spec(self) -> MoveSpec {
+    ///
+    /// ⭐ PUBLIC, so a fighter who REPLACES a borrowed table's up-B pays what
+    /// this slot says rather than restating it. The Author wears the Pointed
+    /// Polygon's whole repertoire and swaps one slot; without this he would set
+    /// `gates.recovery` by hand beside the one place that decides it, and an
+    /// up-B that costs nothing is flight. `the_replacement_still_spends_the_airtimes_recovery`
+    /// is the test that found it.
+    pub fn into_spec(self) -> MoveSpec {
         let (mut spec, recovery) = match self {
             Self::Standard(spec) => (spec, RecoveryUse::SpendAndFreefall),
             Self::NoFreefall(spec) => (spec, RecoveryUse::SpendWithoutFreefall),

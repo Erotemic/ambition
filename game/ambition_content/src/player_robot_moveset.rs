@@ -39,6 +39,14 @@ use ambition_platformer2d::entity_catalog::ImpulseMode;
 /// Shared by this demo's three fighters today. That is a content decision, not
 /// an architectural one: the moveset rides the CHARACTER, so giving George a
 /// heavier one is editing his definition and nothing else.
+/// When the robot vanishes. Long enough that the disappearance is a read and
+/// the move is punishable on reaction.
+const BLINK_AT_S: f32 = 0.14;
+
+/// When the move ends. The tail is the robot re-materialising, which is the
+/// half of the animation that makes the arrival readable to the other player.
+const BLINK_ENDS_S: f32 = 0.42;
+
 pub fn player_robot_moveset() -> MovesetContract {
     // ── grounded ─────────────────────────────────────────────────────────────
     //
@@ -308,31 +316,53 @@ pub fn player_robot_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.12, "player.dash");
     let side_b = on_contact(side_b, "player.hit");
 
-    // UP — `thruster_climb`. THE RECOVERY. At home this body can FLY; a
-    // platform fighter does not get flight, so the thrusters get one burst and
-    // then it is falling again. That is the same fact stated under two rulesets,
-    // which is what the ability mask is for.
-    let mut up_b = strike(Strike {
-        id: "thruster_climb",
-        clip: "fly",
-        startup_s: 0.07,
-        active_s: 0.12,
-        recover_s: 0.20,
-        offset: (0.0, -12.0),
-        half_extents: (20.0, 30.0),
-        damage: 7,
-        knockback: 86.0,
-        knockback_growth: 1.62,
-        launch_dir: Some((0.12, -1.0)),
-        on_hit: None,
-    });
-    up_b.landing_lag_s = Some(0.28);
-    let up_b = impulse(up_b, 0.07, (0.0, -760.0), ImpulseMode::Set);
-    let up_b = committed_tail(up_b, 0.50, 0.20);
-    let up_b = vfx_at(up_b, 0.07, "steam_vent", (0.0, 18.0), 1.0);
-    let up_b = sfx(up_b, 0.07, "player.fly.start");
-    let up_b = vfx_at(up_b, 0.19, "energy_release", (0.0, -12.0), 0.9);
-    let up_b = on_contact(up_b, "player.hit");
+    // UP — `phase_shift`. THE BLINK, AS A RECOVERY.
+    //
+    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"The robot has a blink up-b, similar to how
+    // it works in ambition in terms of the animation."* At home this body has a
+    // held-item blink — a short directional teleport that stops a body-half
+    // short of the first solid — and this is that same rule reached from a
+    // repertoire slot instead of from an inventory. `blink_target` resolves both,
+    // which is the whole reason the technique lives beside it rather than in a
+    // game crate.
+    //
+    // ⛔ IT REPLACES `thruster_climb`, a burst of flight. The two are the same
+    // fact stated under two rulesets — at home this body can FLY — and a
+    // platform fighter does not get flight; but a thruster burst and a
+    // teleport are different mechanics, and Jon asked for the one the robot
+    // already owns.
+    //
+    // ⭐ THE LOOK IS THE PHASE-OUT, which is what "similar to how it works in
+    // ambition" means: `teleport_depart` where it left, `teleport_arrive` where
+    // it appears. The Author's teleport uses the same technique and a different
+    // pair — see `author_moveset`.
+    //
+    // ⛔ NO HITBOX. A recovery that also struck on both ends would be a
+    // recovery you throw at people, and the blink's offensive shockwave belongs
+    // to the held item's version of it.
+    let up_b = ambition_characters::moveset_authoring::hitless_special(
+        "phase_shift",
+        "fly",
+        BLINK_AT_S,
+        BLINK_ENDS_S,
+    );
+    let up_b = ambition_characters::smash_teleport::author_teleport(
+        up_b,
+        BLINK_AT_S,
+        ambition_characters::smash_teleport::TeleportParams {
+            // Comparable to a good double jump's height, so it recovers from a
+            // real edgeguard and does not cross the stage.
+            distance: 210.0,
+            // ⭐⭐ THE LEDGE ASSIST. Without it a teleport recovery aimed at a
+            // platform edge either lands on it or dies a few pixels under it,
+            // and that margin is a stick angle nobody can hold.
+            ledge_assist: 44.0,
+            depart_vfx: "teleport_depart".to_string(),
+            arrive_vfx: "teleport_arrive".to_string(),
+        },
+    );
+    let up_b = sfx(up_b, 0.0, "player.attack.charge");
+    let up_b = sfx(up_b, BLINK_AT_S, "player.fly.start");
 
     // DOWN — `stabilizer_slam`. It drops its weight through its stabilizers
     // and the floor answers. Wide, flat, grounded-only, and slow enough that

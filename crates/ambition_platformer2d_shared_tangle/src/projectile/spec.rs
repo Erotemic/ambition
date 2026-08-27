@@ -75,6 +75,7 @@ mod tests {
             bounces: 2,
             world_hit: crate::projectile::WorldHitPolicy::Bouncing,
             charge_tier: 0,
+            boomerang_return_s: None,
         };
         let v = s.initial_velocity();
         assert!((v.x - 360.0).abs() < 1e-3);

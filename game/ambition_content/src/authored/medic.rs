@@ -5,11 +5,12 @@
 //! rather than punches. She is the Pugnacious Polygon's archetype wearing a
 //! different person — unarmed, close-range, same skeleton and clip vocabulary.
 //!
-//! ⚠ HER SPECIALS COST NOTHING YET. ADRENALINE spends a slice of her own margin
-//! to buy tempo and FIELD DRESSING kneels and gives it back; both are authored
-//! as clips and neither publishes a hit volume, because neither hits anybody.
-//! The rules that make that a DECISION are gameplay, and they are not written.
-//! Until they are she borrows the archetype's specials.
+//! ⭐⭐ HER SPECIALS ARE HERS, AND THEY ALL TRADE IN THE SAME CURRENCY.
+//! ADRENALINE spends a point of her margin and buys frame advantage with it,
+//! FIELD DRESSING kneels and repays two, TOURNIQUET drags a fighter into the
+//! range where her palms are worth something, and RESCUE LIFT is the only one
+//! that costs her nothing. `crate::medic_moveset` is the table; the price and
+//! the repayment are one technique with a sign, `smash.vitality`.
 //!
 //! Nothing may depend on her being selectable. She is meant to be found.
 

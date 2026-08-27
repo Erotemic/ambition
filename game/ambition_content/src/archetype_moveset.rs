@@ -154,7 +154,9 @@ mod tests {
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "medic",
                 &["polygon_brawler", "pugnacious_polygon"][..],
-                0,
+                // All four specials are hers, and the down slot is a posture
+                // pair: five verbs she authored rather than borrowed.
+                5,
             ),
         ] {
             assert_eq!(

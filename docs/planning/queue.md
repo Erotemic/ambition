@@ -2399,7 +2399,46 @@ axis, and the diagnosis was re-measured as correct — but its trigger has not
 fired. Take the blast zone first; it has a customer, and it removes rather than
 adds.
 
-- ▢ **D168 — CONTROL AUTHORITY AND AI POLICY: THE SPLIT LANDED; THE CRATE CARVE IS BLOCKED.**
+- ✔ **D168 — CONTROL AUTHORITY AND AI POLICY: THE SPLIT LANDED, AND SO DID THE
+  CARVE. CLOSED 2026-08-27.**
+
+✔✔✔ **ALL THREE BEHAVIOUR SUBTREES LEFT `ambition_characters`.**
+
+```text
+brain/ in ambition_characters   28,551 → 12,037   the SHAPE: Brain, the enum,
+                                                  every cfg/state, the nine
+                                                  ordinary NPC arms
+brain/ in ambition_combat                11,798   fighter + smash thinking
+pattern/ in ambition_boss_encounter       ~3,700   boss thinking
+```
+
+⭐ **THE PAYOFF IS EDIT COST AND THE ROW SAID SO IN ADVANCE — say it that way.**
+Direct dependents at HEAD: `ambition_characters` 20, `ambition_combat` 11,
+`ambition_boss_encounter` 8. A fighter-AI edit used to rebuild 20 crates and now
+rebuilds 11; a boss-behaviour edit rebuilds 8. ⛔ THE CAPABILITY FOOTPRINT DID NOT
+MOVE — 43 crates / 16 never-asked-for, before and after — exactly as the row
+predicted, because the monolith must name whatever dispatches and the monolith is
+in every closure. A session claiming a footprint win here would have been wrong.
+
+⭐⭐ **WHAT MADE IT POSSIBLE, IN ORDER, AND NONE OF IT WAS IN THE ORIGINAL PLAN:**
+1. **The dispatcher splits rather than moves.** `tick_simple_state_machine`
+   answers the nine ordinary arms in the floor crate and says so; the outer match
+   is `ambition_platformer2d_actor_monolith::brain_tick`. The row priced 50 broken
+   test call sites; it was one, because 60 of the tests' 62 constructions are the
+   nine arms that stay.
+2. **The orphan rule decides which half may leave** — not taste, and not a line
+   count. Every type the `Brain` encoder reads, AND every type `BrainSnapshot`
+   names by value, is pinned to `ambition_characters` forever.
+3. **A `data.rs` per subtree, proved by compiling.** Two were needed; the third
+   subtree turned out to be split already, behind a one-item glob.
+4. **The compiler finds what the plan misses**: `CrowdingSignal` and
+   `TerrainAwareness` came back, a state-machine ADAPTER followed the tick it
+   adapts, and a content SCHEMA followed the three modules it compiles.
+
+⚠ **WHAT IS DELIBERATELY NOT DONE**: `habit`, `options`, `profile` and `situation`
+stayed WHOLE in the floor crate. Each is majority-shape with a little behaviour on
+that shape, and splitting them again would buy a boundary nobody is asking for.
+Reopen only with a customer.
 
 Design and measurement in
 [`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md).

@@ -527,10 +527,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
             .get::<RidingOn>(seat0)
             .map(|r| r.mount)
             .expect("just asserted the admiral is aboard");
-        let shark_pos = world
-            .get::<ambition_platformer2d::actor::BodyKinematics>(mount)
-            .expect("the shark has kinematics")
-            .pos;
+        let _ = mount;
         // ⭐⭐ A REAL HITBOX, NOT A SYNTHETIC `damage()` CALL. The point of this
         // arm is that an OPPONENT'S SWING reaches the shark: it is Neutral, and
         // `CombatRelation::damage_lands` is true for `Foe | Neutral` — nobody
@@ -542,14 +539,25 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
                 // The seat that is not the rider: an opponent's swing.
                 owner: seat0,
                 source: ambition_platformer2d::vfx::HitSide::Player,
-                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
-                    center: shark_pos,
+                // ⛔ ANCHORED TO THE SHARK, NOT A REMEMBERED POINT. A `World`
+                // box at a position read a moment earlier MISSES a mount that is
+                // being flown — measured: the same arm landed when the press was
+                // from a standing start and stopped landing once the admiral
+                // jumped first, which made a survivability assertion pass
+                // because nothing hit it.
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::FollowOwner {
+                    local_offset: ambition_platformer2d::engine_core::Vec2::ZERO,
                 },
-                half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(400.0, 400.0),
                 shape: None,
                 facing: 1.0,
-                // A middling connection: the admiral's own table runs 2 to 17.
-                damage: 10,
+                // ⛔ THE WORST SINGLE HIT IN THE GAME, not a middling one. This
+                // arm used to land 10 and passed at 24 HP — while Jon's shark
+                // was being deleted by a fully charged forward smash at 17 x
+                // 1.7 = 29. A survivability test that lands less than the
+                // biggest thing that can land proves the pool survives
+                // something nobody was worried about.
+                damage: 29,
                 knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(0.0),
                 launch_dir: None,
                 frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),

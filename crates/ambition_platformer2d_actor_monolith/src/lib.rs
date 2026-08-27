@@ -88,13 +88,11 @@ pub use world::rooms;
 pub use time::move_toward;
 pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
-
 // ⛔ THE ACTOR-DEATH ANNOUNCEMENT LEFT THIS CRATE ROOT, 2026-08-26.
 // `ActorDiedMessage` and `DeathCause` are `ambition_combat::death_rules`', beside
 // `BodyKnockedOut` and the death rules they belong with — the runtime, two demos
 // and five app tests read them, and `DeathCause` is built from combat's own
 // `HitSource`. Imported, never re-exported.
-
 
 // ⛔ THE SAFE-POSITION MEMORY LEFT THIS CRATE ROOT, 2026-08-26.
 // `SafePositionContext`, `RoomTransitionCooldown`,
@@ -110,18 +108,13 @@ pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 // — so the renderer and a future
 // `ambition_platformer2d_world` name it there directly, not through this 95k crate.
 
-pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
-
-
 
 /// The state of one in-flight player melee swing is now the unified
 /// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor
 /// carries (the player is an actor). Re-exported at the crate root so existing
 /// `crate::MeleeSwing` / `ambition_platformer2d_actor_monolith::MeleeSwing` paths resolve.
 pub use crate::features::MeleeSwing;
-
-
 
 #[cfg(test)]
 mod safe_pos_tests;

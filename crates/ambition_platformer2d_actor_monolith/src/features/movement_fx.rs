@@ -13,10 +13,22 @@ use bevy::prelude::MessageWriter;
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
-use crate::actor::BodyAnimFacts;
-use ambition_characters::actor::BodyCombat;
+// ⛔ NAMED FROM `ambition_characters`, not through `crate::actor`, which merely
+// re-exports it. This file imported `BodyCombat` from the owning crate and
+// `BodyAnimFacts` from the monolith's forward of the SAME module — one file
+// spelling one crate two ways, which is the tell a facade leaves and the only
+// reason a census counted this module as monolith-coupled.
+use ambition_characters::actor::{BodyAnimFacts, BodyCombat};
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 use ambition_sfx::{SfxMessage, SfxWriter};
+
+/// How long the blink-in camera ease runs, in seconds.
+///
+/// ⭐ IT LIVES BESIDE ITS ONE CONSUMER. This was `crate::BLINK_IN_ANIM_TIME` at
+/// the monolith ROOT, and the whole tree named it exactly once — here. A constant
+/// parked at a 95k-line crate's address reads as shared vocabulary and is a
+/// coupling row on every census of this module; it was neither.
+const BLINK_IN_ANIM_TIME: f32 = 0.34;
 
 /// How long the wall-jump push-off pose holds after the WallJump op fires. Short
 /// enough to clear before the apex of the jump arc so the regular `Jump` row
@@ -27,11 +39,7 @@ const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
 /// transitions arm/clear the landing overlay through
 /// [`arm_ground_contact_anim_overlay`]; this function only decays active poses
 /// and detects the dash rising edge.
-pub fn advance_body_anim_overlays(
-    dashing: bool,
-    anim: &mut crate::actor::BodyAnimFacts,
-    frame_dt: f32,
-) {
+pub fn advance_body_anim_overlays(dashing: bool, anim: &mut BodyAnimFacts, frame_dt: f32) {
     /// Brief pre-roll for the dash startup pose (below the dash's own duration so
     /// the streaking dash row still gets airtime).
     const DASH_STARTUP_SECS: f32 = 0.05;
@@ -231,7 +239,7 @@ pub fn arm_ground_contact_anim_overlay(
 }
 
 /// Arm the op-driven presentation overlays a movement frame implies on ANY body's
-/// [`crate::actor::BodyAnimFacts`]: the wall-jump push-off pose fires on the
+/// [`BodyAnimFacts`]: the wall-jump push-off pose fires on the
 /// `WallJump` op. Body-generic so the player tick AND the actor tick arm the SAME
 /// pose from the SAME frame data — an AI fighter that wall-jumps shows the kick pose
 /// the player does, not just its dust/SFX (fable review §A9 follow-up). The other
@@ -615,7 +623,7 @@ pub fn handle_player_events(
     // arming deliberately omits stays inline below: the blink-camera lerp.
     arm_movement_anim_overlays(anim, &events);
     for blink in &events.blinks {
-        blink_cam.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
+        blink_cam.blink_in_duration = BLINK_IN_ANIM_TIME;
         blink_cam.blink_in_timer = blink_cam.blink_in_duration;
         blink_cam.blink_camera_from = blink.from;
         blink_cam.blink_camera_to = blink.to;

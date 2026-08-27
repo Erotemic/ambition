@@ -1275,3 +1275,44 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
         "only {sharks} shark(s) on a stage carrying two riders"
     );
 }
+
+
+/// ⭐⭐ A RECOVERY MOUNT MAY BE GIMPED, BUT NOT DELETED IN ONE HIT.
+///
+/// ⛔⛔ THIS IS THE ARITHMETIC THE FIRST SURVIVABILITY FIX GOT WRONG. Jon's rule
+/// is a count — *"hitting it 'enough' … roughly three hits"* — and a pool below
+/// the largest single hit makes that false on its face. The summon was given 24;
+/// the admiral's own forward smash is 17 damage with `smash_charge_mult = 1.7`,
+/// which lands at 28.9. Jon reported the shark still dying instantly on a build
+/// carrying the 24, and that is exactly what a 24 HP body does when the thing
+/// hitting it deals 29.
+///
+/// ⭐ COMPUTED FROM THE MOVESET, NOT PINNED TO A NUMBER. A new move, or a bigger
+/// charge multiplier, moves the floor — and this fails then, which is the whole
+/// point. The FIGURE above the floor is Jon's to choose; the floor is not.
+#[test]
+fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
+    let moveset = ambition_content::pirate_admiral_moveset::pirate_admiral_moveset();
+    let worst = moveset
+        .moves
+        .iter()
+        .flat_map(|spec| {
+            let mult = spec.smash_charge_mult.max(1.0);
+            spec.windows.iter().flat_map(move |window| {
+                window
+                    .volumes
+                    .iter()
+                    .map(move |volume| (volume.damage as f32 * mult).ceil() as u32)
+            })
+        })
+        .max()
+        .expect("the admiral authors hit volumes");
+
+    let pool = ambition_demo_smash::shark_ride::SUMMON_SHARK_HEALTH;
+    assert!(
+        pool > worst,
+        "the recovery shark carries {pool} HP and the biggest single hit the \
+         admiral can land is {worst} — a mount that dies to ONE connection is \
+         not gimpable, it is deletable, and 'about three hits' is false"
+    );
+}

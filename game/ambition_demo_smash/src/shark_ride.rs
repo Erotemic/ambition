@@ -77,20 +77,27 @@ const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
 
 /// How much punishment the RECOVERY shark takes before it dies.
 ///
-/// ⛔⛔ THE AUTHORED SHARK HAS 6, AND THAT IS ONE CONNECTION HERE. Six is a fair
-/// pool in the game the burning flying shark was written for; the admiral's own
-/// move table runs 2–17, so nearly every clean hit deleted it — and the summon
-/// places it exactly where its rider is, which mid-fight is exactly where the
-/// hits are. Jon's log showed `boarded` followed by a death about twenty
-/// milliseconds later on EVERY press, which is what a 6 HP body does when it
-/// materialises inside a fight.
+/// ⛔⛔ THE FLOOR IS NOT A TASTE, IT IS ARITHMETIC: this must EXCEED the largest
+/// single hit in the game, or "dies to about three hits" is false on its face.
+/// The admiral's own forward smash is 17 damage with `smash_charge_mult = 1.7`,
+/// so a fully charged one lands at **28.9** — and the first version of this
+/// constant was 24. Jon reported the shark still dying instantly on a build that
+/// carried it, which is exactly what a 24 HP body does when the thing hitting it
+/// deals 29.
 ///
-/// ⭐ JON'S NUMBER IS A COUNT, NOT A POOL: *"the rule for the shark is hitting it
-/// 'enough', so some threshold on damage — which effectively is a healthpool"*,
-/// and roughly three hits. Against a 2–17 table with a middle around 8, three
-/// hits is ~24. ⚠ A BALANCE FIGURE, so it is one constant with its derivation
-/// written down rather than a number defended on feel.
-const SUMMON_SHARK_HEALTH: u32 = 24;
+/// ⚠ THE AUTHORED SHARK HAS 6, which is fair in the game it was written for and
+/// is one connection here. The summon overrides it rather than re-tuning a
+/// creature that appears in another game entirely.
+///
+/// ⭐ JON'S RULE IS A COUNT: *"the rule for the shark is hitting it 'enough', so
+/// some threshold on damage — which effectively is a healthpool"*, roughly three
+/// hits. Against a 2–17 table whose middle is near 8, three ordinary hits is
+/// ~24; but the pool must also survive ONE maximum hit, and 36 does both — four
+/// typical connections, or two charged smashes. ⚠ A BALANCE FIGURE with its
+/// derivation attached, not a number defended on feel, and
+/// `a_recovery_mount_cannot_be_deleted_by_one_hit` keeps the FLOOR honest if the
+/// move table ever grows.
+pub const SUMMON_SHARK_HEALTH: u32 = 36;
 
 /// How fast a dismissed shark leaves.
 const DEPART_SPEED: f32 = 1_400.0;

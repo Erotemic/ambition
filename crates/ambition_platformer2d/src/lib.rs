@@ -233,7 +233,7 @@ pub mod participant {
 pub mod item {
     pub use ambition_items::{Item, ItemGrantRequested, OwnedItems};
     pub use ambition_platformer2d_actor_monolith::items::pickup::{
-        GroundItem, ItemCustody, SettledItem,
+        GroundItem, ItemCustody, ItemWorldPos, SettledItem,
     };
 }
 

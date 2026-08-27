@@ -78,8 +78,7 @@ pub fn translate_bomb_drops(
                 continue;
             }
         };
-        let Some(held) =
-            ambition_platformer2d::characters::brain::held_item_by_id(&params.item_id)
+        let Some(held) = ambition_platformer2d::characters::brain::held_item_by_id(&params.item_id)
         else {
             // A warning and not a refusal is wrong HERE, and that is the
             // difference between this and a brandish: an unregistered id means
@@ -96,8 +95,7 @@ pub fn translate_bomb_drops(
             continue;
         };
         // Body-local, mirrored by facing, like every other authored offset.
-        let at = kin.pos
-            + ae::Vec2::new(params.offset.0 * kin.facing.signum(), params.offset.1);
+        let at = kin.pos + ae::Vec2::new(params.offset.0 * kin.facing.signum(), params.offset.1);
         let half = ae::Vec2::new(params.half_extents.0, params.half_extents.1);
         info!(
             target: "ambition::moves",
@@ -140,9 +138,16 @@ pub fn burn_fuses_and_answer_impacts(
         &ambition_platformer2d::item::ItemCustody,
         Option<&ambition_platformer2d::item::SettledItem>,
     )>,
+    // ⭐⭐ WHERE THE BOMB IS, WHOEVER HAS IT. `GroundItem::pos` is the WORLD's
+    // copy and the world stops updating it the moment somebody picks the bomb
+    // up — so a carried bomb blew up at the spot it was collected from, however
+    // far its holder had run. See `ItemWorldPos`; the semantic is generic
+    // because "where is this item" is not a bomb question.
+    where_it_is: ambition_platformer2d::item::ItemWorldPos,
 ) {
     let dt = time.sim_dt();
     for (entity, mut bomb, item, custody, settled) in &mut bombs {
+        let at = where_it_is.of(custody, item);
         // ⛔ A CARRIED BOMB STILL BURNS. That is the whole tension of holding
         // one, and it is why the fuse is ticked before the custody check rather
         // than after it.
@@ -164,14 +169,14 @@ pub fn burn_fuses_and_answer_impacts(
             target: "ambition::moves",
             "bomb detonates: entity={entity:?} reason={} at {:?}",
             if struck_hard { "impact" } else { "fuse" },
-            item.pos,
+            at,
         );
         effects.write(ambition_platformer2d::vfx::EffectRequest {
             // The BOMB is the owner: see the note on `LiveBomb`.
             owner: entity,
             effect: ambition_platformer2d::vfx::Effect::DamageBox(
                 ambition_platformer2d::vfx::DamageBoxEffect {
-                    center: item.pos,
+                    center: at,
                     // ⛔ `Neutral`, NOT the thrower's side. `damage_lands` is
                     // true for `Foe | Neutral`, so a neutral blast hurts
                     // everybody standing in it — including whoever threw it,

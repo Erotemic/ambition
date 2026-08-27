@@ -293,6 +293,48 @@ impl ItemCustody {
     }
 }
 
+/// WHERE AN ITEM IS, WHOEVER HAS IT.
+///
+/// ⭐⭐ ONE QUESTION WITH TWO ANSWERS, and asking it wrongly is a whole class of
+/// defect. `GroundItem::pos` is the world's copy of an item's position and
+/// [`ground_item_physics`] deliberately stops updating it once the item is in a
+/// hand — the item has left the world, so the world stops simulating it. Every
+/// reader that then keeps using `GroundItem::pos` for a HELD item is reading the
+/// spot where it was picked up. Measured on the Smash bomb: pick one up at X,
+/// carry it to Y, let the fuse run out, and the blast happens at X.
+///
+/// ⛔ THE FIX IS NOT "KEEP WRITING `GroundItem::pos`". A held item that also
+/// maintains a world position has two authorities for where it is, and the
+/// pickup road exists precisely to have one. The position of a held thing is a
+/// DERIVED fact about its holder, so it is derived.
+///
+/// ⭐ AND THE HELD ANSWER IS THE HAND, not the body centre: the same
+/// [`ambition_mount::rider_hand_world_pos`] the wielded-item presentation draws
+/// with. A blast that goes off at the sprite's midriff while the bomb is drawn in
+/// the fist is a disagreement a player can see.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ItemWorldPos<'w, 's> {
+    holders: Query<'w, 's, &'static ae::BodyKinematics>,
+}
+
+impl ItemWorldPos<'_, '_> {
+    /// Where this item is right now.
+    ///
+    /// Falls back to `GroundItem::pos` when the holder cannot be read — a holder
+    /// that despawned this tick is a stale relationship, and the item's last
+    /// world position is a better answer than the origin.
+    pub fn of(&self, custody: &ItemCustody, item: &GroundItem) -> Vec2 {
+        match custody {
+            ItemCustody::InWorld => item.pos,
+            ItemCustody::Held { holder } => self
+                .holders
+                .get(*holder)
+                .map(|kin| ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y))
+                .unwrap_or(item.pos),
+        }
+    }
+}
+
 impl bevy::ecs::entity::MapEntities for ItemCustody {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         if let Self::Held { holder } = self {

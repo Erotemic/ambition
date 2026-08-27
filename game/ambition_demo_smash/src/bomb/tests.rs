@@ -10,7 +10,9 @@ fn app() -> App {
     let mut app = App::new();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     app.add_message::<ambition_platformer2d::vfx::EffectRequest>();
-    let mut time = app.world_mut().resource_mut::<ambition_platformer2d::time::WorldTime>();
+    let mut time = app
+        .world_mut()
+        .resource_mut::<ambition_platformer2d::time::WorldTime>();
     time.scaled_dt = 1.0 / 60.0;
     time.raw_dt = 1.0 / 60.0;
     app.add_systems(Update, burn_fuses_and_answer_impacts);
@@ -77,9 +79,9 @@ fn a_hard_impact_goes_off_before_the_fuse_does() {
     // Four whole seconds of fuse left, travelling hard, and it just settled.
     let bomb = a_bomb(&mut app, 4.0, ae::Vec2::ZERO);
     // THE SPEED IS THE SETTLE'S, published by the step that zeroed the velocity.
-    app.world_mut()
-        .entity_mut(bomb)
-        .insert(SettledItem { impact_speed: 520.0 });
+    app.world_mut().entity_mut(bomb).insert(SettledItem {
+        impact_speed: 520.0,
+    });
     assert_eq!(
         run(&mut app, 1),
         1,
@@ -124,18 +126,85 @@ fn a_carried_bomb_burns_but_cannot_be_set_off_by_an_impact() {
     let mut app = app();
     let bomb = a_bomb(&mut app, 0.05, ae::Vec2::ZERO);
     let holder = app.world_mut().spawn_empty().id();
-    app.world_mut()
-        .entity_mut(bomb)
-        .insert((
-            SettledItem {
-                impact_speed: 900.0,
-            },
-            ItemCustody::Held { holder },
-        ));
-    assert_eq!(run(&mut app, 1), 0, "picking a bomb up must not detonate it");
+    app.world_mut().entity_mut(bomb).insert((
+        SettledItem {
+            impact_speed: 900.0,
+        },
+        ItemCustody::Held { holder },
+    ));
+    assert_eq!(
+        run(&mut app, 1),
+        0,
+        "picking a bomb up must not detonate it"
+    );
     assert_eq!(
         run(&mut app, 5),
         1,
         "…but the fuse keeps burning in your hand"
     );
+}
+
+/// ⭐⭐ A CARRIED BOMB GOES OFF WHERE ITS HOLDER IS, not where it was picked up.
+///
+/// ⛔⛔ THE BLAST READ `GroundItem::pos`, AND THE WORLD STOPS WRITING THAT the
+/// moment somebody picks the item up — deliberately: a held item has left the
+/// world, so `ground_item_physics` stops simulating it. Every tick of the fuse
+/// after that, the bomb's recorded position was the spot it was collected from.
+/// Carry one across the stage and the explosion happens behind you, on nobody.
+///
+/// ⛔ AND THE HOLDER HERE IS A REAL BODY. The sibling arm above holds its bomb
+/// with an EMPTY entity, so `ItemWorldPos` falls back to the world position and
+/// the two arms would agree for the wrong reason.
+#[test]
+fn a_carried_bomb_blasts_where_its_holder_is() {
+    let mut app = app();
+    let picked_up_at = ae::Vec2::new(-400.0, 0.0);
+    let bomb = a_bomb(&mut app, 0.05, ae::Vec2::ZERO);
+    let carried_to = ae::Vec2::new(500.0, -120.0);
+    let holder = app
+        .world_mut()
+        .spawn(ae::BodyKinematics {
+            pos: carried_to,
+            size: ae::Vec2::new(28.0, 64.0),
+            facing: 1.0,
+            ..Default::default()
+        })
+        .id();
+    {
+        let mut entity = app.world_mut().entity_mut(bomb);
+        entity.get_mut::<GroundItem>().expect("the bomb").pos = picked_up_at;
+        entity.insert(ItemCustody::Held { holder });
+    }
+    let centers = blast_centers(&mut app, 6);
+    assert_eq!(centers.len(), 1, "the fuse did not run out exactly once");
+    let at = centers[0];
+    assert!(
+        at.distance(carried_to) < 60.0,
+        "the bomb went off at {at:?}; its holder is at {carried_to:?} and it was \
+         picked up at {picked_up_at:?} — a blast at the pickup spot is the world's \
+         stale copy of a position the world stopped maintaining"
+    );
+    assert!(
+        at.distance(picked_up_at) > 100.0,
+        "poison: the two positions are close enough that this arm would pass \
+         reading either one"
+    );
+}
+
+/// Run `ticks` frames, collecting where each blast happened.
+fn blast_centers(app: &mut App, ticks: usize) -> Vec<ae::Vec2> {
+    let mut centers = Vec::new();
+    for _ in 0..ticks {
+        app.update();
+        centers.extend(
+            app.world_mut()
+                .resource_mut::<Messages<ambition_platformer2d::vfx::EffectRequest>>()
+                .drain()
+                .filter_map(|request| match request.effect {
+                    ambition_platformer2d::vfx::Effect::DamageBox(box_) => Some(box_.center),
+                    _ => None,
+                }),
+        );
+    }
+    centers
 }

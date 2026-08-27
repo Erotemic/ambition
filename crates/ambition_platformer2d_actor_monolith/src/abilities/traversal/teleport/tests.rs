@@ -6,6 +6,12 @@
 
 use super::*;
 
+/// The world's own gravity, for the arms written before the assist knew there
+/// was more than one. ⚠ Every arm in this file used to be THIS and only this —
+/// which is how the assist kept searching `+y` faces while the teleport aimed in
+/// the resolved frame.
+const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+
 /// A solid named by its centre and half-extents. `Block::solid` takes min +
 /// size, so this is the conversion in one place rather than at seven call sites.
 fn solid(name: &str, center: ae::Vec2, half: ae::Vec2) -> ae::Block {
@@ -38,7 +44,7 @@ fn an_arrival_just_under_a_ledge_is_placed_standing_on_it() {
     let world = stage();
     // The arrival's CENTRE 20px below the platform's top face — the miss a few
     // degrees of stick angle makes.
-    let assisted = ledge_assisted_arrival(&world, ae::Vec2::new(0.0, 20.0), HALF, 40.0);
+    let assisted = ledge_assisted_arrival(&world, ae::Vec2::new(0.0, 20.0), HALF, 40.0, DOWN);
     assert!(
         assisted.y < 20.0,
         "the arrival must be lifted onto the ledge, and it stayed at {}",
@@ -55,7 +61,7 @@ fn an_arrival_just_under_a_ledge_is_placed_standing_on_it() {
 #[test]
 fn an_arrival_far_below_a_ledge_is_left_where_it_landed() {
     let world = stage();
-    let assisted = ledge_assisted_arrival(&world, ae::Vec2::new(0.0, 200.0), HALF, 40.0);
+    let assisted = ledge_assisted_arrival(&world, ae::Vec2::new(0.0, 200.0), HALF, 40.0, DOWN);
     assert_eq!(
         assisted,
         ae::Vec2::new(0.0, 200.0),
@@ -69,7 +75,7 @@ fn an_arrival_far_below_a_ledge_is_left_where_it_landed() {
 fn a_zero_radius_never_moves_an_arrival() {
     let world = stage();
     let at = ae::Vec2::new(0.0, 20.0);
-    assert_eq!(ledge_assisted_arrival(&world, at, HALF, 0.0), at);
+    assert_eq!(ledge_assisted_arrival(&world, at, HALF, 0.0, DOWN), at);
 }
 
 /// ⛔⛔ IT ONLY EVER LIFTS. `+y` is gravity-down, so a ledge BELOW the arrival
@@ -84,7 +90,7 @@ fn a_ledge_the_fighter_already_cleared_never_drags_them_back_down() {
     // successful recovery, mid-air, with the surface within the radius.
     let cleared = ae::Vec2::new(0.0, -60.0);
     assert_eq!(
-        ledge_assisted_arrival(&world, cleared, HALF, 200.0),
+        ledge_assisted_arrival(&world, cleared, HALF, 200.0, DOWN),
         cleared,
         "a surface the fighter is already above is not a ledge to be pulled onto"
     );
@@ -97,7 +103,7 @@ fn an_arrival_already_standing_on_something_is_left_alone() {
     let world = stage();
     let standing = ae::Vec2::new(0.0, 0.0 - HALF.y);
     assert_eq!(
-        ledge_assisted_arrival(&world, standing, HALF, 80.0),
+        ledge_assisted_arrival(&world, standing, HALF, 80.0, DOWN),
         standing
     );
 }
@@ -121,7 +127,7 @@ fn a_ledge_with_no_room_to_stand_is_refused() {
     ]);
     let at = ae::Vec2::new(0.0, 20.0);
     assert_eq!(
-        ledge_assisted_arrival(&world, at, HALF, 60.0),
+        ledge_assisted_arrival(&world, at, HALF, 60.0, DOWN),
         at,
         "a placement that would embed the body is worse than the miss"
     );
@@ -147,7 +153,7 @@ fn the_nearest_qualifying_ledge_wins() {
         // Near above: top face at y = -20.
         solid("near", ae::Vec2::new(0.0, 30.0), ae::Vec2::new(100.0, 50.0)),
     ]);
-    let assisted = ledge_assisted_arrival(&world, ae::Vec2::new(0.0, 20.0), HALF, 400.0);
+    let assisted = ledge_assisted_arrival(&world, ae::Vec2::new(0.0, 20.0), HALF, 400.0, DOWN);
     assert!(
         (assisted.y - (-20.0 - HALF.y)).abs() < 1e-3,
         "the NEAR ledge decides, and the arrival went to {}",
@@ -466,4 +472,66 @@ fn a_foe_on_the_same_column_is_passed_the_way_she_faces() {
     let facing_left = ambush_arrival(&stage[0], &stage, REACH, GAP, -1.0).expect("in reach");
     assert!(facing_right.arrival.x > 0.0);
     assert!(facing_left.arrival.x < 0.0);
+}
+
+/// The assist catches the ledge in WHATEVER frame the fighter is falling in.
+///
+/// ⛔⛔ IT SEARCHED THE WORLD'S `+y` FACES. The teleport itself has always aimed
+/// in the resolved frame — `apply_authored_teleports` derives `gravity_dir` from
+/// `ResolvedMotionFrame` and rotates both the aim and the no-stick "up" fallback
+/// with it — while `ledge_assisted_arrival` defined a ledge as `Block::top()`,
+/// compared world `y`, and landed at `top() - half.y`. Under flipped or sideways
+/// gravity that is a SPLIT ABILITY: the teleport goes where the player pointed
+/// and the recovery assist looks at the wrong face of the world (GPT 5.6,
+/// 2026-08-27).
+///
+/// ⭐ ONE FIXTURE, FOUR FRAMES, built by rotating the geometry rather than by
+/// hand-writing four cases — a hand-written `-Y` arm is a second chance to make
+/// the same sign error. Each frame asserts BOTH terms: the ledge on the
+/// anti-gravity side is caught, and the one the fighter already cleared is
+/// refused.
+#[test]
+fn the_ledge_assist_follows_gravity_into_every_frame() {
+    // A platform 100 wide and 50 deep whose SUPPORT face is the origin plane,
+    // expressed in a frame where `down` is the gravity direction.
+    let frames = [
+        ("down (+Y)", ae::Vec2::new(0.0, 1.0)),
+        ("up (-Y)", ae::Vec2::new(0.0, -1.0)),
+        ("right (+X)", ae::Vec2::new(1.0, 0.0)),
+        ("left (-X)", ae::Vec2::new(-1.0, 0.0)),
+    ];
+    for (name, down) in frames {
+        let across = ae::Vec2::new(-down.y, down.x);
+        // Body half-extents in this frame: 16 across, 32 along gravity.
+        let half = (across * 16.0 + down * 32.0).abs();
+        // The slab sits BEHIND the origin plane along gravity, so its head face
+        // (the one a falling body lands on) is at the origin.
+        let block_centre = down * 50.0;
+        let block_half = (across * 100.0 + down * 50.0).abs();
+        let world = world_with(vec![solid("stage", block_centre, block_half)]);
+
+        // SHORT of the lip: 20px further along gravity than the support face.
+        let short = down * 20.0;
+        let caught = ledge_assisted_arrival(&world, short, half, 40.0, down);
+        assert!(
+            caught.dot(down) < short.dot(down),
+            "[{name}] a fighter hanging under the lip was not lifted onto it: \
+             {short:?} -> {caught:?}"
+        );
+        assert!(
+            (caught.dot(down) - (-32.0)).abs() < 0.01,
+            "[{name}] the catch must stand the body ON the face (feet at 0, so \
+             centre at -32 along gravity), and it landed at {}",
+            caught.dot(down),
+        );
+
+        // CLEARED it: 200px toward anti-gravity, well past the face.
+        let cleared = down * -200.0;
+        assert_eq!(
+            ledge_assisted_arrival(&world, cleared, half, 400.0, down),
+            cleared,
+            "[{name}] a surface the fighter had already cleared pulled them back \
+             down onto it — the assist taking the stage away",
+        );
+    }
 }

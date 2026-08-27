@@ -39,7 +39,14 @@ fn app_with_transit() -> App {
     app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(
         Update,
-        (ensure_projectile_portal_bodies, portal_transit).chain(),
+        (
+            ensure_projectile_portal_bodies,
+            portal_transit,
+            // The projectile half of transit reconciliation — without it in the
+            // chain a test of a CARRIED vector measures nothing.
+            super::rotate_projectile_acceleration_after_portal_transit,
+        )
+            .chain(),
     );
     app
 }
@@ -168,5 +175,77 @@ fn projectile_nowhere_near_a_portal_flies_straight_through() {
             .get::<ambition_portal2d::PortalTransit>(proj)
             .is_none(),
         "no PortalTransit latch should be set for a projectile away from portals",
+    );
+}
+
+/// A carried WORLD acceleration rotates with the velocity it accompanies.
+///
+/// ⛔⛔ THE ARM THE WHOLE FILE WAS MISSING, and the reason it was missing is in
+/// `straight_projectile()`: every fixture here sets `accel: ZERO`, so no test
+/// could see the vector that was not being mapped. `ProjectileGameplay::accel`
+/// is a WORLD acceleration the shot carries — the ponytail boomerang's "come
+/// home" pull is exactly this and nothing else — and transit mapped `vel` while
+/// leaving it pointing along the pre-portal axis (GPT 5.6, 2026-08-27). A tail
+/// through a rotated portal exited travelling the mapped way and decelerating
+/// the OLD way, tracing an arc that returns nowhere near the hand.
+///
+/// ⭐ ASSERTED AS A RELATION, not a literal: whatever the pair's transform is,
+/// the acceleration must come out under the SAME map as the velocity. A literal
+/// would pin this fixture's 180° wall pair and say nothing about the rule.
+#[test]
+fn a_carried_acceleration_is_rotated_by_the_same_map_as_the_velocity() {
+    let mut app = app_with_transit();
+    place_wall_pair(&mut app);
+
+    let entry_vel = Vec2::new(-400.0, 0.0);
+    // The boomerang's shape: a pull back along the launch axis, i.e. opposing
+    // the velocity. Non-zero on BOTH axes so a map that drops or swaps a
+    // component cannot pass by symmetry.
+    let entry_accel = Vec2::new(900.0, 250.0);
+    let proj = app
+        .world_mut()
+        .spawn((
+            BodyKinematics {
+                pos: Vec2::new(20.0, 200.0),
+                vel: entry_vel,
+                size: Vec2::new(8.0, 8.0),
+                facing: -1.0,
+            },
+            ProjectileGameplay {
+                accel: entry_accel,
+                ..straight_projectile()
+            },
+        ))
+        .id();
+
+    app.update();
+    app.update();
+
+    let kin = app.world().get::<BodyKinematics>(proj).unwrap();
+    let shot = app.world().get::<ProjectileGameplay>(proj).unwrap();
+    assert!(
+        kin.pos.x > 300.0,
+        "premise: the projectile must actually have transited, pos={:?}",
+        kin.pos,
+    );
+
+    // ⭐ THE CLAIM IS THAT IT MOVED AT ALL, and that is the distinguishing one.
+    // An earlier version of this arm compared the SIGN of each axis against the
+    // velocity's and passed under the poison: this pair's map happens to leave
+    // `x`'s sign where it was, so "mapped the same way" and "not mapped" agree.
+    // A carried vector that survives a rotating transit UNCHANGED is the defect.
+    assert_ne!(
+        shot.accel, entry_accel,
+        "the velocity came out mapped ({entry_vel:?} -> {:?}) and the carried \
+         acceleration came out untouched — the shot is flying the new way and \
+         being pulled the old way",
+        kin.vel,
+    );
+    assert!(
+        (shot.accel.length() - entry_accel.length()).abs() < 1.0,
+        "the map is a rotation and must preserve the acceleration's magnitude: \
+         {} -> {}",
+        entry_accel.length(),
+        shot.accel.length(),
     );
 }

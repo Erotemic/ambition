@@ -1623,27 +1623,44 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
 /// point. The FIGURE above the floor is Jon's to choose; the floor is not.
 #[test]
 fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
-    let moveset = ambition_content::pirate_admiral_moveset::pirate_admiral_moveset();
-    let worst = moveset
-        .moves
+    // ⛔⛔ THE WHOLE SELECTABLE CAST, not the fighter who summons it. This
+    // scanned `pirate_admiral_moveset()` alone and so asserted a property about
+    // ONE fighter while reading as a statement about the game — and it was
+    // false the whole time: George Booul's forward smash is `damage: 21` with
+    // `smash_charge_mult = 1.7`, which is 36, EXACTLY the shark's pool (GPT
+    // 5.6, 2026-08-27). Anyone can delete the recovery in one connection.
+    //
+    // ⚠ TWO CRATES, because the cast is authored in two: `ambition_content`
+    // keeps the shared roster and `ambition_demo_smash` authors its own
+    // fighter. A census that reads one crate narrows silently when the other
+    // gains a move.
+    let mut cast = ambition_content::authored_movesets::tables();
+    cast.push((
+        "george_booul",
+        ambition_demo_smash::george_booul_moveset::george_booul_moveset(),
+    ));
+
+    let (who, worst) = cast
         .iter()
-        .flat_map(|spec| {
-            let mult = spec.smash_charge_mult.max(1.0);
-            spec.windows.iter().flat_map(move |window| {
-                window
-                    .volumes
-                    .iter()
-                    .map(move |volume| (volume.damage as f32 * mult).ceil() as u32)
+        .flat_map(|(name, moveset)| {
+            moveset.moves.iter().flat_map(move |spec| {
+                let mult = spec.smash_charge_mult.max(1.0);
+                spec.windows.iter().flat_map(move |window| {
+                    window
+                        .volumes
+                        .iter()
+                        .map(move |volume| (*name, (volume.damage as f32 * mult).ceil() as u32))
+                })
             })
         })
-        .max()
-        .expect("the admiral authors hit volumes");
+        .max_by_key(|(_, damage)| *damage)
+        .expect("the cast authors hit volumes");
 
     let pool = ambition_demo_smash::shark_ride::SUMMON_SHARK_HEALTH;
     assert!(
         pool > worst,
-        "the recovery shark carries {pool} HP and the biggest single hit the \
-         admiral can land is {worst} — a mount that dies to ONE connection is \
+        "the recovery shark carries {pool} HP and the biggest single hit in the \
+         cast is {worst}, from `{who}` — a mount that dies to ONE connection is \
          not gimpable, it is deletable, and 'about three hits' is false"
     );
 }

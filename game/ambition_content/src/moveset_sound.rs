@@ -16,45 +16,8 @@ use ambition_render::fx::process_fx_requests;
 use ambition_sfx::{OwnedSfxMessage, PresentationSourceId, SfxId, SfxMessage};
 use bevy::prelude::*;
 
-/// Every table in this crate that authors move events, by the name a failure
-/// should print.
-fn tables() -> Vec<(&'static str, MovesetContract)> {
-    vec![
-        ("alice", crate::alice_moveset::alice_moveset()),
-        ("bob", crate::bob_moveset::bob_moveset()),
-        (
-            "carl_stargan",
-            crate::carl_stargan_moveset::carl_stargan_moveset(),
-        ),
-        (
-            "cellular_automaton",
-            crate::cellular_automaton_moveset::cellular_pulse_moveset(),
-        ),
-        ("goblin", crate::goblin_moveset::goblin_moveset()),
-        (
-            "ninja_shadow_oni_leader",
-            crate::ninja_shadow_oni_leader_moveset::ninja_shadow_oni_leader_moveset(),
-        ),
-        ("emmy_noether", crate::emmy_noether_moveset::emmy_noether_moveset()),
-        ("oiler", crate::oiler_moveset::oiler_moveset()),
-        (
-            "patent_clerk",
-            crate::patent_clerk_moveset::patent_clerk_moveset(),
-        ),
-        (
-            "pirate_admiral",
-            crate::pirate_admiral_moveset::pirate_admiral_moveset(),
-        ),
-        (
-            "player_robot",
-            crate::player_robot_moveset::player_robot_moveset(),
-        ),
-        (
-            "theorem_chain",
-            crate::player_robot_moveset::theorem_chain_moveset(),
-        ),
-    ]
-}
+use crate::authored_movesets::tables;
+
 
 /// Drive one authored INSTANT of one move through the real seam and report
 /// every cue that reached the SFX channel.

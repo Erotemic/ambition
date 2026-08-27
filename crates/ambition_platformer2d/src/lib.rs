@@ -145,15 +145,15 @@ pub mod content {
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
 pub use ambition_boss_encounter as boss_encounter;
-/// The gameplay TRACE: the buffer a headless run records into, its dump road
-/// and the reasons a dump is taken. Named from its owning crate rather than
-/// through the actor monolith's `dev::trace`, which only ever forwarded it.
-pub use ambition_gameplay_trace as gameplay_trace;
 /// Derivations from a character sheet — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.
 pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
+/// The gameplay TRACE: the buffer a headless run records into, its dump road
+/// and the reasons a dump is taken. Named from its owning crate rather than
+/// through the actor monolith's `dev::trace`, which only ever forwarded it.
+pub use ambition_gameplay_trace as gameplay_trace;
 // The conversation authority — and, under `ui`, the Yarn host glue that used to
 // sit in the monolith as `actors:dialog`.
 pub use ambition_conversation as conversation;
@@ -403,7 +403,14 @@ pub mod character {
 
     /// The pieces a match needs to author a fighter's kit — see
     /// `MatchParticipant::action_set`.
-    pub use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+    pub use ambition_characters::brain::action_set::{
+        MeleeActionSpec, RangedActionSpec, SwipeSpec,
+    };
+    /// The registered prop a `MoveSpec::equips` names, resolved the way the
+    /// brandish system resolves it. Published because a MOVE's shot is the
+    /// drawn weapon's shot, so anything reasoning about what a move can do has
+    /// to be able to follow that edge.
+    pub use ambition_characters::brain::held_item_by_id;
     /// What a character can do, and how it decides.
     pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;

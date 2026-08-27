@@ -1735,45 +1735,139 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
 /// point. The FIGURE above the floor is Jon's to choose; the floor is not.
 #[test]
 fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
-    // ⛔⛔ THE WHOLE SELECTABLE CAST, not the fighter who summons it. This
-    // scanned `pirate_admiral_moveset()` alone and so asserted a property about
-    // ONE fighter while reading as a statement about the game — and it was
-    // false the whole time: George Booul's forward smash is `damage: 21` with
-    // `smash_charge_mult = 1.7`, which is 36, EXACTLY the shark's pool (GPT
-    // 5.6, 2026-08-27). Anyone can delete the recovery in one connection.
-    //
-    // ⚠ TWO CRATES, because the cast is authored in two: `ambition_content`
-    // keeps the shared roster and `ambition_demo_smash` authors its own
-    // fighter. A census that reads one crate narrows silently when the other
-    // gains a move.
-    let mut cast = ambition_content::authored_movesets::tables();
-    cast.push((
-        "george_booul",
-        ambition_demo_smash::george_booul_moveset::george_booul_moveset(),
-    ));
+    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 
-    let (who, worst) = cast
-        .iter()
-        .flat_map(|(name, moveset)| {
-            moveset.moves.iter().flat_map(move |spec| {
-                let mult = spec.smash_charge_mult.max(1.0);
-                spec.windows.iter().flat_map(move |window| {
-                    window
-                        .volumes
-                        .iter()
-                        .map(move |volume| (*name, (volume.damage as f32 * mult).ceil() as u32))
-                })
-            })
-        })
-        .max_by_key(|(_, damage)| *damage)
-        .expect("the cast authors hit volumes");
+    // ⛔⛔ THE ROSTER THE HOST ASSEMBLES, NOT A TABLE SOMEBODY MAINTAINS. This
+    // census read `ambition_content::authored_movesets::tables()` plus George
+    // Booul by hand and CALLED that the selectable cast. It is not: Pointed,
+    // Projectile and Pugnacious Polygon, the Author, the Actor, the Officer, the
+    // Medic, Mary-O and Sanic are all pickable and none of them were in it
+    // (GPT 5.6, 2026-08-27). A hand-kept list narrows in silence — the crate
+    // that owns the list has no way to know a fighter was added somewhere else.
+    //
+    // ⭐ `SmashRoster::assemble` IS THE SELECTION AUTHORITY: it is what the
+    // character screen draws its grid from, so what it returns is exactly what a
+    // player can bring to the stage. Asking it costs one live app and removes a
+    // whole class of "the census is stale" defect.
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    let registry = app
+        .world()
+        .get_resource::<PreparedCharacterRegistry>()
+        .expect("the app registers characters")
+        .clone();
+    let roster = ambition_demo_smash::select::SmashRoster::assemble(&registry);
+    assert!(
+        roster.len() >= 8,
+        "the assembled roster holds {} fighter(s) — this composition never \
+         finished registering, so the census below is about nobody",
+        roster.len()
+    );
+
+    // ⛔⛔ AND RANGED OFFENSE COUNTS. `MoveWindow.volumes` is the MELEE half of
+    // what a connection can be worth; a census that inspects only volumes says
+    // nothing about a fighter whose biggest hit leaves the barrel. Resolved the
+    // way the runtime resolves it in `trigger_moveset_moves`: a move that DREW a
+    // weapon fires that weapon (`MoveSpec::equips`), and otherwise the body's own
+    // `ActionSet::ranged` fires. A chargeable shot is counted at a FULL hold,
+    // because that is the single connection a player can actually land.
+    let mut worst = (0u32, String::new(), String::new());
+    // Kept beside the maximum as a PREMISE: the ranged limb below is the half
+    // this census did not have, and a limb that never scores anything would let
+    // it pass for exactly the reason it used to.
+    let mut worst_ranged = (0u32, String::new(), String::new());
+    let mut record = |damage: u32, who: &str, what: String, ranged: bool| {
+        if ranged && damage > worst_ranged.0 {
+            worst_ranged = (damage, who.to_string(), what.clone());
+        }
+        if damage > worst.0 {
+            worst = (damage, who.to_string(), what);
+        }
+    };
+    let mut with_movesets = 0usize;
+    for id in roster.ids() {
+        let Some(prepared) = registry.get(id) else {
+            continue;
+        };
+        let Some(moveset) = prepared.kit.projectable_moveset() else {
+            continue;
+        };
+        with_movesets += 1;
+        let body_ranged = prepared.kit.action_set().and_then(|set| set.ranged.clone());
+        for spec in &moveset.moves {
+            let mult = spec.smash_charge_mult.max(1.0);
+            for window in &spec.windows {
+                for volume in &window.volumes {
+                    record(
+                        (volume.damage as f32 * mult).ceil() as u32,
+                        id,
+                        format!("{} (melee)", spec.id),
+                        false,
+                    );
+                }
+            }
+            let fires = spec.events.iter().any(|event| {
+                matches!(
+                    event.kind,
+                    ambition_platformer2d::entity_catalog::MoveEventKind::Ranged
+                )
+            });
+            if !fires {
+                continue;
+            }
+            let drawn = spec
+                .equips
+                .as_deref()
+                .and_then(ambition_platformer2d::character::held_item_by_id)
+                .and_then(|item| item.ranged);
+            let Some(ranged) = drawn.or_else(|| body_ranged.clone()) else {
+                continue; // the move fires nothing this body owns
+            };
+            // A full hold; a shot with no ladder comes back unchanged.
+            let full = ranged.at_charge(1.0);
+            record(
+                full.damage.max(0) as u32,
+                id,
+                format!("{} (ranged, full charge)", spec.id),
+                true,
+            );
+        }
+    }
+    assert!(
+        with_movesets >= 8,
+        "only {with_movesets} of the {} assembled fighters projected a moveset, \
+         so most of the roster contributed nothing to this maximum",
+        roster.len()
+    );
 
     let pool = ambition_demo_smash::shark_ride::SUMMON_SHARK_HEALTH;
+    let (damage, who, what) = worst;
+    let (ranged_damage, ranged_who, ranged_what) = worst_ranged;
+    println!(
+        "CENSUS roster={} movesets={with_movesets} worst={damage} {who} {what} | \
+         ranged worst={ranged_damage} {ranged_who} {ranged_what}",
+        roster.len()
+    );
     assert!(
-        pool > worst,
-        "the recovery shark carries {pool} HP and the biggest single hit in the \
-         cast is {worst}, from `{who}` — a mount that dies to ONE connection is \
-         not gimpable, it is deletable, and 'about three hits' is false"
+        ranged_damage > 0,
+        "no ranged connection scored at all, so the ranged half of this census \
+         is a limb that never runs and the maximum below is the melee-only \
+         number this test already had"
+    );
+    assert!(
+        damage > 0,
+        "the census found no offense at all in a roster of {} fighters",
+        roster.len()
+    );
+    assert!(
+        pool > damage,
+        "the recovery shark carries {pool} HP and the biggest single connection \
+         in the selectable cast is {damage}, from `{who}`'s `{what}` — a mount \
+         that dies to ONE connection is not gimpable, it is deletable, and \
+         'about three hits' is false"
     );
 }
 

@@ -1181,8 +1181,9 @@ pub(crate) fn spawn_runtime_minion(
         encounter_id,
         faction,
         aggression,
-        // A boss minion keeps the vitals its character authored.
-        None
+        // A boss minion keeps the vitals its character authored, hazard and all.
+        None,
+        true
     );
     root
 }
@@ -1207,6 +1208,8 @@ pub(crate) fn spawn_runtime_minion_into(
     // Health for THIS occurrence, overriding the character's authored vitals.
     // See `ambition_vfx::SummonSpec::health`.
     health: Option<u32>,
+    // Whether this occurrence keeps the character's authored contact hazard.
+    keeps_contact_damage: bool,
 ) {
     let id = id.into();
     let name = name.into();
@@ -1268,6 +1271,14 @@ pub(crate) fn spawn_runtime_minion_into(
         enemy.health = ambition_characters::actor::BodyHealth::new(
             ambition_characters::actor::Health::new(health.max(1) as i32),
         );
+    }
+    // ⛔ AND THE SUMMONER MAY DECLINE THE CONTACT HAZARD. The shark's own
+    // `ContactDamage` is right for the game it hunts in and wrong for a mount a
+    // player rides through a fight. It has been inert only because a neutral
+    // body acquires no target — a coincidence of the targeting rules, not a
+    // statement — so a rule that says "no contact damage" says it here instead.
+    if !keeps_contact_damage {
+        enemy.config.tuning.body_contact_damage = false;
     }
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
@@ -2147,6 +2158,7 @@ pub fn apply_summon_effects(
             taken,
             crate::construction::SummonedMinionParams {
                 health: s.health,
+                keeps_contact_damage: s.keeps_contact_damage,
                 feature_id: s.id.clone(),
                 name: s.name.clone(),
                 pos: s.pos,

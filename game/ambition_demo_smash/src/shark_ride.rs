@@ -162,15 +162,26 @@ pub fn translate_shark_summons(
                     half_size: ae::Vec2::new(params.half_extents.0, params.half_extents.1),
                     character_id: params.character_id.clone(),
                     encounter_id: "smash".to_string(),
-                    // Nobody's enemy: this shark deals no damage and takes no
-                    // side in the match. Jon: *"No, the shark doesn't have
-                    // contact damage in smash."*
+                    // Nobody's enemy: it takes no side in the match. ⚠ THIS
+                    // ALONE DOES NOT MAKE IT HARMLESS — see
+                    // `keeps_contact_damage` below, which is what actually says
+                    // so.
                     faction: ambition_platformer2d::vfx::HitSide::Neutral,
                     // ⛔ NEUTRAL DOES NOT MEAN UNHITTABLE — `damage_lands` is
                     // true for `Foe | Neutral`, which is right: an opponent must
                     // be able to gimp the recovery. What it must not do is die
                     // to the first stray hit. See `SUMMON_SHARK_HEALTH`.
                     health: Some(SUMMON_SHARK_HEALTH),
+                    // ⛔⛔ AND IT DECLINES THE CONTACT HAZARD OUTRIGHT. Jon:
+                    // *"the shark doesn't have contact damage in smash."* The
+                    // comment here used to claim `Neutral` achieved that; it
+                    // does not — `damage_lands` is true for `Foe | Neutral`, and
+                    // the authored shark carries `ContactDamage`. What kept it
+                    // quiet was that a neutral body acquires no target, so the
+                    // hazard had nobody to touch. A grudge rule that ever hands
+                    // it one would make an old hazard live under a design that
+                    // says it should not exist.
+                    keeps_contact_damage: false,
                     // ⭐ THE RIDE'S LENGTH TRAVELS WITH THE SUMMON, so the
                     // spawn, the board and the lease are one transaction inside
                     // the executor's exclusive command. Installing the lease

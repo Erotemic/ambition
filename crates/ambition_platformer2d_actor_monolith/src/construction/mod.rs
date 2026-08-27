@@ -197,6 +197,9 @@ pub struct SummonedMinionParams {
     /// Health for this occurrence, overriding the character's authored vitals.
     /// See `ambition_vfx::SummonSpec::health`.
     pub health: Option<u32>,
+    /// Whether this occurrence keeps the character's authored contact hazard.
+    /// See `ambition_vfx::SummonSpec::keeps_contact_damage`.
+    pub keeps_contact_damage: bool,
 }
 
 /// Frozen catalogs the actor recipes read at execution time.
@@ -598,6 +601,7 @@ fn construct_summoned_minion(
         minion.faction,
         crate::features::ActorAggression::hostile(),
         minion.health,
+        minion.keeps_contact_damage,
     );
 }
 

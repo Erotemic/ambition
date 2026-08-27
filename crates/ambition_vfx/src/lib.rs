@@ -131,6 +131,20 @@ pub struct SummonSpec {
     /// the one that knows what THIS occurrence is for. `None` leaves the
     /// character's own vitals alone, which is every summon that existed before.
     pub health: Option<u32>,
+    /// Whether THIS occurrence keeps the character's authored contact hazard.
+    ///
+    /// ⛔⛔ "NEUTRAL" IS NOT "HARMLESS", and the shark's own comment used to say
+    /// it was. `damage_lands` is true for `Foe | Neutral` — correctly, since an
+    /// opponent must be able to gimp a recovery — and the burning flying shark
+    /// authors `ContactDamage { strength: 1.10, amount: 2 }`. What has been
+    /// saving the smash occurrence is that a neutral body acquires no target, so
+    /// the hazard has nobody to reach. That is a coincidence of the targeting
+    /// rules, not the rule Jon stated: *"the shark doesn't have contact damage
+    /// in smash."*
+    ///
+    /// `true` is every summon that predates this and keeps its character's own
+    /// answer.
+    pub keeps_contact_damage: bool,
 }
 
 /// The summoner rides what it makes, for this long.

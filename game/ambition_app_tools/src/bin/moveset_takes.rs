@@ -51,11 +51,6 @@ struct Verb {
     /// Jump first, and wait for the apex. An aerial pressed from the ground
     /// reaches the grounded chain instead, and reports the wrong move.
     airborne: bool,
-    /// The direction to hold while climbing, so the press has a facing to be
-    /// relative TO. `attack_air_back` is the only verb that needs one: BACK is
-    /// defined against the body's facing, and a body that took off facing
-    /// nowhere in particular answers a back-air press with the forward one.
-    climb_x: f32,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -70,28 +65,28 @@ enum Button {
 /// The full press table. Directions follow the engine's own convention:
 /// `axis_y = -1` is UP (the same value `shark_ride_probe` drives for the up-B).
 const VERBS: &[Verb] = &[
-    Verb { verb: "attack", label: "Jab", axis_x: 0.0, axis_y: 0.0, button: Button::Attack, airborne: false, climb_x: 0.0 },
-    Verb { verb: "attack_forward", label: "F-tilt", axis_x: 1.0, axis_y: 0.0, button: Button::Attack, airborne: false, climb_x: 0.0 },
-    Verb { verb: "attack_up", label: "U-tilt", axis_x: 0.0, axis_y: -1.0, button: Button::Attack, airborne: false, climb_x: 0.0 },
-    Verb { verb: "attack_down", label: "D-tilt", axis_x: 0.0, axis_y: 1.0, button: Button::Attack, airborne: false, climb_x: 0.0 },
-    Verb { verb: "smash_forward", label: "F-smash", axis_x: 1.0, axis_y: 0.0, button: Button::Smash, airborne: false, climb_x: 0.0 },
-    Verb { verb: "smash_up", label: "U-smash", axis_x: 0.0, axis_y: -1.0, button: Button::Smash, airborne: false, climb_x: 0.0 },
-    Verb { verb: "smash_down", label: "D-smash", axis_x: 0.0, axis_y: 1.0, button: Button::Smash, airborne: false, climb_x: 0.0 },
-    Verb { verb: "attack_air", label: "N-air", axis_x: 0.0, axis_y: 0.0, button: Button::Attack, airborne: true, climb_x: 0.0 },
-    Verb { verb: "attack_air_forward", label: "F-air", axis_x: 1.0, axis_y: 0.0, button: Button::Attack, airborne: true, climb_x: 0.0 },
-    Verb { verb: "attack_air_back", label: "B-air", axis_x: -1.0, axis_y: 0.0, button: Button::Attack, airborne: true, climb_x: 1.0 },
-    Verb { verb: "attack_air_up", label: "U-air", axis_x: 0.0, axis_y: -1.0, button: Button::Attack, airborne: true, climb_x: 0.0 },
-    Verb { verb: "attack_air_down", label: "D-air", axis_x: 0.0, axis_y: 1.0, button: Button::Attack, airborne: true, climb_x: 0.0 },
-    Verb { verb: "special", label: "Neutral B", axis_x: 0.0, axis_y: 0.0, button: Button::Special, airborne: false, climb_x: 0.0 },
-    Verb { verb: "special_forward", label: "Side B", axis_x: 1.0, axis_y: 0.0, button: Button::Special, airborne: false, climb_x: 0.0 },
+    Verb { verb: "attack", label: "Jab", axis_x: 0.0, axis_y: 0.0, button: Button::Attack, airborne: false },
+    Verb { verb: "attack_forward", label: "F-tilt", axis_x: 1.0, axis_y: 0.0, button: Button::Attack, airborne: false },
+    Verb { verb: "attack_up", label: "U-tilt", axis_x: 0.0, axis_y: -1.0, button: Button::Attack, airborne: false },
+    Verb { verb: "attack_down", label: "D-tilt", axis_x: 0.0, axis_y: 1.0, button: Button::Attack, airborne: false },
+    Verb { verb: "smash_forward", label: "F-smash", axis_x: 1.0, axis_y: 0.0, button: Button::Smash, airborne: false },
+    Verb { verb: "smash_up", label: "U-smash", axis_x: 0.0, axis_y: -1.0, button: Button::Smash, airborne: false },
+    Verb { verb: "smash_down", label: "D-smash", axis_x: 0.0, axis_y: 1.0, button: Button::Smash, airborne: false },
+    Verb { verb: "attack_air", label: "N-air", axis_x: 0.0, axis_y: 0.0, button: Button::Attack, airborne: true },
+    Verb { verb: "attack_air_forward", label: "F-air", axis_x: 1.0, axis_y: 0.0, button: Button::Attack, airborne: true },
+    Verb { verb: "attack_air_back", label: "B-air", axis_x: -1.0, axis_y: 0.0, button: Button::Attack, airborne: true },
+    Verb { verb: "attack_air_up", label: "U-air", axis_x: 0.0, axis_y: -1.0, button: Button::Attack, airborne: true },
+    Verb { verb: "attack_air_down", label: "D-air", axis_x: 0.0, axis_y: 1.0, button: Button::Attack, airborne: true },
+    Verb { verb: "special", label: "Neutral B", axis_x: 0.0, axis_y: 0.0, button: Button::Special, airborne: false },
+    Verb { verb: "special_forward", label: "Side B", axis_x: 1.0, axis_y: 0.0, button: Button::Special, airborne: false },
     // ⭐ THE UP-B IS RECORDED FROM THE AIR, which is the only place it is the
     // move Jon is asking about. A grounded up-B answers the same press and shows
     // none of the recovery.
-    Verb { verb: "special_up", label: "Up B (airborne)", axis_x: 0.0, axis_y: -1.0, button: Button::Special, airborne: true, climb_x: 0.0 },
-    Verb { verb: "special_down", label: "Down B", axis_x: 0.0, axis_y: 1.0, button: Button::Special, airborne: false, climb_x: 0.0 },
-    Verb { verb: "special_air_down", label: "Down B (air)", axis_x: 0.0, axis_y: 1.0, button: Button::Special, airborne: true, climb_x: 0.0 },
-    Verb { verb: "grab", label: "Grab", axis_x: 0.0, axis_y: 0.0, button: Button::Grab, airborne: false, climb_x: 0.0 },
-    Verb { verb: "taunt", label: "Taunt", axis_x: 0.0, axis_y: 0.0, button: Button::Taunt, airborne: false, climb_x: 0.0 },
+    Verb { verb: "special_up", label: "Up B (airborne)", axis_x: 0.0, axis_y: -1.0, button: Button::Special, airborne: true },
+    Verb { verb: "special_down", label: "Down B", axis_x: 0.0, axis_y: 1.0, button: Button::Special, airborne: false },
+    Verb { verb: "special_air_down", label: "Down B (air)", axis_x: 0.0, axis_y: 1.0, button: Button::Special, airborne: true },
+    Verb { verb: "grab", label: "Grab", axis_x: 0.0, axis_y: 0.0, button: Button::Grab, airborne: false },
+    Verb { verb: "taunt", label: "Taunt", axis_x: 0.0, axis_y: 0.0, button: Button::Taunt, airborne: false },
 ];
 
 /// How far the stick goes for a TILT.
@@ -389,12 +384,30 @@ fn ensure_airborne(app: &mut App) -> bool {
     false
 }
 
-/// Wait for a body that is standing, idle and not riding anything.
+/// Wait for a body that is idle, not riding anything, and standing IF IT CAN.
+///
+/// ⛔⛔ NOT EVERY FIGHTER CAN STAND. `player_robot_v3` can FLY, and a flying body
+/// is never grounded by construction (`integration.rs`: *"a flying body is never
+/// grounded — the collision sweep can still find support under a hovering
+/// flyer"*). A settle that demanded `grounded` therefore never succeeded for it:
+/// every take re-seated, timed out again, and started from whatever the last one
+/// left behind — which is why the robot's grounded forward tilt was recorded as
+/// its FORWARD AIR and both of its specials as producing nothing. Three findings
+/// from one condition that could not hold.
+///
+/// So the ground is required only of a body that has been seen standing. A
+/// fighter that never reports support settles on "idle and unencumbered", which
+/// is the strongest true statement available about it.
 fn settle(app: &mut App) -> bool {
+    let mut ever_stood = false;
     for _ in 0..SETTLE_LIMIT {
         drive(app, ControlFrame::default());
         let now = sample(app.world_mut(), 0);
-        if now.move_id.is_none() && now.grounded == Some(true) && now.riding.is_none() {
+        ever_stood |= now.grounded == Some(true);
+        if now.move_id.is_some() || now.riding.is_some() {
+            continue;
+        }
+        if now.grounded == Some(true) || !ever_stood {
             return true;
         }
     }
@@ -451,14 +464,19 @@ fn main() {
         let bound = verb_table(&mut app, character);
 
         for verb in VERBS {
-            let mut settled = settle(&mut app);
-            if !settled {
-                // The previous take left the stage in a state this one cannot
-                // start from — a body off the stage, a ride still running, a
-                // fighter mid-respawn. A fresh match is the only reset.
-                reseat(&mut app, character);
-                settled = settle(&mut app);
-            }
+            // ⛔⛔ A FRESH MATCH FOR EVERY TAKE, not only when the settle fails.
+            // Re-seating on failure alone left every take depending on the one
+            // before it, and the up-B is where that shows: `afford_recovery`
+            // refuses a recovery whose airtime already spent one, so a take that
+            // followed a lunge recorded the fighter's RECOVERY as a move that
+            // produces nothing. Three separate false findings came out of that
+            // ordering before it was the ordering that got measured.
+            //
+            // ⛔ IT COSTS 240 TICKS PER TAKE and is worth every one: an
+            // instrument whose answer depends on what ran before it is not
+            // measuring the thing it names.
+            reseat(&mut app, character);
+            let settled = settle(&mut app);
             if !settled {
                 println!(
                     "[take] {character:<24} {:<16} WARNING - the stage would not go quiet \

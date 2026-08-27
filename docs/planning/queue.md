@@ -12918,6 +12918,50 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ▢ **D253 — `player_robot_v3` HAS FIVE SPECIALS AND CANNOT THROW ANY OF THEM.
+  (found 2026-08-27 by the moveset take recorder, on the run that re-seated
+  before every take)**
+
+Nineteen presses, driven through the real control frame into a real seated
+match, one fresh match per take. Fourteen work. The five that do not are the
+five specials, and they are ALL of them:
+
+```text
+attack .. smash_down .. attack_air_* .. grab .. taunt      all reach their move
+special           intended=bubble_shield        got=None   grounded=true
+special_forward   intended=rocket_dash          got=None   grounded=true
+special_up        intended=phase_shift          got=None   grounded=false
+special_down      intended=stabilizer_slam      got=None   grounded=true
+special_air_down  intended=stabilizer_dive      got=None   grounded=false
+```
+
+⛔ NOT THE ENGINE, AND NOT THE PRESS. The same driver, the same tick budget and
+the same re-seat get every special out of the other two fighters measured:
+
+```text
+npc_pirate_admiral   5 of 5 specials fire   (grapeshot, run_out_the_guns,
+                                             call_the_shark, heave_to, heave_to)
+author               5 of 5 specials fire   (…, author_revision)
+player_robot_v3      0 of 5
+```
+
+⛔ AND FOUR OF THE FIVE ARE UNTOUCHED BY THE RUN THAT FOUND THEM. This branch
+replaced the robot's `special_up` only; `bubble_shield`, `rocket_dash`,
+`stabilizer_slam` and `stabilizer_dive` are as main has them, and they fail
+identically. Whatever this is, it predates the change that surfaced it.
+
+⭐ THE STANDING SUSPECT, unmeasured: this body can FLY, and a flying body is
+never grounded by construction (`integration.rs`: *"a flying body is never
+grounded — the collision sweep can still find support under a hovering
+flyer"*). The take recorder had to be taught the same thing about its own
+settle. A special resolves its posture at the press
+(`SpecialGestureIntent`), and a body whose ground state is a permanent lie is
+the obvious place to look first — but that is a hypothesis, and the four wrong
+hypotheses D207 cost are the reason it is written down as one.
+
+⭐ THE ACCEPTANCE TEST EXISTS: `moveset_takes --characters player_robot_v3`, and
+the report line is `MISMATCH: drove <id> but the engine played {}`.
+
 - ▢ **D252 — THE BACK AIR IS UNREACHABLE FOR THE WHOLE CAST. (found 2026-08-27
   by the moveset take recorder, on the first run that recorded the resolved
   gesture)**

@@ -11,11 +11,13 @@
 //! compile into anything, rather than registering as a body that authors
 //! nothing.
 
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_characters::actor::definition::CharacterDefinition;
 
+mod actor;
 mod author;
 mod goblin;
 mod hall_humanoids;
+mod medic;
 mod npc_ai_slop;
 mod npc_alice;
 mod npc_bob;
@@ -116,12 +118,20 @@ pub(crate) const AUTHORED_CAST: &[(
     // the rule its own doc states. Same walk, same health, sixteen new answers.
     (&["npc_oiler"], npc_oiler::author),
     (&["goblin"], goblin::author),
-    // THE TWO EASTER EGGS. Both are a polygon archetype wearing a different
+    // THE FOUR EASTER EGGS. Each is a polygon archetype wearing a different
     // person, and their entries say only what differs from it — see their
     // modules, and `crate::archetype_moveset` for why they borrow the table
     // rather than copying or sharing it.
+    //
+    // ⚠ Two of the four are hand-drawn rather than faceted, and neither has
+    // gameplay rules for her own specials yet: the Medic's ADRENALINE / FIELD
+    // DRESSING pair and the Actor's trap door and flyline exist as CLIPS and
+    // hit volumes in the sprite repository and as nothing here. They borrow the
+    // archetype's specials until someone writes what they cost.
     (&["author"], author::author),
     (&["officer"], officer::author),
+    (&["actor"], actor::author),
+    (&["medic"], medic::author),
     (&["npc_goblin_brute"], npc_goblin_brute::author),
 ];
 

@@ -2824,6 +2824,61 @@
             ),
             hall_dialogue_id: None,
         ),
+        "medic": (
+            display_name: "The Medic",
+            spritesheet: "sprites/medic_spritesheet.png",
+            manifest: "sprites/medic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The brawler archetype's preset, for the reason the Officer's row
+            // gives: an unarmed MainHall melee fighter is still a MainHall
+            // melee fighter. ⚠ `patrol_peaceful` would read better for a medic
+            // and would be a BALANCE decision nobody has made; she borrows the
+            // archetype's brain for as long as she borrows its table.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "brawler", "support", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "A field paramedic off duty: black fitted top, black leggings, trainers, a high ponytail. Hand-drawn and rigged by program. Her whole vocabulary is the PALM -- heel strikes, lifts, compressions -- because a medic's trained motion is push, lift, carry, and never close the fist; anything heavy she does with both hands. Her swings read clinical: a cold white-cyan trace for tilts and a defibrillator discharge for smashes.",
+            gameplay_description: "A light, fast two-handed brawler on the Pugnacious Polygon's timings, retimed shorter. Low raw KO power, long combo strings, and every heavy commitment is a TWO-HANDED one -- which is what makes her smashes slow and her tilts quick. She is the only fighter here who can PUT SOMETHING BACK: her neutral special spends a slice of her own margin for tempo and her down special kneels and repays it. Those rules are not written yet; she borrows the archetype's specials until they are.",
+            fallback_dialogue: [
+                "I don't fight people. I move them.",
+                "Whatever you did to your shoulder, that wasn't me.",
+                "Sit. Breathe. We'll get to it.",
+            ],
+            barks: (
+                idle: ["Stay down. I'm not asking.", "Look at me. Can you hear me?"],
+                on_hit: ["I've got you.", "You're going to be fine. Probably."],
+                provoked: ["Don't make me carry you."],
+            ),
+            hall_dialogue_id: None,
+        ),
+        "actor": (
+            display_name: "The Actor",
+            spritesheet: "sprites/actor_spritesheet.png",
+            manifest: "sprites/actor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            // The sword archetype's preset, for the reason the Author's row
+            // gives -- she is that archetype, carrying nothing.
+            default_brain: "melee_brute_striker",
+            default_action_set: "striker_swipe",
+            tags: ["humanoid", "duellist", "performer", "easter_egg", "playable_candidate", "svg_rigged"],
+            authoring_description: "A working performer between calls: an oversized grey cardigan over a dark tank, flared trousers, worn boots, an auburn updo coming down at the edges. Hand-drawn and rigged by program. Long unbroken lines, three greys and one auburn, and the far side of her drawn one step back in tone -- baked into opaque fills, never alpha, because every rig part rasterizes to its own layer.",
+            gameplay_description: "A committed mid-range duellist on the Pointed Polygon's timings, held longer. Her forward smash is THE DUEL SCENE: a fencer's lunge with a blade of stage light conjured for exactly the frames the role calls for it, authored as the swing's own axis extended past her hand -- so the blade a player sees is the blade that hits them. A thin volume over a long reach, on purpose. Outside those frames her hands are empty and short, and everything she throws is held long enough to be punished.",
+            fallback_dialogue: [
+                "I'm not playing anyone right now. It's disconcerting, isn't it.",
+                "Everyone's in costume. Most of them just don't know it.",
+                "Give me a moment. I have to decide who I am.",
+            ],
+            barks: (
+                idle: ["From the top.", "That was your cue."],
+                on_hit: ["Louder. The back row paid too.", "I can do this all night. I have."],
+                provoked: ["You are stepping on my line."],
+            ),
+            hall_dialogue_id: None,
+        ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",
             spritesheet: "sprites/patent_clerk_spritesheet.png",

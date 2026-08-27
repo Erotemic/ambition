@@ -35,6 +35,16 @@ struct SceneCaptureConfig {
     output: PathBuf,
     size: UVec2,
     warmup_frames: u32,
+    /// ⭐⭐ HOW MANY SHOTS, and the whole difference between a photograph and an
+    /// animation. `1` (the default) is the single-shot tool this has always
+    /// been and is byte-identical to it. Higher re-arms the capture after each
+    /// readback and numbers the files `<stem>.0000.png`, so a move can be
+    /// photographed while it PLAYS — which is the only way to see what a move
+    /// looks like without a person watching it.
+    frames: usize,
+    /// Sim frames to advance between shots of a sequence. `1` photographs every
+    /// frame; higher samples a long move without hundreds of files.
+    stride: u32,
     include_ui: bool,
     /// Frame the whole ROOM instead of a point (`--fit-room`).
     ///
@@ -120,6 +130,13 @@ struct SceneCaptureRuntime {
     /// drivers do exactly this, and a held key is not a second press.
     press_cursor: usize,
     press_held: Option<KeyCode>,
+    /// ⭐⭐ WHICH SHOT OF A SEQUENCE this is. `0` and a `frames` of 1 is the
+    /// single-photograph tool this has always been; anything higher re-arms
+    /// after each readback and photographs a MOVING scene, which is what makes
+    /// an animation.
+    shot: usize,
+    /// Frames still to wait before re-arming the next shot of a sequence.
+    stride_left: u32,
     /// The finger a `touch:X,Y` step put down and has not lifted yet, and the
     /// id it went down with. Same two-frame shape as a key tap and for the same
     /// reason — a press edge and a release edge are two different frames — but
@@ -410,6 +427,9 @@ impl SceneCaptureConfig {
         let mut include_ui = false;
         let mut dev_overlays = false;
         let mut combat_overlay = false;
+        // One shot every frame, which is the tool this has always been.
+        let mut frames: usize = 1;
+        let mut stride: u32 = 1;
         let mut fit_room = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
@@ -489,6 +509,42 @@ impl SceneCaptureConfig {
                         .map_err(|_| format!("--warmup must be an integer, got '{value}'"))?;
                     2
                 }
+                "--frames" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--frames requires a count".to_string());
+                    };
+                    frames = value
+                        .parse::<usize>()
+                        .map_err(|_| format!("--frames wants a count, got '{value}'"))?
+                        .max(1);
+                    2
+                }
+                arg if arg.starts_with("--frames=") => {
+                    let value = arg.trim_start_matches("--frames=");
+                    frames = value
+                        .parse::<usize>()
+                        .map_err(|_| format!("--frames wants a count, got '{value}'"))?
+                        .max(1);
+                    1
+                }
+                "--stride" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--stride requires a frame count".to_string());
+                    };
+                    stride = value
+                        .parse::<u32>()
+                        .map_err(|_| format!("--stride wants a count, got '{value}'"))?
+                        .max(1);
+                    2
+                }
+                arg if arg.starts_with("--stride=") => {
+                    let value = arg.trim_start_matches("--stride=");
+                    stride = value
+                        .parse::<u32>()
+                        .map_err(|_| format!("--stride wants a count, got '{value}'"))?
+                        .max(1);
+                    1
+                }
                 arg if arg.starts_with("--warmup=") => {
                     let value = arg.trim_start_matches("--warmup=");
                     warmup_frames = value
@@ -540,6 +596,8 @@ impl SceneCaptureConfig {
                 output,
                 size,
                 warmup_frames: warmup_frames.max(90),
+                frames,
+                stride,
                 // A route IS its UI. Capturing one without it would photograph
                 // an empty clear colour and call it the launcher.
                 include_ui: true,
@@ -581,6 +639,8 @@ impl SceneCaptureConfig {
             room_id,
             focus,
             output,
+            frames,
+            stride,
             size,
             warmup_frames,
             include_ui,
@@ -1079,6 +1139,13 @@ fn request_capture(
         }
         return;
     }
+    // ⭐ THE GAP BETWEEN SHOTS OF A SEQUENCE. Counted here rather than in the
+    // readback handler because this is the system that runs once per frame; the
+    // handler fires on a GPU event and cannot count sim frames.
+    if runtime.stride_left > 0 {
+        runtime.stride_left -= 1;
+        return;
+    }
     // WARMUP COUNTS FROM A READY WORLD, not from boot.
     //
     // Same distinction the route-camera check below draws — warmup is a
@@ -1271,12 +1338,31 @@ fn finish_after_capture(
     if !runtime.completed || runtime.failed {
         return;
     }
-    println!(
-        "capture_scene: wrote {} ({}x{} px)",
-        config.output.display(),
-        config.size.x,
-        config.size.y,
-    );
+    if config.frames > 1 {
+        println!(
+            "capture_scene: wrote {} frame(s) as {}.NNNN.{} ({}x{} px, stride {})",
+            config.frames,
+            config
+                .output
+                .with_extension("")
+                .display(),
+            config
+                .output
+                .extension()
+                .map(|e| e.to_string_lossy().to_string())
+                .unwrap_or_else(|| "png".to_string()),
+            config.size.x,
+            config.size.y,
+            config.stride,
+        );
+    } else {
+        println!(
+            "capture_scene: wrote {} ({}x{} px)",
+            config.output.display(),
+            config.size.x,
+            config.size.y,
+        );
+    }
     commands.write_message(AppExit::Success);
 }
 
@@ -1317,14 +1403,43 @@ fn save_readback_to_disk(
         commands.write_message(AppExit::from_code(1));
         return;
     };
-    if let Err(error) = image.save(&config.output) {
-        eprintln!(
-            "capture_scene: failed to save '{}': {error}",
-            config.output.display()
-        );
+    // ⭐ ONE SHOT KEEPS ITS EXACT NAME. A sequence numbers its files, because a
+    // caller that asked for forty pictures wants forty files and a caller that
+    // asked for one wants the path it named — silently renaming the single-shot
+    // output would break every existing recipe that photographs a room.
+    let path = if config.frames <= 1 {
+        config.output.clone()
+    } else {
+        let stem = config
+            .output
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "frame".to_string());
+        let ext = config
+            .output
+            .extension()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "png".to_string());
+        config
+            .output
+            .with_file_name(format!("{stem}.{:04}.{ext}", runtime.shot))
+    };
+    if let Err(error) = image.save(&path) {
+        eprintln!("capture_scene: failed to save '{}': {error}", path.display());
         runtime.failed = true;
         runtime.completed = true;
         commands.write_message(AppExit::from_code(1));
+        return;
+    }
+    runtime.shot += 1;
+    if runtime.shot < config.frames {
+        // ⛔ RE-ARM, DO NOT COMPLETE. `request_capture` is guarded on
+        // `requested || completed`, so clearing both is what lets the next shot
+        // be taken — and the stride is what makes the scene DIFFERENT by then.
+        // Without a stride the sequence photographs one instant many times.
+        runtime.requested = false;
+        runtime.wait_frames = 0;
+        runtime.stride_left = config.stride;
         return;
     }
     runtime.completed = true;

@@ -3,3 +3,4 @@
 # derived artifact in the history and make every balance edit a binary diff.
 data/moveset_bundle.json
 data/takes/
+data/renders/

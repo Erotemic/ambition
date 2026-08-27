@@ -11,6 +11,8 @@ Routes:
   ``/data/...``         the exported bundle and any recorded takes
   ``/api/review``       GET one review by subject, POST to save one
   ``/api/reviews``      GET every review
+  ``/api/render``       GET a GPU-rendered animation of one fighter, on demand
+  ``/render/...``       the rendered frames themselves
 """
 
 from __future__ import annotations
@@ -28,6 +30,11 @@ HERE = Path(__file__).resolve().parent.parent
 WEB = HERE / "web"
 DATA = HERE / "data"
 REVIEWS = HERE / "reviews"
+RENDERS = HERE / "data" / "renders"
+
+# ⭐⭐ THE REPO ROOT, for shelling out to the renderer. Resolved from this file so
+# the wrapper works from any working directory.
+REPO = HERE.parent.parent
 
 # ⭐⭐ THE SPRITE SHEETS, SERVED WHERE THEY LIE. The inspector shows the real art
 # rather than boxes, and the art is tens of megabytes of PNG that already exists
@@ -44,6 +51,95 @@ SPRITES = (
     / "assets"
     / "sprites"
 )
+
+
+def render_animation(character: str, frames: int, stride: int) -> tuple[int, dict]:
+    """Render one fighter's animation through the real engine, on demand.
+
+    ⭐⭐ THE GPU HALF OF THE DECISION. The Engine Takes view derives its animation
+    frame on the CPU so the tool runs anywhere; this produces the REAL thing, by
+    asking the engine to draw it. Jon, 2026-08-27: *"having the animation be
+    generated on demand, and using a fallback visualization if it wasn't
+    available or we didn't have the gpu."*
+
+    ⛔ EVERY FAILURE IS A JSON ANSWER, NOT AN EXCEPTION. The whole point of this
+    route is that it may legitimately be unavailable — no GPU, no binary built,
+    a driver that will not start — and the UI has something to fall back to. A
+    500 with a stack trace would make "this machine cannot render" look like a
+    bug in the inspector.
+    """
+    import subprocess
+
+    safe = "".join(ch for ch in character if ch.isalnum() or ch in "_-")
+    if not safe or safe != character:
+        return 400, {"error": "character must be a plain catalog id"}
+
+    out_dir = RENDERS / safe
+    manifest = out_dir / "manifest.json"
+    # ⭐ CACHED BY WHAT WAS ASKED FOR. A second request for the same shape is a
+    # file read; a request for MORE frames re-renders rather than silently
+    # serving fewer than asked.
+    if manifest.exists():
+        try:
+            have = json.loads(manifest.read_text())
+            if have.get("frames") >= frames and have.get("stride") == stride:
+                return 200, have
+        except (OSError, ValueError):
+            pass
+
+    binary = REPO / "target" / "debug" / "capture_scene"
+    if not binary.exists():
+        return 503, {
+            "available": False,
+            "reason": "capture_scene is not built",
+            "hint": "cargo build -p ambition_app_tools --bin capture_scene",
+        }
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in out_dir.glob("*.png"):
+        stale.unlink()
+    try:
+        result = subprocess.run(
+            [
+                str(binary),
+                "hall_of_characters",
+                "player",
+                str(out_dir / "frame.png"),
+                "480x360",
+                "--warmup", "60",
+                "--character", safe,
+                "--frames", str(frames),
+                "--stride", str(stride),
+            ],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            timeout=900,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return 503, {"available": False, "reason": f"the renderer did not run: {error}"}
+
+    shots = sorted(p.name for p in out_dir.glob("frame.*.png"))
+    if result.returncode != 0 or not shots:
+        # ⛔ THE RENDERER'S OWN LAST WORDS, not a generic failure. "no GPU" and
+        # "that character is not on the roster" are different problems and the
+        # person reading this is the one who can tell them apart.
+        tail = (result.stderr or result.stdout or "").strip().splitlines()
+        return 503, {
+            "available": False,
+            "reason": "the renderer produced no frames",
+            "detail": tail[-3:] if tail else [],
+        }
+
+    document = {
+        "available": True,
+        "character": safe,
+        "frames": len(shots),
+        "stride": stride,
+        "urls": [f"/render/{safe}/{name}" for name in shots],
+    }
+    manifest.write_text(json.dumps(document))
+    return 200, document
 
 
 class InspectorHandler(SimpleHTTPRequestHandler):
@@ -90,6 +186,14 @@ class InspectorHandler(SimpleHTTPRequestHandler):
                 # a probe learns nothing about what does or does not exist.
                 return str(root / "__outside_the_data_bundle__")
             return str(candidate)
+        if parsed.startswith("/render/"):
+            root = RENDERS.resolve()
+            candidate = (root / parsed[len("/render/"):]).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                return str(root / "__outside_the_render_cache__")
+            return str(candidate)
         if parsed.startswith("/art/"):
             # ⭐ THE SAME CONTAINMENT, for the same reason. Taking `.name` alone
             # would already defeat `../`, but "this route happens to be safe by
@@ -107,6 +211,14 @@ class InspectorHandler(SimpleHTTPRequestHandler):
     # ---- routes ----
     def do_GET(self):  # noqa: N802 - stdlib naming
         parsed = urlparse(self.path)
+        if parsed.path == "/api/render":
+            query = parse_qs(parsed.query)
+            character = (query.get("character") or [""])[0]
+            if not character:
+                return self._json(400, {"error": "character is required"})
+            frames = min(int((query.get("frames") or ["24"])[0]), 120)
+            stride = min(int((query.get("stride") or ["2"])[0]), 30)
+            return self._json(*render_animation(character, frames, stride))
         if parsed.path == "/api/review":
             subject = (parse_qs(parsed.query).get("subject") or [""])[0]
             if not subject:

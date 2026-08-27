@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v122
+ggrs-rollback-schema-v123
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -36,6 +36,7 @@ actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapsho
 actor.match_team	component-canonical	MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_model	component-canonical	MotionModel	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.motion_path	component-clone-cursor	ActorMotionPath	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+actor.move_brandished_item	component-clone	MoveBrandishedItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
 actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

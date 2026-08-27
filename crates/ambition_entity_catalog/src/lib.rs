@@ -1088,6 +1088,22 @@ pub struct MoveSpec {
     /// `None` (and zero) = drawn the way every other move is.
     #[serde(default)]
     pub sprite_spin_hz: Option<f32>,
+    /// The held item this move BRANDISHES while it plays.
+    ///
+    /// ⭐ THE GENRE'S DRAW-AND-SWING: a move whose whole read is "he pulls the
+    /// gun-sword out and fires it" is one move, not an equip plus a shot the
+    /// player has to sequence. The item is worn for exactly as long as the
+    /// move's own clock runs and the body's authored item comes back after —
+    /// so a fighter who carries nothing carries nothing again, and one who
+    /// carries a sword gets its sword back.
+    ///
+    /// ⛔ IT IS NOT A PICKUP. Nothing enters or leaves an inventory, the item
+    /// cannot be dropped or thrown, and a body that picked something up keeps
+    /// it: the brandish REMEMBERS what it displaced and restores exactly that.
+    ///
+    /// `None` = every move that has not opted in, which is all of them but one.
+    #[serde(default)]
+    pub equips: Option<String>,
 }
 
 /// Serde default for [`MoveSpec::smash_charge_mult`]: the multiplicative

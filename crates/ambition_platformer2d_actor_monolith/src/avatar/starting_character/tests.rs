@@ -1131,6 +1131,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: "swat".to_string(),
         clip: ClipBinding {
             clip: "swat".to_string(),

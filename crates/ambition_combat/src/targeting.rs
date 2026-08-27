@@ -552,3 +552,70 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 
 #[cfg(test)]
 mod tests;
+
+/// Bend a commanded firing direction toward the nearest foe it was already
+/// pointed at.
+///
+/// ⭐ THE COMMANDED DIRECTION IS STILL THE DECISION, and `max_angle_rad` is what
+/// says so: a target outside that cone is not a target for THIS shot, however
+/// close it is. Jon, on the pirate's gun-sword: *"angle the equipped gun and
+/// shot so it fires in their direction IF THEY ARE IN THE HALF PLANE the side-b
+/// was directed towards."*
+///
+/// ⛔⛔ THE TIE-BREAK IS THE STABLE `SimId`, NEVER THE `Entity`, and this file
+/// already learned that once: `nearest_foe_tie_breaks_on_stable_identity_not_entity_id`
+/// exists because bevy_ggrs destroys and recreates rollback entities, so a raw
+/// id is not preserved across a rewind and a tie decided by one picks a
+/// DIFFERENT target mid-resimulation than the confirmed timeline did. The first
+/// version of this function compared `(distance, Entity)`.
+///
+/// A body with no `SimId` is not snapshot-relevant; those sort last among
+/// themselves by `Entity`, which is the same rule `select_actor_targets` uses.
+///
+/// Returns `commanded` unchanged when nothing qualifies, which is the honest
+/// answer: the shot goes where it was aimed.
+pub fn assisted_fire_direction(
+    from: ae::Vec2,
+    commanded: ae::Vec2,
+    assist: ambition_characters::brain::action_set::AimAssist,
+    candidates: impl IntoIterator<Item = (Entity, Option<SimId>, ae::Vec2)>,
+) -> ae::Vec2 {
+    let commanded = commanded.normalize_or_zero();
+    if commanded == ae::Vec2::ZERO {
+        return commanded;
+    }
+    let cos_limit = assist.max_angle_rad.cos();
+    let mut best: Option<(f32, Option<SimId>, Entity, ae::Vec2)> = None;
+    for (entity, sim_id, at) in candidates {
+        let offset = at - from;
+        let distance = offset.length();
+        if distance <= f32::EPSILON || distance > assist.max_range {
+            continue;
+        }
+        let toward = offset / distance;
+        if toward.dot(commanded) < cos_limit {
+            continue;
+        }
+        let better = match &best {
+            None => true,
+            Some((best_distance, best_id, best_entity, _)) => {
+                match distance.partial_cmp(best_distance) {
+                    Some(std::cmp::Ordering::Less) => true,
+                    Some(std::cmp::Ordering::Greater) | None => false,
+                    // An exact tie: the stable identity decides, and only when
+                    // neither body has one does `Entity` get a vote.
+                    Some(std::cmp::Ordering::Equal) => match (&sim_id, best_id) {
+                        (Some(mine), Some(theirs)) => mine < theirs,
+                        (Some(_), None) => true,
+                        (None, Some(_)) => false,
+                        (None, None) => entity < *best_entity,
+                    },
+                }
+            }
+        };
+        if better {
+            best = Some((distance, sim_id, entity, toward));
+        }
+    }
+    best.map_or(commanded, |(_, _, _, toward)| toward)
+}

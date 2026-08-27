@@ -184,6 +184,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: ATTACK_VERB.to_string(),
         clip: ClipBinding {
             clip: "attack_side".to_string(),
@@ -310,6 +311,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: RANGED_VERB.to_string(),
         clip: ClipBinding {
             clip: "shoot".to_string(),
@@ -485,6 +487,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: "charge".to_string(),
         clip: ClipBinding {
             clip: "attack_side".to_string(),
@@ -704,6 +707,7 @@ pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: key.clone(),
         clip: ClipBinding {
             clip: "special".to_string(),

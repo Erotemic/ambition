@@ -146,6 +146,7 @@ fn press(v: &Verb, edge: bool, facing: f32) -> ControlFrame {
 struct Frame {
     bodies: Vec<serde_json::Value>,
     hitboxes: Vec<serde_json::Value>,
+    projectiles: Vec<serde_json::Value>,
     move_id: Option<String>,
     grounded: Option<bool>,
     subject_pos: Option<(f32, f32)>,
@@ -239,6 +240,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // could not tell it apart would draw the shark as another fighter.
             "kind": if *is_mount { "summon" } else if seat.is_some() { "fighter" } else { "body" },
             "move": playing.clone(),
+        }));
+    }
+
+    // ⭐ A RANGED MOVE'S DAMAGE IS ITS PROJECTILE, and a take that recorded only
+    // hitboxes showed the pirate's new side-B as a move that fires nothing.
+    // Projectiles are excluded from every actor-generic query by construction
+    // (`ProjectileGameplay` is the marker that keeps them out), so they have to
+    // be asked for by name.
+    let mut shots = world.query::<(
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        &ambition_platformer2d::platformer::projectile::ProjectileGameplay,
+    )>();
+    let flying: Vec<_> = shots
+        .iter(world)
+        .map(|(kin, shot)| (kin.pos, kin.vel, kin.size, shot.damage))
+        .collect();
+    for (pos, vel, size, damage) in flying {
+        frame.projectiles.push(serde_json::json!({
+            "pos": [pos.x, pos.y],
+            "vel": [vel.x, vel.y],
+            "half": [size.x * 0.5, size.y * 0.5],
+            "damage": damage,
         }));
     }
 
@@ -384,6 +407,7 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
     frames.push(serde_json::json!({
         "bodies": frame.bodies,
         "hitboxes": frame.hitboxes,
+        "projectiles": frame.projectiles,
         "move": frame.move_id,
         "grounded": frame.grounded,
         "subject_pos": frame.subject_pos.map(|p| vec![p.0, p.1]),
@@ -521,6 +545,11 @@ fn main() {
                 .map(|f| f["hitboxes"].as_array().map_or(0, Vec::len))
                 .max()
                 .unwrap_or(0);
+            let shots = frames
+                .iter()
+                .map(|f| f["projectiles"].as_array().map_or(0, Vec::len))
+                .max()
+                .unwrap_or(0);
 
             // The view: the stage plus everything this take reached, padded.
             // Computed per take rather than per frame, so scrubbing does not
@@ -565,7 +594,7 @@ fn main() {
             let intended = intended_move(&bound, verb.verb);
             let reached = intended.is_none_or(|id| moves.contains(id));
             println!(
-                "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} rode={rode}{}",
+                "[take] {character:<24} {:<16} moves={:?} hitboxes<={live} shots<={shots} rode={rode}{}",
                 verb.verb,
                 moves,
                 if reached {
@@ -591,6 +620,7 @@ fn main() {
                 "moves_seen": moves.iter().cloned().collect::<Vec<_>>(),
                 "rode_a_mount": rode,
                 "max_live_hitboxes": live,
+                "max_live_projectiles": shots,
                 "intended_move": intended,
                 "reached_intended_move": reached,
                 "frames": frames,

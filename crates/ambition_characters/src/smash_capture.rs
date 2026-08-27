@@ -163,6 +163,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -191,6 +192,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -257,6 +259,10 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         // presentation besides — a derived running grab draws the way the
         // standing one does.
         sprite_spin_hz,
+        // NEITHER a point nor a duration: WHAT THE MOVE HOLDS while it plays.
+        // A derived running grab brandishes whatever the standing one does,
+        // for exactly as long as its own (longer) clock runs.
+        equips,
     } = standing.clone();
     let mut running = MoveSpec {
         // A derived move never inherits a hand-written label: the standing
@@ -285,6 +291,7 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         landing_lag_s,
         autocancel_after_s: autocancel_after_s.map(|at| at + RUNNING_GRAB_EXTRA_STARTUP_S),
         sprite_spin_hz,
+        equips,
     };
     // Whatever the author placed on the swing happens at the same point IN the
     // swing, which is now later. An event left at its original time would fire
@@ -676,6 +683,7 @@ mod tests {
             landing_lag_s: None,
             autocancel_after_s: None,
             sprite_spin_hz: None,
+            equips: None,
         }
     }
 

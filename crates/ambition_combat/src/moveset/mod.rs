@@ -3178,6 +3178,13 @@ pub fn dispatch_move_events(
         // A3: the owner's worn equipment, so a worn Move/Verb-scoped modifier
         // scales the shot's damage/speed at fire (trigger-resolve).
         Option<&ambition_characters::equipment::WornEquipment>,
+        // The weapon THIS MOVE drew, if it drew one, and what is actually in
+        // the hand. Two reads because they answer different questions: the
+        // brandish says WHOSE the item is, `HeldItem` says WHAT it is — and
+        // duplicating the id onto the brandish would be a second authority for
+        // a fact one component already owns.
+        Option<&crate::held_items::MoveBrandishedItem>,
+        Option<&crate::held_items::HeldItem>,
     )>,
     // The move that is playing, for the aim it was STARTED with. See
     // `MovePlayback::aim`.
@@ -3259,10 +3266,32 @@ pub fn dispatch_move_events(
             MoveEventKind::Ranged => {
                 // The owner's ranged CAPABILITY + LIVE aim supply the concrete shot;
                 // the move stays content-free.
-                let Ok((actions_set, control, worn)) = ranged_owners.get(ev.owner) else {
+                let Ok((actions_set, control, worn, brandished, held)) =
+                    ranged_owners.get(ev.owner)
+                else {
                     continue;
                 };
-                let Some(spec) = actions_set.ranged.clone() else {
+                // ⭐⭐ A MOVE THAT DREW A WEAPON FIRES THAT WEAPON. `MoveSpec::equips`
+                // put it in the hand at the start of this move, and the shot a
+                // player sees leave the barrel has to be the barrel's shot — the
+                // admiral's gun-sword is not his pistol, and firing the pistol's
+                // numbers out of a drawn gun-sword is the kind of disagreement
+                // nobody can see and everybody feels.
+                //
+                // ⛔ SCOPED TO THE BRANDISH, not to "is anything held". A pirate
+                // raider carries a gun-sword all match and its ranged verb is
+                // reached the way it always was; only an item a MOVE drew for
+                // itself displaces the body's own weapon, and only while that
+                // move plays.
+                let brandished_ranged = brandished
+                    .filter(|brandish| {
+                        playbacks
+                            .get(ev.owner)
+                            .is_ok_and(|pb| pb.spec.id == brandish.move_id)
+                    })
+                    .and(held)
+                    .and_then(|item| item.spec.ranged.clone());
+                let Some(spec) = brandished_ranged.or_else(|| actions_set.ranged.clone()) else {
                     continue; // owner has no ranged weapon — the move fires nothing
                 };
                 // A3 trigger-resolve: fold worn equipment modifiers into THIS shot's

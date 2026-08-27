@@ -219,6 +219,39 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // ⭐ THE ADMIRAL'S OWN GUN-SWORD, drawn for one move and put away again.
+        //
+        // ⛔ A ROW OF ITS OWN RATHER THAN A LOUDER `gun_sword`, because the
+        // shared one is a PICKUP in the adventure game and a raider's sidearm,
+        // and a side-special's payoff is not the number either of those should
+        // be balanced around. Same art, same discharge, same hand — a different
+        // weapon.
+        items.insert(
+            "admiral_gun_sword",
+            HeldItemSpec {
+                id: "admiral_gun_sword".into(),
+                melee: None,
+                ranged: Some(
+                    RangedActionSpec::bolt(620.0, 8)
+                        // ⭐ THE HALF-PLANE, WHICH IS JON'S RULE VERBATIM: the
+                        // player picks a side and the weapon picks the angle
+                        // within it. A foe behind the admiral is not a target
+                        // for a shot he aimed forwards.
+                        //
+                        // The range is a little over half the smash stage's
+                        // width, so the assist reaches across a normal spacing
+                        // exchange and not across the whole room.
+                        .with_aim_assist(AimAssist::half_plane(360.0))
+                        // ⛔ THE MOVE'S OWN RECOVERY IS THE CADENCE HERE. This
+                        // weapon is drawn by a special and put away with it, so
+                        // a second recharge on top would refuse a shot the move
+                        // had already been accepted to fire — the exact
+                        // accept-then-veto `refire_s`'s own doc warns about.
+                        .with_refire(0.0),
+                ),
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         items.insert(
             "gun_sword_heavy",
             HeldItemSpec {
@@ -554,6 +587,44 @@ pub struct RangedActionSpec {
     /// nothing came out.
     #[serde(default = "default_ranged_refire_s")]
     pub refire_s: f32,
+    /// How far this weapon will BEND a shot toward a target the shooter was
+    /// already pointing at. `None` = a shot that goes exactly where it was
+    /// aimed, which is every ranged action that has not opted in.
+    #[serde(default)]
+    pub aim_assist: Option<AimAssist>,
+}
+
+/// A weapon's willingness to correct the shooter's aim.
+///
+/// ⭐ THE COMMANDED DIRECTION IS STILL THE DECISION. Jon, 2026-08-27, on the
+/// pirate's gun-sword: *"When the side-b resolves it should locate the nearest
+/// opponent and angle the equipped gun and shot so it fires in their direction
+/// IF THEY ARE IN THE HALF PLANE the side-b was directed towards."* The player
+/// chooses a side; the weapon chooses an angle within it. A fighter behind you
+/// is not a target for a shot you aimed forwards, and that is what makes the
+/// move a read rather than a homing missile.
+///
+/// ⛔ IT BENDS THE DIRECTION AND NOTHING ELSE. The shot still travels, can still
+/// be shielded, still misses a target that moves — this is a firing ANGLE, not a
+/// guarantee of contact.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub struct AimAssist {
+    /// The widest angle from the commanded direction that still counts as "the
+    /// way I was pointing", in radians. `FRAC_PI_2` is Jon's half-plane.
+    pub max_angle_rad: f32,
+    /// How far a target may be and still attract the shot, in world px. Past
+    /// this the shot goes where it was aimed.
+    pub max_range: f32,
+}
+
+impl AimAssist {
+    /// The half-plane the commanded direction faces, out to `max_range`.
+    pub const fn half_plane(max_range: f32) -> Self {
+        Self {
+            max_angle_rad: std::f32::consts::FRAC_PI_2,
+            max_range,
+        }
+    }
 }
 
 /// The recharge a ranged action gets when it authors none.
@@ -627,6 +698,7 @@ impl RangedActionSpec {
             visual: None,
             charge: None,
             refire_s: DEFAULT_RANGED_REFIRE_S,
+            aim_assist: None,
         }
     }
 
@@ -652,6 +724,12 @@ impl RangedActionSpec {
     /// Author the `ProjectileVisualId` this action's shot carries.
     pub fn with_visual(mut self, visual: impl Into<String>) -> Self {
         self.visual = Some(visual.into());
+        self
+    }
+
+    /// Author how far this weapon will bend a shot toward a target.
+    pub fn with_aim_assist(mut self, assist: AimAssist) -> Self {
+        self.aim_assist = Some(assist);
         self
     }
 

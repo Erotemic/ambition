@@ -764,6 +764,7 @@ mod pose_view_tests {
             landing_lag_s: None,
             autocancel_after_s: None,
             sprite_spin_hz: Some(10.0),
+            equips: None,
         };
 
         // Parked inside a mirrored half-period.

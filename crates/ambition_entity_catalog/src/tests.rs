@@ -110,6 +110,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),
@@ -1132,6 +1133,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     }
 }
 
@@ -1383,6 +1385,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         landing_lag_s: None,
         autocancel_after_s: None,
         sprite_spin_hz: None,
+        equips: None,
     };
     let derived = spec.charge_policy().expect("a paying smash charges");
     // ⭐ THE HOLD SITS WHERE THE WINDUP BEGINS, and this assertion read `0.3` —

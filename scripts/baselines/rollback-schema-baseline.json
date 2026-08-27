@@ -37,6 +37,7 @@
     "actor.match_team",
     "actor.motion_model",
     "actor.motion_path",
+    "actor.move_brandished_item",
     "actor.move_playback",
     "actor.moveset",
     "actor.moveset_melee",

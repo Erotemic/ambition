@@ -914,6 +914,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
             landing_lag_s: None,
             autocancel_after_s: None,
             sprite_spin_hz: None,
+            equips: None,
         }],
     };
     // The stage's borrowed kit, deliberately DIFFERENT from anything the

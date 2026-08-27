@@ -531,6 +531,7 @@ mod tests {
                 landing_lag_s: None,
                 autocancel_after_s: None,
                 sprite_spin_hz: None,
+                equips: None,
             })
             .collect();
         m.verbs = verbs

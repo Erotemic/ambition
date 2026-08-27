@@ -827,3 +827,213 @@ fn a_hunter_that_has_left_play_does_not_pick_up_a_target() {
         "the hunter never acquired at all, so the arm above proves nothing"
     );
 }
+
+// ── AIM ASSIST ───────────────────────────────────────────────────────────
+//
+// ⛔⛔ THE ARMS STRADDLE THE ANGLE, and they have to. `assisted_fire_direction`
+// compares a dot product against `cos(max_angle_rad)`, and a suite whose foes
+// all sit dead ahead agrees with every implementation of that comparison
+// including "always assist" and "never assist". The engine take that first
+// showed the pirate's side-B working had exactly that shape: the shot fired at
+// 180 degrees at a foe standing at 180 degrees, on flat ground, which proves
+// only that the admiral was facing the right way.
+
+use ambition_characters::brain::action_set::AimAssist;
+
+fn entity(index: u32) -> Entity {
+    Entity::from_raw_u32(index).expect("a test entity index")
+}
+
+/// The commanded direction: straight forward, along +x.
+const FORWARD: ae::Vec2 = ae::Vec2::new(1.0, 0.0);
+
+#[test]
+fn a_foe_inside_the_half_plane_bends_the_shot_toward_it() {
+    let assist = AimAssist::half_plane(400.0);
+    // Forty-five degrees UP from the commanded direction: comfortably inside a
+    // half-plane and nowhere near the direction that was actually pressed.
+    let dir = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        [(entity(1), None, ae::Vec2::new(100.0, -100.0))],
+    );
+    assert!(
+        dir.y < -0.5,
+        "the shot must angle up toward the foe, and it went {dir:?}"
+    );
+    assert!(dir.x > 0.0, "…while still going forwards, and it went {dir:?}");
+}
+
+#[test]
+fn a_foe_outside_the_half_plane_leaves_the_shot_alone() {
+    let assist = AimAssist::half_plane(400.0);
+    // BEHIND, and close enough that a rule reading only distance would take it.
+    // This is Jon's whole condition: *"if they are in the half plane the side-b
+    // was directed towards"*.
+    let dir = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        [(entity(1), None, ae::Vec2::new(-20.0, 0.0))],
+    );
+    assert_eq!(
+        dir, FORWARD,
+        "a foe behind the admiral is not a target for a shot he aimed forwards"
+    );
+}
+
+#[test]
+fn a_foe_just_past_the_edge_of_the_cone_is_refused_and_one_just_inside_is_not() {
+    // ⛔ THE PAIR IS THE TEST. A single arm on either side of the boundary
+    // passes against an implementation that ignores the angle entirely.
+    let assist = AimAssist {
+        max_angle_rad: std::f32::consts::FRAC_PI_4,
+        max_range: 400.0,
+    };
+    let inside = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        // ~40 degrees off: inside a 45-degree cone.
+        [(entity(1), None, ae::Vec2::new(100.0, -84.0))],
+    );
+    let outside = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        // ~50 degrees off: outside the same cone.
+        [(entity(1), None, ae::Vec2::new(100.0, -119.0))],
+    );
+    assert_ne!(inside, FORWARD, "a foe inside the cone must attract the shot");
+    assert_eq!(outside, FORWARD, "a foe outside it must not");
+}
+
+#[test]
+fn a_foe_beyond_the_weapon_s_reach_leaves_the_shot_alone() {
+    let assist = AimAssist::half_plane(100.0);
+    let near = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        [(entity(1), None, ae::Vec2::new(60.0, -60.0))],
+    );
+    let far = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        [(entity(1), None, ae::Vec2::new(600.0, -600.0))],
+    );
+    assert_ne!(near, FORWARD, "a foe within reach must attract the shot");
+    assert_eq!(far, FORWARD, "one past the weapon's reach must not");
+}
+
+#[test]
+fn the_nearest_qualifying_foe_wins_and_a_tie_is_broken_the_same_way_every_time() {
+    let assist = AimAssist::half_plane(400.0);
+    let near = ae::Vec2::new(80.0, -30.0);
+    let far = ae::Vec2::new(300.0, 20.0);
+    let picked = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        assist,
+        [(entity(9), None, far), (entity(1), None, near)],
+    );
+    assert!(
+        picked.y < 0.0,
+        "the NEARER foe decides the angle regardless of iteration order"
+    );
+
+    // ⛔⛔ A TIE BROKEN BY ITERATION ORDER IS A DESYNC THAT REPRODUCES ONCE A
+    // WEEK. Two foes the same distance away, presented in both orders, must
+    // produce the same shot — Bevy's query order is not an order.
+    let above = ae::Vec2::new(0.0, -100.0);
+    let below = ae::Vec2::new(0.0, 100.0);
+    let wide = AimAssist {
+        max_angle_rad: std::f32::consts::PI,
+        max_range: 400.0,
+    };
+    let one_way =
+        super::assisted_fire_direction(ae::Vec2::ZERO, FORWARD, wide, [(entity(2), None, above), (entity(7), None, below)]);
+    let other_way =
+        super::assisted_fire_direction(ae::Vec2::ZERO, FORWARD, wide, [(entity(7), None, below), (entity(2), None, above)]);
+    assert_eq!(one_way, other_way, "a tie must not be decided by who was seen first");
+}
+
+#[test]
+fn no_candidates_leaves_the_shot_exactly_where_it_was_aimed() {
+    let dir = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        AimAssist::half_plane(400.0),
+        std::iter::empty(),
+    );
+    assert_eq!(dir, FORWARD);
+}
+
+#[test]
+fn an_exact_tie_is_decided_by_stable_identity_not_by_entity_id() {
+    // ⛔⛤ THE LESSON THIS FILE ALREADY LEARNED ONCE, applied to the shot's
+    // aim. `nearest_foe_tie_breaks_on_stable_identity_not_entity_id` explains
+    // why: bevy_ggrs destroys and recreates rollback entities, so a raw id is
+    // not preserved across a rewind, and a tie decided by one picks a DIFFERENT
+    // target mid-resimulation than the confirmed timeline did. The first
+    // version of `assisted_fire_direction` compared `(distance, Entity)`.
+    //
+    // The identities are given in the OPPOSITE order to the entity ids, so
+    // "min SimId" and "min Entity" disagree and only the identity rule passes.
+    let wide = AimAssist {
+        max_angle_rad: std::f32::consts::PI,
+        max_range: 400.0,
+    };
+    let above = ae::Vec2::new(0.0, -100.0);
+    let below = ae::Vec2::new(0.0, 100.0);
+    let dir = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        wide,
+        [
+            (entity(2), Some(SimId::player_slot(9)), above),
+            (entity(7), Some(SimId::player_slot(1)), below),
+        ],
+    );
+    assert!(
+        dir.y > 0.0,
+        "slot:1 sorts before slot:9, so the LOWER-numbered slot decides the angle"
+    );
+
+    // ⛔⛔ AND THE SAME TIE THE OTHER WAY ROUND, because the arm above does not
+    // on its own separate the identity rule from an `Entity` one. MEASURED,
+    // after the first poison of this test passed: bevy 0.18 orders `Entity` with
+    // the HIGHER raw index FIRST (`7v0 < 2v0` is true), so pairing entity 2 with
+    // the high slot and entity 7 with the low one makes the two rules AGREE by
+    // accident. This pairing makes them disagree, and only the identity rule
+    // satisfies both arms.
+    let agreeing_would_be_wrong = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        wide,
+        [
+            (entity(2), Some(SimId::player_slot(1)), above),
+            (entity(7), Some(SimId::player_slot(9)), below),
+        ],
+    );
+    assert!(
+        agreeing_would_be_wrong.y < 0.0,
+        "slot:1 still decides, and this time it is the LOWER entity id — an \
+         `Entity` tie-break would have picked the other foe"
+    );
+
+    // And a body with no identity loses to one that has it: an unsnapshotted
+    // body cannot be allowed to decide a snapshotted question.
+    let anonymous_loses = super::assisted_fire_direction(
+        ae::Vec2::ZERO,
+        FORWARD,
+        wide,
+        [
+            (entity(2), None, above),
+            (entity(7), Some(SimId::player_slot(1)), below),
+        ],
+    );
+    assert!(anonymous_loses.y > 0.0);
+}

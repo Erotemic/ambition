@@ -15,10 +15,12 @@ use ambition_characters::smash_capture::{
 use ambition_characters::smash_repertoire::{
     DownSpecial, NeutralSpecial, SmashRepertoire, UpSpecial,
 };
-use ambition_platformer2d::entity_catalog::{ImpulseMode, MovesetContract};
+use ambition_platformer2d::entity_catalog::{
+    ImpulseMode, MoveEvent, MoveEventKind, MovesetContract,
+};
 
 use ambition_characters::moveset_authoring::{
-    committed_tail, impulse, on_contact, sfx, strike, vfx, vfx_at,
+    impulse, on_contact, sfx, strike, vfx, vfx_at,
 };
 
 /// How far across the grapple hauls him, engine units per second along
@@ -47,6 +49,21 @@ pub(crate) const SHARK_ENDS_S: f32 = 0.34;
 /// How long the admiral may stay aboard. Jon's number, and explicitly a first
 /// pass: *"maybe 5 seconds is too long, but that's where I want it right now."*
 pub(crate) const SHARK_RIDE_SECONDS: f32 = 5.0;
+
+/// The weapon the side-B draws. His own row rather than the shared `gun_sword`,
+/// which is a pickup in the adventure game and a raider's sidearm — a
+/// side-special's payoff is not the number either of those should be balanced
+/// around.
+pub(crate) const ADMIRAL_GUN_SWORD: &str = "admiral_gun_sword";
+
+/// When the side-B fires. Long enough that the draw reads as a draw and the
+/// move is punishable on reaction; short enough to still answer a press.
+const GUNS_FIRE_AT_S: f32 = 0.20;
+
+/// When the side-B ends, and with it the brandish. The tail is him putting the
+/// gun-sword away, which is the half of the animation that makes the draw read
+/// as temporary rather than as a permanent second weapon.
+const GUNS_ENDS_S: f32 = 0.52;
 
 /// See the module doc. Fifteen moves: the genre's standard verb map plus four
 /// specials.
@@ -283,34 +300,60 @@ pub fn pirate_admiral_moveset() -> MovesetContract {
     let neutral_b = vfx(neutral_b, 0.14, "smoke_burst");
     let neutral_b = on_contact(neutral_b, "world.rock.hit");
 
-    // SIDE — `boarding_run`. A shoulder-first charge across the deck.
+    // SIDE — `run_out_the_guns`. HE DRAWS THE GUN-SWORD AND FIRES IT.
     //
-    // `Add`, not `Set`, and that is the character. It CONTRIBUTES to the
-    // admiral's own momentum, so it is longest out of a run and nearly nothing
-    // from a standstill — the opposite trade from a commanded charge. It
-    // therefore states no speed, so it advertises no route: a static reader
-    // cannot say what an additive impulse produces, and this table does not ask
-    // it to pretend.
-    let side_b = strike(Strike {
-        id: "boarding_run",
-        clip: "special",
-        startup_s: 0.16,
-        active_s: 0.14,
-        recover_s: 0.28,
-        offset: (34.0, 0.0),
-        half_extents: (26.0, 22.0),
-        damage: 13,
-        knockback: 145.0,
-        knockback_growth: 2.40,
-        launch_dir: Some((0.9, -0.4)),
-        on_hit: None,
+    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"The pirate side b should briefly equip the
+    // lasergun sword and fire a lasersword projectile in the left/right
+    // direction the side b was directed towards. When the side-b resolves it
+    // should locate the nearest opponent and angle the equipped gun and shot so
+    // it fires in their direction if they are in the half plane the side-b was
+    // directed towards."*
+    //
+    // Three statements, each made where it belongs:
+    //
+    // ⭐ THE DRAW is `MoveSpec::equips`. The move's own clock is the timer, so
+    // there is no equip duration to keep in step with the animation: a move
+    // interrupted at frame three puts the sword away at frame three, and the
+    // admiral's own hands come back after (`MoveBrandishedItem` remembers what
+    // it displaced).
+    //
+    // ⭐ THE SHOT is `MoveEventKind::Ranged`, which fires the weapon in the hand
+    // — the drawn `admiral_gun_sword`, not the pistol his catalog row gives him.
+    // Everything a gun-sword discharge looks and sounds like is already routed
+    // off the held item at the fire site: the spinning `lasersword` projectile,
+    // the muzzle at his hand, `weapon.lasersword.fire`, the heavier recoil.
+    //
+    // ⭐ THE ANGLE is the weapon's `AimAssist::half_plane`, authored on the
+    // gun-sword row. The player picks the side; the weapon picks the angle
+    // within it.
+    //
+    // ⛔ NO MELEE VOLUME. This replaces `boarding_run`, a shoulder-first charge
+    // whose damage was a body-to-body hitbox — and a move that both fired a
+    // projectile and carried a strike would be two moves wearing one button. The
+    // projectile IS the damage, as it is for every ranged move in the tree.
+    //
+    // ⛔ AND IT KEEPS THE CHARGE'S FORWARD STEP, which is the only thing the old
+    // move contributed that this one still wants: an `Add` impulse that
+    // CONTRIBUTES to his momentum, so the shot is longest out of a run and
+    // nearly nothing from a standstill. It advertises no route (a static reader
+    // cannot say what an additive impulse produces), which is why the recovery
+    // search never proposes this move as a way home.
+    let side_b = ambition_characters::moveset_authoring::hitless_special(
+        "run_out_the_guns",
+        "special",
+        GUNS_FIRE_AT_S,
+        GUNS_ENDS_S,
+    );
+    let mut side_b = side_b;
+    side_b.display_name = Some("Run Out the Guns".to_string());
+    side_b.equips = Some(ADMIRAL_GUN_SWORD.to_string());
+    side_b.events.push(MoveEvent {
+        at_s: GUNS_FIRE_AT_S,
+        kind: MoveEventKind::Ranged,
     });
-    let side_b = impulse(side_b, 0.16, (620.0, 0.0), ImpulseMode::Add);
-    let side_b = committed_tail(side_b, 0.72, 0.15);
+    let side_b = impulse(side_b, 0.0, (210.0, 0.0), ImpulseMode::Add);
     let side_b = sfx(side_b, 0.0, "player.attack.charge");
-    let side_b = sfx(side_b, 0.16, "player.slash");
-    let side_b = vfx(side_b, 0.16, "shockwave");
-    let side_b = on_contact(side_b, "player.robot.slash.impact.metal.gong");
+    let side_b = vfx(side_b, GUNS_FIRE_AT_S, "muzzle_flash");
 
     // UP — `call_the_shark`. THE RECOVERY, AND IT IS A VEHICLE.
     //
@@ -675,13 +718,14 @@ mod tests {
         let shot = commanded(&set, "grapeshot").expect("the pistol shoves its owner");
         assert!(shot.0 < 0.0 && shot.1 < 0.0);
 
-        // Side: additive travel, so it commands nothing and advertises no route.
+        // Side: he DRAWS a weapon and fires it. The step is additive, so it
+        // commands nothing and advertises no route.
         assert!(
-            commanded(&set, "boarding_run").is_none(),
-            "the charge must ADD to the admiral's momentum, not replace it"
+            commanded(&set, "run_out_the_guns").is_none(),
+            "the step must ADD to the admiral's momentum, not replace it"
         );
         assert!(
-            find(&set, "boarding_run").events.iter().any(|e| matches!(
+            find(&set, "run_out_the_guns").events.iter().any(|e| matches!(
                 &e.kind,
                 MoveEventKind::Impulse {
                     mode: ImpulseMode::Add,
@@ -690,13 +734,38 @@ mod tests {
             )),
             "…and it must still displace him"
         );
-        assert_eq!(find(&set, "boarding_run").frame_data().lift_speed, 0.0);
+        assert_eq!(find(&set, "run_out_the_guns").frame_data().lift_speed, 0.0);
+        // ⭐⭐ THE TWO HALVES OF THE MOVE, ASSERTED TOGETHER, because either one
+        // alone is a different move: a draw with no shot is a taunt, and a shot
+        // with no draw fires the admiral's PISTOL — his catalog row's weapon,
+        // one damage, no aim assist — out of a gun-sword nobody drew.
+        assert_eq!(
+            find(&set, "run_out_the_guns").equips.as_deref(),
+            Some(ADMIRAL_GUN_SWORD),
+            "the side-B must draw the gun-sword; without it the shot is the pistol's"
+        );
         assert!(
-            find(&set, "boarding_run")
-                .windows
+            find(&set, "run_out_the_guns")
+                .events
                 .iter()
-                .any(|w| matches!(w.tag, WindowTag::Recovery) && w.motion_scale < 1.0),
-            "a charge you can steer freely out of is not a commitment"
+                .any(|e| matches!(&e.kind, MoveEventKind::Ranged)),
+            "the side-B must fire; a draw with no shot is a taunt"
+        );
+        // ⛔ AND THE DRAW OUTLIVES THE SHOT. The brandish ends with the move, so
+        // a fire event at or after the move's end would put the gun-sword away
+        // on the same tick it went off — and the shot would leave a bare hand.
+        let guns = find(&set, "run_out_the_guns");
+        let fires_at = guns
+            .events
+            .iter()
+            .find(|e| matches!(&e.kind, MoveEventKind::Ranged))
+            .map(|e| e.at_s)
+            .expect("the side-B fires");
+        assert!(
+            fires_at < guns.duration_s,
+            "the shot fires at {fires_at}s of a {}s move, so the gun-sword is \
+             already back in its sheath when the trigger is pulled",
+            guns.duration_s
         );
 
         // Up: a VEHICLE. It displaces nobody — the shark appears where the
@@ -753,7 +822,7 @@ mod tests {
         let set = pirate_admiral_moveset();
         for id in [
             "grapeshot",
-            "boarding_run",
+            "run_out_the_guns",
             "call_the_shark",
             "heave_to",
             "air_up",

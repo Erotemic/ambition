@@ -181,6 +181,13 @@ impl Plugin for CombatSchedulePlugin {
                 // the press, not a B-reverse.
                 ambition_combat::moveset::apply_special_turn_flicks
                     .run_if(gameplay_allowed),
+                // ⛔ BEFORE `dispatch_move_events`, and that ordering is the
+                // whole mechanic: the move's `Ranged` event is dispatched there
+                // and `spawn_projectiles_from_brain_actions` routes the shot by
+                // WHAT IS IN THE HAND. A brandish that landed after would fire
+                // the fighter's bare-handed shot on the frame it drew the gun.
+                ambition_combat::held_items::brandish_the_playing_move_s_weapon
+                    .run_if(gameplay_allowed),
                 ambition_combat::moveset::dispatch_move_events.run_if(gameplay_allowed),
                 // Writes no gameplay — the real strike is the move's own hitbox.
                 ambition_combat::moveset::project_moveset_melee_to_body_melee

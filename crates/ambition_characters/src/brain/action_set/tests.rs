@@ -716,3 +716,39 @@ fn the_visual_tier_steps_and_a_full_charge_reaches_the_last_rung() {
         .clear();
     assert_eq!(no_looks.at_charge(1.0).visual.as_deref(), Some("plain"));
 }
+
+/// ⭐⭐ THE PRODUCTION CONSTRUCTOR'S OWN NUMBERS, because the dynamics test
+/// cannot reach them.
+///
+/// ⛔⛔ `a_boomerang_turns_around_and_returns_to_where_it_was_thrown` lives in
+/// `ambition_projectiles`, which does not depend on this crate, so it hand-writes
+/// `boomerang_return_s = OUT_S` and `max_lifetime = OUT_S * 2.0` and drives the
+/// integrator with those. That proves the PHYSICS and pins nothing about what
+/// content actually gets: restoring the old `+ 0.15` here would leave every
+/// dynamics assertion green while the shipped ponytail expired 79px behind the
+/// hand again (GPT 5.6, 2026-08-27).
+///
+/// ⭐ SO THIS ASSERTS THE RULE, NOT A NUMBER. The return acceleration is
+/// `-v0 / out_s`, which puts the shot back at the throw point at exactly
+/// `2 · out_s` — there is no tuning term that could be right. Across the range,
+/// because a single sample cannot tell `2·out_s` from `out_s + 0.34`.
+#[test]
+fn the_boomerang_constructor_authors_exactly_the_round_trip() {
+    for out_s in [0.25_f32, 0.34, 0.5, 1.0] {
+        let flight = ProjectileFlight::boomerang(out_s);
+        assert_eq!(
+            flight.boomerang_return_s,
+            Some(out_s),
+            "the turnaround is not where the caller asked for it"
+        );
+        assert_eq!(
+            flight.max_lifetime,
+            out_s * 2.0,
+            "`boomerang({out_s})` lives {} seconds where the round trip takes \
+             {} — a tail that outlives its return flies on PAST the hand that \
+             threw it, backwards and fast, which is what the old `+ 0.15` did",
+            flight.max_lifetime,
+            out_s * 2.0,
+        );
+    }
+}

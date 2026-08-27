@@ -519,6 +519,12 @@ fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
     // return acceleration is `-v0 / out_s`, so the shot is back at the throw
     // point at exactly `2 * out_s`. ⛔ This used to restate the old `+ 0.15`
     // and so agreed with a tail that expired 79px behind the hand.
+    //
+    // ⛔⛔ AND IT IS A RESTATEMENT, WHICH THIS TEST CANNOT FIX. This crate does
+    // not depend on `ambition_characters`, so the production constructor is out
+    // of reach here and everything below would stay green if somebody put the
+    // old term back. `the_boomerang_constructor_authors_exactly_the_round_trip`
+    // is the arm that fails then; this one owns the PHYSICS.
     spec.max_lifetime = OUT_S * 2.0;
     let mut body = ProjectileBody::from_spec(spec);
 
@@ -527,7 +533,10 @@ fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
         body.tick(DT, Vec2::new(0.0, 1.0));
     }
     let halfway = body.kin.pos.x;
-    assert!(halfway > 0.0, "the tail must go out, and it is at {halfway}");
+    assert!(
+        halfway > 0.0,
+        "the tail must go out, and it is at {halfway}"
+    );
     assert!(body.kin.vel.x > 0.0, "…and still be going out");
 
     // STOP: at the turnaround its speed along the throw is gone.

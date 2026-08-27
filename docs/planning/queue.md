@@ -13441,6 +13441,33 @@ small three-variant mirror. ⇒ **still a carve — two maps means two reader pa
 and a rule for which wins — but the question is now "how" rather than
 "whether".**
 
+- ▢ **D254 — CHECKPOINT 5 (GPT 5.6, HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE
+  TWO THAT MATTER MOST ARE PROOFS THAT ARE FALSELY CLOSED. (opened 2026-08-27)**
+
+The reviewer re-read main after checkpoint 4's sixteen fixes landed and reported
+what survived, plus what the fixes themselves opened. ⭐ THE ROWS ARE IN
+[`triage/gpt-review-2026-08-27-remaining.md`](triage/gpt-review-2026-08-27-remaining.md)
+with their acceptance criteria; this row is the ledger's handle on them and
+closes when that file has no `▢` left.
+
+⚠ THE HEADLINE IS NOT A FEATURE. Two tests are green about a subject that is not
+what their names say — the shark-health census scans a hand-kept authoring table
+while claiming the selectable cast (R3), and the assembled mounted-launch
+assertion stays green with the deferred-launch fix REVERTED because another
+source supplies lateral motion (R2). Those outrank every new mechanic in the
+file, because a false proof is worse than no proof: it retires the question.
+
+⭐ THE SHARK RECOVERY EPISODE (R1) IS THE BLOCKER. `call_the_shark` commits a
+recovery charge and then the ordinary GROUNDED refresh hands it straight back,
+because the move starts on the floor and the shark takes movement authority a
+moment later. The intended rule — a flinch while mounted refreshes recovery —
+therefore cannot be tested at all: the charge was never spent by the time the
+hit lands. ⛔ NOT FIXABLE BY REMOVING GROUNDED REFRESH; a grounded Up-B that
+stays on the floor still needs ordinary landing-class semantics. The episode
+needs representing, which is the same seam D250 needs for sustained-authority
+recovery ROUTES (R13) — one model, not two.
+
+
 - ▢ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
   THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. (opened 2026-08-25)**
 

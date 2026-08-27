@@ -406,7 +406,7 @@ pub fn spend_fighter_stocks(
         // until its ruleset despawned it.
         if eliminated {
             if let Ok(mut playback) = swings.get_mut(knockout.body) {
-                crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback);
+                crate::moveset::cancel_move_playback(&mut commands, knockout.body, &mut playback, crate::moveset::MoveEnd::LeftPlay);
             }
         }
         // The beat, at the place it happened. A presentation INTENT, so it rides

@@ -239,7 +239,7 @@ item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state chec
 item.item_custody	component-clone	ItemCustody	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-item.settled_item	component-clone	SettledItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+item.settled_item	component-clone	SettledItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.world_item	component-clone	WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 lifecycle.room_visual	component-clone	RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

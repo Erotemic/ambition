@@ -176,7 +176,7 @@ mod tests {
             .clone();
         app.world_mut()
             .run_system_once(move |mut commands: Commands| {
-                crate::moveset::cancel_move_playback(&mut commands, body, &mut playback);
+                crate::moveset::cancel_move_playback(&mut commands, body, &mut playback, crate::moveset::MoveEnd::Interrupted);
             })
             .expect("the teardown runs");
     }

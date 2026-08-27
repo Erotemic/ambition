@@ -1544,6 +1544,9 @@ fn place_respawning_fighters(
                 &mut commands,
                 event.body,
                 &mut playback,
+                // ⭐ THE BODY LEFT PLAY — this is the respawn after a stock. A
+                // storing charge does NOT bank across it: see `MoveEnd`.
+                ambition_platformer2d::combat::moveset::MoveEnd::LeftPlay,
             );
         }
         // ⛔⛔ ITS OWN GRANT, NOT A BORROWED `Empowered`. The first version

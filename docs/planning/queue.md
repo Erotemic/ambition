@@ -2619,6 +2619,39 @@ constructions, **60 are the nine arms that stay**. `BossPattern` appears twice.
 `Fighter` and `Smash` appear **zero** times — their tests live in their own
 subtrees and travel with the behaviour.
 
+⛔⛔⛔ **AND THE ORPHAN RULE ALREADY DECIDES WHICH HALF MAY LEAVE — measured
+2026-08-26. This is the MECHANISM behind "the 253 does not survive contact", and
+it is a compiler rule rather than an estimate.**
+
+`impl SnapshotState for Brain` is orphan-bound to `ambition_characters`, because
+that crate owns `Brain`. `ambition_combat` DEPENDS ON `ambition_characters`
+(`Cargo.toml:14`), so characters can never name combat. ⇒ **every type the Brain
+encoder reads is PINNED to `ambition_characters` and cannot move up, ever, while
+`Brain` names it by value.** Read out of `snapshot_impls.rs` at HEAD:
+
+```text
+smash     BroadMode · SmashState · ObsHistory (via obs_history.snapshot_parts())
+fighter   FighterState fields, projected one at a time — ticks_until_decision,
+          apm: ApmLedger{presses, elapsed_ticks}, pending_press: PendingAttack
+          {ticks, hold_ticks, binding.verb: AttackVerb, binding.direction},
+          noise, last_foe …  (*"EVERY field of FighterState is projected"*)
+boss      six types already in `encoded_types` under
+          `ambition_characters::brain::boss_pattern::*`
+```
+
+⭐⭐ ⇒ **so the intra-crate data/behaviour split is not a recommended first step,
+it is FORCED**, and the row's own phrasing (*"the compiler proving the data module
+names nothing from the behaviour one"*) understates it: the compiler will prove it
+whether or not anybody asks, by refusing to compile `snapshot_impls.rs`. ⚠ and the
+converse is the useful half — **the pinned set is exactly derivable**: it is the
+transitive closure of what the encoder reads, and everything else in the three
+subtrees is free to leave.
+
+⛔ THE ONE ESCAPE, NAMED SO NOBODY REDISCOVERS IT AS AN IDEA: `Brain` could stop
+naming those states BY VALUE. That is a wire-format change to the most-encoded
+type in the tree and it trades the orphan rule for an indirection — do not take it
+without pricing it as its own row.
+
 ⛔⛔⛔ **RE-MEASURED 2026-08-26 AND THE PLAN BELOW IS NOT EXECUTABLE AS WRITTEN.
 TWO FINDINGS, AND BOTH ARE ABOUT THE DISPATCHER RATHER THAN THE SUBTREES.**
 

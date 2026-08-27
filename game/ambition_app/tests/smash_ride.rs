@@ -468,20 +468,14 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
         "a shark exists and the admiral picked off the GRID is not on it"
     );
 
-    // ⭐⭐ AND THE RIDE SURVIVES BEING FLOWN, which is the arm that was missing.
-    // ⛔⛔ Jon's log showed `boarded` followed about twenty milliseconds later by
-    // `dismounted reason=MountLost`, EVERY time: the shark charge-crashed into
-    // the stage and detonated itself while carrying him. The suicide is guarded
-    // by `!is_mounted` and the guard was wired to `Option<&Mounted>` — a marker
-    // `mount::board` puts on the RIDER — so a shark with somebody in its saddle
-    // always read as unmounted. Every existing charge-crash test passed
-    // `is_mounted` as a LITERAL, so they pinned the function while the wiring was
-    // wrong.
+    // ⭐ AND THE RIDE SURVIVES SUSTAINED FLIGHT.
     //
-    // ⛔ SO THIS FLIES IT. A shark parked on a platform never reaches charge
-    // speed and never crashes, which is why the tests above missed this for a
-    // whole session; Jon's presses were airborne (`grounded=false`) and hit
-    // geometry immediately.
+    // ⚠ WHAT THIS ARM PROVES AND WHAT IT DOES NOT. It exercises a mounted pair
+    // being flown for a second and a half, which no other test here did. It does
+    // NOT pin the charge-crash wiring: forcing that guard off leaves this green,
+    // because a shark being steered by its rider never reaches the
+    // stopped-dead-at-charge-speed geometry the crash predicate wants. The
+    // occupied-versus-riderless wall impact is a separate poison and is owed.
     for _ in 0..90 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),

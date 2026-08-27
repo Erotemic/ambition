@@ -277,6 +277,74 @@ fn shark_charge_crash_detects_solo_charge_wall_hit() {
     ));
 }
 
+/// ⭐⭐ THE QUESTION "IS SOMEBODY RIDING ME" IS ANSWERED BY THE SADDLE.
+///
+/// ⛔⛔ THE TWO TESTS BELOW PASS `is_being_ridden` AS A LITERAL, so they pin the
+/// PREDICATE and say nothing about which component the caller reads to fill it.
+/// That gap shipped: `integrate_sim_bodies` asked the shark for
+/// `Option<&Mounted>`, and `Mounted` is stamped on the RIDER — see
+/// `mount::board`, which puts `RidingOn`/`Mounted` on the rider and `MountSlot`
+/// on the mount. So a shark with somebody in its saddle answered "nobody is
+/// riding me" forever, and the guard on its charge-crash suicide could never
+/// become false. Every one of these tests stayed green through all of it.
+///
+/// ⭐ SO THIS ONE PINS THE WIRING. It asserts the two relationship ends answer
+/// DIFFERENT questions, which is the substitution that caused the bug: a body
+/// wearing the rider's marker is not thereby being ridden, and a saddle with
+/// nobody in it is not either.
+///
+/// ⚠ IT IS NOT THE GEOMETRY POISON. Proving that an OCCUPIED shark survives a
+/// real wall impact while a riderless one detonates needs both bodies driven
+/// into stage geometry through the production integrator; that is still owed.
+#[test]
+fn a_saddle_answers_who_is_riding_and_the_riders_marker_does_not() {
+    use ambition_mount::{MountSlot, Mounted};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    let rider = app.world_mut().spawn_empty().id();
+    // The mount: a saddle with somebody in it.
+    let ridden = app
+        .world_mut()
+        .spawn(MountSlot {
+            rider: Some(rider),
+        })
+        .id();
+    // The same mount after its rider left: the saddle outlives the ride.
+    let empty = app.world_mut().spawn(MountSlot { rider: None }).id();
+    // A body wearing the RIDER's marker. `Mounted` on a mount is a category
+    // error, and the point is that it reads as a perfectly ordinary `false`.
+    let wearing_riders_marker = app.world_mut().spawn(Mounted).id();
+
+    let being_ridden = |app: &App, entity: Entity| -> bool {
+        app.world()
+            .get::<MountSlot>(entity)
+            .is_some_and(|slot| slot.rider.is_some())
+    };
+
+    assert!(
+        being_ridden(&app, ridden),
+        "an occupied saddle did not report a rider, so every rule that protects \
+         a ridden mount is disarmed"
+    );
+    assert!(
+        !being_ridden(&app, empty),
+        "an EMPTY saddle reported a rider — `MountSlot` outlives a dismount, so \
+         presence of the component cannot be the test"
+    );
+    assert!(
+        !being_ridden(&app, wearing_riders_marker),
+        "the rider's own marker answered the mount's question"
+    );
+    // ⛔ AND THE OLD READ IS SHOWN WRONG, not merely absent: this is exactly what
+    // `integrate_sim_bodies` used to compute for the shark.
+    assert!(
+        app.world().get::<Mounted>(ridden).is_none(),
+        "a mount carrying a rider has no `Mounted` of its own — which is why \
+         reading it always answered false"
+    );
+}
+
 #[test]
 fn shark_charge_crash_ignores_mounted_or_noncharge_cases() {
     let mut enemy = burning_shark_enemy();

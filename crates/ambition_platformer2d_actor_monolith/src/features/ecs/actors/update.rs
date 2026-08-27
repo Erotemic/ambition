@@ -679,7 +679,7 @@ pub(crate) fn integrate_actor_body(
     // `Perception` pattern, never a parallel system.
     motion_model: &mut MotionModel,
     target_pos: ae::Vec2,
-    is_mounted: bool,
+    is_being_ridden: bool,
     feature_world: &ae::World,
     combat_tuning: ambition_combat::events::FeatureCombatTuning,
     steering: &ActorSteering,
@@ -775,7 +775,7 @@ pub(crate) fn integrate_actor_body(
         target_pos,
         combat_tuning,
         dt,
-        is_mounted,
+        is_being_ridden,
         brain_frame,
         motion_model,
         motion_frame,
@@ -790,7 +790,7 @@ pub(crate) fn integrate_actor_body(
     if was_dead && em.health.alive() {
         combat.hit_flash = 0.24;
     }
-    let shark_crashed = shark_charge_crashed(em, is_mounted, shark_charge_vec, previous_pos);
+    let shark_crashed = shark_charge_crashed(em, is_being_ridden, shark_charge_vec, previous_pos);
     let mut frame = frame;
     if shark_crashed {
         hit_events.write(HitEvent {

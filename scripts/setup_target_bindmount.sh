@@ -8,6 +8,7 @@
 # Usage:
 #   scripts/setup_target_bindmount.sh
 #   scripts/setup_target_bindmount.sh --status
+#   scripts/setup_target_bindmount.sh --check     # exit 2 if unbound on virtiofs
 #   scripts/setup_target_bindmount.sh --unmount
 set -euo pipefail
 
@@ -52,6 +53,45 @@ cmd_status() {
         printf 'state        not bound (and not needed: %s is already local)\n' "$fs"
     fi
     printf 'backing      %s\n' "$store"
+}
+
+# The MACHINE-READABLE half of `--status`, for gates.
+#
+# ⛔ A SEPARATE VERB rather than an exit code on `--status`, because `--status`
+# is something a human runs to look, and a looking command that exits non-zero
+# breaks every `set -e` caller that only wanted to print it.
+#
+# Exits 2 when this worktree is on virtiofs and `target/` is NOT shadowed onto
+# local disk — the one state that silently costs minutes per build and grows a
+# duplicate of every artifact under the mount point. Everything else is 0,
+# including "already local, nothing to do".
+cmd_check() {
+    local root target fs
+    root="$(worktree_root)"
+    target="$root/target"
+    fs="$(fstype_of "$root")"
+
+    [ "$fs" = virtiofs ] || return 0
+    [ -d "$target" ] || return 0
+    mountpoint -q "$target" && return 0
+
+    printf '\n' >&2
+    printf '  ⛔⛔ TARGET IS ON VIRTIOFS AND NOT SHADOWED.\n' >&2
+    printf '\n' >&2
+    printf '  %s\n' "$target" >&2
+    printf '  is being written straight through the shared mount. Builds pay the\n' >&2
+    printf '  overhead on every file, and a full second copy of every artifact is\n' >&2
+    printf '  accumulating there instead of in the local store.\n' >&2
+    printf '\n' >&2
+    printf '  FIX IT — one command, and it is not optional:\n' >&2
+    printf '\n' >&2
+    printf '      scripts/setup_target_bindmount.sh\n' >&2
+    printf '\n' >&2
+    printf '  ⛔ DO NOT delete anything under target/ to reclaim the space. The\n' >&2
+    printf '     duplicate is the SYMPTOM of this missing mount; binding it puts\n' >&2
+    printf '     the real store back and the space with it. See AGENTS.md.\n' >&2
+    printf '\n' >&2
+    return 2
 }
 
 cmd_mount() {
@@ -117,6 +157,7 @@ cmd_unmount() {
 case "${1:---mount}" in
     --mount|mount)     cmd_mount ;;
     --status|status)   cmd_status ;;
+    --check|check)     cmd_check ;;
     --unmount|umount|--umount) cmd_unmount ;;
     -h|--help|help)    sed -n '3,30p' "$0" ;;
     *) die "unknown argument: $1 (try --status)" ;;

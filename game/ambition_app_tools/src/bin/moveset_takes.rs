@@ -386,7 +386,11 @@ fn drawn_row_of(
     // ⛔ AND A RESTING BODY IS NOT NOTHING. Without this the view would show art
     // only while a move is playing and a bare box the rest of the time, which
     // reads as the art being broken rather than the fighter standing still.
-    let resting = if on_ground == Some(false) { "jump" } else { "idle" };
+    let resting = if on_ground == Some(false) {
+        "jump"
+    } else {
+        "idle"
+    };
     // ⭐ AND A RESTING POSE LOOPS, which is the other half of the same rule.
     spec.clip_slot([resting, "idle"])
         .map(|slot| (key, slot as u32, false))
@@ -462,37 +466,38 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     )>();
     let rows: Vec<_> = bodies
         .iter(world)
-        .map(|(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config)| {
-            (
-                e,
-                (kin.pos.x, kin.pos.y),
-                (kin.vel.x, kin.vel.y),
-                (kin.size.x * 0.5, kin.size.y * 0.5),
-                kin.facing,
-                seat.map(|s| s.0),
-                worn.map(|w| w.id().to_string()),
-                play.map(|p| p.spec.id.clone()),
-                riding.map(|r| r.mount),
-                slot.is_some(),
-                ground.map(|g| g.on_ground),
-                gesture.and_then(|g| g.pressed).map(|i| {
-                    format!("{:?}/{:?}/{:?}", i.direction, i.strength, i.posture)
-                }),
-                // ⛔ THE ROW, NOT THE POSE NAME. A clip draws from a row the
-                // semantic pose does not name; asking the pose would blit the
-                // wrong picture for exactly the frames a move is playing, which
-                // is every frame anybody opens this view to look at.
-                drawn_row_of(
-                    &sheet_keys,
-                    worn.map(|w| w.id()).or_else(|| {
-                        config.and_then(|c| c.sprite_character_id.as_deref())
-                    }),
-                    play.map(|p| &p.spec),
+        .map(
+            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config)| {
+                (
+                    e,
+                    (kin.pos.x, kin.pos.y),
+                    (kin.vel.x, kin.vel.y),
+                    (kin.size.x * 0.5, kin.size.y * 0.5),
+                    kin.facing,
+                    seat.map(|s| s.0),
+                    worn.map(|w| w.id().to_string()),
+                    play.map(|p| p.spec.id.clone()),
+                    riding.map(|r| r.mount),
+                    slot.is_some(),
                     ground.map(|g| g.on_ground),
-                ),
-                pose.is_some(),
-            )
-        })
+                    gesture
+                        .and_then(|g| g.pressed)
+                        .map(|i| format!("{:?}/{:?}/{:?}", i.direction, i.strength, i.posture)),
+                    // ⛔ THE ROW, NOT THE POSE NAME. A clip draws from a row the
+                    // semantic pose does not name; asking the pose would blit the
+                    // wrong picture for exactly the frames a move is playing, which
+                    // is every frame anybody opens this view to look at.
+                    drawn_row_of(
+                        &sheet_keys,
+                        worn.map(|w| w.id())
+                            .or_else(|| config.and_then(|c| c.sprite_character_id.as_deref())),
+                        play.map(|p| &p.spec),
+                        ground.map(|g| g.on_ground),
+                    ),
+                    pose.is_some(),
+                )
+            },
+        )
         .collect();
 
     let mut owner_pos = std::collections::HashMap::new();
@@ -690,12 +695,34 @@ fn reseat(app: &mut App, character: &str) {
 
 /// `verb -> move id` for one character, read from the composed host.
 fn verb_table(app: &mut App, character: &str) -> std::collections::BTreeMap<String, String> {
+    moveset_of(app, character).map_or_else(Default::default, |set| set.verbs)
+}
+
+/// This fighter's repertoire, as the host prepared it.
+fn moveset_of(
+    app: &mut App,
+    character: &str,
+) -> Option<ambition_platformer2d::entity_catalog::MovesetContract> {
     app.world()
         .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
         .and_then(|registry| registry.get(character))
         .and_then(|prepared| prepared.kit.projectable_moveset())
-        .map(|set| set.verbs.clone())
-        .unwrap_or_default()
+        .cloned()
+}
+
+/// Does this move AUTHOR offence — a strike volume, or an event that fires?
+///
+/// ⭐ THE AUTHORING, NOT THE RECORDING. It is the only independent answer the
+/// tool has to "should this take show any offence at all", which is what makes
+/// it usable to check the recording rather than to describe it.
+fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bool {
+    spec.windows.iter().any(|w| !w.volumes.is_empty())
+        || spec.events.iter().any(|e| {
+            matches!(
+                e.kind,
+                ambition_platformer2d::entity_catalog::MoveEventKind::Ranged
+            )
+        })
 }
 
 /// The move a verb is bound to, or `None` when the fighter binds nothing there
@@ -820,6 +847,10 @@ fn main() {
         // The fighter's own verb table, so a take can say which move the press
         // was SUPPOSED to reach rather than only which one came out.
         let bound = verb_table(&mut app, character);
+        // And its whole repertoire, so a take can ask what the move it played
+        // AUTHORS and check its own recording against that. See
+        // `authors_offense`.
+        let repertoire = moveset_of(&mut app, character);
 
         for verb in VERBS {
             // ⛔⛔ A FRESH MATCH FOR EVERY TAKE, not only when the settle fails.
@@ -936,6 +967,53 @@ fn main() {
                 .map(|f| subject_owned(f, "projectiles"))
                 .max()
                 .unwrap_or(0);
+            // ⭐⭐ THE TAKE CHECKS ITS OWN OWNERSHIP, and this is the arm that
+            // makes provenance a claim rather than a hope. The take seats a live
+            // CPU opponent on purpose — a move recorded against an inert stage is
+            // a move recorded in a game nobody plays — and that opponent SWINGS
+            // AND FIRES. Before `subject_owned` existed, its offence was counted
+            // as the subject's, so a hitless movement special reported a hitbox
+            // and a ranged move reported more shots than it fires (GPT 5.6,
+            // 2026-08-27). Several of that review's quantitative conclusions were
+            // wrong for that structural reason rather than a balance one.
+            //
+            // ⛔ THE INDEPENDENT ANSWER IS THE AUTHORING. A move whose windows
+            // carry no volumes and whose timeline fires nothing CANNOT produce
+            // offence of its own, whatever the world was doing around it — so a
+            // nonzero count here is the recorder crediting somebody else's.
+            //
+            // ⛔⛔ AND IT REFUSES RATHER THAN WARNS. This file is tuned against;
+            // a contaminated take that gets written is a number somebody
+            // balances a fighter with.
+            let opponent_output: usize = frames
+                .iter()
+                .map(|f| {
+                    let all = |key: &str| f[key].as_array().map_or(0, |xs| xs.len());
+                    (all("hitboxes") + all("projectiles"))
+                        - subject_owned(f, "hitboxes")
+                        - subject_owned(f, "projectiles")
+                })
+                .sum();
+            if let Some(repertoire) = repertoire.as_ref() {
+                let played: Vec<_> = repertoire
+                    .moves
+                    .iter()
+                    .filter(|spec| moves.contains(&spec.id))
+                    .collect();
+                let hitless =
+                    !played.is_empty() && !played.iter().any(|spec| authors_offense(spec));
+                assert!(
+                    !(hitless && (live > 0 || shots > 0)),
+                    "[take] {character} {}: the move(s) {moves:?} author no strike volume and \
+                     fire nothing, and this take recorded {live} subject-owned hitbox(es) and \
+                     {shots} subject-owned shot(s). The stage produced {opponent_output} \
+                     output(s) credited to somebody else over the same frames — and a ZERO \
+                     there is not innocence, it is the classifier calling everything the \
+                     subject's. A take that credits the stage to the subject is not a \
+                     measurement.",
+                    verb.verb
+                );
+            }
 
             // The view: the stage plus everything this take reached, padded.
             // Computed per take rather than per frame, so scrubbing does not
@@ -1015,6 +1093,10 @@ fn main() {
                 "rode_a_mount": rode,
                 "max_live_hitboxes": live,
                 "max_live_projectiles": shots,
+                // ⛔ THE PREMISE, RECORDED. A take with zero here could not have
+                // detected contamination however clean it looks: nothing else
+                // was on the stage to be miscredited.
+                "opponent_output": opponent_output,
                 "intended_move": intended,
                 "reached_intended_move": reached,
                 "frames": frames,

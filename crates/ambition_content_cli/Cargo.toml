@@ -17,6 +17,10 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 # schemas it owns; which ones are linked here IS the composition this CLI
 # validates against, and it is why "uninstalled capability" is a real refusal.
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
+# ⭐ THE BOSS SCHEMAS MOVED WITH THE BOSS'S THINKING (D168, 2026-08-27). This
+# tool registers every authored schema, so it follows them; same
+# `content_pack` feature, same reason.
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["content_pack"] }
 ambition_items = { path = "../ambition_items", features = ["content_pack"] }
 # The encounter capability owns `encounter_waves`. the CLI must judge Ambition's
 # content by the SAME rules the game does — a test pins the two registries equal

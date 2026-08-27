@@ -9,7 +9,7 @@
 use std::collections::BTreeSet;
 
 use super::seeds::{MovementVerb, SeedLibrary, ThreatClass};
-use super::{
+use ambition_characters::brain::boss_pattern::{
     BossAttackPattern, BossAttackProfile, BossEncounterPhase, BossPatternStep, TelegraphSpec,
 };
 

@@ -6,7 +6,7 @@
 //! interrupt state is index-parallel to authored rules and stances use `BTreeMap`
 //! so control-flow resolution remains deterministic.
 
-use super::{
+use ambition_characters::brain::boss_pattern::{
     step_duration, BossEncounterPhase, BossPattern, BossPatternContext, BossPatternState,
     BossPatternStep, InterruptRule, InterruptTrigger, SituationBucket, StanceReturn, WeightedArm,
     PLAYER_NEAR_PX,

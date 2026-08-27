@@ -46,8 +46,8 @@ fn legacy_baseline_pins() {
 #[test]
 fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     use ambition_characters::brain::{
-        tick_boss_pattern, BossAttackIntent, BossAttackProfile, BossMacroState, BossPatternCfg,
-        BossPatternContext, BossPatternState,
+        BossAttackIntent, BossAttackProfile, BossMacroState, BossPatternCfg, BossPatternContext,
+        BossPatternState,
     };
     use ambition_platformer2d_core as ae;
 
@@ -106,7 +106,13 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
             hp_max: 100,
             live_attack: None,
         };
-        tick_boss_pattern(&cfg, &mut state, &ctx, &mut out, &mut intent);
+        ambition_boss_encounter::pattern::tick_boss_pattern(
+            &cfg,
+            &mut state,
+            &ctx,
+            &mut out,
+            &mut intent,
+        );
         let fired = intent
             .active_profile
             .as_ref()

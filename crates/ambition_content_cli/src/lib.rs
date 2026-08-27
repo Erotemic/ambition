@@ -37,20 +37,16 @@ pub fn default_registry() -> SchemaRegistry {
         .register(ambition_encounter::content_schema::encounter_waves_schema())
         .expect("the default registry installs each schema once");
     registry
-        .register(
-            ambition_characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
-        )
+        .register(ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema())
         .expect("the default registry installs each schema once");
     registry
-        .register(
-            ambition_characters::brain::boss_pattern::content_schema::boss_validator_bands_schema(),
-        )
+        .register(ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema())
         .expect("the default registry installs each schema once");
     registry
-        .register(ambition_characters::brain::boss_pattern::content_schema::boss_profiles_schema())
+        .register(ambition_boss_encounter::pattern::content_schema::boss_profiles_schema())
         .expect("the default registry installs each schema once");
     registry
-        .register(ambition_characters::brain::boss_pattern::content_schema::boss_encounter_schema())
+        .register(ambition_boss_encounter::pattern::content_schema::boss_encounter_schema())
         .expect("the default registry installs each schema once");
     registry
         .register(ambition_audio::content_schema::music_registry_schema())

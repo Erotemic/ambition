@@ -1,5 +1,5 @@
 use super::*;
-use crate::brain::boss_pattern::BossPattern;
+use ambition_characters::brain::boss_pattern::BossPattern;
 
 fn bands() -> ValidatorBands {
     ValidatorBands {
@@ -192,7 +192,7 @@ fn a_cycle_boss_is_validated_off_its_flat_timings() {
 /// inside a table.
 #[test]
 fn select_arms_are_walked_because_the_player_can_be_hit_by_them() {
-    use crate::brain::boss_pattern::WeightedArm;
+    use ambition_characters::brain::boss_pattern::WeightedArm;
     let steps = vec![BossPatternStep::Select {
         table: vec![WeightedArm {
             weight: 1.0,
@@ -357,7 +357,7 @@ fn unidentified_telegraphs_are_reported_once_per_fight_not_once_per_beat() {
 /// field and behaves exactly as before.
 #[test]
 fn a_pre_bd3_telegraph_row_still_parses() {
-    use crate::brain::boss_pattern::BossPattern;
+    use ambition_characters::brain::boss_pattern::BossPattern;
     let p: BossPattern = ron::from_str(
         r#"(steps: [
             Telegraph(profile: Strike("floor_slam"), duration: 1.2),
@@ -374,7 +374,7 @@ fn a_pre_bd3_telegraph_row_still_parses() {
 /// ...and a BD3 row parses its anticipation.
 #[test]
 fn a_bd3_telegraph_row_parses_its_pose_and_cue() {
-    use crate::brain::boss_pattern::BossPattern;
+    use ambition_characters::brain::boss_pattern::BossPattern;
     let p: BossPattern = ron::from_str(
         r#"(steps: [
             Telegraph(

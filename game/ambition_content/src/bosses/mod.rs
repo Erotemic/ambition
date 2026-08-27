@@ -39,9 +39,8 @@ pub const BOSS_VALIDATOR_BANDS_RON: &str =
     include_str!("../../assets/data/boss_validator_bands.ron");
 
 /// The validator bands the fight validator judges against.
-pub fn validator_bands(
-) -> &'static ambition_characters::brain::boss_pattern::validator::ValidatorBands {
-    ambition_characters::brain::boss_pattern::content_schema::lowered_validator_bands(
+pub fn validator_bands() -> &'static ambition_boss_encounter::pattern::validator::ValidatorBands {
+    ambition_boss_encounter::pattern::content_schema::lowered_validator_bands(
         crate::pack::prepared(),
     )
     .expect("the bands schema lowers its calibration for every pack that compiles")
@@ -52,11 +51,9 @@ pub fn validator_bands(
 /// Same move as the bands: the compiler's lowered artifact, not a re-parse.
 /// The schema refuses an inverted duration band (which matches nothing, so every
 /// instance silently falls outside it) and an attack claimed by two seeds.
-pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seeds::SeedLibrary {
-    ambition_characters::brain::boss_pattern::content_schema::lowered_seed_library(
-        crate::pack::prepared(),
-    )
-    .expect("the seed schema lowers its library for every pack that compiles")
+pub fn seed_library() -> &'static ambition_boss_encounter::pattern::seeds::SeedLibrary {
+    ambition_boss_encounter::pattern::content_schema::lowered_seed_library(crate::pack::prepared())
+        .expect("the seed schema lowers its library for every pack that compiles")
 }
 
 /// Embedded encounter rows contributed by the Ambition provider: each source's
@@ -184,25 +181,22 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
 /// making.
-pub fn boss_catalog_fragment(
-) -> ambition_boss_encounter::BossCatalogFragment {
+pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
     // The schema additionally refuses what `from_ron` accepted: a row whose `id`
     // disagrees with its map KEY. Every runtime path looks a boss up by key and
     // then reads `profile.id` for its sheet, music and barks — so a mismatch
     // means the boss is found under one name and draws as another, with each
     // half individually valid and nothing reporting it.
-    let behaviors =
-        ambition_characters::brain::boss_pattern::content_schema::lowered_boss_profiles(
-            crate::pack::prepared(),
-        )
-        .expect("the boss-profile schema lowers its roster for every pack that compiles")
-        .clone();
-    let encounters =
-        ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
-            crate::pack::prepared(),
-        )
-        .expect("the encounter schema merges its nine files for every pack that compiles")
-        .clone();
+    let behaviors = ambition_boss_encounter::pattern::content_schema::lowered_boss_profiles(
+        crate::pack::prepared(),
+    )
+    .expect("the boss-profile schema lowers its roster for every pack that compiles")
+    .clone();
+    let encounters = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(
+        crate::pack::prepared(),
+    )
+    .expect("the encounter schema merges its nine files for every pack that compiles")
+    .clone();
     ambition_boss_encounter::BossCatalogFragment::from_prepared(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
@@ -220,10 +214,8 @@ pub fn boss_catalog_fragment(
 ///
 /// Pure content tests use this helper so they exercise the same provider
 /// fragment as production composition rather than installing process state.
-pub fn authored_boss_catalog() -> ambition_boss_encounter::BossCatalog
-{
-    let mut registry =
-        ambition_boss_encounter::BossCatalogRegistry::default();
+pub fn authored_boss_catalog() -> ambition_boss_encounter::BossCatalog {
+    let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();
     registry
         .register(boss_catalog_fragment())
         .expect("Ambition boss fragment should register");
@@ -246,8 +238,9 @@ pub fn register(app: &mut App) {
 /// registry resource, and installs the cut-rope Yarn vocabulary + mirror feed.
 pub struct AmbitionBossContentPlugin;
 
-
-pub fn register_rollback_state(registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar) {
+pub fn register_rollback_state(
+    registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
+) {
     registrar
         .rollback_resource_clone::<CutRopeHeavyObjectCycle>(
             "ambition_content::bosses",
@@ -274,9 +267,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // multi-game hosts without process-global install order.
         register(app);
 
-        app.insert_resource(
-            ambition_boss_encounter::BossEncounterRegistry::default(),
-        );
+        app.insert_resource(ambition_boss_encounter::BossEncounterRegistry::default());
 
         // Cut-rope arena state is CONTENT state — owned and initialized here,
         // never by the host's sim plugin (anti-god rule 5).
@@ -295,7 +286,8 @@ impl Plugin for AmbitionBossContentPlugin {
         // host-independent schema here; the selected rollback host installs the
         // same declarations later from the application composition layer.
         {
-            let mut registrar = ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
+            let mut registrar =
+                ambition_platformer2d_runtime::rollback::SchemaRollbackRegistrar::new(app);
             register_rollback_state(&mut registrar);
         }
 
@@ -364,8 +356,7 @@ impl Plugin for AmbitionBossContentPlugin {
             (
                 // Cut-rope arena per-attempt setup — MID boss-tick (after the
                 // engine advances encounter progress, before scripted hazards).
-                setup_cut_rope_encounter
-                    .in_set(ambition_boss_encounter::ContentEncounterScriptSet),
+                setup_cut_rope_encounter.in_set(ambition_boss_encounter::ContentEncounterScriptSet),
                 // Victory NPC spawn — after the boss chain frees the payload,
                 // before the save mirrors run.
                 spawn_cut_rope_victory_npc
@@ -439,9 +430,8 @@ mod apple_rain_animation_key_tests {
     fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {
         let catalog = super::authored_boss_catalog();
         let profile = BossAttackProfile::Special("apple_rain".to_string());
-        let claimed = ambition_boss_encounter::behavior::boss_animation_keys_for_profile(
-            &catalog, &profile,
-        );
+        let claimed =
+            ambition_boss_encounter::behavior::boss_animation_keys_for_profile(&catalog, &profile);
         assert!(
             claimed.is_empty(),
             "`apple_rain` now claims {claimed:?}. If that list contains \
@@ -464,11 +454,10 @@ mod encounter_book_tests {
     /// ignored it and reparsed, which is the exact defect being closed.
     #[test]
     fn the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged() {
-        let book =
-            ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
-                crate::pack::prepared(),
-            )
-            .expect("the encounter schema merges its files for every pack that compiles");
+        let book = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(
+            crate::pack::prepared(),
+        )
+        .expect("the encounter schema merges its files for every pack that compiles");
         assert_eq!(
             book.len(),
             super::BOSS_ENCOUNTERS.len(),

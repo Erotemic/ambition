@@ -1,5 +1,5 @@
 use super::*;
-use crate::brain::boss_pattern::BossAttackProfile;
+use ambition_characters::brain::boss_pattern::BossAttackProfile;
 use ambition_platformer2d_core as ae;
 
 fn ctx() -> BossPatternContext {

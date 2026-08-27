@@ -20,7 +20,7 @@
 
 use ambition_platformer2d_core as ae;
 
-pub use ambition_characters::brain::boss_pattern::profile::{
+pub use crate::pattern::profile::{
     BarkAnchorSpec, BossBehaviorProfile, BossProfileRegistry, BossRewardProfile, LimbMotion,
     LimbRoute, StrikeRect,
 };
@@ -364,10 +364,7 @@ mod pilotable_mount_tests {
             "unauthored profiles keep the legacy possession mapping",
         );
 
-        let rider = BossBehaviorProfile::from_data(
-            crate::test_boss_catalog(),
-            "gnu_ton_rider",
-        );
+        let rider = BossBehaviorProfile::from_data(crate::test_boss_catalog(), "gnu_ton_rider");
         assert!(
             !rider.possessed_verbs.is_empty(),
             "the gnu-ton rider authors the G5 possessed-verb map",

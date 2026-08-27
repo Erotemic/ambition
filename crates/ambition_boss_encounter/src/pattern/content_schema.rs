@@ -26,10 +26,10 @@ use ambition_content_pack::{
     SchemaRegistration, SchemaVersion,
 };
 
-use super::profile::BossBehaviorProfile;
-use super::seeds::SeedLibrary;
-use super::validator::ValidatorBands;
-use crate::boss_encounter::BossEncounterSpec;
+use crate::pattern::profile::BossBehaviorProfile;
+use crate::pattern::seeds::SeedLibrary;
+use crate::pattern::validator::ValidatorBands;
+use ambition_characters::boss_encounter::BossEncounterSpec;
 
 /// The capability that owns both schemas here.
 pub const BOSS_PATTERN_CAPABILITY: &str = "boss_pattern";

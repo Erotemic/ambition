@@ -1148,39 +1148,22 @@ impl BossCapability {
     }
 }
 
-// ===== tick_boss_pattern =====
-
-mod tick;
-// ⭐ NAMED, NOT A GLOB — and the name is the finding. `tick.rs` exports exactly
-// ONE public item, so `pub use tick::*` was hiding a single function behind a
-// wildcard that reads like a whole surface.
+// ===== WHAT LEFT, AND WHY THIS FILE IS ALL THAT STAYED =====
 //
-// ⭐⭐ AND THIS IS THE ONLY LINE IN THIS FILE THAT NAMES THE BEHAVIOUR. Measured
-// 2026-08-27 while doing D168's forced data/behaviour split for the other two
-// brain subtrees: `boss_pattern` needs no split, because its data and its
-// behaviour are ALREADY separate files. Everything above is types and their own
-// small impls; the tick, the control flow, the validator, the seeds, the profile
-// and the content schema are siblings. The third subtree is free.
-pub use tick::tick_boss_pattern;
-
-/// BD1's three authored-logic atoms as pure functions: bucket evaluation,
-/// weighted `Select` resolution, stance push/pop, and interrupt bookkeeping.
-pub mod control_flow;
-
-/// BD5's fight validator: `boss-design.md` §3's telegraph grammar and fairness
-/// rules, run over authored data with per-game bands.
-pub mod validator;
-
-pub mod seeds;
-
-/// The boss-profile authoring vocabulary — the types `boss_profiles.ron` deserializes into.
-pub mod profile;
-
-/// The `boss_seed_library` and `boss_validator_bands` authored-content schemas
-/// this capability owns. Behind `content_pack`: a game that never validates its
-/// content must not link a compiler.
-#[cfg(feature = "content_pack")]
-pub mod content_schema;
+// ⭐⭐ THE BEHAVIOUR IS `ambition_boss_encounter::pattern` NOW (D168, 2026-08-27):
+// the tick, the control flow, the validator, the seeds and the profile. This
+// crate is the FLOOR — it owns what a character is — and boss thinking is the
+// boss domain's own business, in the crate that already re-exported this
+// module's `profile` and already read `boss_pattern_state()`.
+//
+// ⭐ WHAT COULD NOT GO is everything above: `Brain`'s snapshot encoder is bound
+// to this crate by the orphan rule and `ambition_boss_encounter` depends on this
+// crate, so the six types the encoder reads — and `BossEncounterPhase`, which
+// `BrainSnapshot` names by value — are pinned here permanently.
+//
+// ⚠ AND THE SPLIT NEEDED NO PREPARATORY SLICE, unlike smash and fighter: the
+// data and the behaviour were ALREADY separate files. The only line coupling
+// them was `pub use tick::*`, a glob over a module with one public item.
 
 /// Where the boss is in the encounter.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1233,6 +1216,3 @@ impl BossEncounterPhase {
         matches!(self, Self::Phase1 | Self::Phase2 | Self::Enrage)
     }
 }
-
-#[cfg(test)]
-mod tests;

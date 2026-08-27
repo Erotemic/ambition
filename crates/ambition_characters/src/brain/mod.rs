@@ -37,8 +37,8 @@ pub use action_set::{
 pub use ambition_entity_catalog::{BrainProfileId, BrainProfileRef};
 #[allow(unused_imports)]
 pub use boss_pattern::{
-    tick_boss_pattern, BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState,
-    BossCapability, BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
+    BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState, BossCapability,
+    BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
     BossMovementProfile, BossPattern, BossPatternCfg, BossPatternContext, BossPatternState,
     BossPatternStep, LiveBossAttack,
 };

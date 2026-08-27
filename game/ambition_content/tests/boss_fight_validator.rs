@@ -12,11 +12,11 @@
 
 use std::collections::BTreeMap;
 
-use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
-use ambition_characters::brain::boss_pattern::validator::{
+use ambition_boss_encounter::pattern::validator::{
     fight_beats, validate_fight, FightFinding, Severity,
 };
 use ambition_content::bosses::{seed_library, validator_bands, BOSS_PROFILES_RON};
+use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
 
 fn profiles() -> BTreeMap<String, BossBehaviorProfile> {
     ron::from_str(BOSS_PROFILES_RON).expect("boss_profiles.ron parses")
@@ -49,7 +49,7 @@ fn the_shipped_bands_are_section_threes_calibration_v0() {
 
 #[test]
 fn the_validator_can_judge_every_move_the_roster_plays() {
-    use ambition_characters::brain::boss_pattern::validator::Rule;
+    use ambition_boss_encounter::pattern::validator::Rule;
     let mut uncatalogued = Vec::new();
     for (id, profile) in profiles() {
         for f in findings_for(&id, &profile) {

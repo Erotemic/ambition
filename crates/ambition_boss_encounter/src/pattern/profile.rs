@@ -1,8 +1,10 @@
 //! Serde authoring vocabulary for `boss_profiles.ron`.
 //! Runtime lookups and actor-specific extensions live outside this schema module.
 
-use super::{BossAttackPattern, BossAttackProfile, BossMovementProfile};
-use crate::actor::limb::LimbSlot;
+use ambition_characters::actor::limb::LimbSlot;
+use ambition_characters::brain::boss_pattern::{
+    BossAttackPattern, BossAttackProfile, BossMovementProfile,
+};
 use ambition_platformer2d_core as ae;
 
 /// Authored strike rectangle composed from body-scaled and fixed-pixel terms.
@@ -67,7 +69,7 @@ pub struct BossBehaviorProfile {
     #[serde(default)]
     pub self_dodge: Option<(f32, f32)>,
     /// Optional Engage/Approach/Retreat macro behavior; disabled means no macro dance.
-    pub macro_tuning: crate::brain::BossMacroTuning,
+    pub macro_tuning: ambition_characters::brain::BossMacroTuning,
     pub attacks: Vec<BossAttackProfile>,
     pub attack_cooldown: f32,
     pub attack_windup: f32,

@@ -17,6 +17,7 @@ mod clusters;
 mod encounter_entity;
 mod encounter_script;
 mod events;
+pub mod pattern;
 pub use events::BossPhaseChanged;
 mod ids;
 mod profile;

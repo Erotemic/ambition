@@ -16,10 +16,22 @@ crate-type = ["rlib"]
 # construction, spawn) build the same shapes. Enabled only from a
 # `[dev-dependencies]` edge so the fixtures never reach a shipping build.
 test-support = []
+content_pack = ["dep:ambition_content_pack"]
 
 [dependencies]
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
+# ⭐ OPTIONAL AND DEFAULT-OFF, the same shape `ambition_characters` and
+# `ambition_combat` use: `pattern::content_schema` compiles the authored
+# boss-behaviour schemas, and a game that never validates its content must not
+# link a compiler. Arrived with the boss thinking (D168, 2026-08-27).
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 ron = { workspace = true }
+# ⭐ ARRIVED WITH `pattern::profile` (D168, 2026-08-27): the boss-profile
+# authoring vocabulary is what `boss_profiles.ron` deserializes into, and it came
+# here with the rest of the boss's thinking. `ron` was already a dependency for
+# exactly that reason — this is the derive half of a pair that was split across
+# two crates.
+serde = { workspace = true }
 # The phase-machine vocabulary this crate coordinates (`ActorPhaseState`,
 # `BossEncounterPhase`, `PhaseTrigger`) plus the boss brain/pattern model.
 ambition_characters = { path = "../ambition_characters" }

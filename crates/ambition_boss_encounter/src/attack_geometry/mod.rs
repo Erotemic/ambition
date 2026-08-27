@@ -447,7 +447,7 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 /// One body-local strike rectangle, as DATA.
 ///
 /// Pure data over `ae::Vec2`; nothing about it needed to be here.
-pub use ambition_characters::brain::boss_pattern::profile::StrikeRect;
+pub use crate::pattern::profile::StrikeRect;
 
 // Built-in per-profile strike geometry, as DATA. Each was a hardcoded `vec![Aabb::new
 // (..)]` arm in `volumes_for_profile`; the numbers are IDENTICAL (pinned byte-for-byte

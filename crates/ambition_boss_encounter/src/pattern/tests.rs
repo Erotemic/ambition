@@ -62,7 +62,7 @@ fn boss_pattern_brain_emits_neutral_in_non_attacking_phase() {
         telegraph_profile: None,
         active_profile: Some(BossAttackProfile::Strike("stale".to_string())),
     };
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
     out.melee_pressed = true; // pre-poison
     out.special_pressed = true;
 
@@ -88,7 +88,7 @@ fn boss_pattern_resets_cursor_on_phase_change() {
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
 
     // Tick a while in Phase1 to advance the cursor past step 0.
     for _ in 0..30 {
@@ -129,7 +129,7 @@ fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
 
     // First tick — step 0 is Telegraph with 0.5s.
     tick_boss_pattern(
@@ -157,7 +157,7 @@ fn boss_pattern_strike_step_emits_profile_intent_only() {
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
 
     // Walk past the telegraph (0.5s) to land in the strike step.
     for _ in 0..6 {
@@ -189,7 +189,7 @@ fn debris_rain_strike_emits_profile_intent_only() {
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
 
     // Walk past the telegraph.
     for _ in 0..6 {
@@ -226,7 +226,7 @@ fn boss_pattern_cycle_requests_sustains_then_rests_off_the_observed_move() {
     cfg.cycle_attack_cooldown = 0.2;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
 
     // Rested and idle (fresh state): request the rotation profile from its windup.
     tick_boss_pattern(
@@ -419,7 +419,7 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
     state.last_phase = Some(BossEncounterPhase::Phase1);
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
         &mut state,
@@ -500,7 +500,7 @@ fn macro_state_transitions_to_approach_when_player_too_far() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(1_100.0, 400.0); // ~460 px away > too_far(400)
     tick_boss_pattern(
@@ -530,7 +530,7 @@ fn macro_state_transitions_to_retreat_when_player_too_close() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(700.0, 400.0); // 60 px away < too_close(100)
     tick_boss_pattern(
@@ -561,7 +561,7 @@ fn macro_state_periodically_retreats_after_engage_max_duration() {
     let cfg = macro_cfg();
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Mid-range distance — no too_close / too_far triggers.
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(820.0, 400.0); // 180 px — within engage range
@@ -590,7 +590,7 @@ fn macro_state_approach_returns_to_engage_at_engage_distance() {
     let mut state = BossPatternState::default();
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(740.0, 400.0); // 100 px < engage(200)
     tick_boss_pattern(
@@ -616,7 +616,7 @@ fn macro_state_can_approach_even_when_player_is_close_if_retreat_disabled() {
     cfg.macro_tuning.hold_position_while_engaged = true;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(700.0, 400.0); // close, but not yet overlapping
     tick_boss_pattern(
@@ -648,7 +648,7 @@ fn contact_chase_mode_does_not_need_too_far_trigger() {
     cfg.macro_tuning.hold_position_while_engaged = true;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
         &mut state,
@@ -685,7 +685,7 @@ fn macro_state_holds_when_front_wall_is_inside_standoff() {
     cfg.macro_tuning.hold_position_while_engaged = true;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let mut ctx = macro_ctx(
         ae::Vec2::new(640.0, 400.0),
         ae::Vec2::new(900.0, 400.0),
@@ -704,7 +704,7 @@ fn approach_clamps_to_front_wall_standoff_before_collision() {
     let mut state = BossPatternState::default();
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Keep the player past `too_far_distance` (400) so the boss
     // stays in Approach and actually reaches the front-wall clamp.
     // A nearer player flips the macro state to Engage (the boss
@@ -760,7 +760,7 @@ fn idle_attack_chance_can_gate_rest_into_eye_beam() {
     cfg.macro_tuning.idle_attack_chance_per_second = 100.0;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_boss_pattern(
         &cfg,
         &mut state,
@@ -785,7 +785,7 @@ fn macro_state_stays_engage_when_tuning_disabled() {
     cfg.macro_tuning = BossMacroTuning::disabled();
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Player very far — would normally trigger Approach.
     let actor_pos = ae::Vec2::new(0.0, 0.0);
     let target_pos = ae::Vec2::new(2_000.0, 0.0);
@@ -816,7 +816,7 @@ fn peaceful_brain_does_not_emit_attack_intent() {
     cfg.spawn = ae::Vec2::ZERO;
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
     for _ in 0..10 {
         tick_boss_pattern(
             &cfg,
@@ -989,7 +989,7 @@ fn bd1_tick(
     state: &mut BossPatternState,
     c: &BossPatternContext,
 ) -> BossAttackIntent {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     let mut attack_intent = core::mem::take(&mut state.attack_intent);
     tick_boss_pattern(cfg, state, c, &mut frame, &mut attack_intent);
     state.attack_intent = attack_intent.clone();
@@ -1346,7 +1346,7 @@ fn a_wide_contact_chase_boss_engages_when_the_bodies_touch() {
     let cfg = contact_chase_cfg();
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
 
     // An ordinary 32x64 body standing against the boss's left flank: 104 (boss
     // half-width) + 16 (target half-width) = 120px between the centres, which
@@ -1382,7 +1382,7 @@ fn a_distant_target_keeps_the_contact_chase_open_and_silent() {
     let cfg = contact_chase_cfg();
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(200.0, 400.0); // ~320px of clear ground between the bodies
 
@@ -1405,4 +1405,104 @@ fn a_distant_target_keeps_the_contact_chase_open_and_silent() {
         "and the boss must be closing toward it; got {:?}",
         out.velocity_target,
     );
+}
+
+// ⛔ THIS TEST FOLLOWED BOTH FUNCTIONS IT COMPARES (D168, 2026-08-27). It asserts
+// that the state-machine-shaped entry produces exactly what a direct
+// `tick_boss_pattern` does; both live here now, and a floor-crate test cannot
+// see up into this crate.
+
+#[test]
+fn boss_pattern_via_state_machine_matches_the_direct_tick() {
+    // §A1 slice 3c: the BossPattern brain now ticks through the UNIVERSAL
+    // `tick_state_machine` path — it is no longer a neutral stub. The boss tick
+    // fills the BossPattern fields (`boss_encounter_phase` / `world_size` /
+    // `front_wall_clearance`) onto the shared snapshot, so the universal path must
+    // produce EXACTLY what a direct `tick_boss_pattern` call does: same frame, same
+    // profile intent. This parity is what makes the fold behavior-neutral.
+    use super::tick_boss_pattern;
+    use ambition_characters::brain::boss_pattern::{BossAttackIntent, BossPatternContext};
+
+    let cfg = ambition_characters::brain::BossPatternCfg::neutral_test();
+    let phase = ambition_characters::brain::boss_pattern::BossEncounterPhase::Phase1; // an attacking phase
+    let actor_pos = ambition_platformer2d_core::Vec2::new(100.0, 200.0);
+    let target_pos = ambition_platformer2d_core::Vec2::new(260.0, 200.0);
+    let world_size = ambition_platformer2d_core::Vec2::new(1000.0, 600.0);
+    let dt = 1.0 / 60.0;
+
+    // Direct path (the pre-fold call).
+    let mut direct_state = ambition_characters::brain::BossPatternState::default();
+    let mut direct_frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    let mut direct_attack = BossAttackIntent::default();
+    let ctx = BossPatternContext {
+        encounter_phase: phase,
+        actor_pos,
+        target_pos,
+        world_size,
+        front_wall_clearance: None,
+        dt,
+        ..Default::default()
+    };
+    tick_boss_pattern(
+        &cfg,
+        &mut direct_state,
+        &ctx,
+        &mut direct_frame,
+        &mut direct_attack,
+    );
+
+    // Universal path: the SAME cfg/state, boss fields on the shared snapshot.
+    let mut sm = ambition_characters::brain::StateMachineCfg::BossPattern {
+        cfg: cfg.clone(),
+        state: ambition_characters::brain::BossPatternState::default(),
+    };
+    let mut snap = ambition_characters::brain::snapshot::BrainSnapshot::idle();
+    snap.actor_pos = actor_pos;
+    snap.target_pos = target_pos;
+    snap.dt = dt;
+    snap.boss_encounter_phase = Some(phase);
+    snap.world_size = world_size;
+    snap.front_wall_clearance = None;
+    let mut uni_frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    uni_frame.melee_pressed = true; // pre-poison — the tick starts from a neutral frame
+                                    // ⛔ THE BOSS ARM IS NOT ONE OF THE NINE. `tick_simple_state_machine`
+                                    // declines it and says so (D168's dispatcher split), so the parity this test
+                                    // is about is between the direct call and the STATE-MACHINE-SHAPED entry
+                                    // point — which is what `tick_boss_pattern_via_state_machine` is named for.
+                                    // The outer match that reaches it lives in the actor monolith now, and a
+                                    // floor crate's test cannot see up there.
+    assert!(
+        !ambition_characters::brain::state_machine::tick_simple_state_machine(
+            &mut sm,
+            &snap,
+            &mut ambition_characters::actor::control::ActorControlFrame::neutral()
+        ),
+        "the simple dispatcher answered a BossPattern brain, so the split it is \
+         supposed to make is not being made"
+    );
+    let ambition_characters::brain::StateMachineCfg::BossPattern {
+        cfg: uni_cfg,
+        state: uni_state_mut,
+    } = &mut sm
+    else {
+        panic!("still a BossPattern brain");
+    };
+    super::tick_boss_pattern_via_state_machine(uni_cfg, uni_state_mut, &snap, &mut uni_frame);
+
+    // Frame parity.
+    assert_eq!(uni_frame.velocity_target, direct_frame.velocity_target);
+    assert_eq!(uni_frame.locomotion, direct_frame.locomotion);
+    assert_eq!(uni_frame.facing, direct_frame.facing);
+    assert_eq!(uni_frame.melee_pressed, direct_frame.melee_pressed);
+    assert_eq!(uni_frame.special_pressed, direct_frame.special_pressed);
+
+    // Boss-specific intent parity — cached in the pattern state because the
+    // universal `Brain::tick` output remains a boss-agnostic control frame.
+    let ambition_characters::brain::StateMachineCfg::BossPattern {
+        state: uni_state, ..
+    } = &sm
+    else {
+        panic!("still a BossPattern brain");
+    };
+    assert_eq!(uni_state.attack_intent, direct_attack);
 }

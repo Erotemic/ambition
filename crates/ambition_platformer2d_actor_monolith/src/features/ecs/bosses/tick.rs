@@ -567,7 +567,7 @@ pub fn tick_boss_brains_system(
                     }),
                 };
                 let mut attack_intent = core::mem::take(&mut state.attack_intent);
-                ambition_characters::brain::tick_boss_pattern(
+                ambition_boss_encounter::pattern::tick_boss_pattern(
                     cfg,
                     state,
                     &ctx,

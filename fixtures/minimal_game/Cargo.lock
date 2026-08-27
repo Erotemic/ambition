@@ -153,6 +153,7 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "ron 0.11.0",
+ "serde",
 ]
 
 [[package]]

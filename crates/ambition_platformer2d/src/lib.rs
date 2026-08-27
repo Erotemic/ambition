@@ -93,9 +93,7 @@ pub mod content {
             )
             .expect("the engine's own schemas are registered once");
         registry
-            .register(
-                crate::characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
-            )
+            .register(ambition_boss_encounter::pattern::content_schema::boss_seed_library_schema())
             .expect("the engine's own schemas are registered once");
         // The capability owns the schema even though its types still live in
         // `ambition_characters` — which is the point of registering it, since a registration is
@@ -105,19 +103,14 @@ pub mod content {
             .expect("the engine's own schemas are registered once");
         registry
             .register(
-                crate::characters::brain::boss_pattern::content_schema::boss_validator_bands_schema(
-                ),
+                ambition_boss_encounter::pattern::content_schema::boss_validator_bands_schema(),
             )
             .expect("the engine's own schemas are registered once");
         registry
-            .register(
-                crate::characters::brain::boss_pattern::content_schema::boss_profiles_schema(),
-            )
+            .register(ambition_boss_encounter::pattern::content_schema::boss_profiles_schema())
             .expect("the engine's own schemas are registered once");
         registry
-            .register(
-                crate::characters::brain::boss_pattern::content_schema::boss_encounter_schema(),
-            )
+            .register(ambition_boss_encounter::pattern::content_schema::boss_encounter_schema())
             .expect("the engine's own schemas are registered once");
         registry
             .register(ambition_audio::content_schema::music_registry_schema())
@@ -157,6 +150,13 @@ pub use ambition_combat as combat;
 pub use ambition_conversation as conversation;
 #[cfg(feature = "ambition_cutscene")]
 pub use ambition_cutscene as cutscene;
+/// THE MOUNT PAIR — two linked bodies where one carries the other. Carved out
+/// of `actors` (D33); a game that wires mounts names this domain, exactly as it
+/// names `boss_encounter`.
+/// Victim-side damage resolution — shield blocks, knockback, hitstun, the
+/// safe-respawn and death-respawn roads. Carved out of the actor monolith
+/// 2026-08-26, exposed as its own domain beside `mount` and `boss_encounter`.
+pub use ambition_damage as damage;
 pub use ambition_dev_tools as dev_tools;
 #[cfg(feature = "ambition_dialog")]
 pub use ambition_dialog as dialog;
@@ -173,13 +173,6 @@ pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
 #[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
-/// THE MOUNT PAIR — two linked bodies where one carries the other. Carved out
-/// of `actors` (D33); a game that wires mounts names this domain, exactly as it
-/// names `boss_encounter`.
-/// Victim-side damage resolution — shield blocks, knockback, hitstun, the
-/// safe-respawn and death-respawn roads. Carved out of the actor monolith
-/// 2026-08-26, exposed as its own domain beside `mount` and `boss_encounter`.
-pub use ambition_damage as damage;
 pub use ambition_mount as mount;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
@@ -316,11 +309,6 @@ pub mod actor {
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
 
     pub use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
-    /// The body-local safe-position state used by reset/hazard observers.
-    ///
-    /// The implementation type still carries its historical player-centric name;
-    /// the SDK does not.
-    pub use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState as BodySafetyState;
     /// Canonical fallback body size for a body not yet materialized.
     pub use ambition_platformer2d_core::default_player_body_size as default_body_size;
     /// Where the body is, and how it moves.
@@ -328,6 +316,11 @@ pub mod actor {
     pub use ambition_platformer2d_core::BodyClusterQueryData;
     pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
     pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    /// The body-local safe-position state used by reset/hazard observers.
+    ///
+    /// The implementation type still carries its historical player-centric name;
+    /// the SDK does not.
+    pub use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState as BodySafetyState;
 
     /// Boss spawn policy belongs to actor construction at the SDK boundary even
     /// though its implementation is split between the catalog and encounter crates.
@@ -541,15 +534,15 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
-    /// The authored/base gravity and its resolved live field.
-    pub use ambition_platformer2d_shared_tangle::gravity::{
-        gravity_dir_or_default, BaseGravity, GravityField,
-    };
     /// The per-tick motion environment a body is stepped in. Named here rather
     /// than through the actor crate: it is a world-physics fact, and routing it
     /// through a domain crate's re-export is how a census mistakes it for that
     /// domain's coupling.
     pub use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+    /// The authored/base gravity and its resolved live field.
+    pub use ambition_platformer2d_shared_tangle::gravity::{
+        gravity_dir_or_default, BaseGravity, GravityField,
+    };
     /// Everything needed to author a room, in one import.
     pub use ambition_platformer2d_world::prelude;
 

@@ -1,7 +1,7 @@
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
-use ambition_combat::events::FeatureCombatTuning;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
+use ambition_combat::events::FeatureCombatTuning;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
@@ -579,7 +579,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `tick_boss_brains_system` + `update_ecs_bosses` do in the
     // real schedule.
     use ambition_characters::brain::{
-        tick_boss_pattern, BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState,
+        BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState,
     };
     let mut cfg = BossPatternCfg::neutral_test();
     cfg.aggressiveness = 1.0;
@@ -599,7 +599,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     let combat_tuning = FeatureCombatTuning::default();
     for _ in 0..600 {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        tick_boss_pattern(
+        ambition_boss_encounter::pattern::tick_boss_pattern(
             &cfg,
             &mut state,
             &BossPatternContext {

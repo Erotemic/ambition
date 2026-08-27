@@ -19,11 +19,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
+use ambition_boss_encounter::pattern::seeds::SeedLibrary;
 use ambition_characters::brain::boss_pattern::{
-    seeds::SeedLibrary, BossAttackPattern, BossAttackProfile, BossPatternStep,
+    BossAttackPattern, BossAttackProfile, BossPatternStep,
 };
 use ambition_content::bosses::{seed_library, BOSS_PROFILES_RON};
+use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
 
 /// One authored appearance of an attack: its telegraph and active durations.
 #[derive(Clone, Copy, Debug)]
@@ -291,7 +292,7 @@ fn every_recipe_lies_inside_its_seeds_bands() {
 /// assertion tells us.
 #[test]
 fn the_shipped_roster_does_not_yet_demand_a_parry() {
-    use ambition_characters::brain::boss_pattern::seeds::MovementVerb;
+    use ambition_boss_encounter::pattern::seeds::MovementVerb;
     let lib = library();
     let all_keys: Vec<&str> = lib
         .iter()

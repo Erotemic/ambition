@@ -234,7 +234,7 @@ fn the_canonical_form_does_not_depend_on_map_construction_order() {
 /// Build a profile's strike-geometry map in the given insertion order and return
 /// the canonical string the fingerprint would use.
 fn seeds_with_overrides(keys: [&str; 4]) -> String {
-    use super::super::profile::StrikeRect;
+    use crate::pattern::profile::StrikeRect;
     use ambition_platformer2d_core as ae;
     let mut map: std::collections::BTreeMap<String, Vec<StrikeRect>> = Default::default();
     for key in keys {
@@ -361,8 +361,12 @@ fn encounters_draft(name: &str, files: &[(&str, &str)]) -> ContentPackDraft {
 }
 
 fn refuse_encounters(name: &str, files: &[(&str, &str)]) -> CompileFailure {
-    compile(&encounters_draft(name, files), &registry(), &AssetsUnchecked)
-        .expect_err("no boss profiles in these drafts, so they always refuse eventually")
+    compile(
+        &encounters_draft(name, files),
+        &registry(),
+        &AssetsUnchecked,
+    )
+    .expect_err("no boss profiles in these drafts, so they always refuse eventually")
 }
 
 /// Two files claiming one encounter id, caught where only the MERGE can see

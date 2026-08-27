@@ -20,10 +20,9 @@
 //! the capability-footprint baseline already contains all four — so no closure
 //! grows. Measured under D168 before choosing this home.
 
+use ambition_boss_encounter::pattern::tick_boss_pattern_via_state_machine;
 use ambition_characters::brain::action_set::ActionSet;
-use ambition_characters::brain::state_machine::{
-    tick_boss_pattern_via_state_machine, tick_simple_state_machine,
-};
+use ambition_characters::brain::state_machine::tick_simple_state_machine;
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
 
 /// Tick a brain without the actor's `ActionSet` — the Smash arm falls back to a

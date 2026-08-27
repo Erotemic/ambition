@@ -1166,50 +1166,6 @@ fn tick_player_demo(
     }
 }
 
-// ===== BossPattern =====
-//
-// The boss tick fills the BossPattern fields the pattern needs
-// (`boss_encounter_phase` / `world_size` / `front_wall_clearance`) onto the shared
-// snapshot, so a `BossPattern` brain ticks through the universal `Brain::tick`
-// path like every other body — no bespoke call site. A snapshot WITHOUT those
-// fields (any non-boss caller that somehow holds a BossPattern brain) ticks under
-// a Dormant phase, which emits only the idle sway, never a strike.
-pub fn tick_boss_pattern_via_state_machine(
-    cfg: &super::BossPatternCfg,
-    state: &mut super::BossPatternState,
-    snapshot: &BrainSnapshot,
-    out: &mut crate::actor::control::ActorControlFrame,
-) {
-    let ctx = super::BossPatternContext {
-        encounter_phase: snapshot.boss_encounter_phase.unwrap_or_default(),
-        actor_pos: snapshot.actor_pos,
-        target_pos: snapshot.target_pos,
-        // A point target: the shared snapshot carries no body box, and this path
-        // ticks Dormant (see above), so it never reaches the contact reasoning
-        // that would read one. The ECS boss tick passes the real body.
-        target_body_size: ae::Vec2::ZERO,
-        world_size: snapshot.world_size,
-        front_wall_clearance: snapshot.front_wall_clearance,
-        dt: snapshot.dt,
-        // BD1's situation buckets. The snapshot carries a health FRACTION, not a
-        // pool, so hp is expressed on a 0..100 scale here: `HpBelow` reads the
-        // ratio, and `OnHitTaken`'s min_damage is then in percent-of-max on this
-        // path. The ECS boss tick below passes the real pool.
-        actor_facing: snapshot.actor_facing,
-        hp_current: (snapshot.health_fraction.clamp(0.0, 1.0) * 100.0).round() as i32,
-        hp_max: 100,
-        // This path ticks under a Dormant phase (see above) and never reaches
-        // the attack patterns, so there is no live move to observe.
-        live_attack: None,
-    };
-    // The universal brain API has one generic control-frame output. Keep the
-    // boss-specific profile request as a transient cache on the pattern state so
-    // the ECS adapter can publish it without making `ActorControlFrame` boss-aware.
-    let mut attack_intent = core::mem::take(&mut state.attack_intent);
-    super::tick_boss_pattern(cfg, state, &ctx, out, &mut attack_intent);
-    state.attack_intent = attack_intent;
-}
-
 // ===== Trait helpers =====
 //
 // `ae::Vec2::signum_or` isn't in the engine; provide a tiny ext

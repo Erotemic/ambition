@@ -29,6 +29,8 @@ content_pack = [
     "ambition_encounter?/content_pack",
     "ambition_audio/content_pack",
     "ambition_combat/content_pack",
+    # ⭐ the boss schemas moved here with the boss thinking (D168, 2026-08-27).
+    "ambition_boss_encounter/content_pack",
 ]
 # Slice H: the facade's dependency edges are optional CAPABILITIES, and the
 # default is all of them — a consumer with default features gets exactly the

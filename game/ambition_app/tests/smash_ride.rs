@@ -895,30 +895,74 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
 
     // ── A HIT THAT DOES NOT LAUNCH LEAVES HIM ABOARD. ──
     //
-    // ⛔⛔ THIS ARM DOES NOT HIT HIM, AND SO PROVES ONLY THAT AN UNDISTURBED
-    // PIRATE STAYS MOUNTED FOR TWENTY FRAMES. A GPT review Jon relayed on
-    // 2026-08-27 caught it; the launch half below does all the work. Recorded
-    // rather than repaired here because giving it a real hit needs two things
-    // this file does not have yet — see D207's row:
+    // ⛔⛔ THIS ARM USED NOT TO HIT HIM AT ALL — it waited twenty frames and
+    // asserted `RidingOn`, which proves only that an undisturbed pirate stays
+    // mounted. A GPT 5.6 review Jon relayed on 2026-08-27 caught it.
     //
-    //   1. A LOW-KNOCKBACK HITBOX THAT ACTUALLY REACHES A MOUNTED RIDER.
-    //      Tried: the same shape the launch arm below uses, with `damage: 4` and
-    //      `FeelScale(0.35)`. `BodyHealth::damage_taken()` never moved, so the
-    //      hit did not land — the launch arm's strong hitbox does, so something
-    //      about a mounted rider or the weak volume differs and needs measuring.
-    //   2. A SPENT RECOVERY TO REFUND. Measured: the mounted admiral holds a
-    //      FULL charge (`recovery_charges == 1`, `on_ground == false`) even
-    //      though `call_the_shark` is authored `SpendWithoutFreefall`. The
-    //      kernel's grounded refresh hands a floor-pressed recovery straight
-    //      back — D204's own decision note says the rule is PER USE, and the
-    //      code says per airtime. Until that is settled, "the flinch restored
-    //      the charge" is a check that cannot fail.
+    // ⚠ AND THE NOTE LEFT HERE AT THE TIME WAS WRONG about why it was hard.
+    // It recorded that a weak volume "did not land — `BodyHealth::damage_taken()`
+    // never moved", and inferred something about mounted riders refusing soft
+    // hits. Measured again building the box exactly like the launch box below
+    // and differing only in `damage` and `knockback`: it lands, first try. The
+    // earlier attempt differed some other way that was never isolated, and the
+    // conclusion drawn from it went into this file as fact for a day.
+    //
+    // ⛔ THE SECOND BLOCKER IS STILL REAL AND STILL UNCLAIMED: a mounted admiral
+    // holds a FULL recovery charge, so "the flinch refunded the charge" remains
+    // a check that cannot fail and is deliberately NOT asserted here. That is
+    // D204/D250 territory.
+    // A REAL HIT, built exactly like the launch box below and differing only in
+    // the two numbers that decide whether it launches. If it does not land, the
+    // probe below says so rather than the arm passing on an undisturbed rider.
+    // Percent this body has taken, read off its own health.
+    let damage_taken = |app: &mut App, body: Entity| -> i32 {
+        app.world()
+            .get::<ambition_platformer2d::characters::actor::BodyHealth>(body)
+            .map_or(0, |h| h.damage_taken())
+    };
+    let before = damage_taken(&mut app, seat0);
+    {
+        let world = app.world_mut();
+        let rider_pos = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos;
+        world.spawn((
+            ambition_platformer2d::combat::strike::Hitbox {
+                owner: rival,
+                source: ambition_platformer2d::vfx::HitSide::Enemy,
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                    center: rider_pos,
+                },
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
+                shape: None,
+                facing: 1.0,
+                damage: 4,
+                // Soft: a flinch, not a launch. This is the half of Jon's pair
+                // that must leave him aboard.
+                knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(0.35),
+                launch_dir: None,
+                frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+                reaction: None,
+                strike_sfx: None,
+            },
+            ambition_platformer2d::combat::strike::HitboxHits::default(),
+        ));
+    }
     for _ in 0..20 {
         app.update();
     }
+    // ⛔ THE HIT MUST HAVE LANDED, or "he stayed aboard" is a claim about an
+    // undisturbed fighter — which is what this arm used to be.
+    let flinched = damage_taken(&mut app, seat0) - before;
+    assert!(
+        flinched > 0,
+        "the soft hit never reached the mounted admiral (damage_taken moved by \
+         {flinched}), so staying aboard proves nothing about flinching"
+    );
     assert!(
         app.world().get::<RidingOn>(seat0).is_some(),
-        "the admiral came off the shark without ever being launched"
+        "a flinch took the admiral off the shark — only a launch may do that"
     );
 
     // ── AND A LAUNCH TAKES HIM OFF. ──

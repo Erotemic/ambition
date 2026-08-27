@@ -51,6 +51,35 @@ pub(super) fn register(app: &mut App) {
             "sprites/props/gunsword.png",
             Vec2::new(54.0, 14.0),
         ),
+        // ⭐ THE ADMIRAL'S OWN GUN-SWORD, drawn as the gun-sword it is. A
+        // distinct ITEM id (its shot is a special's payoff, not a raider's
+        // sidearm) wearing the same art, exactly as the heavy above does.
+        HeldItemArtEntry::new(
+            "admiral_gun_sword",
+            "sprites/props/gunsword.png",
+            Vec2::new(54.0, 14.0),
+        ),
+        // ⛔⛔ AND THE TWO THE POLYGON AUTHORED, because a held item with no art
+        // registration is not a silent fallback — it is an `ERROR` per spawn
+        // ("unknown held item art `polygon_bomb`") and an object drawn as
+        // nothing. Measured on the first engine take of her new down-B, which
+        // otherwise worked end to end.
+        //
+        // ⚠ BOTH BORROW ART THAT EXISTS. The bomb wears the gauntlet bomb icon,
+        // which is a bomb; the ponytail wears the javelin, which is a thrown
+        // stick and is honestly a placeholder. Drawing her own tail is an art
+        // job — see `tools/ambition_sprite2d_renderer` — and a wrong picture the
+        // reader can see beats a missing one the log has to explain.
+        HeldItemArtEntry::new(
+            "polygon_bomb",
+            "sprites/props/gauntlet_bomb.png",
+            Vec2::new(18.0, 18.0),
+        ),
+        HeldItemArtEntry::new(
+            "polygon_ponytail",
+            "sprites/props/javelin.png",
+            Vec2::new(44.0, 6.0),
+        ),
     ];
     // Wielded gauntlets: a 64×64 procedural icon shown ~26px square on the
     // ground / in hand (no character prop — the ability is abstract).

@@ -155,6 +155,110 @@ fn the_nearest_qualifying_ledge_wins() {
     );
 }
 
+/// A body with every cluster the movement kernel reads, at `pos`, plus the two
+/// non-cluster facts `apply_authored_teleports` queries beside them.
+///
+/// ⛔ SPELLED OUT rather than borrowed from a spawn helper: the actor spawners
+/// live behind `pub(super)` in `features::ecs`, and a fixture that reached for
+/// one would drag a character catalog into a test about a ledger entry.
+fn spawn_teleporting_body(app: &mut bevy::prelude::App, pos: ae::Vec2) -> bevy::prelude::Entity {
+    app.world_mut()
+        .spawn((
+            ae::BodyAbilities::default(),
+            ae::BodyKinematics {
+                pos,
+                size: ae::Vec2::new(24.0, 48.0),
+                ..Default::default()
+            },
+            ae::BodyBaseSize::default(),
+            ae::BodyGroundState::default(),
+            ae::BodyWallState::default(),
+            ae::BodyJumpState::default(),
+            ae::BodyDashState::default(),
+            ae::BodyFlightState::default(),
+            ae::BodyBlinkState::default(),
+            ae::BodyLedgeState::default(),
+        ))
+        .insert((
+            ae::BodyDodgeState::default(),
+            ae::BodyShieldState::default(),
+            ae::BodyModeState::default(),
+            ae::BodyEnvironmentContact::default(),
+            ae::BodyMana::default(),
+            ae::BodyOffense::default(),
+            ae::BodyActionBuffer::default(),
+            ae::BodyLifetime::default(),
+            ae::BodyComboTrace::default(),
+        ))
+        .insert((
+            ae::movement::MotionModel::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
+            ambition_characters::control::ActorControl::default(),
+        ))
+        .id()
+}
+
+/// The teleport records itself in the Class-B ledger, exactly once.
+///
+/// ⛔⛔ A BODY THAT MOVES DISCONTINUOUSLY WITHOUT AN ENTRY IS A BUG TO THE
+/// INSTRUMENTS. The collision oracle uses that ledger for two things — exempting
+/// a legal warp from its clipping probe, and catching two Class-B authorities
+/// remapping one body in a single frame. `blink` has always recorded at its
+/// `transit_body`; this road was added without it (GPT 5.6, 2026-08-27), so an
+/// authored Smash teleport read as unexplained clipping and could collide with
+/// another remap unseen.
+///
+/// ⭐ EXACTLY ONE, not "at least one": the count is the half that would catch a
+/// record placed in a loop or duplicated across the two arrival paths.
+#[test]
+fn an_authored_teleport_records_one_scripted_remap() {
+    use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
+
+    let mut app = bevy::prelude::App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(stage()),
+    );
+    app.init_resource::<ClassBRemapLog>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    app.add_systems(bevy::prelude::Update, apply_authored_teleports);
+
+    let body = spawn_teleporting_body(&mut app, ae::Vec2::new(200.0, 200.0));
+
+    app.world_mut().write_message(ActorActionMessage {
+        actor: body,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(TELEPORT.to_string()),
+            params: ambition_entity_catalog::ParamValue::from_typed(&TeleportParams {
+                // AIMED, not an ambush: this arm is about the ledger, and
+                // an empty stage has nobody to get behind.
+                behind_nearest_foe: false,
+                behind_gap: 0.0,
+                distance: 250.0,
+                // No assist: this arm is about the LEDGER, and a ledge catch
+                // would move the arrival for a second reason.
+                ledge_assist: 0.0,
+                depart_vfx: "blink".to_string(),
+                arrive_vfx: "blink".to_string(),
+            })
+            .expect("teleport params serialize"),
+        },
+    });
+    app.update();
+
+    let log = app.world().resource::<ClassBRemapLog>();
+    let kinds: Vec<ClassBRemap> = log.kinds_for(body).collect();
+    assert_eq!(
+        kinds,
+        vec![ClassBRemap::ScriptedTeleport],
+        "the teleport moved the body and told the ledger {kinds:?} — a warp with \
+         no entry reads to the collision oracle as unexplained clipping, and a \
+         second Class-B author on the same frame becomes invisible",
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The ambush chooser.
 //

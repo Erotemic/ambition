@@ -337,7 +337,23 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// back with ZERO ground items where it had fifteen. Authored placements carry
 /// this marker; things somebody threw, dropped or spawned do not.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default)]
-pub struct SettledItem;
+pub struct SettledItem {
+    /// How fast the item was travelling on the tick geometry stopped it.
+    ///
+    /// ⭐⭐ PUBLISHED BY THE STEP THAT DESTROYS IT, which is the only place the
+    /// answer exists. `ground_item_physics` applies gravity, finds the move
+    /// blocked, and zeroes `vel` — so by the time any consumer runs, the speed
+    /// the item hit at is gone. A consumer that reconstructs it from its own
+    /// memory of last tick is wrong twice: a thrown item collides on its FIRST
+    /// free tick, when the remembered speed is still the zero it had in a hand,
+    /// and a falling one can cross a speed threshold on the gravity of the very
+    /// tick it lands.
+    ///
+    /// ⭐ `0.0` MEANS "SETTLED WITHOUT IMPACT" and that is the honest default:
+    /// an authored placement is put down at rest carrying this marker and never
+    /// struck anything (see the note above).
+    pub impact_speed: f32,
+}
 
 /// Wake a settled item whose support has gone away.
 ///
@@ -462,8 +478,13 @@ pub fn ground_item_physics(
             // Settle in place (simple — no slide), and SAY SO: the marker is
             // what stops this item being stepped again, replacing the
             // `vel == ZERO` reading that could not tell rest from release.
+            // BEFORE the zeroing, which is the whole point — see
+            // `SettledItem::impact_speed`.
+            let impact_speed = item.vel.length();
             item.vel = Vec2::ZERO;
-            commands.entity(entity).try_insert(SettledItem);
+            commands
+                .entity(entity)
+                .try_insert(SettledItem { impact_speed });
         } else {
             item.pos = next;
         }

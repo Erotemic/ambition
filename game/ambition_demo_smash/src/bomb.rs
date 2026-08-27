@@ -49,12 +49,6 @@ pub struct LiveBomb {
     pub blast_radius: f32,
     /// At or above this speed, contact IS the detonation.
     pub impact_speed: f32,
-    /// ⭐⭐ HOW FAST IT WAS GOING LAST TICK, and it has to be remembered because
-    /// `ground_item_physics` zeroes the velocity on the same tick it stamps
-    /// `SettledItem`. Reading the live velocity at the moment of contact
-    /// therefore reads ZERO for every impact, however hard — which is a bomb
-    /// that never goes off on contact and a rule that looks implemented.
-    pub last_speed: f32,
 }
 
 // ⛔⛔ NO OWNER HANDLE, AND THAT IS A DESIGN RATHER THAN AN OMISSION. A live
@@ -123,7 +117,6 @@ pub fn translate_bomb_drops(
                 damage: params.damage,
                 blast_radius: params.blast_radius,
                 impact_speed: params.impact_speed,
-                last_speed: 0.0,
             },
         ));
     }
@@ -145,7 +138,7 @@ pub fn burn_fuses_and_answer_impacts(
         &mut LiveBomb,
         &ambition_platformer2d::item::GroundItem,
         &ambition_platformer2d::item::ItemCustody,
-        Has<ambition_platformer2d::item::SettledItem>,
+        Option<&ambition_platformer2d::item::SettledItem>,
     )>,
 ) {
     let dt = time.sim_dt();
@@ -154,13 +147,16 @@ pub fn burn_fuses_and_answer_impacts(
         // one, and it is why the fuse is ticked before the custody check rather
         // than after it.
         bomb.fuse_s -= dt;
-        let speed = item.vel.length();
-        // ⭐ IMPACT: it settled this tick, and one tick ago it was travelling
-        // hard enough for that to count. `SettledItem` is stamped by
-        // `ground_item_physics` exactly when geometry blocked the step.
-        let struck_hard =
-            settled && custody.in_world() && bomb.last_speed >= bomb.impact_speed;
-        bomb.last_speed = speed;
+        // ⭐ IMPACT: geometry stopped it, and it was travelling hard enough for
+        // that to count. The SPEED IS THE SETTLE'S OWN, published by
+        // `ground_item_physics` on the tick it zeroed the velocity — this used
+        // to remember last tick's speed instead, which is a different number in
+        // the two cases that matter. A bomb thrown hard at a near wall collides
+        // on its FIRST free tick, when the remembered speed is still the zero it
+        // had in a hand; and a falling bomb can cross the threshold on the
+        // gravity of the very tick it lands.
+        let struck_hard = custody.in_world()
+            && settled.is_some_and(|settled| settled.impact_speed >= bomb.impact_speed);
         if bomb.fuse_s > 0.0 && !struck_hard {
             continue;
         }
@@ -196,14 +192,16 @@ pub fn burn_fuses_and_answer_impacts(
 
 /// The localizer's window on a bomb: the two fields that move.
 ///
-/// ⛔ THE FUSE AND THE REMEMBERED SPEED, not the authored numbers beside them.
-/// Damage, radius and threshold are constants copied off the move and cannot
-/// diverge; hashing them would make every bomb of the same kind indistinguishable
-/// in the probe while the two fields that actually differ went unwatched.
+/// ⛔ THE FUSE, not the authored numbers beside it. Damage, radius and threshold
+/// are constants copied off the move and cannot diverge; hashing them would make
+/// every bomb of the same kind indistinguishable in the probe while the one field
+/// that actually differs went unwatched.
+///
+/// ⚠ IT USED TO HASH A REMEMBERED SPEED TOO, and that field is gone: the impact
+/// speed is published by the settle itself (`SettledItem::impact_speed`) rather
+/// than carried here, so the bomb has exactly one moving field left.
 pub fn live_bomb_probe(bomb: &LiveBomb) -> u64 {
-    let mut hash = bomb.fuse_s.to_bits() as u64;
-    hash = hash.rotate_left(17) ^ bomb.last_speed.to_bits() as u64;
-    hash
+    bomb.fuse_s.to_bits() as u64
 }
 
 #[cfg(test)]

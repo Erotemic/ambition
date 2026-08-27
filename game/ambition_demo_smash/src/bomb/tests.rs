@@ -17,7 +17,7 @@ fn app() -> App {
     app
 }
 
-fn a_bomb(app: &mut App, fuse_s: f32, last_speed: f32, vel: ae::Vec2) -> Entity {
+fn a_bomb(app: &mut App, fuse_s: f32, vel: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
             GroundItem {
@@ -32,7 +32,6 @@ fn a_bomb(app: &mut App, fuse_s: f32, last_speed: f32, vel: ae::Vec2) -> Entity 
                 damage: 12,
                 blast_radius: 60.0,
                 impact_speed: 300.0,
-                last_speed,
             },
         ))
         .id()
@@ -63,7 +62,7 @@ fn run(app: &mut App, ticks: usize) -> usize {
 fn the_fuse_runs_out_and_the_bomb_goes_off() {
     let mut app = app();
     // A tenth of a second left, and nothing has hit it.
-    let bomb = a_bomb(&mut app, 0.1, 0.0, ae::Vec2::ZERO);
+    let bomb = a_bomb(&mut app, 0.1, ae::Vec2::ZERO);
     assert_eq!(run(&mut app, 5), 0, "it must not go off early");
     assert_eq!(run(&mut app, 5), 1, "the fuse must go off");
     assert!(
@@ -76,8 +75,11 @@ fn the_fuse_runs_out_and_the_bomb_goes_off() {
 fn a_hard_impact_goes_off_before_the_fuse_does() {
     let mut app = app();
     // Four whole seconds of fuse left, travelling hard, and it just settled.
-    let bomb = a_bomb(&mut app, 4.0, 520.0, ae::Vec2::ZERO);
-    app.world_mut().entity_mut(bomb).insert(SettledItem);
+    let bomb = a_bomb(&mut app, 4.0, ae::Vec2::ZERO);
+    // THE SPEED IS THE SETTLE'S, published by the step that zeroed the velocity.
+    app.world_mut()
+        .entity_mut(bomb)
+        .insert(SettledItem { impact_speed: 520.0 });
     assert_eq!(
         run(&mut app, 1),
         1,
@@ -91,8 +93,10 @@ fn a_hard_impact_goes_off_before_the_fuse_does() {
 #[test]
 fn a_gentle_landing_keeps_its_fuse() {
     let mut app = app();
-    let bomb = a_bomb(&mut app, 4.0, 40.0, ae::Vec2::ZERO);
-    app.world_mut().entity_mut(bomb).insert(SettledItem);
+    let bomb = a_bomb(&mut app, 4.0, ae::Vec2::ZERO);
+    app.world_mut()
+        .entity_mut(bomb)
+        .insert(SettledItem { impact_speed: 40.0 });
     assert_eq!(
         run(&mut app, 1),
         0,
@@ -107,7 +111,7 @@ fn a_gentle_landing_keeps_its_fuse() {
 #[test]
 fn speed_without_contact_is_not_an_impact() {
     let mut app = app();
-    let bomb = a_bomb(&mut app, 4.0, 900.0, ae::Vec2::new(900.0, 0.0));
+    let bomb = a_bomb(&mut app, 4.0, ae::Vec2::new(900.0, 0.0));
     assert_eq!(run(&mut app, 1), 0);
     assert!(app.world().get_entity(bomb).is_ok());
 }
@@ -118,11 +122,16 @@ fn speed_without_contact_is_not_an_impact() {
 #[test]
 fn a_carried_bomb_burns_but_cannot_be_set_off_by_an_impact() {
     let mut app = app();
-    let bomb = a_bomb(&mut app, 0.05, 900.0, ae::Vec2::ZERO);
+    let bomb = a_bomb(&mut app, 0.05, ae::Vec2::ZERO);
     let holder = app.world_mut().spawn_empty().id();
     app.world_mut()
         .entity_mut(bomb)
-        .insert((SettledItem, ItemCustody::Held { holder }));
+        .insert((
+            SettledItem {
+                impact_speed: 900.0,
+            },
+            ItemCustody::Held { holder },
+        ));
     assert_eq!(run(&mut app, 1), 0, "picking a bomb up must not detonate it");
     assert_eq!(
         run(&mut app, 5),

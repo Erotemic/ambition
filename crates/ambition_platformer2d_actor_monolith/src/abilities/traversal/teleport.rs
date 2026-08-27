@@ -266,6 +266,9 @@ pub fn apply_authored_teleports(
     )>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut sfx: ambition_sfx::BodySfxWriter,
+    // THE CLASS-B LEDGER. `Option` for the same reason blink's is: a bare
+    // fixture installs no log, and a teleport is still a teleport without one.
+    mut class_b: Option<ResMut<ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog>>,
 ) {
     let mut collision = None;
     // Drained first: the mutable body pass below cannot borrow the reader and
@@ -381,6 +384,19 @@ pub fn apply_authored_teleports(
         // the facing the player was holding.
         if let Some(facing) = turn_to {
             clusters.kinematics.facing = facing;
+        }
+        // ⛔⛔ AND THE LEDGER HEARS ABOUT IT, at the write rather than near it.
+        // A body that moves discontinuously without an entry reads to the
+        // collision oracle as unexplained clipping, and a SECOND Class-B
+        // authority remapping this body on the same frame becomes invisible to
+        // the contention check — the two things that ledger exists for. Blink
+        // has always recorded here; this road was added without it (GPT 5.6,
+        // 2026-08-27).
+        if let Some(log) = class_b.as_mut() {
+            log.record(
+                message.actor,
+                ambition_platformer2d_shared_tangle::class_b::ClassBRemap::ScriptedTeleport,
+            );
         }
 
         // The look is the MOVE's, not this system's — see `TeleportParams`.

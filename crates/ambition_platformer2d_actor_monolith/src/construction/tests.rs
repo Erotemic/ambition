@@ -545,6 +545,8 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
         SummonedMinionParams {
             // A fixture keeps the character's authored vitals.
             health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
             feature_id: "slop_add".into(),
             name: "slop".into(),
             pos: ae::Vec2::ZERO,
@@ -593,6 +595,8 @@ fn two_summons_from_one_summoner_do_not_collide() {
     let params = || SummonedMinionParams {
         // A fixture keeps the character's authored vitals.
         health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
         feature_id: "slop_add".into(),
         name: "slop".into(),
         pos: ae::Vec2::ZERO,
@@ -638,6 +642,8 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
             SummonedMinionParams {
                 // A fixture keeps the character's authored vitals.
                 health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
                 feature_id: "slop_add".into(),
                 name: "slop".into(),
                 pos: ae::Vec2::ZERO,
@@ -752,6 +758,8 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
         ridden_by_summoner: None,
                     // The sentinel's minions keep the vitals their character authors.
                     health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
     }
 }
 
@@ -1021,6 +1029,8 @@ fn every_parameter_variant_constructs_its_root() {
             SummonedMinionParams {
                 // A fixture keeps the character's authored vitals.
                 health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
                 feature_id: "slop".into(),
                 name: "slop".into(),
                 pos: ae::Vec2::ZERO,
@@ -1228,6 +1238,8 @@ fn every_parameter_variant_matches_its_descriptor() {
         SummonedMinionParams {
             // A fixture keeps the character's authored vitals.
             health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
             feature_id: "slop".into(),
             name: "slop".into(),
             pos: ae::Vec2::ZERO,
@@ -1879,6 +1891,8 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
         SummonedMinionParams {
             // A fixture keeps the character's authored vitals.
             health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
             feature_id: id.to_string(),
             name: id.to_string(),
             pos: ae::Vec2::ZERO,

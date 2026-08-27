@@ -653,6 +653,62 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
 /// `AMBITION_START_CHARACTER`, so an explicit caller wins over the environment,
 /// and after `AmbitionShellHosted`, so nothing here can be undone by the builder.
 #[cfg(not(target_arch = "wasm32"))]
+/// The log filter this game runs with, and where a person changes it.
+///
+/// ⭐⭐ THE DEFAULT NAMES THE GAME'S OWN CHANNELS. Bevy's default filter is about
+/// Bevy — it quiets `wgpu` and `naga` and says nothing about us — so the
+/// engine's own diagnostic targets were on only for whoever knew to export
+/// `RUST_LOG`. Jon, after a bug that took a play session to pin down: *"Can we
+/// also make those mount and moves info logs enabled by default? … or maybe a
+/// config file somewhere where it is very easy to set what you want the defaults
+/// of the logging to be."* A log nobody can see by default is not a diagnostic.
+///
+/// ⭐ THREE PLACES, MOST SPECIFIC WINS:
+///
+/// 1. `RUST_LOG` — the one-off, unchanged from what everybody already expects.
+/// 2. `log_filter.txt` at the repo/working root — the durable per-machine
+///    answer, one line, no format to learn.
+/// 3. [`DEFAULT_LOG_FILTER`] — what ships.
+///
+/// ⛔ A MISSING FILE IS NOT AN ERROR, and neither is an unreadable one: logging
+/// configuration must never be a reason the game does not start.
+const DEFAULT_LOG_FILTER: &str = concat!(
+    "info,wgpu=error,naga=warn,",
+    // The game's own channels, on by default because they exist to be read.
+    "ambition::mount=info,ambition::moves=info",
+);
+
+/// Where a person writes their own filter. One line, `EnvFilter` syntax.
+const LOG_FILTER_FILE: &str = "log_filter.txt";
+
+fn resolved_log_filter() -> String {
+    if let Ok(from_env) = std::env::var("RUST_LOG") {
+        if !from_env.trim().is_empty() {
+            return from_env;
+        }
+    }
+    if let Ok(text) = std::fs::read_to_string(LOG_FILTER_FILE) {
+        // Comments and blank lines, so the file can explain itself.
+        let filter: Vec<&str> = text
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect();
+        if !filter.is_empty() {
+            return filter.join(",");
+        }
+    }
+    DEFAULT_LOG_FILTER.to_string()
+}
+
+/// The log plugin this game's compositions install. See [`DEFAULT_LOG_FILTER`].
+fn ambition_log_plugin() -> bevy::log::LogPlugin {
+    bevy::log::LogPlugin {
+        filter: resolved_log_filter(),
+        ..bevy::log::LogPlugin::default()
+    }
+}
+
 pub fn build_visible_app_with(
     render: VisibleRenderMode,
     shell_hosted: bool,
@@ -705,7 +761,7 @@ pub fn build_visible_app_with(
     // asset root ever containing a world. Must register before
     // DefaultPlugins builds AssetPlugin.
     app.register_asset_source("game", game_asset_source_builder());
-    let plugins = DefaultPlugins.set(bevy::asset::AssetPlugin {
+    let plugins = DefaultPlugins.set(ambition_log_plugin()).set(bevy::asset::AssetPlugin {
         // See `desktop_asset_root`: post-bisection the binary's
         // crate has no assets/ tree; the canonical one lives with
         // the machinery lib.
@@ -902,6 +958,7 @@ pub fn run_web() {
     );
     app.add_plugins(
         DefaultPlugins
+            .set(ambition_log_plugin())
             .set(bevy::asset::AssetPlugin {
                 // NEVER PROBE FOR `.meta`, AND THIS IS NOT LOG HYGIENE.
                 //

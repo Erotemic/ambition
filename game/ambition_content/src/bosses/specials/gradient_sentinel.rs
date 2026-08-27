@@ -597,6 +597,8 @@ pub fn spawn_minima_trap_from_special_messages(
                     ridden_by_summoner: None,
                     // The sentinel's minions keep the vitals their character authors.
                     health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
                 }),
             });
         }
@@ -868,6 +870,8 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     ridden_by_summoner: None,
                     // The sentinel's minions keep the vitals their character authors.
                     health: None,
+                    // A boss minion keeps its character's hazard.
+                    keeps_contact_damage: true,
                 }),
             });
         }

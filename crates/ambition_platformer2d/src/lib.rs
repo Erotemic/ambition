@@ -330,9 +330,9 @@ pub mod actor {
     pub use ambition_entity_catalog::placements::BossBrain;
 
     /// What a game spawns and configures.
-    pub use ambition_platformer2d_actor_monolith::features::{
-        ActorConfig, ActorFaction, SpawnActorKind, SpawnActorRequest,
-    };
+    pub use ambition_combat::actor_tuning::ActorConfig;
+    pub use ambition_combat::components::ActorFaction;
+    pub use ambition_platformer2d_actor_monolith::features::{SpawnActorKind, SpawnActorRequest};
     /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
     /// movement kernel's own type; the monolith re-exported it twice
     /// (`features` → `features::ecs::actors::motion` → `_core`), so 125 call

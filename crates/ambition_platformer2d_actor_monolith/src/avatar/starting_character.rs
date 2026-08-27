@@ -588,7 +588,7 @@ pub fn apply_worn_character_gameplay(
         // WITH the identity kit rather than beside it, because a second baseline
         // updated separately is a second baseline that can be stale.
         Option<&mut ambition_combat::components::CombatKit>,
-        Ref<crate::actor::BodyAbilities>,
+        Ref<ambition_platformer2d_core::BodyAbilities>,
         // The one transition seam (`switch_motion_model`): a cross-model
         // re-wear initializes destination-private state inside the new
         // variant value; no cluster is touched (ADR 0024).
@@ -893,7 +893,7 @@ pub fn gate_worn_player_control(
             // control-prompt read-model derives its labels from. The gate resolves
             // them through the shared `derive_action_scheme` so what a slot GATES
             // here and what the prompt SHOWS are one derivation (no UI drift).
-            &crate::actor::BodyAbilities,
+            &ambition_platformer2d_core::BodyAbilities,
             Option<&ActorMoveset>,
             Option<&ambition_characters::action_scheme::ActorTechniques>,
             &mut ambition_characters::control::ActorControl,
@@ -909,7 +909,7 @@ pub fn gate_worn_player_control(
             // by IDENTITY, not by racing the item systems in schedule order.
             Has<ambition_combat::held_items::HeldItem>,
         ),
-        With<crate::actor::PlayerEntity>,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};

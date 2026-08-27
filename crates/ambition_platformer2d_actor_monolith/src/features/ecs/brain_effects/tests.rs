@@ -1,8 +1,8 @@
 use super::*;
 use crate::enemy_projectile::test_support::live_projectile_bodies;
 use crate::features::ecs::actor_clusters::ActorClusterSeed;
-use ambition_projectiles::ProjectileSeqCounter;
 use ambition_characters::brain::{ActionSet, RangedActionSpec, RangedCommitment};
+use ambition_projectiles::ProjectileSeqCounter;
 
 /// Build a rider-shaped hostile actor: standalone PirateRaider
 /// archetype on the runtime side, but the caller is expected to
@@ -12,14 +12,24 @@ use ambition_characters::brain::{ActionSet, RangedActionSpec, RangedCommitment};
 use super::super::actor_clusters::ActorClusterBundle;
 
 /// Spawnable (disposition + clusters) bundle for an enemy test fixture.
-fn enemy_actor(enemy: ActorClusterSeed) -> (crate::features::ActorDisposition, ActorClusterBundle) {
+fn enemy_actor(
+    enemy: ActorClusterSeed,
+) -> (
+    ambition_combat::components::ActorDisposition,
+    ActorClusterBundle,
+) {
     (
-        crate::features::ActorDisposition::Hostile,
+        ambition_combat::components::ActorDisposition::Hostile,
         enemy.into_components(),
     )
 }
 
-fn pirate_rider_actor(pos: ae::Vec2) -> (crate::features::ActorDisposition, ActorClusterBundle) {
+fn pirate_rider_actor(
+    pos: ae::Vec2,
+) -> (
+    ambition_combat::components::ActorDisposition,
+    ActorClusterBundle,
+) {
     let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
     let enemy = ActorClusterSeed::new(
         "rider_a",

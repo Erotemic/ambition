@@ -303,7 +303,7 @@ pub struct HitVolume {
     ///
     /// ⛔ IT WAS AN `f32` AND ZERO MEANT BOTH THINGS. This field's own doc said
     /// `0.0` was flat knockback while
-    /// `ambition_combat::hitbox::resolved_hitbox_knockback_magnitude` read `0.0`
+    /// `ambition_platformer2d::combat::hitbox::resolved_hitbox_knockback_magnitude` read `0.0`
     /// as "unspecified, use the stage's" and substituted it — so the documented
     /// behaviour was the one you could not get, and the doc had been wrong since
     /// the ruleset fallback landed. One value with two meanings is the shape
@@ -1942,7 +1942,7 @@ impl std::borrow::Borrow<str> for CharacterId {
 /// in the runtime for historical reasons, and that placement was one of the
 /// couplings keeping `CharacterDefinition` out of the character domain: a
 /// definition cannot name the verb its moveset binds without reaching up into
-/// the runtime crate. Re-exported from `ambition_combat::moveset`, so every
+/// the runtime crate. Re-exported from `ambition_platformer2d::combat::moveset`, so every
 /// existing path still resolves.
 pub const ATTACK_VERB: &str = "attack";
 /// Strong directional attacks use the same authored verb machinery under the

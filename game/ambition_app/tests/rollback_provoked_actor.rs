@@ -190,7 +190,7 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
 #[test]
 fn possession_survives_the_real_rollback_window() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::features::FeatureId;
+    use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
     // copied from `possession_end_to_end`'s helper rather than reinvented:
@@ -213,8 +213,8 @@ fn possession_survives_the_real_rollback_window() {
     let player = {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::actors::actor::BodyKinematics,
-            ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
         >();
         q.single(world).expect("primary player").pos
     };

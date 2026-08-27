@@ -6,15 +6,15 @@
 //! live brain is displaced by mount control; possession redirects a seat without
 //! displacing brain policy. Provocation remains a separate disposition authority.
 
-use ambition_combat::CombatCapabilities;
-use ambition_combat::actor_tuning::ActorConfig;
-use crate::features::{ActorAggression, ActorDisposition, CombatKit};
 use ambition_characters::actor::character_catalog::{
     qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
     CharacterCatalog,
 };
 use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::{ActionSet, Brain};
+use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::components::{ActorAggression, ActorDisposition, CombatKit};
+use ambition_combat::CombatCapabilities;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};

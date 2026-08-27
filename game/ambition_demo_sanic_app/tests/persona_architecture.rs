@@ -15,14 +15,14 @@ use ambition_platformer2d::characters::actor::WornCharacter;
 fn worn_of_primary(app: &mut App) -> Option<WornCharacter> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&WornCharacter, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<&WornCharacter, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(app.world()).next().cloned()
 }
 
 fn primary_name(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&Name, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<&Name, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(app.world()).next().map(|n| n.as_str().to_string())
 }
 
@@ -105,11 +105,13 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
     let has_momentum = {
         let mut q = app.world_mut().query_filtered::<
             &ambition_platformer2d::actor::MotionModel,
-            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         matches!(
             q.iter(app.world()).next(),
-            Some(ambition_platformer2d::actor::MotionModel::SurfaceMomentum(_))
+            Some(ambition_platformer2d::actor::MotionModel::SurfaceMomentum(
+                _
+            ))
         )
     };
     assert!(
@@ -143,7 +145,7 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// and the `ActionSet` alone, so the slots appeared, the persona gate kept the verbs, and every
 /// press answered.
 ///
-/// the ability is a real gate now (`ambition_characters::action_scheme`), and
+/// the ability is a real gate now (`ambition_platformer2d::characters::action_scheme`), and
 /// what it gates is proved BEHAVIOURALLY next door in
 /// [`the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`] —
 /// a count and an equality can only ever say what the body CARRIES. This one
@@ -151,8 +153,8 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// exact equality with the table he authored.
 #[test]
 fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
-    use ambition_platformer2d::combat::moveset::ActorMoveset;
     use ambition_platformer2d::characters::brain::ActionSet;
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     app.update();
@@ -163,7 +165,7 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
     let (player, action_set, worn_move_ids) = {
         let mut q = app.world_mut().query_filtered::<
             (Entity, &ActionSet, &ActorMoveset),
-            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         let (entity, set, moveset) = q
             .iter(app.world())
@@ -245,7 +247,7 @@ fn the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table() {
     let body = {
         let mut q = app
             .world_mut()
-            .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+            .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.iter(app.world()).next().expect("Sanic is seated")
     };
     assert!(
@@ -392,7 +394,7 @@ fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() 
 #[test]
 fn every_authored_badnik_declares_whether_it_sleeps() {
     use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
-    use ambition_platformer2d::actors::features::ActorConfig;
+    use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     for _ in 0..240 {

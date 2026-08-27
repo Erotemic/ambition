@@ -265,7 +265,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
     let subject = {
         let world = sim.world_mut();
         let mut query = world.query::<(
-            &ambition_platformer2d::actors::features::FeatureId,
+            &ambition_platformer2d::combat::components::FeatureId,
             &ambition_platformer2d::platformer::sim_id::SimId,
         )>();
         query
@@ -336,8 +336,8 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
     let summoned_pos = {
         let world = sim.world_mut();
         let mut query = world.query::<(
-            &ambition_platformer2d::actors::features::FeatureId,
-            &ambition_platformer2d::actors::actor::BodyKinematics,
+            &ambition_platformer2d::combat::components::FeatureId,
+            &ambition_platformer2d::engine_core::BodyKinematics,
         )>();
         query
             .iter(world)
@@ -370,7 +370,7 @@ fn the_recorded_subject_transits_rather_than_whoever_is_controlled() {
 fn primary_pos(sim: &mut Platformer2dSimHarness) -> ambition_platformer2d::engine_core::Vec2 {
     let world = sim.world_mut();
     let mut query = world.query_filtered::<
-        &ambition_platformer2d::actors::actor::BodyKinematics,
+        &ambition_platformer2d::engine_core::BodyKinematics,
         bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >();
     query

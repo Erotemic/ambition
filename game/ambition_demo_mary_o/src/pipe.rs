@@ -24,9 +24,9 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::PlayerEntity;
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::markers::PlayerEntity;
 
 /// Seconds spent sinking into the near pipe, and rising out of the far one. Half
 /// a second each way: slow enough to read as a slide rather than a snap, short

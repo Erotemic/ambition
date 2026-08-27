@@ -1,6 +1,7 @@
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
-use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, Hitbox, HitboxAnchor};
+use crate::features::{FeatureSimEntity, Hitbox, HitboxAnchor};
+use ambition_combat::components::{ActorFaction, CenteredAabb};
 
 fn test_app() -> App {
     let mut app = App::new();
@@ -8,7 +9,11 @@ fn test_app() -> App {
     app.add_message::<ambition_vfx::EffectRequest>();
     app.add_systems(
         Update,
-        (fire_shockwave_system, ambition_combat::strike::apply_effects).chain(),
+        (
+            fire_shockwave_system,
+            ambition_combat::strike::apply_effects,
+        )
+            .chain(),
     );
     app
 }

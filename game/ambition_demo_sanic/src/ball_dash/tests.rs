@@ -196,7 +196,7 @@ fn body_app() -> (App, Entity) {
             kin,
             BallDash::default(),
             BallDashInput::default(),
-            ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
+            ambition_platformer2d::characters::actor::BodyAnimFacts::default(),
             ambition_platformer2d::world::ResolvedMotionFrame::default(),
         ))
         .id();
@@ -245,7 +245,7 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
         .spawn((
             ActorControl::default(),
             motion,
-            ambition_platformer2d::actors::actor::BodyGroundState {
+            ambition_platformer2d::engine_core::BodyGroundState {
                 head_contact: false,
                 on_ground: true,
                 ..Default::default()
@@ -408,7 +408,7 @@ fn charging_reuses_the_shared_dash_startup_animation_fact() {
 
     let anim = app
         .world()
-        .get::<ambition_platformer2d::actors::actor::BodyAnimFacts>(e)
+        .get::<ambition_platformer2d::characters::actor::BodyAnimFacts>(e)
         .expect("the body carries the shared presentation facts");
     assert!(
         anim.dash_startup_timer > 0.0,

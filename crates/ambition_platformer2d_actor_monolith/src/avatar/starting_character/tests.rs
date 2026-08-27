@@ -157,8 +157,8 @@ fn non_default_id_is_not_default() {
 /// and movement identity re-derived by `apply_worn_character_gameplay`.
 #[test]
 fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     // Pin the installed default so the protagonist branch is deterministic.
@@ -230,8 +230,8 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
 
 #[test]
 fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -299,8 +299,8 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
 /// `Changed` edges, not by the system running unconditionally every frame.
 #[test]
 fn derive_system_only_fires_on_identity_or_ability_change() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -370,7 +370,9 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
             ambition_characters::brain::ActionSet::peaceful(),
             ambition_combat::moveset::ActorMoveset(Default::default()),
             ambition_characters::brain::action_set::IdentityKit::default(),
-            crate::actor::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
+            ambition_platformer2d_core::BodyAbilities::new(
+                ambition_platformer2d_core::AbilitySet::sandbox_all(),
+            ),
             MotionModel::default(),
             ambition_characters::actor::RecharacterizeBody,
         ))
@@ -411,8 +413,8 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
 /// the goblin's kit, leaving no stale pirate pistol behind.
 #[test]
 fn worn_kit_fully_follows_a_known_character_rewear() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{action_set::RangedStyle, ActionSet, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -488,8 +490,8 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
 
 #[test]
 fn runtime_rewear_rebuilds_from_the_destination_character() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{ActionSet, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -579,8 +581,8 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
 /// the prior character's kit or name.
 #[test]
 fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -641,8 +643,8 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
 /// missed.
 #[test]
 fn host_code_kit_refreshes_when_body_abilities_change() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -682,7 +684,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
     {
         let mut abilities = app
             .world_mut()
-            .get_mut::<crate::actor::BodyAbilities>(entity)
+            .get_mut::<ambition_platformer2d_core::BodyAbilities>(entity)
             .unwrap();
         abilities.abilities.attack = false;
         abilities.abilities.pogo = false;
@@ -747,14 +749,16 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     let entity = app
         .world_mut()
         .spawn((
-            crate::actor::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             WornCharacter::new("sanic"),
             MotionModel::default(),
             // The gate resolves the body's live authorities through the shared
             // scheme; a peaceful `ActionSet` (no melee/ranged/special) + no
             // moveset yields no combat slots, so the gate strips every combat
             // verb below. `BodyAbilities` supplies the movement slots.
-            crate::actor::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
+            ambition_platformer2d_core::BodyAbilities::new(
+                ambition_platformer2d_core::AbilitySet::sandbox_all(),
+            ),
             ActionSet::peaceful(),
             ActorControl(frame),
         ))
@@ -846,10 +850,10 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     let spawn = |app: &mut App, id: &str| {
         app.world_mut()
             .spawn((
-                crate::actor::PlayerEntity,
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 WornCharacter::new(id),
                 MotionModel::default(),
-                crate::actor::BodyAbilities::new(
+                ambition_platformer2d_core::BodyAbilities::new(
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
                 ),
                 ActionSet {
@@ -919,9 +923,11 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     let body = app
         .world_mut()
         .spawn((
-            crate::actor::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             WornCharacter::new("sanic"),
-            crate::actor::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
+            ambition_platformer2d_core::BodyAbilities::new(
+                ambition_platformer2d_core::AbilitySet::sandbox_all(),
+            ),
             ActionSet::peaceful(),
             ActorTechniques(vec![spin]),
             ResolvedTechniqueEdges::default(),
@@ -1616,9 +1622,9 @@ fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
 /// against a body carrying what a player body carries.
 #[test]
 fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let authored = ActionSet {
@@ -1698,8 +1704,8 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
 /// heal.
 #[test]
 fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -1760,7 +1766,9 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
          construction, so accumulated damage is the body's and survives"
     );
     assert_eq!(
-        app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0),
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::body::Mass>(body)
+            .map(|m| m.0),
         Some(6.5),
         "the authored mass reached a seated fighter and not a worn one, which is \
          the same character weighing two different amounts"
@@ -1871,9 +1879,9 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
 /// character one.
 #[test]
 fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     const BODY_MAX_HEALTH: i32 = 100;
@@ -1944,7 +1952,11 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
             .unwrap()
             .max()
     };
-    let mass = |app: &App| app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0);
+    let mass = |app: &App| {
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::body::Mass>(body)
+            .map(|m| m.0)
+    };
 
     assert_eq!(health_max(&app), DUELIST_MAX_HEALTH);
     assert_eq!(mass(&app), Some(DUELIST_MASS));
@@ -2000,9 +2012,9 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
 /// acquire one permanently from a character that only briefly authored it.
 #[test]
 fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -2046,7 +2058,9 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         .id();
     app.update();
     assert_eq!(
-        app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0),
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::body::Mass>(body)
+            .map(|m| m.0),
         Some(2.0)
     );
 
@@ -2060,7 +2074,9 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
         .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     assert!(
-        app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).is_none(),
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::body::Mass>(body)
+            .is_none(),
         "the body never had a mass of its own, so retraction REMOVES the \
          component rather than inventing an ambient 1.0 — the same distinction \
          `Vitals::mass` documents between authoring 1.0 and saying nothing"
@@ -2072,9 +2088,9 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
 /// state such as `max_health`, including during rollback resimulation.
 #[test]
 fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
@@ -2164,9 +2180,9 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
 /// the BODY, and it does not move when the definition behind the id does.
 #[test]
 fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     const BODY_MAX_HEALTH: i32 = 100;
@@ -2233,7 +2249,11 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             .unwrap()
             .max()
     };
-    let mass = |app: &App| app.world().get::<ambition_platformer2d_shared_tangle::body::Mass>(body).map(|m| m.0);
+    let mass = |app: &App| {
+        app.world()
+            .get::<ambition_platformer2d_shared_tangle::body::Mass>(body)
+            .map(|m| m.0)
+    };
     assert_eq!((health_max(&app), mass(&app)), (60, Some(2.0)));
 
     // The reload: the SAME character, re-prepared with both lines removed.
@@ -2256,8 +2276,8 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
 /// A worn body with NO moveset must still get its persona — and get a moveset.
 #[test]
 fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -2335,8 +2355,8 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
 /// would leave.
 #[test]
 fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
-    use ambition_combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -2379,7 +2399,7 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
     {
         let mut abilities = app
             .world_mut()
-            .get_mut::<crate::actor::BodyAbilities>(e)
+            .get_mut::<ambition_platformer2d_core::BodyAbilities>(e)
             .expect("the movement bundle carries one");
         abilities.abilities.attack = false;
     }
@@ -2434,10 +2454,10 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
     let mut spawn = |abilities, actions| {
         app.world_mut()
             .spawn((
-                crate::actor::PlayerEntity,
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 WornCharacter::new("sanic"),
                 MotionModel::default(),
-                crate::actor::BodyAbilities::new(abilities),
+                ambition_platformer2d_core::BodyAbilities::new(abilities),
                 actions,
                 ActorControl(guarding()),
             ))
@@ -2492,10 +2512,10 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
     let body = app
         .world_mut()
         .spawn((
-            crate::actor::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             WornCharacter::new("sanic"),
             MotionModel::default(),
-            crate::actor::BodyAbilities::new(abilities),
+            ambition_platformer2d_core::BodyAbilities::new(abilities),
             ActionSet::peaceful(),
             ambition_combat::held_items::HeldItem::new(ambition_characters::brain::HeldItemSpec {
                 id: "rock".to_owned(),

@@ -3,10 +3,10 @@
 //! singleton queries / heal routing stay independent and correct.
 
 use super::*;
-use crate::actor::BodyMelee;
-use crate::actor::PrimaryPlayerOnly;
-use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
+use ambition_combat::BodyMelee;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
+use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 
 fn dummy_attack_spec() -> ambition_combat::AttackSpec {
     // Construct via the live `attack_spec` builder; a minimal Player

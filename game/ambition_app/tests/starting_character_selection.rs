@@ -20,8 +20,9 @@
 use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::engine_core::BodyKinematics;
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::World;
 
 const SELECTED: &str = "sanic";

@@ -253,19 +253,11 @@ impl CommandCatalog {
 /// what makes the no-central-enum claim testable: a crate that can call this can
 /// publish a command, and it never names another domain to do so.
 pub trait PublishCommand {
-    fn publish_command(
-        &mut self,
-        descriptor: CommandDescriptor,
-        run: CommandRunner,
-    ) -> &mut Self;
+    fn publish_command(&mut self, descriptor: CommandDescriptor, run: CommandRunner) -> &mut Self;
 }
 
 impl PublishCommand for App {
-    fn publish_command(
-        &mut self,
-        descriptor: CommandDescriptor,
-        run: CommandRunner,
-    ) -> &mut Self {
+    fn publish_command(&mut self, descriptor: CommandDescriptor, run: CommandRunner) -> &mut Self {
         self.init_resource::<CommandCatalog>();
         self.world_mut()
             .resource_mut::<CommandCatalog>()
@@ -336,8 +328,7 @@ pub fn run_requested_authored_commands(world: &mut World) {
     }
     world.resource_scope::<CommandCatalog, _>(|world, catalog| {
         for request in requests {
-            if let CommandOutcome::Refused(reason) =
-                catalog.run(world, &request.id, &request.args)
+            if let CommandOutcome::Refused(reason) = catalog.run(world, &request.id, &request.args)
             {
                 tracing::warn!(
                     target: "ambition_platformer2d_shared_tangle::authored_logic",
@@ -377,7 +368,10 @@ impl Plugin for AuthoredCommandPlugin {
                     .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
                     .before(Platformer2dSimulationPhaseMonolith::GameplayEffects),
             )
-            .add_systems(sim, run_requested_authored_commands.in_set(AuthoredCommandSet));
+            .add_systems(
+                sim,
+                run_requested_authored_commands.in_set(AuthoredCommandSet),
+            );
     }
 }
 

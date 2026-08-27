@@ -98,12 +98,12 @@ impl Invulnerability {
     /// An authored `WindowTag::Invuln` window on the move this body is playing.
     ///
     /// A reason like every other, which is the whole point: hit eligibility has
-    /// ONE authority (`ambition_combat::util::body_vulnerable`), so a move that
+    /// ONE authority (`ambition_platformer2d::combat::util::body_vulnerable`), so a move that
     /// grants intangibility is answered by every rule that already asks it —
     /// the damage resolver and the presentation read-model — with nothing new
     /// to learn. Presentation policy then decides whether this reason opts into
     /// a shared cue. Republished every tick from the live move by
-    /// `ambition_combat::moveset::project_move_defense_windows`, so it retracts
+    /// `ambition_platformer2d::combat::moveset::project_move_defense_windows`, so it retracts
     /// when the window closes rather than waiting to be cleared.
     pub const MOVE: u32 = 1 << 3;
     /// A ruleset is protecting a body that has just RETURNED — the beat after a

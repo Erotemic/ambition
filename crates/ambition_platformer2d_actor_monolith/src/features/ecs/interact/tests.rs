@@ -1,5 +1,6 @@
 use super::*;
-use crate::features::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity};
+use crate::features::FeatureSimEntity;
+use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, NextState, Update};
@@ -97,7 +98,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
 
 #[test]
 fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
-    use crate::actor::BodyKinematics;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
     let home_pos = ae::Vec2::new(0.0, 0.0);
@@ -458,13 +459,13 @@ fn spawn_switch(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
 fn spawn_driven_body(app: &mut App, pos: ae::Vec2, slot: u8) -> Entity {
     app.world_mut()
         .spawn((
-            crate::actor::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            crate::actor::BodyAnimFacts::default(),
+            ambition_characters::actor::BodyAnimFacts::default(),
             ambition_characters::control::DrivingParticipant(
                 ambition_characters::control::PlayerSlot(slot),
             ),
@@ -512,7 +513,7 @@ fn the_interact_pose_lands_on_the_body_that_acted() {
     );
     assert!(
         app.world()
-            .get::<crate::actor::BodyAnimFacts>(subject)
+            .get::<ambition_characters::actor::BodyAnimFacts>(subject)
             .unwrap()
             .interact_anim_timer
             > 0.0,
@@ -520,7 +521,7 @@ fn the_interact_pose_lands_on_the_body_that_acted() {
     );
     assert_eq!(
         app.world()
-            .get::<crate::actor::BodyAnimFacts>(home)
+            .get::<ambition_characters::actor::BodyAnimFacts>(home)
             .unwrap()
             .interact_anim_timer,
         0.0,

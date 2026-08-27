@@ -3,11 +3,13 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_platformer2d::actors::actor::PrimaryPlayerOnly;
-use ambition_platformer2d::engine_core::MovementOp;
 use ambition_app::app::PlayerBodyFrameOutput;
 use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::{
+    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
+use ambition_platformer2d::engine_core::MovementOp;
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::{Entity, World};
 
 fn primary_player(world: &mut World) -> Entity {

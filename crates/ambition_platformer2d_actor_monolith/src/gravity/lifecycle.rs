@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 
 /// Reset the AMBIENT gravity to the default (down) when the room resets, so a
@@ -51,7 +51,10 @@ pub fn gravity_flip_switch_system(
     // for everyone, so exactly one body may arm it — the local human's own. (If a
     // possessed actor should be able to arm it too, this becomes `ControlledSubject`;
     // that is a design call about the Noether Chamber, not a refactor.)
-    players: Query<&BodyKinematics, crate::actor::PrimaryPlayerOnly>,
+    players: Query<
+        &BodyKinematics,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
     mut switches: Query<&mut GravityFlipSwitch>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
@@ -82,9 +85,9 @@ pub fn gravity_flip_switch_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actor::BodyBaseSize;
-    use crate::actor::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d_core::BodyBaseSize;
     use ambition_platformer2d_shared_tangle::gravity::{BaseGravity, GravityField};
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         app.world_mut()

@@ -93,7 +93,7 @@ pub fn capture_ball_dash_input(
             &ambition_platformer2d::characters::control::ActorControl,
             &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
             &ambition_platformer2d::actor::MotionModel,
-            &ambition_platformer2d::actors::actor::BodyGroundState,
+            &ambition_platformer2d::engine_core::BodyGroundState,
             &mut BallDashInput,
         ),
         With<BallDash>,
@@ -224,15 +224,14 @@ pub fn tick_ball_dash(
         &mut ae::BodyKinematics,
         &mut BallDash,
         Option<&Rolling>,
-        Option<&mut ambition_platformer2d::actors::actor::BodyAnimFacts>,
+        Option<&mut ambition_platformer2d::characters::actor::BodyAnimFacts>,
     )>,
 ) {
     for (entity, input, resolved_frame, mut motion, mut kin, mut state, rolling, mut anim) in
         &mut bodies
     {
         let frame = resolved_frame.basis();
-        let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = &mut *motion
-        else {
+        let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = &mut *motion else {
             // A Sanic on the AABB path is a Sanic in a different demo. Nothing
             // here reaches for `MotionModel::AxisSwept`, on purpose: the verb is
             // defined against the momentum kernel's `v_t`, and faking it with a
@@ -325,8 +324,7 @@ pub fn tick_rolling(
     tuning: Res<BallDashTuning>,
 ) {
     for (entity, motion, mut kin, rolling) in &mut bodies {
-        let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion
-        else {
+        let ambition_platformer2d::actor::MotionModel::SurfaceMomentum(m) = motion else {
             continue;
         };
         // Airborne, speed is the world velocity's magnitude; riding, it is |v_t|.
@@ -386,7 +384,7 @@ pub fn clear_ball_dash_on_restart(
 pub fn mirror_ball_anim_fact(
     mut bodies: Query<(
         Option<&Rolling>,
-        &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+        &mut ambition_platformer2d::characters::actor::BodyAnimFacts,
     )>,
 ) {
     for (rolling, mut anim) in &mut bodies {

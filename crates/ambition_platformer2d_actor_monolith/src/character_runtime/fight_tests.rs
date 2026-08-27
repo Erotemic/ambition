@@ -273,14 +273,14 @@ fn a_missing_opponent_is_named_and_the_present_character_still_fights() {
 // ─────────────────────────────────────────────────────────────────────────────
 // The actual fight.
 
-use ambition_combat::hitbox::apply_hitbox_damage;
-use ambition_combat::moveset::{
-    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, MovePlayback,
-};
 use crate::features::apply_feature_hit_events;
 use ambition_characters::actor::attack_gesture::{AttackGestureTuning, ResolvedAttackGesture};
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::control::ActorControl;
+use ambition_combat::hitbox::apply_hitbox_damage;
+use ambition_combat::moveset::{
+    advance_move_playback, resolve_attack_gestures, trigger_moveset_moves, MovePlayback,
+};
 
 const TICK: f32 = 1.0 / 60.0;
 
@@ -293,7 +293,10 @@ const TICK: f32 = 1.0 / 60.0;
 #[derive(Resource, Default)]
 struct Traded(Vec<ambition_combat::events::HitEvent>);
 
-fn record_trades(mut events: MessageReader<ambition_combat::events::HitEvent>, mut out: ResMut<Traded>) {
+fn record_trades(
+    mut events: MessageReader<ambition_combat::events::HitEvent>,
+    mut out: ResMut<Traded>,
+) {
     out.0.extend(events.read().cloned());
 }
 
@@ -422,7 +425,7 @@ fn spawn_fighter(
         .spawn((
             (
                 ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-                crate::features::FeatureId::new(character_id),
+                ambition_combat::components::FeatureId::new(character_id),
                 ambition_platformer2d_core::CenteredAabb::from_center_size(at, body),
                 seed.into_components(),
                 ambition_platformer2d_core::movement::MotionModel::default(),
@@ -462,7 +465,9 @@ fn fight_app() -> App {
     // Both fighters author explicit rectangles, so no blade is resolved from
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.
-    app.insert_resource(ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled());
+    app.insert_resource(
+        ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::disabled(),
+    );
     app.insert_resource(ambition_combat::events::GameplayBanner::default());
     app.init_resource::<ambition_time::WorldTime>();
     {

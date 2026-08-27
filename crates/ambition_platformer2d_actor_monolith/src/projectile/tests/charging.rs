@@ -102,8 +102,8 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
 #[test]
 fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::brain::{ChargesProjectiles};
-use ambition_characters::control::{ActorControl};
+    use ambition_characters::brain::ChargesProjectiles;
+    use ambition_characters::control::ActorControl;
     use ambition_platformer2d_core as ae;
 
     // Home player spawns far to the LEFT; the "possessed" charge body sits far RIGHT.
@@ -119,7 +119,7 @@ use ambition_characters::control::{ActorControl};
         .spawn((
             ChargesProjectiles,
             ambition_projectiles::PlayerProjectileState::default(),
-            crate::actor::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: body_pos,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::new(24.0, 40.0),
@@ -153,7 +153,7 @@ use ambition_characters::control::{ActorControl};
     let world = app.world_mut();
     let mut q = world
         .try_query::<(
-            &crate::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ambition_projectiles::ProjectileOwner,
         )>()
         .unwrap();
@@ -311,7 +311,8 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
                 .unwrap();
             q.iter(world).next().unwrap().0
         };
-        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        let mut frame =
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
         frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
             ambition_platformer2d_core::Vec2::new(1.0, 0.0),
             900.0,

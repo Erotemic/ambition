@@ -27,8 +27,7 @@ use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
-use ambition_platformer2d::world::rooms::RoomSet;
+use ambition_app::app::shell_host;
 use ambition_platformer2d::audio::selection::ActiveAudioSelection;
 use ambition_platformer2d::game_shell::{
     ActiveGameplaySession, ShellCommand, ShellLauncherCommand, ShellRouter,
@@ -37,7 +36,8 @@ use ambition_platformer2d::platformer::lifecycle::{
     session_world_component, session_world_entity, ActiveSessionScope, SessionRoot, SessionScopeId,
     SessionScopedEntity, SessionWorldMut,
 };
-use ambition_app::app::shell_host;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::world::rooms::RoomSet;
 
 fn shell_host_app() -> App {
     let mut app = App::new();
@@ -95,7 +95,9 @@ fn live_room_set(app: &App) -> &RoomSet {
 }
 
 fn sim_tick(app: &App) -> u64 {
-    app.world().resource::<ambition_platformer2d::runtime::SimTick>().0
+    app.world()
+        .resource::<ambition_platformer2d::runtime::SimTick>()
+        .0
 }
 
 fn worn_character(app: &mut App) -> Option<String> {
@@ -473,7 +475,9 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .clone();
     assert_eq!(
         smash_row.route_id,
-        ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        ambition_platformer2d::game_shell::ShellRouteId::new(
+            ambition_demo_smash::SMASH_SELECT_ROUTE
+        ),
         "the Smash row must open the select screen, not the stage"
     );
 
@@ -546,10 +550,9 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     //
     // Not being offered to a player says nothing about whether its session tears down cleanly, and
     // this walk is the only thing that asks.
-    app.world_mut()
-        .write_message(ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new("pocket_gameplay"),
-        ));
+    app.world_mut().write_message(ShellCommand::GoTo(
+        ambition_platformer2d::game_shell::ShellRouteId::new("pocket_gameplay"),
+    ));
     settle(&mut app);
     let scope = assert_in_game(
         &mut app,
@@ -581,15 +584,27 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     );
     fresh(scope, "twintrack");
     {
-        let mut query = app.world_mut().query::<&ambition_platformer2d::relativity2d::ActiveSpacetime2d>();
-        assert_eq!(query.iter(app.world()).count(), 1, "TwinTrack owns one session-scoped spacetime provider");
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::relativity2d::ActiveSpacetime2d>();
+        assert_eq!(
+            query.iter(app.world()).count(),
+            1,
+            "TwinTrack owns one session-scoped spacetime provider"
+        );
     }
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
     assert_home(&mut app, "after twintrack");
     {
-        let mut query = app.world_mut().query::<&ambition_platformer2d::relativity2d::ActiveSpacetime2d>();
-        assert_eq!(query.iter(app.world()).count(), 0, "TwinTrack spacetime leaves with its session");
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::relativity2d::ActiveSpacetime2d>();
+        assert_eq!(
+            query.iter(app.world()).count(),
+            0,
+            "TwinTrack spacetime leaves with its session"
+        );
     }
 
     // ── Ambition ───────────────────────────────────────────────────────
@@ -627,8 +642,12 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     app.world_mut()
         .run_system_once(
             move |mut room_set: SessionWorldMut<RoomSet>,
-                  mut geometry: SessionWorldMut<ambition_platformer2d::engine_core::RoomGeometry>,
-                  mut active_room: SessionWorldMut<ambition_platformer2d::world::rooms::ActiveRoomMetadata>| {
+                  mut geometry: SessionWorldMut<
+                ambition_platformer2d::engine_core::RoomGeometry,
+            >,
+                  mut active_room: SessionWorldMut<
+                ambition_platformer2d::world::rooms::ActiveRoomMetadata,
+            >| {
                 let index = room_set
                     .room_index_by_id(&alternate_room_for_edit)
                     .expect("alternate authored room exists");

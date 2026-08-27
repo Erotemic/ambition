@@ -16,11 +16,11 @@
 //! Each flagged step prints `(room, seed, tick, pos)` so it reproduces through
 //! `cargo run -p ambition_app_tools --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
-use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
-use ambition_app::{RandomWalkPolicy, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+use ambition_app::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, RandomWalkPolicy};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::RoomGeometry;
 
 // --- the oracle ---
 
@@ -150,9 +150,9 @@ struct SolidBlock {
 /// `BlinkWall` joins `Solid`, per the invariant's own wording. One-ways never do:
 /// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
 fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
-    let Some(room) =
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
-    else {
+    let Some(room) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        RoomGeometry,
+    >(sim.world()) else {
         return Vec::new();
     };
     let carves: Vec<ae::Aabb> = sim
@@ -160,7 +160,8 @@ fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
         .get_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>()
         .map(|o| o.portal_carves.clone())
         .unwrap_or_default();
-    let composed = ambition_platformer2d::world::collision::world_with_portal_carves(&room.0, &carves);
+    let composed =
+        ambition_platformer2d::world::collision::world_with_portal_carves(&room.0, &carves);
     composed
         .blocks
         .iter()
@@ -181,9 +182,9 @@ fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 /// from the AUTHORED geometry: a portal never carves a one-way (only solid host
 /// kinds are carved for a body's benefit, and a one-way is not a host).
 fn one_ways(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
-    let Some(room) =
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
-    else {
+    let Some(room) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        RoomGeometry,
+    >(sim.world()) else {
         return Vec::new();
     };
     room.0
@@ -203,9 +204,9 @@ fn one_ways(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 /// reads as "not in a solid" there. Against the authored wall it reads as what
 /// it is.
 fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
-    let Some(room) =
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomGeometry>(sim.world())
-    else {
+    let Some(room) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        RoomGeometry,
+    >(sim.world()) else {
         return Vec::new();
     };
     room.0
@@ -225,11 +226,14 @@ fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
 }
 
 /// The player's entity, so the Class-B ledger can be read per body.
-fn player_entity(sim: &mut Platformer2dSimHarness) -> Option<ambition_platformer2d::bevy::prelude::Entity> {
+fn player_entity(
+    sim: &mut Platformer2dSimHarness,
+) -> Option<ambition_platformer2d::bevy::prelude::Entity> {
     use ambition_platformer2d::bevy::prelude::{Entity, With};
     let mut q = sim
         .world_mut()
-        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>(
+        );
     let world = sim.world();
     q.iter(world).next()
 }
@@ -248,7 +252,7 @@ fn straddled_carve(sim: &mut Platformer2dSimHarness) -> Option<ae::Aabb> {
     let channel = {
         let mut q = sim
             .world_mut()
-            .query_filtered::<&PortalTransit, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+            .query_filtered::<&PortalTransit, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         let world = sim.world();
         q.iter(world).next().map(|t| t.straddling)?
     };
@@ -258,7 +262,9 @@ fn straddled_carve(sim: &mut Platformer2dSimHarness) -> Option<ae::Aabb> {
         q.iter(world).cloned().collect()
     };
     let enter = find_portal(&portals, channel)?;
-    Some(ambition_platformer2d::portal::pieces::carve_hole(&enter.aperture()))
+    Some(ambition_platformer2d::portal::pieces::carve_hole(
+        &enter.aperture(),
+    ))
 }
 
 #[cfg(not(feature = "portal"))]
@@ -291,8 +297,8 @@ fn class_b_remaps(
 fn player_body(sim: &mut Platformer2dSimHarness) -> Option<(ae::Vec2, ae::Vec2, ae::Vec2)> {
     use ambition_platformer2d::bevy::prelude::With;
     let mut q = sim.world_mut().query_filtered::<
-        &ambition_platformer2d::actors::actor::BodyKinematics,
-        With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >();
     let world = sim.world();
     q.iter(world).next().map(|k| (k.pos, k.vel, k.size * 0.5))
@@ -329,7 +335,10 @@ fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
     let Ok(project) = load_project_for_test() else {
         return map;
     };
-    let Ok(room_set) = project.to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary()) else {
+    let Ok(room_set) = project.to_room_set(
+        &ambition_content::worlds::world_manifest(),
+        &ambition_app::composed_ldtk_vocabulary(),
+    ) else {
         return map;
     };
     for room in &room_set.rooms {

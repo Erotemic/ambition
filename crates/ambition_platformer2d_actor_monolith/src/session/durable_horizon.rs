@@ -39,7 +39,7 @@ pub struct SaveRestored(pub bool);
 pub fn adopt_occurrence_checkpoint_from_save(
     restored: Res<SaveRestored>,
     save: Res<AmbitionGameSave>,
-    bodies: Query<(), crate::actor::PrimaryPlayerOnly>,
+    bodies: Query<(), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
     occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
     custody_baseline: Option<ResMut<CustodyBaseline>>,
@@ -98,7 +98,10 @@ pub fn adopt_occurrence_checkpoint_from_save(
 pub fn complete_durable_restore(
     mut restored: ResMut<SaveRestored>,
     save: Res<AmbitionGameSave>,
-    ready_body: Query<&ambition_characters::actor::BodyWallet, crate::actor::PrimaryPlayerOnly>,
+    ready_body: Query<
+        &ambition_characters::actor::BodyWallet,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
     mut resets: MessageWriter<ResetToCheckpoint>,
 ) {
     if restored.0 || ready_body.single().is_err() {

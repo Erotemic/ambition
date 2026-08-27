@@ -68,7 +68,7 @@ pub fn aabb_path_contacts(center: Vec2, half: Vec2, delta: Vec2, target: Aabb) -
 /// (given the `include_one_way` policy) and its [`Aabb`]. This trait captures
 /// exactly that — the world decides which blocks count as solid; the raycast
 /// just consumes their AABBs. (Moved down from
-/// `ambition_platformer2d_shared_tangle::world_query`, CC1 ruling §3.4(b); the
+/// `ambition_platformer2d::platformer::world_query`, CC1 ruling §3.4(b); the
 /// canonical `impl` for [`World`] lives right below, beside the type.)
 pub trait SolidWorldQuery {
     /// Invoke `visit` once for each solid AABB the ray should test.

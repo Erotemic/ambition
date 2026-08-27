@@ -85,7 +85,7 @@ fn resting_place(sim: &mut Platformer2dSimHarness, id: &SimId) -> (f32, f32) {
 fn body(sim: &mut Platformer2dSimHarness) -> Entity {
     let mut query = sim
         .world_mut()
-        .query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        .query_filtered::<Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
     query
         .iter(sim.world())
         .next()
@@ -238,7 +238,6 @@ fn boot_with(room: &str, file: &AmbitionGameSaveData) -> Platformer2dSimHarness 
     sim
 }
 
-
 /// A save taken while possessing an enemy must not persist transient body custody.
 /// On a fresh boot nobody is possessing it, so its authored room must recreate exactly one body.
 #[test]
@@ -309,7 +308,6 @@ fn live_bodies_named(sim: &mut Platformer2dSimHarness, id: &SimId) -> usize {
     let mut query = sim.world_mut().query::<&SimId>();
     query.iter(sim.world()).filter(|found| *found == id).count()
 }
-
 
 /// An authored object moved to another room must reload there exactly once, while
 /// the source room remains suppressed. A default-file control proves the source still authors it.
@@ -473,7 +471,6 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
         "and it leaves the weapon on its pedestal"
     );
 }
-
 
 /// A `Consumed` occurrence must stay absent after load, while an unrelated authored
 /// occurrence remains on its pedestal. The file is constructed directly because no live

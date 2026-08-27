@@ -3,6 +3,9 @@
 
 use super::super::*;
 use super::*;
+use ambition_combat::components::{
+    ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
+};
 use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
@@ -86,7 +89,7 @@ pub(crate) fn observe_actor_decision_inputs(
             bevy::prelude::Entity,
             &ambition_characters::actor::BodyHealth,
         ),
-        bevy::prelude::With<crate::actor::PlayerEntity>,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     actors: Query<
         (
@@ -105,7 +108,7 @@ pub(crate) fn observe_actor_decision_inputs(
             With<ActorIdentity>,
             With<BodyCombat>,
             With<ambition_platformer2d_core::movement::MotionModel>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
             Without<crate::features::ecs::dormancy::Dormant>,
         ),
@@ -154,7 +157,7 @@ pub(crate) fn maintain_actor_pre_decision_state(
             With<ActorDisposition>,
             With<ambition_combat::components::ActorTarget>,
             With<ambition_platformer2d_core::movement::MotionModel>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
             Without<crate::features::ecs::dormancy::Dormant>,
         ),
@@ -351,7 +354,7 @@ pub fn tick_actor_brains(
             With<ActorIdentity>,
             With<ActorDisposition>,
             With<BodyCombat>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
             // A DORMANT ACTOR DOES NOT DECIDE. Only the brain sleeps: the
             // body still integrates, so a dormant actor mid-fall keeps falling
@@ -669,7 +672,7 @@ pub(crate) fn integrate_actor_body(
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
     mut control: Option<&mut ambition_characters::control::ActorControl>,
-    mut anim: Option<&mut crate::actor::BodyAnimFacts>,
+    mut anim: Option<&mut ambition_characters::actor::BodyAnimFacts>,
     // The body's coarse footprint size: `Some` (a boss's composite render
     // envelope, from `BodyEnvelope`) publishes the `CenteredAabb` at that size;
     // `None` (every ordinary actor) publishes it at `em.kin.size` — the
@@ -1024,7 +1027,7 @@ pub fn integrate_sim_bodies(
             &mut BodyCombat,
             &ambition_combat::components::ActorTarget,
             Option<&mut ambition_characters::control::ActorControl>,
-            Option<&mut crate::actor::BodyAnimFacts>,
+            Option<&mut ambition_characters::actor::BodyAnimFacts>,
             // ⛔⛔ THE SADDLE, NOT THE RIDER'S MARKER. This row used to read
             // `Option<&Mounted>`, and `Mounted` is stamped on the RIDER — see
             // `mount::board`, which puts `RidingOn`/`Mounted` on the rider and
@@ -1075,7 +1078,7 @@ pub fn integrate_sim_bodies(
         ),
         (
             With<FeatureSimEntity>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             // POLICY (§A1/R1.1): a boss integrates through the SAME
             // `integrate_actor_body` (R1.1 dissolved its bespoke integrator), but is
             // driven from its OWN chain-1 `integrate_boss_bodies` — deliberately kept in
@@ -1132,7 +1135,7 @@ pub fn integrate_sim_bodies(
             // see the guard inside `integrate_home_body`.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
-        With<crate::actor::PlayerEntity>,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
@@ -1303,7 +1306,7 @@ pub fn sync_actor_read_model(
         ),
         (
             With<FeatureSimEntity>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             // POLICY (§A1): a boss mirrors its read-model through its OWN chain-1
             // `sync_boss_actor_components` (which ALSO carries boss-specific encounter
             // fields — phase, timers), so it is excluded here to avoid a double sync.
@@ -1378,7 +1381,10 @@ pub fn apply_actor_contact_damage(
             // Bosses are contact attackers through THIS shared system now (fable
             // AD2): their `body_contact_damage` tuning is driven from
             // `behavior.body_damage` at spawn, so no `Without<BossConfig>` carve-out.
-            (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
+            (
+                With<FeatureSimEntity>,
+                Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            ),
         >,
         // Victims: any body with a published footprint — a player, an NPC a
         // provoked enemy tracks, a duel opponent. The ONE vulnerability rule
@@ -1387,7 +1393,7 @@ pub fn apply_actor_contact_damage(
             &CenteredAabb,
             &ambition_characters::actor::BodyHealth,
             &ambition_platformer2d_core::BodyMotionFacts,
-            &crate::actor::BodyShieldState,
+            &ambition_platformer2d_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
         )>,
     )>,

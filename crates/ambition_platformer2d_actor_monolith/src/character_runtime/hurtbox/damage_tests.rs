@@ -149,7 +149,7 @@ fn spawn_authored_body(app: &mut App, player: bool) -> Entity {
         ambition_characters::actor::BodyCombat::default(),
     ));
     if player {
-        body.insert(crate::actor::PlayerEntity);
+        body.insert(ambition_platformer2d_shared_tangle::markers::PlayerEntity);
     }
     body.id()
 }
@@ -279,7 +279,7 @@ fn an_authored_empty_window_is_invulnerable_not_a_fallback_to_the_box() {
             ae::BodyMotionFacts::default(),
             ae::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
-            crate::actor::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
         ))
         .id();
     // Dead centre of the body: the coarse box would certainly be hit.

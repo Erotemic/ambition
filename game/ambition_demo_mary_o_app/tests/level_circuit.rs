@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use ambition_demo_mary_o::flag::{FlagPhase, FlagSequence};
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Liveness cap only; transition timing is not part of the assertion.

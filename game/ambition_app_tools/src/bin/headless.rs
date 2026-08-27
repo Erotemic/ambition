@@ -20,9 +20,13 @@
 
 use std::path::PathBuf;
 
-use ambition_platformer2d::actors::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
+use ambition_app::rl_sim::{
+    AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
+use ambition_platformer2d::actors::trace::{
+    self, record_simulation_frame, DumpReason, GameplayTraceBuffer,
+};
 use ambition_platformer2d::input::ControlFrame;
-use ambition_app::rl_sim::{AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.
@@ -53,7 +57,8 @@ fn parse_named_value(args: &[String], name: &str) -> Option<String> {
 }
 
 fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<String>) -> i32 {
-    let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+    let mut options =
+        Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
     if let Some(room) = start_room {
         options = options.with_required_start_room(room);
     }
@@ -72,10 +77,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // Idle inputs only -- the trace captures the deterministic gameplay
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
-    use ambition_platformer2d::platformer::safe_position::PlayerSafetyState;
-    use ambition_platformer2d::world::rooms::RoomSet;
     use ambition_platformer2d::engine_core::RoomGeometry;
+    use ambition_platformer2d::platformer::safe_position::PlayerSafetyState;
     use ambition_platformer2d::platformer::schedule::GameMode as GameModeState;
+    use ambition_platformer2d::world::rooms::RoomSet;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {
@@ -90,9 +95,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let world_ref = sim.world();
             let clock = *world_ref.resource::<ambition_platformer2d::time::ClockState>();
             let control_frame = *world_ref.resource::<ControlFrame>();
-            let room_set =
-                ambition_platformer2d::platformer::lifecycle::session_world_component::<RoomSet>(world_ref)
-                    .expect("active session RoomSet");
+            let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+                RoomSet,
+            >(world_ref)
+            .expect("active session RoomSet");
             let game_mode = world_ref.resource::<State<GameModeState>>();
             let moving_platforms =
                 world_ref.resource::<ambition_platformer2d::world::collision::MovingPlatformSet>();
@@ -114,7 +120,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let safety = {
             let mut safety_q = sim
                 .world_mut()
-                .query_filtered::<&PlayerSafetyState, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+                .query_filtered::<&PlayerSafetyState, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
             safety_q.single(sim.world()).copied().unwrap_or_default()
         };
 
@@ -124,7 +130,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let combat = {
             let mut combat_q = sim
                 .world_mut()
-                .query_filtered::<&ambition_platformer2d::characters::actor::BodyCombat, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+                .query_filtered::<&ambition_platformer2d::characters::actor::BodyCombat, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
@@ -132,7 +138,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let melee = {
             let mut melee_q = sim
                 .world_mut()
-                .query_filtered::<&ambition_platformer2d::actors::actor::BodyMelee, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+                .query_filtered::<&ambition_platformer2d::combat::BodyMelee, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
             melee_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
@@ -140,11 +146,12 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // locomotion label reads the model; the trace flags read facts. Both
         // copied out before the mutable cluster borrow below.
         let (motion_model, motion_facts) = {
-            let mut model_q = sim.world_mut().query_filtered::<(
-                &ambition_platformer2d::engine_core::MotionModel,
-                &ambition_platformer2d::engine_core::BodyMotionFacts,
-            ), ambition_platformer2d::actors::actor::PrimaryPlayerOnly>(
-            );
+            let mut model_q =
+                sim.world_mut().query_filtered::<(
+                    &ambition_platformer2d::engine_core::MotionModel,
+                    &ambition_platformer2d::engine_core::BodyMotionFacts,
+                ), ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>(
+                );
             let Ok((model, facts)) = model_q.single(sim.world()) else {
                 continue;
             };
@@ -156,7 +163,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // recorder can read them through a `BodyClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
-            .query_filtered::<ambition_platformer2d::engine_core::BodyClusterQueryData, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_platformer2d::engine_core::BodyClusterQueryData, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
         let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
             continue;
         };
@@ -167,7 +174,8 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             clusters.wall,
             clusters.flight,
         );
-        let body_mode_state = ambition_platformer2d::engine_core::BodyMode::from_clusters(clusters.body_mode);
+        let body_mode_state =
+            ambition_platformer2d::engine_core::BodyMode::from_clusters(clusters.body_mode);
         record_simulation_frame(
             &mut buffer,
             &clusters,

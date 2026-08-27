@@ -434,7 +434,7 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
     spec
 }
 
-/// why this is not on [`CapturedBy`](ambition_combat::capture::CapturedBy) any more. That
+/// why this is not on [`CapturedBy`](ambition_platformer2d::combat::capture::CapturedBy) any more. That
 /// component is the RELATION: who holds whom, where, and what physical state release must give
 /// back. Every field of it is answerable without knowing what genre is being played.
 ///

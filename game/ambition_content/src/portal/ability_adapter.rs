@@ -8,7 +8,7 @@
 //! - [`suppress_ledge_grab_during_transit`] — while a body carries the
 //!   portal-owned [`PortalTransit`] latch, suppress the player's wall abilities
 //!   (ledge-grab / cling / wall-jump / wall-climb) so they don't grab the carved
-//!   aperture edges. Touches `ambition_platformer2d_actor_monolith::actor::BodyAbilities`, so it is Ambition
+//!   aperture edges. Touches `ambition_platformer2d_core::BodyAbilities`, so it is Ambition
 //!   glue, not crate core.
 //! - [`warp_portal_input`] — apply the portal-owned [`PortalInputWarp`] /
 //!   [`PortalEmission`] guards (both inserted by
@@ -52,10 +52,7 @@ impl Default for SuppressWallAbilitiesInPortal {
 /// needs the same guard. Gated on [`PortalTuning::suppress_wall_abilities`].
 pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
-    mut bodies: Query<
-        &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities,
-        With<PortalTransit>,
-    >,
+    mut bodies: Query<&mut ambition_platformer2d_core::BodyAbilities, With<PortalTransit>>,
 ) {
     if !tuning.suppress_wall_abilities {
         return;
@@ -87,7 +84,7 @@ pub fn restore_wall_abilities_after_transit(
     tuning: Res<PortalTuning>,
     mut removed: RemovedComponents<PortalTransit>,
     mut bodies: Query<(
-        &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities,
+        &mut ambition_platformer2d_core::BodyAbilities,
         &ambition_platformer2d_core::AbilityBase,
     )>,
 ) {

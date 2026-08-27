@@ -1,23 +1,28 @@
-//! Neutral vocabulary for simulation state any actor body may carry.
+//! THE ONE THING THIS MODULE ACTUALLY OWNS.
 //!
-//! Shared body state belongs here rather than on participant-specific types.
-//! Camera/HUD/device concerns remain outside body authority; inventory, economy,
-//! capabilities, motion, and combat remain body-owned.
+//! ⛔⛔ IT WAS A FACADE: six `pub use` lines re-exporting `_core`'s body
+//! clusters, `shared_tangle`'s player markers, `ambition_characters`'
+//! `BodyAnimFacts` and `ambition_combat`'s `BodyMelee` under the monolith's
+//! address, plus one real bundle. About 230 sites inside this crate named those
+//! types through here, and every coupling census that counted them read the
+//! monolith as their owner. Deleted 2026-08-27 (D33); callers name the crate
+//! that owns the thing.
+//!
+//! ⭐ `platformer_runtime::body` went with it — its own doc carried a
+//! `TODO(compat-remove)` saying exactly this, and nobody had taken it.
 
-pub use crate::platformer_runtime::body::BodyKinematics;
-pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-// Both surface here, on the neutral actor vocabulary, in the S5/S6 fold (R6).
-pub use ambition_characters::actor::BodyAnimFacts;
-pub use ambition_combat::BodyMelee;
-
-/// Shared movement-cluster components that, with [`BodyKinematics`], form the
-/// authoritative movement aggregate consumed by the common movement kernel.
-pub use ambition_platformer2d_core::{
+use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
     BodyWallState,
 };
+
+pub use ambition_platformer2d_core::BodyKinematics;
+// Both surface here, on the neutral actor vocabulary, in the S5/S6 fold (R6).
+
+/// Shared movement-cluster components that, with [`BodyKinematics`], form the
+/// authoritative movement aggregate consumed by the common movement kernel.
 
 /// Ancillary movement components spawned on every body. [`BodyKinematics`] is
 /// separate so rendering, gravity, and targeting can read kinematics without
@@ -122,17 +127,3 @@ impl AncillaryMovementBundle {
         }
     }
 }
-
-/// Query filter for the home avatar — `With<PlayerEntity>` + `With<PrimaryPlayer>`.
-///
-/// Use this ONLY for genuine home-body concerns (respawn, save sync, sandbox
-/// reset, HUD/debug subject). It does NOT identify the currently CONTROLLED body:
-/// during possession the controlled body is a different entity (the one carrying
-/// `DrivingParticipant(PlayerSlot::PRIMARY)`). Systems that act on "whoever the player
-/// is driving" — camera, portal viewer, abilities, melee — read the
-/// `ControlledSubject` resource instead of this filter.
-///
-/// Defined in `ambition_platformer2d_shared_tangle::markers` (a pure composition of the
-/// two foundation markers); re-exported here so existing call sites compile
-/// unchanged and presentation can name the foundation home directly.
-pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;

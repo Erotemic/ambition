@@ -17,10 +17,10 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
-use crate::actor::BodyMana;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::ActorControl;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
@@ -58,13 +58,15 @@ pub fn heal_save_shrine_system(
     // `ControlledSubject`, above) but ALSO writes a CHECKPOINT to the save. The
     // checkpoint is a session fact owned by the local player, not by whatever body
     // slot 0 happens to be driving — hence the second, primary-scoped query.
-    primary: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    primary: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     shrines: Query<&HealShrine>,
     // WHICH room the checkpoint is in. A position with no room is not a
     // checkpoint — it is a pair of numbers that will one day be applied in the
     // wrong place. Optional so narrow fixtures without a room set still heal.
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     // THE INSTANT, which is the half a `PersistedCheckpoint` cannot carry.
@@ -165,14 +167,19 @@ pub fn heal_save_shrine_system(
 pub fn restore_checkpoint_on_session_start(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut bodies: Query<
-        (ae::BodyClusterQueryData, &mut ambition_platformer2d_core::movement::MotionModel),
-        crate::actor::PrimaryPlayerOnly,
+        (
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d_core::movement::MotionModel,
+        ),
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // The body being RESUMED, by stable identity. A transition names the body it moves: the
     // resume is the primary avatar by definition — it is the body the save is about — and
@@ -180,7 +187,7 @@ pub fn restore_checkpoint_on_session_start(
     // be controlled then. Disjoint from `bodies`, which borrows no `SimId`.
     subjects: Query<
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut applied_for: Local<Option<Option<u64>>>,
     mut routed_for: Local<Option<Option<u64>>>,
@@ -302,13 +309,15 @@ pub fn resume_at_checkpoint_on_reset(
     >,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     mut pending: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     // Drained unconditionally, so a reset seen while no body exists cannot be

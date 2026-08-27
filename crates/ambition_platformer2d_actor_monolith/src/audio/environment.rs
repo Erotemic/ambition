@@ -30,7 +30,7 @@ pub enum AudioEnvironmentMode {
 /// ECS resource describing "what should the world sound like right
 /// now". `target` is set by gameplay (typically
 /// [`detect_audio_environment`] reading the player's
-/// [`crate::actor::BodyEnvironmentContact::water`] cluster field).
+/// [`ambition_platformer2d_core::BodyEnvironmentContact::water`] cluster field).
 /// `wetness` is smoothed toward `target_wetness()` by
 /// [`smooth_audio_environment`] using wall-clock dt, so the transition
 /// keeps progressing while the world is paused or in bullet-time
@@ -118,7 +118,10 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[cfg(feature = "audio")]
 pub fn detect_audio_environment(
     mut env: ResMut<AudioEnvironment>,
-    primary: Query<&crate::actor::BodyEnvironmentContact, With<crate::actor::PrimaryPlayer>>,
+    primary: Query<
+        &ambition_platformer2d_core::BodyEnvironmentContact,
+        With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+    >,
 ) {
     let underwater = primary
         .iter()

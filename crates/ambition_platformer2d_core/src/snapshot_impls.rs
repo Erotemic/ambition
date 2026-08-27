@@ -1,7 +1,7 @@
 //! `SnapshotState` for this crate's own types — the rollback wire format.
 //!
 //! These impls live HERE, beside the types they encode, because
-//! `ambition_platformer2d_core::snapshot` owns the trait and the orphan rule binds an impl to the
+//! `ambition_platformer2d::engine_core::snapshot` owns the trait and the orphan rule binds an impl to the
 //! crate owning the trait OR the type. The orphan rule is what proves this file is in the right
 //! crate: if a type moves, this stops compiling rather than drifting.
 //!

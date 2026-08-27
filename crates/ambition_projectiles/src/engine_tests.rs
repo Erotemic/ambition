@@ -3,9 +3,10 @@
 use ambition_platformer2d_core::Vec2;
 
 use crate::spawn::{ProjectileSpawner, SpawnFailure};
-use crate::{FireballChargeTuning, ProjectileKind};
-use crate::{MotionDirection, MotionInputBuffer, MotionTechnique};
-use crate::{ProjectileBody, ProjectileSolidHit};
+use crate::{
+    FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionTechnique, ProjectileBody,
+    ProjectileKind, ProjectileSolidHit,
+};
 use ambition_platformer2d_core::{aabb_from_min_size, Aabb, AabbExt};
 
 // The named gesture patterns now live in content; these mirror

@@ -14,8 +14,8 @@
 //! player tunnelling a one-way platform.
 
 use super::*;
-use crate::actor::PlayerEntity;
 use ambition_combat::components::{ActorFaction, ActorIdentity};
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
     if is_player {
@@ -72,7 +72,9 @@ pub fn record_actor_oob_frame_system(
     // trace must see exactly the world the simulation collided against.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     bodies_q: Query<(

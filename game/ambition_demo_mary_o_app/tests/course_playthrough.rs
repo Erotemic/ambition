@@ -17,10 +17,10 @@ use ambition_demo_mary_o::test_course::{
     course_block_aabb, course_pole_x, test_course, TEST_COURSE_ROOM_ID,
 };
 use ambition_demo_mary_o::MaryOLevelState;
-use ambition_platformer2d::actors::features::CenteredAabb;
 use ambition_platformer2d::actors::items::WorldItem;
 use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
 use ambition_platformer2d::characters::equipment::WornEquipment;
+use ambition_platformer2d::combat::components::CenteredAabb;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;

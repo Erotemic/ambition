@@ -355,7 +355,7 @@ mod tests {
 // ⛔⛔ AND `shared_tangle` COULD NOT TAKE IT, which is the part worth writing
 // down. That is where the safe-position memory went an hour earlier and the
 // reflex is to send everything there — but `DeathCause` carries
-// `ambition_combat::HitSource`, and shared_tangle does not depend on combat.
+// `ambition_platformer2d::combat::HitSource`, and shared_tangle does not depend on combat.
 // Moving it there would have pointed a FOUNDATIONAL crate upward at a domain,
 // which is the edge shared_tangle exists to avoid. The destination follows the
 // VOCABULARY the type is built from, not the last place a move succeeded.

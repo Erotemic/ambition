@@ -9,6 +9,12 @@ use super::*;
 use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
+use ambition_combat::components::BossPatternTimer;
+use ambition_combat::components::{
+    ActorAggression, ActorFaction, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
+    CombatKit, DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy,
+    PogoTargetVolumes, RuntimeStagedActor,
+};
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -53,7 +59,7 @@ pub struct SpawnActorRequest {
     /// which is always `Boss`. A spectator duel stages both fighters as plain `Npc`
     /// and lets a mutual `grudge_against` (below) — not a hostile faction — drive the
     /// fight.
-    pub faction: super::ActorFaction,
+    pub faction: ambition_combat::components::ActorFaction,
     /// Feature id of another actor in the SAME spawn batch this body should hold a
     /// personal grudge against. Resolved post-spawn (once both entities exist) into
     /// an [`ActorAggression::grudge`](ambition_combat::components::ActorAggression),
@@ -293,7 +299,9 @@ pub(crate) fn spawn_staged_actor_into(
                 &[],
                 req.faction,
             );
-            commands.entity(root).insert(super::RuntimeStagedActor);
+            commands
+                .entity(root)
+                .insert(ambition_combat::components::RuntimeStagedActor);
         }
     }
 }
@@ -301,7 +309,7 @@ pub(crate) fn spawn_staged_actor_into(
 /// Cross-wire mutual grudges for a freshly-staged feuding set. `staged` pairs each
 /// new entity with the feature id of the foe it should grudge (from
 /// [`SpawnActorRequest::grudge_against`]). Each id is resolved against the SAME batch
-/// and that fighter's [`ActorAggression`](super::ActorAggression) is stamped with a
+/// and that fighter's [`ActorAggression`](ambition_combat::components::ActorAggression) is stamped with a
 /// grudge against its rival — so two same-faction `Npc` duelists hunt AND damage each
 /// other (relational targeting + the `damage_lands` override) without either being
 /// re-tagged a hostile faction. An unresolved id is skipped (grudge stays `None` → the
@@ -319,10 +327,12 @@ pub(super) fn wire_staged_grudges(
         let Some(&foe) = by_id.get(foe_id.as_str()) else {
             continue;
         };
-        commands.entity(*entity).insert(super::ActorAggression {
-            grudge: Some(foe),
-            ..super::ActorAggression::hostile()
-        });
+        commands
+            .entity(*entity)
+            .insert(ambition_combat::components::ActorAggression {
+                grudge: Some(foe),
+                ..ambition_combat::components::ActorAggression::hostile()
+            });
     }
 }
 
@@ -339,8 +349,8 @@ pub(super) struct EnemyActorSpawnPlan {
     feature_name: String,
     feature_aabb: CenteredAabb,
     enemy: super::actor_clusters::ActorClusterSeed,
-    faction: super::ActorFaction,
-    aggression: super::ActorAggression,
+    faction: ambition_combat::components::ActorFaction,
+    aggression: ambition_combat::components::ActorAggression,
     brain: ambition_characters::brain::Brain,
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: ambition_combat::CombatKit,
@@ -387,8 +397,8 @@ impl EnemyActorSpawnPlan {
             feature_name: feature_name.into(),
             feature_aabb,
             enemy,
-            faction: super::ActorFaction::Enemy,
-            aggression: super::ActorAggression::hostile(),
+            faction: ambition_combat::components::ActorFaction::Enemy,
+            aggression: ambition_combat::components::ActorAggression::hostile(),
             brain,
             action_set,
             combat_kit,
@@ -397,12 +407,18 @@ impl EnemyActorSpawnPlan {
         }
     }
 
-    pub(super) fn with_faction(mut self, faction: super::ActorFaction) -> Self {
+    pub(super) fn with_faction(
+        mut self,
+        faction: ambition_combat::components::ActorFaction,
+    ) -> Self {
         self.faction = faction;
         self
     }
 
-    pub(super) fn with_aggression(mut self, aggression: super::ActorAggression) -> Self {
+    pub(super) fn with_aggression(
+        mut self,
+        aggression: ambition_combat::components::ActorAggression,
+    ) -> Self {
         self.aggression = aggression;
         self
     }
@@ -524,7 +540,7 @@ pub(super) struct NpcActorSpawnPlan {
     )>,
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: ambition_combat::CombatKit,
-    aggression: super::ActorAggression,
+    aggression: ambition_combat::components::ActorAggression,
 }
 
 impl NpcActorSpawnPlan {
@@ -655,7 +671,7 @@ impl NpcActorSpawnPlan {
             // its own.
             action_set: combat_kit.to_action_set(None),
             combat_kit,
-            aggression: super::ActorAggression::retaliates_when_hit(
+            aggression: ambition_combat::components::ActorAggression::retaliates_when_hit(
                 super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
         }
@@ -682,12 +698,14 @@ impl NpcActorSpawnPlan {
         // collision would get `collision_scale` re-applied, ballooning the sprite).
         let render_size = self.render_size;
         // Dialogue is a SHARED actor capability (`ActorInteraction`).
-        let interaction = super::ActorInteraction {
+        let interaction = ambition_combat::components::ActorInteraction {
             interactable: self.interactable,
             talk_radius: super::super::npcs::NPC_TALK_RADIUS,
         };
-        let (identity, disposition, combat) =
-            super::actors::actor_component_snapshot(&self.seed, super::ActorDisposition::Peaceful);
+        let (identity, disposition, combat) = super::actors::actor_component_snapshot(
+            &self.seed,
+            ambition_combat::components::ActorDisposition::Peaceful,
+        );
         // Uniform melee subsumption (§A1/§3a): a peaceful NPC carries its combat
         // kit's melee as body CAPABILITY (for possession / provocation), so fold it
         // into a moveset `"attack"` move like every hostile — a possessed peaceful
@@ -711,7 +729,7 @@ impl NpcActorSpawnPlan {
                     FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
                     identity,
                     disposition,
-                    super::ActorFaction::Npc,
+                    ambition_combat::components::ActorFaction::Npc,
                     ActorPose::from_parts(
                         self.feature_aabb.center,
                         self.feature_aabb.half_size,
@@ -777,7 +795,7 @@ impl NpcActorSpawnPlan {
             }
         }
         if let Some(size) = render_size {
-            entity.insert(crate::features::ActorRenderSize(size));
+            entity.insert(ambition_combat::components::ActorRenderSize(size));
         }
         entity.id()
     }
@@ -1049,8 +1067,8 @@ pub(crate) fn spawn_boss_with_overrides_into(
             boss_anim_frame,
             BossDeathAnimation::default(),
             initial_phase,
-            super::ActorFaction::Boss,
-            super::ActorTarget::default(),
+            ambition_combat::components::ActorFaction::Boss,
+            ambition_combat::components::ActorTarget::default(),
             ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, boss_facing),
             (
                 DamageableVolumes::default(),
@@ -1162,8 +1180,8 @@ pub(crate) fn spawn_runtime_minion(
     // `hostile_to_player`; the puppy-slug-gun passes `Player` + `passive` so the
     // summon damages the player's enemies (via the `can_damage` matrix) but never
     // the player, and just wanders rather than targeting.
-    faction: super::ActorFaction,
-    aggression: super::ActorAggression,
+    faction: ambition_combat::components::ActorFaction,
+    aggression: ambition_combat::components::ActorAggression,
 ) -> bevy::ecs::entity::Entity {
     let root = commands.spawn_empty().id();
     spawn_runtime_minion_into(
@@ -1183,7 +1201,7 @@ pub(crate) fn spawn_runtime_minion(
         aggression,
         // A boss minion keeps the vitals its character authored, hazard and all.
         None,
-        true
+        true,
     );
     root
 }
@@ -1203,8 +1221,8 @@ pub(crate) fn spawn_runtime_minion_into(
     half_size: ae::Vec2,
     character_id: &str,
     encounter_id: impl Into<String>,
-    faction: super::ActorFaction,
-    aggression: super::ActorAggression,
+    faction: ambition_combat::components::ActorFaction,
+    aggression: ambition_combat::components::ActorAggression,
     // Health for THIS occurrence, overriding the character's authored vitals.
     // See `ambition_vfx::SummonSpec::health`.
     health: Option<u32>,
@@ -1296,7 +1314,7 @@ pub(crate) fn spawn_runtime_minion_into(
     .spawn_into(commands, session_scope, entity);
     commands
         .entity(entity)
-        .insert(super::EncounterMob::new(encounter_id));
+        .insert(ambition_combat::components::EncounterMob::new(encounter_id));
     // The authored mount role captured above, on the body that now exists.
     if let Some(mount) = mount_role.as_ref() {
         attach_mount_role_from(
@@ -1317,7 +1335,7 @@ pub(crate) fn spawn_runtime_minion_into(
     ) {
         commands
             .entity(entity)
-            .insert(crate::features::ActorRenderSize(rs));
+            .insert(ambition_combat::components::ActorRenderSize(rs));
     }
 }
 
@@ -1343,7 +1361,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    faction: super::ActorFaction,
+    faction: ambition_combat::components::ActorFaction,
 ) {
     // The authored placement, lowered to the one plan every surface will
     // lower to (see `spawn::character_spawn_plan`). It owns the two questions
@@ -1713,7 +1731,7 @@ pub(super) fn spawn_solo_enemy_into(
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
-    faction: super::ActorFaction,
+    faction: ambition_combat::components::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     EnemyActorSpawnPlan::hostile(
@@ -1737,7 +1755,7 @@ pub(super) fn spawn_solo_enemy_into(
     ) {
         commands
             .entity(entity)
-            .insert(crate::features::ActorRenderSize(rs));
+            .insert(ambition_combat::components::ActorRenderSize(rs));
     }
 }
 /// Human label for an authored NPC: the catalog `display_name` for the
@@ -2021,7 +2039,7 @@ pub(super) fn spawn_encounter_mob(
     ) {
         commands
             .entity(entity)
-            .insert(crate::features::ActorRenderSize(rs));
+            .insert(ambition_combat::components::ActorRenderSize(rs));
     }
 }
 
@@ -2390,7 +2408,7 @@ mod runtime_giant_refusal_tests {
             name: "Runtime Giant".to_string(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::new(16.0, 16.0),
-            faction: super::super::ActorFaction::Enemy,
+            faction: ambition_combat::components::ActorFaction::Enemy,
             grudge_against: None,
             kind: SpawnActorKind::Enemy {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(

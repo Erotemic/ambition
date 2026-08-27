@@ -47,7 +47,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     let player =
         app.world_mut()
             .spawn((
-                crate::actor::PlayerEntity,
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
                 ambition_characters::brain::ActionSet::default(),
                 crate::items::pickup::StashedActionSet(
                     ambition_characters::brain::ActionSet::default(),
@@ -256,7 +256,9 @@ fn min_app() -> App {
     app.insert_resource(crate::construction::engine_construction_registry());
     app.insert_resource(crate::features::RoomContentStagingRegistry::default());
     app.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet::default());
-    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
     app.insert_resource(ambition_time::ClockState::default());
     app.insert_resource(ambition_dev_tools::DeveloperRuntimeState::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -289,7 +291,11 @@ fn min_app() -> App {
     };
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ambition_platformer2d_world::rooms::RoomSet::from_parts("test", vec![room_spec], Vec::new()),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "test",
+            vec![room_spec],
+            Vec::new(),
+        ),
     );
     app.insert_resource(EditableMovementTuning::default());
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
@@ -398,7 +404,7 @@ fn processor_warps_player_to_start_spawn() {
     {
         let mut q = app
             .world_mut()
-            .query_filtered::<&mut crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>(
+            .query_filtered::<&mut ambition_platformer2d_core::BodyKinematics, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>(
             );
         if let Ok(mut kin) = q.single_mut(app.world_mut()) {
             kin.pos = ae::Vec2::new(1234.0, 1234.0);
@@ -416,7 +422,7 @@ fn processor_warps_player_to_start_spawn() {
     let expected_spawn = world.0.spawn;
     let mut q = app
         .world_mut()
-        .query_filtered::<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>();
+        .query_filtered::<&ambition_platformer2d_core::BodyKinematics, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>();
     let player_pos = q.single(app.world()).map(|k| k.pos).unwrap();
     assert_eq!(player_pos, expected_spawn);
 }

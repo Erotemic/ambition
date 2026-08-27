@@ -1,6 +1,7 @@
 use super::*;
+use crate::features::FeatureSimEntity;
 use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
-use crate::features::{CenteredAabb, FeatureId, FeatureSimEntity};
+use ambition_combat::components::{CenteredAabb, FeatureId};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::prelude::{App, Update};
 
@@ -364,7 +365,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
     );
     assert!(
         app.world()
-            .get::<crate::actor::BodyFlightState>(npc)
+            .get::<ambition_platformer2d_core::BodyFlightState>(npc)
             .unwrap()
             .fly_enabled,
         "and it must agree with itself: the integrator's flight predicate is \
@@ -372,7 +373,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
     );
     assert!(
         app.world()
-            .get::<crate::actor::BodyAbilities>(npc)
+            .get::<ambition_platformer2d_core::BodyAbilities>(npc)
             .unwrap()
             .abilities
             .fly,
@@ -401,7 +402,7 @@ fn a_flying_npc_stays_flying_when_it_is_provoked() {
     );
     assert!(
         app.world()
-            .get::<crate::actor::BodyFlightState>(npc)
+            .get::<ambition_platformer2d_core::BodyFlightState>(npc)
             .unwrap()
             .fly_enabled,
         "and its flight mode survives too, or the body and the brain would \
@@ -508,7 +509,7 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
         AutonomousSource, BrainBinding, BrainPresetId,
     };
     use ambition_characters::brain::{ActionSet, Brain, StateMachineCfg};
-use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.add_message::<ActorStimulus>();

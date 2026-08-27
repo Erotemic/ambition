@@ -6,7 +6,6 @@
 
 pub use ambition_platformer2d_shared_tangle::{gravity, lifecycle, math, schedule, transit};
 
-pub mod body;
 pub mod collision;
 pub mod orientation;
 pub mod prelude;

@@ -6,8 +6,13 @@
 //! file focused on systems.
 
 use super::*;
+use ambition_combat::components::{
+    BreakableFeature, CenteredAabb, ChestFeature, DamageableVolumes, FeatureId, FeatureName,
+    Opened, PogoPolicy, PogoTargetContributor, PogoTargetVolumes,
+};
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 use ambition_encounter::switches::SwitchActivated;
+use ambition_persistence::quest::QuestAdvanceRequested;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
 /// Spawn the canonical player entity used by interaction system tests.
@@ -82,7 +87,7 @@ fn combat_body_pogo_geometry_stays_entity_side() {
             FeatureId::new("guide"),
             FeatureName::new("Guide"),
             CenteredAabb::from_center_size(center, size),
-            crate::features::ActorDisposition::Peaceful,
+            ambition_combat::components::ActorDisposition::Peaceful,
             seed.into_components(),
             DamageableVolumes::default(),
             PogoPolicy::FromDamageable,
@@ -375,7 +380,7 @@ fn interact_buffered_starts_npc_dialogue() {
     );
     // Dialogue now keys off the shared `ActorInteraction` payload + a peaceful
     // `ActorDisposition`, not an `ActorRuntime::Npc` type tag.
-    let interaction = crate::features::ActorInteraction {
+    let interaction = ambition_combat::components::ActorInteraction {
         interactable,
         talk_radius: crate::features::NPC_TALK_RADIUS,
     };
@@ -384,8 +389,8 @@ fn interact_buffered_starts_npc_dialogue() {
         CenteredAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
         seed.into_components(),
         interaction,
-        crate::features::ActorIdentity::new("guide", "Guide"),
-        crate::features::ActorDisposition::Peaceful,
+        ambition_combat::components::ActorIdentity::new("guide", "Guide"),
+        ambition_combat::components::ActorDisposition::Peaceful,
     ));
 
     // No switches in this test — the switch query will be empty and the

@@ -348,7 +348,7 @@ pub fn project_prepared_character_definitions(
             With<ambition_characters::brain::ActionSet>,
             With<ambition_combat::moveset::ActorMoveset>,
             With<ambition_characters::brain::action_set::IdentityKit>,
-            With<crate::actor::BodyAbilities>,
+            With<ambition_platformer2d_core::BodyAbilities>,
             With<ambition_platformer2d_core::movement::MotionModel>,
         ),
     >,
@@ -510,7 +510,8 @@ pub fn grant_prepared_character_body(
                     .insert(ambition_combat::moveset::ActorMoveset(moveset));
             }
             if let Some(action_set) = prepared.kit.action_set().cloned() {
-                let combat_kit = ambition_combat::components::CombatKit::from_action_set(&action_set);
+                let combat_kit =
+                    ambition_combat::components::CombatKit::from_action_set(&action_set);
                 commands.entity(entity).insert((action_set, combat_kit));
             }
         }
@@ -571,7 +572,9 @@ pub fn grant_prepared_character_body(
         {
             let spec = prepared.motion_model;
             commands.queue(move |world: &mut World| {
-                let Some(mut model) = world.get_mut::<ambition_platformer2d_core::movement::MotionModel>(entity) else {
+                let Some(mut model) =
+                    world.get_mut::<ambition_platformer2d_core::movement::MotionModel>(entity)
+                else {
                     return;
                 };
                 ambition_platformer2d_core::switch_motion_model(&mut model, spec);

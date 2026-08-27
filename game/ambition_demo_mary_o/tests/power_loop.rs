@@ -18,9 +18,11 @@
 //! projectile body. Nothing here inserts an `ActionSet` or a moveset by hand — if
 //! the reconcile stopped running, the ranged assertions would fail.
 
+use ambition_platformer2d::actors::features::spawn_encounter_mob;
+use ambition_platformer2d::actors::features::EncounterMobSeed;
+use ambition_platformer2d::platformer::feature_overlay::FeatureEcsWorldOverlay;
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::features::transform_beat::{
     TransformBeatPolicy, TransformBeatRequested,
@@ -33,8 +35,10 @@ use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::engine_core::BodyBaseSize;
 use ambition_platformer2d::items::equipment::reconcile_equipment_grants;
 use ambition_platformer2d::platformer::markers::ControlledSubject;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::{
     try_load_spec_for_target, CharacterAnim, SheetTuning,
 };
@@ -607,9 +611,9 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::actors::features::{
-        apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, EncounterMobSeed,
-        FeatureEcsWorldOverlay,
+        apply_feature_hit_events, spawn_encounter_mob, EncounterMobSeed, FeatureEcsWorldOverlay,
     };
+    use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
     // ⛔ `ProjectileBody` belongs to the projectile MODEL crate; the monolith's
     // glob forward of it was deleted, and no gate builds this target.
@@ -785,11 +789,10 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
-    use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorConfig, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay,
-    };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+    use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+    use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent};
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
@@ -936,10 +939,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 #[test]
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
-    use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay,
-    };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+    use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, HitSource, HitTarget};
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
@@ -1073,11 +1074,9 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
-    use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorIdentity, EncounterMobSeed, FeatureEcsWorldOverlay,
-    };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent};
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;

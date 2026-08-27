@@ -1,6 +1,6 @@
 use super::*;
-use ambition_characters::brain::{BossAttackProfile, BossCapability};
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::brain::{BossAttackProfile, BossCapability};
 
 fn warden_behavior() -> crate::features::bosses::BossBehaviorProfile {
     crate::features::bosses::BossBehaviorProfile::clockwork_warden()
@@ -62,7 +62,7 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
             FeatureSimEntity,
             intent,
             moveset,
-            crate::actor::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
                 size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
@@ -136,7 +136,7 @@ fn telegraph_boss_app() -> (App, Entity) {
             BossAttackState::default(),
             moveset,
             ambition_combat::components::ActorFaction::Boss,
-            crate::actor::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,
                 size: combat_size,

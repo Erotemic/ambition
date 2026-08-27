@@ -212,7 +212,7 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
     {
         let mut q = app.world_mut().query_filtered::<
             &mut ambition_platformer2d::characters::actor::WornCharacter,
-            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         let mut worn = q
             .iter_mut(app.world_mut())

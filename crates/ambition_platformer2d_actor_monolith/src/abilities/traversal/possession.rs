@@ -15,8 +15,9 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl;
 
-use crate::actor::PlayerEntity;
-use crate::features::{CenteredAabb, FeatureSimEntity};
+use crate::features::FeatureSimEntity;
+use ambition_combat::components::CenteredAabb;
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 /// Internal seat bookkeeping for possession.
 ///
@@ -143,7 +144,7 @@ pub fn possession_trigger_system(
             ambition_platformer2d_core::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
         ),
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // Possession candidates: any brain-bearing feature body — INCLUDING bosses.
     // Bosses are valid controllable bodies (their tick reads whichever slot drives
@@ -277,7 +278,7 @@ fn release_possession(
             ambition_platformer2d_core::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
         ),
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     state.possessed = None;

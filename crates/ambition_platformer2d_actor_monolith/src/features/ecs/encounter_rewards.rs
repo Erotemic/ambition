@@ -10,6 +10,9 @@
 //! These two never shared anything but this file.
 
 use super::*;
+use ambition_combat::components::{
+    CenteredAabb, ChestFeature, EncounterRewardChest, FeatureId, FeatureName, Opened,
+};
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::prelude::Name;
 

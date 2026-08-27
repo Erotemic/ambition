@@ -4,9 +4,9 @@ use ambition_platformer2d_core::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
-use crate::actor::PlayerEntity;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_platformer2d_core::movement::{MotionModel, SurfaceMomentumMotion as MomentumMotion};
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 #[derive(Resource, Default)]
 struct AbilityChangeObservations(u32);

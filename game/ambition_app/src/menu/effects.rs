@@ -5,14 +5,14 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::BodyMana;
-use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::actors::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };
 use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::engine_core::BodyMana;
 use ambition_platformer2d::items::{Item, ItemCategory, OwnedItems};
+use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
 /// values — a real balance pass is just a number change.

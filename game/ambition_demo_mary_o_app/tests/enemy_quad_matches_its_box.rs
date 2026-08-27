@@ -126,7 +126,7 @@ fn a_live_ai_slop_wears_the_size_its_character_authors() {
     let authored = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
     let mut q = app.world_mut().query::<(
         &ambition_platformer2d::engine_core::BodyKinematics,
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_demo_mary_o::ai_slop::AiSlop,
     )>();
     let live: Vec<(bevy::prelude::Vec2, bevy::prelude::Vec2)> = q

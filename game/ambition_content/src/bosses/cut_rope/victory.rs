@@ -15,9 +15,7 @@ pub fn spawn_cut_rope_victory_npc(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    mut released: MessageReader<
-        ambition_boss_encounter::PayloadReleased,
-    >,
+    mut released: MessageReader<ambition_boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
@@ -108,19 +106,19 @@ fn spawn_victory_npc_entity(
             &[],
         );
     seed.kin.facing = -1.0;
-    let combat_kit = ambition_platformer2d_actor_monolith::features::CombatKit::default();
+    let combat_kit = ambition_combat::components::CombatKit::default();
     let facing = seed.kin.facing;
     // Dialogue is a SHARED actor capability — carried on `ActorInteraction` so the
     // interact / proximity systems (which key off the component, not an NPC type
     // tag) still offer "Talk" on this runtime-spawned victory NPC.
-    let interaction = ambition_platformer2d_actor_monolith::features::ActorInteraction {
+    let interaction = ambition_combat::components::ActorInteraction {
         interactable: interactable.clone(),
         talk_radius: ambition_platformer2d_actor_monolith::features::NPC_TALK_RADIUS,
     };
     let (identity, disposition, combat) =
         ambition_platformer2d_actor_monolith::features::actor_component_snapshot(
             &seed,
-            ambition_platformer2d_actor_monolith::features::ActorDisposition::Peaceful,
+            ambition_combat::components::ActorDisposition::Peaceful,
         );
     let cluster_bundle = seed.into_components();
     commands
@@ -136,14 +134,12 @@ fn spawn_victory_npc_entity(
                 ),
                 identity,
                 disposition,
-                faction: ambition_platformer2d_actor_monolith::features::ActorFaction::Npc,
-                target: ambition_platformer2d_actor_monolith::features::ActorTarget::default(),
+                faction: ambition_combat::components::ActorFaction::Npc,
+                target: ambition_combat::components::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
-                motion_model: ambition_platformer2d_core::movement::MotionModel::default(
-                ),
+                motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
                 combat_kit,
-                aggression:
-                    ambition_platformer2d_actor_monolith::features::ActorAggression::passive(),
+                aggression: ambition_combat::components::ActorAggression::passive(),
                 combat,
                 damageable_volumes: DamageableVolumes::default(),
                 pogo_policy: PogoPolicy::FromDamageable,

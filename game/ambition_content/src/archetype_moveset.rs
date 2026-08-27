@@ -113,8 +113,8 @@ fn strip_owner_prefix<'a>(id: &'a str, prefixes: &[&str]) -> &'a str {
 
 #[cfg(test)]
 mod tests {
-    /// EVERY BORROWED TABLE RENAMES CLEAN, and neither easter egg answers to a
-    /// name its archetype answers to.
+    /// EVERY BORROWED TABLE RENAMES CLEAN, and no easter egg answers to a name
+    /// its archetype answers to.
     ///
     /// ⛔ THIS IS THE TEST THAT WAS MISSING. The first version of `under_own_name`
     /// took ONE prefix, and both shipped tables use two — their taunt and dash
@@ -135,6 +135,16 @@ mod tests {
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
                 &["polygon_brawler", "pugnacious_polygon"][..],
+            ),
+            (
+                crate::actor_moveset::actor_moveset(),
+                crate::pointed_polygon_moveset::pointed_polygon_moveset(),
+                "actor",
+            ),
+            (
+                crate::medic_moveset::medic_moveset(),
+                crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
+                "medic",
             ),
         ] {
             assert_eq!(

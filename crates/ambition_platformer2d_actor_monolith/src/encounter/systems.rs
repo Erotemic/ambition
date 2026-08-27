@@ -150,7 +150,10 @@ pub fn drive_wave_encounters(
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
-    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
+    player_body_q: Query<
+        &ambition_platformer2d_core::BodyKinematics,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
@@ -166,8 +169,8 @@ pub fn drive_wave_encounters(
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     encounter_mobs: Query<(
         Entity,
-        &crate::features::EncounterMob,
-        &crate::features::FeatureId,
+        &ambition_combat::components::EncounterMob,
+        &ambition_combat::components::FeatureId,
         // AC3.1.A: the HP authority. Participant liveness decides wave
         // completion, so it must not lag a frame behind a mirror.
         &ambition_characters::actor::BodyHealth,
@@ -175,11 +178,11 @@ pub fn drive_wave_encounters(
     reward_chests: Query<
         (
             Entity,
-            &crate::features::EncounterRewardChest,
-            &crate::features::FeatureId,
-            Option<&crate::features::Opened>,
+            &ambition_combat::components::EncounterRewardChest,
+            &ambition_combat::components::FeatureId,
+            Option<&ambition_combat::components::Opened>,
         ),
-        With<crate::features::ChestFeature>,
+        With<ambition_combat::components::ChestFeature>,
     >,
 ) {
     let Some(session_scope) = commands.spawn_scope() else {
@@ -468,7 +471,10 @@ pub fn apply_wave_encounter_effects(
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
+    player_body_q: Query<
+        &ambition_platformer2d_core::BodyKinematics,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         EncounterMusicRequest,
     >,
@@ -485,11 +491,11 @@ pub fn apply_wave_encounter_effects(
     reward_chests: Query<
         (
             Entity,
-            &crate::features::EncounterRewardChest,
-            &crate::features::FeatureId,
-            Option<&crate::features::Opened>,
+            &ambition_combat::components::EncounterRewardChest,
+            &ambition_combat::components::FeatureId,
+            Option<&ambition_combat::components::Opened>,
         ),
-        With<crate::features::ChestFeature>,
+        With<ambition_combat::components::ChestFeature>,
     >,
 ) {
     let Some(session_scope) = commands.spawn_scope() else {

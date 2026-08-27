@@ -6,9 +6,9 @@ use bevy::prelude::{Query, ResMut, Resource};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
 use ambition_characters::actor::ai::ActorStatus;
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::components::FeatureId;
-use ambition_platformer2d_actor_monolith::features::ActorConfig;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::BodyKinematics;
@@ -35,21 +35,21 @@ pub struct ActorSpriteData {
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub config: &'static ActorConfig,
     pub attack: &'static BodyMelee,
-    pub ground: &'static ambition_platformer2d_actor_monolith::actor::BodyGroundState,
+    pub ground: &'static ambition_platformer2d_core::BodyGroundState,
     /// The published semantic movement facts (ADR 0024) — maneuver reads
     /// (dash/blink/wall/ledge/dodge/glide) come from here, never from policy
     /// internals.
     pub motion_facts: &'static ae::BodyMotionFacts,
-    pub flight: &'static ambition_platformer2d_actor_monolith::actor::BodyFlightState,
-    pub body_mode: &'static ambition_platformer2d_actor_monolith::actor::BodyModeState,
-    pub env_contact: &'static ambition_platformer2d_actor_monolith::actor::BodyEnvironmentContact,
-    pub abilities: &'static ambition_platformer2d_actor_monolith::actor::BodyAbilities,
-    pub shield: &'static ambition_platformer2d_actor_monolith::actor::BodyShieldState,
+    pub flight: &'static ambition_platformer2d_core::BodyFlightState,
+    pub body_mode: &'static ambition_platformer2d_core::BodyModeState,
+    pub env_contact: &'static ambition_platformer2d_core::BodyEnvironmentContact,
+    pub abilities: &'static ambition_platformer2d_core::BodyAbilities,
+    pub shield: &'static ambition_platformer2d_core::BodyShieldState,
     /// Movement-driven presentation overlays (wall-jump / dash-startup / landing /
     /// shoot poses), shared with the player. `Option` so an actor spawned without
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
-    pub anim: Option<&'static ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
+    pub anim: Option<&'static ambition_characters::actor::BodyAnimFacts>,
     /// The body's own resolved reference basis, so the locomotion metric is
     /// measured along ITS run axis rather than world-x.
     ///
@@ -463,7 +463,7 @@ pub fn rebuild_boss_frame_index(
         );
         let hazard_lane = if health.alive() && (in_telegraph || in_strike) {
             let boss = feature.as_boss_ref();
-            ambition_platformer2d_actor_monolith::features::volumes_for_profile(
+            ambition_boss_encounter::attack_geometry::volumes_for_profile(
                 &BossAttackProfile::Strike("hazard_column".to_string()),
                 boss.kin.pos,
                 boss.combat_size(),

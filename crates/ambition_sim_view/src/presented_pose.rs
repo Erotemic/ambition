@@ -80,7 +80,7 @@ pub fn sample_fixed_overstep_phase(fixed: Res<Time<Fixed>>, mut phase: ResMut<Pr
 /// [`BodyPoseView`]. Presentation-only: the simulation never reads it, so a
 /// rollback resim neither restores nor consults it.
 ///
-/// [`BodyKinematics`]: ambition_platformer2d_actor_monolith::actor::BodyKinematics
+/// [`BodyKinematics`]: ambition_platformer2d_core::BodyKinematics
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PresentedPose {
     previous: Vec2,
@@ -207,7 +207,7 @@ pub fn advance_presented_body_poses(
     phase: Res<PresentationPhase>,
     mut bodies: Query<(
         Entity,
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
         Option<&mut PresentedPose>,
     )>,
 ) {
@@ -501,7 +501,9 @@ mod tests {
 
     #[test]
     fn frame_stepped_presented_pose_runs_after_feature_view_sync() {
-        use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt as _};
+        use ambition_platformer2d_shared_tangle::schedule::{
+            Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+        };
         use bevy::ecs::schedule::{NodeId, Schedules};
         use bevy::prelude::{App, IntoScheduleConfigs as _, Update};
 
@@ -510,7 +512,10 @@ mod tests {
         app.add_plugins(PresentedPosePlugin);
         // Touch the producer set explicitly; the presented-pose systems already
         // register their consumer set through the plugin.
-        app.add_systems(Update, (|| {}).in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync));
+        app.add_systems(
+            Update,
+            (|| {}).in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+        );
 
         let schedules = app.world().resource::<Schedules>();
         let schedule = schedules
@@ -681,7 +686,7 @@ mod tests {
     /// clock beside a boss's on the tick clock.
     #[test]
     fn a_body_with_no_pose_view_still_gets_a_presented_pose() {
-        use ambition_platformer2d_actor_monolith::actor::BodyKinematics;
+        use ambition_platformer2d_core::BodyKinematics;
         use bevy::prelude::{App, Update};
 
         let mut app = App::new();

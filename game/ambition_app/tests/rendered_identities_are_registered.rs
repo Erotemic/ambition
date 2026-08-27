@@ -29,12 +29,17 @@ fn target_dir() -> PathBuf {
 /// rig"*) and a character exists in the renderer before it exists in the game.
 ///
 /// ⚠ 13 → 15 on 2026-08-27, and the review is this note: `actor` and `medic` are
-/// two more SVG-rigged targets (written 00:47/00:48, mid-authoring — their own
-/// docs call them *"a performer who commits to the role completely"* and *"a
-/// field paramedic who fights the way she works"*). The hand check the ratchet
-/// asks for says NEITHER has a catalog row, which is the same not-a-defect the
-/// 08-24 note describes: a character exists in the renderer before it exists in
-/// the game.
+/// two more SVG-rigged targets. The hand check the ratchet asked for said
+/// NEITHER had a catalog row, which was the same not-a-defect the 08-24 note
+/// describes: a character exists in the renderer before it exists in the game.
+///
+/// ⭐ BOTH HAVE ONE NOW, and the count did not move — which is the point of the
+/// bucket. It counts targets whose `character_id` this scanner cannot read as a
+/// LITERAL, and both name it `TARGET_NAME`; being registered in the catalog is a
+/// different question from being resolvable by a text scan. `officer` and
+/// `author` sit in the same bucket for the same reason and have had rows since
+/// 08-24. ⛔ So do not lower this expecting registration to move it: what lowers
+/// it is a target spelling its id out, or a target going away.
 ///
 /// ⛔⛔ THIS COUNT READS THE RENDERER CHECKOUT ON DISK, INCLUDING UNTRACKED
 /// FILES. So it moves with work in progress that this repository cannot see, and

@@ -55,13 +55,21 @@ pub const SMASH_ROSTER: &[&str] = &[
     // the same seating, scoring and match rules a melee one does.
     "projectile_polygon",
     "pugnacious_polygon",
-    // THE TWO EASTER EGGS, and they sit HERE — after the archetypes they
+    // THE FOUR EASTER EGGS, and they sit HERE — after the archetypes they
     // borrow, before the stand-ins. Each is a polygon archetype wearing a
     // different person: same skeleton, same clips, same frame data under its
     // own move names. On the grid because a hidden fighter is FOUND, and
-    // nothing in the game depends on either being picked.
+    // nothing in the game depends on any of them being picked.
+    //
+    // ⚠ The two faceted ones came first; the two HAND-DRAWN ones follow them,
+    // paired with the archetype each borrows — the Actor after the Author on the
+    // sword side, the Medic after the Officer on the brawler side. Neither of
+    // the two has gameplay rules for her own specials yet: those exist as clips
+    // and hit volumes in the sprite repository and as nothing here.
     "author",
+    "actor",
     "officer",
+    "medic",
     // THE STAND-INS, and they are LAST for a reason. See [`STAND_INS`].
     crate::SMASH_CHARACTER_ID,
     crate::SMASH_OPPONENT_ID,

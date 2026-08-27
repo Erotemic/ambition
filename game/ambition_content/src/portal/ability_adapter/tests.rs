@@ -1,9 +1,8 @@
-
 //! These drive the REAL adapters + the portal-owned marker components.
 use bevy::prelude::*;
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SeatRawFrames, SlotControls};
-use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Seat-local input surface read and written by the portal warp.
 fn hold_x(app: &mut App, axis_x: f32) {
@@ -91,7 +90,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
 
 #[test]
 fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
-    use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
+    use ambition_platformer2d_core::BodyAbilities;
     let mut app = App::new();
     app.init_resource::<PortalTuning>();
     fn reenable_ledge_grab(mut q: Query<&mut BodyAbilities>) {
@@ -160,7 +159,7 @@ fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
 /// latch is removed. Without the restore the actor stays stripped forever.
 #[test]
 fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
-    use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
+    use ambition_platformer2d_core::BodyAbilities;
     let mut app = App::new();
     app.init_resource::<PortalTuning>();
     app.add_systems(

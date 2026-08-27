@@ -7,9 +7,9 @@ use ambition_app::AmbitionSim;
 use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::platformer::camera_ease::CameraShakeState;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 /// How long to watch the duel. The fighters trade from the first seconds; this
 /// is generous enough to see several exchanges without turning the suite slow.

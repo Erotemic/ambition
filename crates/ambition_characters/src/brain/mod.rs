@@ -47,7 +47,7 @@ pub use player::tick_player_brain;
 pub use profile::BrainProfile;
 #[allow(unused_imports)]
 // ⛔ THE DATA ONLY. `CrowdingSignal`, `ObservationFrame`, `SpecificAction` and
-// `TerrainAwareness` went with the behaviour to `ambition_combat::brain::smash`
+// `TerrainAwareness` went with the behaviour to `ambition_platformer2d::combat::brain::smash`
 // — they are the stages' own vocabulary, not the enum's. What stays is what
 // `StateMachineCfg::Smash` names by value and what the snapshot encoder reads.
 pub use smash::{BroadMode, DifficultyProfile, SmashCfg, SmashState};
@@ -434,14 +434,14 @@ pub fn observe_brain_action_counter(
 
 /// Bevy system: log each `ActorActionMessage` at debug level using
 /// `tracing::debug!`. Gated by the standard tracing filter — set
-/// `RUST_LOG=ambition_characters::brain=debug` to see the per-tick
+/// `RUST_LOG=crate::brain=debug` to see the per-tick
 /// resolver output. Useful for EFFECTS-consumer verification
 /// without a HUD readout. Not registered by default.
 #[allow(dead_code, reason = "diagnostic system; off by default")]
 pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) {
     for msg in reader.read() {
         bevy::log::debug!(
-            target: "ambition_characters::brain",
+            target: "crate::brain",
             "brain action: actor={:?} req={}",
             msg.actor,
             msg.request,
@@ -483,7 +483,7 @@ pub enum CharacterBrainTemplate {
     /// Charge-and-crash motion policy: dive at the target, then recover.
     ChargeCrash,
     /// Smash-brawl pipeline: observe → mode → action → difficulty →
-    /// emit. See `ambition_characters::brain::smash`.
+    /// emit. See `crate::brain::smash`.
     Smash,
     /// Lively flyer: an aerial dive-bomber when hostile (stalk → dive →
     /// recover). Shares its code with the peaceful catalog `Aerial` bird via

@@ -223,7 +223,7 @@ impl PersistedOccurrence {
 /// Which body was carrying which occurrence, both sides by `SimId` string.
 ///
 /// The disk form of
-/// `ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline`. Kept
+/// `ambition_platformer2d::platformer::lifecycle::CustodyBaseline`. Kept
 /// separate from [`PersistedOccurrence`] because the two answer different
 /// questions with different owners — see that type's own header — and because a
 /// save that merged them would let every reader of "was this suppressed?" reach
@@ -404,10 +404,7 @@ pub enum SaveCompatibility {
 impl SaveCompatibility {
     /// May this build commit its own state over the file it read?
     pub fn is_writable(self) -> bool {
-        !matches!(
-            self,
-            Self::FromTheFuture { .. } | Self::Unsupported { .. }
-        )
+        !matches!(self, Self::FromTheFuture { .. } | Self::Unsupported { .. })
     }
 }
 
@@ -731,7 +728,8 @@ mod tests {
         s.set_encounter("boss_room", PersistedEncounterState::Failed);
         s.set_switch("reset_switch", true);
         let serialized = serde_json::to_string(&s).expect("serialize");
-        let restored: AmbitionGameSaveData = serde_json::from_str(&serialized).expect("deserialize");
+        let restored: AmbitionGameSaveData =
+            serde_json::from_str(&serialized).expect("deserialize");
         assert_eq!(s, restored);
     }
 
@@ -836,8 +834,14 @@ mod tests {
         let verdict = s.migrate();
         assert_eq!(verdict, SaveCompatibility::Unsupported { found: 0 });
         assert!(!verdict.is_writable());
-        assert_eq!(s.version, 0, "refusing a schema must not relabel it current");
-        assert!(s.flag("old_progress"), "classification must not erase parsed data");
+        assert_eq!(
+            s.version, 0,
+            "refusing a schema must not relabel it current"
+        );
+        assert!(
+            s.flag("old_progress"),
+            "classification must not erase parsed data"
+        );
     }
 
     /// The case that loses real progress if it is got wrong: a player runs a

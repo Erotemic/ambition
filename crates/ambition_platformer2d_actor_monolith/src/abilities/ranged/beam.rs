@@ -21,10 +21,10 @@
 use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
-use crate::actor::BodyMana;
 use crate::features::HeldItem;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
 /// Held-item id of the focus-beam gauntlet.

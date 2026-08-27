@@ -549,10 +549,10 @@ pub fn ensure_player_trail(
     mut commands: Commands,
     enabled: Option<Res<PlayerTrailEnabled>>,
     players: Query<
-        (Entity, &crate::actor::BodyKinematics),
+        (Entity, &ambition_platformer2d_core::BodyKinematics),
         (
-            With<crate::actor::PlayerEntity>,
-            With<crate::actor::PrimaryPlayer>,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
             Without<PlayerTrail>,
         ),
     >,
@@ -582,8 +582,12 @@ pub fn update_player_trail(
     mut continuity_breaks: MessageReader<TrailContinuityBreak>,
     mut commands: Commands,
     mut players: Query<
-        (Entity, &crate::actor::BodyKinematics, &mut PlayerTrail),
-        With<crate::actor::PlayerEntity>,
+        (
+            Entity,
+            &ambition_platformer2d_core::BodyKinematics,
+            &mut PlayerTrail,
+        ),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
@@ -623,7 +627,7 @@ pub fn update_player_trail(
 /// The trail's sampling point: the player's centre. Keeping this as a helper lets
 /// future work move the emission point to a hand/hip socket without touching the
 /// trail state machine.
-fn trail_anchor(kin: &crate::actor::BodyKinematics) -> ae::Vec2 {
+fn trail_anchor(kin: &ambition_platformer2d_core::BodyKinematics) -> ae::Vec2 {
     use ambition_platformer2d_core::AabbExt;
     kin.aabb().center()
 }
@@ -643,7 +647,7 @@ pub fn render_player_trail(
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,
-    ropes: Query<&PlayerTrail, With<crate::actor::PlayerEntity>>,
+    ropes: Query<&PlayerTrail, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {
     let Some(world) = world.as_deref() else {
@@ -660,18 +664,18 @@ pub fn render_player_trail(
             if pts.len() < 2 {
                 continue;
             }
-            let bevy_pts = pts
-                .into_iter()
-                .map(|p| ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate());
+            let bevy_pts = pts.into_iter().map(|p| {
+                ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate()
+            });
             gizmos.linestrip_2d(bevy_pts, color);
         }
         for pts in rope.collapsing_loop_polylines() {
             if pts.len() < 2 {
                 continue;
             }
-            let bevy_pts = pts
-                .into_iter()
-                .map(|p| ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate());
+            let bevy_pts = pts.into_iter().map(|p| {
+                ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate()
+            });
             gizmos.linestrip_2d(bevy_pts, TRAIL_SELF_LOOP_COLLAPSING_COLOR);
         }
     }

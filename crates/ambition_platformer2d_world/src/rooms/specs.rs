@@ -91,7 +91,7 @@ pub struct GroundItemSpec {
     /// LDtk display name (editor-facing / entity naming only).
     pub name: String,
     /// Held-item registry id, e.g. `meteor`, `bomb`, `puppy_slug_gun`,
-    /// `gun_sword`. Resolved via `ambition_characters::brain::held_item_by_id`.
+    /// `gun_sword`. Resolved via `ambition_platformer2d::characters::brain::held_item_by_id`.
     ///
     /// An unregistered id refuses construction with `UnknownHeldItem`.
     pub held_item: String,
@@ -258,9 +258,7 @@ impl<T> Authored<T> {
 /// character/controller pair may be placed facing either way. Runtime body
 /// kinematics still use a signed scalar; this enum keeps that implementation
 /// detail out of authored room data.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SpawnFacing {
     Left,
     #[default]

@@ -18,7 +18,7 @@ pub(crate) fn draw_held_projectiles<'a>(
     world: &ae::World,
     projectiles: impl Iterator<
         Item = (
-            &'a ambition_platformer2d::actors::actor::BodyKinematics,
+            &'a ambition_platformer2d::engine_core::BodyKinematics,
             &'a ambition_platformer2d::actors::items::pickup::HeldProjectile,
         ),
     >,
@@ -86,7 +86,7 @@ pub struct FeatureDebugQueries<'w, 's> {
             ambition_platformer2d::boss_encounter::BossClusterRef,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::brain::BossAttackState,
-            Option<&'static ambition_platformer2d::actors::features::BossAnimationFrameSample>,
+            Option<&'static ambition_platformer2d::boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
         With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
@@ -94,28 +94,28 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_platformer2d::actors::features::ActorDisposition,
-            &'static ambition_platformer2d::actors::features::ActorAggression,
-            &'static ambition_platformer2d::actors::features::CenteredAabb,
+            &'static ambition_platformer2d::combat::components::ActorDisposition,
+            &'static ambition_platformer2d::combat::components::ActorAggression,
+            &'static ambition_platformer2d::combat::components::CenteredAabb,
         ),
         With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
     pub breakables: Query<
         'w,
         's,
-        &'static ambition_platformer2d::actors::features::CenteredAabb,
+        &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
             With<ambition_platformer2d::actors::features::FeatureSimEntity>,
-            With<ambition_platformer2d::actors::features::BreakableFeature>,
+            With<ambition_platformer2d::combat::components::BreakableFeature>,
         ),
     >,
     pub chests: Query<
         'w,
         's,
-        &'static ambition_platformer2d::actors::features::CenteredAabb,
+        &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
             With<ambition_platformer2d::actors::features::FeatureSimEntity>,
-            With<ambition_platformer2d::actors::features::ChestFeature>,
+            With<ambition_platformer2d::combat::components::ChestFeature>,
         ),
     >,
     pub hazards: Query<
@@ -143,10 +143,10 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_platformer2d::actors::actor::BodyKinematics,
+            &'static ambition_platformer2d::engine_core::BodyKinematics,
             &'static ambition_platformer2d::actors::items::pickup::HeldProjectile,
         ),
-        Without<ambition_platformer2d::actors::actor::PlayerEntity>,
+        Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
     >,
     /// The player's resolved gravity, so the player debug box can rotate to
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
@@ -159,10 +159,8 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub character_catalog:
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     pub boss_catalog: Res<'w, ambition_platformer2d::boss_encounter::BossCatalog>,
-    pub authored_attack_volumes: Res<
-        'w,
-        ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver,
-    >,
+    pub authored_attack_volumes:
+        Res<'w, ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver>,
     /// Every in-flight projectile, with its frozen combat side when it has one.
     /// Bundled here so `draw_debug_overlay` stays under Bevy's parameter ceiling.
     /// Presentation vocabulary does not decide debug faction color.
@@ -170,12 +168,12 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_platformer2d::actors::actor::BodyKinematics,
+            &'static ambition_platformer2d::engine_core::BodyKinematics,
             Option<&'static ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
         ),
         (
             With<ambition_platformer2d::projectiles::LiveProjectile>,
-            Without<ambition_platformer2d::actors::actor::PlayerEntity>,
+            Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
         ),
     >,
 }
@@ -285,8 +283,8 @@ pub(crate) fn draw_player_debug(
     // damage resolution, enemies, and bosses use (`collision_aabb`), so the
     // overlay provably draws the gameplay hurtbox by construction rather than a
     // parallel computation that could drift. Identity under vertical gravity.
-    let body = ambition_platformer2d::actors::features::collision_aabb(
-        &ambition_platformer2d::actors::features::SimpleActorGeometry {
+    let body = ambition_platformer2d::boss_encounter::attack_geometry::collision_aabb(
+        &ambition_platformer2d::boss_encounter::attack_geometry::SimpleActorGeometry {
             // The presented centre, with the size/facing/frame the sim published:
             // the shared-geometry guarantee above is about the SHAPE, and moving
             // the centre onto the render clock leaves that untouched.
@@ -358,11 +356,8 @@ pub(crate) fn draw_player_debug(
                     gravity_dir,
                 )
                 .unwrap_or_else(|| {
-                    ambition_platformer2d::combat::attack_hitbox_from_view(
-                        &view,
-                        attack_state.spec,
-                    )
-                    .into()
+                    ambition_platformer2d::combat::attack_hitbox_from_view(&view, attack_state.spec)
+                        .into()
                 });
             let color = match attack_state.phase() {
                 Some(ambition_platformer2d::combat::AttackPhase::Startup) => yellow(),
@@ -590,12 +585,13 @@ pub(crate) fn draw_feature_debug(
         if !health.alive() {
             continue;
         }
-        let ctx = ambition_platformer2d::actors::features::BossVolumeContext::from_ref(
-            &feature_q.boss_catalog,
-            bf.as_boss_ref(),
-            attack_state,
-        )
-        .with_animation_frame(animation_frame);
+        let ctx =
+            ambition_platformer2d::boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+                &feature_q.boss_catalog,
+                bf.as_boss_ref(),
+                attack_state,
+            )
+            .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         label_box(
             labels,
@@ -628,7 +624,9 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::BottomRight,
             );
         }
-        for hurtbox in ambition_platformer2d::actors::features::damageable_volumes(&ctx) {
+        for hurtbox in
+            ambition_platformer2d::boss_encounter::attack_geometry::damageable_volumes(&ctx)
+        {
             // The published silhouette's REAL shape — a boss part may be an
             // authored hull, and drawing its bounding box here is how an
             // overlay tells you a lie that looks like a measurement.
@@ -641,7 +639,9 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::TopLeft,
             );
         }
-        for vol in ambition_platformer2d::actors::features::active_attack_volumes(&ctx) {
+        for vol in
+            ambition_platformer2d::boss_encounter::attack_geometry::active_attack_volumes(&ctx)
+        {
             draw_hitbox_volume(gizmos, world, &vol, active_color, developer_tools);
             label_box(
                 labels,
@@ -703,7 +703,7 @@ pub(crate) fn draw_projectile_debug<'a>(
     world: &ae::World,
     projectiles: impl IntoIterator<
         Item = (
-            &'a ambition_platformer2d::actors::actor::BodyKinematics,
+            &'a ambition_platformer2d::engine_core::BodyKinematics,
             Option<&'a ambition_platformer2d::actors::projectile::ProjectileAllegiance>,
         ),
     >,

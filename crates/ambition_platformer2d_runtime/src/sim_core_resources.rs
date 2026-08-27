@@ -42,7 +42,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ActorDiedMessage>()
             .add_message::<ambition_damage::WalletShieldSpent>()
             .add_message::<ambition_combat::SetFlagRequested>()
-            .add_message::<ambition_platformer2d_actor_monolith::features::QuestAdvanceRequested>()
+            .add_message::<ambition_persistence::quest::QuestAdvanceRequested>()
             .add_message::<ambition_encounter::switches::SwitchActivated>()
             .add_message::<ambition_combat::GameplaySfxRequested>()
             .add_message::<ambition_combat::HitEvent>()

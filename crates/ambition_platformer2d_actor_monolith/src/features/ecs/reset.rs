@@ -6,6 +6,10 @@
 //! retry a room without having to leave and re-enter.
 
 use super::*;
+use ambition_combat::components::{
+    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, BreakableFeature,
+    CenteredAabb, Collected, Opened, RespawnTimer, StandTimer,
+};
 use ambition_combat::events::ResetRoomFeaturesEvent;
 use ambition_combat::path_motion::PathMotion;
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
@@ -41,7 +45,10 @@ pub fn reset_ecs_room_features(
     // dropped are both "spawned by the run, cleared with the run".
     run_spawned: Query<
         Entity,
-        bevy::prelude::Or<(With<crate::features::PostBossNpc>, With<SpawnedThisAttempt>)>,
+        bevy::prelude::Or<(
+            With<ambition_combat::components::PostBossNpc>,
+            With<SpawnedThisAttempt>,
+        )>,
     >,
     mut breakables: Query<
         (Entity, &mut BreakableFeature, Option<&mut StandTimer>),

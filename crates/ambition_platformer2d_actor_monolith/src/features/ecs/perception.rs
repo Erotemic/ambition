@@ -271,8 +271,8 @@ pub fn collect_perception_peers(
     mut peers: bevy::prelude::ResMut<PerceptionPeers>,
     bodies: bevy::prelude::Query<(
         bevy::prelude::Entity,
-        Option<&crate::features::FeatureId>,
-        &crate::actor::BodyKinematics,
+        Option<&ambition_combat::components::FeatureId>,
+        &ambition_platformer2d_core::BodyKinematics,
         &ambition_characters::actor::BodyHealth,
         &ActorFaction,
         Option<&ae::BodyGroundState>,
@@ -340,7 +340,7 @@ pub fn collect_perception_projectiles(
     mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
     live: bevy::prelude::Query<
         (
-            &crate::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ambition_projectiles::ProjectileGameplay,
             Option<&crate::projectile::ProjectileAllegiance>,
         ),
@@ -400,7 +400,7 @@ pub fn ensure_perception(
         (
             bevy::prelude::With<ambition_characters::brain::Brain>,
             bevy::prelude::With<crate::features::FeatureSimEntity>,
-            bevy::prelude::Without<crate::actor::PlayerEntity>,
+            bevy::prelude::Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             bevy::prelude::Without<ambition_boss_encounter::BossConfig>,
             // ⭐ A FIGHTER SEATED IN A MATCH IS NOT AN EXPLORATION ACTOR, and
             // bounded senses are an exploration mechanic: being juked, losing a

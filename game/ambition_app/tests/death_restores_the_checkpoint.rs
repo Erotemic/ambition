@@ -94,7 +94,7 @@ fn assert_still_held(sim: &mut Platformer2dSimHarness, authored: &SimId, why: &s
 fn body(sim: &mut Platformer2dSimHarness) -> Entity {
     let mut query = sim
         .world_mut()
-        .query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        .query_filtered::<Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
     query
         .iter(sim.world())
         .next()
@@ -176,15 +176,16 @@ fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
 fn die(sim: &mut Platformer2dSimHarness) {
     let victim = body(sim);
     let (x, y) = body_pos(sim);
-    sim.world_mut()
-        .write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+    sim.world_mut().write_message(
+        ambition_platformer2d::combat::death_rules::ActorDiedMessage {
             victim,
             pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
             cause: ambition_platformer2d::combat::death_rules::DeathCause {
                 source: ambition_platformer2d::combat::HitSource::Hazard,
                 attacker: None,
             },
-        });
+        },
+    );
     // The interlude counts down on the sim clock and only then asks the roster
     // for the consequence; the rebuild it requests takes several more frames.
     sim.step_n(base(), 240);
@@ -577,7 +578,10 @@ fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
     sim.step_n(base(), 120);
 
     let after = dynamic_occurrences(sim);
-    let minted: Vec<SimId> = after.into_iter().filter(|id| !before.contains(id)).collect();
+    let minted: Vec<SimId> = after
+        .into_iter()
+        .filter(|id| !before.contains(id))
+        .collect();
     assert_eq!(
         minted.len(),
         1,
@@ -596,8 +600,11 @@ fn equip_the_minted_item(
     mut commands: bevy::prelude::Commands,
     mut owned: bevy::prelude::ResMut<ambition_platformer2d::actors::items::OwnedItems>,
     mut bodies: bevy::prelude::Query<
-        (Entity, &mut ambition_platformer2d::characters::brain::ActionSet),
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        (
+            Entity,
+            &mut ambition_platformer2d::characters::brain::ActionSet,
+        ),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
     let (player, mut action_set) = bodies.single_mut().expect("one primary body");

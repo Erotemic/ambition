@@ -2,11 +2,11 @@
 
 use bevy::prelude::*;
 
+use ambition_boss_encounter::BossClusterRef;
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
-use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
@@ -318,8 +318,8 @@ pub fn spawn_overfit_volley_from_special_messages(
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
     player_query: Query<
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>,
+        &ambition_platformer2d_core::BodyKinematics,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -328,7 +328,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             &ambition_characters::actor::BodyHealth,
             &BossAttackState,
             &mut OverfitVolleyState,
-            Option<&ambition_platformer2d_actor_monolith::features::ActorTarget>,
+            Option<&ambition_combat::components::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -482,8 +482,8 @@ pub fn spawn_minima_trap_from_special_messages(
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
     player_query: Query<
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>,
+        &ambition_platformer2d_core::BodyKinematics,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -491,7 +491,7 @@ pub fn spawn_minima_trap_from_special_messages(
             BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &mut MinimaTrapState,
-            Option<&ambition_platformer2d_actor_monolith::features::ActorTarget>,
+            Option<&ambition_combat::components::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,

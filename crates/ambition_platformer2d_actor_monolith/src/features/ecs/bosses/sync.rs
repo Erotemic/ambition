@@ -3,9 +3,10 @@
 //! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
 use super::super::*;
+use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
 
 use crate::features::bosses::ActorSpriteMetrics;
-use crate::features::bounding_aabb;
+use ambition_boss_encounter::attack_geometry::bounding_aabb;
 use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::SheetRegistry;
@@ -210,11 +211,13 @@ pub fn boss_spawn_hurtboxes(
         boss.status.sprite_metrics = Some(metrics);
     }
     let attack_state = ambition_characters::brain::BossAttackState::default();
-    crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
-        boss_catalog,
-        boss.as_ref(),
-        &attack_state,
-    ))
+    ambition_boss_encounter::attack_geometry::damageable_volumes(
+        &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+            boss_catalog,
+            boss.as_ref(),
+            &attack_state,
+        ),
+    )
 }
 
 pub(crate) fn boss_sprite_metrics_from_registry(
@@ -237,7 +240,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
         combat_offset: ae::Vec2::ZERO,
         animations: metrics.animations.clone(),
     };
-    let body_aabbs = crate::features::world_space_body_aabbs_from_parts(
+    let body_aabbs = ambition_boss_encounter::attack_geometry::world_space_body_aabbs_from_parts(
         &snapshot.body_pixel_parts,
         snapshot.body_pixel_bbox,
         frame_w,

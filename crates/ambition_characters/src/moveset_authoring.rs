@@ -152,7 +152,7 @@ pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
 ///
 ///  this is NOT an FX-sheet row name. `HitVolume::vfx` is a two-word
 /// vocabulary ([`SLASH_ARC_VFX`] /
-/// [`SLASH_POKE_VFX`](ambition_characters::moveset_prefabs::SLASH_POKE_VFX))
+/// [`SLASH_POKE_VFX`](crate::moveset_prefabs::SLASH_POKE_VFX))
 /// that the move runtime
 /// reads twice: it picks the arc-vs-jab shape drawn out of the spawned volume,
 /// and it is the flag that makes a volume prefer the sprite manifest's authored

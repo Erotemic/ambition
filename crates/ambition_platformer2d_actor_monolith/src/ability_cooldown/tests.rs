@@ -1,5 +1,5 @@
 use super::*;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 /// The possessed body could blink exactly once, ever.
 #[test]

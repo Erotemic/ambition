@@ -25,17 +25,19 @@ fn clock_remaining(app: &mut App) -> Option<f32> {
     q.iter(app.world()).next().map(|s| s.time_remaining)
 }
 
-fn player_body(app: &mut App) -> Option<ambition_platformer2d::actors::actor::BodyKinematics> {
+fn player_body(app: &mut App) -> Option<ambition_platformer2d::engine_core::BodyKinematics> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics, With<
-            ambition_platformer2d::actors::actor::PrimaryPlayer,
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
         >>();
     q.iter(app.world()).next().copied()
 }
 
 fn sim_tick(app: &App) -> u64 {
-    app.world().resource::<ambition_platformer2d::runtime::SimTick>().get()
+    app.world()
+        .resource::<ambition_platformer2d::runtime::SimTick>()
+        .get()
 }
 
 /// Advance to the first post-activation frame that actually executes one simulation tick, then
@@ -56,7 +58,7 @@ fn align_post_activation_fixed_timeline(app: &mut App) {
     panic!("the fixed timeline did not advance after gameplay activation");
 }
 
-fn activate_player(app: &mut App) -> ambition_platformer2d::actors::actor::BodyKinematics {
+fn activate_player(app: &mut App) -> ambition_platformer2d::engine_core::BodyKinematics {
     for _ in 0..16 {
         app.update();
         if let Some(body) = player_body(app) {

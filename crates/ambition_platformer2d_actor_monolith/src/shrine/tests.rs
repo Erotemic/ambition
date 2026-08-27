@@ -1,6 +1,6 @@
 use super::*;
-use crate::actor::BodyBaseSize;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_core::BodyBaseSize;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 #[test]
 fn interacting_at_the_shrine_heals_to_full() {
@@ -142,7 +142,9 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         );
         ambition_platformer2d_world::rooms::RoomSet::from_parts(
             room_id,
-            vec![ambition_platformer2d_world::rooms::RoomSpec::new(room_id, world)],
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                room_id, world,
+            )],
             Vec::new(),
         )
     }
@@ -271,7 +273,9 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
         app.world_mut(),
         ambition_platformer2d_world::rooms::RoomSet::from_parts(
             "here",
-            vec![ambition_platformer2d_world::rooms::RoomSpec::new("here", world)],
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here", world,
+            )],
             Vec::new(),
         ),
     );

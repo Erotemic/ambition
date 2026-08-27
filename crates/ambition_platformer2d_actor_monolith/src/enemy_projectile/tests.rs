@@ -1,12 +1,14 @@
-
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
 
-use ambition_combat::components::ActorFaction;
 use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
-use ambition_projectiles::{build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_combat::components::ActorFaction;
+use ambition_projectiles::{
+    build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
+    ProjectileStart,
+};
 
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
@@ -68,15 +70,15 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("test_enemy"),
-            crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorDisposition::Hostile,
+            ambition_combat::components::FeatureId::new("test_enemy"),
+            ambition_combat::components::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorDisposition::Hostile,
             //  a body with no faction is not something production builds. The
             // fixture had none, because the branch it was written against broadcast
             // a volume and never asked whose side anyone was on. `damage_lands` is
             // the routing rule for every shot now, so an unfactioned body is not a
             // hard target — it is a body the victim query cannot even see.
-            crate::features::ActorFaction::Enemy,
+            ambition_combat::components::ActorFaction::Enemy,
             ambition_characters::actor::BodyCombat {
                 hit_flash: 0.0,
                 training_dummy: false,
@@ -189,8 +191,8 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("enemy_bystander"),
-            crate::features::CenteredAabb::new(actor_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::FeatureId::new("enemy_bystander"),
+            ambition_combat::components::CenteredAabb::new(actor_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Enemy,
         ))
         .id();
@@ -263,9 +265,9 @@ fn spawn_boss_actor(app: &mut App, pos: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("arena_robot"),
-            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Boss,
+            ambition_combat::components::FeatureId::new("arena_robot"),
+            ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Boss,
         ))
         .id()
 }
@@ -298,8 +300,8 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
 fn enemy_glider_damages_a_relationally_hostile_actor() {
     let mut relations = crate::features::FactionRelations::default();
     relations.set_mutual_hostile(
-        crate::features::ActorFaction::Enemy,
-        crate::features::ActorFaction::Boss,
+        ambition_combat::components::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Boss,
         true,
     );
     let mut app = arena_projectile_app(relations);
@@ -357,7 +359,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     let firer = app
         .world_mut()
         .spawn((
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -365,9 +367,9 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("seat_two_fighter"),
-            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("seat_two_fighter"),
+            ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 2"),
         ))
         .id();
@@ -378,9 +380,9 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("same_team_fighter"),
-            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("same_team_fighter"),
+            ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -434,7 +436,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     let firer = app
         .world_mut()
         .spawn((
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -444,9 +446,9 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("same_team_fighter"),
-            crate::features::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("same_team_fighter"),
+            ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -454,9 +456,9 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("seat_two_fighter"),
-            crate::features::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("seat_two_fighter"),
+            ambition_combat::components::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 2"),
         ))
         .id();
@@ -531,7 +533,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     let firer = app
         .world_mut()
         .spawn((
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -540,9 +542,9 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("same_team_fighter"),
-            crate::features::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("same_team_fighter"),
+            ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -602,7 +604,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
     let firer = app
         .world_mut()
         .spawn((
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -612,9 +614,9 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("same_team_fighter"),
-            crate::features::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("same_team_fighter"),
+            ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -622,9 +624,9 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
         .world_mut()
         .spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("seat_two_fighter"),
-            crate::features::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
-            crate::features::ActorFaction::Player,
+            ambition_combat::components::FeatureId::new("seat_two_fighter"),
+            ambition_combat::components::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::ActorFaction::Player,
             MatchTeam::new("seat 2"),
         ))
         .id();
@@ -709,10 +711,10 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
 /// boss's attack at it.
 #[test]
 fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-    use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -823,10 +825,10 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 /// exercised.
 #[test]
 fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-    use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -941,8 +943,8 @@ fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
         volumes.set_single(volume);
         app.world_mut().spawn((
             crate::features::FeatureSimEntity,
-            crate::features::FeatureId::new("arena_fighter"),
-            crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+            ambition_combat::components::FeatureId::new("arena_fighter"),
+            ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
             volumes,
             BodyHealth::new(Health {
@@ -999,8 +1001,8 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
             .world_mut()
             .spawn((
                 crate::features::FeatureSimEntity,
-                crate::features::FeatureId::new("arena_fighter"),
-                crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+                ambition_combat::components::FeatureId::new("arena_fighter"),
+                ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
                 ambition_combat::components::ActorFaction::Player,
                 // Carrying this is what makes a body a damage target at all.
                 ambition_combat::components::DamageableVolumes::default(),

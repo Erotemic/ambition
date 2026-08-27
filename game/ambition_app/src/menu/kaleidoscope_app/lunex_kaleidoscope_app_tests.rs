@@ -5,9 +5,9 @@ use crate::menu::model::{build_inventory_pages, system_rows};
 use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
-use ambition_platformer2d::actors::actor::BodyMana;
-use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::engine_core::BodyMana;
+use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
 
 /// The cube's System list wraps vertically (closed list); the Grid clamps (its
@@ -344,12 +344,11 @@ fn open_app() -> App {
 }
 
 fn move_control(app: &mut App, action: MenuPageAction) {
-    app.world_mut()
-        .insert_resource({
-            let mut devices = ambition_platformer2d::input::SeatActiveDevices::default();
-            devices.mark_primary(ambition_platformer2d::input::ActiveDevice::Mouse);
-            devices
-        });
+    app.world_mut().insert_resource({
+        let mut devices = ambition_platformer2d::input::SeatActiveDevices::default();
+        devices.mark_primary(ambition_platformer2d::input::ActiveDevice::Mouse);
+        devices
+    });
     let entity = spawn_control(app, action);
     trigger_move(app, entity, Vec2::new(1.0, 0.0));
     app.update();
@@ -1757,7 +1756,6 @@ fn press_then_release_equips_an_item() {
     );
 }
 
-
 /// Build an app with the real lib cube plugin so `rebuild_cube_faces` spawns
 /// REAL controls (with their `MenuVisualState`, `KaleidoscopeControlStyle`, and
 /// HIDDEN `SelectionCorner` children), wire the sandbox focus writer + the lib
@@ -2202,7 +2200,9 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
 /// We pin the sim schedule to `Update` so one `app.update()` is one deterministic sim tick.
 #[test]
 fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
-    use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+    use ambition_platformer2d::platformer::schedule::{
+        Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    };
     use ambition_platformer2d::sim_view::{ControlContextKind, ControlPrompt};
     use bevy::prelude::IntoScheduleConfigs;
 
@@ -2234,7 +2234,8 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.set_sim_schedule(Update);
     app.add_systems(
         Update,
-        ambition_platformer2d::sim_view::rebuild_control_prompt.in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+        ambition_platformer2d::sim_view::rebuild_control_prompt
+            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
     );
     super::install_menu_confirm_provider(&mut app);
     app.update();

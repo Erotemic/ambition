@@ -59,19 +59,20 @@ pub struct RoomReplayRequested;
 pub struct NewGameResetCommitted;
 
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use ambition_platformer2d_world::rooms::RoomSet;
 use crate::world::physics;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+use ambition_platformer2d_world::rooms::RoomSet;
 
 /// Bundles sim-state resources so `process_new_game_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
-    sim_state: ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
+    sim_state:
+        ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     clock_resets: MessageWriter<'w, ambition_time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -185,16 +186,16 @@ pub fn process_new_game_reset_request(
         (
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
-            &mut crate::actor::BodyAnimFacts,
+            &mut ambition_characters::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-            &mut crate::actor::BodyMelee,
+            &mut ambition_combat::BodyMelee,
             &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
         ),
         // PRIMARY-only: the reset warps THE player to the start-room spawn. A
         // brain-driven clone is a transient demo body; scoping to the primary keeps
         // the reset working once a second PlayerEntity exists (bare single_mut would Err).
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     if !request.request {
@@ -415,7 +416,7 @@ pub fn clear_transient_on_sandbox_reset(
             &mut ambition_characters::brain::ActionSet,
             Option<&crate::items::pickup::StashedActionSet>,
         ),
-        With<crate::actor::PlayerEntity>,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     if committed.read().count() == 0 {

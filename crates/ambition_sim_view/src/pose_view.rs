@@ -168,12 +168,12 @@ pub fn rebuild_body_pose_views(
         (
             (
                 Entity,
-                &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyGroundState>,
+                &ambition_platformer2d_core::BodyKinematics,
+                Option<&ambition_platformer2d_core::BodyGroundState>,
                 Option<&ambition_platformer2d_core::BodyMotionFacts>,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyFlightState>,
+                Option<&ambition_platformer2d_core::BodyFlightState>,
                 Option<&BodyCombat>,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
+                Option<&ambition_characters::actor::BodyAnimFacts>,
                 Option<&ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
                 // This body's own resolved basis, so the locomotion metric is
                 // measured along ITS run axis.  deliberately not the global
@@ -182,11 +182,11 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
             ),
             (
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyModeState>,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyEnvironmentContact>,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyAbilities>,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyShieldState>,
-                Option<&ambition_platformer2d_actor_monolith::actor::BodyMelee>,
+                Option<&ambition_platformer2d_core::BodyModeState>,
+                Option<&ambition_platformer2d_core::BodyEnvironmentContact>,
+                Option<&ambition_platformer2d_core::BodyAbilities>,
+                Option<&ambition_platformer2d_core::BodyShieldState>,
+                Option<&ambition_combat::BodyMelee>,
                 Option<&ambition_platformer2d_core::BodyBaseSize>,
                 Option<&BodyHealth>,
                 Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
@@ -212,12 +212,12 @@ pub fn rebuild_body_pose_views(
                 // would tell the renderer "the sheet authored this geometry"
                 // about every one of them, and hand it a quad that was never
                 // derived from their boxes.
-                Option<&ambition_platformer2d_actor_monolith::features::ActorRenderSize>,
+                Option<&ambition_combat::components::ActorRenderSize>,
                 // The quad's PLACEMENT, published beside its size by the same
                 // pass. Gated on `SpritePosedBody` below for the same reason the
                 // size is: several spawn paths insert these from sheet metadata
                 // for bodies whose collision box is still hand-authored.
-                Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
+                Option<&ambition_combat::components::ActorSpriteOffset>,
                 bevy::prelude::Has<
                     ambition_sprite_sheet::character::SpritePosedBody,
                 >,
@@ -464,8 +464,8 @@ pub struct ShieldRingsView(pub Vec<ShieldRingFact>);
 pub fn rebuild_shield_rings_view(
     mut view: ResMut<ShieldRingsView>,
     bodies: Query<(
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        &ambition_platformer2d_actor_monolith::actor::BodyShieldState,
+        &ambition_platformer2d_core::BodyKinematics,
+        &ambition_platformer2d_core::BodyShieldState,
         // Publish the presented pose because pooled shield rendering has no
         // owner entity left with which to resolve presentation offsets.
         Option<&crate::presented_pose::PresentedPose>,
@@ -554,8 +554,8 @@ pub struct GuardBreaksView(pub Vec<GuardBreakFact>);
 pub fn rebuild_guard_breaks_view(
     mut view: ResMut<GuardBreaksView>,
     bodies: Query<(
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        &ambition_platformer2d_actor_monolith::actor::BodyShieldState,
+        &ambition_platformer2d_core::BodyKinematics,
+        &ambition_platformer2d_core::BodyShieldState,
         Option<&crate::presented_pose::PresentedPose>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
@@ -644,7 +644,7 @@ pub fn rebuild_launched_bodies_view(
     mut view: ResMut<LaunchedBodiesView>,
     bodies: Query<
         (
-            &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             Option<&ambition_platformer2d_core::BodyMotionFacts>,
             Option<&BodyCombat>,
             // The presented position, so the plume leaves the body where the
@@ -738,7 +738,7 @@ mod pose_view_tests {
         let mut app = bevy::prelude::App::new();
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
-        let kin = ambition_platformer2d_actor_monolith::actor::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics {
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
             size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
@@ -786,7 +786,7 @@ mod pose_view_tests {
         );
         assert_eq!(
             app.world()
-                .get::<ambition_platformer2d_actor_monolith::actor::BodyKinematics>(body)
+                .get::<ambition_platformer2d_core::BodyKinematics>(body)
                 .map(|k| k.facing),
             Some(1.0),
             "the presentation mirror reached the BODY's facing — every hitbox \
@@ -811,7 +811,7 @@ mod pose_view_tests {
         let mut app = bevy::prelude::App::new();
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
-        let kin = ambition_platformer2d_actor_monolith::actor::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics {
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
             size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
@@ -866,7 +866,7 @@ mod pose_view_tests {
     #[test]
     fn the_front_of_a_launch_is_published_apart_from_the_tumble() {
         use ambition_characters::actor::BodyCombat;
-        use ambition_platformer2d_actor_monolith::actor::BodyKinematics;
+        use ambition_platformer2d_core::BodyKinematics;
         use ambition_platformer2d_core::{BodyMotionFacts, Vec2};
 
         let mut app = bevy::prelude::App::new();
@@ -947,7 +947,7 @@ mod pose_view_tests {
         let mut app = bevy::prelude::App::new();
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
 
-        let kin = ambition_platformer2d_actor_monolith::actor::BodyKinematics {
+        let kin = ambition_platformer2d_core::BodyKinematics {
             pos: ambition_platformer2d_core::Vec2::ZERO,
             vel: ambition_platformer2d_core::Vec2::ZERO,
             size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),

@@ -7,6 +7,9 @@
 //! inferred merely because a body can be struck.
 
 use super::*;
+use ambition_combat::components::{
+    BreakableFeature, CenteredAabb, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
+};
 
 /// Publish current damageable volumes for every ordinary live body.
 ///
@@ -22,7 +25,7 @@ pub fn refresh_body_damageable_volumes(
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
             // Authored hurtboxes override the coarse body envelope.
             Option<&crate::character_runtime::ResolvedHurtboxes>,
-            Option<&crate::actor::BodyKinematics>,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
             &mut DamageableVolumes,
         ),
         // Bosses and breakables publish their own family-specific volumes.
@@ -52,7 +55,7 @@ pub fn refresh_body_damageable_volumes(
 /// hurtboxes are authored as rectangles, so this path publishes AABB volumes.
 fn authored_world_volumes(
     hurtboxes: Option<&crate::character_runtime::ResolvedHurtboxes>,
-    kin: Option<&crate::actor::BodyKinematics>,
+    kin: Option<&ambition_platformer2d_core::BodyKinematics>,
 ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
     let volumes = resolved.world_volumes(kin.aabb().center(), kin.facing)?;
@@ -72,10 +75,10 @@ pub fn refresh_boss_damageable_volumes(
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
-        Option<&crate::features::BossAnimationFrameSample>,
+        Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         // Authored character hurtboxes override boss-part sampling.
         Option<&crate::character_runtime::ResolvedHurtboxes>,
-        Option<&crate::actor::BodyKinematics>,
+        Option<&ambition_platformer2d_core::BodyKinematics>,
         &mut DamageableVolumes,
     )>,
 ) {
@@ -91,9 +94,13 @@ pub fn refresh_boss_damageable_volumes(
             damageable.publish(volumes);
             continue;
         }
-        let ctx = crate::features::BossVolumeContext::from_ref(&boss_catalog, boss, attack_state)
-            .with_animation_frame(animation_frame);
-        damageable.publish(crate::features::damageable_volumes(&ctx));
+        let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+            &boss_catalog,
+            boss,
+            attack_state,
+        )
+        .with_animation_frame(animation_frame);
+        damageable.publish(ambition_boss_encounter::attack_geometry::damageable_volumes(&ctx));
     }
 }
 

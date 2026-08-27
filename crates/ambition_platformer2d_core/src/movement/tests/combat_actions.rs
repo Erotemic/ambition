@@ -138,7 +138,7 @@ fn shield_activates_when_held_with_ability() {
 
 /// THE STICK REACHES THE GUARD — the wiring, not the rule.
 ///
-/// [`ambition_combat::util::guard_covers_hit`] is unit-tested against a tilt
+/// [`ambition_platformer2d::combat::util::guard_covers_hit`] is unit-tested against a tilt
 /// handed to it directly, which proves the coverage MATHS and nothing about
 /// whether a held stick ever produces one. This is the other half: the kernel
 /// resolves the lean, so the value the hit test reads is a real input.

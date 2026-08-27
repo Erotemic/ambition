@@ -10,8 +10,11 @@ use bevy::prelude::{Query, With, Without};
 
 use ambition_boss_encounter::BossConfig;
 
-use super::{ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureSimEntity};
-use ambition_combat::events::{HitEvent};
+use super::FeatureSimEntity;
+use ambition_combat::components::{
+    ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId,
+};
+use ambition_combat::events::HitEvent;
 
 pub(super) fn target_is_ignored(ignored_targets: &[String], prefix: &str, id: &str) -> bool {
     ignored_targets.iter().any(|ignored| {
@@ -89,7 +92,7 @@ pub fn ecs_hit_event_hits_boss(
             ambition_boss_encounter::BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
+            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -116,8 +119,8 @@ pub fn ecs_hit_event_hits_boss(
             if !health.alive() {
                 return false;
             }
-            crate::features::damageable_volumes(
-                &crate::features::BossVolumeContext::from_ref(
+            ambition_boss_encounter::attack_geometry::damageable_volumes(
+                &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
                     boss_catalog,
                     feature.as_boss_ref(),
                     attack_state,

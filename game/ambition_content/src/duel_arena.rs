@@ -128,8 +128,8 @@ pub fn register_duel_content_staging(registry: &mut RoomContentStagingRegistry) 
 #[cfg(feature = "ui")]
 fn cmd_duel(
     player: Query<
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
+        &ambition_platformer2d_core::BodyKinematics,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // not `MessageWriter`. Spawning two fighters is a simulation act, and
     // `SpawnActorRequest` is cleared on rollback by a host that will not re-run

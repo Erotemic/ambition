@@ -17,8 +17,8 @@ use ambition_platformer2d::engine_core::ControlFrame;
 
 fn player_pos_x(app: &mut App) -> f32 {
     let mut q = app.world_mut().query_filtered::<
-        &ambition_platformer2d::actors::actor::BodyKinematics,
-        With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >();
     q.iter(app.world())
         .next()
@@ -126,7 +126,7 @@ fn d_toggles_sanic_to_super_sanic_and_back_through_the_standard_path() {
     fn worn_id(app: &mut App) -> String {
         let mut q = app
             .world_mut()
-            .query_filtered::<&WornCharacter, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+            .query_filtered::<&WornCharacter, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         q.iter(app.world())
             .next()
             .expect("the demo spawned a primary worn character")
@@ -163,8 +163,8 @@ fn d_toggles_sanic_to_super_sanic_and_back_through_the_standard_path() {
     assert_eq!(worn_id(&mut app), SUPER_SANIC_CHARACTER_ID);
     let flight = {
         let mut q = app.world_mut().query_filtered::<
-            &ambition_platformer2d::actors::actor::BodyFlightState,
-            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            &ambition_platformer2d::engine_core::BodyFlightState,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         >();
         *q.iter(app.world())
             .next()
@@ -264,9 +264,9 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
         let (control, shield_active, melee_swinging) = {
             let mut q = app.world_mut().query_filtered::<(
                 &ActorControl,
-                &ambition_platformer2d::actors::actor::BodyShieldState,
-                &ambition_platformer2d::actors::actor::BodyMelee,
-            ), With<ambition_platformer2d::actors::actor::PrimaryPlayer>>(
+                &ambition_platformer2d::engine_core::BodyShieldState,
+                &ambition_platformer2d::combat::BodyMelee,
+            ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>(
             );
             let (control, shield, melee) = q
                 .iter(app.world())
@@ -376,9 +376,9 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
         let (charge, mode, anim) = {
             let mut q = app.world_mut().query_filtered::<(
                 &BallDash,
-                &ambition_platformer2d::actors::actor::BodyModeState,
+                &ambition_platformer2d::engine_core::BodyModeState,
                 &ambition_platformer2d::sim_view::BodyPoseView,
-            ), With<ambition_platformer2d::actors::actor::PrimaryPlayer>>(
+            ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>(
             );
             let (dash, mode, pose) = q
                 .iter(app.world())
@@ -428,9 +428,9 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
                 &BallDash,
                 Option<&Rolling>,
                 &MotionModel,
-                &ambition_platformer2d::actors::actor::BodyKinematics,
+                &ambition_platformer2d::engine_core::BodyKinematics,
                 &ambition_demo_sanic::ball_dash::BallDashInput,
-            ), With<ambition_platformer2d::actors::actor::PrimaryPlayer>>(
+            ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>(
             );
             let (dash, rolling, motion, kin, technique_input) = q
                 .iter(app.world())

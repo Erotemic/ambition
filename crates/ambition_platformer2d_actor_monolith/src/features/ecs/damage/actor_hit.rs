@@ -6,11 +6,12 @@
 use bevy::prelude::Entity;
 
 use super::super::super::NPC_HOSTILE_STRIKE_THRESHOLD;
+use super::super::ae;
 use super::super::damage_drops::{
     drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,
 };
-use super::super::{ae, ActorDisposition};
+use ambition_combat::components::ActorDisposition;
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::midpoint;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
@@ -18,8 +19,7 @@ use ambition_combat::util::midpoint;
 // spawners live in `damage_drops`.
 use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxMessage;
-use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxMessage};
 
 use super::*;
 
@@ -102,7 +102,7 @@ pub(crate) fn apply_actor_hit(
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
     wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
-    aggression: Option<&mut crate::features::ActorAggression>,
+    aggression: Option<&mut ambition_combat::components::ActorAggression>,
     interactable: Option<&ambition_interaction::Interactable>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,

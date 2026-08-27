@@ -716,7 +716,7 @@ pub fn install_sanic_content(app: &mut App) {
             ),
         ] {
             // The ability is a real ceiling now
-            // (`ambition_characters::action_scheme::combat_actions`), proved behaviourally by
+            // (`ambition_platformer2d::characters::action_scheme::combat_actions`), proved behaviourally by
             // `persona_architecture`'s
             // `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`.
             app.register_character(
@@ -1530,7 +1530,7 @@ fn ensure_sanic_transform_beat_policy(
     bodies: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
             bevy::prelude::Without<
                 ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy,
             >,
@@ -1568,7 +1568,7 @@ fn sync_super_form_traits(
             &ae::BodyKinematics,
             Option<&SuperFormLatch>,
         ),
-        bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
 ) {
     // `None` = no controlled player (the session has retired; a player is present
@@ -1772,7 +1772,7 @@ fn tick_sanic_act(
 fn emit_sanic_milestone_sfx(
     player: bevy::prelude::Query<
         &ae::BodyKinematics,
-        bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
@@ -1982,9 +1982,7 @@ pub fn scatter_rings_on_hit(
     active_session: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
     >,
-    mut spent: bevy::prelude::MessageReader<
-        ambition_platformer2d::damage::WalletShieldSpent,
-    >,
+    mut spent: bevy::prelude::MessageReader<ambition_platformer2d::damage::WalletShieldSpent>,
     mut vfx: bevy::prelude::MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut bodies: bevy::prelude::Query<

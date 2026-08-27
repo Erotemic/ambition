@@ -27,7 +27,8 @@ fn run_bounce(dt: f32) -> BounceStats {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::Fixed { dt })
         .with_required_start_room("portal_lab");
-    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("Platformer2dSimHarness::new in portal_lab");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts)
+        .expect("Platformer2dSimHarness::new in portal_lab");
 
     let spawn = sim.observation().player_pos;
 
@@ -109,7 +110,8 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::Fixed { dt: 1.0 / 60.0 })
         .with_required_start_room("portal_lab");
-    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("Platformer2dSimHarness::new in portal_lab");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts)
+        .expect("Platformer2dSimHarness::new in portal_lab");
 
     let spawn = sim.observation().player_pos;
 
@@ -181,7 +183,8 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
 /// The dt-independent approach-box carve removes the whole class.
 #[test]
 fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
-    use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
     const SMALL_DT: f32 = 0.008; // ~120 FPS baseline
@@ -191,7 +194,8 @@ fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::Fixed { dt: SMALL_DT })
         .with_required_start_room("portal_lab");
-    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("Platformer2dSimHarness::new in portal_lab");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts)
+        .expect("Platformer2dSimHarness::new in portal_lab");
     sim.step(base());
 
     // Drops happen onto the first live floor-to-floor authored pair.

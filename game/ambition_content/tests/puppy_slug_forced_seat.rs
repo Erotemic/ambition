@@ -14,11 +14,11 @@
 
 use bevy::prelude::*;
 
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_platformer2d_actor_monolith::character_runtime::{
     activate_the_prepared_match, prepare_the_match, release_the_opening_hold, ControllerBinding,
     MatchParticipant, MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry,
 };
-use ambition_platformer2d_actor_monolith::features::ActorConfig;
 
 /// The monolith's own seating fixture, with ONE thing changed: the cast comes
 /// from `ambition_content`'s shipped registration seam.

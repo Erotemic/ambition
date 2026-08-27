@@ -15,7 +15,6 @@
 //! Conversation-specific verbs, presentation commands, Yarn functions, and markup cues
 //! remain here because they are host content rather than engine vocabulary.
 
-
 //! The generic binding machinery (the [`YarnStateMirror`] shape, the
 //! [`ambition_dialog::YarnPresentationCue`], the [`ambition_dialog::YarnContentBindings`] installer seam, and
 //! [`ambition_dialog::YarnBindingsPlugin`]) lives in the reusable `ambition_dialog` crate (E1c).
@@ -59,7 +58,7 @@ pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
     wallet: Query<
         &ambition_characters::actor::BodyWallet,
-        With<ambition_platformer2d_actor_monolith::actor::PrimaryPlayer>,
+        With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
     >,
     mirror: Res<YarnStateMirror>,
 ) {
@@ -136,7 +135,7 @@ pub fn cmd_challenge(
     // it is a simulation effect; keying it off the UI read-model meant a
     // gameplay consequence read a resource that rollback does not rewind.
     conversation: Res<ambition_conversation::ActiveConversation>,
-    player: Query<Entity, With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>>,
+    player: Query<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
     sim_ids: Query<&SimId>,
     mut narrative: NarrativeInputWriter<
         ambition_platformer2d_actor_monolith::features::ChallengeRequested,
@@ -345,8 +344,8 @@ pub fn cmd_spawn_fireworks(
     // SLOT-0 BY DESIGN: Yarn's `$player_x`/`$player_y` are authored against the
     // local player's position — dialogue is told to a human, not to a body.
     player_q: Query<
-        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
-        ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
+        &ambition_platformer2d_core::BodyKinematics,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     let origin = player_q

@@ -6,17 +6,23 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
+use crate::features::FeatureSimEntity;
+use crate::trace::GameplayTraceBuffer;
+use ambition_boss_encounter::{BossClusterRef, BossConfig};
+use ambition_combat::components::{
+    ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId,
+};
+use ambition_combat::events::{
+    HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
+};
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
-use ambition_projectiles::{resolve_world_collision, WorldHitOutcome};
-use ambition_projectiles::{ProjectileSpawnRequest, ProjectileStart};
-use crate::actor::BodyKinematics;
-use crate::features::{ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity};
-use ambition_combat::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 use ambition_projectiles::ProjectileGameplay;
-use crate::trace::GameplayTraceBuffer;
-use ambition_boss_encounter::{BossClusterRef, BossConfig};
+use ambition_projectiles::{
+    resolve_world_collision, ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome,
+};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 
@@ -99,10 +105,10 @@ pub fn charge_projectile_input(
     mut charge_body_q: Query<
         (
             Entity,
-            &crate::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_projectiles::PlayerProjectileState,
-            Option<&mut crate::actor::BodyAnimFacts>,
+            Option<&mut ambition_characters::actor::BodyAnimFacts>,
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
     >,
@@ -155,8 +161,11 @@ pub fn charge_projectile_input(
         state.spawner.tick(dt);
 
         // Motion input uses the same +Y-down convention as `MotionDirection::from_axis`.
-        let dir =
-            ambition_projectiles::MotionDirection::from_axis(tick_info.axis.x, tick_info.axis.y, 0.55);
+        let dir = ambition_projectiles::MotionDirection::from_axis(
+            tick_info.axis.x,
+            tick_info.axis.y,
+            0.55,
+        );
         let now = state.clock;
         state.motion_buffer.push(dir, now);
 
@@ -364,7 +373,7 @@ pub fn step_projectiles(
         ),
         (
             With<LiveProjectile>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Without<FeatureSimEntity>,
         ),
     >,
@@ -389,7 +398,7 @@ pub fn step_projectiles(
             BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
+            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,

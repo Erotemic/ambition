@@ -27,9 +27,9 @@ use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectK
 use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
+use ambition_characters::control::ActorControl;
+use ambition_characters::control::DrivingParticipant;
 use ambition_damage::{BodyHitResolution, BodyHitResolved, BodyReactionApplied};
-use ambition_characters::control::{ActorControl};
-use ambition_characters::control::{DrivingParticipant};
 
 /// Publish one movement-intent fact per seated body per tick.
 ///
@@ -165,7 +165,7 @@ pub fn record_body_control_frame(
         // and must not vanish from the log for lacking one.
         Option<&ambition_characters::actor::BodyCombat>,
         // AC3.1.B: the melee AUTHORITY.
-        Option<&crate::actor::BodyMelee>,
+        Option<&ambition_combat::BodyMelee>,
         // THE INTEGRATOR'S OWN INPUTS, added after six candidates were
         // eliminated one at a time and the cause was still not found (S51). The
         // unauthored steps are a near-constant `-99`/tick, which is an
@@ -401,8 +401,8 @@ pub fn record_hit_reactions(
 mod tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::{Brain};
-use ambition_characters::control::{PlayerSlot};
+    use ambition_characters::brain::Brain;
+    use ambition_characters::control::PlayerSlot;
 
     fn app() -> App {
         let mut app = App::new();
@@ -496,8 +496,8 @@ use ambition_characters::control::{PlayerSlot};
 mod damage_tests {
     use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::{Brain};
-use ambition_characters::control::{PlayerSlot};
+    use ambition_characters::brain::Brain;
+    use ambition_characters::control::PlayerSlot;
 
     fn app() -> App {
         let mut app = App::new();
@@ -631,10 +631,10 @@ use ambition_characters::control::{PlayerSlot};
 #[cfg(test)]
 mod knockback_tests {
     use super::*;
-    use ambition_damage::BodyReaction;
     use ambition_causal::{FactValue, RecordingPolicy};
-    use ambition_characters::brain::{Brain};
-use ambition_characters::control::{PlayerSlot};
+    use ambition_characters::brain::Brain;
+    use ambition_characters::control::PlayerSlot;
+    use ambition_damage::BodyReaction;
 
     fn reaction_app() -> App {
         let mut app = App::new();

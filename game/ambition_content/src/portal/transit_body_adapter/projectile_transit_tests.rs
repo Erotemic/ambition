@@ -1,4 +1,3 @@
-
 //! Headless projectile-transit tests for the generic portal core plus the real
 //! projectile adapter. A projectile near a pair should emerge with rotated
 //! velocity; one nowhere near a portal should keep its straight-line path.
@@ -15,7 +14,7 @@ use super::ensure_projectile_portal_bodies;
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 
-use ambition_platformer2d_actor_monolith::platformer_runtime::body::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 
 /// A straight-flying, gravity-free projectile gameplay half (Hadouken: no
 /// bounce, no arc) so the test isolates the portal velocity rotation.

@@ -16,9 +16,9 @@ use bevy::prelude::{
 };
 
 use super::damage_drops::drop_currency_coin;
-use super::{
-    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
-    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity,
+use super::{sync_actor_components_from_cluster, BodyCombat, FeatureSimEntity};
+use ambition_combat::components::{
+    ActorDisposition, ActorIdentity, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
 };
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::{approximately_same_aabb, midpoint};
@@ -29,7 +29,7 @@ use ambition_combat::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::EXPLODER_BLAST_DAMAGE;
 use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
-use super::PickupFeature;
+use ambition_combat::components::PickupFeature;
 use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -455,7 +455,7 @@ pub fn apply_feature_hit_events(
         (
             With<FeatureSimEntity>,
             Without<ambition_boss_encounter::BossConfig>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
     >,
     mut bosses: Query<
@@ -475,13 +475,16 @@ pub fn apply_feature_hit_events(
                 &ambition_characters::actor::BodyWalletShield,
             )>,
             &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
+            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
             // CM8: the boss's own hurt reaction (ENEMY default).
             Option<&ambition_combat::CombatTuning>,
             // The world's hands are off it — the same gate the actor road takes.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
-        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
+        (
+            With<FeatureSimEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        ),
     >,
     // Iterates every player and uses `HitEvent::attacker` (now stamped by every player-attacker
     // emit site — slash, pogo, and player projectile). Events with `attacker = None` remain
@@ -494,15 +497,15 @@ pub fn apply_feature_hit_events(
             &mut ambition_characters::actor::BodyCombat,
             // The attacker's live swing, so a multi-active-frame slash records
             // which targets it has already struck and never double-hits them.
-            Option<&mut crate::actor::BodyMelee>,
+            Option<&mut ambition_combat::BodyMelee>,
         ),
-        bevy::prelude::With<crate::actor::PlayerEntity>,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     primary_q: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<crate::actor::PlayerEntity>,
-            bevy::prelude::With<crate::actor::PrimaryPlayer>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
     mut writers: FeatureHitWriters,

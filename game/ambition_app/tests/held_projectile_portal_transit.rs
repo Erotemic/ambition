@@ -8,7 +8,7 @@
 use crate::common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition_platformer2d::actors::items::pickup::HeldProjectile;
-use ambition_platformer2d::actors::platformer_runtime::body::BodyKinematics;
+use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::projectile::{ProjectileGameplay, WorldHitPolicy};
 use ambition_platformer2d::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;

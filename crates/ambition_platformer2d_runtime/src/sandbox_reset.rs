@@ -20,9 +20,9 @@ use bevy::prelude::*;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -55,7 +55,7 @@ pub fn reset_sandbox(
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     attack: &mut Option<ambition_platformer2d_actor_monolith::MeleeSwing>,
-    anim: &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
+    anim: &mut ambition_characters::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     health: Option<&mut ambition_characters::actor::BodyHealth>,
     interaction: &mut ambition_characters::control::SlotGestures,
@@ -134,16 +134,16 @@ pub fn apply_room_replay_request_system(
         (
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
-            &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
+            &mut ambition_characters::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-            &mut ambition_platformer2d_actor_monolith::actor::BodyMelee,
+            &mut ambition_combat::BodyMelee,
             &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
             // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
             // because a scratch body without a meter is a valid thing to reset.
             Option<&mut ambition_characters::actor::BodyHealth>,
         ),
-        ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
 ) {
@@ -334,10 +334,12 @@ mod tests {
             ae::AbilitySet::sandbox_all(),
         );
         let mut model = ae::MotionModel::default();
-        let mut sim_state = ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default();
-        let mut safety = ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default();
+        let mut sim_state =
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default();
+        let mut safety =
+            ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default();
         let mut attack: Option<ambition_platformer2d_actor_monolith::MeleeSwing> = None;
-        let mut anim = ambition_platformer2d_actor_monolith::actor::BodyAnimFacts::default();
+        let mut anim = ambition_characters::actor::BodyAnimFacts::default();
         let mut combat = ambition_characters::actor::BodyCombat::default();
         let mut gestures = ambition_characters::control::SlotGestures::default();
         let mut blink_cam = probe.blink_cam;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::actor::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 
 /// The shared teleport rule (used by both the player blink and any actor
 /// body): full distance over open space, clamped a body-half short of a wall,
@@ -94,10 +94,7 @@ fn blink_emits_a_player_side_shockwave_at_arrival() {
     );
     assert_eq!(hits[0].damage, BLINK_SHOCKWAVE_DAMAGE);
     assert!(
-        matches!(
-            hits[0].source,
-            ambition_combat::events::HitSource::Melee
-        ),
+        matches!(hits[0].source, ambition_combat::events::HitSource::Melee),
         "player-side source so it spares the player",
     );
 }
@@ -185,7 +182,7 @@ fn blink_follows_facing_left() {
 /// without a player-shaped query.
 #[test]
 fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
-    use crate::actor::PlayerEntity;
+    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = test_app();
     // Home avatar (a PlayerEntity) — holds blink, but is NOT the controlled
     // subject this frame. It must stay put.

@@ -19,14 +19,14 @@ impl Plugin for PlayerSchedulePlugin {
         // Every player body carries the movement→presentation hand-off the
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
-        app.register_required_components::<ambition_platformer2d_actor_monolith::actor::PlayerEntity, PlayerBodyFrameOutput>();
-        app.register_required_components_with::<ambition_platformer2d_actor_monolith::actor::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(
+        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, PlayerBodyFrameOutput>();
+        app.register_required_components_with::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(
             || ambition_platformer2d_core::CenteredAabb::new(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::ZERO),
         );
         // Every player body carries the same published silhouette used by other bodies.
         // The default is unpublished, not intangible: consumers fall back to the coarse
         // box until the publisher supplies this tick's authored volumes.
-        app.register_required_components::<ambition_platformer2d_actor_monolith::actor::PlayerEntity, ambition_combat::components::DamageableVolumes>();
+        app.register_required_components::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_combat::components::DamageableVolumes>();
 
         // Snapshot time before input: suspension first zeros the clock target, then
         // `refresh_world_time` publishes one coherent `scaled_dt` for the frame.

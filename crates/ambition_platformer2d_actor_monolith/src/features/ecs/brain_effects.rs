@@ -16,6 +16,7 @@
 //! - the `BrainActionCounter` observer is unaffected (it counts but
 //!   doesn't consume)
 
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
@@ -59,15 +60,15 @@ pub fn spawn_projectiles_from_brain_actions(
     mut sfx: SfxWriter,
     mut actors: Query<(
         &mut ae::BodyKinematics,
-        &mut crate::actor::BodyMelee,
+        &mut ambition_combat::BodyMelee,
         Option<&super::ActorSurfaceState>,
-        Option<&super::ActorConfig>,
+        Option<&ambition_combat::actor_tuning::ActorConfig>,
         Option<&ambition_characters::actor::BodyHealth>,
     )>,
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
-    mut anim_facts: Query<&mut crate::actor::BodyAnimFacts>,
+    mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
     // ── AIM ASSIST ── the three reads that turn "the way I was pointing" into
     // "at the one opponent over there". Read-only and disjoint from `actors`,

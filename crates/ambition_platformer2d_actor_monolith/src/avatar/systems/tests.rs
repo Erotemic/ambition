@@ -19,25 +19,25 @@ fn mana_regenerates_over_time_but_clamps_to_max() {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            crate::actor::BodyMana::default(),
+            ambition_platformer2d_core::BodyMana::default(),
         ))
         .id();
     // Drain it, then let it tick back up.
     app.world_mut()
-        .get_mut::<crate::actor::BodyMana>(player)
+        .get_mut::<ambition_platformer2d_core::BodyMana>(player)
         .unwrap()
         .meter
         .try_spend(60.0);
     let before = app
         .world()
-        .get::<crate::actor::BodyMana>(player)
+        .get::<ambition_platformer2d_core::BodyMana>(player)
         .unwrap()
         .meter
         .current;
     app.update();
     let after = app
         .world()
-        .get::<crate::actor::BodyMana>(player)
+        .get::<ambition_platformer2d_core::BodyMana>(player)
         .unwrap()
         .meter
         .current;
@@ -52,7 +52,7 @@ fn mana_regenerates_over_time_but_clamps_to_max() {
     }
     let m = app
         .world()
-        .get::<crate::actor::BodyMana>(player)
+        .get::<ambition_platformer2d_core::BodyMana>(player)
         .unwrap()
         .meter;
     assert!(m.current <= m.max + 1e-3, "mana clamps to max");
@@ -485,8 +485,8 @@ fn a_possessed_actor_is_driven_by_the_controlled_brain_producer() {
 /// one back across the other turns this red.
 #[test]
 fn a_scripted_sequence_silences_a_possessed_body() {
-    use ambition_characters::control::{ScriptedControl};
-use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::control::ScriptedControl;
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();

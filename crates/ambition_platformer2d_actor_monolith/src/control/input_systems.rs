@@ -31,7 +31,9 @@ pub struct InputTimersAdvanced;
 /// below but the clock.
 pub fn tick_room_transition_cooldown(
     world_time: Res<ambition_time::WorldTime>,
-    mut sim_state: ResMut<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
+    mut sim_state: ResMut<
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+    >,
 ) {
     sim_state.remaining = (sim_state.remaining - world_time.wall_dt()).max(0.0);
 }
@@ -54,7 +56,7 @@ pub fn tick_home_body_reaction_timers(
     world_time: Res<ambition_time::WorldTime>,
     mut home_feel_q: Query<
         &mut ambition_characters::actor::BodyCombat,
-        With<crate::actor::PlayerEntity>,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     //  ONE decay, called — not a fourth spelling of it (AC3.3). Two lists for
@@ -98,7 +100,7 @@ pub fn derive_slot_direction_gestures(
     // gravity of the body that seat is actually steering.
     drivers: Query<(Entity, &crate::control::DrivingParticipant)>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     //  the SLOT TABLE, not the global frame. The derivation refines the
     // frame each body is about to read, and every body reads its own slot.
@@ -215,8 +217,8 @@ pub fn interaction_input_system(
     primary_q: Query<
         Entity,
         (
-            With<crate::actor::PlayerEntity>,
-            With<crate::actor::PrimaryPlayer>,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
 ) {
@@ -304,10 +306,10 @@ pub fn cleanup_timers_system(
     mut player_q: Query<
         (
             &ae::BodyMotionFacts,
-            &mut crate::actor::BodyAnimFacts,
+            &mut ambition_characters::actor::BodyAnimFacts,
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ),
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     let frame_dt = time.delta_secs();
@@ -332,7 +334,9 @@ pub fn cleanup_timers_system(
 mod per_seat_gesture_tests {
     use super::*;
     use crate::control::DrivingParticipant;
-    use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState};
+    use ambition_characters::control::{
+        PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState,
+    };
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
 
@@ -438,11 +442,11 @@ mod per_seat_gesture_tests {
 #[cfg(test)]
 mod interaction_suppression_tests {
     use super::*;
-    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_characters::actor::BodyCombat;
     use ambition_characters::control::SlotInteractionState;
     use ambition_combat::feel::Platformer2dFeelTuningMonolith;
     use ambition_platformer2d_core::ControlFrame;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
     /// Build a minimal app with `interaction_input_system` and one primary
     /// player, set the control frame, run a frame, and report whether the

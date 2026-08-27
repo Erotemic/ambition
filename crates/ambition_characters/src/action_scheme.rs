@@ -30,7 +30,7 @@ use crate::actor::control::ActorControlFrame;
 use crate::brain::action_set::ActionSet;
 
 /// The Bevy-side carrier of a body's derived [`ActionSchemeContract`]. Mirrors
-/// the `ActorMoveset` (`ambition_combat::moveset`) pattern: a component wrapping
+/// the `ActorMoveset` (`ambition_platformer2d::combat::moveset`) pattern: a component wrapping
 /// a headless contract. Read by the control-prompt read-model (P2) and, from
 /// P3, by the input→action resolution.
 #[derive(Component, Debug, Clone, Default)]

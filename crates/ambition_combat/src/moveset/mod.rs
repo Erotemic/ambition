@@ -726,7 +726,7 @@ impl MovePlayback {
     ///
     /// Projected onto `Invulnerability::MOVE` rather than read at each damage
     /// site: the body's vulnerability has one authority
-    /// (`ambition_combat::util::body_vulnerable`) and a move grant that any
+    /// (`ambition_platformer2d::combat::util::body_vulnerable`) and a move grant that any
     /// other rule had to learn about separately would be a second one.
     pub fn intangible_now(&self) -> bool {
         self.spec

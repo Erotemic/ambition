@@ -5,6 +5,11 @@
 
 use super::*;
 use crate::features::{ChestBundle, PickupBundle};
+use ambition_combat::components::StandTimer;
+use ambition_combat::components::{
+    BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy,
+    PogoTargetContributor, PogoTargetVolumes,
+};
 use ambition_combat::hazard_runtime::HazardRuntime;
 use ambition_entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};

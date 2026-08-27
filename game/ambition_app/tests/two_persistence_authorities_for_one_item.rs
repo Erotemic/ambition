@@ -4,12 +4,12 @@
 //! through both representations, so the two restore paths must agree.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use bevy::ecs::system::RunSystemOnce;
-use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 use ambition_platformer2d::actors::items::{Item, ItemGrantRequested, OwnedItems};
+use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::platformer::construction::SpawnOrigin;
 use ambition_platformer2d::platformer::sim_id::SimId;
+use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::Entity;
 
 use crate::common::{base, fixed_60hz_room_sim};
@@ -32,11 +32,10 @@ type Custody = ambition_platformer2d::actors::items::pickup::ItemCustody;
 type Ground = ambition_platformer2d::actors::items::pickup::GroundItem;
 type Held = ambition_platformer2d::combat::held_items::HeldItem;
 
-
 fn body(sim: &mut Platformer2dSimHarness) -> Entity {
     let mut query = sim
         .world_mut()
-        .query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        .query_filtered::<Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
     query
         .iter(sim.world())
         .next()
@@ -108,7 +107,6 @@ fn saved_count(sim: &Platformer2dSimHarness, item: Item) -> u32 {
         .unwrap_or(0)
 }
 
-
 /// Stand on an object and press Attack until it is in hand. Edge-triggered, so
 /// the press is released between attempts.
 fn pick_up(sim: &mut Platformer2dSimHarness, at: (f32, f32), id: &SimId) {
@@ -161,15 +159,16 @@ fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
 fn die(sim: &mut Platformer2dSimHarness) {
     let victim = body(sim);
     let (x, y) = body_pos(sim);
-    sim.world_mut()
-        .write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+    sim.world_mut().write_message(
+        ambition_platformer2d::combat::death_rules::ActorDiedMessage {
             victim,
             pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
             cause: ambition_platformer2d::combat::death_rules::DeathCause {
                 source: ambition_platformer2d::combat::HitSource::Hazard,
                 attacker: None,
             },
-        });
+        },
+    );
     sim.step_n(base(), 240);
 }
 
@@ -200,8 +199,11 @@ fn equip_the_counted_item(
     mut commands: bevy::prelude::Commands,
     mut owned: bevy::prelude::ResMut<OwnedItems>,
     mut bodies: bevy::prelude::Query<
-        (Entity, &mut ambition_platformer2d::characters::brain::ActionSet),
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        (
+            Entity,
+            &mut ambition_platformer2d::characters::brain::ActionSet,
+        ),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
     let (player, mut action_set) = bodies.single_mut().expect("one primary body");
@@ -358,7 +360,13 @@ fn a_saved_count_becomes_an_instance_and_the_two_authorities_are_compared() {
 
     // ── ANSWER 2: decremented once, twice, or never? ─────────────────────────
     assert_eq!(
-        [after_load, after_equip, after_throw, after_pickup, after_death],
+        [
+            after_load,
+            after_equip,
+            after_throw,
+            after_pickup,
+            after_death
+        ],
         [1, 1, 0, 1, 1],
         "⭐ ANSWER 2 — ONCE, AT THE THROW, and the shape of the row is the whole \
          story. Equipping still does not spend it (the hand is not the ledger); \
@@ -467,7 +475,8 @@ fn a_death_that_returns_the_object_leaves_nothing_in_the_catalog_claiming_it() {
     let still_saved = saved_count(&sim, AUTHORED_REWARD_ITEM);
     eprintln!("MEASURED  still_owned={still_owned} still_saved={still_saved}");
     assert_eq!(
-        still_owned, 0,
+        still_owned,
+        0,
         "⛔ the object is back on its pedestal, so nothing may still claim it. A \
          `{}` that survives here is a phantom the menu will equip and mint a \
          second real one from",

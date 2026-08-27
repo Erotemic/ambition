@@ -92,10 +92,10 @@ fn world_items(app: &mut App) -> Vec<(String, ae::Vec2)> {
 
 fn body(app: &mut App) -> Option<Body> {
     let mut hostiles = app.world_mut().query_filtered::<(
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_platformer2d::characters::actor::BodyHealth,
     ), (
-        With<ambition_platformer2d::actors::features::ActorDisposition>,
+        With<ambition_platformer2d::combat::components::ActorDisposition>,
         Without<PrimaryPlayer>,
     )>();
     let threats: Vec<ae::Aabb> = hostiles
@@ -583,7 +583,8 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         {
             let mut q = app
                 .world_mut()
-                .query_filtered::<&ambition_platformer2d::actor::MotionModel, With<PrimaryPlayer>>();
+                .query_filtered::<&ambition_platformer2d::actor::MotionModel, With<PrimaryPlayer>>(
+                );
             let model = q.iter(app.world()).next().map(|m| format!("{m:?}"));
             let shown: String = model.unwrap_or_else(|| "<none>".to_string());
             eprintln!("motion model: {}", &shown[..shown.len().min(600)]);
@@ -944,8 +945,8 @@ fn snake_by_id(
     id: &str,
 ) -> Option<(ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
     let mut q = app.world_mut().query::<(
-        &ambition_platformer2d::actors::features::FeatureId,
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::FeatureId,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_demo_mary_o::snake::SnakeShell,
     )>();
     q.iter(app.world())
@@ -962,8 +963,8 @@ fn some_snake(
     app: &mut App,
 ) -> Option<(String, ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
     let mut q = app.world_mut().query::<(
-        &ambition_platformer2d::actors::features::FeatureId,
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::FeatureId,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_demo_mary_o::snake::SnakeShell,
     )>();
     let mut found: Vec<_> = q
@@ -1073,7 +1074,7 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
         step(&mut app, idle());
         let dying = app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::actors::actor::BodyAnimFacts, With<PrimaryPlayer>>()
+            .query_filtered::<&ambition_platformer2d::characters::actor::BodyAnimFacts, With<PrimaryPlayer>>()
             .single(app.world())
             .map(|anim| anim.death_anim_timer > 0.0)
             .unwrap_or(false);

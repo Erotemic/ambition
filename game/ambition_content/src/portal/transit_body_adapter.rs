@@ -8,16 +8,16 @@
 //! primary player's input/trace side effects after a generic transit event so the
 //! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
 //!
-//! [`BodyKinematics`]: ambition_platformer2d_actor_monolith::platformer_runtime::body::BodyKinematics
+//! [`BodyKinematics`]: ambition_platformer2d_core::BodyKinematics
 //! [`PortalBody`]: ambition_portal2d::PortalBody
 //! [`PortalPolicy`]: ambition_portal2d::PortalPolicy
 
 use bevy::prelude::*;
 
 use ambition_boss_encounter::BossConfig;
-use ambition_platformer2d_actor_monolith::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
 use ambition_platformer2d_actor_monolith::features::BodyKinematics;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
     BodyTeleported, PortalBody, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalPolicy,
     PortalTuning,
@@ -163,7 +163,7 @@ pub fn apply_portal_carried_momentum(
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
         &BodyKinematics,
-        &mut ambition_platformer2d_actor_monolith::actor::BodyFlightState,
+        &mut ambition_platformer2d_core::BodyFlightState,
     )>,
 ) {
     use ambition_portal2d::pieces::portal_map_vec;

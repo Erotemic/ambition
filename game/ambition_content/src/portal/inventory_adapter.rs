@@ -17,16 +17,17 @@
 
 use bevy::prelude::*;
 
-#[cfg(test)]
-use ambition_platformer2d_actor_monolith::actor::BodyBaseSize;
-use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_characters::brain::ActionSet;
+use ambition_items::{Item, OwnedItems};
 use ambition_platformer2d_actor_monolith::features::HeldItem;
 use ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet;
 use ambition_platformer2d_actor_monolith::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_characters::brain::ActionSet;
+#[cfg(test)]
+use ambition_platformer2d_core::BodyBaseSize;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_items::{Item, OwnedItems};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
@@ -39,7 +40,9 @@ use ambition_portal2d::{
 ///
 /// Both call them now, so "release the gun" has one body and the roster cannot be left behind by
 /// one caller.
-pub use ambition_platformer2d_actor_monolith::items::pickup::{equip_portal_gun, unequip_portal_gun};
+pub use ambition_platformer2d_actor_monolith::items::pickup::{
+    equip_portal_gun, unequip_portal_gun,
+};
 
 /// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
 /// `PortalGun` (so `Attack` stops firing portals), restore the stashed melee,

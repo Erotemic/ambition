@@ -7,6 +7,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteData;
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
@@ -20,7 +21,6 @@ use ambition_combat::components::FeatureId;
 use ambition_combat::components::Opened;
 use ambition_combat::components::PickupFeature;
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
-use ambition_platformer2d_actor_monolith::features::ActorConfig;
 use ambition_platformer2d_actor_monolith::features::HazardFeature;
 use ambition_platformer2d_core::ActorSurfaceState;
 use ambition_platformer2d_core::CenteredAabb;
@@ -238,7 +238,7 @@ pub fn rebuild_feature_view_index(
             // The two clusters the damage rule reads that this pass did not
             // already hold: the evade window and the guard.
             Option<&ae::BodyMotionFacts>,
-            Option<&ambition_platformer2d_actor_monolith::actor::BodyShieldState>,
+            Option<&ambition_platformer2d_core::BodyShieldState>,
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
             Option<
@@ -246,7 +246,7 @@ pub fn rebuild_feature_view_index(
             >,
             // Sheet-authored quad placement, for a body whose art does not sit
             // centred in its frame. Absent for every ordinary actor.
-            Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
+            Option<&ambition_combat::components::ActorSpriteOffset>,
             bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by
@@ -1005,7 +1005,7 @@ mod view_index_tests {
     /// every shield raise.
     #[test]
     fn the_published_parry_beat_is_the_catch_and_never_the_open_window() {
-        use ambition_platformer2d_actor_monolith::actor::BodyShieldState;
+        use ambition_platformer2d_core::BodyShieldState;
 
         let published = |shield: BodyShieldState| {
             let mut app = bevy::prelude::App::new();

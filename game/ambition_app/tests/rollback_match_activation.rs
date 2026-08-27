@@ -542,7 +542,7 @@ fn a_fighters_percent_and_policy_survive_a_rewind() {
 /// the first rewind, and `rollback_health` says so on the tick it happens.
 #[test]
 fn two_local_seats_drive_independently_under_a_rollback_host() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
+    use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::input::ControlFrame;
 
     let mut sim = Platformer2dSimHarness::new_with_options(

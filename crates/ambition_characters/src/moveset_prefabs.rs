@@ -33,7 +33,7 @@ pub const SWING_SFX_CUE: &str = "player.slash";
 // The test is does character PREPARATION call it, not *was it next to something preparation
 // calls*: `prepare_character` never reaches the overlay, whose only production caller is
 // `avatar/starting_character.rs`, the protagonist road. One character's private sound policy is not
-// the character DOMAIN.  they are back in `ambition_combat::moveset`, beside the compile-time hash
+// the character DOMAIN.  they are back in `ambition_platformer2d::combat::moveset`, beside the compile-time hash
 // pins that correctly never left it.
 
 /// Cue-id hash pins live in `ambition_combat`, which owns the SFX id table.

@@ -15,12 +15,13 @@
 //! [`peaceful_config`] (the generic peaceful NPC seed a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
 
-use ambition_combat::actor_tuning::ActorConfig;
-use super::{CombatKit, HeldItem};
-use ambition_combat::CombatCapabilities;
-use ambition_combat::actor_tuning::{ActorTuning, BrainProfile};
+use super::HeldItem;
 use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
+use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::actor_tuning::{ActorTuning, BrainProfile};
+use ambition_combat::components::CombatKit;
+use ambition_combat::CombatCapabilities;
 use ambition_entity_catalog::placements::CharacterBrain;
 
 /// What provocation produces: a MIND and a KIT. Never a body.

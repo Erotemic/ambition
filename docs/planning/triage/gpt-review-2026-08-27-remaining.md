@@ -125,7 +125,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   actions resume → later neutral-B resumes or releases the bank → firing
   consumes it. Death clearing stays.
 
-- ▢ **R9 — the ponytail dies on its first body hit.** `projectile/systems.rs`
+- ▣ **R9 — CLOSED `f4910156a`. The ponytail dies on its first body hit.** The
+  leg is DERIVED (`sign of vel · accel`) and the ledger is STORED
+  (`ProjectileHits`, modelled on `HitboxHits` and registered through the same
+  entity-set path). Wire change 127 → 128 with baseline, codec-shape record and
+  declared-wire contract in the same commit. Measured: 3 damage at tick 5, still
+  3 at tick 18 while overlapping, 6 at tick 19 when the leg flips. Poisoned both
+  halves — the unconditional despawn kills it at the first hit; no ledger reads
+  165 damage from a 3-damage shot. `projectile/systems.rs`
   despawns on contact, so the landed return-flight work is unobservable in
   combat. Deleting the despawn machine-guns overlapping victims instead.
   Rule: each victim hit at most once per LEG; the return leg re-arms every

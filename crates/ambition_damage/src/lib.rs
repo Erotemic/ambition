@@ -385,6 +385,18 @@ pub fn resolve_body_hit(
             .map(|health| health.damage(damage))
             .unwrap_or(false)
     };
+    // ⭐ A KILLING BLOW SAYS HOW BIG IT WAS. "Its health pool reached zero" is
+    // true of a chip and of a detonation alike, and the two want opposite fixes:
+    // one is a survivability number, the other is a rule that should not apply.
+    // The amount is the only thing that tells them apart from a log.
+    if died {
+        bevy::log::info!(
+            target: "ambition::mount",
+            "lethal blow: damage={damage} (raw={raw_damage}) unstoppable={unstoppable} \
+             — `unstoppable` means the BLAST ZONE, which spends the whole pool \
+             and no survivability number can answer",
+        );
+    }
     BodyHitResolution::Damaged { damage, died }
 }
 

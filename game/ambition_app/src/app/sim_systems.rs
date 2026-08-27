@@ -21,13 +21,13 @@
 use ambition_platformer2d::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_platformer2d::time::time_control::ClockResetRequest;
-use ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown;
 use ambition_platformer2d::sfx::SfxWriter;
 use ambition_platformer2d::sim::{PlayerSlot, SeatRawFrames};
+use ambition_platformer2d::time::time_control::ClockResetRequest;
 use ambition_platformer2d::vfx::VfxMessage;
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
@@ -69,15 +69,15 @@ pub fn apply_player_reset_input_system(
         (
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d::actor::MotionModel,
-            &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+            &mut ambition_platformer2d::characters::actor::BodyAnimFacts,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
             &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
-            &mut ambition_platformer2d::actors::actor::BodyMelee,
+            &mut ambition_platformer2d::combat::BodyMelee,
             &mut ambition_platformer2d::platformer::safe_position::PlayerSafetyState,
             // A body put back at spawn comes back ALIVE (ADR 0033).
             Option<&mut ambition_platformer2d::characters::actor::BodyHealth>,
         ),
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     // Reset zeroes the local controller's slot gestures (reset/save identity is a
     // sanctioned PrimaryPlayer concern).

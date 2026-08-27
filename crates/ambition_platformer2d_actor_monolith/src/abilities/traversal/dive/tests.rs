@@ -1,6 +1,6 @@
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
-use crate::actor::{BodyKinematics, BodyMana};
+use ambition_platformer2d_core::{BodyKinematics, BodyMana};
 
 fn test_app() -> App {
     let mut app = App::new();
@@ -42,10 +42,7 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
     assert_eq!(hits.len(), 1, "one corridor hit emitted");
     assert_eq!(hits[0].damage, DIVE_DAMAGE);
     assert!(
-        matches!(
-            hits[0].source,
-            ambition_combat::events::HitSource::Melee
-        ),
+        matches!(hits[0].source, ambition_combat::events::HitSource::Melee),
         "player-side source so it spares the player",
     );
     // The authored shove lives on the hit event at its authored magnitude. Assert

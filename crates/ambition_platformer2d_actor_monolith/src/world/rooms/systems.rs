@@ -9,11 +9,11 @@
 
 use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut, Without};
 
+use ambition_platformer2d_core as ae;
 use ambition_platformer2d_world::rooms::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhases, GatePortalRegistry,
     LoadingZoneActivation, RoomMusicRequest, RoomSet, RoomSfxId,
 };
-use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 
 /// The set [`sync_active_room_metadata`] runs in — the active room is current.
@@ -128,14 +128,17 @@ pub fn detect_room_transition_system(
     // TODO(compat-remove): once every mover publishes `SweepSample`, remove the `vel * dt`
     // fallback for bodies without one.
     bodies: Query<
-        (&crate::actor::BodyKinematics, Option<&ae::SweepSample>),
+        (
+            &ambition_platformer2d_core::BodyKinematics,
+            Option<&ae::SweepSample>,
+        ),
         Without<ambition_combat::death_rules::OutOfPlay>,
     >,
     // The triggering body's rollback-stable identity, recorded into the deferred transition so
     // the confirmed commit transports the body that CROSSED the exit — not whatever is
     // controlled later, after a possession change.
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     world_time: Res<WorldTime>,
     // Track B: under a rollback host, defer the transition instead of engaging the
     // (not-rollback-registered) multi-tick load machine on a speculative frame.

@@ -187,7 +187,7 @@ pub fn apply_contact_harm(
         &ActorFaction,
         &BodyHealth,
         &ae::BodyMotionFacts,
-        &crate::actor::BodyShieldState,
+        &ambition_platformer2d_core::BodyShieldState,
         &BodyCombat,
         Option<&ambition_combat::targeting::MatchTeam>,
         // The world's hands are off this body — a contact-harm empowerment does
@@ -219,8 +219,7 @@ pub fn apply_contact_harm(
             if victim == striker {
                 continue;
             }
-            if ambition_combat::util::body_is_untouchable(Some(victim_health), victim_out_of_play)
-            {
+            if ambition_combat::util::body_is_untouchable(Some(victim_health), victim_out_of_play) {
                 continue;
             }
             if !ambition_combat::targeting::damage_lands_between(

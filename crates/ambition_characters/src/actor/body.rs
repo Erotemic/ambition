@@ -243,7 +243,7 @@ pub struct BodyCombat {
     /// on one of them.
     ///
     /// DERIVED, republished every tick from the live `MovePlayback` by
-    /// `ambition_combat::moveset::project_move_defense_windows` — so a move
+    /// `ambition_platformer2d::combat::moveset::project_move_defense_windows` — so a move
     /// ending retracts it by being rewritten rather than by anyone remembering
     /// to clear it. Never write it from anywhere else.
     pub armored: bool,

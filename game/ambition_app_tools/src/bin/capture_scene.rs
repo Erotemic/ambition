@@ -925,7 +925,7 @@ fn apply_capture_snapshot(
     // while the player stood elsewhere.
     player_q: Query<
         &ambition_platformer2d::platformer::body::BodyKinematics,
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut cameras: Query<(&mut Transform, &mut Projection), With<MainCamera>>,
 ) {
@@ -1038,7 +1038,7 @@ const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
 fn world_is_ready(
     player_q: &Query<
         &ambition_platformer2d::platformer::body::BodyKinematics,
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     follow_player: bool,
     art: Option<(&CharacterLoadDemand, &CharacterLoadStates)>,
@@ -1062,7 +1062,7 @@ fn request_capture(
     mut runtime: ResMut<SceneCaptureRuntime>,
     player_q: Query<
         &ambition_platformer2d::platformer::body::BodyKinematics,
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     seated_q: Query<(
         &ambition_platformer2d::actor::MatchSeat,

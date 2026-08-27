@@ -150,7 +150,10 @@ pub fn drive_wave_encounters(
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
-    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
+    player_body_q: Query<
+        &ambition_platformer2d_core::BodyKinematics,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut lifecycle_commands: MessageWriter<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
@@ -468,7 +471,10 @@ pub fn apply_wave_encounter_effects(
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
+    player_body_q: Query<
+        &ambition_platformer2d_core::BodyKinematics,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         EncounterMusicRequest,
     >,

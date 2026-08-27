@@ -239,7 +239,7 @@ fn place_before_the_shutter(
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d::actor::MotionModel,
         ),
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
     if target.is_none_or(|target| target.adopted == 0) {

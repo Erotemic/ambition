@@ -11,7 +11,7 @@ use super::components::PlayerSlot;
 /// [`crate::actor`] (its single definition). Re-exported here for the player
 /// module's own consumers; new non-player code should import it from
 /// `crate::actor` directly.
-pub use crate::actor::PrimaryPlayerOnly;
+pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 
 /// Convenience: resolve the primary player's `Entity`. Returns `None`
 /// if no primary player exists yet (e.g. during pre-spawn startup) or

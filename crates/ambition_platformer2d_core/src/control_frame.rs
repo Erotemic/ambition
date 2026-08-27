@@ -21,7 +21,7 @@ use crate::RawDirectionEdges;
 ///
 /// Local-primary adapter: the host still keeps one global `ControlFrame` resource at the
 /// device edge for the local primary input, then publishes that finalized value into
-/// `ambition_characters::control::SlotControls`. The type itself is slot-neutral; no copy is
+/// `ambition_platformer2d::characters::control::SlotControls`. The type itself is slot-neutral; no copy is
 /// stored on the controlled body. This is why adding a `ControlFrame` field does not bump
 /// `INPUT_STREAM_VERSION`.
 #[derive(
@@ -227,7 +227,7 @@ impl ControlFrame {
 /// rollback paths author per-tick [`ControlFrame`] values directly and do not
 /// use this latch.
 ///
-/// This is one row of `ambition_characters::control::SlotControlLatches`, not a
+/// This is one row of `ambition_platformer2d::characters::control::SlotControlLatches`, not a
 /// standalone resource. Device publication and simulation consumption must stay
 /// explicitly ordered.
 #[derive(Clone, Copy, Debug, Default)]

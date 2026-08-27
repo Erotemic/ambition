@@ -45,7 +45,7 @@ pub enum BlockKind {
     /// what an author reaching for the word "hazard" usually means.
     ///
     ///  a hazard that HURTS is an authored damage volume
-    /// (`PlacementSchema::Hazard` → `ambition_combat::hazards`), which publishes
+    /// (`PlacementSchema::Hazard` → `ambition_platformer2d::combat::hazards`), which publishes
     /// an ordinary hit and therefore behaves like every other hit in the game.
     /// A whole demo's spike strip was drawn on this variant by mistake; see
     /// `ambition_platformer2d_ldtk::SurfaceContact::ResetToSpawn`.

@@ -17,22 +17,22 @@
 use bevy::prelude::*;
 
 use ambition_app::app::shell_host;
-use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::game_shell::{ShellLaunchCatalog, ShellLauncherCommand};
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::rooms::RoomSet;
 
 /// Frames a leg may take before we call the transition wedged.
 const COMMIT_CAP: usize = 900;
 
 fn host_app() -> App {
-    use bevy::MinimalPlugins;
     use bevy::asset::AssetPlugin;
     use bevy::image::ImagePlugin;
     use bevy::state::app::StatesPlugin;
     use bevy::transform::TransformPlugin;
+    use bevy::MinimalPlugins;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);

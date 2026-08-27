@@ -116,7 +116,7 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
 /// `BodyKnockedOut`; nothing had ever earned one. So this launches a real body
 /// off a real platform with a real velocity and waits for the world to take it.
 ///
-/// If this fails while `ambition_combat::stocks` stays green, the gap is between
+/// If this fails while `ambition_platformer2d::combat::stocks` stays green, the gap is between
 /// the blast gate and the KO announcement — which is exactly the seam no test
 /// below the app can reach.
 #[test]
@@ -1883,7 +1883,7 @@ fn two_cpus_wearing_one_character_stop_being_a_perfect_reflection() {
 /// reach the pre-integration snapshot the movement phase reads.
 ///
 /// Whether the constraint survives the controller is proven where the controller runs:
-/// `ambition_platformer2d_core::movement::kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`
+/// `ambition_platformer2d::engine_core::movement::kernel::tests::a_grounded_body_walking_into_another_one_is_stopped_by_the_real_sweep`
 /// holds RIGHT for a second against the `approach()` overwrite that erased the force version,
 /// and measures the distance. This test only says the two are connected.
 ///

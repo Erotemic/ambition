@@ -1,5 +1,5 @@
 use super::*;
-use crate::actor::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 
 fn test_app() -> App {
     let mut app = App::new();
@@ -57,10 +57,7 @@ fn recall_emits_a_player_side_shockwave_at_the_mark() {
     let cx = (hits[0].volume.bounds().min.x + hits[0].volume.bounds().max.x) * 0.5;
     assert!((cx - 200.0).abs() < 1.0, "shockwave centered on the mark");
     assert!(
-        matches!(
-            hits[0].source,
-            ambition_combat::events::HitSource::Melee
-        ),
+        matches!(hits[0].source, ambition_combat::events::HitSource::Melee),
         "player-side so it spares the player",
     );
 }

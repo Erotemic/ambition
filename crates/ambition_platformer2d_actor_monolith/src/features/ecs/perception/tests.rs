@@ -257,7 +257,11 @@ fn an_omniscient_body_perceives_a_peer_far_outside_its_tactical_extent() {
     relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
     let world = arena_world();
     let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
-    let peers = vec![peer("far", ae::Vec2::new(2000.0, 180.0), ActorFaction::Boss)];
+    let peers = vec![peer(
+        "far",
+        ae::Vec2::new(2000.0, 180.0),
+        ActorFaction::Boss,
+    )];
     let view = build_world_view(
         &viewer,
         &peers,
@@ -466,7 +470,7 @@ fn collect_perception_peers_snapshots_every_body() {
     let mut app = App::new();
     app.init_resource::<PerceptionPeers>();
     app.add_systems(Update, collect_perception_peers);
-    let kin = |x: f32| crate::actor::BodyKinematics {
+    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics {
         pos: ae::Vec2::new(x, 20.0),
         vel: ae::Vec2::ZERO,
         size: ae::Vec2::new(14.0, 22.0),
@@ -516,7 +520,7 @@ fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_si
     let mut app = App::new();
     app.init_resource::<PerceptionProjectiles>();
     app.add_systems(Update, collect_perception_projectiles);
-    let kin = |x: f32| crate::actor::BodyKinematics {
+    let kin = |x: f32| ambition_platformer2d_core::BodyKinematics {
         pos: ae::Vec2::new(x, 0.0),
         vel: ae::Vec2::new(-100.0, 0.0),
         size: ae::Vec2::new(8.0, 8.0),

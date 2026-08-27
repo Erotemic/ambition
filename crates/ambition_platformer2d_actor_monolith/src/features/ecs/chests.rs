@@ -1,8 +1,8 @@
 //! Player → static-chest open path on the ECS feature side.
 
 use super::*;
-use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
 /// and legacy NPCs/switches.
@@ -23,7 +23,7 @@ pub fn open_ecs_chests(
         ),
     >,
     // Presentation anim for whichever body opened the chest.
-    mut anims: Query<&mut crate::actor::BodyAnimFacts>,
+    mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
     // `&ChestFeature`, not `With<ChestFeature>` — that one word is the whole of "authored
     // chest rewards are never granted". The payload was filled by all three chest authors and

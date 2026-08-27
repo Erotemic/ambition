@@ -2,7 +2,7 @@
 //! a buffered interact over an overlapping, unopened chest inserts
 //! `Opened`; an unbuffered player or a non-overlapping chest does not.
 use super::*;
-use crate::actor::BodyAnimFacts;
+use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::control::SlotInteractionState;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;

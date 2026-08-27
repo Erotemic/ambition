@@ -19,7 +19,7 @@ pub fn record_simulation_frame(
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
     // AC3.1.B: the melee AUTHORITY.
-    melee: &crate::actor::BodyMelee,
+    melee: &ambition_combat::BodyMelee,
     clock: &ambition_time::ClockState,
     safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
@@ -127,7 +127,9 @@ pub fn flush_pending_dump(
 /// Lives in `trace.rs` rather than `app.rs` so the lookup is grep-able
 /// near the rest of the recorder code.
 pub fn handle_trace_hotkey(
-    mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
+    mut actions: MessageReader<
+        ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+    >,
     mut buffer: ResMut<GameplayTraceBuffer>,
 ) {
     if actions.read().any(|action| {
@@ -163,7 +165,9 @@ pub fn record_frame_system(
 
     time: Res<Time>,
     rooms: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     mode: Res<State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     // The composed collision read-API. `platform_set` stays a separate param:
@@ -182,12 +186,12 @@ pub fn record_frame_system(
             &ambition_characters::actor::BodyCombat,
             // AC3.1.B: the melee authority, read directly rather than through the
             // deleted `BodyCombat.attacking` mirror.
-            &crate::actor::BodyMelee,
+            &ambition_combat::BodyMelee,
         ),
         // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
         // trajectory, and the replay harness drives slot 0's input stream. A
         // per-slot trace is netcode N3's concern, not this dev tool's.
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     #[cfg(feature = "portal")] mut teleported: MessageReader<ambition_portal2d::BodyTeleported>,
 ) {

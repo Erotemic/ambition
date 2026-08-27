@@ -44,17 +44,17 @@ pub fn interact_ecs_actors_and_switches(
     primary: Query<
         Entity,
         (
-            With<crate::actor::PlayerEntity>,
-            With<crate::actor::PrimaryPlayer>,
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
     // Presentation anim for whichever body acted. Body-generic on purpose: a
     // possessed actor plays its own reach-and-open, and the vacated home avatar
     // plays nothing.
-    mut anims: Query<&mut crate::actor::BodyAnimFacts>,
+    mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     // The driven body's kinematics — body-generic so the reach test uses the
     // controlled subject's position whether it's the player or a possessed actor.
-    bodies: Query<&crate::actor::BodyKinematics>,
+    bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
     // The driven body's identity + interaction payload, when it has them (a
     // possessed actor). The home avatar has neither and speaks as its worn
     // character instead.
@@ -240,7 +240,7 @@ mod tests;
 
 /// Play the interact gesture on the body that ACTED.
 pub(crate) fn pose_interact(
-    anims: &mut Query<&mut crate::actor::BodyAnimFacts>,
+    anims: &mut Query<&mut ambition_characters::actor::BodyAnimFacts>,
     body: Entity,
     hold_secs: f32,
 ) {

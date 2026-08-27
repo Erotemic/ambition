@@ -11,11 +11,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 use crate::powerups::CINDER_BEACON_ID;
 
@@ -243,9 +243,9 @@ pub fn sync_run_action_scheme(
             }
             None => {
                 commands.entity(entity).try_insert(
-                    ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![run_technique(
-                        label,
-                    )]),
+                    ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![
+                        run_technique(label),
+                    ]),
                 );
             }
         }

@@ -32,8 +32,8 @@ use ambition_platformer2d_shared_tangle::schedule::{
 };
 use bevy::prelude::*;
 
-use crate::actor::BodyAbilities;
 use ambition_combat::moveset::ActorMoveset;
+use ambition_platformer2d_core::BodyAbilities;
 
 /// Re-derive [`ActorActionScheme`] for any body whose authorities changed (or
 /// that has no scheme yet). A no-op in steady state — the change-detection

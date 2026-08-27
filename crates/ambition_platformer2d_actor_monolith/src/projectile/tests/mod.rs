@@ -13,15 +13,15 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::{Block, World};
 use bevy::prelude::*;
 
-use ambition_projectiles::state::PlayerProjectileState;
 use super::systems::{charge_projectile_input, step_projectiles};
-use crate::features::{ActorIdentity};
-use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
+use crate::features::ActorIdentity;
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
+use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_core::RoomGeometry;
+use ambition_projectiles::state::PlayerProjectileState;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
@@ -185,7 +185,7 @@ pub(in crate::projectile) fn projectile_state_mut(
 pub(in crate::projectile) fn primary_player_entity(app: &mut App) -> Entity {
     let world = app.world_mut();
     let mut q = world
-        .try_query_filtered::<Entity, With<crate::actor::PlayerEntity>>()
+        .try_query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>()
         .unwrap();
     q.iter(world)
         .next()
@@ -204,7 +204,7 @@ pub(in crate::projectile) fn projectile_bodies(
     let world = app.world_mut();
     let mut q = world
         .try_query::<(
-            &crate::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ProjectileGameplay,
             &ProjectileSeq,
         )>()

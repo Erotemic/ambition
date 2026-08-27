@@ -182,7 +182,7 @@ pub fn build_frame(
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
     // AC3.1.B: the melee AUTHORITY.
-    melee: &crate::actor::BodyMelee,
+    melee: &ambition_combat::BodyMelee,
     clock: &ambition_time::ClockState,
     safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,

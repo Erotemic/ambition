@@ -25,16 +25,15 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::boss_encounter::BossConfig;
-use ambition_platformer2d::boss_encounter::{
-    BossEncounterPhase, EncounterDef, EncounterProgress,
-};
-use ambition_platformer2d::combat::{HitEvent, HitSource};
+use ambition_platformer2d::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
+use ambition_platformer2d::combat::{HitEvent, HitSource};
 use ambition_platformer2d::encounter::EncounterParticipants;
+use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
 
@@ -74,7 +73,7 @@ fn read_player(world: &mut World) -> PlayerSnapshot {
         &BodyKinematics,
         &BodyCombat,
         &BodyHealth,
-        &ambition_platformer2d::actors::actor::BodyMelee,
+        &ambition_platformer2d::combat::BodyMelee,
     ), PrimaryPlayerOnly>();
     let (kin, combat, health, melee) = q.single(world).expect("primary player exists");
     PlayerSnapshot {

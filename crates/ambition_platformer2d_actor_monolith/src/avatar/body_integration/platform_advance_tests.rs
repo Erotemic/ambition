@@ -43,7 +43,7 @@ fn platforms_advance_in_a_world_with_no_player_body() {
          whether the WORLD may move is frozen in every match"
     );
     let world = app.world_mut();
-    let mut primaries = world.query_filtered::<Entity, With<crate::actor::PrimaryPlayer>>();
+    let mut primaries = world.query_filtered::<Entity, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>();
     assert_eq!(
         primaries.iter(world).count(),
         0,

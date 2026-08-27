@@ -124,7 +124,7 @@ fn team_of(seat: usize, team: Option<&MatchTeam>) -> String {
 /// Who, if anyone, took the round.
 ///
 /// the predicate itself lives in the engine now
-/// (`ambition_combat::stocks::last_side_standing`, S4), because a stocks match
+/// (`ambition_platformer2d::combat::stocks::last_side_standing`, S4), because a stocks match
 /// asks the identical question with a different liveness input: a round asks
 /// "is this fighter's health above zero", a stocks match asks "does this
 /// fighter have a stock left", and everything after that question is the same.

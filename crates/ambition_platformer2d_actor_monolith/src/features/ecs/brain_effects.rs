@@ -59,7 +59,7 @@ pub fn spawn_projectiles_from_brain_actions(
     mut sfx: SfxWriter,
     mut actors: Query<(
         &mut ae::BodyKinematics,
-        &mut crate::actor::BodyMelee,
+        &mut ambition_combat::BodyMelee,
         Option<&super::ActorSurfaceState>,
         Option<&super::ActorConfig>,
         Option<&ambition_characters::actor::BodyHealth>,
@@ -67,7 +67,7 @@ pub fn spawn_projectiles_from_brain_actions(
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
-    mut anim_facts: Query<&mut crate::actor::BodyAnimFacts>,
+    mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
     // WHO WROTE THIS BODY'S VELOCITY. The causal log answers "what is the
     // velocity" and never "who set it", so a body that moves without asking to

@@ -644,7 +644,7 @@ pub fn victory_banner(
 /// The two answers the engine refuses to guess, wired to the messages it
 /// writes.
 ///
-/// `ambition_combat::stocks` spends the stock, clears the meter and marks the
+/// `ambition_platformer2d::combat::stocks` spends the stock, clears the meter and marks the
 /// elimination — then stops, because placing a body needs a stage and announcing
 /// a winner needs a scoreboard. This plugin is the other side of that seam, and
 /// it is the whole reason the split is a design rather than an omission.
@@ -1772,7 +1772,7 @@ fn the_stage_always_plays_by_smash_rules(
 /// not folded into this repair.
 ///
 /// The engine therefore owns an unnamed constraint — one body's proposed motion reduced by the
-/// bodies it is touching (`ambition_platformer2d_core::movement::body_contact`) — and this ruleset
+/// bodies it is touching (`ambition_platformer2d::engine_core::movement::body_contact`) — and this ruleset
 /// grants it to its cast. Nothing in the kernel knows the word jostle.
 ///
 /// A test that supplies its own precondition cannot prove the mechanism reaches production.

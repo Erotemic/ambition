@@ -9,8 +9,8 @@
 //! Field → component map:
 //! - pos/vel/size/facing      → [`BodyKinematics`]
 //! - surface cling normal/gravity_scale → [`ActorSurfaceState`] (component;
-//!   on_ground → [`crate::actor::BodyGroundState`], air jumps →
-//!   [`crate::actor::BodyJumpState`])
+//!   on_ground → [`ambition_platformer2d_core::BodyGroundState`], air jumps →
+//!   [`ambition_platformer2d_core::BodyJumpState`])
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
 //! - respawn/ai_mode          → [`ActorStatus`] (liveness → [`ambition_characters::actor::BodyHealth`];
 //!   damage-blink + post-hit i-frame → [`ambition_characters::actor::BodyCombat`])
@@ -39,13 +39,14 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
-use crate::actor::{
-    AncillaryMovementBundle, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
-    BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact, BodyFlightState,
-    BodyGroundState, BodyJumpState, BodyLedgeState, BodyLifetime, BodyMana, BodyModeState,
-    BodyOffense, BodyShieldState, BodyWallState,
+use crate::actor::AncillaryMovementBundle;
+pub use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_core::{
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
+    BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
+    BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
+    BodyWallState,
 };
-pub use crate::platformer_runtime::body::BodyKinematics;
 
 /// Deliberately shorter than the player's attack cadence (~0.4 s swipe) so it never eats an
 /// intended combo hit, yet long enough to collapse a 60 fps contact/overlap stream to a single hit

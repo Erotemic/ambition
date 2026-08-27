@@ -1000,7 +1000,7 @@ pub struct ShieldTuning {
     /// cost it is a free coverage upgrade.
     ///
     /// ⛔ ONE AXIS, and deliberately. Coverage is measured along gravity
-    /// ([`ambition_combat::util::guard_covers_hit`]); the lateral question is
+    /// ([`ambition_platformer2d::combat::util::guard_covers_hit`]); the lateral question is
     /// already answered by which side the body FACES, so a left/right tilt has
     /// no coverage rule to bias and would be a knob that changes nothing.
     ///
@@ -1194,7 +1194,7 @@ impl ShieldTuning {
     ///
     /// ⭐ NO SIGN FLIP, and that is not luck: `LocalAxes` is already
     /// `+y toward-feet`, the same axis and the same sense that
-    /// [`ambition_combat::util::guard_covers_hit`] measures a hit on. Holding
+    /// [`ambition_platformer2d::combat::util::guard_covers_hit`] measures a hit on. Holding
     /// DOWN leans the guard toward the feet and hands the head over; holding UP
     /// does the reverse. A negation here would silently invert the mechanic —
     /// and a test written from the wrong assumption would agree with it.

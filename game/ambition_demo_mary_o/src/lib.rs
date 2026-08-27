@@ -1265,7 +1265,7 @@ pub fn install_mary_o_content(app: &mut App) {
             // She should only have the run and jump in her game."*
             //
             // the ability is a real ceiling now
-            // (`ambition_characters::action_scheme::combat_actions`), so the
+            // (`ambition_platformer2d::characters::action_scheme::combat_actions`), so the
             // table stays attached — the crossover grid wants exactly these
             // moves — and her own game still says there is no attack. What
             // proves it is behavioural, not this comment:
@@ -2015,7 +2015,9 @@ fn spend_lives_on_death(
         bevy::prelude::Entity,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
-    mut deaths: bevy::prelude::MessageReader<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
+    mut deaths: bevy::prelude::MessageReader<
+        ambition_platformer2d::combat::death_rules::ActorDiedMessage,
+    >,
 ) {
     // Drain unconditionally: the cursor must advance even on a frame with no
     // level, or a death that landed during a load would be re-read later and
@@ -2076,7 +2078,9 @@ fn publish_timeout_death(
             bevy::prelude::Without<ambition_platformer2d::combat::death_rules::OutOfPlay>,
         ),
     >,
-    mut deaths: bevy::prelude::MessageWriter<ambition_platformer2d::combat::death_rules::ActorDiedMessage>,
+    mut deaths: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::death_rules::ActorDiedMessage,
+    >,
 ) {
     let Ok(level) = level.single() else {
         return;
@@ -2090,22 +2094,24 @@ fn publish_timeout_death(
     let Some((body, kin)) = bodies.iter().next() else {
         return;
     };
-    deaths.write(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
-        victim: body,
-        // Where she stood when the clock beat her, or the origin when nothing
-        // can say. The position is presentation — a cue and a VFX burst — and a
-        // timeout that cannot name a place is still a timeout.
-        pos: kin.map(|kin| kin.pos).unwrap_or_default(),
-        // The same anonymous world-killed-you category a pit uses. The engine
-        // charges a voluntary reset here too, for the reason its own
-        // `death_source_of` gives: no vocabulary exists for "the rules ended
-        // your attempt", and inventing one would only be honest if something
-        // read it.
-        cause: ambition_platformer2d::combat::death_rules::DeathCause {
-            source: ambition_platformer2d::combat::HitSource::Hazard,
-            attacker: None,
+    deaths.write(
+        ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+            victim: body,
+            // Where she stood when the clock beat her, or the origin when nothing
+            // can say. The position is presentation — a cue and a VFX burst — and a
+            // timeout that cannot name a place is still a timeout.
+            pos: kin.map(|kin| kin.pos).unwrap_or_default(),
+            // The same anonymous world-killed-you category a pit uses. The engine
+            // charges a voluntary reset here too, for the reason its own
+            // `death_source_of` gives: no vocabulary exists for "the rules ended
+            // your attempt", and inventing one would only be honest if something
+            // read it.
+            cause: ambition_platformer2d::combat::death_rules::DeathCause {
+                source: ambition_platformer2d::combat::HitSource::Hazard,
+                attacker: None,
+            },
         },
-    });
+    );
 }
 
 /// Start a secret-pipe transit when the player presses into a pipe mouth.
@@ -2271,7 +2277,7 @@ fn cycle_level_on_flag_tally(
     // later.
     subjects: bevy::prelude::Query<
         &ambition_platformer2d::platformer::sim_id::SimId,
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     destination: Option<bevy::prelude::Res<LevelDestination>>,
     room_set: Option<
@@ -3614,15 +3620,16 @@ mod tests {
                 .iter(app.world())
                 .next()
                 .expect("the fixture spawns the primary player before killing it");
-            app.world_mut()
-                .write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
+            app.world_mut().write_message(
+                ambition_platformer2d::combat::death_rules::ActorDiedMessage {
                     victim,
                     pos: ambition_platformer2d::engine_core::Vec2::ZERO,
                     cause: ambition_platformer2d::combat::death_rules::DeathCause {
                         source: ambition_platformer2d::combat::HitSource::Hazard,
                         attacker: None,
                     },
-                });
+                },
+            );
         }
         fn level(app: &mut App) -> (i8, u32, f32) {
             let mut q = app.world_mut().query::<&MaryOLevelState>();

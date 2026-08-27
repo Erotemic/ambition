@@ -30,15 +30,15 @@ use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
+use ambition_app::app::shell_host;
 use ambition_platformer2d::game_shell::{ActiveShellSequence, ShellLauncherState, ShellRouter};
 use ambition_platformer2d::input::{
-    ControlFrame, InputParticipant, Platformer2dInputActionMonolith, SeatInputContexts, LAUNCHER_CONTEXT,
-    STARTUP_ACKNOWLEDGE_CONTEXT,
+    ControlFrame, InputParticipant, Platformer2dInputActionMonolith, SeatInputContexts,
+    LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 use ambition_platformer2d::platformer::lifecycle::PlayerVisual;
 use ambition_platformer2d::sim_view::ControlPrompt;
 use ambition_platformer2d::touch_input::{bevy_plugin::MobileTouchState, TouchControlsPlugin};
-use ambition_app::app::shell_host;
 use leafwing_input_manager::prelude::{ActionState, Buttonlike};
 
 /// The real shell-host composition + the real host input stack, headless.
@@ -62,7 +62,10 @@ fn shell_input_app(with_startup_cards: bool) -> App {
     // load, so register that Startup system exactly as the app does (the
     // Font asset type must exist for it headless; no TextPlugin runs here).
     app.init_asset::<bevy::text::Font>();
-    app.add_systems(Startup, ambition_platformer2d::render::ui_fonts::load_ui_fonts);
+    app.add_systems(
+        Startup,
+        ambition_platformer2d::render::ui_fonts::load_ui_fonts,
+    );
     app.add_plugins(TouchControlsPlugin);
     shell_host::compose_ambition_shell_host(&mut app);
     if with_startup_cards {
@@ -369,7 +372,7 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
         With<ActionState<Platformer2dInputActionMonolith>>,
         Or<(
             With<PlayerVisual>,
-            With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
         )>,
     )>();
     assert_eq!(

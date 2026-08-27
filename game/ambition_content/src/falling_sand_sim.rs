@@ -490,10 +490,7 @@ pub fn grant_room_swim_controls(
         ambition_platformer2d::world::rooms::RoomSet,
     >,
     mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(
-        Entity,
-        &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities,
-    )>,
+    mut players: Query<(Entity, &mut ambition_platformer2d_core::BodyAbilities)>,
 ) {
     if room_set.active_spec().id == ROOM_ID {
         for (entity, mut abilities) in &mut players {

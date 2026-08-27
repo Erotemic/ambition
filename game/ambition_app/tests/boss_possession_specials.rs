@@ -8,14 +8,17 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
-use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
-use ambition_platformer2d::entity_catalog::placements::BossBrain;
-use ambition_platformer2d::vfx::HitSide;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
+use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
+use ambition_platformer2d::characters::brain::{
+    BossAttackProfile, BossAttackState, BossCapability, Brain,
+};
+use ambition_platformer2d::engine_core::BodyKinematics;
+use ambition_platformer2d::entity_catalog::placements::BossBrain;
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+use ambition_platformer2d::vfx::HitSide;
 use bevy::prelude::{Entity, World};
 
 const BOSS_ID: &str = "possess_boss";
@@ -106,8 +109,8 @@ fn wait_out_strike(sim: &mut Platformer2dSimHarness, boss: Entity) {
 
 #[test]
 fn possessed_boss_commands_its_authored_specials_and_release_restores_the_pattern() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let boss = spawn_and_possess_boss(&mut sim);
 
     // The boss's authored repertoire is present as body capability, surviving the
@@ -170,7 +173,9 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // of routing the strike through the shared moveset instead of suppressing it.
     {
         // `HitSide` is the presentation-neutral side carried by vfx hitboxes.
-        let mut q = sim.world_mut().query::<&ambition_platformer2d::combat::hitbox::Hitbox>();
+        let mut q = sim
+            .world_mut()
+            .query::<&ambition_platformer2d::combat::hitbox::Hitbox>();
         let strike_sides: Vec<HitSide> = q
             .iter(sim.world_mut())
             .filter(|h| h.owner == boss)

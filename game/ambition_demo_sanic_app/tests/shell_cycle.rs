@@ -21,7 +21,7 @@ fn active_route(app: &App) -> Option<String> {
 fn primary_players(app: &mut App) -> usize {
     let mut query = app
         .world_mut()
-        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
+        .query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     query.iter(app.world()).count()
 }
 

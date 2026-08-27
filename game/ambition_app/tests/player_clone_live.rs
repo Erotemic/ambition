@@ -11,9 +11,9 @@
 
 use crate::common::base;
 
-use ambition_platformer2d::actors::actor::BodyGroundState;
-use ambition_platformer2d::actors::actor::BodyKinematics;
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
+use ambition_platformer2d::engine_core::BodyGroundState;
+use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::{With, World};
 
 /// (x, y, on_ground) of the single player clone, if it exists.

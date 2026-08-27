@@ -637,8 +637,8 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
 
 #[test]
 fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyKinematics;
     use bevy::input::gamepad::GamepadButton;
 
     fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
@@ -1103,7 +1103,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
             disturbed |= hitstun(&app, slug_body) > 0.0;
             let vx = app
                 .world()
-                .get::<ambition_platformer2d::actors::actor::BodyKinematics>(slug_body)
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(slug_body)
                 .map(|kin| kin.vel.x.abs())
                 .unwrap_or(0.0);
             peak_speed = peak_speed.max(vx);
@@ -4085,8 +4085,8 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
 /// stops this file passing over a fighter that quietly lost both.
 #[test]
 fn a_fighter_with_no_dash_still_covers_ground_on_the_stage() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = open_the_lobby();
     decide_a_solo_match(&mut app);
@@ -4378,7 +4378,7 @@ fn a_smash_fighters_shield_input_raises_and_lowers_their_guard() {
     eprintln!(
         "[d146-shield] seat 0 PlayerEntity = {}",
         app.world()
-            .get::<ambition_platformer2d::actors::actor::PlayerEntity>(body)
+            .get::<ambition_platformer2d::platformer::markers::PlayerEntity>(body)
             .is_some()
     );
 
@@ -4548,8 +4548,8 @@ fn holding_shield_raises_a_guard_and_fires_no_authored_move() {
 /// walks in and swings.
 #[test]
 fn a_cpu_fighter_raises_a_guard_without_pressing_a_physical_button() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let (mut app, person) = a_person_fighting_as(OTHER_PREPARED_FIGHTER);
     let cpu = {
@@ -5320,8 +5320,8 @@ fn quitting_a_smash_match_gives_the_pad_back() {
 /// stage of the chain was healthy. The launch pointed down.
 mod launched {
     use super::*;
-    use ambition_platformer2d::actors::actor::BodyGroundState;
     use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::engine_core::BodyGroundState;
     use ambition_platformer2d::engine_core::Vec2 as EVec2;
     use ambition_platformer2d::platformer::body::BodyKinematics;
 
@@ -5847,8 +5847,8 @@ fn a_fighter_with_a_multi_frame_portrait_gets_one_frame_on_the_hud() {
 /// binding layer reads it.
 #[test]
 fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyKinematics;
     use bevy::input::gamepad::GamepadButton;
 
     fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {

@@ -58,13 +58,15 @@ pub enum SurfaceContact {
     /// rings."*
     ///
     ///  a surface that HURTS is a `DamageVolume`, which lowers to a hazard placement,
-    /// ticks in `ambition_combat::hazards`, and publishes an ordinary `HitEvent` — so i-frames,
+    /// ticks in `ambition_platformer2d::combat::hazards`, and publishes an ordinary `HitEvent` — so i-frames,
     /// a wallet shield, knockback, and death all apply exactly as they do for any other hit.
     /// Static or moving, either works; the motion path is optional.
     ResetToSpawn,
     /// Refreshes pogo / movement resources (legacy `PogoOrb`).
     PogoRefresh,
-    Rebound { impulse: ae::Vec2 },
+    Rebound {
+        impulse: ae::Vec2,
+    },
 }
 
 /// When a destroyed `Surface` returns.
@@ -129,7 +131,11 @@ impl LdtkSurfaceSpec {
 #[derive(Clone, Debug, Default)]
 pub struct SurfaceCompiled {
     pub blocks: Vec<ae::Block>,
-    pub breakables: Vec<ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::BreakableSpec>>,
+    pub breakables: Vec<
+        ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::BreakableSpec,
+        >,
+    >,
 }
 
 /// LDtk identifiers that lower into the typed runtime "surface" conversion
@@ -333,8 +339,11 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
     }
 
     let mut blocks = Vec::new();
-    let mut breakables: Vec<ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::BreakableSpec>> =
-        Vec::new();
+    let mut breakables: Vec<
+        ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::BreakableSpec,
+        >,
+    > = Vec::new();
 
     match spec.breakability {
         SurfaceBreakability::Indestructible => {
@@ -362,8 +371,12 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 ));
             }
             let collision = match spec.collision {
-                SurfaceCollision::None => ambition_platformer2d_world::rooms::BreakableCollisionSpec::None,
-                SurfaceCollision::Solid => ambition_platformer2d_world::rooms::BreakableCollisionSpec::Solid,
+                SurfaceCollision::None => {
+                    ambition_platformer2d_world::rooms::BreakableCollisionSpec::None
+                }
+                SurfaceCollision::Solid => {
+                    ambition_platformer2d_world::rooms::BreakableCollisionSpec::Solid
+                }
                 SurfaceCollision::OneWayUp => {
                     ambition_platformer2d_world::rooms::BreakableCollisionSpec::OneWayUp
                 }

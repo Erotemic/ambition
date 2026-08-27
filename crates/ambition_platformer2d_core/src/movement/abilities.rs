@@ -152,7 +152,7 @@ pub enum OutOfShieldAction {
 ///
 /// ⛔ ONE IMPLEMENTATION, HERE, and that is the point of the type: the rule
 /// "raised guard + policy + action class → permitted" was written twice — once
-/// in this kernel and once in `ambition_combat::moveset` — which is two
+/// in this kernel and once in `ambition_platformer2d::combat::moveset` — which is two
 /// authorities over one policy. Combat reads the gate; what it adds is the
 /// DIRECTION interpretation (only the up attack and up special RISE), which is
 /// its own vocabulary and stays there.

@@ -14,15 +14,17 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_platformer2d::actors::actor::{
-    BodyAbilities, BodyBlinkState, BodyFlightState, BodyKinematics, BodyShieldState,
+use ambition_app::AmbitionSim;
+use ambition_app::{
+    AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
+use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
 use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::ActorControl;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
+use ambition_platformer2d::engine_core::{
+    BodyAbilities, BodyBlinkState, BodyFlightState, BodyKinematics, BodyShieldState,
+};
 use bevy::prelude::World;
 
 /// Per-fighter behavior tally accumulated over the bout, plus spatial extent and
@@ -181,7 +183,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 /// bodies in place.
 #[test]
 fn resetting_the_room_restages_the_duel_fighters_fresh() {
-    use ambition_platformer2d::actors::actor::BodyKinematics as Kin;
+    use ambition_platformer2d::engine_core::BodyKinematics as Kin;
     let mut sim = Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())

@@ -22,7 +22,7 @@ pub fn refresh_body_damageable_volumes(
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
             // Authored hurtboxes override the coarse body envelope.
             Option<&crate::character_runtime::ResolvedHurtboxes>,
-            Option<&crate::actor::BodyKinematics>,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
             &mut DamageableVolumes,
         ),
         // Bosses and breakables publish their own family-specific volumes.
@@ -52,7 +52,7 @@ pub fn refresh_body_damageable_volumes(
 /// hurtboxes are authored as rectangles, so this path publishes AABB volumes.
 fn authored_world_volumes(
     hurtboxes: Option<&crate::character_runtime::ResolvedHurtboxes>,
-    kin: Option<&crate::actor::BodyKinematics>,
+    kin: Option<&ambition_platformer2d_core::BodyKinematics>,
 ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
     let volumes = resolved.world_volumes(kin.aabb().center(), kin.facing)?;
@@ -75,7 +75,7 @@ pub fn refresh_boss_damageable_volumes(
         Option<&crate::features::BossAnimationFrameSample>,
         // Authored character hurtboxes override boss-part sampling.
         Option<&crate::character_runtime::ResolvedHurtboxes>,
-        Option<&crate::actor::BodyKinematics>,
+        Option<&ambition_platformer2d_core::BodyKinematics>,
         &mut DamageableVolumes,
     )>,
 ) {

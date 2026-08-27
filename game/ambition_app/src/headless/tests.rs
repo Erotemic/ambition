@@ -1,4 +1,3 @@
-
 use super::*;
 use ambition_platformer2d::input::ControlFrame;
 // presses go through the SEAM, not at the resource. `ControlFrame` is seat zero's OUTPUT
@@ -167,10 +166,10 @@ fn sim_accumulates_messages_across_repeated_attacks() {
 /// runs through the real Startup schedule.
 #[test]
 fn sim_spawns_player_with_brain_and_action_set() {
-    use ambition_platformer2d::actors::actor::PlayerEntity;
-    use ambition_platformer2d::characters::brain::{ActionSet};
-use ambition_platformer2d::characters::control::{ActorControl};
-use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::characters::brain::ActionSet;
+    use ambition_platformer2d::characters::control::ActorControl;
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::platformer::markers::PlayerEntity;
     let mut app = initialized_sandbox_sim_app();
     let mut q = app
         .world_mut()

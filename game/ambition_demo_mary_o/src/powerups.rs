@@ -15,17 +15,17 @@ use ambition_platformer2d::characters::equipment::{
 };
 
 use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::items::{ItemMotionPlan, WorldItem, spawn_moving_world_item};
-use ambition_platformer2d::world::rooms::RoomLoaded;
+use ambition_platformer2d::actors::items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+use ambition_platformer2d::world::rooms::RoomLoaded;
 
-use crate::T;
 use crate::provider::MARY_O_CHARACTER_ID;
+use crate::T;
 
 /// The worn-character id of the GROWN form: a distinct SHEET
 /// (`mary_o_v2_tall`), not a scaled copy of the small sheet. Wearing it is how
@@ -1066,7 +1066,7 @@ fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
 /// form that never drew the clip answers with the length of whatever it falls
 /// back to — the beat then lasts as long as what the player actually sees.
 fn clip_seconds(character_id: &str, anim: CharacterAnim) -> f32 {
-    use ambition_platformer2d::sprite_sheet::character::{SheetTuning, try_load_spec_for_target};
+    use ambition_platformer2d::sprite_sheet::character::{try_load_spec_for_target, SheetTuning};
     try_load_spec_for_target(sheet_target(character_id), &SheetTuning::default())
         .map(|spec| spec.clip_seconds(anim))
         .filter(|secs| *secs > 0.0)
@@ -1199,7 +1199,7 @@ pub fn rearm_power_blocks_for_a_fresh_attempt(
 mod tests {
     use super::*;
     use ambition_platformer2d::characters::equipment::{
-        WornEquipment, apply_equipment_grants, resolved_ranged,
+        apply_equipment_grants, resolved_ranged, WornEquipment,
     };
 
     /// The star wand absorbs one hit and is then spent — the A3 armor half of
@@ -1255,7 +1255,7 @@ mod tests {
     #[test]
     fn the_cinder_beacon_grants_a_scaled_bouncing_spark() {
         use ambition_platformer2d::characters::brain::action_set::ActionSet;
-        use ambition_platformer2d::combat::moveset::{RANGED_VERB, build_actor_moveset};
+        use ambition_platformer2d::combat::moveset::{build_actor_moveset, RANGED_VERB};
 
         let worn = WornEquipment::new(vec![cinder_beacon()]);
 
@@ -1359,7 +1359,7 @@ mod tests {
         // And its blocks are a family of their own: no ?-block reads as a quasar
         // block and no quasar block reads as a ?-block. That disjointness is what
         // lets ONE bonk rule serve both without either shadowing the other.
-        use crate::ldtk_vocabulary::{MaryOBlockLook, block_look_of};
+        use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
         let room = crate::level_1_1();
         let of_kind = |want: MaryOBlockLook| {
             room.world
@@ -1888,7 +1888,7 @@ mod tests {
     #[test]
     fn a_brick_that_hides_a_lantern_pops_a_lantern_and_is_not_breakable() {
         use crate::ldtk_vocabulary::{
-            MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup, block_of, reactive_block,
+            block_of, reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
         };
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 
@@ -1988,7 +1988,7 @@ mod tests {
     #[test]
     fn a_coin_block_credits_the_wallet_and_spawns_nothing() {
         use crate::ldtk_vocabulary::{
-            MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup, reactive_block,
+            reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
         };
         use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
 

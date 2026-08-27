@@ -211,8 +211,8 @@ fn leaving_versus_does_not_seat_fighters_into_the_next_game() {
 /// cannot see the gap.
 #[test]
 fn two_controllers_make_versus_a_two_player_game() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::control::DrivingParticipant;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     // Both pads present BEFORE the stage is chosen. The roster decides at stage
@@ -383,9 +383,9 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
 /// exactly what could be missing.
 #[test]
 fn both_fighters_can_actually_hit_each_other() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::control::DrivingParticipant;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     let pad_one = app.world_mut().spawn(Gamepad::default()).id();
@@ -484,9 +484,9 @@ fn both_fighters_can_actually_hit_each_other() {
 #[test]
 fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
     use ambition_app::app::versus_rules::ROUNDS_TO_WIN;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -626,8 +626,8 @@ fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
 /// anything at all is not.
 #[test]
 fn the_cpu_opponent_is_not_a_statue() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -706,9 +706,9 @@ fn the_cpu_opponent_is_not_a_statue() {
 /// "the fighter respawned and nobody noticed".
 #[test]
 fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -1468,8 +1468,8 @@ fn four_controllers_make_versus_a_two_versus_two() {
 /// been wrong four times already this session.
 #[test]
 fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     let pads: Vec<Entity> = (0..4)
@@ -2150,8 +2150,8 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
 /// passed (1) and (3) while the fight ran underneath.
 #[test]
 fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     let pad = app.world_mut().spawn(Gamepad::default()).id();
@@ -2237,9 +2237,9 @@ fn a_round_opens_on_a_countdown_that_nobody_can_act_through() {
 /// adopted primary-player reset path.
 #[test]
 fn a_fighter_knocked_off_the_stage_loses_the_round() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2320,9 +2320,9 @@ fn a_fighter_knocked_off_the_stage_loses_the_round() {
 /// stage opted in.
 #[test]
 fn a_fighter_thrown_off_the_side_loses_the_round() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2408,9 +2408,9 @@ fn a_fighter_thrown_off_the_side_loses_the_round() {
 /// it is all ECONOMY. A body dying in its own voice was never on that list.
 #[test]
 fn a_knockout_is_announced_in_the_losers_own_voice() {
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);

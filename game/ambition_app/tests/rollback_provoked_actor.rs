@@ -213,8 +213,8 @@ fn possession_survives_the_real_rollback_window() {
     let player = {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<
-            &ambition_platformer2d::actors::actor::BodyKinematics,
-            ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
         >();
         q.single(world).expect("primary player").pos
     };

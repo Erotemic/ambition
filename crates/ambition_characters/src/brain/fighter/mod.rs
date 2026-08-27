@@ -2,7 +2,7 @@
 //!
 //! ⛔⛔ THE THINKING LEFT (D168). The decision tick, the option scoring, the
 //! shadow rollout, the recovery probe, the reeling response, the charge maths,
-//! the scenario suite and the content schema are `ambition_combat::brain::fighter`
+//! the scenario suite and the content schema are `ambition_platformer2d::combat::brain::fighter`
 //! now: a floor crate owns what a character IS, and the layer above owns how it
 //! THINKS.
 //!

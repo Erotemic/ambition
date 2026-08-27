@@ -8,8 +8,8 @@ use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::features::ActorPose;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{tick_player_brain, BrainSnapshot};
-use ambition_characters::control::{ScriptedControl};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::control::ActorControl;
+use ambition_characters::control::ScriptedControl;
 use ambition_characters::control::{DrivingParticipant, SlotControls};
 use ambition_platformer2d_core as ae;
 
@@ -189,7 +189,7 @@ const MANA_REGEN_PER_SEC: f32 = 14.0;
 pub fn regen_player_mana(
     time: Res<ambition_time::WorldTime>,
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
-    mut manas: Query<&mut crate::actor::BodyMana>,
+    mut manas: Query<&mut ambition_platformer2d_core::BodyMana>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     let dt = time.sim_dt();

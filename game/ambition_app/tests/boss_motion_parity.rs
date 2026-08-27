@@ -12,9 +12,9 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::actor::BodyKinematics;
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::placements::BossBrain;
 use bevy::prelude::World;
 
@@ -28,7 +28,7 @@ fn read_boss_pos(world: &mut World) -> Option<ae::Vec2> {
 }
 
 fn read_player_pos(world: &mut World) -> ae::Vec2 {
-    use ambition_platformer2d::actors::actor::PrimaryPlayerOnly;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player exists").pos
 }

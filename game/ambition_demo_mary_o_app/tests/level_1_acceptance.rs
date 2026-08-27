@@ -583,7 +583,8 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         {
             let mut q = app
                 .world_mut()
-                .query_filtered::<&ambition_platformer2d::actor::MotionModel, With<PrimaryPlayer>>();
+                .query_filtered::<&ambition_platformer2d::actor::MotionModel, With<PrimaryPlayer>>(
+                );
             let model = q.iter(app.world()).next().map(|m| format!("{m:?}"));
             let shown: String = model.unwrap_or_else(|| "<none>".to_string());
             eprintln!("motion model: {}", &shown[..shown.len().min(600)]);
@@ -1073,7 +1074,7 @@ fn a_small_mary_o_dies_to_one_hit_and_the_level_restarts() {
         step(&mut app, idle());
         let dying = app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::actors::actor::BodyAnimFacts, With<PrimaryPlayer>>()
+            .query_filtered::<&ambition_platformer2d::characters::actor::BodyAnimFacts, With<PrimaryPlayer>>()
             .single(app.world())
             .map(|anim| anim.death_anim_timer > 0.0)
             .unwrap_or(false);

@@ -11,7 +11,7 @@
 //! happens to be live at restore time.
 //!
 //! It rides on the autonomous body (the possessed actor / the rider), alongside
-//! its `BrainBinding` (`ambition_characters::actor::character_catalog`): the
+//! its `BrainBinding` (`ambition_platformer2d::characters::actor::character_catalog`): the
 //! binding says which autonomous source resumes when control ends, and this says
 //! whether a controller is masking it right now. ⚠ Named rather than LINKED —
 //! this crate does not depend on `ambition_characters`, and it should not start

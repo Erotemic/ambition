@@ -6,7 +6,10 @@
 
 use ambition_combat::components::ActorFaction;
 use ambition_projectiles::ProjectileSpawn;
-use ambition_projectiles::{build_in_flight_projectile, ProjectileGameplay, ProjectileOwner, ProjectileSeq, ProjectileSeqCounter};
+use ambition_projectiles::{
+    build_in_flight_projectile, ProjectileGameplay, ProjectileOwner, ProjectileSeq,
+    ProjectileSeqCounter,
+};
 use bevy::prelude::*;
 
 /// Directly spawn an open-visual projectile entity for collision/routing tests.
@@ -61,14 +64,16 @@ pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn
 /// (oldest first), matching production sequence ordering. Recomposes an [`ambition_projectiles::InFlightProjectile`] from the
 /// entity's split `BodyKinematics` + `ProjectileGameplay` so the historical
 /// collision tests can keep asserting on the reconstructed flight body.
-pub(crate) fn live_projectile_bodies(app: &mut App) -> Vec<ambition_projectiles::InFlightProjectile> {
+pub(crate) fn live_projectile_bodies(
+    app: &mut App,
+) -> Vec<ambition_projectiles::InFlightProjectile> {
     let world = app.world_mut();
     // `try_query_filtered` returns `Err` when the projectile component types
     // were never registered in this World — exactly the "no projectile ever
     // spawned" case some historical collision fixtures assert. Treat that as
     // an empty set rather than panicking.
     let Some(mut q) = world.try_query_filtered::<(
-        &crate::actor::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
         &ProjectileGameplay,
         &ProjectileSeq,
     ), With<ambition_projectiles::LiveProjectile>>() else {

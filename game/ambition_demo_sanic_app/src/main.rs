@@ -50,8 +50,8 @@ fn report(app: &mut App, requested: u32) {
     let body = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics, With<
-                ambition_platformer2d::actors::actor::PrimaryPlayer,
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
             >>();
         q.iter(app.world()).next().copied()
     };

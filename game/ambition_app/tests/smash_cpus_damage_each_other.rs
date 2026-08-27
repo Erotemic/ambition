@@ -431,7 +431,7 @@ fn mirror_bout(
         {
             let mut bodies = world.query::<(
                 &MatchSeat,
-                &ambition_platformer2d::actors::actor::BodyKinematics,
+                &ambition_platformer2d::engine_core::BodyKinematics,
             )>();
             let xs: Vec<f32> = bodies
                 .iter(world)
@@ -863,7 +863,7 @@ fn the_goblin_and_the_pca_do_not_ask_for_the_same_sound_many_times_on_one_tick()
 ///
 /// The census above establishes the RATE and the id; it cannot say which
 /// emitter. `player.hit` is the unauthored default for an ENEMY-profile victim
-/// (`ambition_combat::util`), so every hit event on either of these two bodies
+/// (`ambition_platformer2d::combat::util`), so every hit event on either of these two bodies
 /// that carries no authored strike sound lands on the same id — which means the
 /// sound is downstream of however many HIT EVENTS there are. This counts the
 /// events by `HitSource`, which is the fork: `Melee` is a swing landing (paced

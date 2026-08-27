@@ -25,11 +25,11 @@ fn act_elapsed(app: &mut App) -> Option<f32> {
     q.iter(app.world()).next().map(|s| s.elapsed)
 }
 
-fn player_body(app: &mut App) -> Option<ambition_platformer2d::actors::actor::BodyKinematics> {
+fn player_body(app: &mut App) -> Option<ambition_platformer2d::engine_core::BodyKinematics> {
     let mut q = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics, With<
-            ambition_platformer2d::actors::actor::PrimaryPlayer,
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
         >>();
     q.iter(app.world()).next().copied()
 }
@@ -56,7 +56,7 @@ fn align_post_activation_fixed_timeline(app: &mut App) {
     panic!("the fixed timeline did not advance after gameplay activation");
 }
 
-fn activate_player(app: &mut App) -> ambition_platformer2d::actors::actor::BodyKinematics {
+fn activate_player(app: &mut App) -> ambition_platformer2d::engine_core::BodyKinematics {
     for _ in 0..16 {
         app.update();
         if let Some(body) = player_body(app) {

@@ -3,18 +3,18 @@
 //! flight suppressing ladder auto-climb.
 
 use super::*;
-use crate::actor::BodyKinematics;
-use crate::actor::{
-    BodyBaseSize, BodyEnvironmentContact, BodyGroundState, BodyJumpState, BodyModeState,
-};
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::body_mode::BodyModeCapabilities;
-use ambition_characters::control::SlotInteractionState;
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::control::{ActorControl};
+use ambition_characters::control::ActorControl;
+use ambition_characters::control::SlotInteractionState;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::Vec2;
+use ambition_platformer2d_core::{
+    BodyBaseSize, BodyEnvironmentContact, BodyGroundState, BodyJumpState, BodyModeState,
+};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use bevy::prelude::{App, Entity, Update};
 
 /// Set the controlled body's `ActorControl` — the body-generic intent the driver
@@ -101,7 +101,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 BodyEnvironmentContact::default(),
                 BodyModeState::default(),
                 BodyJumpState::default(),
-                crate::actor::BodyFlightState::default(),
+                ambition_platformer2d_core::BodyFlightState::default(),
                 ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
             ),
         ))
@@ -136,7 +136,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
             BodyEnvironmentContact::default(),
             BodyModeState::default(),
             BodyJumpState::default(),
-            crate::actor::BodyFlightState::default(),
+            ambition_platformer2d_core::BodyFlightState::default(),
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ),
     ));
@@ -241,7 +241,8 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
         .get_mut::<BodyGroundState>(body)
         .unwrap()
         .on_ground = false;
-    let mut momentum = ambition_platformer2d_core::movement::SurfaceMomentumMotion::new(Default::default());
+    let mut momentum =
+        ambition_platformer2d_core::movement::SurfaceMomentumMotion::new(Default::default());
     momentum.state = ae::SurfaceMotion::Riding {
         on: ae::SurfaceRef::Block(0),
         s: 10.0,
@@ -501,7 +502,7 @@ fn flying_suppresses_ladder_auto_climb() {
     {
         let mut flight = app
             .world_mut()
-            .get_mut::<crate::actor::BodyFlightState>(player)
+            .get_mut::<ambition_platformer2d_core::BodyFlightState>(player)
             .unwrap();
         flight.fly_enabled = true;
     }
@@ -516,7 +517,7 @@ fn flying_suppresses_ladder_auto_climb() {
     {
         let mut flight = app
             .world_mut()
-            .get_mut::<crate::actor::BodyFlightState>(player)
+            .get_mut::<ambition_platformer2d_core::BodyFlightState>(player)
             .unwrap();
         flight.fly_enabled = false;
     }

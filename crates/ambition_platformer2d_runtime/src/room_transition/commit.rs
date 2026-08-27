@@ -10,11 +10,11 @@ use ambition_platformer2d_actor_monolith::rooms;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_time::time_control::ClockResetRequest;
 use ambition_platformer2d_actor_monolith::world::physics;
 use ambition_platformer2d_core::{self as ae, AabbExt, RoomGeometry};
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_time::time_control::ClockResetRequest;
 use ambition_vfx::{ParticleKind, VfxMessage};
 
 /// The sim → presentation channels a committed transition writes: the zone
@@ -35,7 +35,8 @@ pub struct RoomTransitionEffects<'w> {
 /// consumed by the time-control owner — no system here mutates `time_scale`.
 #[derive(SystemParam)]
 pub struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
+    pub sim_state:
+        ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
     pub clock_resets: MessageWriter<'w, ClockResetRequest>,
 }
 
@@ -468,8 +469,7 @@ pub struct TransitBodies<'w, 's> {
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
     /// The transiting body's movement policy — a room transition is a discrete
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
-    motion_models:
-        Query<'w, 's, &'static mut ambition_platformer2d_core::movement::MotionModel>,
+    motion_models: Query<'w, 's, &'static mut ambition_platformer2d_core::movement::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition_characters::actor::BodyCombat>,
     /// The transiting body's resolved gravity frame — read (before the mutable
     /// cluster borrow) so the landing diagnostic probes along the body's own
@@ -483,7 +483,7 @@ pub struct TransitBodies<'w, 's> {
             &'static mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
             &'static mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
         ),
-        ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     /// Stable body identity — how the transiting subject is NAMED. The request
     /// records a `SimId` at detection and this resolves it at commit; see

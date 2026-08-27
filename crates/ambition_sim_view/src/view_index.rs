@@ -238,7 +238,7 @@ pub fn rebuild_feature_view_index(
             // The two clusters the damage rule reads that this pass did not
             // already hold: the evade window and the guard.
             Option<&ae::BodyMotionFacts>,
-            Option<&ambition_platformer2d_actor_monolith::actor::BodyShieldState>,
+            Option<&ambition_platformer2d_core::BodyShieldState>,
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
             Option<
@@ -1005,7 +1005,7 @@ mod view_index_tests {
     /// every shield raise.
     #[test]
     fn the_published_parry_beat_is_the_catch_and_never_the_open_window() {
-        use ambition_platformer2d_actor_monolith::actor::BodyShieldState;
+        use ambition_platformer2d_core::BodyShieldState;
 
         let published = |shield: BodyShieldState| {
             let mut app = bevy::prelude::App::new();

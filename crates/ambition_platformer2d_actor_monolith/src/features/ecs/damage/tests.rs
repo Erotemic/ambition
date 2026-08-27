@@ -7,9 +7,9 @@ use super::super::damage_drops::{
 };
 use super::*;
 use crate::features::ecs::enemy_component_snapshot;
-use ambition_combat::events::{HitMode, HitTarget};
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
+use ambition_combat::events::{HitMode, HitTarget};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
@@ -321,7 +321,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
 
 #[test]
 fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player() {
-    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+    use ambition_combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
 
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
@@ -334,8 +334,8 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     let player = app
         .world_mut()
         .spawn((
-            crate::actor::PlayerEntity,
-            crate::actor::PrimaryPlayer,
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
             ambition_characters::actor::BodyCombat::default(),
             MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
         ))
@@ -743,14 +743,16 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
             .world_mut()
             .get_mut::<ambition_platformer2d_core::movement::MotionModel>(actor)
             .unwrap();
-        *model = ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(ae::AdhesiveCrawlerMotion {
-            params: ae::CrawlerParams::default(),
-            state: ae::CrawlerState::attached(ae::Vec2::new(1.0, 0.0)),
-        });
+        *model = ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(
+            ae::AdhesiveCrawlerMotion {
+                params: ae::CrawlerParams::default(),
+                state: ae::CrawlerState::attached(ae::Vec2::new(1.0, 0.0)),
+            },
+        );
     }
     {
         app.world_mut()
-            .get_mut::<crate::actor::BodyGroundState>(actor)
+            .get_mut::<ambition_platformer2d_core::BodyGroundState>(actor)
             .unwrap()
             .on_ground = true;
         app.world_mut()
@@ -786,7 +788,7 @@ fn struck_cling_breaker_loses_its_surface_and_falls() {
         .unwrap();
     assert!(
         !app.world()
-            .get::<crate::actor::BodyGroundState>(actor)
+            .get::<ambition_platformer2d_core::BodyGroundState>(actor)
             .unwrap()
             .on_ground,
         "a struck cling-breaker should leave its surface and fall"
@@ -818,7 +820,7 @@ fn struck_surface_walker_holds_on_when_cling_does_not_break() {
         .unwrap();
     assert!(
         app.world()
-            .get::<crate::actor::BodyGroundState>(actor)
+            .get::<ambition_platformer2d_core::BodyGroundState>(actor)
             .unwrap()
             .on_ground,
         "a non-breaking crawler keeps its footing"
@@ -857,12 +859,11 @@ fn player_slash_shatters_a_breakable() {
             BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
         ))
         .id();
-    assert!(
-        !app.world()
-            .get::<BreakableFeature>(breakable)
-            .unwrap()
-            .broken()
-    );
+    assert!(!app
+        .world()
+        .get::<BreakableFeature>(breakable)
+        .unwrap()
+        .broken());
 
     app.world_mut().write_message(HitEvent {
         strike_sfx: None,
@@ -1696,7 +1697,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
 /// onto `MovePlayback.hit_targets` so the next tick's emit ignores it.
 #[test]
 fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
-    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+    use ambition_combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(GameplayBanner::default());
@@ -1753,8 +1754,8 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
 #[test]
 fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     use ambition_combat::moveset::{
-        MovePlayback, MovesetMelee, SimpleMeleeParams, project_moveset_melee_to_body_melee,
-        simple_melee,
+        project_moveset_melee_to_body_melee, simple_melee, MovePlayback, MovesetMelee,
+        SimpleMeleeParams,
     };
     use bevy::prelude::IntoScheduleConfigs;
     fn clear_iframes(mut q: bevy::prelude::Query<&mut ambition_characters::actor::BodyCombat>) {
@@ -1961,7 +1962,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
 /// actually disagree.
 #[test]
 fn leaving_the_world_outranks_an_authored_in_place_respawn() {
-    use super::actor_hit::{KillDisposition, kill_disposition};
+    use super::actor_hit::{kill_disposition, KillDisposition};
     use ambition_entity_catalog::placements::RespawnPolicy;
 
     // the policy is STATED here rather than resolved from a fixture archetype row (deleted,
@@ -2013,8 +2014,8 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
         let thrower = app
             .world_mut()
             .spawn((
-                crate::actor::PlayerEntity,
-                crate::actor::PrimaryPlayer,
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
@@ -2059,9 +2060,9 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 /// victim already is. This pins the three answers that differ.
 #[test]
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
+    use ambition_characters::control::DrivingParticipant;
     use ambition_combat::components::ActorFaction;
     use ambition_combat::targeting::FriendlyFire;
-    use ambition_characters::control::DrivingParticipant;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
     let ff = FriendlyFire::default();

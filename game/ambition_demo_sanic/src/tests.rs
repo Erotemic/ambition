@@ -591,7 +591,7 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.world_mut().spawn((
-        ambition_platformer2d::actors::actor::PrimaryPlayer,
+        ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
             pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
             ..Default::default()
@@ -720,7 +720,7 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     let entity = app
         .world_mut()
         .spawn((
-            ambition_platformer2d::actors::actor::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
             ambition_platformer2d::characters::actor::BodyHealth::new(
                 ambition_platformer2d::characters::actor::Health::new(3),
             ),
@@ -781,7 +781,7 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
 
     // Parked just past the first marker, so one milestone fires this update.
     app.world_mut().spawn((
-        ambition_platformer2d::actors::actor::PrimaryPlayer,
+        ambition_platformer2d::platformer::markers::PrimaryPlayer,
         ae::BodyKinematics {
             pos: ae::Vec2::new(SPEED_MARKER_XS[0] + 1.0, 0.0),
             ..Default::default()
@@ -1142,7 +1142,7 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
     let player = app
         .world_mut()
         .spawn((
-            ambition_platformer2d::actors::actor::PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
             WornCharacter::new(SUPER_SANIC_CHARACTER_ID),
             BodyHealth::new(Health::new(3)),
             ae::BodyKinematics::default(),

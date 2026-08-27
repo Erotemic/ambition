@@ -1,10 +1,7 @@
-
 use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
 use ambition_input::ControlFrame;
-use ambition_platformer2d_actor_monolith::actor::BodyBaseSize;
-use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::platformer_runtime::gravity::{
     gravity_upright_angle, GravityField,
 };
@@ -12,8 +9,11 @@ use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{
     update_actor_roll, ActorRoll,
 };
 use ambition_platformer2d_actor_monolith::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_platformer2d_core::BodyBaseSize;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_core::{self as ae};
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 #[allow(unused_imports)]
 use super::*;

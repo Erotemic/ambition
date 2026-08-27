@@ -803,8 +803,8 @@ fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
     let here = {
         let world = sim.world_mut();
         let mut q = world
-            .query_filtered::<&ambition_platformer2d::actors::actor::BodyKinematics,
-                ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics,
+                ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
         q.single(world).expect("primary player").pos
     };
     sim.spawn_enemy_character_at(
@@ -842,7 +842,7 @@ fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
 fn place_body(sim: &mut Platformer2dSimHarness, body: Entity, at: (f32, f32)) {
     let world = sim.world_mut();
     let mut kin = world
-        .get_mut::<ambition_platformer2d::actors::actor::BodyKinematics>(body)
+        .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(body)
         .expect("the body has kinematics");
     kin.pos = ambition_platformer2d::engine_core::Vec2::new(at.0, at.1);
     kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
@@ -961,8 +961,8 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
 #[test]
 fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     const HOME: &str = "vertical_shaft";
     const AWAY: &str = "central_hub_complex";
@@ -1222,9 +1222,9 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
 #[test]
 fn a_mount_you_are_riding_crosses_the_door_with_you() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::mount::RidingOn;
 
     let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
     for _ in 0..30 {
@@ -1356,10 +1356,10 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
 #[test]
 fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::mount::RidingOn;
 
     let mut sim = fixed_60hz_room_sim("gnu_ton_arena");
     for _ in 0..30 {
@@ -1498,10 +1498,10 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 #[test]
 fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
-    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 
     let mut sim = fixed_60hz_room_sim("gnu_ton_arena");
@@ -1757,8 +1757,9 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
 #[test]
 fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 
     const HOME: &str = "vertical_shaft";
     const AWAY: &str = "central_hub_complex";

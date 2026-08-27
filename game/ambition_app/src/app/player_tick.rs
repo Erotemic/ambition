@@ -33,15 +33,15 @@ pub fn sync_player_presentation(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+            &mut ambition_platformer2d::characters::actor::BodyAnimFacts,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
             &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
-            Option<&ambition_platformer2d::actors::actor::PrimaryPlayer>,
+            Option<&ambition_platformer2d::platformer::markers::PrimaryPlayer>,
             // A13: whose cues this player body emits.
             Option<&ambition_platformer2d::sfx::BodyPresentationSource>,
         ),
-        With<ambition_platformer2d::actors::actor::PlayerEntity>,
+        With<ambition_platformer2d::platformer::markers::PlayerEntity>,
     >,
 ) {
     for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary, source) in

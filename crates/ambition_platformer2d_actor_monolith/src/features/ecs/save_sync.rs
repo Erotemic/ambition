@@ -22,7 +22,10 @@ pub fn sync_ecs_actors_with_save(
     // A persisted-hostile NPC re-establishes its grudge against a stable player
     // slot on load (the original attacker entity doesn't survive a save round-trip;
     // single-player has exactly one slot to be angry at).
-    players: Query<(Entity, Option<&crate::control::PlayerSlot>), With<crate::actor::PlayerEntity>>,
+    players: Query<
+        (Entity, Option<&crate::control::PlayerSlot>),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
     mut actors: Query<
         (
             Entity,

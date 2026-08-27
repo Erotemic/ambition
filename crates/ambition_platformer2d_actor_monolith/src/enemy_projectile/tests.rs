@@ -1,12 +1,14 @@
-
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 use bevy::prelude::*;
 
-use ambition_combat::components::ActorFaction;
 use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
-use ambition_projectiles::{build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_combat::components::ActorFaction;
+use ambition_projectiles::{
+    build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
+    ProjectileStart,
+};
 
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
@@ -705,10 +707,10 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
 /// boss's attack at it.
 #[test]
 fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-    use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -818,10 +820,10 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 /// exercised.
 #[test]
 fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-    use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(

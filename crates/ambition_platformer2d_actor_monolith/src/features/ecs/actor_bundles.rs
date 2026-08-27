@@ -1,8 +1,7 @@
-
 use bevy::prelude::*;
 
-use ambition_combat::components::*;
 use ambition_characters::actor::BodyCombat;
+use ambition_combat::components::*;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
@@ -134,7 +133,7 @@ pub struct EnemyActorBundle {
     /// each frame by `advance_actor_anim_overlays` (landing / dash-startup) and
     /// read by `pick_actor_anim`, so an AI fighter shows those poses too (fable
     /// review §A9). Defaults inert.
-    pub anim: crate::actor::BodyAnimFacts,
+    pub anim: ambition_characters::actor::BodyAnimFacts,
 }
 
 impl EnemyActorBundle {
@@ -169,14 +168,17 @@ impl EnemyActorBundle {
             damageable_volumes: DamageableVolumes::default(),
             pogo_policy: PogoPolicy::FromDamageable,
             pogo_target_volumes: PogoTargetVolumes::default(),
-            anim: crate::actor::BodyAnimFacts::default(),
+            anim: ambition_characters::actor::BodyAnimFacts::default(),
         }
     }
 
     /// Select the body's explicit movement policy at spawn (crawler archetypes
     /// carry `MotionModel::AdhesiveCrawler` from tick one; absence is never a
     /// policy).
-    pub fn with_motion_model(mut self, motion_model: ambition_platformer2d_core::movement::MotionModel) -> Self {
+    pub fn with_motion_model(
+        mut self,
+        motion_model: ambition_platformer2d_core::movement::MotionModel,
+    ) -> Self {
         self.motion_model = motion_model;
         self
     }

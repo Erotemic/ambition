@@ -23,10 +23,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d::combat::components::ActorFaction;
 use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::combat::components::ActorFaction;
 use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 
 /// The catalog `display_name` the badnik renders from; every LDtk enemy spawn
 /// is rebranded to this name in [`crate::sanic_speedway`] so the sprite

@@ -24,11 +24,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::features::FeatureEcsWorldOverlay;
-use ambition_platformer2d::world::rooms::RoomLoaded;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::world::rooms::RoomLoaded;
 
 use crate::{SPEEDWAY_ROOM_ID, SUPER_SANIC_CHARACTER_ID};
 

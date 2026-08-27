@@ -1,7 +1,7 @@
 //! THE SMASH BRAIN'S DATA — and only its data, since 2026-08-27.
 //!
 //! ⛔⛔ THE BEHAVIOUR LEFT (D168). `tick_smash`, the mode/action/emit stages,
-//! the difficulty filter and the arena harness are `ambition_combat::brain::smash`
+//! the difficulty filter and the arena harness are `ambition_platformer2d::combat::brain::smash`
 //! now: a floor crate owns what a character IS, and the layer above owns how it
 //! THINKS. What could not follow is everything below, because `Brain`'s snapshot
 //! encoder is bound to THIS crate by the orphan rule and `ambition_combat`
@@ -519,7 +519,7 @@ impl DifficultyProfile {
 // stopped compiling in two lines, which is exactly the check the split is for.
 //
 // ⭐ THE STAGE THAT BUILDS THEM DID LEAVE. `observe` is
-// `ambition_combat::brain::smash::observation`; what stays is the SHAPE the
+// `ambition_platformer2d::combat::brain::smash::observation`; what stays is the SHAPE the
 // snapshot promises to carry.
 
 /// Anti-clump signal. The driver system computes this once per tick

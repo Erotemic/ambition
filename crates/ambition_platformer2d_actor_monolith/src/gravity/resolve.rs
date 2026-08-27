@@ -16,9 +16,9 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::frame_env::{FrameEnv, ResolvedMotionFrame};
 
-use ambition_combat::actor_tuning::ActorConfig;
 use crate::features::ActorSurfaceState;
 use ambition_boss_encounter::BossConfig;
+use ambition_combat::actor_tuning::ActorConfig;
 
 /// Resolve and publish the frame for every integrated body.
 ///
@@ -32,17 +32,20 @@ pub fn resolve_body_motion_frames(
     env: FrameEnv,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     mut players: Query<
-        (&crate::actor::BodyKinematics, &mut ResolvedMotionFrame),
-        With<crate::actor::PlayerEntity>,
+        (
+            &ambition_platformer2d_core::BodyKinematics,
+            &mut ResolvedMotionFrame,
+        ),
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut actors: Query<
         (
-            &crate::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ActorConfig,
             &ActorSurfaceState,
             &mut ResolvedMotionFrame,
         ),
-        Without<crate::actor::PlayerEntity>,
+        Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     let player_response = tuning.gravity;
@@ -93,8 +96,8 @@ mod tests {
     fn spawn_player(app: &mut App, pos: ae::Vec2) -> Entity {
         app.world_mut()
             .spawn((
-                crate::actor::PlayerEntity,
-                crate::actor::BodyKinematics {
+                ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+                ambition_platformer2d_core::BodyKinematics {
                     pos,
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(24.0, 40.0),
@@ -166,7 +169,7 @@ mod tests {
         let aerial = app
             .world_mut()
             .spawn((
-                crate::actor::BodyKinematics {
+                ambition_platformer2d_core::BodyKinematics {
                     pos: ae::Vec2::new(50.0, 50.0),
                     vel: ae::Vec2::ZERO,
                     size: ae::Vec2::new(20.0, 20.0),
@@ -203,7 +206,10 @@ mod tests {
 
         fn player_input_probe(
             mut saw: ResMut<ProbeSawZoneFrame>,
-            frames: Query<&ResolvedMotionFrame, With<crate::actor::PlayerEntity>>,
+            frames: Query<
+                &ResolvedMotionFrame,
+                With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            >,
         ) {
             if let Ok(frame) = frames.single() {
                 saw.0 = frame.down() == ae::Vec2::new(0.0, -1.0);

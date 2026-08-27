@@ -20,7 +20,7 @@
 use bevy::prelude::*;
 
 /// Which seat at the machine. Maps 1:1 onto the sim-side `PlayerSlot`
-/// (`ambition_characters::brain`): the participant with id N feeds
+/// (`ambition_platformer2d::characters::brain`): the participant with id N feeds
 /// `SlotControls[N]`, which the body carrying `DrivingParticipant(slot N)`
 /// consumes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

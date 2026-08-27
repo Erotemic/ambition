@@ -7,8 +7,10 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::rl_sim::{
+    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use ambition_platformer2d::rollback::{Rollback, RollbackRegistry};
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::With;
 
 fn rollback_sim() -> Platformer2dSimHarness {
@@ -178,15 +180,17 @@ fn authoritative_entity_families_are_ggrs_anchors() {
         world
             .entity_mut(subject)
             .insert(ambition_platformer2d::combat::held_items::HeldItem::new(
-                ambition_platformer2d::characters::brain::HeldItemSpec {
-                    id: "desync_canary_bolt_thrower".to_string(),
-                    melee: None,
-                    ranged: Some(
-                        ambition_platformer2d::characters::brain::action_set::RangedActionSpec::bolt(400.0, 1),
+            ambition_platformer2d::characters::brain::HeldItemSpec {
+                id: "desync_canary_bolt_thrower".to_string(),
+                melee: None,
+                ranged: Some(
+                    ambition_platformer2d::characters::brain::action_set::RangedActionSpec::bolt(
+                        400.0, 1,
                     ),
-                    use_behavior: Default::default(),
-                },
-            ));
+                ),
+                use_behavior: Default::default(),
+            },
+        ));
     }
 
     // Drive until a projectile is live, so the projectile family is real
@@ -216,7 +220,7 @@ fn authoritative_entity_families_are_ggrs_anchors() {
     let world = sim.world_mut();
 
     let mut bodies =
-        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
+        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::engine_core::BodyKinematics>>();
     assert_family_anchored::<(), _>(world, "BodyKinematics", &mut bodies);
 
     let mut features = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
@@ -225,8 +229,8 @@ fn authoritative_entity_families_are_ggrs_anchors() {
     let mut projectiles = world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::platformer::projectile::ProjectileGameplay>>();
     assert_family_anchored::<(), _>(world, "ProjectileGameplay", &mut projectiles);
 
-    let mut roots =
-        world.query_filtered::<Option<&Rollback>, With<ambition_platformer2d::world::rooms::RoomSet>>();
+    let mut roots = world
+        .query_filtered::<Option<&Rollback>, With<ambition_platformer2d::world::rooms::RoomSet>>();
     assert_family_anchored::<(), _>(world, "RoomSet", &mut roots);
 }
 

@@ -150,8 +150,8 @@ pub fn first_floor_authored_portal_pair(
 /// assertion about custody below would pass for the wrong reason.
 pub fn possess_the_authored_enemy(sim: &mut Platformer2dSimHarness) -> (Entity, SimId) {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::characters::brain::Brain;
+    use ambition_platformer2d::engine_core::BodyKinematics;
 
     for _ in 0..30 {
         sim.step(base());

@@ -174,8 +174,8 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     let mut tagged =
         world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     found.extend(tagged.iter(world));
-    let mut bodies = world
-        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
+    let mut bodies =
+        world.query_filtered::<Entity, With<ambition_platformer2d::engine_core::BodyKinematics>>();
     let body_hits: Vec<Entity> = bodies.iter(world).collect();
     let body_count = body_hits.len();
     found.extend(body_hits);
@@ -608,12 +608,12 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     let home = {
         let world = sim.world_mut();
         let mut q = world
-            .query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+            .query_filtered::<Entity, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
         q.single(world).expect("one primary player")
     };
     let anchor = sim
         .world_mut()
-        .get::<ambition_platformer2d::actors::actor::BodyKinematics>(home)
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(home)
         .expect("the player has a body")
         .pos;
 
@@ -2064,7 +2064,7 @@ fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
 
     let players = app
         .world_mut()
-        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>>()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
         .iter(app.world())
         .count();
     assert_eq!(

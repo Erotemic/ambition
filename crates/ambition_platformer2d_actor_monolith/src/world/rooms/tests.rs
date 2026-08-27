@@ -21,9 +21,10 @@ fn empty_world(name: &str) -> ae::World {
 /// transition capability is body-generic and inherited by possession.
 #[test]
 fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
-    use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
@@ -76,7 +77,9 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         app.world_mut(),
         set,
     );
-    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
@@ -161,8 +164,9 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 /// speed leaping straight over the exit band).
 #[test]
 fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
-    use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
@@ -217,7 +221,9 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         app.world_mut(),
         set,
     );
-    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
+    app.insert_resource(
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
@@ -289,8 +295,9 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 /// strictly inside it then never transitions, however long it stands there.
 #[test]
 fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
-    use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
+    use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
@@ -350,7 +357,9 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
             app.world_mut(),
             set,
         );
-        app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
+        app.insert_resource(
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+        );
         app.insert_resource(GatePortalRegistry::default());
         // The live phase is its own resource (rollback state) since
         // `detect_room_transition_system` reads it.
@@ -825,8 +834,8 @@ fn loading_zone_hint_for_edge_exit_skips_prompt() {
 
 #[test]
 fn kinematic_path_spec_matches_id_accepts_the_name_slug() {
-    use ambition_platformer2d_world::rooms::KinematicPathSpec;
     use ambition_platformer2d_core::KinematicPath;
+    use ambition_platformer2d_world::rooms::KinematicPathSpec;
 
     // A spec whose id was NOT derived from its display name is still
     // reachable by that name's slug — the alias exists for rooms built

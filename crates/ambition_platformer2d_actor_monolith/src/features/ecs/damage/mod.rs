@@ -455,7 +455,7 @@ pub fn apply_feature_hit_events(
         (
             With<FeatureSimEntity>,
             Without<ambition_boss_encounter::BossConfig>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
     >,
     mut bosses: Query<
@@ -481,7 +481,10 @@ pub fn apply_feature_hit_events(
             // The world's hands are off it — the same gate the actor road takes.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
-        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
+        (
+            With<FeatureSimEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        ),
     >,
     // Iterates every player and uses `HitEvent::attacker` (now stamped by every player-attacker
     // emit site — slash, pogo, and player projectile). Events with `attacker = None` remain
@@ -494,15 +497,15 @@ pub fn apply_feature_hit_events(
             &mut ambition_characters::actor::BodyCombat,
             // The attacker's live swing, so a multi-active-frame slash records
             // which targets it has already struck and never double-hits them.
-            Option<&mut crate::actor::BodyMelee>,
+            Option<&mut ambition_combat::BodyMelee>,
         ),
-        bevy::prelude::With<crate::actor::PlayerEntity>,
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     primary_q: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
-            bevy::prelude::With<crate::actor::PlayerEntity>,
-            bevy::prelude::With<crate::actor::PrimaryPlayer>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
     mut writers: FeatureHitWriters,

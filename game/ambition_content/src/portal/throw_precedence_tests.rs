@@ -8,13 +8,14 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{HeldItemSpec};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::brain::HeldItemSpec;
+use ambition_characters::control::ActorControl;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_combat::held_items::HeldItem;
-use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_actor_monolith::items::pickup::{throw_held_item_system, GroundItem};
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,
 };

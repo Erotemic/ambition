@@ -13,11 +13,10 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::control::ActorControl;
-use ambition_platformer2d_actor_monolith::actor::{
-    BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer,
-};
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::{BodyKinematics, BodyMana};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// The controlled body's HUD meters, resolved sim-side (E4 slices 5+6+16):

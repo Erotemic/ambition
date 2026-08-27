@@ -10,9 +10,9 @@ use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::ldtk_map as ldtk_world;
-use ambition_platformer2d::world::world_manifest;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 use ambition_platformer2d::render::rendering::spawn_room_visuals;
+use ambition_platformer2d::world::world_manifest;
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -41,7 +41,6 @@ pub(super) fn handle_debug_hotkeys(
     }
 }
 
-
 fn local_ggrs_restart_policy(
     ownership: Option<ambition_platformer2d::rollback::RollbackSessionOwnership>,
 ) -> Result<Option<ambition_platformer2d::rollback::SyncTestSettings>, &'static str> {
@@ -69,7 +68,9 @@ pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
     mut hotkey_actions: MessageReader<DeveloperAction>,
     mut world: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<RoomGeometry>,
-    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<world_rooms::RoomSet>,
+    mut room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+        world_rooms::RoomSet,
+    >,
     mut dev_state: ResMut<DeveloperRuntimeState>,
     mut sim_state: ResMut<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>,
     mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
@@ -101,7 +102,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     catalogs: (
         Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
@@ -320,7 +321,8 @@ pub(super) fn prepare_ldtk_reload_transaction(
         return Err(hard_errors);
     }
 
-    let safe_player_pos = world_rooms::validated_spawn(&next_spec.world, preserved_pos, player_size);
+    let safe_player_pos =
+        world_rooms::validated_spawn(&next_spec.world, preserved_pos, player_size);
     Ok(LdtkReloadTransaction {
         project,
         next_room_set,

@@ -145,7 +145,7 @@ pub fn trigger_boss_attack_moves(
             Entity,
             &BossAttackIntent,
             &ambition_combat::moveset::ActorMoveset,
-            &crate::actor::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             // MUTABLE so an interrupted windup can go through the one teardown
             // path below. A windup carries no strike boxes yet, so nothing is
             // leaking today -- but "cancel this move" having one meaning is what
@@ -405,7 +405,7 @@ pub fn tick_boss_brains_system(
     // `integrate_boss_bodies` heals `kin.size` onto the authored `combat_size`
     // every tick, which is the same extent `BossPatternCfg::combat_size` gives
     // the asking side.
-    target_bodies: Query<&crate::actor::BodyKinematics>,
+    target_bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
 ) {
     let dt = world_time.sim_dt();
     let Some(feature_world) = collision.solids() else {
@@ -703,7 +703,7 @@ pub fn integrate_boss_bodies(
             &ambition_boss_encounter::BossConfig,
             &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,
-            Option<&mut crate::actor::BodyAnimFacts>,
+            Option<&mut ambition_characters::actor::BodyAnimFacts>,
             &ambition_combat::components::ActorTarget,
             &mut CenteredAabb,
             &mut ambition_characters::actor::BodyCombat,
@@ -718,7 +718,10 @@ pub fn integrate_boss_bodies(
             // ADR 0033's window, asked rather than assumed — see the call below.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
-        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
+        (
+            With<FeatureSimEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        ),
     >,
 ) {
     let dt = world_time.sim_dt();
@@ -827,7 +830,10 @@ pub fn update_ecs_bosses(
         ),
         // The player carries the unified `BodyKinematics`; exclude it so this boss
         // query is provably disjoint (boss / player are mutually exclusive archetypes).
-        (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
+        (
+            With<FeatureSimEntity>,
+            Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        ),
     >,
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010).

@@ -115,9 +115,9 @@ fn detect_picks_up_player_water_contact_in_app() {
     // Spawn a minimal primary player with the env-contact cluster
     // component the detect system reads.
     app.world_mut().spawn((
-        crate::actor::PlayerEntity,
-        crate::actor::PrimaryPlayer,
-        crate::actor::BodyEnvironmentContact::default(),
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+        ambition_platformer2d_core::BodyEnvironmentContact::default(),
     ));
     app.add_systems(Update, detect_audio_environment);
 
@@ -139,8 +139,8 @@ fn detect_picks_up_player_water_contact_in_app() {
     };
     {
         let mut q = app.world_mut().query_filtered::<
-            &mut crate::actor::BodyEnvironmentContact,
-            With<crate::actor::PrimaryPlayer>,
+            &mut ambition_platformer2d_core::BodyEnvironmentContact,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         >();
         for mut env_contact in q.iter_mut(app.world_mut()) {
             env_contact.water = Some(contact);
@@ -155,8 +155,8 @@ fn detect_picks_up_player_water_contact_in_app() {
     // Shallow contact (below threshold) → Normal again.
     {
         let mut q = app.world_mut().query_filtered::<
-            &mut crate::actor::BodyEnvironmentContact,
-            With<crate::actor::PrimaryPlayer>,
+            &mut ambition_platformer2d_core::BodyEnvironmentContact,
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         >();
         for mut env_contact in q.iter_mut(app.world_mut()) {
             env_contact.water = Some(ae::WaterContact {

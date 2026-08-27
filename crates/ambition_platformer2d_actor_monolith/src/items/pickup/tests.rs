@@ -2,8 +2,6 @@
 //! ranged swap, attack-press consume, and thrown-item gravity settling.
 
 use super::*;
-use crate::actor::BodyBaseSize;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
 };
@@ -12,6 +10,8 @@ use ambition_entity_catalog::{
     ClipBinding, MoveGates, MoveSpec, MoveWindow, MovesetContract, WindowTag,
 };
 use ambition_input::ControlFrame;
+use ambition_platformer2d_core::BodyBaseSize;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use std::collections::BTreeMap;
 
 fn spawn_player(app: &mut App, pos: Vec2) -> Entity {

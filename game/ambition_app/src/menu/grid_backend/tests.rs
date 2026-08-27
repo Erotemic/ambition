@@ -1,9 +1,9 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
-use ambition_platformer2d::actors::actor::BodyMana;
-use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::engine_core::BodyMana;
 use ambition_platformer2d::items::Item;
+use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 
@@ -586,7 +586,6 @@ fn up_from_non_top_row_stays_in_body() {
         "UP moved the cursor up one row instead of escaping to tabs"
     );
 }
-
 
 use crate::menu::test_support::{spawn_control, trigger_over};
 use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;

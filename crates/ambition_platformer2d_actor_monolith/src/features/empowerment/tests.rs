@@ -49,7 +49,7 @@ fn app_with_striker_and_victim(
                 half_size: size * 0.5,
             },
             ae::BodyMotionFacts::default(),
-            crate::actor::BodyShieldState::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
             BodyCombat::default(),
         ))
         .id();

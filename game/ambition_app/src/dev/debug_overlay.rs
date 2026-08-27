@@ -11,7 +11,6 @@ use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core::config::world_to_bevy;
@@ -21,6 +20,7 @@ use ambition_platformer2d::input::Platformer2dInputActionMonolith;
 use ambition_platformer2d::input::{read_gameplay_control_frame, ControlFrame};
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::CameraViewState;
+use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 #[cfg(feature = "input")]
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
@@ -111,7 +111,7 @@ pub(crate) fn draw_debug_overlay(
             // policy's private internals (ledge anchor, blink aim) directly.
             &ae::MotionModel,
             Option<&ambition_platformer2d::characters::actor::BodyHealth>,
-            &ambition_platformer2d::actors::actor::BodyMelee,
+            &ambition_platformer2d::combat::BodyMelee,
             &ambition_platformer2d::characters::actor::WornCharacter,
             // The frame-clock position the sprite is drawn at. The overlay must
             // sample the SAME clock as the camera it is drawn through, or the box
@@ -126,7 +126,7 @@ pub(crate) fn draw_debug_overlay(
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
-            ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
             Without<ambition_platformer2d::actors::features::FeatureSimEntity>,
         ),
     >,
@@ -206,9 +206,8 @@ pub(crate) fn draw_debug_overlay(
         let clusters = cluster_item.as_clusters_mut();
         let player_draw_pos =
             presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
-        let player_gravity = ambition_platformer2d::world::gravity_dir_or_default(
-            feature_q.gravity.as_deref(),
-        );
+        let player_gravity =
+            ambition_platformer2d::world::gravity_dir_or_default(feature_q.gravity.as_deref());
         draw_player_debug(
             &mut gizmos,
             world,

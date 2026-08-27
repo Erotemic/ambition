@@ -944,7 +944,7 @@ pub enum ActionRequest {
         ///
         /// nothing in production READS this today; the directional resolution
         /// the doc on `ActorControlFrame::attack_axis` describes happens in
-        /// `ambition_combat::moveset`, from the frame directly. Kept rather than
+        /// `ambition_platformer2d::combat::moveset`, from the frame directly. Kept rather than
         /// deleted because that is a design question about where the resolution
         /// belongs, not a cleanup.
         attack_axis: ae::LocalAxes,

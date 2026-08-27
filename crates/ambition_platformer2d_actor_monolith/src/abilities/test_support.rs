@@ -4,13 +4,13 @@
 //! action set, held item, and mana. Keeping that bundle here lets each ability
 //! test focus on the behavior it is asserting instead of repeating spawn wiring.
 
-use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::features::HeldItem;
 use ambition_characters::brain::{held_item_by_id, ActionSet};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use bevy::prelude::*;
 
 pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity {

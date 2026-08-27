@@ -21,14 +21,15 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::actor::BodyMelee;
-use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::actors::features::{FeatureId, Hitbox};
+use ambition_platformer2d::characters::brain::ActionSet;
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorTarget};
 use ambition_platformer2d::combat::moveset::MovePlayback;
-use ambition_platformer2d::actors::features::{FeatureId, Hitbox};
-use ambition_platformer2d::characters::brain::{ActionSet};
-use ambition_platformer2d::characters::control::{ActorControl};
+use ambition_platformer2d::combat::BodyMelee;
+use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::{placements::CharacterBrain, WindowTag};
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use bevy::prelude::{Entity, World};
 use std::sync::Mutex;
 

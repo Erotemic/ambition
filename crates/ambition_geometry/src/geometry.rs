@@ -20,7 +20,7 @@ const CONTACT_EPS: f32 = 1.0e-4;
 /// Public engine AABB type.
 ///
 /// This is Bevy's battle-tested 2D bounding box, re-exported as
-/// `ambition_platformer2d_core::Aabb` so callers can import `ae::Aabb` (`ae` is the
+/// `ambition_platformer2d::engine_core::Aabb` so callers can import `ae::Aabb` (`ae` is the
 /// conventional alias for `ambition_platformer2d_core`).
 pub type Aabb = Aabb2d;
 

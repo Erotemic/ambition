@@ -1010,11 +1010,17 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
-    let mut seated = world.query::<(&MatchSeat, &ambition_platformer2d_core::movement::MotionModel)>();
+    let mut seated = world.query::<(
+        &MatchSeat,
+        &ambition_platformer2d_core::movement::MotionModel,
+    )>();
     let models: Vec<_> = seated.iter(world).map(|(_, model)| model.clone()).collect();
     assert_eq!(models.len(), 1, "the roster seated no fighter");
     assert!(
-        matches!(models[0], ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(_)),
+        matches!(
+            models[0],
+            ambition_platformer2d_core::movement::MotionModel::SurfaceMomentum(_)
+        ),
         "the seated fighter kept the catalog's swept-axis model instead of the \
          momentum one its definition authored: {:?}",
         models[0]
@@ -2637,7 +2643,7 @@ fn a_seated_body_matches_every_column_the_persona_writer_requires() {
         With<ambition_characters::brain::ActionSet>,
         With<ambition_combat::moveset::ActorMoveset>,
         With<ambition_characters::brain::action_set::IdentityKit>,
-        With<crate::actor::BodyAbilities>,
+        With<ambition_platformer2d_core::BodyAbilities>,
         With<ambition_platformer2d_core::movement::MotionModel>,
     )>();
     assert_eq!(

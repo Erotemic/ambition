@@ -504,14 +504,14 @@ mod dispatch_parity {
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::{spawn_control, trigger_press, trigger_release};
-    use ambition_platformer2d::actors::actor::BodyMana;
-    use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d::actors::avatar::PlayerHealRequested;
     use ambition_platformer2d::characters::brain::ActionSet;
+    use ambition_platformer2d::engine_core::BodyMana;
     use ambition_platformer2d::input::MenuControlFrame;
     use ambition_platformer2d::inventory_ui::InventoryUiState;
     use ambition_platformer2d::menu::backend::InventoryUiBackend;
     use ambition_platformer2d::persistence::settings::UserSettings;
+    use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_platformer2d::platformer::schedule::GameMode;
     use ambition_platformer2d::settings_menu::system::SystemMenuEntryId;
 

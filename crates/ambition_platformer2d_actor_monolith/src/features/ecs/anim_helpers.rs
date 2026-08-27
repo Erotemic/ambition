@@ -6,7 +6,7 @@
 
 use super::*;
 
-/// The home player ([`crate::actor::PlayerEntity`]) is excluded (it advances its own overlays
+/// The home player ([`ambition_platformer2d_shared_tangle::markers::PlayerEntity`]) is excluded (it advances its own overlays
 /// in the player tick), so no body is advanced twice; a possessed non-player body IS advanced
 /// here. Uses `sim_dt` (world-anchored animation), so the poses pause and slow with the sim.
 pub fn advance_actor_anim_overlays(
@@ -14,9 +14,9 @@ pub fn advance_actor_anim_overlays(
     mut actors: Query<
         (
             &ambition_platformer2d_core::BodyMotionFacts,
-            &mut crate::actor::BodyAnimFacts,
+            &mut ambition_characters::actor::BodyAnimFacts,
         ),
-        Without<crate::actor::PlayerEntity>,
+        Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
 ) {
     let dt = world_time.sim_dt();
@@ -51,8 +51,6 @@ pub fn ecs_breakable_state(
 // materialized into `BossRenderIndex` (see `rebuild_boss_render_index`), which
 // `upgrade_boss_sprites` reads by id — so binding a boss sheet no longer
 // live-queries the boss clusters.
-
-
 
 // What stays here is not boss -- chest, breakable, and the actor overlay advance that needs this
 // crate's own `advance_body_anim_overlays`.

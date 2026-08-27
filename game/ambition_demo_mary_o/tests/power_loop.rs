@@ -20,7 +20,6 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::features::transform_beat::{
     TransformBeatPolicy, TransformBeatRequested,
@@ -33,8 +32,10 @@ use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::engine_core::BodyBaseSize;
 use ambition_platformer2d::items::equipment::reconcile_equipment_grants;
 use ambition_platformer2d::platformer::markers::ControlledSubject;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::{
     try_load_spec_for_target, CharacterAnim, SheetTuning,
 };

@@ -20,7 +20,7 @@
 //!   [`MapConvention`]: `Reflection` (det −1, the game-wide default) preserves
 //!   it; `Rotation` (det +1) negates it. At THIS layer the convention is an
 //!   explicit parameter — the game-wide flag lives with the portal wrappers
-//!   (`ambition_platformer2d_shared_tangle::math::portal_map_vec` dispatches on it).
+//!   (`ambition_platformer2d::platformer::math::portal_map_vec` dispatches on it).
 
 use crate::Vec2;
 

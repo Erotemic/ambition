@@ -14,10 +14,11 @@ use bevy::prelude::*;
 use ambition_app::app::{
     build_visible_app_with, StartRoomMustResolve, StartRoomOverride, VisibleRenderMode,
 };
-use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::body_clusters::BodyShieldState;
+use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::lifecycle::SessionRoot;
+use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::render::rendering::bubble_shield::{
     BubbleShieldSprite, BubbleShieldVisual,
 };

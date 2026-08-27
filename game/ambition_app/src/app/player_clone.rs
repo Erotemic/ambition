@@ -71,10 +71,10 @@ pub fn spawn_requested_player_clone(
     // protagonist. `Option` because a bare test/demo body may wear nothing.
     player_q: Query<
         (
-            &ambition_platformer2d::actors::actor::BodyKinematics,
+            &ambition_platformer2d::engine_core::BodyKinematics,
             Option<&ambition_platformer2d::characters::actor::WornCharacter>,
         ),
-        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
 ) {
     if !request.0 {
@@ -122,7 +122,7 @@ pub fn spawn_requested_player_clone(
         // through the IDENTICAL player picker — `animate_player` now iterates every
         // `PlayerVisual` body, not just the primary.
         (
-            ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
+            ambition_platformer2d::characters::actor::BodyAnimFacts::default(),
             ambition_platformer2d::characters::actor::BodyCombat::default(),
             ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState::default(),
         ),
@@ -136,7 +136,7 @@ pub fn spawn_requested_player_clone(
         // skips it — nobody is driving it, its
         // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
         // sim-time/dt instead).
-        ambition_platformer2d::actors::actor::PlayerEntity,
+        ambition_platformer2d::platformer::markers::PlayerEntity,
         // Every integrated body carries one explicit movement policy from
         // spawn, and every player body carries the movement→policy hand-off —
         // the unified integration phase requires both.
@@ -144,7 +144,7 @@ pub fn spawn_requested_player_clone(
         ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput::default(),
         (
             ambition_platformer2d::actors::body_mode::BodyModeCapabilities::full(),
-            ambition_platformer2d::actors::actor::BodyMelee::default(),
+            ambition_platformer2d::combat::BodyMelee::default(),
             ambition_platformer2d::platformer::safe_position::PlayerSafetyState::default(),
         ),
         transform,
@@ -198,8 +198,8 @@ pub fn tick_player_clone_brains(
     mut clock: ResMut<PlayerCloneClock>,
     mut clones: Query<
         (
-            &ambition_platformer2d::actors::actor::BodyKinematics,
-            &ambition_platformer2d::actors::actor::BodyGroundState,
+            &ambition_platformer2d::engine_core::BodyKinematics,
+            &ambition_platformer2d::engine_core::BodyGroundState,
             &ambition_platformer2d::world::ResolvedMotionFrame,
             &mut Brain,
             &mut ActorControl,
@@ -262,7 +262,7 @@ pub fn sync_player_clone_transform(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut clones: Query<
         (
-            &ambition_platformer2d::actors::actor::BodyKinematics,
+            &ambition_platformer2d::engine_core::BodyKinematics,
             &mut Transform,
         ),
         With<PlayerClone>,

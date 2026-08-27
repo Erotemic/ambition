@@ -201,17 +201,48 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
             VolumeShape::Circle { offset, radius } => offset.1.abs() + radius,
         })
         .fold(0.0f32, f32::max);
-    let fires_projectile = spec
+    // ⛔⛔ A RANGED MOVE WAS EXPORTED AS A BOOLEAN AND NOTHING ELSE, so every
+    // number beside it described a move that does not exist: no startup (it has
+    // no Active melee window), zero damage, zero knockback, zero reach, and its
+    // WHOLE DURATION as endlag. The admiral's side-B and Projectile Polygon's
+    // charged neutral-B both read as harmless (GPT 5.6, 2026-08-27).
+    //
+    // ⭐ THE SCHEMA SAYS WHAT A RANGED MOVE IS instead of coercing it into melee
+    // terminology: WHEN it fires, and what the shot it fires is worth. A move
+    // can have body-strike damage AND projectile damage; they are different
+    // questions and both ship.
+    let fire_at_s = spec
         .events
         .iter()
-        .any(|e| matches!(e.kind, MoveEventKind::Ranged));
+        .filter(|e| matches!(e.kind, MoveEventKind::Ranged))
+        .map(|e| e.at_s)
+        .fold(f32::NAN, f32::min);
+    let fires_projectile = !fire_at_s.is_nan();
+    // The shot's own numbers, from the ranged action this move EQUIPS. A move
+    // that equips nothing fires the body's standing ranged kit, which is not a
+    // property of the move and is deliberately not reported here.
+    let shot = spec
+        .equips
+        .as_deref()
+        .and_then(ambition_platformer2d::characters::brain::held_item_by_id)
+        .and_then(|item| item.ranged);
     // Endlag: from the last hittable instant to the end of the move. A move
     // with no active window owes its whole duration, which is the honest answer
     // for a pure-mobility special.
-    let endlag_s = if actives.is_empty() {
-        spec.duration_s
+    // ⭐ AND A MOVE WHOSE OFFENCE IS A SHOT OWES ENDLAG FROM THE SHOT, not from
+    // its whole length. "No Active window" means "nothing hittable ON THE BODY",
+    // which for a ranged move is true and irrelevant — the fire frame is its
+    // last committed instant.
+    let last_committed = if actives.is_empty() {
+        (!fire_at_s.is_nan()).then_some(fire_at_s)
     } else {
-        (spec.duration_s - last_active_end).max(0.0)
+        Some(last_active_end)
+    };
+    let endlag_s = match last_committed {
+        Some(at) => (spec.duration_s - at).max(0.0),
+        // A pure-mobility special really does owe its whole duration, which is
+        // the honest answer for it.
+        None => spec.duration_s,
     };
     serde_json::json!({
         "startup_s": (!startup_s.is_nan()).then_some(startup_s),
@@ -227,6 +258,11 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         "vertical_reach": vertical_reach,
         "hits": volumes.len(),
         "fires_projectile": fires_projectile,
+        // The ranged analogue of startup: the instant the shot leaves.
+        "fire_at_s": fires_projectile.then_some(fire_at_s),
+        "fire_f": fires_projectile.then(|| frames(fire_at_s)),
+        "projectile_damage": shot.as_ref().map(|r| r.damage),
+        "projectile_speed": shot.as_ref().map(|r| r.speed),
         // The charge payoff a fully held release applies, so a smash's real
         // ceiling is one multiplication away rather than folklore.
         "max_damage_charged": (max_damage as f32 * spec.smash_charge_mult).round() as i32,

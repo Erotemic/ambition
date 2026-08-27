@@ -200,8 +200,12 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
                 brain: mounted_brain,
                 action_set: mounted_action_set,
             },
-            Mounted,
-            RidingOn { mount },
+            // ⛔ THE REAL RELATION, not two of its three components. This
+            // built `Mounted + RidingOn` by hand and so began from a state the
+            // runtime never installs — which is precisely why the arms below
+            // could not see `PoseOwnedExternally` being left on a rider whose
+            // mount had died (GPT 5.6, 2026-08-27).
+            ambition_mount::rider_of(mount),
         ))
         .id();
     app.world_mut()
@@ -241,6 +245,19 @@ fn dead_mount_dissolves_link_keeping_records() {
         app.world().entity(rider).get::<Mounted>().is_none(),
         "Mounted marker removed on dissolve",
     );
+    // ⭐⭐ BOTH HALVES OF THE RELATION, and this is the half that was missing.
+    // The statement above hands the rider its gravity, its solo brain and
+    // `TemporaryControl::Autonomous`; leaving `PoseOwnedExternally` set makes
+    // the movement kernel refuse to integrate the locomotion of the body that
+    // statement just declared autonomous. See `ambition_mount::RideConstraints`.
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ambition_platformer2d_core::PoseOwnedExternally>()
+            .is_none(),
+        "a rider whose mount died still had its pose owned externally — it is \
+         autonomous now and nothing else will ever move it",
+    );
     assert_eq!(
         rider_surface(app.world(), rider).gravity_scale,
         1.0,
@@ -264,6 +281,70 @@ fn dead_mount_dissolves_link_keeping_records() {
     assert!(
         slot.rider.is_some(),
         "MountSlot.rider stays populated so reset can re-arm",
+    );
+}
+
+/// The same-room reset brings the mount back, and the ride re-arms WHOLE.
+///
+/// ⛔⛔ THE MIRROR OF THE DEATH BUG, and it had no coverage at all. The re-arm
+/// restored the cached brain, the cached action set, zero gravity and `Mounted`
+/// — and left `PoseOwnedExternally` off a body that is being carried again, so
+/// the kernel went on integrating the locomotion of a rider the saddle pins
+/// every frame. Two authorities over one displacement, which is the exact thing
+/// `PoseOwnedExternally` exists to prevent.
+///
+/// ⭐ THE ARM STARTS FROM A DISSOLVED RIDE, not from a bare spawn: it kills the
+/// mount, lets the link dissolve, then heals the mount and drives another tick.
+/// A test that installed the dissolved state by hand would be making the same
+/// mistake `spawn_pair` used to make.
+#[test]
+fn a_revived_mount_re_arms_both_halves_of_the_ride() {
+    let mut app = build_app();
+    app.add_systems(Update, enforce_mount_rider_link);
+    let (mount, rider) = spawn_pair(&mut app, /*mount_alive*/ false, true);
+
+    app.update();
+    assert!(
+        app.world().entity(rider).get::<Mounted>().is_none(),
+        "premise: the dead mount must dissolve the ride before it can re-arm",
+    );
+    // ⛔⛔ AND THE OTHER HALF OF THE PREMISE, WITHOUT WHICH THIS ARM PROVES
+    // NOTHING. Measured: with the dissolve reverted to removing `Mounted`
+    // alone, `PoseOwnedExternally` is still standing here from the original
+    // ride — so the re-arm assertion below passes whether or not the re-arm
+    // restores anything, and a poison of the re-arm goes green. The arm has to
+    // start from a body that genuinely has no external pose owner.
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ambition_platformer2d_core::PoseOwnedExternally>()
+            .is_none(),
+        "premise: the dissolve must have taken the pose constraint off, or the \
+         re-arm below is asserting a component nobody removed",
+    );
+
+    // The same-room reset path's effect: the mount is alive again.
+    {
+        let world = app.world_mut();
+        let mut entity = world.entity_mut(mount);
+        let mut health = entity
+            .get_mut::<ambition_characters::actor::BodyHealth>()
+            .expect("the mount carries the liveness authority");
+        health.health.current = health.health.max;
+    }
+    app.update();
+
+    assert!(
+        app.world().entity(rider).get::<Mounted>().is_some(),
+        "the revived mount never re-armed the ride at all",
+    );
+    assert!(
+        app.world()
+            .entity(rider)
+            .get::<ambition_platformer2d_core::PoseOwnedExternally>()
+            .is_some(),
+        "the ride re-armed without saying the pose is owned externally — the \
+         kernel and the saddle now both move this body",
     );
 }
 
@@ -902,7 +983,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
-    use crate::features::{route_boss_strikes_to_limbs};
+    use crate::features::route_boss_strikes_to_limbs;
     use ambition_boss_encounter::BossConfig;
     use ambition_boss_encounter::BossProfile;
     use ambition_characters::actor::control::ActorControlFrame;
@@ -1066,7 +1147,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// and the moveset is the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
-    use crate::features::{route_boss_strikes_to_limbs};
+    use crate::features::route_boss_strikes_to_limbs;
     use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{

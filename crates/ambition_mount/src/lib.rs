@@ -216,9 +216,33 @@ pub struct Mounted;
 /// and the thing they must agree on is WHAT the relation is made of, not how it
 /// is written. Legality (licence, reservation, occupancy) stays in `board`: this
 /// installs a relation already judged legal.
-pub fn rider_of(mount: Entity) -> (RidingOn, Mounted, ambition_platformer2d_core::PoseOwnedExternally) {
+pub fn rider_of(mount: Entity) -> (RidingOn, RideConstraints) {
+    (RidingOn { mount }, ride_armed())
+}
+
+/// The two facts that make a ride ACTIVE, and they are one fact in two
+/// components — a body is either being carried or it is not.
+///
+/// ⛔⛔ THEY MUST BE ARMED AND DISARMED TOGETHER, and for a while they were not.
+/// `enforce_mount_rider_link` predates `PoseOwnedExternally` and still ran the
+/// older two-component machine: mount death removed `Mounted` alone, so the
+/// rider was handed back its gravity, its solo brain and `TemporaryControl::
+/// Autonomous` while the movement kernel went on believing another authority
+/// owned its pose — an autonomous body that could not move itself. The re-arm
+/// after a same-room reset had the mirror bug: it restored the cached brain,
+/// zero gravity and `Mounted`, and left the constraint off a body being
+/// carried again.
+///
+/// ⭐ `RidingOn` IS NOT IN HERE ON PURPOSE. It is the DURABLE association the
+/// same-room reset path needs in order to find the mount and re-arm at all, so
+/// mount death keeps it while dropping both of these. A requested dismount ends
+/// the association too and removes all three (plus its lease) —
+/// see `apply_dismount_requests`.
+pub type RideConstraints = (Mounted, ambition_platformer2d_core::PoseOwnedExternally);
+
+/// The armed pair, stated once so no caller keeps its own list.
+pub fn ride_armed() -> RideConstraints {
     (
-        RidingOn { mount },
         Mounted,
         // The one fact a constrained body owes the domains that cannot see this
         // one: the movement kernel must not integrate its locomotion, and a move
@@ -366,9 +390,7 @@ pub fn sync_riders_to_mounts(
         rider_health,
     ) in &mut riders
     {
-        let Ok((mountable, mount_frame, mount_kin, mount_health)) =
-            mounts.get(riding.mount)
-        else {
+        let Ok((mountable, mount_frame, mount_kin, mount_health)) = mounts.get(riding.mount) else {
             continue;
         };
         if !mount_health.alive() || !rider_health.alive() {
@@ -388,8 +410,7 @@ pub fn sync_riders_to_mounts(
         // The saddle offset is authored in the mount's local frame; rotate it into
         // world space by the pair's gravity frame. See `saddle_world_offset`.
         let frame = mount_frame.basis();
-        let rider_local =
-            saddle_world_offset(mountable.rider_offset, mount_kin.facing, frame);
+        let rider_local = saddle_world_offset(mountable.rider_offset, mount_kin.facing, frame);
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
         ae::movement::constrain_body_pose(
@@ -819,8 +840,7 @@ pub fn apply_dismount_requests(
     mut left: MessageWriter<RiderDismounted>,
 ) {
     for request in requests.read() {
-        let Ok((riding, mut aabb, mut kin, mut surface, baseline)) =
-            riders.get_mut(request.rider)
+        let Ok((riding, mut aabb, mut kin, mut surface, baseline)) = riders.get_mut(request.rider)
         else {
             continue;
         };
@@ -831,14 +851,12 @@ pub fn apply_dismount_requests(
         kin.size = baseline.size;
         aabb.center = kin.pos;
         aabb.half_size = kin.size * 0.5;
-        commands
-            .entity(request.rider)
-            .remove::<(
-                RidingOn,
-                Mounted,
-                RideLease,
-                ambition_platformer2d_core::PoseOwnedExternally,
-            )>();
+        commands.entity(request.rider).remove::<(
+            RidingOn,
+            Mounted,
+            RideLease,
+            ambition_platformer2d_core::PoseOwnedExternally,
+        )>();
         if let Ok(mut slot) = mounts.get_mut(mount) {
             // Only if it is still THIS rider's slot: a mount already re-crewed
             // must not be emptied by a stale request.
@@ -1065,7 +1083,8 @@ pub fn enforce_mount_rider_link(
                     commands.entity(rider_entity).insert((
                         cache.brain.clone(),
                         cache.action_set.clone(),
-                        Mounted,
+                        // BOTH halves — see `RideConstraints`.
+                        ride_armed(),
                     ));
                     // Record the mount by stable id for snapshot restore. Only when
                     // the mount carries a `SimId` (otherwise the link isn't
@@ -1133,7 +1152,11 @@ pub fn enforce_mount_rider_link(
                 // is skipped THERE, by the same `BossConfig` marker (Q19b).
                 commands
                     .entity(rider_entity)
-                    .remove::<Mounted>()
+                    // BOTH halves — see `RideConstraints`. Removing `Mounted`
+                    // alone left the kernel refusing to integrate the
+                    // locomotion of a body this same statement just declared
+                    // autonomous.
+                    .remove::<RideConstraints>()
                     // Back to autonomous control for snapshot purposes (a boss rider
                     // keeps its authored brain but is no longer mount-controlled).
                     .insert(ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous)

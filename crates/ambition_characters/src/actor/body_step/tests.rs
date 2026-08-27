@@ -42,6 +42,8 @@ fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat
             combat,
             ae::MovementTuning::default(),
             true,
+            // This fixture steps a body nothing is holding.
+            false,
             ae::MotionStepContext {
                 world: &world,
                 input: ae::InputState::default(),
@@ -83,6 +85,8 @@ fn stepped(
             &mut clusters,
             combat,
             tuning,
+            false,
+            // This fixture steps a body nothing is holding.
             false,
             ae::MotionStepContext {
                 world: &world,

@@ -132,6 +132,9 @@ pub fn integrate_home_body(
         combat,
         axis_tuning,
         out_of_play,
+        // The home/player body is never externally held today; a lift or a
+        // grab that wants this reads the same marker the actor road does.
+        false,
         ae::MotionStepContext {
             world,
             input,

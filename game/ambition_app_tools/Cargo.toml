@@ -47,8 +47,16 @@ bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 # `capture_scene` stages real rooms and `preview_vanity_card` plays a real shell
 # segment, so both reach the content crate directly rather than through the app.
 ambition_content = { path = "../ambition_content" }
+# `shark_ride_probe` seats a real smash match and drives a real press, which is
+# the demo's own vocabulary (its roster builder, its route id).
+ambition_demo_smash = { path = "../ambition_demo_smash" }
 serde_json = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[[bin]]
+name = "shark_ride_probe"
+path = "src/bin/shark_ride_probe.rs"
+test = false
 
 [[bin]]
 name = "capture_scene"

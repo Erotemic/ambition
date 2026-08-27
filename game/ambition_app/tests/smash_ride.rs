@@ -920,3 +920,96 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
         q.iter(world).count()
     };
 }
+
+
+/// ⭐⭐ THE RECOVERY SHARK IS NOT A HAZARD, AND `Neutral` IS NOT WHAT SAYS SO.
+///
+/// Jon: *"No, the shark doesn't have contact damage in smash."* The code claimed
+/// `HitSide::Neutral` delivered that and it does not: `damage_lands` is true for
+/// `Foe | Neutral` — correctly, because an opponent must be able to gimp a
+/// recovery. What kept the hazard quiet was that a neutral body acquires no
+/// target, so it had nobody to touch: a coincidence of the targeting rules, and
+/// one a future grudge rule could undo without anybody noticing.
+///
+/// ⛔ SO THE TUNING IS ASSERTED, not the absence of observed damage. "No hits
+/// happened" is what the old accident already produced; what changed is that the
+/// occurrence DECLINES the trait, and that is the thing worth pinning.
+#[test]
+fn the_summoned_shark_carries_no_contact_hazard() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::Mountable;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut q = world.query_filtered::<Entity, With<Mountable>>();
+    let sharks: Vec<Entity> = q.iter(world).collect();
+    assert!(
+        !sharks.is_empty(),
+        "the up-B summoned no shark, so there is no occurrence to inspect"
+    );
+    for shark in sharks {
+        let config = world
+            .get::<ambition_platformer2d::actors::features::ActorConfig>(shark)
+            .expect("a summoned actor carries its config");
+        assert!(
+            !config.tuning.body_contact_damage,
+            "the summoned shark still carries the contact hazard its character \
+             authors — `Neutral` never removed it, and a targeting rule that ever \
+             hands this body a foe would make an old hazard live under a design \
+             that says it should not exist"
+        );
+    }
+}

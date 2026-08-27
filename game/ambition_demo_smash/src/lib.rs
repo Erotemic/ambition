@@ -10,6 +10,8 @@
 // would import nothing this file uses. That the prelude does not cover a match
 // is a fact about what a prelude is for, not a gap.
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
+use ambition_platformer2d::character::CharacterDefinition;
+use ambition_platformer2d::character::Vitals;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
@@ -222,9 +224,8 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
 /// reference body rather than three absolute numbers: v3 is the middleweight the stage is tuned
 /// against, v2 is the lighter older build, George is the heavy.
 pub fn smash_reading_of_character(
-    definition: ambition_platformer2d::actors::character_runtime::CharacterDefinition,
-) -> ambition_platformer2d::actors::character_runtime::CharacterDefinition {
-    use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, Vitals};
+    definition: ambition_platformer2d::characters::actor::definition::CharacterDefinition,
+) -> ambition_platformer2d::characters::actor::definition::CharacterDefinition {
     let knockback_weight = match definition.id.as_str() {
         SMASH_OPPONENT_ID => 0.85,
         SMASH_GEORGE_BOOUL => 1.35,
@@ -1849,6 +1850,8 @@ fn return_to_the_select_screen_when_the_match_ends(
     boundary: Option<
         bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
     >,
+    // WHICH SESSION OWNS THE WORLD RIGHT NOW. See the leftover-match note below.
+    scope: Option<bevy::prelude::Res<ambition_platformer2d::actor::ActiveSessionScope>>,
     mut countdown: bevy::prelude::Local<Option<f32>>,
 ) {
     let on_stage = router
@@ -1862,7 +1865,29 @@ fn return_to_the_select_screen_when_the_match_ends(
         readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
         return;
     }
-    let ended = match (settled.as_deref(), active.as_deref()) {
+    // ⛔⛔ A RETIRED SESSION'S `ActiveMatch` OUTLIVES IT BY AT LEAST A FRAME, and
+    // reading one applies the previous match's verdict to the match that
+    // replaced it. Jon, 2026-08-27: picking a cast for a SECOND match and
+    // pressing start bounced straight back to the select screen — the log shows
+    // `session-start scope=1`, `room-loaded smash_stage`, `session-end scope=1`
+    // one frame apart, three times running.
+    //
+    // ⭐ THE VERDICT'S OWN SCOPING COULD NOT CATCH IT. `StocksMatchSettled` names
+    // the match it decided and `verdict()` compares instances — but BOTH sides
+    // of that comparison were the retired match, so it agreed. The stale half is
+    // the `ActiveMatch` resource, not the latch, and only the SESSION knows which
+    // of those two is current.
+    //
+    // ⚠ THE OLD ROAD HID IT: the countdown below waits 4.5s and a confirmed
+    // frame, which the new match's activation always beat. The immediate exit
+    // Jon asked for on `NoContest` runs on the first frame the router says
+    // "on stage", which is exactly the frame the leftover is still there.
+    let live = active.as_deref().filter(|active| match scope.as_deref() {
+        // A composition with no session lifecycle has nothing to be stale about.
+        None => true,
+        Some(scope) => active.session() == scope.current(),
+    });
+    let ended = match (settled.as_deref(), live) {
         (Some(settled), Some(active)) => settled.settled(active),
         _ => false,
     };
@@ -1881,7 +1906,7 @@ fn return_to_the_select_screen_when_the_match_ends(
     // that gave the request its shape; see `MatchAbandonRequest`.
     let abandoned = settled
         .as_deref()
-        .zip(active.as_deref())
+        .zip(live)
         .and_then(|(settled, active)| settled.verdict(active))
         .is_some_and(|verdict| {
             matches!(
@@ -2496,6 +2521,21 @@ fn maintain_smash_local_seat_offer(
 ///
 /// `SmashSelect` is the lobby decision, while cursor/page/request state is interaction state. A
 /// rematch must start with neither the previous decision nor the previous hand positions.
+///
+/// ⛔⛔ "EXACTLY ONCE PER ARRIVAL" IS THE ACTIVATION, NOT AN ENTITY COUNT. This
+/// used to gate on the select UI root not existing yet, as a stand-in for "the
+/// reset has not run this visit" — and the stand-in is false on the SECOND
+/// visit, because the first visit's root outlives the route change. Measured
+/// 2026-08-27 on the second match: arriving back at the lobby with
+/// `ui_roots=1`, so the body below never ran and `MatchParticipantRoster`,
+/// `StartRequested` and the previous decision all stood. `start_the_battle_when_asked`
+/// refuses while a roster stands (`!on_select || roster.is_some()`), so pressing
+/// start did nothing at all — Jon: *"in the second match I select characters
+/// press start, but it just brings me back to the character screen"*.
+///
+/// ⭐ THE ROUTER ALREADY NAMES THE ARRIVAL. `ShellActivationId` is minted per
+/// activation and is the same id the world-event log prints, so remembering the
+/// one this ran for says what the entity count was only guessing at.
 fn reset_select_frontend_on_arrival(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -2504,11 +2544,19 @@ fn reset_select_frontend_on_arrival(
     mut cursors: bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
     mut page: bevy::prelude::ResMut<select_screen::SelectPage>,
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
-    existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
+    // WHICH ARRIVAL THIS ALREADY RAN FOR.
+    mut done_for: bevy::prelude::Local<
+        Option<ambition_platformer2d::game_shell::ShellActivationId>,
+    >,
 ) {
-    if !on_the_select_route(&router) || !existing.is_empty() {
+    if !on_the_select_route(&router) {
         return;
     }
+    let arrival = router.active.as_ref().map(|active| active.activation_id);
+    if *done_for == arrival {
+        return;
+    }
+    *done_for = arrival;
 
     *select = select::SmashSelect::default();
     *cursors = select_screen::cursor::SelectCursors::default();
@@ -3193,9 +3241,8 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     // placeholder. Pocket shipped that way and nobody noticed until somebody
     // looked at the screen.
     {
-        use ambition_platformer2d::actors::character_runtime::{
-            CharacterDefinition, CharacterDefinitionAppExt,
-        };
+        use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
+        use ambition_platformer2d::character::CharacterDefinition;
         // EVERY id this demo can SEAT, not just the two it opens with.
         // A catalog row declares what a character IS; registration is what makes
         // it spawnable, and the comment above says what a catalog-only character

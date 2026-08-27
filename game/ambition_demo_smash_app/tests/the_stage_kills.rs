@@ -2143,7 +2143,6 @@ fn a_fighter_waiting_out_its_respawn_beat_does_not_answer_the_jump_button() {
          line, so nothing here is about the respawn beat"
     );
 
-
     // ── THE ARM UNDER TEST: the same held jump, during the wait. ──
     let mut held_frames = 0usize;
     let start = y_of(&mut app, seat0);
@@ -2198,4 +2197,123 @@ fn a_fighter_waiting_out_its_respawn_beat_does_not_answer_the_jump_button() {
          frames under a held jump — the same press moved the live body \
          {alive_rise:.1}px, so the beat is still answering the pad"
     );
+}
+
+/// A SECOND match starts, and the FIRST one's verdict does not end it.
+///
+/// Jon, 2026-08-27: picking a cast for a second match and pressing start
+/// bounced straight back to the select screen. The log said it three times
+/// running — `session-start scope=N`, `room-loaded smash_stage`,
+/// `session-end scope=N`, all inside one frame.
+///
+/// ⭐⭐ THE STALE HALF IS THE `ActiveMatch` RESOURCE, NOT THE VERDICT LATCH.
+/// `StocksMatchSettled` names the match it decided, so the instance comparison
+/// in `verdict()` looked like enough — but a retired session's `ActiveMatch`
+/// outlives it by at least a frame, and with BOTH sides of that comparison
+/// naming the retired match it agreed. Only the session knows which of the two
+/// is current.
+///
+/// ⛔ AND THE ARM ONLY MEANS SOMETHING IF MATCH ONE REALLY SETTLED. A run where
+/// the abandon never landed would stay on the stage for the reason this test is
+/// looking for and prove nothing, so the premise is asserted before the subject.
+#[test]
+fn a_second_match_is_not_ended_by_the_first_matchs_verdict() {
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let route_now = |app: &bevy::prelude::App| -> Option<String> {
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellRouter>()
+            .active
+            .as_ref()
+            .map(|active| active.route_id.as_str().to_string())
+    };
+
+    // ── MATCH ONE, and it ends the way Exit Match ends one ──────────────────
+    decide_a_two_player_match(&mut app);
+    for _ in 0..90 {
+        app.update();
+        if route_now(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    assert_eq!(
+        route_now(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "match one never reached the stage, so there is no first verdict to \
+         leave behind"
+    );
+
+    // ⛔ AND THE ASK NEEDS A MATCH TO NAME. `abandon_the_match_when_the_shell_asks`
+    // returns without doing anything when no `ActiveMatch` is seated yet, and the
+    // message is consumed on that frame either way — so asking on the first
+    // gameplay frame throws the request away and the stage never leaves. Drive
+    // until the match exists, then ask.
+    for _ in 0..600 {
+        if app
+            .world()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .is_some()
+        {
+            break;
+        }
+        app.update();
+    }
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .is_some(),
+        "match one never seated a cast, so there is nothing for Exit Match to stop"
+    );
+    app.world_mut()
+        .write_message(ambition_platformer2d::game_shell::ShellAbandonRequested);
+    for _ in 0..600 {
+        app.update();
+        if route_now(&app).as_deref() == Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
+            break;
+        }
+    }
+    // THE PREMISE. Exit Match goes home on the press, so reaching the select
+    // screen is what proves the verdict was reached and is now sitting there.
+    assert_eq!(
+        route_now(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_SELECT_ROUTE),
+        "Exit Match did not take match one off the stage, so this run never \
+         built the leftover the second match has to survive"
+    );
+
+    // ── MATCH TWO ───────────────────────────────────────────────────────────
+    // ⛔ AND THE LOBBY IS RESET ON ARRIVAL, so a cast decided on the frame the
+    // route flips is wiped by the reset that lands behind it. A player sees the
+    // fresh lobby before picking; so does this.
+    for _ in 0..10 {
+        app.update();
+    }
+    decide_a_two_player_match(&mut app);
+    for _ in 0..90 {
+        app.update();
+        if route_now(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    assert_eq!(
+        route_now(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "the second match never reached the stage at all"
+    );
+
+    // THE SUBJECT, and it samples well past the frame the leftover was read on:
+    // the bounce took ONE frame, so a stage still standing sixty frames later is
+    // a stage the previous verdict did not close.
+    for _ in 0..60 {
+        app.update();
+        assert_eq!(
+            route_now(&app).as_deref(),
+            Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            "the second match was thrown back to the select screen — the first \
+             match's verdict was applied to it"
+        );
+    }
 }

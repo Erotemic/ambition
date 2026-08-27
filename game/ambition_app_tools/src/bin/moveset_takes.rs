@@ -155,6 +155,60 @@ struct Frame {
     gesture: Option<String>,
 }
 
+/// Count the presentation components the REAL animation path needs, once.
+///
+/// ⭐⭐ THE QUESTION THIS ANSWERS. The frame cursor in the viewer is a
+/// reimplementation of `CharacterAnimator`, and a reimplementation drifts. The
+/// only reason it exists is that the real one was not present in this headless
+/// app — so the standing question is WHICH LINK is missing, and a census beats
+/// another round of inference. `PlayerVisual` gates the pose read-model
+/// (`rebuild_body_pose_views` filters `With<PlayerVisual>`); `CharacterAnimator`
+/// is the cursor itself; `BodyPoseView` is the published result.
+/// ⛔⛔ MEASURED 2026-08-27, and the answer is TWO separate blockers, neither of
+/// which is "headless cannot animate":
+///
+///  1. `BodyPoseView` is not available to a smash fighter IN ANY MODE. Its query
+///     is filtered `With<PlayerVisual>`, and `PlayerVisual` is granted in exactly
+///     ONE production place — `session/setup.rs`, to the exploration player's
+///     avatar. A seated `MatchSeat` fighter never carries it, windowed or not.
+///  2. `CharacterAnimator` is built by the RENDER layer from a loaded
+///     `CharacterSpriteAsset`. `NoWindow` sets `backends: None`, which omits the
+///     render app by design — its own doc says so: *"Nothing is ever drawn...
+///     That is not a limitation to route around; it is what this mode is."*
+///
+/// ⭐ AND THE ROUTE OUT IS `OffscreenGpu`, which HAS a render app and which
+/// `capture_scene` already runs headlessly on this machine. Switching this tool's
+/// mode alone is not enough — it panics in `bevy_pbr`'s skin batching, because
+/// `capture_scene` boots through `build_visible_app_with` plus its own camera and
+/// render-target setup. That is the bounded piece of work that would let this
+/// tool read `CharacterAnimator::frame` directly and delete the viewer's
+/// reimplementation of it.
+fn presentation_census(world: &mut World) -> String {
+    let bodies = world
+        .query::<&ambition_platformer2d::engine_core::BodyKinematics>()
+        .iter(world)
+        .count();
+    let visuals = world
+        .query_filtered::<
+            bevy::prelude::Entity,
+            bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
+        >()
+        .iter(world)
+        .count();
+    let animators = world
+        .query::<&ambition_platformer2d::sprite_sheet::character::CharacterAnimator>()
+        .iter(world)
+        .count();
+    let poses = world
+        .query::<&ambition_platformer2d::sim_view::BodyPoseView>()
+        .iter(world)
+        .count();
+    format!(
+        "[presentation] bodies={bodies} PlayerVisual={visuals} \
+         CharacterAnimator={animators} BodyPoseView={poses}"
+    )
+}
+
 /// Which sheet ROW this body is being drawn from, as `(sheet key, row index)`.
 ///
 /// ⭐ THE CLIP FIRST, THEN THE POSE, which is the order the renderer resolves in
@@ -800,6 +854,7 @@ fn main() {
     }
     std::fs::write(path, serde_json::to_string(&bundle).expect("the takes serialize"))
         .expect("the takes are writable");
+    println!("{}", presentation_census(app.world_mut()));
     println!(
         "[moveset-takes] {} take(s) -> {out}",
         bundle["takes"].as_array().map_or(0, Vec::len)

@@ -18,6 +18,8 @@ use bevy::prelude::{Commands, Handle, Res, Resource};
 use bevy::reflect::TypePath;
 use serde::Deserialize;
 #[cfg(test)]
+use ambition_audio::spec::{MusicRegistry, SfxRegistry};
+#[cfg(test)]
 use std::collections::HashSet;
 
 pub const PLATFORMER_DEFAULTS_ASSET: &str = "ambition/platformer_defaults.ron";

@@ -7,6 +7,9 @@ use ambition_combat::BodyMelee;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_characters::control::PlayerSlot;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 
 fn dummy_attack_spec() -> ambition_combat::AttackSpec {
     // Construct via the live `attack_spec` builder; a minimal Player
@@ -286,6 +289,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
 #[test]
 fn untargeted_heal_routes_to_primary() {
     use crate::avatar::{apply_player_heal_requests, PlayerHealRequested};
+    use ambition_characters::actor::BodyHealth;
 
     let mut app = App::new();
     app.add_message::<PlayerHealRequested>();

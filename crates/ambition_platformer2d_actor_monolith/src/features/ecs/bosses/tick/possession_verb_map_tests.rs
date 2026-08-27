@@ -4,8 +4,8 @@ use ambition_characters::brain::{BossAttackProfile, BossCapability};
 use ambition_platformer2d_core as ae;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 
-fn rider_behavior() -> ambition_boss_encounter::behavior::BossBehaviorProfile {
-    ambition_boss_encounter::behavior::BossBehaviorProfile::from_data(
+fn rider_behavior() -> ambition_boss_encounter::pattern::profile::BossBehaviorProfile {
+    ambition_boss_encounter::pattern::profile::BossBehaviorProfile::from_data(
         ambition_boss_encounter::test_boss_catalog(),
         "gnu_ton_rider",
     )
@@ -65,7 +65,7 @@ fn possessed_verbs_resolve_directionally() {
 /// existing possessable boss.
 #[test]
 fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
-    let behavior = ambition_boss_encounter::behavior::BossBehaviorProfile::clockwork_warden();
+    let behavior = ambition_boss_encounter::pattern::profile::BossBehaviorProfile::clockwork_warden();
     assert!(behavior.possessed_verbs.is_empty());
     let cap = BossCapability {
         specials: vec![

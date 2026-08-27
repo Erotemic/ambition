@@ -656,7 +656,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<ProjectileVisualCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
-    app.init_resource::<ambition_platformer2d::actors::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_platformer2d::gameplay_trace::GameplayTraceBuffer>();
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_platformer2d::combat::events::ActorStimulus>();

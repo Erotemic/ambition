@@ -1,9 +1,11 @@
+use ambition_characters::brain::boss_pattern::BossAttackProfile;
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
 use ambition_combat::events::FeatureCombatTuning;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
+use ambition_characters::brain::boss_pattern::BossAttackPattern;
 
 fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();
@@ -36,7 +38,7 @@ fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
 /// `damageable_volumes` use this so the head invariants stay
 /// pinned even though gnu_ton_runtime doesn't go through
 /// `derive_boss_sprite_metrics`.
-fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
+fn gnu_ton_sprite_metrics_fixture() -> ambition_boss_encounter::behavior::ActorSpriteMetrics {
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
     use std::collections::HashMap;
     let head_rest = NamedPixelRect {
@@ -91,7 +93,7 @@ fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
     let mut animations: HashMap<String, AnimationMetrics> = HashMap::new();
     animations.insert("rest".to_string(), rest_entry);
     animations.insert("gnu_head_descent".to_string(), descent_entry);
-    super::ActorSpriteMetrics {
+    ambition_boss_encounter::behavior::ActorSpriteMetrics {
         frame_width: 768,
         frame_height: 576,
         body_pixel_bbox: None,
@@ -371,6 +373,7 @@ fn gradient_sentinel_phase1_includes_gradient_lane_and_overfit_volley() {
 /// faster", which defeats the design.
 #[test]
 fn gradient_sentinel_phase2_includes_all_advanced_specials() {
+    use ambition_characters::brain::BossAttackProfile;
     let BossAttackPattern::Scripted { phase2, .. } =
         BossBehaviorProfile::clockwork_warden().attack_pattern
     else {

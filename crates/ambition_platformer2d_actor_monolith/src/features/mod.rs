@@ -212,6 +212,7 @@ pub fn advance_gameplay_elapsed(
 /// function, same rule, two consumers with different timing needs — see the
 /// system's own documentation for why that is a refresh and not a clobber.
 pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     let sim = app.sim_schedule();
     app.add_systems(
         sim,
@@ -1002,6 +1003,7 @@ pub struct FeatureCollectionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
+        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
             sim,
             (
@@ -1148,6 +1150,7 @@ mod feature_interaction_order_tests;
 #[cfg(test)]
 mod sim_clock_tests {
     use super::{advance_gameplay_elapsed, GameplayElapsed};
+    use bevy::prelude::*;
 
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {

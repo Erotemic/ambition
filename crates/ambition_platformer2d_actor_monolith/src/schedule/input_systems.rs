@@ -985,6 +985,7 @@ mod focus_gate_tests {
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+    use bevy::prelude::*;
     use leafwing_input_manager::prelude::{ActionState, InputMap};
 
     #[test]
@@ -1533,7 +1534,9 @@ mod focus_gate_tests {
     #[test]
     fn an_unfocused_window_stops_a_secondary_seat_too() {
         use ambition_characters::control::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
 
         fn app_with(pause_when_unfocused: bool) -> App {
             let mut app = App::new();
@@ -1626,7 +1629,9 @@ mod focus_gate_tests {
     #[test]
     fn an_in_session_surface_claims_input_and_can_claim_it_for_one_seat() {
         use ambition_characters::control::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
 
         fn seat(slot: u8) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
@@ -1757,7 +1762,9 @@ mod focus_gate_tests {
     #[test]
     fn dialogue_claims_the_talker_while_a_pause_still_stops_everybody() {
         use ambition_characters::control::{PlayerSlot, SlotControls};
+        use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
 
         let mut contexts = ParticipantContexts::default();
         contexts.declare(ContextClaim::capturing(

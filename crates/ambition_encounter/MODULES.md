@@ -20,10 +20,11 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`spec`](src/spec.rs) | Authored encounter data types (serde RON). |
 | [`staging`](src/staging.rs) | Authored STAGING policy (E12): the presentation effects an encounter wants while it is in flight, as components the generic consumers derive from the LIFECYCLE — never from what kind of encounter it is. |
+| [`switches`](src/switches.rs) | Switch-arming gate for encounters. |
 | [`timeline`](src/timeline.rs) | Generic encounter TIMELINE (§6): ordered beats `{ when: Trigger, then: [Effect] }` that advance as triggers fire. |
 | [`waves`](src/waves.rs) | Wave POLICY: the spawn-cadence director for wave/arena encounters. |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -347,7 +347,8 @@ pub fn report_character_capability_gaps(world: &mut World) {
 #[cfg(test)]
 mod authority_parity_tests {
     use super::*;
-    use crate::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+    use ambition_characters::actor::definition::CharacterDefinition;
+    use crate::character_runtime::{CharacterDefinitionAppExt};
     use ambition_characters::actor::character_catalog::parse_catalog;
 
     /// One catalog character, so the two authorities have something to disagree

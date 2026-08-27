@@ -700,6 +700,7 @@ dependencies = [
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_game_shell",
+ "ambition_gameplay_trace",
  "ambition_input",
  "ambition_interaction",
  "ambition_inventory_ui",

@@ -16,7 +16,7 @@
 | [`control_frame`](src/control_frame.rs) | Device-agnostic per-frame control vocabulary. |
 | [`frame`](src/frame.rs) | `frame` — the engine-level aperture vocabulary (docs/concepts/movement-collision.md). |
 | [`geo_id`](src/geo_id.rs) | Durable geometry identity — `GeoId`/`GeoFaceRef` (docs/concepts/movement-collision.md). |
-| [`hit_response`](src/hit_response.rs) | Carved down from `ambition_platformer2d_actor_monolith::features::ecs::damage_apply` (FB6b, fighter-brain.md §12.3 route 1) so ONE formula answers both callers: |
+| [`hit_response`](src/hit_response.rs) | Carved down from `ambition_damage` (FB6b, fighter-brain.md §12.3 route 1) so ONE formula answers both callers: |
 | [`input_stream`](src/input_stream.rs) | Versioned per-tick input recordings for replay, trajectories, and desync analysis. |
 | [`kinematic_path`](src/kinematic_path.rs) | Declarative movement paths for moving platforms, spike balls, patrol dummies, and scripted hazards. |
 | [`ledge_grab`](src/ledge_grab/mod.rs) | Ledge grab probe, state, and movement-pipeline tick helpers. |

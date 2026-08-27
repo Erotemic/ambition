@@ -77,7 +77,7 @@ pub fn sync_boss_actor_components(
 /// GNU-ton draws `"gnu_ton_boss"`, the mockingbird `"mockingbird_boss"` — each
 /// authored in `boss_profiles.ron`. The engine names no boss here.
 pub fn sprite_target_for_boss(
-    behavior: &ambition_boss_encounter::behavior::BossBehaviorProfile,
+    behavior: &ambition_boss_encounter::pattern::profile::BossBehaviorProfile,
 ) -> &str {
     behavior.sprite_target.as_deref().unwrap_or(&behavior.id)
 }
@@ -98,7 +98,7 @@ pub fn sprite_target_for_boss(
 /// by test fixtures and bosses without a registered sheet.
 pub fn sprite_render_size_for(
     catalog: &ambition_boss_encounter::BossCatalog,
-    behavior: &ambition_boss_encounter::behavior::BossBehaviorProfile,
+    behavior: &ambition_boss_encounter::pattern::profile::BossBehaviorProfile,
     boss_size: ae::Vec2,
 ) -> ae::Vec2 {
     let spec = catalog.sheet_for_behavior(behavior);

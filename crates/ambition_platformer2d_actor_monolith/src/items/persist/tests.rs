@@ -1,5 +1,5 @@
 use super::*;
-use crate::items::Item;
+use ambition_items::Item;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Entity) {

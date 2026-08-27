@@ -296,6 +296,7 @@ mod tests {
 
 #[cfg(test)]
 mod peaceful_flight_tests {
+    use super::*;
 
     const FLOATING_CATALOG: &str = r#"(
     brain_presets: { "stand_still": StandStill },
@@ -376,6 +377,7 @@ mod peaceful_flight_tests {
 
 #[cfg(test)]
 mod peaceful_body_authority_tests {
+    use super::*;
 
     /// A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
     /// AUTHORED.

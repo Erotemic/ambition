@@ -1,5 +1,6 @@
 use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
+use ambition_characters::brain::boss_pattern::BossAttackPattern;
 
 /// `assets/data/boss_profiles.ron` must carry a row for every
 /// boss the codebase has a constructor for. Without this, the

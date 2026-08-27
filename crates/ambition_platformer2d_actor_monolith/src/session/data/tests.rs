@@ -1,4 +1,6 @@
 use super::*;
+use ambition_audio::spec::MusicRegistry;
+use ambition_audio::spec::MusicTrack;
 
 #[test]
 fn embedded_sandbox_data_parses() {

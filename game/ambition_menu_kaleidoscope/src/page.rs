@@ -1,3 +1,12 @@
+//! Build one menu page's 3D scene: the panels, text, controls and scrollbar a
+//! `MenuPageModel` describes, spawned as children under the page's own root.
+//!
+//! The page is DRAWN here and decided elsewhere — nothing in this module reads
+//! input or advances a selection. `apply_dynamic_text` is the one re-entrant
+//! half: text whose content changes between frames is refreshed in place rather
+//! than respawned, so a page that only relabels a control does not rebuild its
+//! geometry.
+
 
 use super::*;
 pub(super) fn render_page_model<PageId, Action>(

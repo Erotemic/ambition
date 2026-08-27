@@ -588,6 +588,7 @@ fn the_driven_bodys_custody_marker_is_rederived_after_a_rewind_drops_it() {
 /// `project_custody_onto_residency` every tick.
 #[test]
 fn the_possession_projection_leaves_item_custody_alone() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
 
     let mut app = trigger_app();
     let _home = spawn_home(&mut app);

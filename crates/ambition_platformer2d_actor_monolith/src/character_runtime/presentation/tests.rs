@@ -8,9 +8,8 @@
 use ambition_platformer2d_shared_tangle::app_finalization::finalize_and_update;
 
 use super::*;
-use crate::character_runtime::{
-    CharacterDefinition, CharacterDefinitionAppExt, CharacterRuntimePlugin,
-};
+use ambition_characters::actor::definition::CharacterDefinition;
+use crate::character_runtime::{CharacterDefinitionAppExt, CharacterRuntimePlugin};
 use ambition_sfx::PresentationSourceId;
 
 /// One gameplay session owning the speakers, with `ambition_platformer2d` as the primary.

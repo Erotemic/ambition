@@ -25,7 +25,7 @@ fn horizon_app() -> App {
         .init_resource::<CustodyBaseline>()
         .init_resource::<MintedItemBaseline>()
         .init_resource::<OwnedItemsBaseline>()
-        .init_resource::<crate::items::OwnedItems>();
+        .init_resource::<ambition_items::OwnedItems>();
     app.world_mut()
         .spawn((PlayerEntity, PrimaryPlayer, BodyWallet { balance: 0 }));
     app

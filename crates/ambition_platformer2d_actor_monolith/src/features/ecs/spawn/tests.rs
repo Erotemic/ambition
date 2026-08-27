@@ -105,7 +105,8 @@ fn body_driven_by(
 /// then yields the marker, which the deleted default-six helper never could.
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
-    use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry, PlacementRecord};
+    use ambition_platformer2d_world::placements::PlacementRecord;
+    use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
@@ -581,6 +582,7 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
 
 /// Guard against inferring gameplay identity from presentation identity.
 mod authored_enemy_reads_its_character {
+    use super::*;
 
     // It published two rows with deliberately different pools so "the character's HP won" could
     // be told apart from "the archetype's did" — the comparison this module was built to make.

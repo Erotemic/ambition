@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`actor_moveset`](src/actor_moveset.rs) | The Actor — the sword archetype's table, under her own name. |
 | [`alice_moveset`](src/alice_moveset.rs) | Alice's repertoire — the cryptographer, and the one who SENDS. |
 | [`archetype_moveset`](src/archetype_moveset.rs) | One fighter borrowing another's TIMINGS, under its own name. |
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
@@ -29,6 +30,7 @@
 | [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
+| [`medic_moveset`](src/medic_moveset.rs) | The Medic — the brawler archetype's table, under her own name. |
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
 | [`ninja_shadow_oni_leader_moveset`](src/ninja_shadow_oni_leader_moveset.rs) | Shadow Oni Leader moveset. |
 | [`officer_moveset`](src/officer_moveset.rs) | The Officer — the brawler archetype's table, under his own name. |
@@ -51,7 +53,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_44 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_46 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

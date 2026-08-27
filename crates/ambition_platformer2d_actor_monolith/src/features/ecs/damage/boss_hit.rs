@@ -331,6 +331,7 @@ mod entity_damage_tests {
     //! The entity-local boss damage contract for `apply_entity_boss_damage`:
     //! vulnerable phases take damage, lethal damage forces `Death`, invulnerable
     //! phases swallow the hit.
+    use super::*;
     use ambition_boss_encounter::test_support::test_boss_status;
     use ambition_boss_encounter::BossEncounterPhase;
 

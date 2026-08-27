@@ -493,6 +493,7 @@ fn buffered_secs(app: &App, slot: u8) -> f32 {
 /// The body that acted plays the pose; the body left behind plays nothing.
 #[test]
 fn the_interact_pose_lands_on_the_body_that_acted() {
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
     let home_pos = ae::Vec2::new(0.0, 0.0);
     let subject_pos = ae::Vec2::new(600.0, 0.0);
@@ -535,6 +536,7 @@ fn the_interact_pose_lands_on_the_body_that_acted() {
 /// buffered afterwards, because seat 1 spent seat 1's.
 #[test]
 fn a_second_seat_spends_its_own_buffered_interact() {
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
     let subject_pos = ae::Vec2::new(600.0, 0.0);
     let mut app = interaction_app();
@@ -571,6 +573,7 @@ fn a_second_seat_spends_its_own_buffered_interact() {
 /// The negative direction, with positive evidence that the road is live.
 #[test]
 fn a_seat_that_pressed_nothing_does_not_interact_on_another_seats_press() {
+    use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
     let subject_pos = ae::Vec2::new(600.0, 0.0);
     let mut app = interaction_app();

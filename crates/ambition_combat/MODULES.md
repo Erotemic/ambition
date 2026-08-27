@@ -6,8 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`actor_tuning`](src/actor_tuning.rs) | PER-ACTOR RUNTIME TUNING, THE BRAIN-CONSTRUCTION INPUTS, AND THE CONFIG THAT CARRIES THEM. |
 | [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
 | [`banner`](src/banner.rs) | Gameplay banner ticking and deferred-request application. |
+| [`brain`](src/brain/mod.rs) | THINKING THAT IS NOT THE FLOOR'S BUSINESS. |
 | [`breakables`](src/breakables.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
 | [`capture`](src/capture/mod.rs) | Capture is a persistent relationship between two bodies, separate from hit resolution and [`MovePlayback`](crate::moveset::MovePlayback). |
 | [`causal`](src/causal.rs) | Causal facts derived from stock-lifecycle messages. |
@@ -39,7 +41,7 @@
 | [`util`](src/util.rs) | Small feature-side helpers that do not own a subsystem. |
 | [`variation`](src/variation.rs) | Stable per-actor variation helpers for ECS feature actors. |
 
-_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

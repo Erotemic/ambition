@@ -5,7 +5,7 @@
 //! development reload and in packaging; this binary exists so an author gets
 //! the answer in milliseconds instead of a ten-minute rebuild.
 
-use crate::{USAGE, default_registry, parse_args};
+use ambition_content_cli::{default_registry, parse_args, USAGE};
 
 fn main() -> std::process::ExitCode {
     let raw: Vec<String> = std::env::args().skip(1).collect();

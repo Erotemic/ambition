@@ -119,6 +119,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_combat",
+ "ambition_content_pack",
  "ambition_cutscene",
  "ambition_encounter",
  "ambition_entity_catalog",
@@ -132,6 +133,7 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "ron 0.11.0",
+ "serde",
 ]
 
 [[package]]
@@ -215,6 +217,24 @@ dependencies = [
  "ambition_platformer2d_core",
  "bevy",
  "serde",
+]
+
+[[package]]
+name = "ambition_damage"
+version = "0.1.0"
+dependencies = [
+ "ambition_boss_encounter",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_persistence",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_platformer2d_world",
+ "ambition_projectiles",
+ "ambition_sfx",
+ "ambition_time",
+ "ambition_vfx",
+ "bevy",
 ]
 
 [[package]]
@@ -411,11 +431,13 @@ dependencies = [
  "ambition_content_pack",
  "ambition_conversation",
  "ambition_cutscene",
+ "ambition_damage",
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_game_shell",
+ "ambition_gameplay_trace",
  "ambition_input",
  "ambition_interaction",
  "ambition_inventory_ui",
@@ -463,6 +485,7 @@ dependencies = [
  "ambition_combat",
  "ambition_conversation",
  "ambition_cutscene",
+ "ambition_damage",
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
@@ -585,9 +608,11 @@ dependencies = [
  "ambition_combat",
  "ambition_conversation",
  "ambition_cutscene",
+ "ambition_damage",
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
+ "ambition_gameplay_trace",
  "ambition_input",
  "ambition_items",
  "ambition_load",

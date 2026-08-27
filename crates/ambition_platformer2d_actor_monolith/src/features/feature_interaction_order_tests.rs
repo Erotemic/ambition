@@ -19,7 +19,8 @@
 use bevy::ecs::schedule::{NodeId, Schedules, SystemKey, SystemSet as _};
 use bevy::prelude::App;
 
-use crate::schedule::{FeatureInteractionSet, Platformer2dSimulationPhaseMonolith};
+use ambition_platformer2d_shared_tangle::schedule::FeatureInteractionSet;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 /// The phase order, head to tail. Each boundary's justification lives on the

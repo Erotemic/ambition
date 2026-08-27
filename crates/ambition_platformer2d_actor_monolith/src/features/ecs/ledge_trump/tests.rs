@@ -165,6 +165,7 @@ fn a_body_mid_getup_is_neither_trumper_nor_trumped() {
 /// being popped outward does not, so a world that declares nothing keeps
 /// today's behaviour — the loser simply drops.
 mod outward_pop {
+    use super::*;
 
     /// A hanging body that also has a velocity to be thrown with.
     fn hanging_body_at(app: &mut App, id: &str, anchor: ae::Vec2, elapsed: f32) -> Entity {

@@ -9,12 +9,13 @@
 | [`abilities`](src/abilities/mod.rs) | Ambition's player ability / weapon kit. |
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared per-body cooldown for movement abilities such as Blink and Grapple. |
 | [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
-| [`actor`](src/actor.rs) | Neutral vocabulary for simulation state any actor body may carry. |
+| [`actor`](src/actor.rs) | THE ONE THING THIS MODULE ACTUALLY OWNS. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
 | [`avatar`](src/avatar/mod.rs) | Home-avatar policy and integration that has not yet moved to its final owner. |
 | [`body_custody`](src/body_custody.rs) | Projects body custody from authoritative roots and attachment relations. |
 | [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
+| [`brain_tick`](src/brain_tick.rs) | THE BRAIN DISPATCH, and it lives here because this is the only crate that can see every destination. |
 | [`causal`](src/causal.rs) | This crate's causal facts. |
 | [`character_runtime`](src/character_runtime/mod.rs) | Engine-owned character loading and materialization. |
 | [`character_sprites`](src/character_sprites/mod.rs) | Character sprite asset loading and actor/content joins. |
@@ -43,7 +44,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

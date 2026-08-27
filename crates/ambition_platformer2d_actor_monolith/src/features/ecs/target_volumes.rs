@@ -152,6 +152,7 @@ pub fn derive_pogo_target_volumes(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use bevy::prelude::{App, Update};
 
     #[test]

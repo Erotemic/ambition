@@ -164,7 +164,10 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 /// speed leaping straight over the exit band).
 #[test]
 fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
 
     #[derive(Resource, Default)]
     struct Captured(Option<String>);
@@ -292,7 +295,10 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 /// strictly inside it then never transitions, however long it stands there.
 #[test]
 fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
+    use ambition_characters::control::SlotInteractionState;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+    use bevy::prelude::*;
 
     #[derive(Resource, Default)]
     struct Captured(Option<String>);
@@ -485,6 +491,7 @@ fn active_metadata_returns_active_room_metadata() {
 
 #[test]
 fn sync_room_music_request_mirrors_metadata_music_track() {
+    use bevy::prelude::*;
     let mut app = App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -538,6 +545,7 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
 
 #[test]
 fn sync_active_room_metadata_publishes_active_value() {
+    use bevy::prelude::*;
     let mut app = App::new();
     let m_hub = RoomMetadata {
         biome: Some("hub".into()),
@@ -1027,6 +1035,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
 /// agree again and the fixture would prove nothing.
 #[test]
 fn a_rewind_across_the_portal_opening_window_restores_the_confirmed_phase() {
+    use bevy::prelude::*;
 
     const ZONE: &str = "gate";
     const DT: f32 = 1.0 / 60.0;

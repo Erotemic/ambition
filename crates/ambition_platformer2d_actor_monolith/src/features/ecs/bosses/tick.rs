@@ -9,7 +9,6 @@ use ambition_characters::control::ActorControl;
 use ambition_combat::events::HitEvent;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
-use ambition_characters::brain::boss_pattern::BossAttackProfile;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
@@ -33,7 +32,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 /// (pinned by `possession_verb_map_tests`).
 fn possessed_attack_choice(
     frame: &ambition_characters::actor::control::ActorControlFrame,
-    behavior: &ambition_boss_encounter::behavior::BossBehaviorProfile,
+    behavior: &ambition_boss_encounter::pattern::profile::BossBehaviorProfile,
     capability: Option<&ambition_characters::brain::BossCapability>,
     facing: f32,
 ) -> Option<ambition_characters::brain::BossAttackProfile> {
@@ -158,6 +157,7 @@ pub fn trigger_boss_attack_moves(
         With<FeatureSimEntity>,
     >,
 ) {
+    use ambition_characters::brain::BossAttackProfile;
     use ambition_entity_catalog::WindowTag;
     let active_start = |spec: &ambition_entity_catalog::MoveSpec| -> f32 {
         spec.windows
@@ -248,6 +248,7 @@ pub fn project_boss_attack_state_from_move(
         With<FeatureSimEntity>,
     >,
 ) {
+    use ambition_characters::brain::BossAttackProfile;
     for (playback, mut attack_state) in &mut bosses {
         let Some(playback) = playback else {
             attack_state.clear();

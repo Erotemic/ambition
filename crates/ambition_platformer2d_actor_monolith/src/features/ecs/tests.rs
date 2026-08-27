@@ -6,6 +6,8 @@
 //! file focused on systems.
 
 use super::*;
+use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::{
     BreakableFeature, CenteredAabb, ChestFeature, DamageableVolumes, FeatureId, FeatureName,
     Opened, PogoPolicy, PogoTargetContributor, PogoTargetVolumes,
@@ -429,9 +431,8 @@ fn interact_buffered_starts_npc_dialogue() {
 /// fallback.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::schedule::{
-        configure_platformer2d_simulation_phases, Platformer2dSimulationPhaseMonolith,
-    };
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+    use crate::schedule::{configure_platformer2d_simulation_phases};
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
 

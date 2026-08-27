@@ -12,6 +12,10 @@ use ambition_characters::prepared_fixtures::{mary_o, moveset_with, slash};
 use ambition_platformer2d_shared_tangle::app_finalization::finalize;
 use ambition_platformer2d_shared_tangle::binding::Namespace;
 use bevy::prelude::App;
+use ambition_characters::binding_namespaces::MoveId;
+use ambition_characters::binding_namespaces::PortraitTarget;
+use ambition_characters::prepared::PreparedCharacterRegistry;
+use ambition_characters::binding_namespaces::SfxCueId;
 
 /// Registration DECLARES. It does not load.
 ///

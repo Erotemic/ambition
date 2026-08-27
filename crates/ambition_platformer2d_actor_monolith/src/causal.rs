@@ -494,7 +494,10 @@ mod tests {
 
 #[cfg(test)]
 mod damage_tests {
+    use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
+    use ambition_characters::brain::Brain;
+    use ambition_characters::control::PlayerSlot;
 
     fn app() -> App {
         let mut app = App::new();
@@ -627,7 +630,10 @@ mod damage_tests {
 
 #[cfg(test)]
 mod knockback_tests {
+    use super::*;
     use ambition_causal::{FactValue, RecordingPolicy};
+    use ambition_characters::brain::Brain;
+    use ambition_characters::control::PlayerSlot;
     use ambition_damage::BodyReaction;
 
     fn reaction_app() -> App {

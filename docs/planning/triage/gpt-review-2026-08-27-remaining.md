@@ -185,7 +185,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   constructor's values in a test; reintroducing the old lifetime must go red.
   Keep the dynamics assertions.
 
-- ▢ **R15 — the `moveset_takes` ownership poison was never built.** Ownership
+- ▣ **R15 — CLOSED. The `moveset_takes` ownership poison was never built.** The
+  tool now checks its own recording against the AUTHORING — a move with no
+  volumes and no ranged event cannot produce offence of its own — and REFUSES
+  rather than warns, because this file is tuned against. Each take records
+  `opponent_output` as its premise. Measured over 38 takes: seven hitless, every
+  one 0 subject-owned against 4–18 opponent outputs on the same frames.
+  Poisoned: forcing `subject_owned` true stops at `call_the_shark`, exit 101, no
+  JSON written. Ownership
   recording is implemented; the adversarial proof is not. Record a take for a
   known HITLESS subject move while the live CPU opponent actually attacks and
   fires. Require: the opponent's output IS present in contextual frame data,

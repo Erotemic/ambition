@@ -799,6 +799,17 @@ pub(crate) fn integrate_actor_body(
     let shark_crashed = shark_charge_crashed(em, is_being_ridden, shark_charge_vec, previous_pos);
     let mut frame = frame;
     if shark_crashed {
+        // ⛔⛔ THIS KILLS OUTRIGHT, WHATEVER THE POOL IS. The damage below is the
+        // body's ENTIRE remaining health, so a charge crash is a detonation and
+        // not a hit — which is why raising a summoned shark's HP does nothing
+        // about it. Named in the log because "its health pool reached zero" and
+        // "it blew itself up" are the same reading downstream and want different
+        // fixes.
+        bevy::log::info!(
+            target: "ambition::mount",
+            "charge crash DETONATES: entity={actor_entity:?} being_ridden={is_being_ridden}              health_spent={}",
+            em.health.current().max(1),
+        );
         hit_events.write(HitEvent {
             strike_sfx: None,
             volume: em.aabb().into(),

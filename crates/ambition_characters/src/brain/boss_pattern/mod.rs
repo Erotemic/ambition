@@ -1151,7 +1151,17 @@ impl BossCapability {
 // ===== tick_boss_pattern =====
 
 mod tick;
-pub use tick::*;
+// ⭐ NAMED, NOT A GLOB — and the name is the finding. `tick.rs` exports exactly
+// ONE public item, so `pub use tick::*` was hiding a single function behind a
+// wildcard that reads like a whole surface.
+//
+// ⭐⭐ AND THIS IS THE ONLY LINE IN THIS FILE THAT NAMES THE BEHAVIOUR. Measured
+// 2026-08-27 while doing D168's forced data/behaviour split for the other two
+// brain subtrees: `boss_pattern` needs no split, because its data and its
+// behaviour are ALREADY separate files. Everything above is types and their own
+// small impls; the tick, the control flow, the validator, the seeds, the profile
+// and the content schema are siblings. The third subtree is free.
+pub use tick::tick_boss_pattern;
 
 /// BD1's three authored-logic atoms as pure functions: bucket evaluation,
 /// weighted `Select` resolution, stance push/pop, and interrupt bookkeeping.

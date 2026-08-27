@@ -2628,9 +2628,21 @@ smash/data.rs     527   SmashCfg · ObsHistory · SmashState · BroadMode · Dif
 fighter/data.rs   203   FighterCfg · ApmLedger · PendingAttack · FighterState · FoeSample
                         ⚠ AttackVerb · HabitModel · FighterBrainProfile · ShadowTuning
                           are pinned too and still sit beside their own behaviour
-boss_pattern      ▢     six types already named in `encoded_types`, so its pinned
-                        set is the one that needs no measuring
+boss_pattern      ✔     NEEDS NO SPLIT — measured 2026-08-27, see below
 ```
+
+⭐⭐⭐ **AND THE THIRD SUBTREE IS FREE. `boss_pattern` IS ALREADY SPLIT AND
+NOBODY HAD NOTICED.** `boss_pattern/mod.rs` is 1,228 lines of types and their own
+small impls; the tick, the control flow, the validator, the seeds, the profile and
+the content schema are all SIBLING FILES. The only line in `mod.rs` that named the
+behaviour was `pub use tick::*` — a glob over a module with exactly ONE public
+item, `tick_boss_pattern`, now spelled by name.
+
+⇒ so `boss_pattern`'s behaviour can be priced for a move today, with no
+preparatory slice at all: 6,265 lines of which `mod.rs`'s 1,228 STAY (they are the
+pinned data) and the rest is the candidate. ⚠ its destination is still
+`ambition_boss_encounter`, and still costs the `content_pack` + `causal` optional
+edges that `content_schema.rs` needs.
 
 ⭐ **AND THE PROPERTY IS CHECKED RATHER THAN CLAIMED**: each `data.rs` may not
 name its subtree's behaviour, and it compiles, so the next session can price "the

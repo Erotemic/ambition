@@ -32,9 +32,70 @@ asserts every field the UI reads is present; run it after changing either side.
 - **Compare** — one slot across the whole roster. Cells more than two median
   absolute deviations from the roster median for that slot are flagged high or
   low. This is the view that answers *"is this move out of line"*.
-- **Engine takes** — recorded playback of the real simulation: the fighter, its
-  live hitboxes, its projectiles, and anything its move spawned, frame by frame.
-  Recorded by `moveset_takes`; absent until it has been run.
+- **Engine takes** — recorded playback of the real simulation **in the real art**:
+  the fighter's own sprite, animated by the move that is playing, with its live
+  hitboxes over the top and anything its move spawned drawn beside it. Recorded
+  by `moveset_takes`; absent until it has been run. The `Art` button turns the
+  sprites off when a volume is easier to read on its own.
+
+## How the art gets there
+
+`moveset_export` emits an atlas table (`sheets`) beside the fighters: frame size,
+page images, the body rectangle, the feet pixel, and every row's per-frame
+sub-rects with trim offsets. The server exposes the engine's own sprite directory
+read-only at `/art/`, so nothing is copied and the page always shows what the
+build would draw.
+
+A take records `[sheet_key, row_index, holds_last_frame]` per body per tick. The
+FRAME within the row is derived in the viewer by counting consecutive ticks on
+that row — one clock (the sim tick the take was recorded at) instead of two that
+can drift.
+
+## What is REAL here and what is RECONSTRUCTED
+
+Worth stating plainly, because "recorded from the engine" is easy to over-claim.
+
+REAL — observed from a running composed host:
+
+- the simulation itself: real control frames, physics, move resolution, body
+  positions, live hitboxes, summons;
+- WHICH MOVE is playing on each tick (`MovePlayback`);
+- the art: the engine's own sheets, served from its own asset directory;
+- WHICH ROW that move draws from — resolved through the move's authored
+  `ClipBinding` and `clip_slot`, the same function and the same fallback chain
+  the renderer walks.
+
+RECONSTRUCTED — computed by the viewer, matching the engine's rules but not read
+from it:
+
+- **the frame cursor.** `CharacterAnimator` does not exist headless, so the
+  viewer re-derives the frame from ticks-on-row. It follows the animator's rules
+  (`duration_secs` is PER FRAME; a clip holds its last frame, a pose loops) but
+  it is a reimplementation and can drift from the real one. See
+  "Deleting the reimplementation" below for exactly what stands in the way.
+- **⚠ every non-move pose.** The game picks from 56 semantic body states — walk,
+  run, fall, land, crouch, shield, hitstun, tumble. This picks `jump` when
+  airborne and `idle` otherwise. A fighter walking or in hitstun therefore shows
+  IDLE, which is the largest fidelity gap in this view.
+- **⚠ mirroring** uses `facing` alone. `authored_faces_left` is exported and not
+  yet applied, so a left-drawn sheet may face the wrong way.
+
+⛔ Two traps are already paid for here, and both cost a rebuild:
+
+- **`CharacterAnimator` is the wrong source.** It is what the renderer uses, and
+  the render layer only inserts it once a sprite ASSET has loaded — which never
+  happens under `NoWindow`. Asking for it recorded 14446 bodies with art on
+  exactly zero of them.
+- **A summon wears no catalog character.** Joining the sheet on `WornCharacter`
+  alone drew the pirate in full art and his shark as an empty box, which is the
+  one pairing this view exists to show. `ActorConfig::sprite_character_id` is the
+  fallback the renderer itself uses.
+
+The viewer places a frame on the body's own centre (`feet_pixel.x`), not the
+frame's. A sheet cell is sized by the widest pose and the art sits wherever the
+crop left it — `projectile_polygon` is 17% of a 377px frame left of centre — so
+centring the cell would reproduce, in the viewer, the exact defect the engine's
+own sprite anchor had until 2026-08-27.
 
 ```bash
 cargo run -p ambition_app_tools --bin moveset_takes -- --characters npc_pirate_admiral
@@ -67,3 +128,30 @@ python3 -m ambition_moveset_inspector.server --report
 ```
 
 prints every standing note that asks for a change (scored below 6, or tagged).
+
+## Deleting the reimplementation
+
+The frame cursor is the one part of this tool that duplicates engine logic, and a
+duplicate drifts. `moveset_takes` prints a `[presentation]` census on every run so
+the gap stays visible instead of being rediscovered; measured 2026-08-27 it reads
+`PlayerVisual=0 CharacterAnimator=0 BodyPoseView=0`.
+
+TWO blockers, and neither is "headless cannot animate":
+
+1. **`BodyPoseView` is unavailable to a smash fighter in ANY mode.**
+   `rebuild_body_pose_views` is filtered `With<PlayerVisual>`, and `PlayerVisual`
+   is granted in exactly one production place — `session/setup.rs`, to the
+   exploration player's avatar. A seated `MatchSeat` fighter never carries it,
+   windowed or not. The pose read-model is simply not built for match fighters,
+   so this was never a tooling limitation.
+2. **`CharacterAnimator` needs a render app.** It is built by the render layer
+   from a loaded `CharacterSpriteAsset`, and `NoWindow` sets `backends: None`,
+   which omits the render app by design.
+
+The route out is `OffscreenGpu` — it HAS a render app, and `capture_scene` already
+runs it headlessly on this machine. Switching this tool's mode alone is NOT
+enough: measured, it panics inside `bevy_pbr`'s skin batching, because
+`capture_scene` boots through `build_visible_app_with` plus its own camera and
+render-target setup. Giving `moveset_takes` that same boot is the bounded piece of
+work that would let it read `CharacterAnimator::frame` directly and delete the
+derivation here.

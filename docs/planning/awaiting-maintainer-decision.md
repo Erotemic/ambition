@@ -1838,3 +1838,62 @@ they give different games.
 speeds the weapon up by roughly half, and that is your call rather than mine.
 
 ⚠ Either way the current behaviour is wrong: accept-then-veto is the bad middle.
+
+## 2026-08-27 — Should the moveset inspector need a GPU?
+
+The Engine Takes view plays a fighter's real sprites, but the FRAME within each
+animation is derived by the viewer rather than read from the engine. Jon:
+*"I do not like the idea of a reimplementation or duplicate implementation that
+can drift."* Agreed — this records what standing on the real implementation
+would cost, because the answer changes what the tool IS.
+
+MEASURED, not inferred (`moveset_takes` prints a `[presentation]` census every
+run; today it reads `PlayerVisual=0 CharacterAnimator=0 BodyPoseView=0`):
+
+```text
+1. `BodyPoseView` is unavailable to a smash fighter in ANY mode.
+   `rebuild_body_pose_views` filters `With<PlayerVisual>`, and `PlayerVisual` is
+   granted in ONE production place — `session/setup.rs`, to the exploration
+   player's avatar. A seated `MatchSeat` fighter never carries it, windowed or
+   not. This one is not about headless at all.
+
+2. `CharacterAnimator` needs a render app. It is built by the render layer from
+   a loaded `CharacterSpriteAsset`, and `NoWindow` sets `backends: None`, which
+   omits the render app BY DESIGN.
+```
+
+⛔ THE CHOICE, and it is a question about the tool's AUDIENCE rather than its
+code:
+
+```text
+(a) the inspector requires a GPU
+    → boot `moveset_takes` the way `capture_scene` does (`OffscreenGpu` +
+      `build_visible_app_with` + its camera/render-target setup)
+    → read `CharacterAnimator::frame` directly; DELETE the viewer's derivation
+    → the 56-state pose picker comes free, so a walking or hitstunned fighter
+      stops showing IDLE — the largest fidelity gap in the view today
+    → takes RENDER every tick instead of only simulating: slower, and it can no
+      longer run anywhere the rest of the headless suite runs
+
+(b) the inspector stays CPU-only
+    → the derivation stays, and stays a duplicate that can drift
+    → its rules are pinned to the animator's today (`duration_secs` is PER
+      FRAME; a clip holds its last frame, a pose loops) and nothing enforces
+      that they stay pinned
+    → non-move poses stay a two-way `jump`/`idle` guess
+
+(c) CPU-only, but the duplication is GUARDED
+    → keep the derivation, add a test that runs both cursors over one recorded
+      take and asserts they agree frame for frame
+    → needs (a) to exist anyway in order to have something to compare against
+```
+
+⭐ Worth saying plainly: the drift risk is real but SMALL and slow-moving — the
+animator's advance rule is ten lines and has not changed in this campaign. The
+fidelity gap that actually misleads today is the POSE PICKER, not the frame
+cursor, and only (a) fixes that.
+
+⚠ A GPU requirement is a real cost to name: this tool currently runs in the same
+places the headless suite does. Jon: *"It might be the case that we build a tool
+so it works on a machine with a gpu. Not sure yet though."* Held here until that
+is decided.

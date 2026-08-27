@@ -48,6 +48,140 @@ const ISSUE_TAGS = [
 
 let BUNDLE = null;
 let TAKES = null;
+
+/* ⭐⭐ THE SPRITE SHEETS, LAZILY. A page that eagerly loaded every sheet would
+ * pull tens of megabytes to draw one fighter; a page that loaded them
+ * synchronously per frame would stutter the scrubber. Each sheet is fetched once
+ * on first use and the canvas simply draws the box alone until it arrives, so
+ * the view is never blocked on art and never blank because of it. */
+const SHEETS = new Map();
+function sheetImage(key) {
+  if (SHEETS.has(key)) return SHEETS.get(key);
+  const meta = BUNDLE && BUNDLE.sheets && BUNDLE.sheets[key];
+  if (!meta) { SHEETS.set(key, null); return null; }
+  const pages = (meta.images && meta.images.length ? meta.images : [meta.image]).map((name) => {
+    const img = new Image();
+    img.src = `/art/${name}`;
+    /* A redraw when the bytes land, or the first frame a sheet appears on stays
+     * a box until something else happens to repaint. */
+    img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
+    return img;
+  });
+  const entry = { meta, pages };
+  SHEETS.set(key, entry);
+  return entry;
+}
+
+/* Draw ONE body's current sheet frame so its art lands on its collision box.
+ *
+ * ⛔⛔ THE BODY'S OWN CENTRE, NOT THE FRAME'S. A sheet frame is a packed cell
+ * sized by the widest pose and the art sits wherever the crop left it —
+ * `projectile_polygon` is 17% of a 377px frame left of centre. Centring the cell
+ * on the box reproduces here the exact defect the ENGINE's anchor had until
+ * 2026-08-27, and a viewer that lies the same way the bug did is worse than no
+ * viewer. `feet_pixel.x` is the horizontal origin; `body_pixel_bbox` gives the
+ * scale, because the box the take recorded IS that rectangle.
+ *
+ * ⛔ TRIM IS APPLIED, not ignored. Frames are packed trimmed with an `off` into
+ * the logical cell; drawing the sub-rect at the cell's origin puts every pose a
+ * few pixels adrift, differently per frame, which reads as jitter. */
+/* How far into its current animation row a body is, at this frame of the take.
+ *
+ * ⭐⭐ DERIVED FROM THE RECORDING, NOT RECORDED. The take stores which ROW a body
+ * is drawn from on every tick; the frame within that row is then just "how many
+ * consecutive ticks has it been on this row", divided by the row's own per-frame
+ * duration. That keeps ONE clock — the sim tick the take was recorded at — where
+ * a recorded frame index would be a second clock to keep in step with the first,
+ * and the two drift the moment either changes.
+ *
+ * Memoised per take, because it is a scan from the beginning and the scrubber
+ * asks for it sixty times a second. */
+const ROW_CURSORS = new WeakMap();
+function rowCursorsFor(take) {
+  let cached = ROW_CURSORS.get(take);
+  if (cached) return cached;
+  cached = [];
+  /* body identity within a take is its label + seat: the entity id is not
+   * stable across a rollback and the label is what a reader recognises. */
+  const held = new Map();
+  take.frames.forEach((frame, i) => {
+    const perFrame = new Map();
+    for (const b of frame.bodies) {
+      const id = `${b.label}#${b.seat ?? "-"}`;
+      const key = b.art ? `${b.art[0]}:${b.art[1]}` : null;
+      const prev = held.get(id);
+      const ticks = prev && prev.key === key ? prev.ticks + 1 : 0;
+      held.set(id, { key, ticks });
+      perFrame.set(id, ticks);
+    }
+    cached[i] = perFrame;
+  });
+  ROW_CURSORS.set(take, cached);
+  return cached;
+}
+
+function drawBodyArt(ctx, b, X, Y, scale, ticksOnRow) {
+  if (!b.art) return false;
+  const [key, row, holds] = b.art;
+  const entry = sheetImage(key);
+  if (!entry) return false;
+  const { meta, pages } = entry;
+  const sheetRow = (meta.rows || [])[row];
+  if (!sheetRow || !sheetRow.rects || !sheetRow.rects.length) return false;
+  /* ⛔⛔ `duration_secs` IS PER FRAME, NOT PER ROW. The engine's animator does
+   * `elapsed -= row.duration_secs` once per frame advance, so a 6-frame row at
+   * 0.13 runs for 0.78s. This divided by the frame count and played every
+   * animation six times too slowly. A row with no duration is a still. */
+  const simHz = (BUNDLE && BUNDLE.sim_hz) || 60;
+  const count = sheetRow.rects.length;
+  const perFrame = sheetRow.duration_secs > 0
+    ? Math.max(1, Math.round(sheetRow.duration_secs * simHz))
+    : 0;
+  /* ⛔⛔ AND A CLIP HOLDS ITS LAST FRAME rather than looping — `tick_slot` sets
+   * `clip_held` and stops. Looping a swing shows it restarting into its own
+   * windup while the recovery is still running, which is a move that does not
+   * exist. A resting pose loops; the recorder says which this is. */
+  const raw = perFrame > 0 ? Math.floor((ticksOnRow || 0) / perFrame) : 0;
+  const frameIndex = perFrame === 0 ? 0 : holds ? Math.min(raw, count - 1) : raw % count;
+  const rect = sheetRow.rects[frameIndex];
+  if (!rect) return false;
+  const [sx, sy, sw, sh, page, offX, offY] = rect;
+  const img = pages[Math.min(page || 0, pages.length - 1)];
+  if (!img || !img.complete || !img.naturalWidth) return false;
+
+  const fw = meta.frame_width || 1;
+  const fh = meta.frame_height || 1;
+  const bbox = meta.body_pixel_bbox;
+  const feet = meta.feet_pixel;
+  if (!bbox || !feet) return false;
+
+  /* World pixels per sheet pixel: the recorded half-extent IS the body bbox. */
+  const pxPerSheet = (b.half[0] * 2) / Math.max(1, bbox[2]);
+  /* The body's origin inside the cell: feet x, and the bbox's bottom edge. */
+  const originX = feet[0];
+  const originY = bbox[1] + bbox[3];
+  /* Where the trimmed sub-rect's top-left sits, in sheet pixels from the origin. */
+  const dxSheet = (offX || 0) - originX;
+  const dySheet = (offY || 0) - originY;
+
+  const flip = (b.facing ?? 1) < 0;
+  const dw = sw * pxPerSheet * scale;
+  const dh = sh * pxPerSheet * scale;
+  /* `+y` is gravity-down in both spaces, so the vertical term needs no flip;
+   * the body's own bottom edge is `pos.y + half.y`. */
+  const dy = Y(b.pos[1] + b.half[1] + dySheet * pxPerSheet);
+
+  ctx.save();
+  if (flip) {
+    ctx.translate(X(b.pos[0]), 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, sx, sy, sw, sh, dxSheet * pxPerSheet * scale, dy, dw, dh);
+  } else {
+    ctx.drawImage(img, sx, sy, sw, sh, X(b.pos[0] + dxSheet * pxPerSheet), dy, dw, dh);
+  }
+  ctx.restore();
+  return true;
+}
 let state = {
   fighter: null,
   move: null,
@@ -187,6 +321,15 @@ const MOVE_COLUMNS = [
   ["charged", "Dmg×", (m) => m.derived.max_damage_charged,
     (m) => (m.smash_charge_mult > 1 ? int(m.derived.max_damage_charged) : "—")],
   ["kb", "KB", (m) => m.derived.max_knockback, (m) => int(m.derived.max_knockback)],
+  /* A SEPARATE COLUMN, NOT A BIGGER `Dmg`. Sorting a moveset by damage with
+   * shots folded in would rank a projectile against a melee hitbox as though a
+   * player could choose between them at the same range. */
+  ["shot", "Shot", (m) => m.derived.projectile_damage,
+    (m) => (m.derived.projectile_damage === null || m.derived.projectile_damage === undefined
+      ? "\u2014"
+      : m.derived.projectile_damage_charged
+        ? `${int(m.derived.projectile_damage)}\u2192${int(m.derived.projectile_damage_charged)}`
+        : int(m.derived.projectile_damage))],
   ["reach", "Reach", (m) => m.derived.reach, (m) => int(m.derived.reach)],
   ["hits", "Boxes", (m) => m.derived.hits, (m) => int(m.derived.hits)],
 ];
@@ -300,7 +443,30 @@ function renderMoveDetail(c, m) {
   if (m.autocancel_after_s !== null) row("Autocancel", `${f1(m.autocancel_after_s * BUNDLE.sim_hz)} f`);
   if (m.start_impulse) row("Start impulse", `(${int(m.start_impulse[0])}, ${int(m.start_impulse[1])})`);
   if (m.repeat) row("Loops", `${f2(m.repeat.from_s)}–${f2(m.repeat.to_s)}s, max ${f2(m.repeat.max_s)}s`);
-  if (m.derived.fires_projectile) row("Fires", "the body's ranged action");
+  /* THE SHOT, AS ITS OWN OFFENCE. A pure ranged attack has no body hitbox, so
+   * every melee row above it reads 0 — and "Fires: the body's ranged action"
+   * left a move that hits for 14 looking harmless. The numbers are reported
+   * BESIDE the body's, never folded into them: a projectile is not a melee
+   * hitbox, and a balance view that conflated them would be lying about reach,
+   * about trades, and about what a shield is for. */
+  if (m.derived.fires_projectile) {
+    const d = m.derived;
+    row("Fires", d.projectile_source === "equipped"
+      ? "an equipped weapon"
+      : "the body's ranged action");
+    if (d.fire_f !== null && d.fire_f !== undefined) row("Fire frame", `${f1(d.fire_f)} f`);
+    if (d.projectile_damage !== null && d.projectile_damage !== undefined) {
+      row("Shot damage", d.projectile_damage_charged
+        ? `${int(d.projectile_damage)} → ${int(d.projectile_damage_charged)} charged`
+        : int(d.projectile_damage));
+    }
+    if (d.projectile_speed !== null && d.projectile_speed !== undefined) {
+      row("Shot speed", d.projectile_speed_charged
+        ? `${int(d.projectile_speed)} → ${int(d.projectile_speed_charged)} px/s charged`
+        : `${int(d.projectile_speed)} px/s`);
+    }
+    if (d.projectile_size_charged) row("Shot size", `×${f2(d.projectile_size_charged)} charged`);
+  }
 
   const canvas = el("canvas", { class: "hitboxes", width: 420, height: 300 });
 
@@ -438,6 +604,11 @@ const COMPARE_COLUMNS = [
   ["damage", "Dmg", (r) => r.m.derived.max_damage, int],
   ["charged", "Dmg×", (r) => r.m.derived.max_damage_charged, int],
   ["kb", "KB", (r) => r.m.derived.max_knockback, int],
+  /* The compare view's whole job is "is this slot out of line", and a roster
+   * whose ranged fighters all read 0 damage answers that wrong for every one
+   * of them. */
+  ["shot", "Shot", (r) => r.m.derived.projectile_damage, int],
+  ["shotf", "Fire f", (r) => r.m.derived.fire_f, f1],
   ["growth", "Growth", (r) => {
     const gs = r.m.windows.flatMap((w) => w.volumes.map((v) => v.knockback_growth))
       .filter((g) => g !== null && g !== undefined);
@@ -641,12 +812,21 @@ function drawTake() {
 
   for (const b of frame.bodies) {
     const subject = b.seat === t.seat;
+    /* ART FIRST, then the box over it. The box is a diagnostic and has to stay
+     * legible on top of the sprite; drawing it under would hide the very
+     * alignment somebody opened this view to check. */
+    const cursor = rowCursorsFor(t)[state.takeFrame];
+    const ticksOnRow = cursor ? cursor.get(`${b.label}#${b.seat ?? "-"}`) : 0;
+    const drew = state.takeArt !== false && drawBodyArt(ctx, b, X, Y, scale, ticksOnRow);
     ctx.strokeStyle = subject ? "#6fb3ff" : b.kind === "summon" ? "#47b78a" : "#7d8598";
-    ctx.fillStyle = subject ? "rgba(111,179,255,.16)" : "rgba(125,133,152,.12)";
+    /* An unfilled box once the art is under it: a translucent wash over a sprite
+     * is a tint on the character, which is a lie about how it looks in game. */
+    ctx.fillStyle = drew ? "transparent" : subject ? "rgba(111,179,255,.16)" : "rgba(125,133,152,.12)";
     ctx.lineWidth = subject ? 2 : 1;
     ctx.beginPath();
     ctx.rect(X(b.pos[0] - b.half[0]), Y(b.pos[1] - b.half[1]), b.half[0] * 2 * scale, b.half[1] * 2 * scale);
-    ctx.fill(); ctx.stroke();
+    if (!drew) ctx.fill();
+    ctx.stroke();
     if (b.label) {
       ctx.fillStyle = "#98a0b3";
       ctx.font = "10px ui-monospace, monospace";
@@ -766,6 +946,14 @@ async function boot() {
   }
   $("#take-pick").addEventListener("change", (e) => loadTake(Number(e.target.value)));
   $("#take-scrub").addEventListener("input", (e) => { state.takeFrame = Number(e.target.value); drawTake(); });
+  /* The art can be turned off. A hitbox that sits behind a big sprite is hard to
+   * read, and "where exactly is this volume" is a question the boxes answer
+   * better alone — so this view can be either instrument. */
+  $("#take-art").addEventListener("click", (e) => {
+    state.takeArt = state.takeArt === false;
+    e.target.classList.toggle("on", state.takeArt !== false);
+    drawTake();
+  });
   $("#take-play").addEventListener("click", (e) => {
     state.playing = !state.playing;
     e.target.classList.toggle("on", state.playing);

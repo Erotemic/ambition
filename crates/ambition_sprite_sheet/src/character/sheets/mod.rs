@@ -131,6 +131,24 @@ impl SheetTuning {
 }
 
 impl CharacterSheetSpec {
+    /// Which `record.rows` index draws this semantic pose, if any.
+    ///
+    /// The mapping is built once at spec load (`anim_rows`); this is the read of
+    /// it, so a consumer outside this module does not need the field public.
+    /// The sheet KEY this spec was loaded from — how the record is asked for
+    /// again, and the id a consumer outside the engine (the moveset inspector's
+    /// atlas table) joins its own copy of the sheet on.
+    pub fn sheet_key(&self) -> &str {
+        &self.record.key
+    }
+
+    pub fn row_for_anim(&self, anim: CharacterAnim) -> Option<usize> {
+        self.anim_rows
+            .iter()
+            .find(|(candidate, _)| *candidate == anim)
+            .map(|(_, index)| *index)
+    }
+
     /// Lift this spec's resolution-independent gameplay tuning back out as a
     /// [`SheetTuning`] — collision scale, frame-sample inset, and the resolved
     /// feet anchor (pinned as an override so a record with no `body_metrics`,

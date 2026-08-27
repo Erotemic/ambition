@@ -31,10 +31,98 @@ use ambition_platformer2d::entity_catalog::{
 const SIM_HZ: f32 = 60.0;
 
 /// The bundle's schema id. Bump the version when a consumer would break.
-const SCHEMA: &str = "ambition.moveset_inspector.v1";
+const SCHEMA: &str = "ambition.moveset_inspector.v2";
 
 fn frames(seconds: f32) -> f32 {
     seconds * SIM_HZ
+}
+
+/// The atlas table for every sheet the exported cast names.
+///
+/// ⭐⭐ ENOUGH TO BLIT A FRAME, and nothing more. Per sheet: the logical frame
+/// size, the page images, the body's own rectangle and feet pixel, and every
+/// row's per-frame sub-rects with their trim offsets. That is exactly the input
+/// `trimmed_render` takes, so the viewer can place a frame the way the engine
+/// does instead of guessing.
+///
+/// ⛔ THE FEET PIXEL IS THE HORIZONTAL ORIGIN, not the frame centre. A frame is a
+/// packed cell sized by the widest pose and the art sits wherever the crop left
+/// it — `projectile_polygon` is 17% of a 377px frame left of centre. Drawing a
+/// frame centred on the body reproduces, in the viewer, the exact defect the
+/// engine's own anchor had until 2026-08-27.
+fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
+    use ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key;
+
+    let mut wanted: std::collections::BTreeSet<String> = Default::default();
+    for c in characters {
+        if let Some(sheet) = c["spritesheet"].as_str() {
+            // The catalog stores `sprites/<name>_spritesheet.png`; the baked
+            // index is keyed by the bare name.
+            let base = sheet
+                .rsplit('/')
+                .next()
+                .unwrap_or(sheet)
+                .trim_end_matches(".png")
+                .trim_end_matches("_spritesheet");
+            wanted.insert(base.to_string());
+        }
+    }
+
+    let mut out = serde_json::Map::new();
+    for key in wanted {
+        let Some(record) = record_for_sheet_key(&key) else {
+            // Not fatal: a fighter may name a sheet this build did not bake
+            // (the quality variants are gitignored). The viewer falls back to
+            // boxes for that fighter and says so.
+            continue;
+        };
+        let metrics = record.body_metrics.as_ref();
+        let rows: Vec<serde_json::Value> = record
+            .rows
+            .iter()
+            .map(|row| {
+                serde_json::json!({
+                    "animation": row.animation,
+                    "row_index": row.row_index,
+                    "frame_count": row.frame_count,
+                    "duration_secs": row.duration_secs,
+                    "page": row.page,
+                    // `[x, y, w, h, page, off_x, off_y]` per frame — a flat
+                    // tuple rather than an object because a big sheet has
+                    // hundreds and the bundle is read by a browser.
+                    "rects": row
+                        .rects
+                        .iter()
+                        .map(|r| serde_json::json!([r.x, r.y, r.w, r.h, r.page, r.off.0, r.off.1]))
+                        .collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        out.insert(
+            key.clone(),
+            serde_json::json!({
+                "image": record.image,
+                "images": if record.images.is_empty() {
+                    vec![record.image.clone()]
+                } else {
+                    record.images.clone()
+                },
+                "frame_width": record.frame_width,
+                "frame_height": record.frame_height,
+                "label_width": record.label_width,
+                "y_offset": record.y_offset,
+                "authored_faces_left": record.authored_faces_left,
+                "body_pixel_bbox": metrics
+                    .and_then(|m| m.body_pixel_bbox)
+                    .map(|b| serde_json::json!([b.x, b.y, b.w, b.h])),
+                "feet_pixel": metrics
+                    .and_then(|m| m.feet_pixel)
+                    .map(|p| serde_json::json!([p.x, p.y])),
+                "rows": rows,
+            }),
+        );
+    }
+    serde_json::Value::Object(out)
 }
 
 /// One authored hit volume, flattened to the rectangle a viewer draws.
@@ -136,7 +224,12 @@ fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_cata
     pulses
 }
 
-fn derived_json(spec: &MoveSpec) -> serde_json::Value {
+/// `body_ranged` is the fighter's STANDING ranged kit — the action a firing move
+/// uses when it equips nothing of its own.
+fn derived_json(
+    spec: &MoveSpec,
+    body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
+) -> serde_json::Value {
     let actives: Vec<_> = spec
         .windows
         .iter()
@@ -218,14 +311,35 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         .map(|e| e.at_s)
         .fold(f32::NAN, f32::min);
     let fires_projectile = !fire_at_s.is_nan();
-    // The shot's own numbers, from the ranged action this move EQUIPS. A move
-    // that equips nothing fires the body's standing ranged kit, which is not a
-    // property of the move and is deliberately not reported here.
-    let shot = spec
+    // ⭐⭐ THE SHOT, IN THE RUNTIME'S OWN PRECEDENCE: what the move EQUIPS, then
+    // the body's standing ranged kit.
+    //
+    // ⛔⛔ THE SECOND HALF USED TO BE OMITTED ON PURPOSE, and the reasoning was
+    // wrong. The note here said the body's kit "is not a property of the move
+    // and is deliberately not reported" — but a move whose whole content is
+    // firing that kit HAS no other offence, so omitting it exported Projectile
+    // Polygon's neutral-B, the grid's one charge shot, as a move with no damage
+    // and no speed. The move does not OWN the kit; it does determine that the
+    // kit is what comes out, and that is the question a balance view asks.
+    let equipped = spec
         .equips
         .as_deref()
         .and_then(ambition_platformer2d::characters::brain::held_item_by_id)
         .and_then(|item| item.ranged);
+    let shot_source = if equipped.is_some() { "equipped" } else { "body" };
+    let shot = equipped.or_else(|| body_ranged.cloned());
+    // ⭐ AND A CHARGEABLE SHOT OWES ITS CEILING. A tap and a full hold are two
+    // different moves in every balance conversation the genre has; reporting the
+    // uncharged base alone describes the one nobody is worried about.
+    let charged = shot.as_ref().and_then(|r| {
+        r.charge.as_ref().map(|c| {
+            (
+                (r.damage as f32 * c.damage_mult).round() as i32,
+                r.speed * c.speed_mult,
+                c.size_mult,
+            )
+        })
+    });
     // Endlag: from the last hittable instant to the end of the move. A move
     // with no active window owes its whole duration, which is the honest answer
     // for a pure-mobility special.
@@ -263,6 +377,15 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         "fire_f": fires_projectile.then(|| frames(fire_at_s)),
         "projectile_damage": shot.as_ref().map(|r| r.damage),
         "projectile_speed": shot.as_ref().map(|r| r.speed),
+        // WHOSE shot this is. A viewer that could not tell an equipped weapon
+        // from the body's own kit would report the same number for two
+        // different balance facts.
+        "projectile_source": shot.as_ref().map(|_| shot_source),
+        // `None` for a shot that does not charge, which is every ranged action
+        // that has not opted in.
+        "projectile_damage_charged": charged.map(|(d, _, _)| d),
+        "projectile_speed_charged": charged.map(|(_, s, _)| s),
+        "projectile_size_charged": charged.map(|(_, _, m)| m),
         // The charge payoff a fully held release applies, so a smash's real
         // ceiling is one multiplication away rather than folklore.
         "max_damage_charged": (max_damage as f32 * spec.smash_charge_mult).round() as i32,
@@ -290,7 +413,11 @@ fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde
     })
 }
 
-fn move_json(spec: &MoveSpec, verbs: &[String]) -> serde_json::Value {
+fn move_json(
+    spec: &MoveSpec,
+    verbs: &[String],
+    body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
+) -> serde_json::Value {
     serde_json::json!({
         "id": spec.id,
         "display_name": spec.display_name.clone(),
@@ -322,7 +449,7 @@ fn move_json(spec: &MoveSpec, verbs: &[String]) -> serde_json::Value {
         })),
         "windows": spec.windows.iter().map(window_json).collect::<Vec<_>>(),
         "events": spec.events.iter().map(event_json).collect::<Vec<_>>(),
-        "derived": derived_json(spec),
+        "derived": derived_json(spec, body_ranged),
     })
 }
 
@@ -349,11 +476,17 @@ fn character_json(
 ) -> serde_json::Value {
     let contract = prepared.kit.projectable_moveset();
     let by_move = contract.map(verbs_by_move).unwrap_or_default();
+    // ⭐ THE BODY'S STANDING RANGED KIT, which a firing move that equips nothing
+    // is the one that comes out of. See `derived_json`.
+    let body_ranged = prepared
+        .kit
+        .action_set()
+        .and_then(|set| set.ranged.as_ref());
     let moves: Vec<_> = contract
         .map(|c| {
             c.moves
                 .iter()
-                .map(|m| move_json(m, by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[])))
+                .map(|m| move_json(m, by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[]), body_ranged))
                 .collect()
         })
         .unwrap_or_default();
@@ -470,12 +603,21 @@ fn main() {
         ));
     }
 
+    // ⭐⭐ AND THE ART, because a balance tool that cannot show the move is half a
+    // tool. Jon, 2026-08-27: *"The UI does not show any art, or how the move looks
+    // animated in game."* The brief said so from the start — *"we will see things
+    // like the pirate flying around on the shark"* — and boxes on a canvas are not
+    // that. One atlas table per sheet the cast actually uses, so the viewer can
+    // blit the same sub-rect the engine does.
+    let sheets = sheet_atlas_json(&characters);
+
     let bundle = serde_json::json!({
         "schema": SCHEMA,
         "sim_hz": SIM_HZ,
         "cast_generation": registry.generation().get(),
         "smash_grid": on_grid,
         "characters": characters,
+        "sheets": sheets,
     });
 
     let path = std::path::Path::new(&out);

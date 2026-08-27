@@ -29,6 +29,22 @@ WEB = HERE / "web"
 DATA = HERE / "data"
 REVIEWS = HERE / "reviews"
 
+# ⭐⭐ THE SPRITE SHEETS, SERVED WHERE THEY LIE. The inspector shows the real art
+# rather than boxes, and the art is tens of megabytes of PNG that already exists
+# in the engine's asset tree. Copying it into `data/` would double it on disk and
+# make every export a sync problem; serving the engine's own directory read-only
+# means the page always shows what the build would draw.
+#
+# ⛔ RESOLVED FROM THIS FILE, not from the working directory, so the wrapper can
+# be run from anywhere.
+SPRITES = (
+    HERE.parent.parent
+    / "crates"
+    / "ambition_platformer2d_actor_monolith"
+    / "assets"
+    / "sprites"
+)
+
 
 class InspectorHandler(SimpleHTTPRequestHandler):
     """Static files out of ``web/``, with ``data/`` and ``api/`` grafted on."""
@@ -73,6 +89,18 @@ class InspectorHandler(SimpleHTTPRequestHandler):
                 # Outside the bundle: answer as a miss rather than an error, so
                 # a probe learns nothing about what does or does not exist.
                 return str(root / "__outside_the_data_bundle__")
+            return str(candidate)
+        if parsed.startswith("/art/"):
+            # ⭐ THE SAME CONTAINMENT, for the same reason. Taking `.name` alone
+            # would already defeat `../`, but "this route happens to be safe by
+            # a different mechanism" is how the next route added here gets it
+            # wrong. One rule, asserted the same way at both seams.
+            root = SPRITES.resolve()
+            candidate = (root / parsed[len("/art/"):]).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                return str(root / "__outside_the_sprite_directory__")
             return str(candidate)
         return super().translate_path(path)
 

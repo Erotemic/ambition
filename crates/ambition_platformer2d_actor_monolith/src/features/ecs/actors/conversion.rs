@@ -9,6 +9,7 @@
 
 use super::super::*;
 use super::*;
+use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
 
 // It began as a matcher over an id, a display name and a dialogue node — *does any of them
 // contain "pirate"* — and handed the struck body a whole archetype.
@@ -26,11 +27,7 @@ use super::*;
 pub fn actor_component_snapshot(
     seed: &super::super::actor_clusters::ActorClusterSeed,
     disposition: ActorDisposition,
-) -> (
-    ActorIdentity,
-    ActorDisposition,
-    BodyCombat,
-) {
+) -> (ActorIdentity, ActorDisposition, BodyCombat) {
     // THE SEED'S OWN, not a rebuild (AC6.2). This constructed a fresh
     // `BodyCombat` and filled its one authored flag from
     // `ActorTuning::is_sandbag` — a copy of the character's `practice_target`
@@ -56,11 +53,7 @@ pub fn actor_component_snapshot(
 /// Hostile spawn read-models (the common case for authored enemies).
 pub fn enemy_component_snapshot(
     enemy: &super::super::actor_clusters::ActorClusterSeed,
-) -> (
-    ActorIdentity,
-    ActorDisposition,
-    BodyCombat,
-) {
+) -> (ActorIdentity, ActorDisposition, BodyCombat) {
     actor_component_snapshot(enemy, ActorDisposition::Hostile)
 }
 

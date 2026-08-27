@@ -142,25 +142,33 @@ pub enum ActorConstructionParams {
     /// A `"giant"`-class limbed host: an ordinary authored enemy body plus the host-side rig state
     /// its hands' limb relations attach to.
     GiantHost {
-        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
-        faction: crate::features::ActorFaction,
+        authored: ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
+        >,
+        faction: ambition_combat::components::ActorFaction,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
     /// One hand of a giant host. The body is built here; its `Limb` component and
     /// the host's rig entry are installed by the `ambition.limb` relation.
     GiantHand {
-        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
+        authored: ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
+        >,
     },
     /// An ordinary authored enemy. Every authored enemy is a plan row, built by
     /// the same populate function the former family loop used.
     AuthoredEnemy {
-        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
+        authored: ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
+        >,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
     /// An authored boss. Every authored boss is a plan row, built by the same
     /// populate function the former boss loop used, with default overrides.
     AuthoredBoss {
-        authored: ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+        authored: ambition_platformer2d_world::rooms::Authored<
+            ambition_entity_catalog::placements::BossBrain,
+        >,
     },
     /// One authored placement record beside its ALREADY-RESOLVED interpreter —
     /// the exact `(record, fn)` pair `PlacementLoweringPlan` froze at
@@ -193,7 +201,7 @@ pub struct SummonedMinionParams {
     pub half_size: ambition_platformer2d_core::Vec2,
     pub character_id: String,
     pub encounter_id: String,
-    pub faction: crate::features::ActorFaction,
+    pub faction: ambition_combat::components::ActorFaction,
     /// Health for this occurrence, overriding the character's authored vitals.
     /// See `ambition_vfx::SummonSpec::health`.
     pub health: Option<u32>,
@@ -599,7 +607,7 @@ fn construct_summoned_minion(
         &minion.character_id,
         minion.encounter_id.clone(),
         minion.faction,
-        crate::features::ActorAggression::hostile(),
+        ambition_combat::components::ActorAggression::hostile(),
         minion.health,
         minion.keeps_contact_damage,
     );
@@ -667,7 +675,7 @@ fn construct_giant_hand(
         root.entity(),
         authored,
         &[],
-        crate::features::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Enemy,
     );
 }
 
@@ -689,7 +697,7 @@ fn construct_authored_enemy(
         root.entity(),
         authored,
         paths,
-        crate::features::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Enemy,
     );
 }
 
@@ -972,10 +980,9 @@ pub fn verify_rig_composition(
 /// Wire a rider onto a mount: `RidingOn` + `Mounted` on the rider, `MountSlot`
 /// on the mount going back. One function writes both ends.
 fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
-    ctx.commands.entity(rider).insert((
-        ambition_mount::RidingOn { mount },
-        ambition_mount::Mounted,
-    ));
+    ctx.commands
+        .entity(rider)
+        .insert((ambition_mount::RidingOn { mount }, ambition_mount::Mounted));
     ctx.commands
         .entity(mount)
         .insert(ambition_mount::MountSlot { rider: Some(rider) });
@@ -1041,9 +1048,9 @@ fn verify_mount(
 fn wire_grudge(from: Entity, to: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
     ctx.commands
         .entity(from)
-        .insert(crate::features::ActorAggression {
+        .insert(ambition_combat::components::ActorAggression {
             grudge: Some(to),
-            ..crate::features::ActorAggression::hostile()
+            ..ambition_combat::components::ActorAggression::hostile()
         });
 }
 
@@ -1059,7 +1066,7 @@ fn verify_grudge(
     to: Entity,
     _relation: &ActorRelation,
 ) -> RelationCheck {
-    match world.get::<crate::features::ActorAggression>(from) {
+    match world.get::<ambition_combat::components::ActorAggression>(from) {
         None => RelationCheck::NotInstalled,
         Some(aggression) => match aggression.grudge {
             None => RelationCheck::NotInstalled,
@@ -1641,8 +1648,10 @@ pub fn staged_actor_requests(
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 // Invisible while an archetype row could answer for the brain key; a refusal the
                 // moment they went (AC6).
-                let host_payload =
-                    ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
+                let host_payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                    brain.clone(),
+                    character.clone(),
+                );
                 let host_authored = ambition_platformer2d_world::rooms::Authored::new(
                     request.id.clone(),
                     request.name.clone(),
@@ -1724,7 +1733,7 @@ pub fn authored_actor_requests(
             requests.append(&mut giant_cluster_rows(
                 giant_sim,
                 enemy.clone(),
-                crate::features::ActorFaction::Enemy,
+                ambition_combat::components::ActorFaction::Enemy,
                 // The host receives the SAME frozen room paths an ordinary
                 // authored enemy does; the pre-`e164f22` migration dropped
                 // them with `paths: Vec::new()`.
@@ -1782,8 +1791,10 @@ pub fn authored_actor_requests(
 #[allow(clippy::too_many_arguments)]
 fn giant_cluster_rows(
     host_sim: SimId,
-    host_authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
-    faction: crate::features::ActorFaction,
+    host_authored: ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+    >,
+    faction: ambition_combat::components::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     hands: Vec<crate::features::GiantHandPlan>,
     host_origin: SpawnOrigin,
@@ -1805,22 +1816,23 @@ fn giant_cluster_rows(
             origin: hand_origin(hand),
             parameters: ActorConstructionParams::GiantHand {
                 authored: {
-                    let mut authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> =
-                        ambition_platformer2d_world::rooms::Authored::new(
-                            hand.feature_id.clone(),
-                            "Giant GNU Hand",
-                            hand.aabb,
-                            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                                ambition_entity_catalog::placements::CharacterBrain::Custom(
-                                    "giant_gnu_hands".into(),
-                                ),
-                                //  the hand NAMES its character at
-                                // construction now, so its body comes from a
-                                // definition like every other creature and the
-                                // spec cannot exist without one.
-                                "npc_giant_gnu_hands",
+                    let mut authored: ambition_platformer2d_world::rooms::Authored<
+                        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+                    > = ambition_platformer2d_world::rooms::Authored::new(
+                        hand.feature_id.clone(),
+                        "Giant GNU Hand",
+                        hand.aabb,
+                        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                                "giant_gnu_hands".into(),
                             ),
-                        );
+                            //  the hand NAMES its character at
+                            // construction now, so its body comes from a
+                            // definition like every other creature and the
+                            // spec cannot exist without one.
+                            "npc_giant_gnu_hands",
+                        ),
+                    );
                     // A limb is not a combatant: the rider's routed strikes are what hurt, and the
                     // hand itself must never be targeted.
                     authored.payload.disposition =
@@ -1910,7 +1922,9 @@ pub fn placement_requests(
 
 /// Their specs always carried stable authored ids; the entities now wear them. Capability-owned
 /// families compose their own typed construction lanes beside this actor lane.
-pub fn authored_static_requests(room: &ambition_platformer2d_world::rooms::RoomSpec) -> Vec<ActorConstructionRequest> {
+pub fn authored_static_requests(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for shrine in &room.shrines {
         requests.push(ActorConstructionRequest {

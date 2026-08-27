@@ -829,7 +829,7 @@ fn a_crawler_seated_as_a_fighter_keeps_its_own_locomotion() {
 
     let seats: Vec<(usize, f32, i32, bool)> = {
         let world = app.world_mut();
-        let mut q = world.query::<(&MatchSeat, &crate::features::ActorConfig)>();
+        let mut q = world.query::<(&MatchSeat, &ambition_combat::actor_tuning::ActorConfig)>();
         let mut rows: Vec<(usize, f32, i32, bool)> = q
             .iter(world)
             .map(|(seat, config)| {

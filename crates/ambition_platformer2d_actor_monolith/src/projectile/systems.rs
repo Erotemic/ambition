@@ -6,11 +6,12 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
-use crate::features::{
-    ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity,
-};
+use crate::features::FeatureSimEntity;
 use crate::trace::GameplayTraceBuffer;
 use ambition_boss_encounter::{BossClusterRef, BossConfig};
+use ambition_combat::components::{
+    ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId,
+};
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
@@ -19,8 +20,9 @@ use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
 use ambition_projectiles::ProjectileGameplay;
-use ambition_projectiles::{resolve_world_collision, WorldHitOutcome};
-use ambition_projectiles::{ProjectileSpawnRequest, ProjectileStart};
+use ambition_projectiles::{
+    resolve_world_collision, ProjectileSpawnRequest, ProjectileStart, WorldHitOutcome,
+};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 
@@ -396,7 +398,7 @@ pub fn step_projectiles(
             BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
+            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
         With<FeatureSimEntity>,
     >,

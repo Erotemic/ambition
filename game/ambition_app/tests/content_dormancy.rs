@@ -13,9 +13,9 @@
 //! to a schedule, and everything would still build.
 
 use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
-use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::brain::Brain;
+use ambition_platformer2d::combat::components::{ActorFaction, FeatureId};
 use ambition_platformer2d::platformer::markers::PlayerEntity;
 use bevy::prelude::{Or, With, Without};
 

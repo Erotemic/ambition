@@ -109,7 +109,9 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
         >();
         matches!(
             q.iter(app.world()).next(),
-            Some(ambition_platformer2d::actor::MotionModel::SurfaceMomentum(_))
+            Some(ambition_platformer2d::actor::MotionModel::SurfaceMomentum(
+                _
+            ))
         )
     };
     assert!(
@@ -151,8 +153,8 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
 /// exact equality with the table he authored.
 #[test]
 fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
-    use ambition_platformer2d::combat::moveset::ActorMoveset;
     use ambition_platformer2d::characters::brain::ActionSet;
+    use ambition_platformer2d::combat::moveset::ActorMoveset;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     app.update();
@@ -392,7 +394,7 @@ fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() 
 #[test]
 fn every_authored_badnik_declares_whether_it_sleeps() {
     use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
-    use ambition_platformer2d::actors::features::ActorConfig;
+    use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     for _ in 0..240 {

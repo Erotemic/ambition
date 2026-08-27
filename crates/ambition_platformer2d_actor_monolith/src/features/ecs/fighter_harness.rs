@@ -12,8 +12,10 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::actor::ActorPose;
-use ambition_characters::brain::{action_set::ActionRequest, ActionSet, ActorActionMessage, RangedActionSpec};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::brain::{
+    action_set::ActionRequest, ActionSet, ActorActionMessage, RangedActionSpec,
+};
+use ambition_characters::control::ActorControl;
 
 use super::actor_clusters::ActorClusterSeed;
 use super::brain_effects::spawn_projectiles_from_brain_actions;
@@ -26,7 +28,7 @@ pub const HARNESS_DT: f32 = 1.0 / 60.0;
 /// (`em.update()` → `BodyMelee::tick`). Isolated here so the harness
 /// advances body cooldowns without standing up the full integration system; the
 /// fire-rate enforcement under test reads the same `ranged_cooldown` this decays.
-fn tick_body_cooldowns(mut q: Query<&mut crate::features::BodyMelee>) {
+fn tick_body_cooldowns(mut q: Query<&mut ambition_combat::components::BodyMelee>) {
     for mut attack in &mut q {
         // Advances the melee swing (none armed on the fire path) and the
         // `ranged_cooldown` floor the fire-rate test reads.
@@ -59,7 +61,7 @@ impl FighterHarness {
         app.add_message::<ActorActionMessage>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
-                app.init_resource::<ProjectileSeqCounter>();
+        app.init_resource::<ProjectileSeqCounter>();
         // The real pipeline, in order: tick body cooldowns, resolve the seam,
         // enforce + emit fire effects, then materialize the projectiles.
         app.add_systems(
@@ -90,7 +92,7 @@ impl FighterHarness {
         let body = app
             .world_mut()
             .spawn((
-                crate::features::ActorDisposition::Hostile,
+                ambition_combat::components::ActorDisposition::Hostile,
                 seed.into_components(),
                 action_set,
                 ActorControl::default(),

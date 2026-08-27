@@ -446,7 +446,7 @@ where
         "derived.actor_steering",
         "rebuilt from the authoritative actor population before movement",
     );
-    registrar.declare_rollback_derived_component::<crate::features::BossAnimationFrameSample>(
+    registrar.declare_rollback_derived_component::<ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>(
         OWNER,
         "derived.boss_animation_frame_sample",
         "republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor",

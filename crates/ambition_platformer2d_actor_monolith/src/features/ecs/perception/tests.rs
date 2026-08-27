@@ -479,7 +479,7 @@ fn collect_perception_peers_snapshots_every_body() {
     let alice = app
         .world_mut()
         .spawn((
-            crate::features::FeatureId::new("alice"),
+            ambition_combat::components::FeatureId::new("alice"),
             kin(10.0),
             BodyHealth::new(Health::new(5)),
             ActorFaction::Enemy,

@@ -426,7 +426,9 @@ impl PreparedMatch {
     pub fn seats_on_side(&self, side: &str) -> usize {
         self.seats
             .iter()
-            .filter(|seat| ambition_combat::stocks::side_label(seat.seat, seat.team.as_ref()) == side)
+            .filter(|seat| {
+                ambition_combat::stocks::side_label(seat.seat, seat.team.as_ref()) == side
+            })
             .count()
     }
 
@@ -1055,9 +1057,13 @@ fn realize_seat(
                     identity,
                     disposition,
                     seat.faction,
-                    crate::features::ActorPose::from_parts(at, seat.body_px / 2.0, facing),
+                    ambition_combat::components::ActorPose::from_parts(
+                        at,
+                        seat.body_px / 2.0,
+                        facing,
+                    ),
                     combat_kit,
-                    crate::features::ActorAggression::hostile(),
+                    ambition_combat::components::ActorAggression::hostile(),
                     combat,
                 )
                 .with_motion_model(motion_model),

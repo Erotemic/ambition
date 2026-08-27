@@ -2,6 +2,7 @@
 //! ECS boss update (`update_ecs_bosses`).
 
 use super::super::*;
+use ambition_combat::components::{BossDeathAnimation, BossPatternTimer, BossPhase, CenteredAabb};
 
 use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
 use ambition_characters::control::ActorControl;
@@ -288,7 +289,7 @@ pub fn project_boss_attack_state_from_move(
 }
 
 /// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish the per-frame
-/// [`crate::features::BossAnimationFrameSample`] the boss GEOMETRY reads. This retires the
+/// [`ambition_boss_encounter::attack_geometry::BossAnimationFrameSample`] the boss GEOMETRY reads. This retires the
 /// render→sim WRITE-BACK: render no longer owns or writes the frame. Now the SIM owns the
 /// cursor: it picks the anim from the projected `BossAttackState`, advances the frame, and
 /// writes the sample; the renderer mirrors that cursor into its draw-only
@@ -299,7 +300,7 @@ pub fn drive_boss_animators(
     world_time: Res<WorldTime>,
     ecs_bosses: Query<(
         Entity,
-        &crate::features::FeatureId,
+        &ambition_combat::components::FeatureId,
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
@@ -308,7 +309,7 @@ pub fn drive_boss_animators(
     )>,
     mut frames: Query<(
         Entity,
-        &crate::features::FeatureId,
+        &ambition_combat::components::FeatureId,
         &mut ambition_boss_encounter::sprites::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
@@ -336,7 +337,7 @@ pub fn drive_boss_animators(
             None => {
                 commands
                     .entity(entity)
-                    .remove::<crate::features::BossAnimationFrameSample>();
+                    .remove::<ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>();
             }
         }
     }

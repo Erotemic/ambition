@@ -22,15 +22,21 @@ use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::host::gameplay_presentation::{HostGameplayPresentationPlugin, ScreenOccupancy};
+use ambition_platformer2d::host::gameplay_presentation::{
+    HostGameplayPresentationPlugin, ScreenOccupancy,
+};
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
 use ambition_platformer2d::presentation::gameplay_presentation::{
     profiles, ActiveGameplayPresentationProfiles, GameplayPresentationProfiles,
     PresentationEnvironment, ResolvedGameplayPresentation, ScreenOcclusionPurpose, ScreenRect,
 };
-use ambition_platformer2d::touch_input::bevy_plugin::{MobileStick, VirtualJoystickNode, VirtualJoystickPlugin};
-use ambition_platformer2d::touch_input::bevy_plugin::{MobileTouchUiRoot, TouchControlsVisible, TouchSurface};
-use ambition_platformer2d::touch_input::placement::{TouchControlPlacement, TouchPresentationPlugin};
+use ambition_platformer2d::touch_input::bevy_plugin::{
+    MobileStick, MobileTouchUiRoot, TouchControlsVisible, TouchSurface, VirtualJoystickNode,
+    VirtualJoystickPlugin,
+};
+use ambition_platformer2d::touch_input::placement::{
+    TouchControlPlacement, TouchPresentationPlugin,
+};
 
 /// An app running the REAL `bevy_ui` layout pass, the real host presentation
 /// cluster, and the real touch placement systems against a synthetic window.

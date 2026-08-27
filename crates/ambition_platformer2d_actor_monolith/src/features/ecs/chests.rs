@@ -1,6 +1,9 @@
 //! Player → static-chest open path on the ECS feature side.
 
 use super::*;
+use ambition_combat::components::{
+    CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
+};
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 use ambition_sfx::{SfxMessage, SfxWriter};
 

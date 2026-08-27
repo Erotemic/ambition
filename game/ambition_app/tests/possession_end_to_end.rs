@@ -23,8 +23,8 @@
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-use ambition_platformer2d::actors::features::{ActorFaction, FeatureId};
 use ambition_platformer2d::characters::control::ActorControl;
+use ambition_platformer2d::combat::components::{ActorFaction, FeatureId};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -161,7 +161,8 @@ fn possessed_actor_reads_this_frame_slot_input() {
 /// Attack authority follows the primary seat, not the home body.
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
-    use ambition_platformer2d::actors::features::{BodyMelee, Hitbox};
+    use ambition_platformer2d::actors::features::Hitbox;
+    use ambition_platformer2d::combat::components::BodyMelee;
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");

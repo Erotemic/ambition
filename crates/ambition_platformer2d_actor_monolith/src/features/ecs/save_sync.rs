@@ -6,6 +6,10 @@
 //! cleared bosses, flipped switches) before gameplay resumes.
 
 use super::*;
+use ambition_combat::components::{
+    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode,
+    BossDeathAnimation, BossPhase, CombatKit, FeatureId,
+};
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 
 /// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.

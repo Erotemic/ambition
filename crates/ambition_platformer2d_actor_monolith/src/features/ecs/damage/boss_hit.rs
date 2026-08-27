@@ -15,8 +15,7 @@ use ambition_combat::util::midpoint;
 // spawners live in `damage_drops`.
 use ambition_boss_encounter::BossEncounter;
 use ambition_sfx::SfxMessage;
-use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxMessage};
 
 use super::*;
 
@@ -111,7 +110,7 @@ pub(crate) fn apply_boss_hit(
     combat: &mut ambition_characters::actor::BodyCombat,
     wallet_shield: Option<ambition_damage::WalletArmor<'_>>,
     attack_state: &ambition_characters::brain::BossAttackState,
-    animation_frame: Option<&crate::features::BossAnimationFrameSample>,
+    animation_frame: Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     // CM8: how this boss reacts to being hurt (its `CombatTuning.hurt_feedback`,
@@ -135,8 +134,8 @@ pub(crate) fn apply_boss_hit(
         // so core never names a specific boss. Keep this before the
         // generic damage branch so harmless feedback cannot accidentally
         // route through `record_boss_damage`.
-        let damageable = crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_ref(
+        let damageable = ambition_boss_encounter::attack_geometry::damageable_volumes(
+            &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
                 boss_catalog,
                 boss.as_ref(),
                 attack_state,
@@ -172,9 +171,13 @@ pub(crate) fn apply_boss_hit(
     // live) so GNU-ton's head-descent vulnerability window
     // and the standard whole-body hurtbox agree on a single
     // attack-state source.
-    let damageable = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_ref(boss_catalog, boss.as_ref(), attack_state)
-            .with_animation_frame(animation_frame),
+    let damageable = ambition_boss_encounter::attack_geometry::damageable_volumes(
+        &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+            boss_catalog,
+            boss.as_ref(),
+            attack_state,
+        )
+        .with_animation_frame(animation_frame),
     );
     let Some(hit_aabb) = damageable.iter().find(|part| event.volume.intersects(part)) else {
         return false;

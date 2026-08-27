@@ -643,7 +643,10 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     );
     let by_id = |sim: &mut Platformer2dSimHarness, id: &str| {
         let world = sim.world_mut();
-        let mut q = world.query::<(Entity, &ambition_platformer2d::actors::features::FeatureId)>();
+        let mut q = world.query::<(
+            Entity,
+            &ambition_platformer2d::combat::components::FeatureId,
+        )>();
         q.iter(world)
             .find(|(_, feature)| feature.as_str() == id)
             .map(|(entity, _)| entity)

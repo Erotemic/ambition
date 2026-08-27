@@ -8,9 +8,10 @@
 use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::actors::features::{ActorConfig, ActorDisposition, ActorIdentity};
-use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::characters::actor::WornCharacter;
+use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+use ambition_platformer2d::combat::components::{ActorDisposition, ActorIdentity};
 
 const CHARACTER: &str = "npc_puppy_slug";
 
@@ -102,14 +103,14 @@ fn one_character_built_as_an_npc_and_as_a_summon_is_the_same_body() {
     for _ in 0..4 {
         summoned.step(AgentAction::default());
     }
-    let (as_summon, summon_disposition) =
-        body_of(&mut summoned, Some("cross_context_probe")).unwrap_or_else(|| {
-        panic!(
-            "the summon road built no body identified as `{CHARACTER}` — a \
+    let (as_summon, summon_disposition) = body_of(&mut summoned, Some("cross_context_probe"))
+        .unwrap_or_else(|| {
+            panic!(
+                "the summon road built no body identified as `{CHARACTER}` — a \
              programmatic spawn naming a registered character must produce that \
              character, which is the whole of P1.12"
-        )
-    });
+            )
+        });
 
     // non-degenerate, or two empty bodies would compare equal. A slug with
     // no health and no speed is what a body built from nothing looks like, and

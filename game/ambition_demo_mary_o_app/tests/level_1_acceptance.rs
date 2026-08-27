@@ -92,10 +92,10 @@ fn world_items(app: &mut App) -> Vec<(String, ae::Vec2)> {
 
 fn body(app: &mut App) -> Option<Body> {
     let mut hostiles = app.world_mut().query_filtered::<(
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_platformer2d::characters::actor::BodyHealth,
     ), (
-        With<ambition_platformer2d::actors::features::ActorDisposition>,
+        With<ambition_platformer2d::combat::components::ActorDisposition>,
         Without<PrimaryPlayer>,
     )>();
     let threats: Vec<ae::Aabb> = hostiles
@@ -945,8 +945,8 @@ fn snake_by_id(
     id: &str,
 ) -> Option<(ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
     let mut q = app.world_mut().query::<(
-        &ambition_platformer2d::actors::features::FeatureId,
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::FeatureId,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_demo_mary_o::snake::SnakeShell,
     )>();
     q.iter(app.world())
@@ -963,8 +963,8 @@ fn some_snake(
     app: &mut App,
 ) -> Option<(String, ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
     let mut q = app.world_mut().query::<(
-        &ambition_platformer2d::actors::features::FeatureId,
-        &ambition_platformer2d::actors::features::CenteredAabb,
+        &ambition_platformer2d::combat::components::FeatureId,
+        &ambition_platformer2d::combat::components::CenteredAabb,
         &ambition_demo_mary_o::snake::SnakeShell,
     )>();
     let mut found: Vec<_> = q

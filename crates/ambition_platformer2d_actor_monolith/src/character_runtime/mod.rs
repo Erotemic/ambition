@@ -25,8 +25,8 @@ pub(crate) use ambition_characters::prepared::{
     prepare_and_finalize_against_for_test, prepare_and_finalize_for_test,
 };
 pub use audit::{
-    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
-    unsettled_staged_characters,
+    audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
+    CharacterCapabilityGap,
 };
 pub use definition::{
     CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
@@ -34,25 +34,23 @@ pub use definition::{
     MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
 };
 pub use hurtbox::{
-    AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
-    ResolvedHurtboxes, resolve_hurtboxes,
+    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
+    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
 pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use prepared_match::{
-    ControlAuthority, MatchPreparationProblems, MatchRules, OPENING_BEATS, OpeningPhase,
-    PreparedMatch, PreparedSeat, activate_the_prepared_match, declare_the_match_cast_as_the_view,
-    effective_abilities, prepare_match, prepare_the_match, release_the_opening_hold,
-    seat_placement,
+    activate_the_prepared_match, declare_the_match_cast_as_the_view, effective_abilities,
+    prepare_match, prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
+    MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
 };
 pub use presentation::{
-    KitOwnership, ProjectedCharacterKit, authorize_staged_character_presentation_sources,
-    grant_prepared_character_body, inherit_projectile_presentation_sources,
-    project_prepared_character_definitions, provider_of_character,
-    publish_body_presentation_sources,
+    authorize_staged_character_presentation_sources, grant_prepared_character_body,
+    inherit_projectile_presentation_sources, project_prepared_character_definitions,
+    provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
 };
-pub use seating::{ActiveMatch, MatchInstance, MatchSeat, match_participants};
+pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 
 /// Body-complete fixture cast for tests that need registered characters but do
 /// not care which creatures they are.
@@ -547,7 +545,10 @@ pub fn declare_registered_characters(
 /// once when the component appears is both sufficient and the only affordable
 /// option.
 pub fn demand_actor_character_sheets(
-    actors: Query<&crate::features::ActorConfig, Added<crate::features::ActorConfig>>,
+    actors: Query<
+        &ambition_combat::actor_tuning::ActorConfig,
+        Added<ambition_combat::actor_tuning::ActorConfig>,
+    >,
     demand: Option<ResMut<CharacterLoadDemand>>,
 ) {
     let Some(mut demand) = demand else {

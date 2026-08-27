@@ -45,8 +45,8 @@ pub(super) struct HudCameraParams<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_platformer2d::actors::features::FeatureName,
-            &'static ambition_platformer2d::actors::features::ActorDisposition,
+            &'static ambition_platformer2d::combat::components::FeatureName,
+            &'static ambition_platformer2d::combat::components::ActorDisposition,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::actor::BodyCombat,
         ),

@@ -352,7 +352,7 @@ pub struct HostileWieldedItemFact {
 pub fn rebuild_hostile_wielded_items_view(
     mut view: ResMut<HostileWieldedItemsView>,
     wielders: Query<(
-        &ambition_platformer2d_actor_monolith::features::ActorDisposition,
+        &ambition_combat::components::ActorDisposition,
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         Option<&BodyKinematics>,
         Option<&BodyHealth>,
@@ -480,42 +480,42 @@ pub fn rebuild_dynamic_feature_views(
     mut view: ResMut<DynamicFeatureViews>,
     ecs_mobs: Query<
         (
-            &ambition_platformer2d_actor_monolith::features::FeatureId,
-            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
-            &ambition_platformer2d_actor_monolith::features::ActorDisposition,
-            Option<&ambition_platformer2d_actor_monolith::features::ActorConfig>,
+            &ambition_combat::components::FeatureId,
+            &ambition_combat::components::CenteredAabb,
+            &ambition_combat::components::ActorDisposition,
+            Option<&ambition_combat::actor_tuning::ActorConfig>,
         ),
-        With<ambition_platformer2d_actor_monolith::features::EncounterMob>,
+        With<ambition_combat::components::EncounterMob>,
     >,
     staged_actors: Query<
         (
-            &ambition_platformer2d_actor_monolith::features::FeatureId,
-            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
-            &ambition_platformer2d_actor_monolith::features::ActorDisposition,
-            Option<&ambition_platformer2d_actor_monolith::features::ActorConfig>,
+            &ambition_combat::components::FeatureId,
+            &ambition_combat::components::CenteredAabb,
+            &ambition_combat::components::ActorDisposition,
+            Option<&ambition_combat::actor_tuning::ActorConfig>,
         ),
-        With<ambition_platformer2d_actor_monolith::features::RuntimeStagedActor>,
+        With<ambition_combat::components::RuntimeStagedActor>,
     >,
     post_boss_npcs: Query<
         (
-            &ambition_platformer2d_actor_monolith::features::FeatureId,
-            &ambition_platformer2d_actor_monolith::features::FeatureName,
-            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
-            &ambition_platformer2d_actor_monolith::features::ActorDisposition,
-            Option<&ambition_platformer2d_actor_monolith::features::ActorConfig>,
-            Option<&ambition_platformer2d_actor_monolith::features::ActorInteraction>,
+            &ambition_combat::components::FeatureId,
+            &ambition_combat::components::FeatureName,
+            &ambition_combat::components::CenteredAabb,
+            &ambition_combat::components::ActorDisposition,
+            Option<&ambition_combat::actor_tuning::ActorConfig>,
+            Option<&ambition_combat::components::ActorInteraction>,
         ),
-        With<ambition_platformer2d_actor_monolith::features::PostBossNpc>,
+        With<ambition_combat::components::PostBossNpc>,
     >,
     ecs_reward_chests: Query<
         (
-            &ambition_platformer2d_actor_monolith::features::FeatureId,
-            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
-            &ambition_platformer2d_actor_monolith::features::ChestFeature,
+            &ambition_combat::components::FeatureId,
+            &ambition_combat::components::CenteredAabb,
+            &ambition_combat::components::ChestFeature,
         ),
         bevy::prelude::Or<(
-            With<ambition_platformer2d_actor_monolith::features::EncounterRewardChest>,
-            With<ambition_platformer2d_actor_monolith::features::BossRewardChest>,
+            With<ambition_combat::components::EncounterRewardChest>,
+            With<ambition_combat::components::BossRewardChest>,
         )>,
     >,
     // Loot the running simulation MINTED — Sanic's scattered rings, and every
@@ -526,14 +526,14 @@ pub fn rebuild_dynamic_feature_views(
     // pickup already has its visual and is filtered out below.
     dropped_pickups: Query<
         (
-            &ambition_platformer2d_actor_monolith::features::FeatureId,
-            &ambition_platformer2d_actor_monolith::features::FeatureName,
-            &ambition_platformer2d_actor_monolith::features::CenteredAabb,
-            &ambition_platformer2d_actor_monolith::features::PickupFeature,
+            &ambition_combat::components::FeatureId,
+            &ambition_combat::components::FeatureName,
+            &ambition_combat::components::CenteredAabb,
+            &ambition_combat::components::PickupFeature,
             &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
             Option<&ambition_platformer2d_actor_monolith::features::PickupArt>,
         ),
-        Without<ambition_platformer2d_actor_monolith::features::Collected>,
+        Without<ambition_combat::components::Collected>,
     >,
 ) {
     use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
@@ -832,8 +832,9 @@ mod tests {
     /// another.
     #[test]
     fn a_peaceful_encounter_mob_still_publishes_a_visual_fact() {
-        use ambition_platformer2d_actor_monolith::features::{
-            ActorConfig, ActorDisposition, CenteredAabb, EncounterMob, FeatureId,
+        use ambition_combat::actor_tuning::ActorConfig;
+        use ambition_combat::components::{
+            ActorDisposition, CenteredAabb, EncounterMob, FeatureId,
         };
         let mut app = App::new();
         app.init_resource::<DynamicFeatureViews>();

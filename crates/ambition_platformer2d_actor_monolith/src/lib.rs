@@ -17,11 +17,11 @@ pub mod audio;
 /// its starting character, its emitted trail, and the tick that integrates it. What is named here
 /// is named correctly.
 pub mod avatar;
+pub mod brain_tick;
 #[cfg(feature = "causal")]
 pub mod causal;
 #[cfg(test)]
 mod character_roster;
-pub mod brain_tick;
 pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
@@ -112,10 +112,10 @@ pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
 /// The state of one in-flight player melee swing is now the unified
-/// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor
+/// [`ambition_combat::components::MeleeSwing`] — the SAME swing every brain-driven actor
 /// carries (the player is an actor). Re-exported at the crate root so existing
 /// `crate::MeleeSwing` / `ambition_platformer2d_actor_monolith::MeleeSwing` paths resolve.
-pub use crate::features::MeleeSwing;
+pub use ambition_combat::components::MeleeSwing;
 
 #[cfg(test)]
 mod safe_pos_tests;

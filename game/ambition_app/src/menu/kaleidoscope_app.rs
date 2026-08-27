@@ -16,10 +16,11 @@ use ambition_platformer2d::menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, MenuActionActivated,
 };
 #[cfg(feature = "kaleidoscope_menu")]
-use ambition_platformer2d::menu::{MenuDynamicText, MenuDynamicTextContent};
+use ambition_platformer2d::menu::{
+    AmbitionMenuControl, MenuDynamicText, MenuDynamicTextContent, MenuVisualState,
+};
 // Named only by the cube's own systems, so they follow the same gate the cube does.
 #[cfg(feature = "kaleidoscope_menu")]
-use ambition_platformer2d::menu::{AmbitionMenuControl, MenuVisualState};
 // The cube renderer's own vocabulary. Everything that touches it is gated with
 // it — see the module doc and `menu/mod.rs`.
 #[cfg(feature = "kaleidoscope_menu")]
@@ -46,9 +47,8 @@ use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_platformer2d::actors::avatar::PlayerHealRequested;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::input::MenuControlFrame;
-use ambition_platformer2d::items::{Item, OwnedItems};
+use ambition_platformer2d::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 #[cfg(feature = "kaleidoscope_menu")]
-use ambition_platformer2d::items::{ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,

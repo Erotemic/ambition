@@ -190,7 +190,7 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
 #[test]
 fn possession_survives_the_real_rollback_window() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::features::FeatureId;
+    use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
     // copied from `possession_end_to_end`'s helper rather than reinvented:

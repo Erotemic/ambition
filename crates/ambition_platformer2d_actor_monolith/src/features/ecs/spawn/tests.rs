@@ -4,12 +4,15 @@
 use super::super::brain_builders::enemy_default_brain;
 use super::super::spawn_actors::spawn_boss_with_overrides_into;
 use super::*;
-use crate::features::{
-    ActorAggression, ActorConfig, ActorDisposition, ActorIdentity, AggressionMode, CombatKit,
-};
 use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_characters::brain::{ActionSet, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg};
-use ambition_characters::control::{ActorControl};
+use ambition_characters::brain::{
+    ActionSet, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
+};
+use ambition_characters::control::ActorControl;
+use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::components::{
+    ActorAggression, ActorDisposition, ActorIdentity, AggressionMode, CombatKit,
+};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
 
@@ -263,7 +266,6 @@ fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
 #[test]
 fn boss_spawn_attaches_brain_components() {
     use ambition_characters::brain::{ActionSet, Brain, StateMachineCfg};
-use ambition_characters::control::{ActorControl};
     let mut app = App::new();
     app.add_systems(Update, |mut commands: Commands| {
         let authored = ambition_platformer2d_world::rooms::Authored {
@@ -681,7 +683,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );
@@ -757,7 +759,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );
@@ -882,7 +884,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );
@@ -1027,7 +1029,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );
@@ -1088,7 +1090,6 @@ mod authored_enemy_reads_its_character {
     // characters"*. Every composition in the repository publishes one now; a body with nothing
     // to build it from is a construction error in all of them, which is what makes the road
     // deletable rather than merely unused.
-
 
     /// A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.
     ///
@@ -1169,7 +1170,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );
@@ -1187,7 +1188,6 @@ mod authored_enemy_reads_its_character {
     ) -> (i32, f32, i32) {
         spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
     }
-
 
     fn spawn_with_prepared_and_brain(
         prepared: crate::character_runtime::PreparedCharacterRegistry,
@@ -1233,7 +1233,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );
@@ -1288,7 +1288,7 @@ mod authored_enemy_reads_its_character {
                     root,
                     &authored,
                     &[],
-                    crate::features::ActorFaction::Enemy,
+                    ambition_combat::components::ActorFaction::Enemy,
                 );
             },
         );

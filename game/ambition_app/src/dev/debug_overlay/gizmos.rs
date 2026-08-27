@@ -86,7 +86,7 @@ pub struct FeatureDebugQueries<'w, 's> {
             ambition_platformer2d::boss_encounter::BossClusterRef,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::brain::BossAttackState,
-            Option<&'static ambition_platformer2d::actors::features::BossAnimationFrameSample>,
+            Option<&'static ambition_platformer2d::boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
         With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
@@ -94,28 +94,28 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_platformer2d::actors::features::ActorDisposition,
-            &'static ambition_platformer2d::actors::features::ActorAggression,
-            &'static ambition_platformer2d::actors::features::CenteredAabb,
+            &'static ambition_platformer2d::combat::components::ActorDisposition,
+            &'static ambition_platformer2d::combat::components::ActorAggression,
+            &'static ambition_platformer2d::combat::components::CenteredAabb,
         ),
         With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
     pub breakables: Query<
         'w,
         's,
-        &'static ambition_platformer2d::actors::features::CenteredAabb,
+        &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
             With<ambition_platformer2d::actors::features::FeatureSimEntity>,
-            With<ambition_platformer2d::actors::features::BreakableFeature>,
+            With<ambition_platformer2d::combat::components::BreakableFeature>,
         ),
     >,
     pub chests: Query<
         'w,
         's,
-        &'static ambition_platformer2d::actors::features::CenteredAabb,
+        &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
             With<ambition_platformer2d::actors::features::FeatureSimEntity>,
-            With<ambition_platformer2d::actors::features::ChestFeature>,
+            With<ambition_platformer2d::combat::components::ChestFeature>,
         ),
     >,
     pub hazards: Query<
@@ -283,8 +283,8 @@ pub(crate) fn draw_player_debug(
     // damage resolution, enemies, and bosses use (`collision_aabb`), so the
     // overlay provably draws the gameplay hurtbox by construction rather than a
     // parallel computation that could drift. Identity under vertical gravity.
-    let body = ambition_platformer2d::actors::features::collision_aabb(
-        &ambition_platformer2d::actors::features::SimpleActorGeometry {
+    let body = ambition_platformer2d::boss_encounter::attack_geometry::collision_aabb(
+        &ambition_platformer2d::boss_encounter::attack_geometry::SimpleActorGeometry {
             // The presented centre, with the size/facing/frame the sim published:
             // the shared-geometry guarantee above is about the SHAPE, and moving
             // the centre onto the render clock leaves that untouched.
@@ -585,12 +585,13 @@ pub(crate) fn draw_feature_debug(
         if !health.alive() {
             continue;
         }
-        let ctx = ambition_platformer2d::actors::features::BossVolumeContext::from_ref(
-            &feature_q.boss_catalog,
-            bf.as_boss_ref(),
-            attack_state,
-        )
-        .with_animation_frame(animation_frame);
+        let ctx =
+            ambition_platformer2d::boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+                &feature_q.boss_catalog,
+                bf.as_boss_ref(),
+                attack_state,
+            )
+            .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         label_box(
             labels,
@@ -623,7 +624,9 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::BottomRight,
             );
         }
-        for hurtbox in ambition_platformer2d::actors::features::damageable_volumes(&ctx) {
+        for hurtbox in
+            ambition_platformer2d::boss_encounter::attack_geometry::damageable_volumes(&ctx)
+        {
             // The published silhouette's REAL shape — a boss part may be an
             // authored hull, and drawing its bounding box here is how an
             // overlay tells you a lie that looks like a measurement.
@@ -636,7 +639,9 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::TopLeft,
             );
         }
-        for vol in ambition_platformer2d::actors::features::active_attack_volumes(&ctx) {
+        for vol in
+            ambition_platformer2d::boss_encounter::attack_geometry::active_attack_volumes(&ctx)
+        {
             draw_hitbox_volume(gizmos, world, &vol, active_color, developer_tools);
             label_box(
                 labels,

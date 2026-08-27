@@ -56,7 +56,7 @@ pub fn tag_sanic_badniks(
     fresh: Query<
         (
             Entity,
-            &ambition_platformer2d::actors::features::ActorConfig,
+            &ambition_platformer2d::combat::actor_tuning::ActorConfig,
         ),
         Without<ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy>,
     >,

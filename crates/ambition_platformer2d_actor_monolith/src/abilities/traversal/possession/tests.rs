@@ -1,7 +1,7 @@
 use super::*;
-use crate::features::ActorFaction;
 use ambition_characters::brain::StateMachineCfg;
 use ambition_characters::control::PlayerSlot;
+use ambition_combat::components::ActorFaction;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 

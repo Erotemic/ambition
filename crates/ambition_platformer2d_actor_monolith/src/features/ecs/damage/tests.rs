@@ -9,6 +9,7 @@ use super::*;
 use crate::features::ecs::enemy_component_snapshot;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
+use ambition_combat::components::{ActorAggression, ActorInteraction, AggressionMode, CombatKit};
 use ambition_combat::events::{HitMode, HitTarget};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -53,7 +54,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             // Production hostile actors receive this from `EnemyActorBundle`.
             // Keep the shared damage fixture structurally representative so
             // body-generic contact resolution can see it as a `StrikeVictim`.
-            crate::features::ActorFaction::Enemy,
+            ambition_combat::components::ActorFaction::Enemy,
             identity,
             disposition,
             combat,
@@ -491,10 +492,10 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
     );
     let (identity, disposition, combat) = crate::features::ecs::actors::actor_component_snapshot(
         &seed,
-        crate::features::ActorDisposition::Peaceful,
+        ambition_combat::components::ActorDisposition::Peaceful,
     );
-    let aggression = crate::features::ecs::ActorAggression {
-        mode: crate::features::ecs::AggressionMode::RetaliatesWhenHit {
+    let aggression = ambition_combat::components::ActorAggression {
+        mode: ambition_combat::components::AggressionMode::RetaliatesWhenHit {
             strike_threshold: crate::features::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
         },
         target: None,
@@ -508,10 +509,10 @@ fn spawn_talkable_npc(app: &mut App, hp: i32) -> bevy::prelude::Entity {
             FeatureId::new("alice"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             aggression,
-            crate::features::ecs::CombatKit::default(),
+            ambition_combat::components::CombatKit::default(),
             seed.into_components(),
             ambition_platformer2d_core::movement::MotionModel::default(),
-            crate::features::ecs::ActorInteraction {
+            ambition_combat::components::ActorInteraction {
                 interactable,
                 talk_radius: crate::features::NPC_TALK_RADIUS,
             },
@@ -1089,8 +1090,11 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
         },
     );
     app.update();
-    let mut q = app.world_mut().query::<&crate::features::ActorFaction>();
-    let factions: Vec<crate::features::ActorFaction> = q.iter(app.world()).cloned().collect();
+    let mut q = app
+        .world_mut()
+        .query::<&ambition_combat::components::ActorFaction>();
+    let factions: Vec<ambition_combat::components::ActorFaction> =
+        q.iter(app.world()).cloned().collect();
     assert_eq!(
         factions.len(),
         2,
@@ -1099,7 +1103,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     assert!(
         factions
             .iter()
-            .all(|f| *f == crate::features::ActorFaction::Enemy),
+            .all(|f| *f == ambition_combat::components::ActorFaction::Enemy),
         "the offspring are hostile (Enemy faction), not player-allies",
     );
 }
@@ -1785,7 +1789,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         .spawn((
             MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
             MovesetMelee,
-            crate::features::BodyMelee::default(),
+            ambition_combat::components::BodyMelee::default(),
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 size: ae::Vec2::new(20.0, 40.0),

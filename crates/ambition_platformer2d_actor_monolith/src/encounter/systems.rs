@@ -169,8 +169,8 @@ pub fn drive_wave_encounters(
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     encounter_mobs: Query<(
         Entity,
-        &crate::features::EncounterMob,
-        &crate::features::FeatureId,
+        &ambition_combat::components::EncounterMob,
+        &ambition_combat::components::FeatureId,
         // AC3.1.A: the HP authority. Participant liveness decides wave
         // completion, so it must not lag a frame behind a mirror.
         &ambition_characters::actor::BodyHealth,
@@ -178,11 +178,11 @@ pub fn drive_wave_encounters(
     reward_chests: Query<
         (
             Entity,
-            &crate::features::EncounterRewardChest,
-            &crate::features::FeatureId,
-            Option<&crate::features::Opened>,
+            &ambition_combat::components::EncounterRewardChest,
+            &ambition_combat::components::FeatureId,
+            Option<&ambition_combat::components::Opened>,
         ),
-        With<crate::features::ChestFeature>,
+        With<ambition_combat::components::ChestFeature>,
     >,
 ) {
     let Some(session_scope) = commands.spawn_scope() else {
@@ -491,11 +491,11 @@ pub fn apply_wave_encounter_effects(
     reward_chests: Query<
         (
             Entity,
-            &crate::features::EncounterRewardChest,
-            &crate::features::FeatureId,
-            Option<&crate::features::Opened>,
+            &ambition_combat::components::EncounterRewardChest,
+            &ambition_combat::components::FeatureId,
+            Option<&ambition_combat::components::Opened>,
         ),
-        With<crate::features::ChestFeature>,
+        With<ambition_combat::components::ChestFeature>,
     >,
 ) {
     let Some(session_scope) = commands.spawn_scope() else {

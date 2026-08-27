@@ -14,11 +14,11 @@
 #![cfg(feature = "causal")]
 
 use ambition_causal::{
-    CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, SubjectKey, domains,
+    domains, CausalFact, CausalRecording, Execution, FactDetail, RecordingPolicy, SubjectKey,
 };
 use ambition_platformer2d_runtime::causal::{
-    CausalPlugin, RecordingSet, assert_no_offthread_loss, record_domains,
-    record_execution_identity, stamp_causal_frame,
+    assert_no_offthread_loss, record_domains, record_execution_identity, stamp_causal_frame,
+    CausalPlugin, RecordingSet,
 };
 use bevy::prelude::*;
 
@@ -163,9 +163,9 @@ fn facts_survive_a_parallel_schedule() {
 /// stamp first, then everything else.
 #[test]
 fn three_domains_answer_one_question_about_one_body_on_one_tick() {
-    use ambition_damage::{BodyHitResolution, BodyHitResolved};
     use ambition_characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_combat::stocks::FighterStockSpent;
+    use ambition_damage::{BodyHitResolution, BodyHitResolved};
 
     let mut app = app();
     record_domains(&mut app, RecordingPolicy::All);
@@ -290,9 +290,8 @@ fn the_tick_the_host_stamps_is_the_tick_the_facts_carry() {
 #[test]
 fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses() {
     use ambition_causal::SubjectKey;
-    use ambition_characters::brain::{Brain};
-use ambition_characters::control::{ActorControl};
-use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_characters::brain::Brain;
+    use ambition_characters::control::{ActorControl, DrivingParticipant, PlayerSlot};
 
     let mut app = App::new();
     app.add_plugins(CausalPlugin);
@@ -300,7 +299,8 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot};
     record_domains(&mut app, RecordingPolicy::All);
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::causal::record_body_control_frame.in_set(RecordingSet::Publish),
+        ambition_platformer2d_actor_monolith::causal::record_body_control_frame
+            .in_set(RecordingSet::Publish),
     );
 
     // An AI fighter: no seat, so nothing else in the log covers it.
@@ -314,7 +314,8 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot};
             vel: ambition_platformer2d_core::Vec2::new(588.0, 0.0),
             ..Default::default()
         },
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(),
+        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(
+        ),
         ambition_platformer2d_core::BodyDashState::default(),
         Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill),
         asking_left,
@@ -322,8 +323,10 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot};
     // A seated body, which the other publisher owns.
     app.world_mut().spawn((
         ambition_combat::components::ActorIdentity::new("seated_body", "Seated"),
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyKinematics::default(),
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(),
+        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyKinematics::default(
+        ),
+        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(
+        ),
         ambition_platformer2d_core::BodyDashState::default(),
         DrivingParticipant(PlayerSlot(1)),
         ActorControl::default(),

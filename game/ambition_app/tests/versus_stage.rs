@@ -1343,7 +1343,7 @@ fn every_seated_fighter_has_something_on_screen() {
     let world = app.world_mut();
     let mut seats = world.query::<(
         &MatchSeat,
-        &ambition_platformer2d::actors::features::FeatureId,
+        &ambition_platformer2d::combat::components::FeatureId,
     )>();
     let spawned: Vec<(usize, String)> = seats
         .iter(world)

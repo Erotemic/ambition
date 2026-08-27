@@ -111,7 +111,7 @@ fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest {
         name: "test_walker".to_string(),
         pos: ae::Vec2::ZERO,
         half_size: ae::Vec2::splat(10.0),
-        faction: crate::features::ActorFaction::Npc,
+        faction: ambition_combat::components::ActorFaction::Npc,
         grudge_against: grudge_against.map(str::to_string),
         kind: SpawnActorKind::Enemy {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -322,8 +322,8 @@ fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
     let grudges: Vec<bool> = app
         .world_mut()
         .query::<(
-            &crate::features::ActorConfig,
-            &crate::features::ActorAggression,
+            &ambition_combat::actor_tuning::ActorConfig,
+            &ambition_combat::components::ActorAggression,
         )>()
         .iter(app.world())
         .filter(|(config, _)| config.id.starts_with("duel_"))
@@ -335,7 +335,6 @@ fn the_staged_duels_mutual_grudge_is_wired_from_the_plan() {
         "each duellist holds a grudge against the other"
     );
 }
-
 
 /// Exit criterion: *a failed plan leaves the active world unchanged* — and the
 /// specific failure is one that used to be a bare `return` inside the spawner.
@@ -545,15 +544,15 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
         SummonedMinionParams {
             // A fixture keeps the character's authored vitals.
             health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+            // A boss minion keeps its character's hazard.
+            keeps_contact_damage: true,
             feature_id: "slop_add".into(),
             name: "slop".into(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
             encounter_id: "enc_1".into(),
-            faction: crate::features::ActorFaction::Enemy,
+            faction: ambition_combat::components::ActorFaction::Enemy,
         },
     );
 
@@ -595,15 +594,15 @@ fn two_summons_from_one_summoner_do_not_collide() {
     let params = || SummonedMinionParams {
         // A fixture keeps the character's authored vitals.
         health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+        // A boss minion keeps its character's hazard.
+        keeps_contact_damage: true,
         feature_id: "slop_add".into(),
         name: "slop".into(),
         pos: ae::Vec2::ZERO,
         half_size: ae::Vec2::splat(8.0),
         character_id: "puppy_slug".into(),
         encounter_id: "enc_1".into(),
-        faction: crate::features::ActorFaction::Enemy,
+        faction: ambition_combat::components::ActorFaction::Enemy,
     };
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
@@ -642,15 +641,15 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
             SummonedMinionParams {
                 // A fixture keeps the character's authored vitals.
                 health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+                // A boss minion keeps its character's hazard.
+                keeps_contact_damage: true,
                 feature_id: "slop_add".into(),
                 name: "slop".into(),
                 pos: ae::Vec2::ZERO,
                 half_size: ae::Vec2::splat(8.0),
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc_1".into(),
-                faction: crate::features::ActorFaction::Enemy,
+                faction: ambition_combat::components::ActorFaction::Enemy,
             },
         )],
         &Default::default(),
@@ -756,10 +755,10 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
         faction: ambition_vfx::HitSide::Enemy,
         // A minion nobody rides, which is every summon these fixtures are about.
         ridden_by_summoner: None,
-                    // The sentinel's minions keep the vitals their character authors.
-                    health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+        // The sentinel's minions keep the vitals their character authors.
+        health: None,
+        // A boss minion keeps its character's hazard.
+        keeps_contact_damage: true,
     }
 }
 
@@ -781,14 +780,15 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
 #[test]
 fn a_boss_the_construction_executor_built_can_summon() {
     let mut room = empty_room("hall");
-    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "warden",
-        "clockwork_warden",
-        ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
-        ambition_entity_catalog::placements::BossBrain::PhaseScript {
-            script_id: "clockwork_warden".into(),
-        },
-    ));
+    room.boss_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "warden",
+            "clockwork_warden",
+            ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
+            ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                script_id: "clockwork_warden".into(),
+            },
+        ));
     let plan = prepare(
         &room,
         &crate::features::RoomContentStagingRegistry::default(),
@@ -1029,15 +1029,15 @@ fn every_parameter_variant_constructs_its_root() {
             SummonedMinionParams {
                 // A fixture keeps the character's authored vitals.
                 health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+                // A boss minion keeps its character's hazard.
+                keeps_contact_damage: true,
                 feature_id: "slop".into(),
                 name: "slop".into(),
                 pos: ae::Vec2::ZERO,
                 half_size: ae::Vec2::splat(8.0),
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc".into(),
-                faction: crate::features::ActorFaction::Enemy,
+                faction: ambition_combat::components::ActorFaction::Enemy,
             },
         ),
     ];
@@ -1238,15 +1238,15 @@ fn every_parameter_variant_matches_its_descriptor() {
         SummonedMinionParams {
             // A fixture keeps the character's authored vitals.
             health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+            // A boss minion keeps its character's hazard.
+            keeps_contact_damage: true,
             feature_id: "slop".into(),
             name: "slop".into(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
             encounter_id: "enc".into(),
-            faction: crate::features::ActorFaction::Enemy,
+            faction: ambition_combat::components::ActorFaction::Enemy,
         },
     );
 
@@ -1891,15 +1891,15 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
         SummonedMinionParams {
             // A fixture keeps the character's authored vitals.
             health: None,
-                    // A boss minion keeps its character's hazard.
-                    keeps_contact_damage: true,
+            // A boss minion keeps its character's hazard.
+            keeps_contact_damage: true,
             feature_id: id.to_string(),
             name: id.to_string(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::splat(10.0),
             character_id: archetype.to_string(),
             encounter_id: "e".into(),
-            faction: crate::features::ActorFaction::Enemy,
+            faction: ambition_combat::components::ActorFaction::Enemy,
         },
     )
 }
@@ -2057,15 +2057,16 @@ fn a_compatible_rider_and_mount_pass_preflight() {
 
 fn giant_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     let mut room = empty_room("arena");
-    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "boss_mount",
-        "Giant GNU",
-        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
-            "fixture_giant",
-        ),
-    ));
+    room.enemy_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "boss_mount",
+            "Giant GNU",
+            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
+                "fixture_giant",
+            ),
+        ));
     room
 }
 
@@ -2076,18 +2077,17 @@ fn giant_room() -> ambition_platformer2d_world::rooms::RoomSpec {
 #[test]
 fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
     let mut room = empty_room("arena");
-    let mut authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> =
-        ambition_platformer2d_world::rooms::Authored::new(
-            "boss_mount",
-            "Giant GNU",
-            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "no_such_archetype".into(),
-                ),
-                "no_such_archetype",
-            ),
-        );
+    let mut authored: ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+    > = ambition_platformer2d_world::rooms::Authored::new(
+        "boss_mount",
+        "Giant GNU",
+        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
+        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom("no_such_archetype".into()),
+            "no_such_archetype",
+        ),
+    );
     authored.payload.character_id = ambition_entity_catalog::CharacterId::new("npc_giant");
     room.enemy_spawns.push(authored);
 
@@ -2237,7 +2237,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
         name: "Giant GNU".to_string(),
         pos: ae::Vec2::new(100.0, 100.0),
         half_size: ae::Vec2::splat(60.0),
-        faction: crate::features::ActorFaction::Enemy,
+        faction: ambition_combat::components::ActorFaction::Enemy,
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -2407,8 +2407,8 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             ae::Vec2::splat(60.0),
             "fixture_giant",
             "enc",
-            crate::features::ActorFaction::Enemy,
-            crate::features::ActorAggression::hostile(),
+            ambition_combat::components::ActorFaction::Enemy,
+            ambition_combat::components::ActorAggression::hostile(),
         )
     };
     world.flush();
@@ -2678,24 +2678,26 @@ fn the_limb_and_mount_relations_reach_the_registry_dump() {
 /// `mounted_on` entity-ref lowers: `RoomSpec.mount_links = [(rider, mount)]`.
 fn mounted_pair_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     let mut room = empty_room("cove");
-    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "sky_shark",
-        "Burning Flying Shark",
-        ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
-        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
-            "fixture_mount",
-        ),
-    ));
-    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "sky_rider",
-        "Pirate Raider",
-        ae::Aabb::new(ae::Vec2::new(200.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
-            "pirate_raider",
-        ),
-    ));
+    room.enemy_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "sky_shark",
+            "Burning Flying Shark",
+            ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(63.0, 26.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_mount".into()),
+                "fixture_mount",
+            ),
+        ));
+    room.enemy_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "sky_rider",
+            "Pirate Raider",
+            ae::Aabb::new(ae::Vec2::new(200.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+                "pirate_raider",
+            ),
+        ));
     room.mount_links
         .push(("sky_rider".to_string(), "sky_shark".to_string()));
     room
@@ -2787,14 +2789,15 @@ fn a_committed_mount_pair_is_welded_both_ways_and_published() {
 #[test]
 fn a_boss_rider_on_a_giant_becomes_a_planned_pair() {
     let mut room = giant_room();
-    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "the_rider",
-        "gnu_ton_rider",
-        ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
-        ambition_entity_catalog::placements::BossBrain::PhaseScript {
-            script_id: "gnu_ton_rider".into(),
-        },
-    ));
+    room.boss_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "the_rider",
+            "gnu_ton_rider",
+            ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
+            ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                script_id: "gnu_ton_rider".into(),
+            },
+        ));
     room.mount_links
         .push(("the_rider".to_string(), "boss_mount".to_string()));
     let plan = prepare(
@@ -2886,15 +2889,16 @@ fn a_mount_link_naming_nobody_fails_the_room_while_it_is_whole() {
 #[test]
 fn two_riders_claiming_one_authored_mount_are_refused() {
     let mut room = mounted_pair_room();
-    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "second_rider",
-        "Pirate Raider",
-        ae::Aabb::new(ae::Vec2::new(260.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
-            "pirate_raider",
-        ),
-    ));
+    room.enemy_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "second_rider",
+            "Pirate Raider",
+            ae::Aabb::new(ae::Vec2::new(260.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+                "pirate_raider",
+            ),
+        ));
     room.mount_links
         .push(("second_rider".to_string(), "sky_shark".to_string()));
     let error = prepare(
@@ -2946,21 +2950,23 @@ fn the_mount_pair_reconstruction_closure_is_both_actors() {
 #[test]
 fn every_authored_enemy_and_boss_is_a_plan_row() {
     let mut room = giant_room();
-    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "walker",
-        "Ordinary Walker",
-        ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-            "combatant",
-        ),
-    ));
-    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "warden",
-        "clockwork warden",
-        ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
-        ambition_entity_catalog::placements::BossBrain::Dormant,
-    ));
+    room.enemy_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "walker",
+            "Ordinary Walker",
+            ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+                "combatant",
+            ),
+        ));
+    room.boss_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "warden",
+            "clockwork warden",
+            ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
+            ambition_entity_catalog::placements::BossBrain::Dormant,
+        ));
     let plan = prepare(
         &room,
         &crate::features::RoomContentStagingRegistry::default(),
@@ -3003,21 +3009,23 @@ fn every_authored_enemy_and_boss_is_a_plan_row() {
 #[test]
 fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
     let mut room = empty_room("field");
-    room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "walker",
-        "Ordinary Walker",
-        ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
-        ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-            "combatant",
-        ),
-    ));
-    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "warden",
-        "clockwork warden",
-        ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
-        ambition_entity_catalog::placements::BossBrain::Dormant,
-    ));
+    room.enemy_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "walker",
+            "Ordinary Walker",
+            ae::Aabb::new(ae::Vec2::new(300.0, 40.0), ae::Vec2::new(22.0, 39.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+                "combatant",
+            ),
+        ));
+    room.boss_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "warden",
+            "clockwork warden",
+            ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
+            ambition_entity_catalog::placements::BossBrain::Dormant,
+        ));
     let plan = prepare(
         &room,
         &crate::features::RoomContentStagingRegistry::default(),
@@ -3052,12 +3060,13 @@ fn a_committed_actor_room_is_fully_visible_at_the_boundary() {
 #[test]
 fn a_boss_respawns_through_the_planner() {
     let mut room = empty_room("lair");
-    room.boss_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-        "warden",
-        "clockwork warden",
-        ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
-        ambition_entity_catalog::placements::BossBrain::Dormant,
-    ));
+    room.boss_spawns
+        .push(ambition_platformer2d_world::rooms::Authored::new(
+            "warden",
+            "clockwork warden",
+            ae::Aabb::new(ae::Vec2::new(400.0, 100.0), ae::Vec2::splat(40.0)),
+            ambition_entity_catalog::placements::BossBrain::Dormant,
+        ));
     let plan = prepare(
         &room,
         &crate::features::RoomContentStagingRegistry::default(),
@@ -3243,7 +3252,6 @@ fn a_placement_respawns_through_the_planner() {
     assert_ne!(find(world, &ring), old);
 }
 
-
 /// Shrines and gravity zones always had stable authored iids; the entities now
 /// wear them as plan rows, verified at the boundary like everything else.
 ///
@@ -3255,21 +3263,23 @@ fn a_placement_respawns_through_the_planner() {
 #[test]
 fn shrines_and_gravity_zones_are_stamped_plan_rows() {
     let mut room = empty_room("garden");
-    room.shrines.push(ambition_platformer2d_world::rooms::ShrineSpec {
-        id: "rest_1".into(),
-        name: "Rest".into(),
-        pos: ae::Vec2::new(64.0, 32.0),
-        half_extent: ae::Vec2::splat(16.0),
-    });
-    room.gravity_zones.push(ambition_platformer2d_world::rooms::GravityZoneSpec {
-        id: "flip_1".into(),
-        name: "Flip".into(),
-        center: ae::Vec2::new(160.0, 96.0),
-        half_extent: ae::Vec2::new(48.0, 96.0),
-        dir: ae::Vec2::new(0.0, 1.0),
-        oscillate_amplitude: 0.0,
-        oscillate_freq: 0.0,
-    });
+    room.shrines
+        .push(ambition_platformer2d_world::rooms::ShrineSpec {
+            id: "rest_1".into(),
+            name: "Rest".into(),
+            pos: ae::Vec2::new(64.0, 32.0),
+            half_extent: ae::Vec2::splat(16.0),
+        });
+    room.gravity_zones
+        .push(ambition_platformer2d_world::rooms::GravityZoneSpec {
+            id: "flip_1".into(),
+            name: "Flip".into(),
+            center: ae::Vec2::new(160.0, 96.0),
+            half_extent: ae::Vec2::new(48.0, 96.0),
+            dir: ae::Vec2::new(0.0, 1.0),
+            oscillate_amplitude: 0.0,
+            oscillate_freq: 0.0,
+        });
     let plan = prepare(
         &room,
         &crate::features::RoomContentStagingRegistry::default(),
@@ -3336,7 +3346,6 @@ fn shrines_and_gravity_zones_are_stamped_plan_rows() {
         "the authored region survived the lane"
     );
 }
-
 
 /// A plan prepared against one content generation must not publish a room into
 /// a session live under another. Detection, not prevention — the world has
@@ -3410,7 +3419,9 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
             ae::KinematicPath::line(ae::Vec2::ZERO, ae::Vec2::new(64.0, 0.0), 30.0),
         ));
-    let walker: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> = ambition_platformer2d_world::rooms::Authored::new(
+    let walker: ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+    > = ambition_platformer2d_world::rooms::Authored::new(
         "walker_authored",
         "Walker",
         ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
@@ -3484,16 +3495,17 @@ fn prepare_hands_the_plan_what_the_room_could_not_bind() {
 fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     let room_naming = |character: &str| {
         let mut room = empty_room("hall");
-        let enemy: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec> =
-            ambition_platformer2d_world::rooms::Authored::new(
-                "walker_authored",
-                "Walker",
-                ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
-                ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                    ambition_entity_catalog::placements::CharacterBrain::Custom("wanderer".into()),
-                    character,
-                ),
-            );
+        let enemy: ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
+        > = ambition_platformer2d_world::rooms::Authored::new(
+            "walker_authored",
+            "Walker",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                ambition_entity_catalog::placements::CharacterBrain::Custom("wanderer".into()),
+                character,
+            ),
+        );
         room.enemy_spawns.push(enemy);
         room
     };

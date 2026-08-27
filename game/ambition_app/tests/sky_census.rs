@@ -4,8 +4,8 @@
 //! is ignored rather than treating zero SFX as a valid scene result. Run it
 //! explicitly when diagnosing whether that harness reaches enemy combat.
 
-use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
 use crate::common::fixed_60hz_room_sim;
+use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
 use std::collections::HashMap;
 
 #[test]
@@ -54,8 +54,8 @@ fn pirate_sky_sfx_census() {
         // census is measuring its own composition, not the game.
         {
             let world = sim.world();
-            if let Some(m) =
-                world.get_resource::<bevy::prelude::Messages<ambition_platformer2d::vfx::FxRequest>>()
+            if let Some(m) = world
+                .get_resource::<bevy::prelude::Messages<ambition_platformer2d::vfx::FxRequest>>()
             {
                 let mut c = m.get_cursor();
                 fx_requests += c.read(m).count();
@@ -70,9 +70,7 @@ fn pirate_sky_sfx_census() {
             let world = sim.world();
             let n = cq
                 .iter(world)
-                .filter(|c| {
-                    c.0.melee_pressed || c.0.special_pressed || c.0.projectile_pressed
-                })
+                .filter(|c| c.0.melee_pressed || c.0.special_pressed || c.0.projectile_pressed)
                 .count();
             if n > 0 {
                 attack_press_ticks += 1;
@@ -106,7 +104,7 @@ fn pirate_sky_sfx_census() {
     }
     // Diagnose the population: are the pirates even here, and did anything fire?
     {
-        use ambition_platformer2d::actors::features::ActorConfig;
+        use ambition_platformer2d::combat::actor_tuning::ActorConfig;
         let world = sim.world_mut();
         let mut q = world.query::<&ActorConfig>();
         let world = sim.world();
@@ -114,7 +112,10 @@ fn pirate_sky_sfx_census() {
         for cfg in q.iter(world) {
             *brains.entry(format!("{:?}", cfg.brain)).or_default() += 1;
         }
-        println!("[sky-census] actors in the room: {}", brains.values().sum::<usize>());
+        println!(
+            "[sky-census] actors in the room: {}",
+            brains.values().sum::<usize>()
+        );
         {
             // PARITY WITH THE REAL HOST. The shell host boots with 780
             // systems across visible schedules (printed by the same census in
@@ -123,7 +124,10 @@ fn pirate_sky_sfx_census() {
             let world = sim.world();
             let schedules = world.resource::<bevy::ecs::schedule::Schedules>();
             let total: usize = schedules.iter().map(|(_, s)| s.systems_len()).sum();
-            let n = schedules.iter().filter(|(_, s)| s.systems_len() > 0).count();
+            let n = schedules
+                .iter()
+                .filter(|(_, s)| s.systems_len() > 0)
+                .count();
             println!("[sky-census] HEADLESS schedules: {n} non-empty, {total} systems total");
         }
         {
@@ -151,7 +155,9 @@ fn pirate_sky_sfx_census() {
             let w = sim.world_mut();
             let mut pq = w.query::<&MovePlayback>();
             let playing = pq.iter(sim.world()).count();
-            println!("[sky-census] actors WITH A MOVESET: {with_moveset}; mid-move right now: {playing}");
+            println!(
+                "[sky-census] actors WITH A MOVESET: {with_moveset}; mid-move right now: {playing}"
+            );
         }
         {
             use ambition_platformer2d::characters::control::ActorControl;
@@ -163,7 +169,9 @@ fn pirate_sky_sfx_census() {
                 .iter(world)
                 .filter(|c| c.0.melee_pressed || c.0.special_pressed || c.0.projectile_pressed)
                 .count();
-            println!("[sky-census] actors with a CONTROL frame: {n}; pressing an attack: {pressing}");
+            println!(
+                "[sky-census] actors with a CONTROL frame: {n}; pressing an attack: {pressing}"
+            );
         }
 
         let mut rows: Vec<(&String, &usize)> = brains.iter().collect();

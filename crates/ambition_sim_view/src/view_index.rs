@@ -7,6 +7,7 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteData;
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
@@ -20,7 +21,6 @@ use ambition_combat::components::FeatureId;
 use ambition_combat::components::Opened;
 use ambition_combat::components::PickupFeature;
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
-use ambition_platformer2d_actor_monolith::features::ActorConfig;
 use ambition_platformer2d_actor_monolith::features::HazardFeature;
 use ambition_platformer2d_core::ActorSurfaceState;
 use ambition_platformer2d_core::CenteredAabb;
@@ -246,7 +246,7 @@ pub fn rebuild_feature_view_index(
             >,
             // Sheet-authored quad placement, for a body whose art does not sit
             // centred in its frame. Absent for every ordinary actor.
-            Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
+            Option<&ambition_combat::components::ActorSpriteOffset>,
             bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced by

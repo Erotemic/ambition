@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use super::components::{PlayerEntity, PrimaryPlayer};
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
-use crate::features::ActorPose;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{tick_player_brain, BrainSnapshot};
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::ScriptedControl;
 use ambition_characters::control::{DrivingParticipant, SlotControls};
+use ambition_combat::components::ActorPose;
 use ambition_platformer2d_core as ae;
 
 /// Blank scripted bodies after brain production and before control consumers.

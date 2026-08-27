@@ -15,9 +15,9 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::ActorControl;
+use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorTarget};
 use ambition_platformer2d::combat::BodyMelee;
 use ambition_platformer2d::engine_core as ae;

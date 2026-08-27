@@ -5,6 +5,7 @@
 //! every feature family itself.
 
 use super::*;
+use ambition_combat::components::{BreakableFeature, ChestFeature, FeatureId, Opened};
 
 /// The home player ([`ambition_platformer2d_shared_tangle::markers::PlayerEntity`]) is excluded (it advances its own overlays
 /// in the player tick), so no body is advanced twice; a possessed non-player body IS advanced

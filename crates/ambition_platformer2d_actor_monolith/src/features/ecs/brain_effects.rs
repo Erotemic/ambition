@@ -16,6 +16,7 @@
 //! - the `BrainActionCounter` observer is unaffected (it counts but
 //!   doesn't consume)
 
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
@@ -61,7 +62,7 @@ pub fn spawn_projectiles_from_brain_actions(
         &mut ae::BodyKinematics,
         &mut ambition_combat::BodyMelee,
         Option<&super::ActorSurfaceState>,
-        Option<&super::ActorConfig>,
+        Option<&ambition_combat::actor_tuning::ActorConfig>,
         Option<&ambition_characters::actor::BodyHealth>,
     )>,
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,

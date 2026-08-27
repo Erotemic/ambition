@@ -6,15 +6,16 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use ambition_combat::actor_tuning::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
-use super::{CombatKit, HeldItem};
-use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
+use super::HeldItem;
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
     WandererCfg,
 };
+use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
+use ambition_combat::components::CombatKit;
 
 /// Fallback fighting kit for bodies whose character authors no repertoire.
 ///

@@ -12,7 +12,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Commands, Entity};
 
-use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
+use super::FeatureSimEntity;
+use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName, PickupFeature};
 use ambition_platformer2d_core as ae;
 
 /// Which of a body's death drops this is — the `sequence` half of the drop's
@@ -195,8 +196,8 @@ pub(super) fn spawn_split_offspring(
             SPLIT_OFFSPRING_HALF,
             offspring,
             format!("{parent_id}:split"),
-            crate::features::ActorFaction::Enemy,
-            crate::features::ActorAggression::hostile(),
+            ambition_combat::components::ActorFaction::Enemy,
+            ambition_combat::components::ActorAggression::hostile(),
         );
     }
 }

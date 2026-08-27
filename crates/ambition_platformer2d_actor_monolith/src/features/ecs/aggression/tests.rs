@@ -1,6 +1,7 @@
 use super::*;
+use crate::features::FeatureSimEntity;
 use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
-use crate::features::{CenteredAabb, FeatureId, FeatureSimEntity};
+use ambition_combat::components::{CenteredAabb, FeatureId};
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::prelude::{App, Update};
 

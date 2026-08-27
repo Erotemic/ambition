@@ -4,8 +4,8 @@
 //! `entity_sprite_for_kind` resolver.
 
 use super::*;
-use crate::features::FeatureVisualKind;
 use ambition_asset_manager::AssetProfile;
+use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 
 fn args(slice: &[&str]) -> Vec<String> {
     slice.iter().map(|s| s.to_string()).collect()

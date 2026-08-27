@@ -8,10 +8,9 @@
 
 use bevy::prelude::*;
 
-use super::{
-    sync_actor_components_from_cluster, ActorAggression, ActorDisposition,
-    ActorIdentity, ActorInteraction, AggressionMode, CombatKit,
-    FeatureSimEntity, HeldItem,
+use super::{sync_actor_components_from_cluster, FeatureSimEntity, HeldItem};
+use ambition_combat::components::{
+    ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode, CombatKit,
 };
 use ambition_combat::events::ActorStimulus;
 

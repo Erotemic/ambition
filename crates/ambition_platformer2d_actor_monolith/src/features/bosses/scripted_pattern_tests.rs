@@ -171,7 +171,7 @@ fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
     // The fallback's combat_size-relative offsets keep the left/right/below-pos invariants this
     // test pins, so the assertions still hold without needing a sprite_metrics snapshot in the
     // runtime fixture.
-    let slam = crate::features::volumes_for_profile(
+    let slam = ambition_boss_encounter::attack_geometry::volumes_for_profile(
         &BossAttackProfile::Strike("hand_slam".to_string()),
         boss.kin.pos,
         boss.as_ref().combat_size(),
@@ -214,7 +214,7 @@ fn gnu_ton_apple_rain_volumes_are_empty_so_contact_does_not_double_count() {
     // at the boss's position while apples are in flight.
     let boss = gnu_ton_runtime();
     assert!(
-        crate::features::volumes_for_profile(
+        ambition_boss_encounter::attack_geometry::volumes_for_profile(
             &BossAttackProfile::Special("apple_rain".into()),
             boss.kin.pos,
             boss.as_ref().combat_size(),
@@ -237,12 +237,13 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     // exactly one head AABB.
     let boss = gnu_ton_runtime();
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
-    let rest_head =
-        crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
+    let rest_head = ambition_boss_encounter::attack_geometry::damageable_volumes(
+        &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
-        ));
+        ),
+    );
     assert_eq!(
         rest_head.len(),
         1,
@@ -257,12 +258,13 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     );
 
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
-    let descent_head =
-        crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
+    let descent_head = ambition_boss_encounter::attack_geometry::damageable_volumes(
+        &ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
             ambition_boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
-        ));
+        ),
+    );
     assert_eq!(descent_head.len(), 1);
     let descent_y = descent_head[0].center().y;
     // Descended head sits BELOW the shoulder anchor (at player level).

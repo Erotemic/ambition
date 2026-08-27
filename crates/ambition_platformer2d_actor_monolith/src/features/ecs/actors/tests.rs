@@ -2,6 +2,7 @@
 //! neighbor lookup, holding-position spread, per-actor crowding, and pose sync.
 
 use super::*;
+use ambition_combat::components::CenteredAabb;
 
 #[test]
 fn shark_crashes_on_a_fast_charge_blocked_on_either_axis() {
@@ -257,7 +258,7 @@ fn sync_actor_pose_uses_feature_aabb_and_actor_facing() {
         .spawn((
             FeatureSimEntity,
             CenteredAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
-            crate::features::ActorPose::default(),
+            ambition_combat::components::ActorPose::default(),
             enemy.into_components(),
         ))
         .id();
@@ -265,7 +266,9 @@ fn sync_actor_pose_uses_feature_aabb_and_actor_facing() {
     app.update();
 
     let entity_ref = app.world().entity(entity);
-    let pose = entity_ref.get::<crate::features::ActorPose>().unwrap();
+    let pose = entity_ref
+        .get::<ambition_combat::components::ActorPose>()
+        .unwrap();
     assert_eq!(pose.center, ae::Vec2::new(40.0, 80.0));
     assert_eq!(pose.feet, ae::Vec2::new(40.0, 95.0));
     assert_eq!(pose.facing, -1.0);
@@ -324,12 +327,7 @@ fn a_saddle_answers_who_is_riding_and_the_riders_marker_does_not() {
     let mut app = App::new();
     let rider = app.world_mut().spawn_empty().id();
     // The mount: a saddle with somebody in it.
-    let ridden = app
-        .world_mut()
-        .spawn(MountSlot {
-            rider: Some(rider),
-        })
-        .id();
+    let ridden = app.world_mut().spawn(MountSlot { rider: Some(rider) }).id();
     // The same mount after its rider left: the saddle outlives the ride.
     let empty = app.world_mut().spawn(MountSlot { rider: None }).id();
     // A body wearing the RIDER's marker. `Mounted` on a mount is a category

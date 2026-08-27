@@ -1,4 +1,3 @@
-
 use super::*;
 
 #[test]
@@ -21,17 +20,15 @@ fn chain_table_has_no_trigger_equals_target() {
     }
 }
 
-
-
 /// Setting `bob_field_survey_received` should cause the
 /// emit_intro_flag_chains system to write
 /// `map_private_marks_unlocked` to save via the bus.
 #[test]
 fn emit_chains_promotes_bob_survey_to_private_marks() {
     use crate::quest::QuestRegistry;
-    use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use ambition_combat::SetFlagRequested;
     use ambition_persistence::save::AmbitionGameSave;
+    use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
@@ -72,10 +69,10 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 #[test]
 fn cartography_quest_advances_through_alice_bob_p5() {
     use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
-    use ambition_platformer2d_actor_monolith::features::{apply_flag_effects, apply_quest_effects};
-    use ambition_platformer2d_actor_monolith::features::{QuestAdvanceRequested};
-use ambition_combat::events::{SetFlagRequested};
+    use ambition_combat::events::SetFlagRequested;
+    use ambition_persistence::quest::QuestAdvanceRequested;
     use ambition_persistence::save::AmbitionGameSave;
+    use ambition_platformer2d_actor_monolith::features::{apply_flag_effects, apply_quest_effects};
     use bevy::app::{App, Update};
 
     let mut app = App::new();
@@ -168,9 +165,9 @@ use ambition_combat::events::{SetFlagRequested};
 #[test]
 fn emit_chains_promotes_p5_to_route_memory() {
     use crate::quest::QuestRegistry;
-    use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use ambition_combat::SetFlagRequested;
     use ambition_persistence::save::AmbitionGameSave;
+    use ambition_platformer2d_actor_monolith::features::apply_flag_effects;
     use bevy::app::{App, Update};
 
     let mut app = App::new();
@@ -192,7 +189,6 @@ fn emit_chains_promotes_p5_to_route_memory() {
     assert!(save.data().flag("route_memory_received"));
 }
 
-
 /// THE INTRO WORLD SAYS WHICH FLAG OPENS WHICH WALL — in the level, not in
 /// Rust.
 ///
@@ -212,8 +208,7 @@ fn emit_chains_promotes_p5_to_route_memory() {
 #[test]
 fn the_intro_world_authors_the_flag_that_opens_each_gated_wall() {
     let text = include_str!("../../../assets/worlds/intro.ldtk");
-    let project: serde_json::Value =
-        serde_json::from_str(text).expect("intro.ldtk parses");
+    let project: serde_json::Value = serde_json::from_str(text).expect("intro.ldtk parses");
 
     let mut gated: std::collections::BTreeMap<String, String> = Default::default();
     let mut lock_walls = 0usize;

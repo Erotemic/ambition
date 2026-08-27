@@ -797,7 +797,7 @@ const POSSESS_TARGET_ID: &str = "carry_while_possessed";
 /// single window can land just out of the possession radius.
 fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
-    use ambition_platformer2d::actors::features::FeatureId;
+    use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
     let here = {

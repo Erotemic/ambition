@@ -19,9 +19,9 @@ use ambition_app::{
     AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
-use ambition_platformer2d::actors::features::FeatureId;
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::ActorControl;
+use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::{
     BodyAbilities, BodyBlinkState, BodyFlightState, BodyKinematics, BodyShieldState,
 };

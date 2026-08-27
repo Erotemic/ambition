@@ -3,6 +3,9 @@
 
 use super::super::*;
 use super::*;
+use ambition_combat::components::{
+    ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
+};
 use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].

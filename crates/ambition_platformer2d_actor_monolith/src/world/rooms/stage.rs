@@ -10,6 +10,7 @@
 //! Snapshot reconstruction also executes this canonical construction plan; it
 //! is not a second construction authority.
 
+use ambition_combat::components::ActorFaction;
 use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 
@@ -17,7 +18,6 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::query::With;
 use bevy::prelude::{Commands, Resource};
 
-use ambition_platformer2d_world::rooms::{RespawnRoomVisualsRequested, RoomSet, RoomSpec};
 use super::transaction;
 use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
@@ -27,6 +27,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component_mut, SessionSpawnScope,
 };
 use ambition_platformer2d_world::platforms::MovingPlatformState;
+use ambition_platformer2d_world::rooms::{RespawnRoomVisualsRequested, RoomSet, RoomSpec};
 
 /// Stable same-build identity for one prepared construction artifact.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -456,12 +457,13 @@ mod tests {
     #[test]
     fn portal_gun_is_a_capability_owned_construction_lane() {
         let mut spec = empty_spec("portal-lane");
-        spec.portal_gun_spawns.push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
-            id: "gun".to_string(),
-            name: "Aperture Device".to_string(),
-            pos: ae::Vec2::new(120.0, 80.0),
-            half_extent: ae::Vec2::new(8.0, 6.0),
-        });
+        spec.portal_gun_spawns
+            .push(ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
+                id: "gun".to_string(),
+                name: "Aperture Device".to_string(),
+                pos: ae::Vec2::new(120.0, 80.0),
+                half_extent: ae::Vec2::new(8.0, 6.0),
+            });
         let plan = prepare(spec).expect("portal-gun room plan");
         let gun = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("gun");
 
@@ -487,15 +489,19 @@ mod tests {
         app.world_mut().flush();
 
         let entity = {
-            let mut query = app
-                .world_mut()
-                .query::<(bevy::prelude::Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>();
+            let mut query = app.world_mut().query::<(
+                bevy::prelude::Entity,
+                &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            )>();
             query
                 .iter(app.world())
                 .find_map(|(entity, id)| (id == &gun).then_some(entity))
                 .expect("constructed portal-gun root")
         };
-        assert!(app.world().get::<ambition_portal2d::PortalGunPickup>(entity).is_some());
+        assert!(app
+            .world()
+            .get::<ambition_portal2d::PortalGunPickup>(entity)
+            .is_some());
         assert!(
             app.world()
                 .resource::<crate::features::LastConstructionVerification>()
@@ -564,12 +570,13 @@ mod tests {
             ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
             "giant_gnu",
         );
-        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-            "gnu",
-            "Giant GNU",
-            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(half)),
-            payload,
-        ));
+        spec.enemy_spawns
+            .push(ambition_platformer2d_world::rooms::Authored::new(
+                "gnu",
+                "Giant GNU",
+                ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(half)),
+                payload,
+            ));
         spec
     }
 
@@ -731,24 +738,26 @@ mod tests {
     fn duplicate_authoritative_roots_fail_before_commit() {
         let mut spec = empty_spec("duplicate");
         let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0));
-        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-            "same-id",
-            "first",
-            aabb,
-            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-                "combatant",
-            ),
-        ));
-        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-            "same-id",
-            "second",
-            aabb,
-            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-                "combatant",
-            ),
-        ));
+        spec.enemy_spawns
+            .push(ambition_platformer2d_world::rooms::Authored::new(
+                "same-id",
+                "first",
+                aabb,
+                ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                    ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+                    "combatant",
+                ),
+            ));
+        spec.enemy_spawns
+            .push(ambition_platformer2d_world::rooms::Authored::new(
+                "same-id",
+                "second",
+                aabb,
+                ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                    ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+                    "combatant",
+                ),
+            ));
         let error = prepare(spec).expect_err("duplicate roots must fail preparation");
         assert!(matches!(
             error,
@@ -786,7 +795,7 @@ mod tests {
                     name: "occupant".into(),
                     pos: ae::Vec2::ZERO,
                     half_size: ae::Vec2::splat(10.0),
-                    faction: features::ActorFaction::Npc,
+                    faction: ambition_combat::components::ActorFaction::Npc,
                     grudge_against: None,
                     kind: features::SpawnActorKind::Enemy {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -820,7 +829,9 @@ mod tests {
         let sink = observed.clone();
         app.add_systems(
             bevy::prelude::Update,
-            move |mut reader: bevy::ecs::message::MessageReader<ambition_platformer2d_world::rooms::RoomLoaded>,
+            move |mut reader: bevy::ecs::message::MessageReader<
+                ambition_platformer2d_world::rooms::RoomLoaded,
+            >,
                   commit: Option<bevy::prelude::Res<LastRoomConstructionCommit>>,
                   ids: bevy::prelude::Query<
                 &ambition_platformer2d_shared_tangle::sim_id::SimId,
@@ -860,15 +871,16 @@ mod tests {
     #[test]
     fn commit_receipt_matches_the_prepared_root_roster() {
         let mut spec = empty_spec("receipt");
-        spec.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
-            "enemy-1",
-            "enemy",
-            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
-            ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
-                ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
-                "combatant",
-            ),
-        ));
+        spec.enemy_spawns
+            .push(ambition_platformer2d_world::rooms::Authored::new(
+                "enemy-1",
+                "enemy",
+                ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
+                ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                    ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into()),
+                    "combatant",
+                ),
+            ));
         let plan = prepare(spec).expect("plan");
         let expected = plan.predicted_authoritative_ids().clone();
         let expected_id = plan.id().clone();
@@ -928,8 +940,9 @@ mod tests {
         remembered: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
     ) -> Result<RoomConstructionPlan, RoomConstructionError> {
         let recipes = crate::construction::engine_construction_registry();
-        let mut construction = features::ActorConstructionContext::new(&recipes, Default::default())
-            .with_prepared(fixture_cast());
+        let mut construction =
+            features::ActorConstructionContext::new(&recipes, Default::default())
+                .with_prepared(fixture_cast());
         construction.continuity = Some(features::OccurrenceContinuity {
             remembered,
             world,
@@ -963,7 +976,9 @@ mod tests {
             .find(|entity| entity.sim_id() == sim_id)
             .map(|entity| match entity.parameters() {
                 crate::construction::ActorConstructionParams::GroundItem { spec, .. } => spec.pos,
-                other => panic!("the planned row is not the ground item it was authored as: {other:?}"),
+                other => {
+                    panic!("the planned row is not the ground item it was authored as: {other:?}")
+                }
             })
     }
 
@@ -978,13 +993,14 @@ mod tests {
     #[test]
     fn a_room_reinstates_an_occurrence_whose_record_lives_next_door() {
         let mut home = empty_spec("blink_run");
-        home.ground_items.push(ambition_platformer2d_world::rooms::GroundItemSpec {
-            id: "axe".into(),
-            name: "Axe".into(),
-            held_item: "gun_sword".into(),
-            pos: ae::Vec2::new(10.0, 20.0),
-            half_extent: ae::Vec2::splat(8.0),
-        });
+        home.ground_items
+            .push(ambition_platformer2d_world::rooms::GroundItemSpec {
+                id: "axe".into(),
+                name: "Axe".into(),
+                held_item: "gun_sword".into(),
+                pos: ae::Vec2::new(10.0, 20.0),
+                half_extent: ae::Vec2::splat(8.0),
+            });
         let world = vec![home, empty_spec("portal_bridge")];
         let axe = ambition_platformer2d_shared_tangle::sim_id::SimId::placement("axe");
         let left_at = ae::Vec2::new(300.0, 64.0);

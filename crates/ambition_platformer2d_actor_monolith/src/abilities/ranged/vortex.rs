@@ -15,7 +15,8 @@
 use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
-use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
+use crate::features::{BodyKinematics, FeatureSimEntity, HeldItem};
+use ambition_combat::components::ActorFaction;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyMana;
 use ambition_platformer2d_shared_tangle::lifecycle::{

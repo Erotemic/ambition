@@ -15,7 +15,8 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl;
 
-use crate::features::{CenteredAabb, FeatureSimEntity};
+use crate::features::FeatureSimEntity;
+use ambition_combat::components::CenteredAabb;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 /// Internal seat bookkeeping for possession.

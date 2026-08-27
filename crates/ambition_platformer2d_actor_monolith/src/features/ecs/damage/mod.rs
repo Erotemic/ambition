@@ -16,9 +16,9 @@ use bevy::prelude::{
 };
 
 use super::damage_drops::drop_currency_coin;
-use super::{
-    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
-    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity,
+use super::{sync_actor_components_from_cluster, BodyCombat, FeatureSimEntity};
+use ambition_combat::components::{
+    ActorDisposition, ActorIdentity, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
 };
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
 use ambition_combat::util::{approximately_same_aabb, midpoint};
@@ -29,7 +29,7 @@ use ambition_combat::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::EXPLODER_BLAST_DAMAGE;
 use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
-use super::PickupFeature;
+use ambition_combat::components::PickupFeature;
 use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
@@ -475,7 +475,7 @@ pub fn apply_feature_hit_events(
                 &ambition_characters::actor::BodyWalletShield,
             )>,
             &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
+            Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
             // CM8: the boss's own hurt reaction (ENEMY default).
             Option<&ambition_combat::CombatTuning>,
             // The world's hands are off it — the same gate the actor road takes.

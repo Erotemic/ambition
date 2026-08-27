@@ -4,7 +4,9 @@ use crate::brain::fighter::decision::tick_fighter;
 use crate::events::HitEvent;
 use crate::hitbox::apply_hitbox_damage;
 use ambition_characters::brain::action_set::MeleeActionSpec;
-use ambition_entity_catalog::{ClipBinding, EffectRef, HitVolume, MoveEvent};
+use ambition_entity_catalog::{
+    CancelCondition, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveWindow,
+};
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
@@ -2508,8 +2510,6 @@ fn a_smash_verb_projects_the_melee_read_model() {
 // -----------------------------------------------------------------------
 // CM4 — cancel tables: the timeline IS the cancel table.
 // -----------------------------------------------------------------------
-
-use ambition_entity_catalog::{CancelCondition, MoveWindow};
 
 /// A minimal trigger-only harness: the ONE trigger seam + a body holding a
 /// verb on its control frame while a move plays.

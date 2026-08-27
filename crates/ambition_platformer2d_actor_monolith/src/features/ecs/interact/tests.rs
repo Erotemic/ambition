@@ -1,5 +1,6 @@
 use super::*;
-use crate::features::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity};
+use crate::features::FeatureSimEntity;
+use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, NextState, Update};

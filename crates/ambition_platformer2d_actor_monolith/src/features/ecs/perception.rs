@@ -271,7 +271,7 @@ pub fn collect_perception_peers(
     mut peers: bevy::prelude::ResMut<PerceptionPeers>,
     bodies: bevy::prelude::Query<(
         bevy::prelude::Entity,
-        Option<&crate::features::FeatureId>,
+        Option<&ambition_combat::components::FeatureId>,
         &ambition_platformer2d_core::BodyKinematics,
         &ambition_characters::actor::BodyHealth,
         &ActorFaction,

@@ -7,6 +7,9 @@
 //! inferred merely because a body can be struck.
 
 use super::*;
+use ambition_combat::components::{
+    BreakableFeature, CenteredAabb, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
+};
 
 /// Publish current damageable volumes for every ordinary live body.
 ///
@@ -72,7 +75,7 @@ pub fn refresh_boss_damageable_volumes(
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::brain::BossAttackState,
-        Option<&crate::features::BossAnimationFrameSample>,
+        Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
         // Authored character hurtboxes override boss-part sampling.
         Option<&crate::character_runtime::ResolvedHurtboxes>,
         Option<&ambition_platformer2d_core::BodyKinematics>,
@@ -91,9 +94,13 @@ pub fn refresh_boss_damageable_volumes(
             damageable.publish(volumes);
             continue;
         }
-        let ctx = crate::features::BossVolumeContext::from_ref(&boss_catalog, boss, attack_state)
-            .with_animation_frame(animation_frame);
-        damageable.publish(crate::features::damageable_volumes(&ctx));
+        let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
+            &boss_catalog,
+            boss,
+            attack_state,
+        )
+        .with_animation_frame(animation_frame);
+        damageable.publish(ambition_boss_encounter::attack_geometry::damageable_volumes(&ctx));
     }
 }
 

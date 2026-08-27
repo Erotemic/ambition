@@ -69,7 +69,7 @@ pub(crate) fn resolve_npc_brain(
     // The body being built, so a character whose default policy is a
     // `BrainProfile` can have it lowered against its OWN top speed rather than
     // against a preset's absolute numbers (§4.7).
-    body: &crate::features::ActorConfig,
+    body: &ambition_combat::actor_tuning::ActorConfig,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> (
     ambition_characters::brain::Brain,
@@ -190,8 +190,8 @@ pub(crate) fn resolve_npc_brain(
 use ambition_characters::actor::character_catalog::{
     resolve_initial_brain, AuthoredBrainContext, BarkSituation, BrainBinding, CharacterCatalog,
 };
+use ambition_combat::events::NpcDialogueRequest;
 use ambition_interaction::{Interactable, InteractionKind};
-use ambition_combat::events::{NpcDialogueRequest};
 
 pub(crate) fn npc_flag_id(id: &str) -> String {
     format!("npc_{id}_hostile")
@@ -722,7 +722,7 @@ mod default_profile_tests {
 
     /// A minimal body for the two parameters `resolve_npc_brain` needs only when
     /// a character's default is its own `BrainProfile`.
-    fn test_body() -> crate::features::ActorConfig {
+    fn test_body() -> ambition_combat::actor_tuning::ActorConfig {
         crate::features::ecs::actor_clusters::ActorClusterSeed::new_peaceful_npc(
             "probe",
             "Probe",

@@ -26,7 +26,10 @@ fn hostile(
     archetype_brain: &str,
     pos: ae::Vec2,
     size: ae::Vec2,
-) -> (crate::features::ActorDisposition, ActorClusterBundle) {
+) -> (
+    ambition_combat::components::ActorDisposition,
+    ActorClusterBundle,
+) {
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy = super::actor_clusters::ActorClusterSeed::new(
         id,
@@ -39,7 +42,7 @@ fn hostile(
     enemy.kin.pos = pos;
     enemy.health.reset();
     (
-        crate::features::ActorDisposition::Hostile,
+        ambition_combat::components::ActorDisposition::Hostile,
         enemy.into_components(),
     )
 }
@@ -595,7 +598,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
     let rider = app
         .world_mut()
         .spawn((
-            crate::features::ActorDisposition::Peaceful,
+            ambition_combat::components::ActorDisposition::Peaceful,
             rider_bundle,
             CenteredAabb::from_center_size(rider_start, rider_size),
             DrivingParticipant(PlayerSlot::PRIMARY),
@@ -1229,7 +1232,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             capability,
             moveset,
             ambition_combat::components::ActorFaction::Boss,
-            crate::features::ActorTarget::default(),
+            ambition_combat::components::ActorTarget::default(),
             crate::features::FeatureSimEntity,
             Mounted,
             RidingOn { mount: giant },

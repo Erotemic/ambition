@@ -6,7 +6,8 @@ use bevy::prelude::*;
 use ambition_demo_mary_o::ai_slop::{is_ai_slop_brain, AiSlop};
 use ambition_demo_mary_o::snake::{is_snake_brain, SnakeShell};
 use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
-use ambition_platformer2d::actors::features::{ActorConfig, FeatureId};
+use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+use ambition_platformer2d::combat::components::FeatureId;
 
 fn booted() -> App {
     let mut app = ambition_demo_mary_o_app::build_demo_app();

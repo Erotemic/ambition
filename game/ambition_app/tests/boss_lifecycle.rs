@@ -21,13 +21,13 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::actors::features::BossRewardChest;
 use ambition_platformer2d::boss_encounter::BossOverrides;
 use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter};
 use ambition_platformer2d::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
+use ambition_platformer2d::combat::components::BossRewardChest;
 use ambition_platformer2d::combat::events::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d::encounter::EncounterMusicRequest;
 use ambition_platformer2d::engine_core::BodyKinematics;

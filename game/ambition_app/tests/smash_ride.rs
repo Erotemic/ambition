@@ -1283,7 +1283,7 @@ fn the_summoned_shark_carries_no_contact_hazard() {
     );
     for shark in sharks {
         let config = world
-            .get::<ambition_platformer2d::actors::features::ActorConfig>(shark)
+            .get::<ambition_platformer2d::combat::actor_tuning::ActorConfig>(shark)
             .expect("a summoned actor carries its config");
         assert!(
             !config.tuning.body_contact_damage,

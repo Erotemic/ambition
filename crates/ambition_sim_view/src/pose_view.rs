@@ -212,12 +212,12 @@ pub fn rebuild_body_pose_views(
                 // would tell the renderer "the sheet authored this geometry"
                 // about every one of them, and hand it a quad that was never
                 // derived from their boxes.
-                Option<&ambition_platformer2d_actor_monolith::features::ActorRenderSize>,
+                Option<&ambition_combat::components::ActorRenderSize>,
                 // The quad's PLACEMENT, published beside its size by the same
                 // pass. Gated on `SpritePosedBody` below for the same reason the
                 // size is: several spawn paths insert these from sheet metadata
                 // for bodies whose collision box is still hand-authored.
-                Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
+                Option<&ambition_combat::components::ActorSpriteOffset>,
                 bevy::prelude::Has<
                     ambition_sprite_sheet::character::SpritePosedBody,
                 >,

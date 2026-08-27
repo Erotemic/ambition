@@ -6,9 +6,9 @@ use bevy::prelude::{Query, ResMut, Resource};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
 use ambition_characters::actor::ai::ActorStatus;
+use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::BodyMelee;
 use ambition_combat::components::FeatureId;
-use ambition_platformer2d_actor_monolith::features::ActorConfig;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::BodyKinematics;
@@ -463,7 +463,7 @@ pub fn rebuild_boss_frame_index(
         );
         let hazard_lane = if health.alive() && (in_telegraph || in_strike) {
             let boss = feature.as_boss_ref();
-            ambition_platformer2d_actor_monolith::features::volumes_for_profile(
+            ambition_boss_encounter::attack_geometry::volumes_for_profile(
                 &BossAttackProfile::Strike("hazard_column".to_string()),
                 boss.kin.pos,
                 boss.combat_size(),

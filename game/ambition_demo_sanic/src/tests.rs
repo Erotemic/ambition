@@ -1287,8 +1287,8 @@ fn the_sanic_sfx_registry_validates_with_every_new_cue() {
 
 #[test]
 fn the_speedway_authors_a_field_of_collectible_rings() {
-    use ambition_platformer2d::entity_catalog::PickupKind;
     use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+    use ambition_platformer2d::entity_catalog::PickupKind;
     let room = sanic_speedway();
     let rings = room
         .placements
@@ -1378,13 +1378,12 @@ fn emit_ring_shield_spend(app: &mut App, victim: bevy::prelude::Entity, amount: 
     {
         wallet.balance = 0;
     }
-    app.world_mut().write_message(
-        ambition_platformer2d::damage::WalletShieldSpent {
+    app.world_mut()
+        .write_message(ambition_platformer2d::damage::WalletShieldSpent {
             victim,
             amount,
             pos,
-        },
-    );
+        });
 }
 
 #[test]
@@ -1429,7 +1428,7 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     fn dropped(app: &mut App) -> usize {
         let mut q = app
             .world_mut()
-            .query::<&ambition_platformer2d::actors::features::PickupFeature>();
+            .query::<&ambition_platformer2d::combat::components::PickupFeature>();
         q.iter(app.world()).count()
     }
 
@@ -1571,7 +1570,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let pickups = {
         let mut q = app
             .world_mut()
-            .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::actors::features::PickupFeature>>();
+            .query_filtered::<(), bevy::prelude::With<ambition_platformer2d::combat::components::PickupFeature>>();
         q.iter(app.world()).count()
     };
     assert_eq!(
@@ -1763,7 +1762,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let ring_pos = {
         let mut q = app
             .world_mut()
-            .query_filtered::<&ae::CenteredAabb, With<ambition_platformer2d::actors::features::PickupFeature>>();
+            .query_filtered::<&ae::CenteredAabb, With<ambition_platformer2d::combat::components::PickupFeature>>();
         q.iter(app.world()).next().map(|a| a.center)
     };
     if let Some(pos) = ring_pos {
@@ -1830,7 +1829,7 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     let ids: Vec<String> = {
         let mut q = app
             .world_mut()
-            .query::<&ambition_platformer2d::actors::features::FeatureId>();
+            .query::<&ambition_platformer2d::combat::components::FeatureId>();
         q.iter(app.world()).map(|f| f.0.clone()).collect()
     };
     let unique: std::collections::HashSet<_> = ids.iter().cloned().collect();

@@ -16,6 +16,17 @@
 //! chatter registry), and the private `ecs` tree (cluster components + the
 //! per-actor tick/spawn/damage systems).
 
+// ⛔⛔ FIFTY-EIGHT CROSS-CRATE RE-EXPORTS DELETED 2026-08-27 (D33). This module
+// forwarded `ambition_combat`'s component vocabulary, its actor kit,
+// `ambition_boss_encounter`'s attack geometry, `shared_tangle`'s feature kinds and
+// a persistence message under the monolith's address. 515 sites named them
+// through here, and every coupling census that counted those read the monolith as
+// their owner — which is how `damage_apply` looked like ~70 outward references
+// when the answer was zero.
+//
+// ⭐ Callers name the crate that owns the thing. What is left below is what this
+// module actually declares.
+
 use ambition_characters::actor::limb::fan_out_limb_intents;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -72,12 +83,6 @@ pub use movement_fx::{
 // outward references to zero: one module spelling one crate two ways. Callers
 // name the crate that owns the thing.
 
-pub use ambition_boss_encounter::attack_geometry::{
-    active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb, damageable_volumes,
-    volumes_for_profile, world_space_body_aabbs_from_metrics, world_space_body_aabbs_from_parts,
-    AnimationSelection, BossAnimationFrameSample, BossVolumeContext, CombatGeometry,
-    SimpleActorGeometry,
-};
 pub use bosses::{
     boss_attack_moveset, ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile,
     BossMovementProfile, BossRewardProfile,
@@ -104,21 +109,10 @@ pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 // port is `FeatureInteractionSet::CutBarkCast`, the phase this system is placed in below.
 pub use npcs::speak_conversation_cut_barks;
 
-pub use ambition_combat::components::{
-    ActorAggression, ActorDisposition, ActorFaction, ActorIdentity, ActorInteraction, ActorPose,
-    ActorRenderSize, ActorSpriteOffset, ActorTarget, AggressionMode, AggressionTarget, BodyMelee,
-    BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
-    CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob,
-    EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened, PersistKey,
-    PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer,
-    RuntimeStagedActor, StandTimer,
-};
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 
 pub use crate::world::rooms::LastConstructionVerification;
-pub use ambition_persistence::quest::QuestAdvanceRequested;
-pub use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 pub use brain_command::{
     apply_brain_commands, apply_release_provocations, BrainCommand, BrainCommandKind,
     BrainCommandPlugin, ReleaseProvocation,
@@ -131,9 +125,6 @@ pub use ecs::actor_clusters::{ActorClusterSeed, ActorMotionPath, ActorMut, BodyK
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.
-pub use ambition_combat::actor_tuning::{
-    ActorConfig, ActorTuning, BrainProfile, CharacterBrainTemplate,
-};
 pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,

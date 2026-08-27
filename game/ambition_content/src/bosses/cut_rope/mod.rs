@@ -14,23 +14,24 @@ use bevy::sprite::Anchor;
 /// This boss's claim on the encounter layer's priority music tier.
 const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
 
-use ambition_characters::control::ActorControl;
-use ambition_characters::brain::BossAttackState;
-use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
-use ambition_encounter::EncounterParticipants;
 use ambition_boss_encounter::BossConfig;
-use ambition_boss_encounter::{
-    BossClusterQueryData, BossClusterRef, BossRef,
-};
+use ambition_boss_encounter::{BossClusterQueryData, BossClusterRef, BossRef};
 use ambition_boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
 };
-use ambition_platformer2d_actor_monolith::features::{
-    ActorPose, CenteredAabb, DamageableVolumes, EnemyActorBundle, FeatureBaseBundle, FeatureId,
-    FeatureName, FeatureSimEntity, PogoPolicy, PogoTargetVolumes, PostBossNpc,
+use ambition_characters::brain::BossAttackState;
+use ambition_characters::control::ActorControl;
+use ambition_combat::components::{
+    ActorPose, CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy,
+    PogoTargetVolumes, PostBossNpc,
 };
+use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
+use ambition_encounter::EncounterParticipants;
 use ambition_platformer2d::world::rooms::{PropSpec, RoomSet};
+use ambition_platformer2d_actor_monolith::features::{
+    EnemyActorBundle, FeatureBaseBundle, FeatureSimEntity,
+};
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;

@@ -11,7 +11,11 @@
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
 use super::*;
-use ambition_combat::events::{FeatureCombatTuning, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
+use ambition_combat::components::BodyMelee;
+use ambition_combat::events::{
+    FeatureCombatTuning, HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource,
+    HitTarget,
+};
 
 /// Minimum knockback strength a body-contact hit imparts on the struck body, even
 /// when the archetype authored `contact_strength = 0`. Guarantees a body that
@@ -65,7 +69,7 @@ fn evaluate_enemy_ai_output(
     // Decision tuning comes from the brain profile; practice-target state is
     // passed separately from the body's combat authority.
     profile: &ambition_combat::actor_tuning::BrainProfile,
-    attack: &crate::features::BodyMelee,
+    attack: &ambition_combat::components::BodyMelee,
     alive: bool,
     // Read from the body's `BodyCombat` authority.
     practice_target: bool,
@@ -546,7 +550,10 @@ impl<'a> ActorMut<'a> {
     /// `sync_ecs_actors_with_save` (Progression) re-zeroed the HP a moment later, so the
     /// end-of-frame state looked right — but the actor was ALIVE for the remainder of that
     /// frame: drawable, targetable, and able to act.
-    pub fn reset_to_spawn(&mut self, motion_model: &mut ambition_platformer2d_core::movement::MotionModel) {
+    pub fn reset_to_spawn(
+        &mut self,
+        motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
+    ) {
         // Restore the authored spatial baseline. `tuning` / `brain_profile`
         // are projected once at spawn and never mutate at runtime (no
         // entity morphs its archetype in place), so they already hold the
@@ -687,7 +694,7 @@ mod aggro_authority_tests {
             ambition_platformer2d_core::Vec2::new(100.0, 0.0),
             &brain,
             &profile,
-            &crate::features::BodyMelee::default(),
+            &ambition_combat::components::BodyMelee::default(),
             true,
             false,
         )

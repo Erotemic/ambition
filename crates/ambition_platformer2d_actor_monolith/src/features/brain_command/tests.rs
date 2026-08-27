@@ -298,7 +298,8 @@ fn a_mounted_body_updates_its_source_not_its_control() {
 /// A bare `RestoreDefault` would revert only the brain, leaving it hostile.
 #[test]
 fn release_provocation_pacifies_and_restores_default() {
-    use crate::features::{ActorAggression, ActorDisposition, ReleaseProvocation};
+    use crate::features::ReleaseProvocation;
+    use ambition_combat::components::{ActorAggression, ActorDisposition};
 
     let mut app = App::new();
     app.add_message::<BrainCommand>();

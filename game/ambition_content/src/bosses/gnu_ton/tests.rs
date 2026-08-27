@@ -1,4 +1,3 @@
-
 use super::*;
 use ambition_boss_encounter::BossBehaviorProfileExt;
 use ambition_boss_encounter::BossClusterScratch;
@@ -162,10 +161,10 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         status,
     };
     let catalog = crate::bosses::authored_boss_catalog();
-    let ctx = ambition_platformer2d_actor_monolith::features::BossVolumeContext::from_ref(
+    let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
         &catalog, boss_ref, attack,
     );
-    let hurtboxes = ambition_platformer2d_actor_monolith::features::damageable_volumes(&ctx);
+    let hurtboxes = ambition_boss_encounter::attack_geometry::damageable_volumes(&ctx);
     assert!(
         !hurtboxes.is_empty(),
         "the giant should expose at least one damageable hurtbox at rest"

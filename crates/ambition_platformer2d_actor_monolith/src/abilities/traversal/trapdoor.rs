@@ -28,6 +28,11 @@ pub fn apply_authored_trapdoors(
     mut actions: MessageReader<ActorActionMessage>,
     mut bodies: Query<(
         ae::BodyClusterQueryData,
+        // ⭐ THE BODY'S OWN FRAME, because "which way is up" is not a constant.
+        // The surfacing search looks for a floor along this body's gravity, so
+        // a stage that rotates gravity rotates which side of her the boards are
+        // on — the same reason the teleport's ledge assist takes it.
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::movement::MotionModel,
     )>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -49,9 +54,12 @@ pub fn apply_authored_trapdoors(
                 continue;
             }
         };
-        let Ok((mut cluster_item, mut motion_model)) = bodies.get_mut(message.actor) else {
+        let Ok((mut cluster_item, resolved_frame, mut motion_model)) =
+            bodies.get_mut(message.actor)
+        else {
             continue;
         };
+        let gravity_dir = resolved_frame.down();
         let mut clusters = cluster_item.as_clusters_mut();
         // The door is drawn where the body is on the frame it opens: going
         // under, that is her feet on the boards; coming up, it is wherever she
@@ -82,6 +90,7 @@ pub fn apply_authored_trapdoors(
                     from,
                     half,
                     params.surface_reach,
+                    gravity_dir,
                 ),
                 // No collision world (a minimal test app): she comes up where
                 // she is, which is what every other traversal does here.

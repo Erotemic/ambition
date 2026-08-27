@@ -64,7 +64,10 @@ fn app_with_body(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude::Entity) {
             ae::BodyLifetime::default(),
             ae::BodyComboTrace::default(),
         ))
-        .insert(ae::movement::MotionModel::default())
+        .insert((
+            ae::movement::MotionModel::default(),
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
+        ))
         .id();
     (app, body)
 }

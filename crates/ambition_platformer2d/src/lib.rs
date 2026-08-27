@@ -599,6 +599,15 @@ pub mod engine {
 /// Windowed host plugin groups and host-facing seams.
 pub mod windowed_host {
     /// Windowed / fullscreen, as persisted host state.
+    ///
+    /// ⛔ GATED, because `ambition_persistence` is an OPTIONAL dependency that
+    /// only `all_capabilities` turns on. An ungated `pub use` of it compiles
+    /// fine inside the workspace — where the default feature set is on — and
+    /// fails for a consumer who took `visible + basic_shell_presentation +
+    /// input`, which is the exact shape the external-consumer fixture exists to
+    /// catch. The two other `ambition_persistence` re-exports in this file
+    /// carry the same gate.
+    #[cfg(feature = "ambition_persistence")]
     pub use ambition_persistence::host::windowing::DisplayModeState;
     #[cfg(feature = "input")]
     pub use ambition_platformer2d_host::HostInputBindingsPlugin;

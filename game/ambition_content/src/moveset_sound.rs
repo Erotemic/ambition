@@ -10,7 +10,7 @@
 //! that fan-out here would pin the model, not the engine.
 
 use ambition_combat::moveset::{dispatch_move_events, MoveEventMessage};
-use ambition_platformer2d::entity_catalog::{MoveEventKind, MoveSpec, MovesetContract};
+use ambition_platformer2d::entity_catalog::{MoveEventKind, MoveSpec};
 use ambition_platformer2d_core as ae;
 use ambition_render::fx::process_fx_requests;
 use ambition_sfx::{OwnedSfxMessage, PresentationSourceId, SfxId, SfxMessage};

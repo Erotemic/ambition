@@ -167,14 +167,45 @@ struct SceneCaptureRuntime {
     world_ready: bool,
 }
 
+const USAGE: &str = "\
+capture_scene — photograph a room or a shell route through the real render stack.
+
+USAGE:
+    capture_scene <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
+    capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
+
+OPTIONS:
+    --warmup N          frames to settle before the first shot [default: 60]
+    --frames N          take N shots, numbered <stem>.NNNN.png [default: 1]
+    --stride K          sim frames between shots of a sequence [default: 1]
+    --character ID      spawn the player AS this catalog character
+    --route ID          photograph a shell route instead of a room
+    --press SEQ         drive input first, e.g. `Down,Enter` or `touch:167x523`
+                        (`hold:up` / `release:up` / `wait:30` also work)
+    --include-ui        keep the game's UI in the shot
+    --dev-overlays      stop silencing the developer chrome
+    --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
+    --fit-room          frame the whole room instead of a point
+    -h, --help          print this and exit
+
+NOTES:
+    `--dev-overlays` does NOT turn the gizmo pass on — it only stops this tool
+    silencing the HUD. For boxes in the shot you want `--combat-overlay`.
+
+    --frames is what makes an animation: a single shot keeps the exact output
+    path you named, a sequence numbers its files.
+";
+
 fn main() {
+    if std::env::args().any(|a| a == "--help" || a == "-h") {
+        print!("{USAGE}");
+        return;
+    }
     let config = match SceneCaptureConfig::from_args(std::env::args().skip(1).collect()) {
         Ok(config) => config,
         Err(error) => {
-            eprintln!("{error}");
-            eprintln!(
-                "Usage: capture_scene <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--include-ui]"
-            );
+            eprintln!("{error}\n");
+            eprint!("{USAGE}");
             std::process::exit(2);
         }
     };

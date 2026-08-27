@@ -292,6 +292,32 @@ struct Frame {
     gesture: Option<String>,
 }
 
+const USAGE: &str = "\
+moveset_takes — drive real control frames through the engine and record what it did.
+
+USAGE:
+    moveset_takes [--characters ID,ID] [--out PATH]
+
+OPTIONS:
+    --characters ID,ID   comma-separated catalog ids to record
+                         [default: npc_pirate_admiral]
+    --out PATH           where to write the takes
+                         [default: tools/ambition_moveset_inspector/data/takes/takes.json]
+    -h, --help           print this and exit
+
+NOTES:
+    Seats a real smash match and presses every verb, recording bodies, live
+    hitboxes, projectiles and which move the engine actually PLAYED. A take that
+    reports `MISMATCH` means the press and the move disagreed, which is the whole
+    reason this exists.
+
+    There is no positional argument; use --out.
+
+    Minutes per character: every take is a real match settled between presses.
+    Prints a `[presentation]` census at the end — see the docs for what its
+    zeroes mean.
+";
+
 /// Count the presentation components the REAL animation path needs, once.
 ///
 /// ⭐⭐ THE QUESTION THIS ANSWERS. The frame cursor in the viewer is a
@@ -795,6 +821,27 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // ⛔⛔ BEFORE THE APP BOOTS, and before it seats a match and drives a hundred
+    // takes. `--help` used to build the engine, ignore the flag, and record the
+    // default fighter anyway.
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print!("{USAGE}");
+        return;
+    }
+    // ⛔ AN UNKNOWN FLAG IS A REFUSAL. `--character` (singular) is the obvious
+    // typo for `--characters` and this parser would have ignored it and silently
+    // recorded the default fighter instead — a wrong answer that looks like a
+    // right one.
+    if let Some(bad) = args
+        .iter()
+        .skip(1)
+        .filter(|a| a.starts_with('-'))
+        .find(|a| *a != "--out" && *a != "--characters")
+    {
+        eprintln!("moveset_takes: unknown option '{bad}'\n");
+        print!("{USAGE}");
+        std::process::exit(2);
+    }
     let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
     let out = arg("--out")
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/takes/takes.json".to_string());

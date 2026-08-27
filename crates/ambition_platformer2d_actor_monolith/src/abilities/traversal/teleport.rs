@@ -51,17 +51,31 @@ pub fn ledge_assisted_arrival(
     destination: ae::Vec2,
     half: ae::Vec2,
     radius: f32,
+    gravity_dir: ae::Vec2,
 ) -> ae::Vec2 {
     if radius <= 0.0 {
         return destination;
     }
+    // The two axes of the frame this arrival is happening in. `along` is the
+    // support axis (gravity), `across` the face it lands on.
+    let down = gravity_dir.normalize_or_zero();
+    let down = if down == ae::Vec2::ZERO {
+        ae::Vec2::new(0.0, 1.0)
+    } else {
+        down
+    };
+    let across = ae::Vec2::new(-down.y, down.x);
+
     let standing = ae::Aabb::new(destination, half);
+    let overlaps_across = |b: &ae::Aabb| {
+        let (b_lo, b_hi) = span_across(*b, across);
+        let (s_lo, s_hi) = span_across(standing, across);
+        b_hi > s_lo && b_lo < s_hi
+    };
     let already_supported = world.blocks.iter().any(|b| {
         matches!(b.kind, ae::BlockKind::Solid | ae::BlockKind::OneWay)
-            && b.aabb.top() >= standing.bottom() - 2.0
-            && b.aabb.top() <= standing.bottom() + 2.0
-            && b.aabb.right() > standing.left()
-            && b.aabb.left() < standing.right()
+            && ae::collision_semantics::support_face_separation(standing, b.aabb, down).abs() <= 2.0
+            && overlaps_across(&b.aabb)
     });
     if already_supported {
         return destination;
@@ -72,21 +86,29 @@ pub fn ledge_assisted_arrival(
         if !matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::OneWay) {
             continue;
         }
-        // The point on this block's TOP face nearest the destination.
-        let x = destination.x.clamp(block.aabb.left(), block.aabb.right());
-        let surface = ae::Vec2::new(x, block.aabb.top());
-        // ⛔ ABOVE THE DESTINATION ONLY (`+y` is gravity-down, so "above" is a
-        // SMALLER y). A surface below the arrival is one the fighter cleared,
-        // and dragging them down onto it would end a recovery that worked.
-        if surface.y > destination.y {
+        // The point on this block's SUPPORT face nearest the destination: its
+        // head face (the anti-gravity one a falling body lands on), clamped to
+        // the block's own extent across that face.
+        let (b_lo, b_hi) = span_across(block.aabb, across);
+        let want = destination.dot(across).clamp(b_lo, b_hi);
+        let surface = across * want + down * block.aabb.head_coord(down);
+        // ⛔ TOWARD THE ANTI-GRAVITY SIDE ONLY. A surface further along gravity
+        // than the arrival is one the fighter CLEARED, and dragging them onto it
+        // would end a recovery that had already worked. Written against the
+        // gravity axis rather than `y`: the teleport itself has always aimed in
+        // the resolved frame, and this half searched the world's `+y` faces —
+        // so under flipped or sideways gravity the ability aimed one way and
+        // its assist looked the other (GPT 5.6, 2026-08-27).
+        if surface.dot(down) > destination.dot(down) {
             continue;
         }
-        let offset = surface - destination;
-        let distance = offset.length();
+        let distance = (surface - destination).length();
         if distance > radius {
             continue;
         }
-        let landing = ae::Vec2::new(x, block.aabb.top() - half.y);
+        // Feet exactly on that face, body centred across it.
+        let landing =
+            across * want + down * (block.aabb.head_coord(down) - half.dot(down.abs()).abs());
         let box_at = ae::Aabb::new(landing, half);
         let embeds = world.blocks.iter().any(|b| {
             matches!(
@@ -102,6 +124,16 @@ pub fn ledge_assisted_arrival(
         }
     }
     best.map_or(destination, |(_, landing)| landing)
+}
+
+/// A box's extent projected onto the ACROSS axis, low first.
+///
+/// ⛔ BOTH CORNERS, because `across` may point either way along a world axis
+/// and a min/max read off `.left()`/`.right()` is only correct for one of them.
+fn span_across(b: ae::Aabb, across: ae::Vec2) -> (f32, f32) {
+    let c = b.center().dot(across);
+    let half = (b.half_size().x * across.x).abs() + (b.half_size().y * across.y).abs();
+    (c - half, c + half)
 }
 
 /// One body the ambush can see: everything [`ambush_arrival`] needs to decide
@@ -358,7 +390,7 @@ pub fn apply_authored_teleports(
         let target = match solids.as_ref() {
             Some(w) => {
                 let clamped = super::blink::blink_target(&**w, from, dir, distance, half);
-                ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist)
+                ledge_assisted_arrival(&**w, clamped, half, params.ledge_assist, gravity_dir)
             }
             // No collision world (a minimal test app) — the full distance, which
             // is what `blink_system` does in the same situation.

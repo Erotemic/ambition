@@ -296,7 +296,7 @@ pub fn acquire_captures(
         // that was extracted from its four hand-copies first rather than becoming
         // a fifth here.
         if let Ok(mut playback) = playbacks.get_mut(victim) {
-            crate::moveset::cancel_move_playback(&mut commands, victim, &mut playback);
+            crate::moveset::cancel_move_playback(&mut commands, victim, &mut playback, crate::moveset::MoveEnd::Interrupted);
         }
         // The captive's control projection. `CapturedBy` stays the authority;
         // this is only what it means for input, and it is CLAIMED rather than

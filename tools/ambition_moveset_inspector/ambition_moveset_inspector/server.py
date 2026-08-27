@@ -58,7 +58,22 @@ class InspectorHandler(SimpleHTTPRequestHandler):
         """
         parsed = urlparse(path).path
         if parsed.startswith("/data/"):
-            return str(DATA / parsed[len("/data/"):])
+            # ⛔⛔ RESOLVE AND CHECK CONTAINMENT. Joining the raw remainder let a
+            # request full of `../` walk out of `data/` and serve any file the
+            # process could read — confirmed reachable once `data/` exists (GPT
+            # 5.6, 2026-08-27). The default host is 127.0.0.1, but `--host` is
+            # deliberately supported, so on a bound interface this is file
+            # disclosure. `resolve()` collapses the traversal; `relative_to`
+            # is the assertion that it landed inside.
+            root = DATA.resolve()
+            candidate = (root / parsed[len("/data/"):]).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                # Outside the bundle: answer as a miss rather than an error, so
+                # a probe learns nothing about what does or does not exist.
+                return str(root / "__outside_the_data_bundle__")
+            return str(candidate)
         return super().translate_path(path)
 
     # ---- routes ----

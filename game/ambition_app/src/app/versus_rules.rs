@@ -536,6 +536,9 @@ fn begin_round(
                 commands,
                 entity,
                 &mut playback,
+                // ⭐ A ROUND RESET IS THE BODY LEAVING PLAY, so a storing charge
+                // does not survive it into the next round. See `MoveEnd`.
+                ambition_platformer2d::combat::moveset::MoveEnd::LeftPlay,
             );
         }
         // The controls deliberately do NOT come back here.

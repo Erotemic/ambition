@@ -7563,8 +7563,7 @@ fn a_non_storing_charge_still_fires_itself_at_maximum() {
         app.update();
     }
     assert!(
-        app.world().get::<MovePlayback>(body).is_none()
-            || !charge_of(&app, body).charging(),
+        app.world().get::<MovePlayback>(body).is_none() || !charge_of(&app, body).charging(),
         "an ordinary smash held past its maximum must release on its own"
     );
 }
@@ -7579,7 +7578,10 @@ fn an_interrupted_charge_is_banked_and_the_next_press_resumes_it() {
         app.update();
     }
     let accrued = charge_of(&app, body).held_s;
-    assert!(accrued > 0.0, "the hold must have accrued something to bank");
+    assert!(
+        accrued > 0.0,
+        "the hold must have accrued something to bank"
+    );
 
     // INTERRUPTED — the move is torn down through the one teardown path, which
     // is what a hit, a grab or a landing does to it.
@@ -7590,7 +7592,12 @@ fn an_interrupted_charge_is_banked_and_the_next_press_resumes_it() {
         .clone();
     app.world_mut()
         .run_system_once(move |mut commands: Commands| {
-            super::cancel_move_playback(&mut commands, body, &mut playback);
+            super::cancel_move_playback(
+                &mut commands,
+                body,
+                &mut playback,
+                super::MoveEnd::Interrupted,
+            );
         })
         .expect("the teardown runs");
     assert_eq!(
@@ -7640,10 +7647,12 @@ fn firing_the_shot_spends_the_bank() {
 #[test]
 fn a_bank_made_by_one_move_does_not_feed_another() {
     let (mut app, body) = storing_charge_app();
-    app.world_mut().entity_mut(body).insert(super::StoredMoveCharge {
-        move_id: "some_other_move".to_string(),
-        held_s: CHARGE_MAX_HOLD_S,
-    });
+    app.world_mut()
+        .entity_mut(body)
+        .insert(super::StoredMoveCharge {
+            move_id: "some_other_move".to_string(),
+            held_s: CHARGE_MAX_HOLD_S,
+        });
     press_smash(&mut app, body, true);
     let charge = charge_of(&app, body);
     assert!(
@@ -7651,5 +7660,108 @@ fn a_bank_made_by_one_move_does_not_feed_another() {
         "a bank belonging to another move must not seed this one, and this \
          charge started at {}",
         charge.held_s
+    );
+}
+
+/// A KO'd fighter does NOT come back holding the shot it was charging.
+///
+/// ⛔⛔ THE TEARDOWN USED TO INFER STORAGE FROM THE PLAYBACK ALONE: *"a charge
+/// that never RELEASED is a shot that never went off, so the move was
+/// interrupted and what it had is banked."* True of a clank, a grab, a landing.
+/// FALSE of a death — and death goes through the SAME canonical teardown, so a
+/// fighter knocked out mid-charge respawned with the charge banked and carried
+/// it across a stock boundary (GPT 5.6, 2026-08-27).
+///
+/// ⭐ THE PAIRED ARM IS THE ONE ABOVE. `an_interrupted_charge_is_banked_...`
+/// proves the bank still happens; without that pair, "clear it on death" and
+/// "never bank at all" are the same test.
+#[test]
+fn a_charge_interrupted_by_leaving_play_is_not_banked() {
+    let (mut app, body) = storing_charge_app();
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    let accrued = charge_of(&app, body).held_s;
+    assert!(
+        accrued > 0.0,
+        "premise: the hold must have accrued something, or 'not banked' is \\
+         vacuous — there would be nothing to bank either way"
+    );
+
+    let mut playback = app
+        .world_mut()
+        .get_mut::<MovePlayback>(body)
+        .expect("the smash is still playing")
+        .clone();
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            super::cancel_move_playback(
+                &mut commands,
+                body,
+                &mut playback,
+                super::MoveEnd::LeftPlay,
+            );
+        })
+        .expect("the teardown runs");
+
+    assert_eq!(
+        banked(&app, body),
+        None,
+        "a fighter that left play banked its charge — it will respawn holding a \\
+         shot it never put away, across a stock boundary"
+    );
+}
+
+/// Leaving play clears a charge banked EARLIER, not just the one in flight.
+///
+/// ⛔ THE HALF THAT IS NOT ABOUT THE CURRENT MOVE. An already-banked
+/// `StoredMoveCharge` had no death or reset cleanup anywhere, so a fighter who
+/// stowed a shot and then died kept it — the teardown only ever looked at the
+/// playback it was tearing down.
+#[test]
+fn leaving_play_clears_a_charge_that_was_already_banked() {
+    let (mut app, body) = storing_charge_app();
+    press_smash(&mut app, body, true);
+    for _ in 0..12 {
+        app.update();
+    }
+    let mut playback = app
+        .world_mut()
+        .get_mut::<MovePlayback>(body)
+        .expect("the smash is still playing")
+        .clone();
+    let stow = playback.clone();
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            let mut stow = stow.clone();
+            super::cancel_move_playback(
+                &mut commands,
+                body,
+                &mut stow,
+                super::MoveEnd::Interrupted,
+            );
+        })
+        .expect("the stow runs");
+    assert!(
+        banked(&app, body).is_some(),
+        "premise: there must BE a bank before this arm can prove it is cleared"
+    );
+
+    // A later death, with no charging move of its own in hand.
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            super::cancel_move_playback(
+                &mut commands,
+                body,
+                &mut playback,
+                super::MoveEnd::LeftPlay,
+            );
+        })
+        .expect("the teardown runs");
+    assert_eq!(
+        banked(&app, body),
+        None,
+        "the bank survived a death that happened after it was stowed"
     );
 }

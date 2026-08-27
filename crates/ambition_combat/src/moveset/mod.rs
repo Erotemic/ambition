@@ -492,10 +492,35 @@ pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut
 /// the four copies did and nothing else; a body's move ending has no other
 /// meaning today, and inventing one here would be building the abstraction
 /// nobody has asked for.
+/// WHY a move ended, for the one decision that cannot be read off the playback.
+///
+/// ⛔⛔ THE PLAYBACK CANNOT TELL DEATH FROM AN INTERRUPTION, and for a while
+/// this function insisted it could: *"a charge that never RELEASED is a shot
+/// that never went off, so the move was interrupted and what it had is banked."*
+/// True of a clank, a grab, a weapon swap. FALSE of a knockout — a fighter KO'd
+/// mid-charge came back with the charge BANKED, carried across a stock boundary
+/// it should never have crossed (GPT 5.6, 2026-08-27).
+///
+/// ⭐ TWO VARIANTS, NOT A TAXONOMY. These are the only two outcomes any caller
+/// needs today; the four hand-copies this function replaced are the record of
+/// what happens when one rule has several homes, and inventing `Completed` /
+/// `Restarted` / `Captured` here would be building a state machine nobody has
+/// asked for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MoveEnd {
+    /// The body is still in play. An unreleased storing charge BANKS: this is
+    /// the interruption the stored-charge mechanic exists for.
+    Interrupted,
+    /// The body left play — a knockout, a stock loss, a reset. Nothing banks,
+    /// and any EXISTING bank is cleared: a charge does not survive a death.
+    LeftPlay,
+}
+
 pub fn cancel_move_playback(
     commands: &mut bevy::prelude::Commands,
     owner: bevy::prelude::Entity,
     playback: &mut MovePlayback,
+    why: MoveEnd,
 ) {
     despawn_live_boxes(commands, playback);
     // ⭐⭐ THE BANK IS DECIDED HERE BECAUSE THIS IS THE ONE TEARDOWN PATH, and
@@ -508,14 +533,24 @@ pub fn cancel_move_playback(
     // Adding one would be a second answer to a question `MoveCharge::charging`
     // already answers, and the four hand-copies this function replaced are the
     // record of what happens to a rule with more than one home.
-    if let Some(charge) = playback.charge.filter(|charge| charge.policy.stores) {
-        if charge.charging() {
-            commands.entity(owner).insert(StoredMoveCharge {
-                move_id: playback.spec.id.clone(),
-                held_s: charge.held_s,
-            });
-        } else {
+    match why {
+        // ⛔ A DEATH IS NOT A DECISION TO PUT THE SHOT AWAY. Clear whatever was
+        // banked as well: an existing `StoredMoveCharge` had no death cleanup at
+        // all, so a charge banked before a knockout survived it too.
+        MoveEnd::LeftPlay => {
             commands.entity(owner).remove::<StoredMoveCharge>();
+        }
+        MoveEnd::Interrupted => {
+            if let Some(charge) = playback.charge.filter(|charge| charge.policy.stores) {
+                if charge.charging() {
+                    commands.entity(owner).insert(StoredMoveCharge {
+                        move_id: playback.spec.id.clone(),
+                        held_s: charge.held_s,
+                    });
+                } else {
+                    commands.entity(owner).remove::<StoredMoveCharge>();
+                }
+            }
         }
     }
     commands.entity(owner).remove::<MovePlayback>();
@@ -1486,7 +1521,7 @@ pub fn advance_move_playback(
         }
 
         if pb.finished() {
-            cancel_move_playback(&mut commands, owner, pb);
+            cancel_move_playback(&mut commands, owner, pb, MoveEnd::Interrupted);
         }
     }
 }
@@ -1572,7 +1607,7 @@ pub fn resolve_aerial_landings(
         combat.landing_lag_timer = combat.landing_lag_timer.max(lag.max(0.0));
         // The move is OVER — its remaining windows do not survive the landing,
         // which is what makes the lag a cost rather than a delay.
-        cancel_move_playback(&mut commands, owner, &mut playback);
+        cancel_move_playback(&mut commands, owner, &mut playback, MoveEnd::Interrupted);
     }
 }
 
@@ -2849,7 +2884,7 @@ pub fn trigger_moveset_moves(
             };
             if let Some(name) = loco {
                 if pb.spec.cancel_permits(pb.t, pb.landed_hit, &[name]) {
-                    cancel_move_playback(&mut commands, entity, &mut pb);
+                    cancel_move_playback(&mut commands, entity, &mut pb, MoveEnd::Interrupted);
                     continue;
                 }
             }

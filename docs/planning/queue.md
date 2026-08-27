@@ -2639,6 +2639,39 @@ VALUE, so `ambition_characters` stopped compiling the moment they left. ⇒ **th
 pinned set is not just what the ENCODER reads; it is what the SNAPSHOT names
 too.** Add that to the rule above before pricing the next subtree.
 
+✔✔ **AND `boss_pattern`'s BEHAVIOUR WENT TOO, 2026-08-27 — the second of the
+three.** The tick, control flow, validator, seeds, profile and content schema are
+`ambition_boss_encounter::pattern`; `ambition_characters` keeps 1,218 lines of
+pattern vocabulary. ⭐ THE RECEIVER ALREADY BEHAVED LIKE THE OWNER — it re-exported
+`profile` and read `boss_pattern_state()` — which is what the row meant by "the
+boss carve should have taken it".
+
+⛔ **TWO THINGS FOLLOWED THAT NOTHING PREDICTED, and both are the same shape.**
+`tick_boss_pattern_via_state_machine` lived in `state_machine` and CALLS the tick,
+so once the tick moved up a floor-crate function calling it was an upward edge;
+and `content_schema` names `profile`, `seeds` and `validator`, all three of which
+went. ⇒ **an adapter and a schema both belong to what they adapt and compile** —
+neither is visible from a subtree listing, and both were found by the compiler.
+
+⭐ **THE PRICED COST CAME IN AT WHAT IT WAS PRICED**: one optional
+`ambition_content_pack` behind a `content_pack` feature (plus `serde`, the derive
+half of a pair whose `ron` half was already there). ⚠ AND THE FOOTPRINT DID NOT
+MOVE — 43 crates / 16 never-asked-for, unchanged, because the edge is default-off.
+⛔ the sentinel's OWN lockfile (`fixtures/minimal_game/Cargo.lock`) had to be
+refreshed before the contract could say so; a `--locked` cargo tree there is what
+the check runs.
+
+```text
+brain/ in ambition_characters, after two of three:
+  fighter        10,796   ← the remaining campaign
+  state_machine   2,109     the nine arms and the enum
+  action_set      1,888
+  boss_pattern    1,218     vocabulary only
+  smash.rs          585     data only
+  player            387
+  ─────────────  19,224   (was 28,551)
+```
+
 ⛔⛔⛔ **AND THAT MAKES `fighter` A CAMPAIGN, NOT A SLICE — measured 2026-08-27
 before starting it.** Its pinned set spans SIX files, because the snapshot pins
 one more:

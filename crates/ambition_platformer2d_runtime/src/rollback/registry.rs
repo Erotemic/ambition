@@ -17,7 +17,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// Bump when the registered state set, wire type identity, encoded payload, or
 /// checksum projection changes incompatibly. Peers with different versions must
 /// not treat their snapshots as compatible.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 126;
+/// ⛔ v127: `BodyMode` gained `Submerged = 6`. The bytes an OLDER peer writes are
+/// unchanged — every existing mode keeps its discriminant, which is why the
+/// variant went on the end — but a peer on 126 cannot decode a `6`, and a
+/// fighter under the stage is exactly the state a desync would hide: invisible
+/// and intangible on one machine, standing in the open on the other.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 127;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -3219,15 +3219,26 @@ pub fn apply_special_turn_flicks(
 /// That is what makes the grant retract when the window closes: a projection
 /// that only wrote while a move was playing would leave the last move's
 /// intangibility latched on a body that is no longer doing anything.
+///
+/// ⭐⭐ AND THE BODY MODE IS PROJECTED BESIDE THEM, for the same reason and into
+/// a reason of its own. `BodyMode::Submerged` means the body is not in the
+/// world; that is a fact about the BODY, so it cannot depend on the move that
+/// put it there remembering to author a window. Its own bit, so releasing one
+/// grant never releases the other — a trapdoor whose `Invuln` window closes a
+/// frame early must not make a still-submerged fighter hittable.
 pub fn project_move_defense_windows(
     mut bodies: Query<(
         &mut ambition_characters::actor::BodyCombat,
         Option<&mut ambition_characters::actor::BodyHealth>,
         Option<&MovePlayback>,
+        Option<&ambition_platformer2d_core::body_clusters::BodyModeState>,
     )>,
 ) {
-    for (mut combat, health, playback) in &mut bodies {
+    for (mut combat, health, playback, body_mode) in &mut bodies {
         let intangible = playback.is_some_and(MovePlayback::intangible_now);
+        let submerged = body_mode.is_some_and(|m| {
+            m.body_mode == ambition_platformer2d_core::player_state::BodyMode::Submerged
+        });
         let armored = playback.is_some_and(MovePlayback::armored_now);
         // Compared before writing: these run for every combat body every tick,
         // and an unconditional write would mark both components changed forever.
@@ -3244,6 +3255,17 @@ pub fn project_move_defense_windows(
                 health.health.invulnerable.set(
                     ambition_characters::actor::Invulnerability::MOVE,
                     intangible,
+                );
+            }
+            if health
+                .health
+                .invulnerable
+                .holds(ambition_characters::actor::Invulnerability::SUBMERGED)
+                != submerged
+            {
+                health.health.invulnerable.set(
+                    ambition_characters::actor::Invulnerability::SUBMERGED,
+                    submerged,
                 );
             }
         }

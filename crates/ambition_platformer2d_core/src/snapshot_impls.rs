@@ -102,6 +102,11 @@ snapshot_unit_enum!(crate::player_state::BodyMode {
     Sliding = 3,
     MorphBall = 4,
     Climbing = 5,
+    // ⛔ A NEW DISCRIMINANT AT THE END, never a renumbering. These bytes are the
+    // rollback wire and a peer on an older build decodes them positionally: move
+    // `Climbing` off 5 and two machines disagree about what a body is doing
+    // while both report a clean decode.
+    Submerged = 6,
 });
 
 impl SnapshotState for crate::body_clusters::BodyModeState {

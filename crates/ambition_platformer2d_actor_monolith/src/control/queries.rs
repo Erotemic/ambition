@@ -226,7 +226,11 @@ mod tests {
             },
         );
         system.initialize(app.world_mut());
-        system.run((), app.world_mut());
+        // ⛔ THE RUN'S `Result` IS DELIBERATELY DROPPED, and the assertion below
+        // is why: a system that failed to run leaves `answer.1` false, which is
+        // a better message than an unwrap's. Named rather than silently unused —
+        // CI compiles with `-D warnings`.
+        let _ran = system.run((), app.world_mut());
         let answer = app.world().resource::<Answer>();
         assert!(answer.1, "the probe system never ran");
         answer.0

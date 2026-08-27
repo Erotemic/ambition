@@ -201,6 +201,25 @@ pub fn cancelable(
     m
 }
 
+/// AN AUTHORED INTANGIBILITY WINDOW: the owner cannot be hit between these beats.
+///
+/// ⭐ `WindowTag::Invuln` HAS BEEN AUTHORING VOCABULARY WITH NO WAY TO SAY IT
+/// from this module — every helper here builds `Startup`, `Active`, `Recovery`
+/// or `Cancelable`, so a move that wanted i-frames had to push a `MoveWindow`
+/// by hand. `project_move_defense_windows` has consumed the tag for a while;
+/// this is the other end of it.
+pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
+    m.windows.push(MoveWindow {
+        start_s,
+        end_s,
+        tag: WindowTag::Invuln,
+        volumes: Vec::new(),
+        motion_scale: 1.0,
+        sustain_effect: None,
+    });
+    m
+}
+
 /// FIXED KNOCKBACK: this hit launches the same at 0% and at 200%.
 ///
 /// ⭐⭐ THE THING [`strike`] CANNOT SAY. Its builder takes one `f32` and reads

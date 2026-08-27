@@ -88,6 +88,13 @@ pub struct BodyPoseView {
     /// The body is in morph-ball mode (draws the procedural sphere instead
     /// of the character sheet).
     pub morph_ball: bool,
+    /// The body is UNDER the stage and must not be drawn at all.
+    ///
+    /// ⛔⛔ A PRESENTATION FACT, DERIVED — not a second authority. The truth is
+    /// `BodyMode::Submerged` on the simulation body; this is that fact carried
+    /// to the renderer the same way `morph_ball` is, because presentation reads
+    /// the view and never the sim's components.
+    pub submerged: bool,
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
@@ -144,6 +151,7 @@ impl Default for BodyPoseView {
             hp_current: 0,
             hp_max: 0,
             morph_ball: false,
+            submerged: false,
             charge_tier: None,
             smash_charge: None,
             authored_render: None,
@@ -407,6 +415,8 @@ pub fn rebuild_body_pose_views(
             hp_max: health.map_or(0, |h| h.max()),
             morph_ball: body_mode
                 .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::MorphBall),
+            submerged: body_mode
+                .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::Submerged),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
             smash_charge: charge,

@@ -12,6 +12,7 @@
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
 | [`author_moveset`](src/author_moveset.rs) | The Author — the sword archetype's table, wielded with a pen. |
 | [`authored`](src/authored/mod.rs) | Every character this provider AUTHORS, one file each. |
+| [`authored_movesets`](src/authored_movesets.rs) | Every moveset this crate authors, in one list. |
 | [`banter`](src/banter.rs) | Ambition's authored combat-banter lines. |
 | [`bob_moveset`](src/bob_moveset.rs) | Bob's repertoire — the engineer, and the one who RECEIVES. |
 | [`bosses`](src/bosses/mod.rs) | Named Ambition boss content registration. |
@@ -54,7 +55,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_47 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_48 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

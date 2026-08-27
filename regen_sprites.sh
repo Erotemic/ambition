@@ -372,6 +372,13 @@ tackon_targets=(
     # that omits them is a fresh clone with two rows pointing at nothing.
     author
     officer
+    # ⛔ AND THE NEXT PAIR REPEATED IT, four lines under the comment explaining
+    # it. `actor` and `medic` arrived with catalog rows and no roster entry, so
+    # the same test failed the same way on 2026-08-27. A hand-kept roster beside
+    # a hand-kept catalog is two lists that agree only when somebody remembers
+    # both — which is exactly what this check exists to notice, and it did.
+    actor
+    medic
     # NAMED HERE, not only reachable by `--target`. The game loads
     # `sprites/hud_stock_icon.png` by path from `STOCK_ICON_ASSET`, so a clone
     # that cannot produce it has a match HUD with holes where the stocks go —

@@ -3,6 +3,7 @@
 
 use super::*;
 use ambition_combat::components::CenteredAabb;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 #[test]
 fn shark_crashes_on_a_fast_charge_blocked_on_either_axis() {
@@ -92,6 +93,7 @@ fn no_opponents() -> std::collections::HashMap<String, String> {
 
 #[test]
 fn crowding_pushes_clustered_ground_actors_apart() {
+    use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
         ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
         ("b".to_string(), ae::Vec2::new(20.0, 0.0), CrowdKind::Ground), // within 80px
@@ -115,6 +117,7 @@ fn crowding_pushes_clustered_ground_actors_apart() {
 
 #[test]
 fn crowding_ignores_actors_outside_the_radius() {
+    use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
         ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
         (
@@ -135,6 +138,7 @@ fn crowding_ignores_a_different_faction_opponent() {
     // the crowding radius. Anti-clump is for same-faction allies fanning out, so
     // a different-faction opponent must NOT register as crowding — otherwise the
     // back-actor hold rule freezes both fighters instead of letting them close.
+    use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
         (
             "pca".to_string(),
@@ -170,6 +174,7 @@ fn crowding_ignores_a_same_faction_grudge_opponent() {
     // crowding ally, or the back-actor hold rule freezes the duel (the exact regress
     // the duel reframe hit). The `opponent_id_by_id` map (id → the id it's fighting)
     // overrides the same-faction default.
+    use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
         (
             "pca".to_string(),
@@ -193,6 +198,7 @@ fn crowding_ignores_a_same_faction_grudge_opponent() {
 
 #[test]
 fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
+    use ambition_combat::crowd::CrowdKind;
     // 150px apart: outside the 80px ground radius but inside the 220px
     // aerial radius. Two flyers crowd; two ground actors at the same
     // spacing do not.

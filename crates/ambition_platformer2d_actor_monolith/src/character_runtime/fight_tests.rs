@@ -23,6 +23,7 @@
 use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
 
 use super::*;
+use ambition_characters::actor::definition::CharacterDefinition;
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
     MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,

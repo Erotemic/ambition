@@ -59,7 +59,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-    app.init_resource::<crate::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
         (crate::projectile::step_projectiles, capture_hits).chain(),
@@ -180,7 +180,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-    app.init_resource::<crate::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
         (crate::projectile::step_projectiles, capture_hits).chain(),
@@ -252,7 +252,7 @@ fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-    app.init_resource::<crate::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.insert_resource(relations);
     app.add_systems(
         Update,
@@ -429,6 +429,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
 /// single shot overlapping both bodies would spare the teammate half the time.
 #[test]
 fn a_shot_outlives_its_firer_without_changing_sides() {
+    use ambition_combat::targeting::MatchTeam;
 
     let mut app = arena_projectile_app(crate::features::FactionRelations::default());
 
@@ -525,6 +526,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
 /// properly. So this pins only the part that must never regress.
 #[test]
 fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
+    use ambition_combat::targeting::MatchTeam;
 
     let mut app = arena_projectile_app(crate::features::FactionRelations::default());
 
@@ -594,6 +596,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
 /// first-sight stamp would take the fact, hiding whether this system did.
 #[test]
 fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
+    use ambition_combat::targeting::MatchTeam;
     use bevy::ecs::system::RunSystemOnce as _;
 
     let mut app = arena_projectile_app(crate::features::FactionRelations::default());
@@ -733,7 +736,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-    app.init_resource::<crate::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(Update, crate::projectile::step_projectiles);
 
     let player_pos = ae::Vec2::new(200.0, 200.0);
@@ -822,7 +825,10 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 /// exercised.
 #[test]
 fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
+    use ambition_characters::actor::BodyCombat;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -846,7 +852,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
     app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
-    app.init_resource::<crate::trace::GameplayTraceBuffer>();
+    app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
         (

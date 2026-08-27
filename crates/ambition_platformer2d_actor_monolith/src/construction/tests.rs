@@ -1161,6 +1161,7 @@ fn a_summoner_without_a_counter_is_refused_before_spawning() {
 /// identities it hands out do not overlap.
 #[test]
 fn successive_summons_allocate_non_overlapping_identities() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
 
     let mut world = summon_world();
     let boss = world
@@ -1268,6 +1269,7 @@ fn every_parameter_variant_matches_its_descriptor() {
 /// applies.
 #[test]
 fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
+    use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
     use bevy::prelude::{IntoScheduleConfigs, Query, Schedule};
 
     fn interlope(mut counters: Query<&mut SimIdCounter>) {

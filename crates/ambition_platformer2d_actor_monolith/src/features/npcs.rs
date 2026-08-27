@@ -318,6 +318,7 @@ pub(crate) fn npc_dialogue_request(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     /// LDtk writes an unset string field as `""`, so a pedestal with no bespoke conversation
     /// reaches the dialogue bridge as `Some("")`.
@@ -618,6 +619,7 @@ pub fn speak_conversation_cut_barks(
 /// : the NPC spawn path asks the CHARACTER what it normally does.
 #[cfg(test)]
 mod default_profile_tests {
+    use super::*;
 
     /// The provider both authorities are registered under. ONE constant on
     /// purpose: the whole point of the fixture is that a definition's provider

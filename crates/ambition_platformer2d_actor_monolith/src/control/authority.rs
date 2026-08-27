@@ -81,6 +81,7 @@ pub fn project_driving_participant(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::abilities::traversal::possession::PossessionState;
     use ambition_characters::brain::Brain;
 
     /// Run the reconcile once over a world and read back who drives what.

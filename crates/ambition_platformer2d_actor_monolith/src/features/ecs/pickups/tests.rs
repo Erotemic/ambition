@@ -119,7 +119,7 @@ fn currency_pickup_credits_the_player_wallet() {
 fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(crate::items::OwnedItems::default());
+    app.insert_resource(ambition_items::OwnedItems::default());
     app.add_message::<PlayerHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
@@ -156,8 +156,8 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     app.update();
     assert!(
         app.world()
-            .resource::<crate::items::OwnedItems>()
-            .has(crate::items::Item::Blink),
+            .resource::<ambition_items::OwnedItems>()
+            .has(ambition_items::Item::Blink),
         "collecting an ability pickup should grant it to the catalog",
     );
 }

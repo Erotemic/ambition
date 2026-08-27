@@ -1191,7 +1191,7 @@ pub fn mount_capabilities_of(
             // preflight reads the profile the commit will read.
             SpawnActorKind::Boss { brain, .. } => PlannedMountCapabilities {
                 mount_class: None,
-                pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+                pilots: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
                     bosses,
                     &ambition_boss_encounter::behavior::canonical_boss_id_from(
                         &request.name,
@@ -1225,7 +1225,7 @@ pub fn mount_capabilities_of(
         ActorConstructionParams::Shrine { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { authored } => PlannedMountCapabilities {
             mount_class: None,
-            pilots: ambition_boss_encounter::behavior::BossBehaviorProfile::for_authored_boss(
+            pilots: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
                 bosses,
                 &ambition_boss_encounter::behavior::canonical_boss_id_from(
                     &authored.name,

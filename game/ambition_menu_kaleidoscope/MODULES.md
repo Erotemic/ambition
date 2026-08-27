@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`page`](src/page.rs) | _(no `//!` header — see D-B navigability standard)_ |
+| [`page`](src/page.rs) | Build one menu page's 3D scene: the panels, text, controls and scrollbar a `MenuPageModel` describes, spawned as children under the page's own root. |
 
 _1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

@@ -290,6 +290,7 @@ mod reset_tests {
     //! transient feature markers so a room can be retried: collected
     //! pickups un-collect, opened chests un-open, broken breakables
     //! return to Intact. No event -> no change.
+    use super::*;
     use ambition_interaction::Breakable;
     use bevy::prelude::{App, Entity, Update};
 

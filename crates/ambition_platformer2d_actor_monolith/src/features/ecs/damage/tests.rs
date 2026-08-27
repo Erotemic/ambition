@@ -9,7 +9,6 @@ use super::*;
 use crate::features::ecs::enemy_component_snapshot;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::BodyHealth;
-use ambition_combat::components::{ActorAggression, ActorInteraction, AggressionMode, CombatKit};
 use ambition_combat::events::{HitMode, HitTarget};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -801,7 +800,7 @@ fn struck_cling_breaker_loses_its_surface_and_falls() {
     );
     let kin = app
         .world()
-        .get::<super::super::actor_clusters::BodyKinematics>(actor)
+        .get::<ambition_platformer2d_core::BodyKinematics>(actor)
         .unwrap();
     assert!(
         kin.vel.x > 0.0,
@@ -951,7 +950,7 @@ fn defeated_boss_drops_its_signature_ability() {
         );
         if let Some(a) = ability {
             assert!(
-                crate::items::Item::from_dialog_id(a).is_some(),
+                ambition_items::Item::from_dialog_id(a).is_some(),
                 "boss {id} -> ability {a} must be a real catalog item",
             );
         }
@@ -988,6 +987,7 @@ fn defeated_boss_drops_its_signature_ability() {
 fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
     use crate::abilities::ranged::{beam, meteor, sentry, shockwave, volley, vortex};
     use crate::abilities::traversal::dive;
+    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
     // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
     // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON
     // against the ability id consts so the two can't drift apart.
@@ -1316,7 +1316,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     app.update();
     let kin = app
         .world()
-        .get::<super::super::actor_clusters::BodyKinematics>(victim)
+        .get::<ambition_platformer2d_core::BodyKinematics>(victim)
         .unwrap();
     let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
     assert!(
@@ -1646,7 +1646,7 @@ fn a_slash_knockback_rides_the_shared_resolution() {
     app.update();
     let kin = app
         .world()
-        .get::<super::super::actor_clusters::BodyKinematics>(victim)
+        .get::<ambition_platformer2d_core::BodyKinematics>(victim)
         .unwrap();
     // `slash_at` attaches dir +1 at standard feel strength.
     let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
@@ -1915,6 +1915,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
 
 #[test]
 fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
+    use bevy::ecs::message::Messages;
 
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());

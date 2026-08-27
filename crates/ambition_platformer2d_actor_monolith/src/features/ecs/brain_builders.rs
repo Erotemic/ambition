@@ -631,6 +631,7 @@ mod ladder_projection_tests {
 /// same mind?"*, so nothing here is probabilistic and nothing has to run a match.
 #[cfg(test)]
 mod cognition_stream_tests {
+    use super::*;
 
     /// A CPU fighter seat, as `PreparedSeat` builds one: the participant id is
     /// `"<character>#seat<n>"` — the body's identity, not its costume's.

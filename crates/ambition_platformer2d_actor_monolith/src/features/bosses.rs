@@ -6,8 +6,7 @@
 
 // TODO(compat-remove): migrate remaining boss-pattern callers to
 // `ambition_characters::brain::boss_pattern`, then remove these re-exports.
-#[cfg(test)]
-use ambition_boss_encounter::behavior::{BossBehaviorProfile};
+use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 // `BossPattern` and `BossPatternStep` only show up inside the
 // scripted profiles, which now live in `boss_profiles.ron`. They're
 // still publicly accessible via `ambition_characters::brain::boss_pattern`; we
@@ -19,7 +18,6 @@ use ambition_boss_encounter::behavior::{BossBehaviorProfile};
 // `ambition_boss_encounter::behavior`, then remove these re-exports.
 #[cfg(test)]
 use ambition_boss_encounter::behavior::canonical_boss_id_from;
-use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 /// Aggressor push for a boss strike (matches the old `sync_boss_strike_hitboxes`
 /// / `boss_attack_damage` strike arm). Carried on the geometry move's hit volume.

@@ -159,6 +159,7 @@ fn non_default_id_is_not_default() {
 fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     use ambition_characters::brain::ActionSet;
     use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     // Pin the installed default so the protagonist branch is deterministic.
 
@@ -229,6 +230,9 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
 
 #[test]
 fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -295,6 +299,9 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
 /// `Changed` edges, not by the system running unconditionally every frame.
 #[test]
 fn derive_system_only_fires_on_identity_or_ability_change() {
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -349,6 +356,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
 /// replacement runs.
 #[test]
 fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -406,6 +414,8 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
 #[test]
 fn worn_kit_fully_follows_a_known_character_rewear() {
     use ambition_characters::brain::{action_set::RangedStyle, ActionSet, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -481,6 +491,8 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
 #[test]
 fn runtime_rewear_rebuilds_from_the_destination_character() {
     use ambition_characters::brain::{ActionSet, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -570,6 +582,8 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
 #[test]
 fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -630,6 +644,8 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
 #[test]
 fn host_code_kit_refreshes_when_body_abilities_change() {
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -712,7 +728,9 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
 #[test]
 fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     use ambition_characters::actor::control::{ActorControlFrame, ActorFireRequest};
+    use ambition_characters::brain::ActionSet;
     use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
 
     let mut frame = ActorControlFrame::neutral();
     frame.melee_pressed = true;
@@ -782,8 +800,12 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
 /// and a `MovesetVerb` character still loses it.
 #[test]
 fn an_authored_charging_character_keeps_its_projectile_press() {
-    use crate::character_runtime::{CharacterBindings, CharacterDefinition};
+    use ambition_characters::actor::definition::CharacterDefinition;
+    use crate::character_runtime::{CharacterBindings};
     use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
 
     let charge_frame = || {
         let mut frame = ActorControlFrame::neutral();
@@ -877,7 +899,11 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
 #[test]
 fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     use ambition_characters::action_scheme::{ActorTechniques, ResolvedTechniqueEdges};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
     use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -948,6 +974,9 @@ fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
 /// bundle does, press `special`, and observe the resulting move.
 #[test]
 fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
 
     // The REAL bundle authorities + the REAL moveset build (bundles.rs:135).
     let action_set = crate::avatar::bundles::default_player_action_set(
@@ -1028,6 +1057,8 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
 /// (or a body whose special isn't bubble_shield) must NOT raise the guard.
 #[test]
 fn the_bubble_shield_special_move_holds_the_guard_up() {
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
 
     let action_set = crate::avatar::bundles::default_player_action_set(
         ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -1212,6 +1243,7 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
 
 /// A catalog whose row hands `id` a real melee kit.
 fn catalog_granting_melee(id: &str) -> CharacterCatalog {
+    use ambition_characters::actor::character_catalog::parse_catalog;
     let ron = format!(
         r#"(
             brain_presets: {{ "stand_still": StandStill }},
@@ -1543,6 +1575,7 @@ fn an_unregistered_authored_persona_derives_its_ranged_move() {
 
 /// A catalog whose one authored row grants BOTH a melee and a ranged preset.
 fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
+    use ambition_characters::actor::character_catalog::parse_catalog;
     let ron = format!(
         r#"(
             brain_presets: {{ "stand_still": StandStill }},
@@ -1591,6 +1624,9 @@ fn catalog_granting_melee_and_ranged(id: &str) -> CharacterCatalog {
 #[test]
 fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let authored = ActionSet {
         ranged: Some(RangedActionSpec {
@@ -1669,6 +1705,9 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
 /// heal.
 #[test]
 fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -1842,6 +1881,9 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
 #[test]
 fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     const BODY_MAX_HEALTH: i32 = 100;
     const BODY_MASS: f32 = 1.0;
@@ -1971,6 +2013,10 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
 /// acquire one permanently from a character that only briefly authored it.
 #[test]
 fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     for (id, mass) in [("heavy_duelist", Some(2.0)), ("silent_persona", None)] {
@@ -2043,6 +2089,10 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
 /// state such as `max_health`, including during rollback resimulation.
 #[test]
 fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     for id in ["quiet_one", "quiet_two"] {
@@ -2131,6 +2181,10 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
 /// the BODY, and it does not move when the definition behind the id does.
 #[test]
 fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     const BODY_MAX_HEALTH: i32 = 100;
     const BODY_MASS: f32 = 1.0;
@@ -2223,6 +2277,9 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
 /// A worn body with NO moveset must still get its persona — and get a moveset.
 #[test]
 fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -2299,6 +2356,9 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
 /// would leave.
 #[test]
 fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
+    use ambition_characters::brain::ActionSet;
+    use ambition_combat::moveset::ActorMoveset;
+    use bevy::prelude::*;
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -2367,7 +2427,10 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
 ///   not a deletion.
 #[test]
 fn the_shield_verb_follows_the_ability_not_the_special() {
+    use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{ActionSet, SpecialActionSpec};
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
 
     let guarding = || {
         let mut frame = ActorControlFrame::neutral();
@@ -2433,6 +2496,10 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
 /// even with no shield ability of its own.
 #[test]
 fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use bevy::prelude::*;
 
     let mut frame = ActorControlFrame::neutral();
     frame.shield_held = true;

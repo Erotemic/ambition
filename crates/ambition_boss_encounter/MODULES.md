@@ -15,6 +15,7 @@
 | [`encounter_script`](src/encounter_script.rs) | Encounter-script EXECUTION + its actor-specific mechanics. |
 | [`events`](src/events.rs) | Boss-encounter presentation sink. |
 | [`ids`](src/ids.rs) | Boss encounter id helper: `encounter_id_from_name` slugs an authored boss name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). |
+| [`pattern`](src/pattern/mod.rs) | THE BOSS PATTERN'S THINKING, which is this domain's own business. |
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
 | [`registry`](src/registry.rs) | `BossEncounterRegistry` — the read-only boss DATA CATALOG. |
 | [`rewards`](src/rewards.rs) | Boss reward-chest sync — the ECS mirror of "this boss placement is cleared, so its authored `DropChest` reward exists in the room". |
@@ -24,7 +25,7 @@
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems — the per-frame driver. |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -17,12 +17,12 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     use bevy::prelude::*;
 
     let combat_size = ae::Vec2::new(80.0, 80.0);
-    let behavior = ambition_boss_encounter::behavior::BossBehaviorProfile::clockwork_warden();
+    let behavior = ambition_boss_encounter::pattern::profile::BossBehaviorProfile::clockwork_warden();
     // The boss's attack moveset: a FloorSlam geometry strike → an Active-window move.
     let cap = BossCapability {
         specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.5)],
     };
-    let moveset = crate::features::boss_attack_moveset(&cap, &behavior, combat_size, &[])
+    let moveset = crate::features::bosses::boss_attack_moveset(&cap, &behavior, combat_size, &[])
         .expect("a boss with a strike → a moveset");
 
     let mut app = App::new();
@@ -61,7 +61,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
         },
         intent,
         moveset,
-        super::super::FeatureSimEntity,
+        ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
     ));
     // Frame 1 triggers the move; frame 2 advances it into its Active window.
     app.update();
@@ -113,7 +113,7 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 /// half pins: a boss can be a rider whose hurtboxes live on the body it rides.
 #[test]
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
-    use ambition_boss_encounter::behavior::BossBehaviorProfile;
+    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let pos = ae::Vec2::new(500.0, 400.0);
@@ -184,6 +184,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
 
 #[test]
 fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
+    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let behavior = BossBehaviorProfile::mockingbird();

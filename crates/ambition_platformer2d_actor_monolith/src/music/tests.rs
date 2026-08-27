@@ -6,6 +6,10 @@
 use super::*;
 use ambition_encounter::{EncounterPhase, EncounterRun, EncounterWaves};
 use std::collections::HashMap;
+use ambition_audio::music::state::AdaptiveCueDirective;
+use ambition_audio::music::catalog::MusicCueCatalog;
+use ambition_audio::music::state::MusicDirectorMode;
+use ambition_audio::music::state::MusicDirectorState;
 
 /// A wave-policy fixture: the resolver keys adaptive states off the wave
 /// index/clock (`EncounterWaves.run`); the generic lifecycle supplies the

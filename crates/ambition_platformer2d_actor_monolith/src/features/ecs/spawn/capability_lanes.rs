@@ -12,7 +12,6 @@ use ambition_platformer2d_shared_tangle::construction::{
     ConstructionLane, ConstructionPlan, ConstructionReceipt, ConstructionScope, ContentBinding,
     RosterViolation, TransactionBaseline,
 };
-use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use std::collections::BTreeSet;
 
@@ -246,6 +245,7 @@ impl CapabilityLanes {
         commands: &mut Commands,
         session: SessionSpawnScope,
     ) -> CapabilityReceipts {
+        use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
             gravity,
             #[cfg(feature = "portal")]
@@ -310,6 +310,7 @@ impl CapabilityLanes {
         commands: &mut Commands,
         session: SessionSpawnScope,
     ) -> Option<bool> {
+        use ambition_platformer2d_shared_tangle::gravity::construction as gravity_domain;
         let Self {
             gravity,
             #[cfg(feature = "portal")]

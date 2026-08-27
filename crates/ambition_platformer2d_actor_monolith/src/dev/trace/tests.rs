@@ -5,6 +5,19 @@ use super::*;
 use ae::{Block, World};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use ambition_gameplay_trace::ControlFrameTrace;
+use ambition_gameplay_trace::DumpReason;
+use ambition_gameplay_trace::GameplayTraceBuffer;
+use ambition_gameplay_trace::GameplayTraceEvent;
+use ambition_gameplay_trace::GameplayTraceFrame;
+use ambition_gameplay_trace::OobReason;
+use ambition_gameplay_trace::PlayerTraceState;
+use ambition_gameplay_trace::TraceAabb;
+use ambition_gameplay_trace::TracePoint;
+use ambition_gameplay_trace::dump_paths;
+use ambition_gameplay_trace::timestamp_label;
+use ambition_gameplay_trace::timestamp_label_with_seq;
+use ambition_gameplay_trace::write_dump;
 
 fn dummy_world() -> World {
     let blocks = vec![Block::solid(

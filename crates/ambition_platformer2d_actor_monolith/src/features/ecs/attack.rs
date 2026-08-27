@@ -398,6 +398,8 @@ mod tests {
     /// checked "the attack is gone" would pass against that.
     #[test]
     fn a_helpless_fighter_keeps_its_drift_and_loses_everything_else() {
+        use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 
         let mut frame = ActorControlFrame::neutral();
         frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
@@ -450,6 +452,8 @@ mod tests {
     /// consumes — including the edge-granular post-hit stagger gates.
     #[test]
     fn ai_body_movement_routes_through_action_edges_and_gates() {
+        use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_combat::feel::Platformer2dFeelTuningMonolith;
         let dt = 1.0 / 60.0;
 
         // Normal: jump held + burst + blink-release route to the movement edges.

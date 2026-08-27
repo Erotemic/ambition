@@ -8,9 +8,9 @@ use super::*;
 use ambition_audio::library::SfxMessageCue as _;
 use ambition_audio::library::{amplitude_to_decibels, AudioLibrary, SoundCue, ORIGINAL_TRACK_ID};
 // `SfxMessage` no longer re-exported by the parent module.
-use crate::session::data::{
-    fixture_music_registry, fixture_sfx_registry, MusicRegistry, MusicTrack,
-};
+use ambition_audio::spec::MusicRegistry;
+use ambition_audio::spec::MusicTrack;
+use crate::session::data::{fixture_music_registry, fixture_sfx_registry};
 use ambition_sfx::SfxMessage;
 use ambition_sfx::SfxProvider;
 use bevy::asset::{Assets, Handle};
@@ -424,7 +424,7 @@ fn ambition_platformer2d_actor_monolith_uses_only_bevy_kira_audio() {
 /// an entry on web.
 #[test]
 fn every_live_music_track_resolves_under_web_served_assets() {
-    use crate::assets::game_assets::GameAssetConfig;
+    use ambition_sprite_sheet::game_assets::GameAssetConfig;
     use ambition_asset_manager::AssetProfile;
 
     let manifest = test_world_manifest();

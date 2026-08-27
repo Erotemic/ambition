@@ -14,10 +14,9 @@ use ambition_platformer2d_core::{Block, World};
 use bevy::prelude::*;
 
 use super::systems::{charge_projectile_input, step_projectiles};
-use crate::trace::GameplayTraceBuffer;
+use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::control::{PlayerSlot, SeatRawFrames};
-use ambition_combat::components::ActorIdentity;
 use ambition_combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
 use ambition_input::ControlFrame;
 use ambition_platformer2d_core::RoomGeometry;

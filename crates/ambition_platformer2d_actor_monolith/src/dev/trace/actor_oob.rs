@@ -197,6 +197,7 @@ pub fn flush_actor_dump(mut buffer: ResMut<ActorTraceBuffer>) {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     fn world_960x768() -> ae::World {
         ae::World::new("arena", ae::Vec2::new(960.0, 768.0), ae::Vec2::ZERO, vec![])

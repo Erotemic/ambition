@@ -441,8 +441,11 @@ mod per_seat_gesture_tests {
 
 #[cfg(test)]
 mod interaction_suppression_tests {
+    use super::*;
     use ambition_characters::actor::BodyCombat;
     use ambition_characters::control::SlotInteractionState;
+    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d_core::ControlFrame;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
     /// Build a minimal app with `interaction_input_system` and one primary

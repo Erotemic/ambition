@@ -145,6 +145,10 @@ pub mod content {
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
 pub use ambition_boss_encounter as boss_encounter;
+/// The gameplay TRACE: the buffer a headless run records into, its dump road
+/// and the reasons a dump is taken. Named from its owning crate rather than
+/// through the actor monolith's `dev::trace`, which only ever forwarded it.
+pub use ambition_gameplay_trace as gameplay_trace;
 /// Derivations from a character sheet — the animation-row pickers, the
 /// sheet-authored body geometry, the manifest attack hitbox.
 pub use ambition_character_sprites as character_sprites;

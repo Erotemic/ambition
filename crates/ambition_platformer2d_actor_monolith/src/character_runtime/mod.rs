@@ -50,6 +50,9 @@ pub use presentation::{
 };
 pub use seating::{match_participants, ActiveMatch, MatchInstance, MatchSeat};
 
+#[cfg(test)]
+use ambition_characters::actor::definition::CharacterDefinition;
+
 /// Body-complete fixture cast for tests that need registered characters but do
 /// not care which creatures they are.
 #[cfg(test)]

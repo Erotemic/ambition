@@ -1,6 +1,6 @@
 //! Grapple — a held item that yanks the player toward a grappled surface.
 //!
-//! Canon ability ([`crate::items::Item::Grapple`]): a traversal pull. Implemented
+//! Canon ability ([`ambition_items::Item::Grapple`]): a traversal pull. Implemented
 //! as a wired ability (a held item) like Blink / Mark/Recall / Fireball, so it
 //! reuses the equip / OoT-menu / throw plumbing. While holding it, `Attack`
 //! casts a line along the aim direction; if it lands on a solid wall within

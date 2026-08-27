@@ -528,6 +528,7 @@ fn the_decode_path_declares_a_registered_character_itself() {
 // ── Live quality Apply: the residency transition ───────────────────────────────
 
 mod live_quality_apply {
+    use super::*;
     use ambition_asset_manager::AssetProfile;
     use ambition_persistence::settings::{
         TextureResolutionScale, UserSettings, VisualQualityProfile,

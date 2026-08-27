@@ -6,6 +6,13 @@
 use super::*;
 use ambition_asset_manager::AssetProfile;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
+use ambition_sprite_sheet::game_assets::ParallaxLayerAsset;
+use ambition_sprite_sheet::game_assets::build_sandbox_image_catalog;
+use ambition_sprite_sheet::game_assets::default_asset_profile;
+use ambition_sprite_sheet::game_assets::entity_sprite_asset_id;
+use ambition_sprite_sheet::game_assets::entity_sprite_for_kind;
+use ambition_sprite_sheet::game_assets::parallax_layer_asset_id;
+use ambition_sprite_sheet::game_assets::sandbox_image_manifest;
 
 fn args(slice: &[&str]) -> Vec<String> {
     slice.iter().map(|s| s.to_string()).collect()

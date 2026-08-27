@@ -314,6 +314,7 @@ mod tests {
     /// the pure derivation both rely on.
     #[test]
     fn prompt_scheme_and_gameplay_gate_authority_cannot_drift() {
+        use ambition_characters::brain::action_set::ActionSet;
         let ab = AbilitySet::sandbox_all();
 
         // Canonical player: gate keeps melee/ranged/special; scheme shows them.

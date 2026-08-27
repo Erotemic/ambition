@@ -154,6 +154,7 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_conversation = { path = "../ambition_conversation" }
 ambition_cutscene = { path = "../ambition_cutscene", optional = true }
 ambition_dev_tools = { path = "../ambition_dev_tools" }

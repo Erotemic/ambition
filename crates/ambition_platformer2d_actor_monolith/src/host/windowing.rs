@@ -2,6 +2,14 @@
 //!
 //! Display mode is user-facing configuration owned by the Settings menu. It is
 //! deliberately not part of the developer function-key deck.
+//!
+//! ⚠ THIS MODULE IS A PURE FORWARD and the 2026-08-27 facade sweep left it
+//! standing rather than deleting it: `ambition_platformer2d::windowed_host`
+//! already publishes `DisplayModeState` for SDK customers, so the remaining
+//! consumers are inside this crate. Delete it when they name
+//! `ambition_persistence::host::windowing` directly.
+
+pub use ambition_persistence::host::windowing::{DisplayModeKind, DisplayModeState};
 
 
 #[cfg(test)]

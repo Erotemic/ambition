@@ -599,7 +599,7 @@ mod tests {
     #[test]
     fn the_prompt_spells_a_button_in_the_seats_own_vocabulary() {
         use ambition_input::{
-            ActiveDevice, GamepadStyle, KeyboardPreset, SeatActiveDevices, SeatBindings,
+            ActiveDevice, GamepadStyle, SeatActiveDevices, SeatBindings,
         };
 
         let mut app = app();

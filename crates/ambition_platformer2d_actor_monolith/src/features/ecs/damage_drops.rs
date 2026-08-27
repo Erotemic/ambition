@@ -236,7 +236,7 @@ pub fn drop_health_pickup(
 
 /// Spawn a collectible ability pickup at `pos` — a defeated boss's reward. Reuses
 /// the standard pickup entity shape so [`super::collect_ecs_pickups`] grants the
-/// ability to the player's catalog ([`crate::items::OwnedItems`]) on overlap.
+/// ability to the player's catalog ([`ambition_items::OwnedItems`]) on overlap.
 pub fn drop_ability_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,

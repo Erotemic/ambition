@@ -5,9 +5,7 @@ use ambition_input::ControlFrame;
 use ambition_platformer2d_shared_tangle::gravity::{
     gravity_upright_angle, GravityField,
 };
-use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{
-    update_actor_roll, ActorRoll,
-};
+use ambition_platformer2d_shared_tangle::orientation::{update_actor_roll, ActorRoll};
 use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;

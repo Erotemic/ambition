@@ -10,10 +10,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::Vec2;
 
 use super::*;
-use crate::character_runtime::{
-    ActiveMatch, CharacterDefinition, CharacterDefinitionAppExt, ControllerBinding,
-    MatchParticipant, MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry,
-};
+use ambition_characters::actor::definition::CharacterDefinition;
+use crate::character_runtime::{ActiveMatch, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry};
 
 /// The fixture's own published CPU policy — see [`fixture_policies`].
 const FIXTURE_CPU_POLICY: &str = "cpu_policy";
@@ -1571,6 +1569,7 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
 #[test]
 fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
     use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+    use ambition_characters::brain::ActionSet;
 
     fn swiping(damage: i32) -> ActionSet {
         ActionSet {
@@ -2711,6 +2710,7 @@ fn a_seat_naming_an_unknown_brain_profile_is_not_seated() {
 /// failed to resolve, and the player wore that half-applied match state for as many ticks as the
 /// roster took to complete — forever, for a roster that can never complete.
 mod activation_transaction {
+    use super::*;
 
     /// The player body these tests watch, with values chosen so that adoption
     /// CANNOT be mistaken for "nothing happened": a pool the character's

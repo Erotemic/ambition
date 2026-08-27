@@ -553,8 +553,50 @@ fn character_json(
     })
 }
 
+const USAGE: &str = "\
+moveset_export — export every smash fighter's balance data as one JSON bundle.
+
+USAGE:
+    moveset_export [--out PATH]
+
+OPTIONS:
+    --out PATH   where to write the bundle
+                 [default: tools/ambition_moveset_inspector/data/moveset_bundle.json]
+    -h, --help   print this and exit
+
+NOTES:
+    Boots the real composed host and reports what it RESOLVES, not what an
+    authoring file writes — the two differ wherever a repertoire slot overwrites
+    a move or a provider composes one fighter out of another's table.
+
+    There is no positional argument. `moveset_export out.json` writes to the
+    DEFAULT path, silently; use --out.
+
+    Takes ~1 minute: it builds the whole app to ask it questions.
+";
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // ⛔⛔ BEFORE THE APP BOOTS. `--help` used to build the entire engine, ignore
+    // the flag, and do the export anyway — a help request that costs a minute
+    // and then writes a file is worse than no help at all.
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print!("{USAGE}");
+        return;
+    }
+    // ⛔ AND AN UNKNOWN FLAG IS A REFUSAL, not a shrug. This parser matches
+    // `--out` by scanning pairs, so every other argument was silently ignored:
+    // a typo'd flag exported the default and said nothing.
+    if let Some(bad) = args
+        .iter()
+        .skip(1)
+        .filter(|a| a.starts_with('-'))
+        .find(|a| *a != "--out")
+    {
+        eprintln!("moveset_export: unknown option '{bad}'\n");
+        print!("{USAGE}");
+        std::process::exit(2);
+    }
     let out = args
         .windows(2)
         .find(|w| w[0] == "--out")

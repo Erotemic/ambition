@@ -235,3 +235,20 @@ nobody could trust.
 ⚠ The render is currently a whole-scene capture of a fighter standing in
 `hall_of_characters`; it is not yet driven per MOVE. Driving `--press` from the
 move's verb is the next step and is why the route already takes a frame count.
+
+## Hitbox geometry
+
+Strikes are drawn as the shape they ACTUALLY are — convex polygon, disc, rotated
+box — not as the axis-aligned box around them.
+
+⛔⛔ THE BOX AROUND AN ARC IS NOT THE ARC. `moveset_takes` originally recorded
+`Hitbox::world_aabb`, which sits directly beside `world_volume` in the same impl.
+Measured on this cast: 405 of 481 recorded hitboxes are convex, and their real
+area is a median **55%** of the bounding box they were drawn as — the box
+overstated the strike by a median 1.8x and up to **5.3x**. A reach diagram that
+wrong is worse than none, because it is confidently wrong.
+
+The AABB is still recorded beside the shape: it is the broad phase the engine
+itself uses, a viewer can draw it knowing no geometry, and a take made before the
+shape existed still renders. `check_bundle_contract.mjs` prints the shape census
+and warns if a recording carries none.

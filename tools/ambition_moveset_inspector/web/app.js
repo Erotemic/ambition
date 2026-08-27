@@ -934,9 +934,7 @@ function drawTake() {
     const mine = h.subject_owned !== false;
     ctx.strokeStyle = mine ? "#e2564a" : "rgba(226,86,74,.35)";
     ctx.fillStyle = mine ? "rgba(226,86,74,.22)" : "rgba(226,86,74,.07)";
-    ctx.beginPath();
-    ctx.rect(X(h.pos[0] - h.half[0]), Y(h.pos[1] - h.half[1]), h.half[0] * 2 * scale, h.half[1] * 2 * scale);
-    ctx.fill(); ctx.stroke();
+    drawHitboxShape(ctx, h, X, Y, scale);
   }
 
   /* ⛔⛔ PROJECTILES WERE RECORDED AND NEVER DRAWN. The take carries

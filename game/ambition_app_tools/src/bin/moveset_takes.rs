@@ -292,6 +292,32 @@ struct Frame {
     gesture: Option<String>,
 }
 
+const USAGE: &str = "\
+moveset_takes — drive real control frames through the engine and record what it did.
+
+USAGE:
+    moveset_takes [--characters ID,ID] [--out PATH]
+
+OPTIONS:
+    --characters ID,ID   comma-separated catalog ids to record
+                         [default: npc_pirate_admiral]
+    --out PATH           where to write the takes
+                         [default: tools/ambition_moveset_inspector/data/takes/takes.json]
+    -h, --help           print this and exit
+
+NOTES:
+    Seats a real smash match and presses every verb, recording bodies, live
+    hitboxes, projectiles and which move the engine actually PLAYED. A take that
+    reports `MISMATCH` means the press and the move disagreed, which is the whole
+    reason this exists.
+
+    There is no positional argument; use --out.
+
+    Minutes per character: every take is a real match settled between presses.
+    Prints a `[presentation]` census at the end — see the docs for what its
+    zeroes mean.
+";
+
 /// Count the presentation components the REAL animation path needs, once.
 ///
 /// ⭐⭐ THE QUESTION THIS ANSWERS. The frame cursor in the viewer is a
@@ -632,12 +658,40 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         let anchor = owner_pos.get(&hitbox.owner).copied().unwrap_or((0.0, 0.0));
         // The SAME resolution the combat runtime uses, so a recorded box is the
         // box that could hit somebody rather than a redrawn approximation.
-        let aabb = hitbox.world_aabb(ambition_platformer2d::engine_core::Vec2::new(
-            anchor.0, anchor.1,
-        ));
+        let at = ambition_platformer2d::engine_core::Vec2::new(anchor.0, anchor.1);
+        let aabb = hitbox.world_aabb(at);
+        // ⛔⛔ THE REAL SHAPE, not the box around it. `world_aabb` sits directly
+        // beside `world_volume` and I reached for the wrong one, so a rotated
+        // box, a disc and a convex arc were all recorded as the axis-aligned
+        // rectangle that CONTAINS them — which for a sweeping arc is a great
+        // deal larger than the thing that can actually hit you, and is the
+        // difference between a diagram and a decoration.
+        //
+        // ⭐ THE AABB STAYS BESIDE IT. It is the broad phase the engine itself
+        // uses, a viewer can draw it without knowing any shape, and keeping both
+        // means an old take still renders.
+        let shape = match hitbox.world_volume(at) {
+            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => serde_json::json!({ "kind": "aabb" }),
+            ambition_platformer2d::engine_core::CombatVolume::Obb { center, half, rotation } => serde_json::json!({
+                "kind": "obb",
+                "center": [center.x, center.y],
+                "half": [half.x, half.y],
+                "rotation": rotation,
+            }),
+            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => serde_json::json!({
+                "kind": "circle",
+                "center": [center.x, center.y],
+                "radius": radius,
+            }),
+            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => serde_json::json!({
+                "kind": "convex",
+                "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
+            }),
+        };
         frame.hitboxes.push(serde_json::json!({
             "pos": [(aabb.min.x + aabb.max.x) * 0.5, (aabb.min.y + aabb.max.y) * 0.5],
             "half": [(aabb.max.x - aabb.min.x) * 0.5, (aabb.max.y - aabb.min.y) * 0.5],
+            "shape": shape,
             "damage": hitbox.damage,
             // Already read for the anchor above and then thrown away, which is
             // how the opponent's swings got counted as the subject's.
@@ -822,6 +876,27 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // ⛔⛔ BEFORE THE APP BOOTS, and before it seats a match and drives a hundred
+    // takes. `--help` used to build the engine, ignore the flag, and record the
+    // default fighter anyway.
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print!("{USAGE}");
+        return;
+    }
+    // ⛔ AN UNKNOWN FLAG IS A REFUSAL. `--character` (singular) is the obvious
+    // typo for `--characters` and this parser would have ignored it and silently
+    // recorded the default fighter instead — a wrong answer that looks like a
+    // right one.
+    if let Some(bad) = args
+        .iter()
+        .skip(1)
+        .filter(|a| a.starts_with('-'))
+        .find(|a| *a != "--out" && *a != "--characters")
+    {
+        eprintln!("moveset_takes: unknown option '{bad}'\n");
+        print!("{USAGE}");
+        std::process::exit(2);
+    }
     let arg = |name: &str| args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone());
     let out = arg("--out")
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/takes/takes.json".to_string());

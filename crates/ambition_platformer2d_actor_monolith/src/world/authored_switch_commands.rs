@@ -108,7 +108,7 @@ pub fn prepare_authored_switch_commands(
                 prepared.calls.insert(switch_id, call);
             }
             Err(error) => warn!(
-                target: "ambition_platformer2d_actor_monolith::world::authored_switch_commands",
+                target: "crate::world::authored_switch_commands",
                 "switch `{switch_id}` in room `{active_room_id}` authors an \
                  `{ON_ACTIVATE_FIELD}` this composition cannot perform: {error}",
             ),
@@ -162,7 +162,7 @@ impl Plugin for AuthoredSwitchCommandPlugin {
                 // could miss its own frame, and without the second the request
                 // would wait for the next one. Both sets live in this schedule,
                 // so neither is the silently-vacuous cross-schedule kind.
-                .after(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction)
+                .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction)
                 .before(AuthoredCommandSet),
         );
     }

@@ -7,7 +7,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use ambition_platformer2d::actors::assets::game_assets as actor_game_assets;
 use ambition_platformer2d::world::rooms as world_rooms;
 
-use ambition_platformer2d::actors::session::{data, setup};
+use ambition_platformer2d::actors::session::setup;
 use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
@@ -133,7 +133,7 @@ pub(super) fn setup_simulation_system(
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
     prepared_world: Res<ambition_content::provider::AmbitionPreparedWorld>,
-    sfx_registry: Res<data::SfxRegistry>,
+    sfx_registry: Res<ambition_platformer2d::content::SfxRegistry>,
     audio_catalog: Res<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>,
     catalogs: PresentationCatalogs,
     hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,

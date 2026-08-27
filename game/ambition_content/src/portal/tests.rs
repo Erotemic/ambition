@@ -2,13 +2,13 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::ActionSet;
 use ambition_input::ControlFrame;
-use ambition_platformer2d_actor_monolith::platformer_runtime::gravity::{
+use ambition_platformer2d_shared_tangle::gravity::{
     gravity_upright_angle, GravityField,
 };
 use ambition_platformer2d_actor_monolith::platformer_runtime::orientation::{
     update_actor_roll, ActorRoll,
 };
-use ambition_platformer2d_actor_monolith::platformer_runtime::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::RoomGeometry;
@@ -17,7 +17,7 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 #[allow(unused_imports)]
 use super::*;
-use ambition_platformer2d_actor_monolith::platformer_runtime::collision::raycast_solids;
+use ambition_platformer2d_core::cast::raycast_solids;
 use ambition_portal2d::*;
 
 // Channel shorthands for the tests: the gun's pair (Blue/Orange) and two authored
@@ -359,7 +359,7 @@ fn portal_fit_gate_keys_on_the_opening_perpendicular_to_the_normal() {
 
 #[test]
 fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
-    use ambition_platformer2d_actor_monolith::features::BodyKinematics;
+    use ambition_platformer2d_core::body_clusters::BodyKinematics;
     let mut app = App::new();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
@@ -610,7 +610,7 @@ fn gravity_upright_angle_tracks_the_gravity_direction() {
 
 #[test]
 fn actors_get_an_aerial_roll_through_portals() {
-    use ambition_platformer2d_actor_monolith::features::BodyKinematics;
+    use ambition_platformer2d_core::body_clusters::BodyKinematics;
     let mut app = App::new();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
@@ -1162,7 +1162,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     let scoped = {
         let mut q = app.world_mut().query_filtered::<(), (
             With<PlacedPortal>,
-            With<ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomScopedEntity>,
+            With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
         )>();
         q.iter(app.world()).count()
     };

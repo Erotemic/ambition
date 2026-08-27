@@ -4,7 +4,6 @@
 //! `ambition_items` (E8). The pickup/throw/projectile steppers stay here because
 //! they mutate actor bodies, gravity, portals, abilities, and hit events.
 
-pub use ambition_items::*;
 
 pub mod conditions;
 pub mod match_spawn;

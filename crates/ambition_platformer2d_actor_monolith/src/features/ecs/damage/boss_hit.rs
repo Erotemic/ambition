@@ -284,7 +284,7 @@ pub(crate) fn apply_boss_hit(
         if let (Some(ability_id), Some(parent)) =
             (boss.config.behavior.reward_ability.as_deref(), &parent)
         {
-            if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
+            if let Some(item) = ambition_items::Item::from_dialog_id(ability_id) {
                 drop_ability_pickup(
                     &mut writers.commands,
                     session_scope,
@@ -331,7 +331,6 @@ mod entity_damage_tests {
     //! The entity-local boss damage contract for `apply_entity_boss_damage`:
     //! vulnerable phases take damage, lethal damage forces `Death`, invulnerable
     //! phases swallow the hit.
-    use super::*;
     use ambition_boss_encounter::test_support::test_boss_status;
     use ambition_boss_encounter::BossEncounterPhase;
 

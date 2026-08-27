@@ -190,8 +190,8 @@ fn three_domains_answer_one_question_about_one_body_on_one_tick() {
     let body = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_actor_monolith::avatar::movement_components::BodyKinematics::default(),
-            ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
+            ambition_platformer2d_core::BodyGroundState::default(),
             DrivingParticipant(PlayerSlot(1)),
             ambition_characters::control::ActorControl::default(),
         ))
@@ -308,13 +308,13 @@ fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses
     asking_left.0.locomotion.x = -1.0;
     app.world_mut().spawn((
         ambition_combat::components::ActorIdentity::new("fighter_left", "Left"),
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyKinematics {
+        ambition_platformer2d_core::BodyKinematics {
             // Moving RIGHT while asking left — the exact disagreement the
             // instrument was built to make visible.
             vel: ambition_platformer2d_core::Vec2::new(588.0, 0.0),
             ..Default::default()
         },
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(
+        ambition_platformer2d_core::BodyGroundState::default(
         ),
         ambition_platformer2d_core::BodyDashState::default(),
         Brain::StateMachine(ambition_characters::brain::StateMachineCfg::StandStill),
@@ -323,9 +323,9 @@ fn an_ai_bodys_received_frame_is_explained_under_the_same_subject_the_brain_uses
     // A seated body, which the other publisher owns.
     app.world_mut().spawn((
         ambition_combat::components::ActorIdentity::new("seated_body", "Seated"),
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyKinematics::default(
+        ambition_platformer2d_core::BodyKinematics::default(
         ),
-        ambition_platformer2d_actor_monolith::avatar::movement_components::BodyGroundState::default(
+        ambition_platformer2d_core::BodyGroundState::default(
         ),
         ambition_platformer2d_core::BodyDashState::default(),
         DrivingParticipant(PlayerSlot(1)),

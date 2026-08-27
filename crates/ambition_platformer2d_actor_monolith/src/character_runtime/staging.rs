@@ -740,7 +740,6 @@ mod tests {
 
 #[cfg(test)]
 mod roster_validation_tests {
-    use super::*;
     use crate::character_runtime::ControllerBinding;
 
     /// The policies a composition PUBLISHES, keyed the way assembly keys

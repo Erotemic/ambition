@@ -11,9 +11,10 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::Query;
 
 use ambition_mount::MountSlot;
-use crate::features::{ActorSurfaceState, BodyKinematics};
 use ambition_boss_encounter::BossConfig;
 use ambition_boss_encounter::{LimbMotion, LimbRoute};
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 
 /// Idle station-keeping gain (1/s): how hard a limb steers back toward its home
 /// anchor when it has no strike this tick. `velocity_target = (home - pos) * gain`.

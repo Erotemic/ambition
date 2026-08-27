@@ -123,7 +123,7 @@ fn resolve_command_preset(
             }
             ambition_characters::actor::character_catalog::AutonomousDefault::None => {
                 warn!(
-                    target: "ambition_platformer2d_actor_monolith::brain_command",
+                    target: "crate::brain_command",
                     "BrainCommand RestoreDefault for {}: binding has no autonomous default \
                      (not a catalog-backed actor); command rejected",
                     sim_id.as_str(),
@@ -175,7 +175,7 @@ fn apply_brain_selection(
     {
         let Some(config) = profile_body else {
             warn!(
-                target: "ambition_platformer2d_actor_monolith::brain_command",
+                target: "crate::brain_command",
                 "BrainCommand RestoreDefault for {}: its character's own policy is the                  default, but the body carries no ActorConfig to lower it against;                  command rejected",
                 sim_id.as_str(),
             );
@@ -190,7 +190,7 @@ fn apply_brain_selection(
         // Reject, loudly, like every other unresolvable command.
         let Some(profile) = character_profile else {
             warn!(
-                target: "ambition_platformer2d_actor_monolith::brain_command",
+                target: "crate::brain_command",
                 "BrainCommand RestoreDefault for {}: its binding says the CHARACTER \
                  owns the default policy, and the character could not be resolved \
                  (no WornCharacter, or no prepared cast containing it, or it \
@@ -209,7 +209,7 @@ fn apply_brain_selection(
     };
     let Some(new_brain) = catalog.build_brain_from_preset(resolved_preset.as_str(), ctx) else {
         warn!(
-            target: "ambition_platformer2d_actor_monolith::brain_command",
+            target: "crate::brain_command",
             "BrainCommand for {}: unknown brain preset `{}` (not in brain_presets); command rejected",
             sim_id.as_str(),
             resolved_preset,
@@ -500,7 +500,7 @@ fn update_source_only(
         .is_none()
     {
         warn!(
-            target: "ambition_platformer2d_actor_monolith::brain_command",
+            target: "crate::brain_command",
             "BrainCommand for {} (under temporary control): unknown preset `{}`; source unchanged",
             sim_id.as_str(),
             resolved,
@@ -551,7 +551,7 @@ impl Plugin for BrainCommandPlugin {
                 apply_release_provocations.before(apply_brain_commands),
                 apply_brain_commands,
             )
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
     }
 }

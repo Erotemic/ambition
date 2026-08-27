@@ -6,6 +6,7 @@ use ambition_combat::components::{
 };
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
 /// and legacy NPCs/switches.
@@ -50,7 +51,7 @@ pub fn open_ecs_chests(
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
-    mut owned: Option<ResMut<crate::items::OwnedItems>>,
+    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     // Iterate every player so each player's own buffered interact
     // can open a chest the player is overlapping. Per-player interact

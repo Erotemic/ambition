@@ -610,9 +610,8 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 /// `apply_feature_hit_events`. Nothing in the damage path knows what a spark is.
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
-    use ambition_platformer2d::actors::features::{
-        apply_feature_hit_events, spawn_encounter_mob, EncounterMobSeed, FeatureEcsWorldOverlay,
-    };
+    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
+    use ambition_platformer2d::actors::features::{apply_feature_hit_events, spawn_encounter_mob, EncounterMobSeed};
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent, SetFlagRequested};
     // ⛔ `ProjectileBody` belongs to the projectile MODEL crate; the monolith's

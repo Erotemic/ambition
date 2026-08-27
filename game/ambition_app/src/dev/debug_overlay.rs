@@ -127,7 +127,7 @@ pub(crate) fn draw_debug_overlay(
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
             ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-            Without<ambition_platformer2d::actors::features::FeatureSimEntity>,
+            Without<ambition_platformer2d::actor::FeatureSimEntity>,
         ),
     >,
     feature_q: FeatureDebugQueries,

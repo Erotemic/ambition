@@ -76,7 +76,7 @@ impl Plugin for ItemPickupSimulationPlugin {
                 ItemPickupSet::WieldedAbilities,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
         );
         // Both chains were internally ordered, internally correct, and siblings under
         // `PlayerSimulation` with nothing between them.
@@ -612,7 +612,7 @@ pub fn restore_custody_to_checkpoint(
         Option<&HeldItem>,
         Option<&StashedActionSet>,
     )>,
-    mut owned: Option<ResMut<crate::items::OwnedItems>>,
+    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     // Drained unconditionally, like every other reader of this channel.
@@ -1038,11 +1038,11 @@ pub fn gunsword_spec() -> HeldItemSpec {
         .expect("gun_sword is a built-in held item")
 }
 
-/// Resolve a catalog [`crate::items::Item`]'s held-item spec, for equipping from
+/// Resolve a catalog [`ambition_items::Item`]'s held-item spec, for equipping from
 /// a non-pickup source (the inventory menu). The three wired weapons each have a
 /// spec; everything else returns `None`.
-pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
-    use crate::items::Item;
+pub fn held_spec_for_item(item: ambition_items::Item) -> Option<HeldItemSpec> {
+    use ambition_items::Item;
     match item {
         Item::Axe => Some(axe_spec()),
         Item::Javelin => Some(javelin_spec()),
@@ -1068,7 +1068,7 @@ pub fn held_spec_for_item(item: crate::items::Item) -> Option<HeldItemSpec> {
 /// `ambition_characters`'s table; the pirates' `gun_sword_heavy` is a row there
 /// and has no catalog slot. Consulting one alone silently loses half the items.
 pub fn held_spec_by_id(id: &str) -> Option<HeldItemSpec> {
-    crate::items::Item::from_held_item_id(id)
+    ambition_items::Item::from_held_item_id(id)
         .and_then(held_spec_for_item)
         .or_else(|| ambition_characters::brain::held_item_by_id(id))
 }
@@ -1091,12 +1091,12 @@ pub fn equip_held_spec(
     player: Entity,
     action_set: &mut ActionSet,
     spec: HeldItemSpec,
-    owned: Option<&mut crate::items::OwnedItems>,
+    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     // Resolved BEFORE either end is written, so the catalog can never be told
     // about a slot the body did not end up with. An id with no catalog row (the
     // pirates' `gun_sword_heavy`) equips normally and claims no slot.
-    let slot = crate::items::Item::from_held_item_id(spec.id.as_str());
+    let slot = ambition_items::Item::from_held_item_id(spec.id.as_str());
     commands
         .entity(player)
         .insert(StashedActionSet(action_set.clone()));
@@ -1124,7 +1124,7 @@ pub fn unequip_held(
     player: Entity,
     action_set: &mut ActionSet,
     stashed: Option<&StashedActionSet>,
-    owned: Option<&mut crate::items::OwnedItems>,
+    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
@@ -1149,7 +1149,7 @@ pub fn equip_portal_gun(
     commands: &mut Commands,
     player: Entity,
     action_set: &mut ActionSet,
-    owned: Option<&mut crate::items::OwnedItems>,
+    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     commands
         .entity(player)
@@ -1160,7 +1160,7 @@ pub fn equip_portal_gun(
     });
     action_set.melee = None;
     if let Some(owned) = owned {
-        owned.set_equipped(Some(crate::items::Item::PortalGun));
+        owned.set_equipped(Some(ambition_items::Item::PortalGun));
     }
 }
 
@@ -1173,7 +1173,7 @@ pub fn unequip_portal_gun(
     player: Entity,
     action_set: &mut ActionSet,
     stashed: Option<&StashedActionSet>,
-    owned: Option<&mut crate::items::OwnedItems>,
+    owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
@@ -1216,7 +1216,7 @@ pub fn pickup_held_item_system(
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(&mut GroundItem, &mut ItemCustody)>,
-    mut owned: Option<ResMut<crate::items::OwnedItems>>,
+    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     let Some(player) = controlled.0 else {
         return;
@@ -1258,7 +1258,7 @@ pub fn pickup_held_item_system(
             // (via the equipped slot `equip_held_spec` writes below), so the grid
             // still shows the axe you are carrying — derived, retracted by the
             // same reset that retracts the object, and impossible to disagree
-            // with. See [`OwnedItems`](crate::items::OwnedItems)'s own docs.
+            // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
             //
             // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
             equip_held_spec(
@@ -1348,7 +1348,7 @@ pub fn throw_held_item_system(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         &mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter,
     )>,
-    mut owned: Option<ResMut<crate::items::OwnedItems>>,
+    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     let Some(player) = controlled.0 else {
         return;
@@ -1472,7 +1472,7 @@ pub fn throw_held_item_system(
     // quantity and has no row to spend.
     if let (Some(owned), Some(item)) = (
         owned.as_deref_mut(),
-        crate::items::Item::from_held_item_id(spec.id.as_str()),
+        ambition_items::Item::from_held_item_id(spec.id.as_str()),
     ) {
         owned.take(item, 1);
     }

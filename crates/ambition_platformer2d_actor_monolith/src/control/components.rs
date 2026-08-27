@@ -9,10 +9,6 @@
 
 use bevy::prelude::*;
 
-// The slot marker every body-facing consumer keys on. Defined a tier down, in
-// `ambition_characters::brain`, because a brain names its own slot.
-pub use ambition_characters::control::PlayerSlot;
-pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Marks a player whose input comes from this machine's input devices
 /// (keyboard / gamepad / touch). In single-player today the local

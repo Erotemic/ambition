@@ -399,7 +399,7 @@ pub fn ensure_perception(
         bevy::prelude::Entity,
         (
             bevy::prelude::With<ambition_characters::brain::Brain>,
-            bevy::prelude::With<crate::features::FeatureSimEntity>,
+            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
             bevy::prelude::Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             bevy::prelude::Without<ambition_boss_encounter::BossConfig>,
             // ⭐ A FIGHTER SEATED IN A MATCH IS NOT AN EXPLORATION ACTOR, and

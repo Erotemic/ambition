@@ -12,7 +12,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Commands, Entity};
 
-use super::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName, PickupFeature};
 use ambition_platformer2d_core as ae;
 

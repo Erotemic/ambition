@@ -6,8 +6,8 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
-use crate::features::FeatureSimEntity;
-use crate::trace::GameplayTraceBuffer;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_boss_encounter::{BossClusterRef, BossConfig};
 use ambition_combat::components::{
     ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId,
@@ -209,7 +209,7 @@ pub fn charge_projectile_input(
             // Debug log on every fire-press so the player can see
             // exactly what the motion recognizer saw and why a given
             // press did or didn't upgrade to a Hadouken. Run with
-            // `RUST_LOG=ambition_platformer2d_actor_monolith::projectile=info` (or
+            // `RUST_LOG=crate::projectile=info` (or
             // `RUST_LOG=info` more broadly) to surface these.
             log_press_diagnostics(
                 &state.motion_buffer,

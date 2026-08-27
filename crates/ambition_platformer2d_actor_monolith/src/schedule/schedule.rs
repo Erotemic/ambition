@@ -2,7 +2,7 @@
 //!
 //! Single source of truth for the concrete sandbox app schedule.
 //!
-//! `crate::platformer_runtime::schedule::PlatformerRuntimeSet` names the
+//! `ambition_platformer2d_shared_tangle::schedule::PlatformerRuntimeSet` names the
 //! reusable runtime vocabulary that future crates should depend on. `Platformer2dSimulationPhaseMonolith`
 //! is the app-level realization of that vocabulary, plus Ambition-specific tail
 //! phases. Add new systems through module-owned plugins and stable sets rather

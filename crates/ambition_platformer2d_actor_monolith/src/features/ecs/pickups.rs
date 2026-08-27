@@ -5,6 +5,7 @@ use ambition_combat::components::{CenteredAabb, Collected, FeatureName, PickupFe
 use ambition_combat::events::GameplayBanner;
 use ambition_combat::events::SetFlagRequested;
 use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Bodies eligible for passive touch collection.
 ///
@@ -177,7 +178,7 @@ pub fn collect_ecs_pickups(
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
-    mut owned: Option<ResMut<crate::items::OwnedItems>>,
+    mut owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
@@ -255,7 +256,7 @@ pub fn grant_pickup(
     heals: &mut MessageWriter<crate::avatar::PlayerHealRequested>,
     wallets: &mut Query<&mut ambition_characters::actor::BodyWallet>,
     set_flag: &mut MessageWriter<SetFlagRequested>,
-    mut owned: Option<&mut crate::items::OwnedItems>,
+    mut owned: Option<&mut ambition_items::OwnedItems>,
 ) {
     match kind {
         ambition_interaction::PickupKind::Health { amount } => {
@@ -274,7 +275,7 @@ pub fn grant_pickup(
             // the OoT inventory and can be equipped (wired abilities) — the
             // Metroidvania "learn a power from a boss" beat.
             if let Some(owned) = owned.as_deref_mut() {
-                if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
+                if let Some(item) = ambition_items::Item::from_dialog_id(ability_id) {
                     owned.grant(item, 1);
                 }
             }

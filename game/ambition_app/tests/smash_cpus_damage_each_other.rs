@@ -390,7 +390,7 @@ fn mirror_bout(
                 &BodyHealth,
                 Option<&BodyCombat>,
                 Option<
-                    &ambition_platformer2d::actors::avatar::movement_components::BodyGroundState,
+                    &ambition_platformer2d::engine_core::BodyGroundState,
                 >,
             )>()
             .iter(world)

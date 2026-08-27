@@ -432,7 +432,7 @@ pub fn project_settled_sand(
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
     mut overlay: ResMut<
-        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+        ambition_platformer2d::world::FeatureEcsWorldOverlay,
     >,
 ) {
     if !state.active_room {

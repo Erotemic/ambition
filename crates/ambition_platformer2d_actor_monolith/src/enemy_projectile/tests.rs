@@ -58,7 +58,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.init_resource::<crate::trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
@@ -69,7 +69,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     let enemy = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("test_enemy"),
             ambition_combat::components::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorDisposition::Hostile,
@@ -179,7 +179,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.init_resource::<crate::trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
@@ -190,7 +190,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     let enemy = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("enemy_bystander"),
             ambition_combat::components::CenteredAabb::new(actor_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Enemy,
@@ -251,7 +251,7 @@ fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.init_resource::<crate::trace::GameplayTraceBuffer>();
     app.insert_resource(relations);
     app.add_systems(
@@ -264,7 +264,7 @@ fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
 fn spawn_boss_actor(app: &mut App, pos: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("arena_robot"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Boss,
@@ -366,7 +366,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     let victim = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("seat_two_fighter"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -379,7 +379,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     let teammate = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -429,7 +429,6 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
 /// single shot overlapping both bodies would spare the teammate half the time.
 #[test]
 fn a_shot_outlives_its_firer_without_changing_sides() {
-    use ambition_combat::targeting::MatchTeam;
 
     let mut app = arena_projectile_app(crate::features::FactionRelations::default());
 
@@ -445,7 +444,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     let teammate = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -455,7 +454,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     let opponent = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("seat_two_fighter"),
             ambition_combat::components::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -526,7 +525,6 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
 /// properly. So this pins only the part that must never regress.
 #[test]
 fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
-    use ambition_combat::targeting::MatchTeam;
 
     let mut app = arena_projectile_app(crate::features::FactionRelations::default());
 
@@ -541,7 +539,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     let teammate = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -596,7 +594,6 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
 /// first-sight stamp would take the fact, hiding whether this system did.
 #[test]
 fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
-    use ambition_combat::targeting::MatchTeam;
     use bevy::ecs::system::RunSystemOnce as _;
 
     let mut app = arena_projectile_app(crate::features::FactionRelations::default());
@@ -613,7 +610,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
     let teammate = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -623,7 +620,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
     let opponent = app
         .world_mut()
         .spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("seat_two_fighter"),
             ambition_combat::components::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -735,7 +732,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     app.add_message::<VfxMessage>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.init_resource::<crate::trace::GameplayTraceBuffer>();
     app.add_systems(Update, crate::projectile::step_projectiles);
 
@@ -825,10 +822,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 /// exercised.
 #[test]
 fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-    use ambition_characters::actor::BodyCombat;
-    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
-    use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -851,7 +845,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<CapturedHits>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.init_resource::<crate::trace::GameplayTraceBuffer>();
     app.add_systems(
         Update,
@@ -942,7 +936,7 @@ fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
         let mut volumes = ambition_combat::components::DamageableVolumes::default();
         volumes.set_single(volume);
         app.world_mut().spawn((
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("arena_fighter"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
             ambition_combat::components::ActorFaction::Player,
@@ -1000,7 +994,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
         let victim = app
             .world_mut()
             .spawn((
-                crate::features::FeatureSimEntity,
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
                 ambition_combat::components::FeatureId::new("arena_fighter"),
                 ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
                 ambition_combat::components::ActorFaction::Player,

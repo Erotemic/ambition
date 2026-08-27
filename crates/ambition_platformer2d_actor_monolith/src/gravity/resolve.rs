@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::frame_env::{FrameEnv, ResolvedMotionFrame};
 
-use crate::features::ActorSurfaceState;
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_boss_encounter::BossConfig;
 use ambition_combat::actor_tuning::ActorConfig;
 
@@ -150,7 +150,6 @@ mod tests {
 
     #[test]
     fn actor_response_scales_gravity_but_keeps_orientation_at_zero() {
-        use ambition_combat::actor_tuning::ActorConfig;
 
         let mut app = resolver_app();
         let mut tuning = ambition_combat::actor_tuning::ActorTuning::default();

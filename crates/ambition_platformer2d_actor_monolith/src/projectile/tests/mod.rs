@@ -96,7 +96,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     );
     // `step_projectiles` collides against the portal-carved world; no carves in
     // these tests, so the overlay is empty (collision == raw world).
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.insert_resource(SeatRawFrames::default());
     app.insert_resource(ambition_persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
@@ -125,7 +125,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
     app.add_message::<crate::avatar::PlayerHealRequested>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     app.add_plugins(ambition_characters::brain::BrainPlugin);
     app.add_systems(
         Update,

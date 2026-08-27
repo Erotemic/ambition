@@ -470,7 +470,7 @@ pub fn apply_wave_encounter_effects(
     )>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     switch_index: Res<EncounterSwitchIndex>,
-    mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
+    mut trace: ResMut<ambition_gameplay_trace::GameplayTraceBuffer>,
     player_body_q: Query<
         &ambition_platformer2d_core::BodyKinematics,
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -507,7 +507,7 @@ pub fn apply_wave_encounter_effects(
     let tick = trace.current_tick();
     let mut completed_wave_ids: Vec<String> = Vec::new();
     for msg in events_in.read() {
-        trace.push_event(crate::trace::GameplayTraceEvent::Sfx {
+        trace.push_event(ambition_gameplay_trace::GameplayTraceEvent::Sfx {
             tick,
             label: format!("encounter:{}:{}", msg.encounter, msg.event.label()),
         });

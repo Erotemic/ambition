@@ -23,11 +23,12 @@
 //! `hitbox`, `overlay`, `pickups`, ...) so call sites stay
 //! stable while the generic mechanics live DOWN in that kit (ADR 0019).
 
+use ambition_combat::{banner, breakables, falling_chest, hazards, held_items, hitbox, targeting};
 use super::*;
 // `BodyCombat`/`BodyHealth` live on the reusable actor crate. This module surfaces them to the
 // `ecs/` submodules that name `super:BodyCombat` — the `super:*` glob no longer carries them
 // since the `features` facade stopped re-exporting the shared body vocabulary.
-use crate::platformer_runtime::lifecycle::RoomVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_characters::actor::BodyCombat;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
@@ -41,7 +42,7 @@ pub mod actor_bundles;
 pub mod actor_clusters;
 mod actors;
 mod aggression;
-mod anim_helpers;
+pub mod anim_helpers;
 pub mod attack;
 mod bosses;
 mod brain_builders;
@@ -76,12 +77,6 @@ mod spawn_actors;
 pub mod spawn_static;
 mod target_volumes;
 
-// Combat-kit aliases keep `ecs::<module>` paths stable for callers.
-// (attack/chests/damage_apply/effect_bus/pickups/spawn_static
-// are LOCAL modules now — the E2 glue re-home.)
-pub use ambition_combat::{
-    banner, breakables, falling_chest, hazards, held_items, hitbox, targeting, variation,
-};
 
 pub use actors::{
     actor_component_snapshot, enemy_component_snapshot, sync_actor_components_from_cluster,
@@ -100,18 +95,16 @@ pub use aggression::{
     apply_actor_stimuli, arm_requested_challenges, tick_pending_challenges, ChallengeRequested,
     PendingChallenge, CHALLENGE_GRACE_S,
 };
-pub use anim_helpers::{
-    advance_actor_anim_overlays, boss_anim_state_for, ecs_boss_anim_state,
-    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
-    ecs_chest_opened,
+pub use ambition_boss_encounter::anim::{
+    boss_anim_state_for, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
+    ecs_boss_animation_frame_sample,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
 pub use crate::world::overlay::{
-    rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay, FeatureWorldOverlaySet,
+    rebuild_feature_ecs_world_overlay, FeatureWorldOverlaySet,
 };
-pub use ambition_combat::hit_camera_shake::shake_camera_on_landed_hits;
 pub use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
@@ -180,15 +173,7 @@ pub use targeting::{
     FriendlyFire,
 };
 
-// `FeatureSimEntity` is a generic entity-marker queried by the reusable
-// mechanics, so its definition lives DOWN in
-// `ambition_platformer2d_shared_tangle::markers` (ADR 0019). Re-exported here so all
-// existing `crate::features::ecs::FeatureSimEntity` call sites compile
-// unchanged.
-pub use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
-// `HazardFeature` moved to the combat kit with the hazard runtime.
-pub use ambition_combat::hazard_runtime::HazardFeature;
 
 #[cfg(test)]
 mod tests;

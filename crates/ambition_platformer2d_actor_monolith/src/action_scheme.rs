@@ -105,7 +105,7 @@ impl Plugin for ActionSchemePlugin {
             sim,
             (
                 ambition_items::equipment::reconcile_equipment_grants
-                    .after(crate::schedule::PlayerInputSet::Persona),
+                    .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Persona),
                 // The routing markers follow whatever the moveset finally IS —
                 // after identity derived it and equipment overlaid its grants, so
                 // a ranged move granted by a row routes through the move timeline
@@ -314,7 +314,6 @@ mod tests {
     /// the pure derivation both rely on.
     #[test]
     fn prompt_scheme_and_gameplay_gate_authority_cannot_drift() {
-        use ambition_characters::brain::action_set::ActionSet;
         let ab = AbilitySet::sandbox_all();
 
         // Canonical player: gate keeps melee/ranged/special; scheme shows them.

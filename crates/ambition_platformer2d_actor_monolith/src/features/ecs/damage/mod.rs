@@ -16,7 +16,7 @@ use bevy::prelude::{
 };
 
 use super::damage_drops::drop_currency_coin;
-use super::{sync_actor_components_from_cluster, BodyCombat, FeatureSimEntity};
+use super::{sync_actor_components_from_cluster, BodyCombat};
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, BreakableFeature, CenteredAabb, FeatureId, FeatureName,
 };
@@ -34,6 +34,7 @@ use ambition_combat::events::ActorStimulus;
 use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (

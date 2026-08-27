@@ -683,9 +683,8 @@ pub fn install_sanic_content(app: &mut App) {
     // the prepared definition and demands its art, so the standalone app stopped
     // naming sheets and stopped hand-rolling the decode.
     {
-        use ambition_platformer2d::actors::character_runtime::{
-            CharacterDefinition, CharacterDefinitionAppExt,
-        };
+        use ambition_platformer2d::character::CharacterDefinition;
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
         // The sheet TARGET, not the sheet file: `sanic_spritesheet.ron` declares
         // `target: "sanic"`, and the registry is keyed by the target.
         // A VOICE, so neither stands mute on a Hall pedestal. A registered-only
@@ -1161,7 +1160,7 @@ impl Plugin for SanicRulesPlugin {
                 ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
             );
         }
-        app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
+        app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();

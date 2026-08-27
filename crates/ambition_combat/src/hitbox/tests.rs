@@ -678,7 +678,7 @@ fn armed_player_melee() -> crate::BodyMelee {
     };
     let spec = crate::attack_spec_from_view(&view, crate::AttackIntent::Forward);
     crate::BodyMelee {
-        swing: Some(crate::MeleeSwing::new(spec)),
+        swing: Some(crate::components::MeleeSwing::new(spec)),
         ..Default::default()
     }
 }

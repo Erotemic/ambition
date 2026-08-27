@@ -115,6 +115,21 @@ python3 scripts/goal_guard.py --extend       # print clocks
 Never hand-edit `.goal/active.json`; the run has multiple release clocks and
 `--extend` updates them consistently.
 
+## Programmatic Checks
+
+A check that takes more than a minute is not cheap. A check that takes more
+than 2 minutes is expensive. Agents have a bad habit of thinking that 20
+seconds here or 30 seconds there is cheap enough. It is not. Many iterations of
+these 10s of seconds checks adds real latency and has a massive negative impact
+on throughput.
+
+* **Batch the gate**: do not run the full gate every micro-edit. It belongs
+  before a big commit, not between edits. Sometimes not even between commits,
+  when they are part of a larger campaign.
+
+* Do not double check with cargo. Tee its outputs to a file once if you need
+  multiple operators over its output.
+
 ## Verification
 
 Use the narrowest command that actually covers the change. Full matrix:

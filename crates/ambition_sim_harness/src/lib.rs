@@ -4,7 +4,7 @@
 //! so tests, RL agents, and fuzz drivers can run game simulation without linking `ambition_app`.
 //!
 //! ```no_run
-//! use ambition_sim_harness::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
+//! use crate::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 //! # fn compose(_: &mut bevy::prelude::App, _: &Platformer2dSimHarnessOptions) -> Result<(), String> { Ok(()) }
 //! let mut sim = Platformer2dSimHarness::build(Platformer2dSimHarnessOptions::default(), compose).expect("sim builds");
 //! let mut action = AgentAction::default();

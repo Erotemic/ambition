@@ -59,27 +59,27 @@ impl Plugin for Platformer2dAudioPlugin {
             .init_resource::<DefaultMusicStarted>()
             .add_ambition_audio_channel::<MusicChannel>()
             .add_ambition_audio_channel::<SfxChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer0AChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer1AChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer2AChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer3AChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer4AChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer5AChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer0BChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer1BChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer2BChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer3BChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer4BChannel>()
-            .add_ambition_audio_channel::<crate::music::MusicLayer5BChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer0AChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer1AChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer2AChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer3AChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer4AChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer5AChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer0BChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer1BChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer2BChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer3BChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer4BChannel>()
+            .add_ambition_audio_channel::<ambition_audio::music::MusicLayer5BChannel>()
             .add_systems(
                 Startup,
                 (
                     ambition_dev_tools::profiling::phase_mark("before_audio_init"),
-                    crate::music::load_music_cues,
+                    ambition_audio::music::load_music_cues,
                     ambition_dev_tools::profiling::phase_mark("after_audio_init"),
                 )
                     .chain()
-                    .after(crate::schedule::PresentationSetupSet),
+                    .after(ambition_platformer2d_shared_tangle::schedule::PresentationSetupSet),
             )
             // Deferred music start: polls each Update for (a) user
             // gesture observed (AudioUnlockState) and (b) the default
@@ -102,7 +102,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 audio_play_sfx_messages
-                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
@@ -117,12 +117,12 @@ impl Plugin for Platformer2dAudioPlugin {
                     apply_audio_environment,
                 )
                     .chain()
-                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
             // Neutral music intent: the content layer resolves Ambition
             // encounter/boss/room/radio gameplay into a content-agnostic
             // `MusicIntent`, then the director consumes only that resource.
-            .init_resource::<crate::music::MusicIntent>()
+            .init_resource::<ambition_audio::music::MusicIntent>()
             // The active session audio authority. Empty (silence) until a
             // host selects it: session-routed hosts select per activation via
             // the shell bridge; direct-entry hosts select their provider
@@ -151,7 +151,7 @@ impl Plugin for Platformer2dAudioPlugin {
                     crate::music::sync_music_mix,
                     crate::music::release_narrative_music_on_room_change,
                     crate::music::compute_music_intent,
-                    crate::music::drive_music_director,
+                    ambition_audio::music::drive_music_director,
                 )
                     .chain()
                     // Gameplay music only drives while the simulation is
@@ -161,7 +161,7 @@ impl Plugin for Platformer2dAudioPlugin {
                     // case a stale room/encounter candidate cannot switch the
                     // base channel before gameplay authority exists.
                     .run_if(simulation_authorized)
-                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
             // Reset all activation-local audio request/director state on both
             // gameplay and frontend transitions. This runs outside the gameplay
@@ -169,7 +169,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 reset_audio_request_state_on_context_change
-                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation)
                     .before(audio_play_sfx_messages)
                     .before(crate::music::compute_music_intent)
                     .before(apply_frontend_music_policy),
@@ -183,7 +183,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 apply_frontend_music_policy
-                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
             );
     }
 }
@@ -206,8 +206,8 @@ struct AudioRequestState<'w, 's> {
     >,
     radio: Option<ResMut<'w, ambition_audio::library::RadioStationState>>,
     narrative: Option<ResMut<'w, ambition_conversation::NarrativeMusicRequest>>,
-    intent: Option<ResMut<'w, crate::music::MusicIntent>>,
-    director: Option<ResMut<'w, crate::music::MusicDirectorState>>,
+    intent: Option<ResMut<'w, ambition_audio::music::MusicIntent>>,
+    director: Option<ResMut<'w, ambition_audio::music::MusicDirectorState>>,
     music_playback: Option<ResMut<'w, ambition_audio::library::MusicPlaybackState>>,
     sfx_playback: Option<ResMut<'w, ambition_audio::render::SfxPlaybackState>>,
     default_started: Option<ResMut<'w, DefaultMusicStarted>>,
@@ -222,7 +222,7 @@ fn reset_audio_request_state_on_context_change(
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
     base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
     sfx_channel: Res<bevy_kira_audio::prelude::AudioChannel<SfxChannel>>,
-    layer_channels: crate::music::MusicLayerChannels,
+    layer_channels: ambition_audio::music::MusicLayerChannels,
     frontend: Option<Res<ambition_audio::selection::FrontendAudioRegistry>>,
     mut state: AudioRequestState,
 ) {
@@ -330,15 +330,15 @@ fn apply_frontend_music_policy(
     scope: Option<Res<ActiveSessionScope>>,
     roots: Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
-    layer_channels: crate::music::MusicLayerChannels,
+    layer_channels: ambition_audio::music::MusicLayerChannels,
     library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
     asset_server: Res<AssetServer>,
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
     frontend: Option<Res<ambition_audio::selection::FrontendAudioRegistry>>,
     emission: Res<ambition_sfx::SfxEmissionContext>,
-    director: Option<ResMut<crate::music::MusicDirectorState>>,
+    director: Option<ResMut<ambition_audio::music::MusicDirectorState>>,
     music_state: Option<ResMut<ambition_audio::library::MusicPlaybackState>>,
-    mut intent: ResMut<crate::music::MusicIntent>,
+    mut intent: ResMut<ambition_audio::music::MusicIntent>,
     mut started: ResMut<DefaultMusicStarted>,
     mut applied_owner: Local<Option<ambition_sfx::AudioContextOwner>>,
 ) {

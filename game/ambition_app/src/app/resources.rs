@@ -4,7 +4,7 @@ use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 use ambition_content::content_validation;
 use ambition_platformer2d::actors::session::data;
 use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
-use ambition_platformer2d::actors::world::physics;
+use ambition_platformer2d::sim as physics;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };

@@ -8,7 +8,7 @@ use ambition_platformer2d_core as ae;
 
 use super::binding::RoomBindings;
 use ambition_platformer2d_world::rooms::{Authored, EnemySpawnSpec, GroundItemSpec, KinematicPathSpec, RoomSpec};
-use crate::world::placements::PlacementRecord;
+use ambition_platformer2d_world::placements::PlacementRecord;
 
 fn aabb(x: f32, y: f32) -> ae::Aabb {
     ae::Aabb::new(ae::Vec2::new(x, y), ae::Vec2::new(8.0, 8.0))

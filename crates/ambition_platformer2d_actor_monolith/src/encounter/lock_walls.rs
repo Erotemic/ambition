@@ -15,7 +15,8 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::features::FeatureEcsWorldOverlay;
+use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+
 use ambition_encounter::{
     Encounter, EncounterLifecycle, EncounterLockWall, EncounterPhase, LockWallSpec,
 };

@@ -158,7 +158,7 @@ pub fn tick_active_cutscene(
 
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
-/// `tick_active_cutscene`) into [`crate::schedule::Platformer2dSimulationPhaseMonolith::Cutscene`].
+/// `tick_active_cutscene`) into [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Cutscene`].
 ///
 /// The presentation overlay (`ambition_render::cutscene::sync_cutscene_ui`) is
 /// scheduled separately by the render/app side — this plugin owns only the
@@ -189,7 +189,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 tick_active_cutscene,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Cutscene),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Cutscene),
         );
     }
 }

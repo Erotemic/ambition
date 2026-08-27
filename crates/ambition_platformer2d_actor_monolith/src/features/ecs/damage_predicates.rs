@@ -10,7 +10,7 @@ use bevy::prelude::{Query, With, Without};
 
 use ambition_boss_encounter::BossConfig;
 
-use super::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::{
     ActorDisposition, BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId,
 };

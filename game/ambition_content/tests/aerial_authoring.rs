@@ -7,7 +7,7 @@
 
 #[test]
 fn shipped_characters_state_their_flight_answer_explicitly() {
-    use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+    use ambition_platformer2d::character::CharacterDefinition;
 
     let authored = |id: &str| {
         ambition_content::character_catalog::authored_intrinsics(

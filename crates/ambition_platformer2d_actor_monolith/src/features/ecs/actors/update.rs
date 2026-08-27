@@ -7,6 +7,11 @@ use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
 };
 use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_characters::actor::attack_gesture::AttackDir;
+use ambition_characters::brain::fighter::options::ActionLegality;
+use ambition_characters::brain::{Brain, StateMachineCfg};
+use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
@@ -19,7 +24,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
         (
             &CenteredAabb,
             &mut ambition_combat::components::ActorPose,
-            Option<&super::super::actor_clusters::BodyKinematics>,
+            Option<&ambition_platformer2d_core::BodyKinematics>,
             Option<ambition_boss_encounter::BossClusterRef>,
         ),
         With<FeatureSimEntity>,
@@ -1015,7 +1020,7 @@ pub fn integrate_sim_bodies(
     >,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
     feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
-    overlay: Res<FeatureEcsWorldOverlay>,
+    overlay: Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -1573,7 +1578,6 @@ pub(super) fn attack_kit_of(
     // startable.
     playback: Option<&ambition_combat::moveset::MovePlayback>,
 ) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
-    use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
         brain,
         Some(Brain::StateMachine(StateMachineCfg::Fighter { .. }))
@@ -1583,7 +1587,6 @@ pub(super) fn attack_kit_of(
     let Some(moveset) = moveset else {
         return Vec::new();
     };
-    use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::options::{
         AttackBinding, AttackCandidate, AttackVerb,
     };
@@ -1666,7 +1669,6 @@ fn legality_of(
     verb_name: &str,
     move_id: &str,
 ) -> ambition_characters::brain::fighter::options::ActionLegality {
-    use ambition_characters::brain::fighter::options::ActionLegality;
     let Some(pb) = playback else {
         // Nothing owns the body: every candidate is startable.
         return ActionLegality::Now;
@@ -1706,11 +1708,9 @@ fn capture_candidate(
     grounded: bool,
     playback: Option<&ambition_combat::moveset::MovePlayback>,
 ) -> Option<ambition_characters::brain::fighter::options::AttackCandidate> {
-    use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::options::{
         AttackBinding, AttackCandidate, AttackVerb,
     };
-    use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(
         ambition_entity_catalog::GRAB_VERB,
@@ -1931,7 +1931,7 @@ pub fn tick_npc_idle_barks(
     world_time: Res<WorldTime>,
     npcs: Query<
         (
-            &super::super::actor_clusters::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ambition_combat::actor_tuning::ActorConfig,
             &ambition_characters::actor::BodyCombat,
             &ActorInteraction,

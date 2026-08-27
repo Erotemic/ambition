@@ -5,7 +5,7 @@
 //! words are the table. See the module doc; the design was already
 //! written down and nobody had read it back.
 
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.

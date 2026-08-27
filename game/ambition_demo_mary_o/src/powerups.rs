@@ -506,7 +506,7 @@ pub fn contribute_discovered_hidden_blocks_to_overlay(
     geometry: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     >,
-    mut overlay: ResMut<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>,
+    mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
 ) {
     let Some(geometry) = geometry else {
         return;
@@ -1141,7 +1141,7 @@ pub fn dress_power_blocks(
         Option<&ambition_platformer2d::render::rendering::BlockArt>,
     )>,
 ) {
-    use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
+    use ambition_platformer2d::content::EntitySprite;
     use ambition_platformer2d::render::rendering::BlockArt;
     for (entity, visual, art) in &blocks {
         // the block's own NAME says what it is. This asked two index tables whether the id
@@ -2462,7 +2462,7 @@ mod block_dressing_tests {
 
     use super::*;
     use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup};
-    use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
+    use ambition_platformer2d::content::EntitySprite;
     use ambition_platformer2d::render::rendering::{BlockArt, BlockVisual};
     use bevy::prelude::{App, Entity, Update};
 

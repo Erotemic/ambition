@@ -211,7 +211,7 @@ fn random_icon(art: &ScreenArt<'_>) -> Option<Handle<Image>> {
     art.entities.as_deref().and_then(|assets| {
         assets
             .entities
-            .get(ambition_platformer2d::actors::assets::game_assets::EntitySprite::BonusBlockTile)
+            .get(ambition_platformer2d::content::EntitySprite::BonusBlockTile)
             .cloned()
     })
 }

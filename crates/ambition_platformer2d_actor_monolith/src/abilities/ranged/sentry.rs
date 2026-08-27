@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 
-use crate::features::{FeatureSimEntity, HeldItem};
+use crate::features::{HeldItem};
 use ambition_characters::control::ActorControl;
 use ambition_combat::components::{ActorFaction, CenteredAabb};
 use ambition_platformer2d_core as ae;
@@ -24,6 +24,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";

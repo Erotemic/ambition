@@ -296,7 +296,6 @@ mod tests {
 
 #[cfg(test)]
 mod peaceful_flight_tests {
-    use super::*;
 
     const FLOATING_CATALOG: &str = r#"(
     brain_presets: { "stand_still": StandStill },
@@ -321,7 +320,7 @@ mod peaceful_flight_tests {
     fn grounded_floater() -> crate::character_runtime::PreparedCharacterRegistry {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         let definition =
-            crate::character_runtime::CharacterDefinition::new("pca", "Automaton", "test")
+            ambition_characters::actor::definition::CharacterDefinition::new("pca", "Automaton", "test")
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     run_speed: 120.0,
                     baseline_free_flight: Some(false),
@@ -377,7 +376,6 @@ mod peaceful_flight_tests {
 
 #[cfg(test)]
 mod peaceful_body_authority_tests {
-    use super::*;
 
     /// A BODY RELEASED BACK TO PEACEFUL KEEPS THE BODY ITS CHARACTER
     /// AUTHORED.

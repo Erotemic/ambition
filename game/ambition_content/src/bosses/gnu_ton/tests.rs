@@ -118,7 +118,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
     let entity = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_actor_monolith::features::FeatureSimEntity,
+            ambition_platformer2d::actor::FeatureSimEntity,
             spawn_giant_bodied_boss_runtime().into_components(),
             ambition_characters::brain::BossAttackState::default(),
         ))
@@ -145,7 +145,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         .unwrap();
     let kin = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::features::BodyKinematics>(entity)
+        .get::<ambition_platformer2d_core::body_clusters::BodyKinematics>(entity)
         .unwrap();
     let config = app
         .world()
@@ -171,7 +171,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
     );
     let kin = app
         .world()
-        .get::<ambition_platformer2d_actor_monolith::features::BodyKinematics>(entity)
+        .get::<ambition_platformer2d_core::body_clusters::BodyKinematics>(entity)
         .unwrap();
     let config = app
         .world()

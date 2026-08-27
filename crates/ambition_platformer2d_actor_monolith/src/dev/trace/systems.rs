@@ -5,6 +5,10 @@
 //! arms a manual dump, and `flush_pending_dump` writes the ring buffer to disk.
 
 use super::*;
+use ambition_gameplay_trace::GameplayTraceBuffer;
+use ambition_gameplay_trace::default_dump_dir;
+use ambition_gameplay_trace::write_dump;
+use ambition_gameplay_trace::DumpReason;
 
 /// SystemParam-friendly bundle: gives the player tick everything it
 /// needs to record one frame and (if requested) write a dump.
@@ -203,7 +207,7 @@ pub fn record_frame_system(
     // out there are no teleports to expect.
     #[cfg(feature = "portal")]
     if teleported.read().next().is_some() {
-        buffer.teleport_suppress_ticks = super::PORTAL_TELEPORT_SUPPRESS_FRAMES;
+        buffer.teleport_suppress_ticks = ambition_gameplay_trace::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
     let Ok((mut cluster_item, model, facts, player_health, safety, combat, melee)) =
         player_q.single_mut()

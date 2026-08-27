@@ -479,7 +479,7 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
 // "the visible edge of the unclosed inventory leg".
 // ───────────────────────────────────────────────────────────────────────────
 
-type Item = ambition_platformer2d::actors::items::Item;
+type Item = ambition_platformer2d::item::Item;
 
 /// The item this pair MINTS. A javelin's authored `use_behavior` is
 /// `ThrowOnUse`, so a plain `Attack` throws it — no shield modifier needed, and
@@ -528,7 +528,8 @@ fn dynamic_occurrences(sim: &mut Platformer2dSimHarness) -> Vec<SimId> {
 /// beat 3 is NOT called directly, and that is the part that must not be
 /// faked. The mint is the thing under test.
 fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
-    use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
+    use ambition_platformer2d::item::ItemGrantRequested;
+    use ambition_platformer2d::item::OwnedItems;
     use bevy::ecs::system::RunSystemOnce;
 
     let before = dynamic_occurrences(sim);
@@ -598,7 +599,7 @@ fn mint_a_dynamic_item(sim: &mut Platformer2dSimHarness) -> SimId {
 /// take-custody operation.
 fn equip_the_minted_item(
     mut commands: bevy::prelude::Commands,
-    mut owned: bevy::prelude::ResMut<ambition_platformer2d::actors::items::OwnedItems>,
+    mut owned: bevy::prelude::ResMut<ambition_platformer2d::item::OwnedItems>,
     mut bodies: bevy::prelude::Query<
         (
             Entity,
@@ -905,7 +906,8 @@ fn a_mint_banked_where_it_fell_comes_back_where_it_fell() {
 /// quantity is `stored`, the throw mints an INSTANCE, and nothing spends the row.
 #[test]
 fn one_granted_quantity_mints_exactly_one_object() {
-    use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
+    use ambition_platformer2d::item::ItemGrantRequested;
+    use ambition_platformer2d::item::OwnedItems;
     use bevy::ecs::system::RunSystemOnce;
 
     let mut sim = fixed_60hz_room_sim(ROOM);
@@ -979,7 +981,8 @@ fn one_granted_quantity_mints_exactly_one_object() {
 /// ```
 #[test]
 fn a_death_puts_back_the_entitlement_its_mint_spent() {
-    use ambition_platformer2d::actors::items::{ItemGrantRequested, OwnedItems};
+    use ambition_platformer2d::item::ItemGrantRequested;
+    use ambition_platformer2d::item::OwnedItems;
     use bevy::ecs::system::RunSystemOnce;
 
     let mut sim = fixed_60hz_room_sim(ROOM);

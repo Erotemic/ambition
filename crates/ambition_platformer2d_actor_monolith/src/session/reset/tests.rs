@@ -249,7 +249,7 @@ fn min_app() -> App {
             ));
         let _ = PlayerBlinkCameraState::default();
     }
-    app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
+    app.insert_resource(ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings::default());
     // The reset processor re-stages the start room through the App-installed
     // placement-lowering authority (7d972b6); the minimal app must provide it.
     app.insert_resource(crate::world::placements::PlacementLoweringRegistry::default());
@@ -303,7 +303,7 @@ fn min_app() -> App {
     // visuals inline (the render layer consumes it); register the message so the
     // headless test app can run the system. Restaging the start room also
     // emits the `RoomLoaded` staging fact (JD4).
-    app.add_message::<crate::session::RespawnRoomVisualsRequested>();
+    app.add_message::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>();
     app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
     app.add_message::<ambition_time::time_control::ClockResetRequest>();
     app.add_message::<NewGameResetCommitted>();

@@ -54,7 +54,7 @@ pub fn reset_sandbox(
     sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
-    attack: &mut Option<ambition_platformer2d_actor_monolith::MeleeSwing>,
+    attack: &mut Option<ambition_combat::components::MeleeSwing>,
     anim: &mut ambition_characters::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     health: Option<&mut ambition_characters::actor::BodyHealth>,
@@ -338,7 +338,7 @@ mod tests {
             ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default();
         let mut safety =
             ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default();
-        let mut attack: Option<ambition_platformer2d_actor_monolith::MeleeSwing> = None;
+        let mut attack: Option<ambition_combat::components::MeleeSwing> = None;
         let mut anim = ambition_characters::actor::BodyAnimFacts::default();
         let mut combat = ambition_characters::actor::BodyCombat::default();
         let mut gestures = ambition_characters::control::SlotGestures::default();

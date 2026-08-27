@@ -58,7 +58,7 @@ pub struct RoomReplayRequested;
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NewGameResetCommitted;
 
-use crate::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use crate::world::physics;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::{EncounterMusicRequest, EncounterRegistry};
@@ -165,7 +165,7 @@ pub fn process_new_game_reset_request(
         ambition_platformer2d_core::RoomGeometry,
     >,
     tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
-    mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
+    mut respawn_visuals: MessageWriter<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: SessionCommands<'_, '_>,
     mut banner: ResMut<ambition_combat::events::GameplayBanner>,
     // **`With<RoomScopedEntity>` and NOT `RoomResident`, deliberately.** A room
@@ -350,7 +350,7 @@ pub fn process_new_game_reset_request(
     //    the render layer's `respawn_room_visuals_on_request` consumes it and
     //    reads the active room from `RoomSet`. A headless build has no consumer
     //    and correctly skips the (purely visual) respawn.
-    respawn_visuals.write(crate::session::RespawnRoomVisualsRequested);
+    respawn_visuals.write(ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested);
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
     //    for "ARENA CLEAR" etc.
@@ -453,7 +453,7 @@ pub struct NewGameResetPlugin;
 impl Plugin for NewGameResetPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        app.add_message::<crate::session::RespawnRoomVisualsRequested>();
+        app.add_message::<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>();
         app.add_message::<RoomReplayRequested>();
         app.add_message::<NewGameResetCommitted>();
         app.add_systems(
@@ -467,7 +467,7 @@ impl Plugin for NewGameResetPlugin {
                 clear_transient_on_sandbox_reset,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::ResetProcessing),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::ResetProcessing),
         );
     }
 }

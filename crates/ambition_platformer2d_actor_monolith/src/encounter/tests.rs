@@ -700,7 +700,6 @@ fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
 /// `EncounterWaves` anymore.)
 #[test]
 fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
-    use super::lock_walls::desired_lock_wall_blocks;
     let mut lifecycle = EncounterLifecycle::default();
     lifecycle.reduce(
         0.0,
@@ -725,7 +724,6 @@ fn a_non_wave_encounter_stages_the_same_lock_and_zoom() {
 
 mod cleanup {
     use super::super::apply_encounter_cleanup;
-    use super::*;
     use ambition_encounter::{
         reduce_encounter_lifecycles, EncounterCleanupPolicy, EncounterCommand,
         EncounterCommandKind, EncounterEventMsg, EncounterLifecycle, Ownership, SpawnedCleanup,

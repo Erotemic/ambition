@@ -73,7 +73,7 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
         "flying_spaghetti_monster_boss",
         "trex_boss",
     ] {
-        let profile = ambition_platformer2d::actors::features::BossBehaviorProfile::from_data(&boss_catalog, id);
+        let profile = ambition_platformer2d::boss_encounter::pattern::profile::BossBehaviorProfile::from_data(&boss_catalog, id);
         assert_eq!(
             profile.id, id,
             "the profile registry must round-trip its own id"
@@ -156,7 +156,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
                 &spawn.name,
                 &spawn.payload,
             );
-            let profile = ambition_platformer2d::actors::features::BossBehaviorProfile::for_authored_boss(
+            let profile = ambition_platformer2d::boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
                 &boss_catalog,
                 &canonical,
             );

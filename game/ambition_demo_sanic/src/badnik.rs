@@ -87,9 +87,8 @@ const STOMP_BAND: f32 = 16.0;
 /// offense is the body it walks into you with, which is what makes it a
 /// stomp-and-die badnik rather than a fight.
 pub fn register_badnik_character(app: &mut App) {
-    use ambition_platformer2d::actors::character_runtime::{
-        CharacterDefinition, CharacterDefinitionAppExt,
-    };
+    use ambition_platformer2d::character::CharacterDefinition;
+    use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
     use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
     use ambition_platformer2d::characters::brain::{
         BrainProfile, CharacterBrainTemplate, MoveStyleSpec,

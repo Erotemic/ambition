@@ -143,7 +143,7 @@ where
         OWNER,
         "actor.temporary_control",
     );
-    registrar.rollback_component_canonical::<crate::features::ActorSurfaceState>(
+    registrar.rollback_component_canonical::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(
         OWNER,
         "actor.surface_state",
     );

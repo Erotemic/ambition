@@ -42,7 +42,7 @@ fn cast_saying_with(
 ) -> crate::character_runtime::PreparedCharacterRegistry {
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
     let mut definition =
-        crate::character_runtime::CharacterDefinition::new("npc_test_flyer", "Test Flyer", "test")
+        ambition_characters::actor::definition::CharacterDefinition::new("npc_test_flyer", "Test Flyer", "test")
             .with_locomotion(CharacterLocomotion {
                 run_speed,
                 baseline_free_flight: flight,
@@ -144,7 +144,7 @@ fn an_incomplete_character_uses_peaceful_npc_defaults() {
     let bare = {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-            crate::character_runtime::CharacterDefinition::new(
+            ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_test_flyer",
                 "Test Flyer",
                 "test",

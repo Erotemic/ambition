@@ -53,9 +53,3 @@ pub fn ecs_breakable_state(
 // `upgrade_boss_sprites` reads by id — so binding a boss sheet no longer
 // live-queries the boss clusters.
 
-// What stays here is not boss -- chest, breakable, and the actor overlay advance that needs this
-// crate's own `advance_body_anim_overlays`.
-pub use ambition_boss_encounter::anim::{
-    boss_anim_state_for, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample,
-};

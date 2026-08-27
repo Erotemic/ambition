@@ -59,7 +59,6 @@ pub mod encounter;
 pub mod enemy_projectile;
 pub mod items;
 // Stable facade for dialogue shop bindings.
-pub use items::shop;
 pub mod gravity;
 pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab).
@@ -111,11 +110,6 @@ pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
-/// The state of one in-flight player melee swing is now the unified
-/// [`ambition_combat::components::MeleeSwing`] — the SAME swing every brain-driven actor
-/// carries (the player is an actor). Re-exported at the crate root so existing
-/// `crate::MeleeSwing` / `ambition_platformer2d_actor_monolith::MeleeSwing` paths resolve.
-pub use ambition_combat::components::MeleeSwing;
 
 #[cfg(test)]
 mod safe_pos_tests;

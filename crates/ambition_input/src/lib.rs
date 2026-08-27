@@ -9,7 +9,7 @@
 //! input-domain `settings` (deadzones / trigger hysteresis / burst mode), but
 //! NEVER on `ambition_platformer2d_actor_monolith` or `ambition_characters`.
 //!
-//! TODO(compat-remove): migrate remaining `ambition_input::ControlFrame` callers to
+//! TODO(compat-remove): migrate remaining `crate::ControlFrame` callers to
 //! `ambition_platformer2d_core::ControlFrame`, then remove the re-export.
 
 use bevy::prelude::*;

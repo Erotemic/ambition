@@ -70,7 +70,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 crate::features::tick_gameplay_banner,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation),
         );
         // The wave EFFECT adapter + the ownership-driven cleanup adapter (E10)
         // react to this frame's lifecycle events, so they run after the
@@ -81,7 +81,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Progression)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression)
                 .after(EncounterLifecycleSet),
         );
         // The lock-wall contribution runs a phase EARLIER, in WorldPrep: it
@@ -95,7 +95,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             contribute_encounter_lock_walls
                 .after(crate::features::FeatureWorldOverlaySet)
                 .before(crate::features::update_ecs_hazards)
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // ITS SIBLING: the walls an AUTHORED CONDITION opens rather than an
         // encounter phase. Same slot, same reasons, and registered beside it so
@@ -107,7 +107,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             crate::world::gated_lock_walls::sync_authored_gated_lock_walls
                 .after(crate::features::FeatureWorldOverlaySet)
                 .before(crate::features::update_ecs_hazards)
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
     }
 }

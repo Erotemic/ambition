@@ -1417,7 +1417,7 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
         // type, and these two are exactly the facts under test.
         {
             let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
-            definition.body = Some(crate::character_runtime::BodySource::Explicit {
+            definition.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
                 half_extents: (19.0, 31.0),
             });
             definition.vitals.mass = Some(4.5);
@@ -1571,7 +1571,6 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
 #[test]
 fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
     use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
-    use ambition_characters::brain::ActionSet;
 
     fn swiping(damage: i32) -> ActionSet {
         ActionSet {
@@ -1656,7 +1655,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
 fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     let mut app = seating_app();
     let mut tank = CharacterDefinition::new("tank", "Tank", "demo");
-    tank.vitals = crate::character_runtime::Vitals {
+    tank.vitals = ambition_characters::actor::definition::Vitals {
         max_health: Some(60),
         mass: Some(1.0),
         knockback_weight: None,
@@ -1719,14 +1718,14 @@ fn a_declared_match_pool_levels_two_fighters_their_home_games_sized_differently(
         // A one-hit-kill platformer protagonist and a platform fighter, as their
         // own games author them.
         let mut glass = CharacterDefinition::new("glass", "Glass", "demo");
-        glass.vitals = crate::character_runtime::Vitals {
+        glass.vitals = ambition_characters::actor::definition::Vitals {
             max_health: Some(1),
             mass: Some(1.0),
             knockback_weight: None,
             canonical_height: None,
         };
         let mut fighter = CharacterDefinition::new("fighter", "Fighter", "demo");
-        fighter.vitals = crate::character_runtime::Vitals {
+        fighter.vitals = ambition_characters::actor::definition::Vitals {
             max_health: Some(100),
             mass: Some(1.0),
             knockback_weight: None,
@@ -2297,7 +2296,7 @@ fn a_levelling_match_hands_every_fighter_the_kit_it_declares() {
 fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
     let mut app = seating_app();
     let mut chunky = CharacterDefinition::new("chunky", "Chunky", "demo");
-    chunky.body = Some(crate::character_runtime::BodySource::Explicit {
+    chunky.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
         half_extents: (40.0, 60.0),
     });
     app.register_character(chunky);
@@ -2530,7 +2529,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
 fn a_seated_fighter_carries_its_authored_mass() {
     let mut app = seating_app();
     let mut heavy = CharacterDefinition::new("anvil", "Anvil", "demo");
-    heavy.vitals = crate::character_runtime::Vitals {
+    heavy.vitals = ambition_characters::actor::definition::Vitals {
         max_health: Some(40),
         mass: Some(6.5),
         knockback_weight: None,
@@ -2712,7 +2711,6 @@ fn a_seat_naming_an_unknown_brain_profile_is_not_seated() {
 /// failed to resolve, and the player wore that half-applied match state for as many ticks as the
 /// roster took to complete — forever, for a roster that can never complete.
 mod activation_transaction {
-    use super::*;
 
     /// The player body these tests watch, with values chosen so that adoption
     /// CANNOT be mistaken for "nothing happened": a pool the character's
@@ -2914,7 +2912,7 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
 fn one_character_definition_seats_two_independent_fighters() {
     let mut app = seating_app();
     let mut fretjaw = CharacterDefinition::new("fretjaw", "Fretjaw", "demo");
-    fretjaw.vitals = crate::character_runtime::Vitals {
+    fretjaw.vitals = ambition_characters::actor::definition::Vitals {
         max_health: Some(40),
         mass: Some(1.0),
         knockback_weight: None,
@@ -3330,7 +3328,7 @@ fn a_seat_body_outranks_the_character_and_a_seat_without_one_keeps_it() {
     let mut app = seating_app();
     app.register_character({
         let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
-        definition.body = Some(crate::character_runtime::BodySource::Explicit {
+        definition.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
             half_extents: (19.0, 31.0),
         });
         // THE HOME SELF: what this character is when it is not on a stage.

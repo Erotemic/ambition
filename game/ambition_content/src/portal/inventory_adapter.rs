@@ -21,7 +21,7 @@ use ambition_characters::brain::ActionSet;
 use ambition_items::{Item, OwnedItems};
 use ambition_platformer2d_actor_monolith::features::HeldItem;
 use ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet;
-use ambition_platformer2d_actor_monolith::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_platformer2d::actor::SpawnScopedExt;
 #[cfg(test)]
 use ambition_platformer2d_core::BodyBaseSize;
 use ambition_platformer2d_core::BodyKinematics;

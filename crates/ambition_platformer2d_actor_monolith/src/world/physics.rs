@@ -6,6 +6,7 @@
 //! juice without surrendering platforming feel. A future physics-player mode can
 //! be added behind the same boundary.
 
+use ambition_platformer2d_shared_tangle::physics::{PhysicsSandboxSettings};
 use ambition_platformer2d_core as ae;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_core::AabbExt;
@@ -20,7 +21,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 #[cfg(feature = "physics_debris")]
-use crate::platformer_runtime::lifecycle::RoomVisual;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
 
@@ -33,7 +34,6 @@ const DEBRIS_Z: f32 = WORLD_Z_FX - 2.0;
 #[cfg(feature = "physics_debris")]
 const PHYSICS_DESPAWN_GRACE: f32 = 0.25;
 
-pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
 
 /// Marker for room-owned Avian entities so room transitions can retire them
 /// through the physics-safe path instead of despawning active bodies immediately.

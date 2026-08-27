@@ -13,7 +13,7 @@
 //! atomically (they live in the same tier dir; the catalog names its pages).
 //!
 //! A consumer never reads pack pixels for gameplay: the synthesized
-//! [`SheetRecord`](ambition_sprite_sheet::SheetRecord) view carries no
+//! [`SheetRecord`](crate::SheetRecord) view carries no
 //! `body_metrics` (packs are visual storage truth only — see
 //! `docs/archive/reviews/sprite-pipeline-/data-driven-sprites-and-characters.md`).
 

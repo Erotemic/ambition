@@ -39,7 +39,7 @@ pub use state::{apply_deadzone, TouchButton, TouchInputState};
 pub mod bevy_plugin;
 
 /// The touch-controls Bevy plugin — the single entry point the host adds. Re-exported
-/// at the crate root so the host wires `ambition_touch_input::TouchControlsPlugin`
+/// at the crate root so the host wires `crate::TouchControlsPlugin`
 /// without reaching into the submodule.
 #[cfg(feature = "mobile_touch")]
 pub use bevy_plugin::TouchControlsPlugin;

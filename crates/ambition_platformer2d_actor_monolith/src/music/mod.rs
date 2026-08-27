@@ -22,15 +22,6 @@ use intent::{
 
 #[cfg(test)]
 pub(crate) use ambition_audio::music::EncounterMusicBinding;
-pub use ambition_audio::music::{
-    drive_music_director, load_music_cues, AdaptiveCueDirective, LoadedMusicCueAssets,
-    MusicCueCatalog, MusicCueSpec, MusicDirectorMode, MusicDirectorState, MusicIntent,
-    MusicLayer0AChannel, MusicLayer0BChannel, MusicLayer1AChannel, MusicLayer1BChannel,
-    MusicLayer2AChannel, MusicLayer2BChannel, MusicLayer3AChannel, MusicLayer3BChannel,
-    MusicLayer4AChannel, MusicLayer4BChannel, MusicLayer5AChannel, MusicLayer5BChannel,
-    MusicLayerChannels, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
-    MusicStateSpec, MUSIC_LOG_TARGET,
-};
 pub use intent::{compute_music_intent, release_narrative_music_on_room_change};
 
 /// Mirror the user's effective music volume into the audio crate's

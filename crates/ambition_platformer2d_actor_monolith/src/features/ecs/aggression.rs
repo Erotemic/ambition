@@ -8,11 +8,12 @@
 
 use bevy::prelude::*;
 
-use super::{sync_actor_components_from_cluster, FeatureSimEntity, HeldItem};
+use super::{sync_actor_components_from_cluster, HeldItem};
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, AggressionMode, CombatKit,
 };
 use ambition_combat::events::ActorStimulus;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Apply actor stimuli to aggression: a non-passive actor that crosses its
 /// provocation threshold flips hostile IN PLACE (peaceful NPC → hostile
@@ -173,7 +174,7 @@ pub fn arm_requested_challenges(
         };
         let Some(target) = entity_of(&request.target) else {
             warn!(
-                target: "ambition_platformer2d_actor_monolith::features::aggression",
+                target: "crate::features::aggression",
                 "challenge for {} names no live body; ignoring", request.target,
             );
             continue;

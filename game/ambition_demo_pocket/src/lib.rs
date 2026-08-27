@@ -129,9 +129,8 @@ pub fn install_pocket_content(app: &mut App) {
     // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
     // exist in this repository at all, so even the legacy path had nothing to load.
     {
-        use ambition_platformer2d::actors::character_runtime::{
-            CharacterDefinition, CharacterDefinitionAppExt,
-        };
+        use ambition_platformer2d::character::CharacterDefinition;
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
                 .with_sheet("mary_o_v2")

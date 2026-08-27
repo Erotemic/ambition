@@ -319,7 +319,7 @@ pub fn run_requested_authored_commands(world: &mut World) {
     let requests: Vec<RunAuthoredCommand> = messages.drain().collect();
     if !world.contains_resource::<CommandCatalog>() {
         tracing::warn!(
-            target: "ambition_platformer2d_shared_tangle::authored_logic",
+            target: "crate::authored_logic",
             "{} authored command(s) were requested but no domain in this composition \
              has published any command",
             requests.len(),
@@ -331,7 +331,7 @@ pub fn run_requested_authored_commands(world: &mut World) {
             if let CommandOutcome::Refused(reason) = catalog.run(world, &request.id, &request.args)
             {
                 tracing::warn!(
-                    target: "ambition_platformer2d_shared_tangle::authored_logic",
+                    target: "crate::authored_logic",
                     "authored command `{}` was refused: {reason}",
                     request.id,
                 );

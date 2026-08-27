@@ -10,7 +10,7 @@
 //! composition only; gameplay behavior remains in the domain crates.
 //!
 //! ```ignore
-//! use ambition_platformer2d::app::prelude::*;
+//! use crate::app::prelude::*;
 //!
 //! PlatformerApp::windowed("My Game")
 //!     .mount(MyModule::default())
@@ -25,7 +25,7 @@ use crate::world::rooms::RoomMetadata;
 /// Curated imports for a game's `main`.
 ///
 /// This domain prelude avoids exposing the broader implementation topology of
-/// `ambition_platformer2d::prelude`.
+/// `crate::prelude`.
 pub mod prelude {
     pub use super::{
         host_status, AssetSource, CompositionError, Display, GameModule, HostStatus, ModuleDraft,
@@ -512,7 +512,7 @@ impl ModuleDraft {
     /// Declare the semantic actions a mounted capability contributes.
     ///
     /// `Platformer2dInputActionMonolith` is a closed leafwing enum a capability cannot extend, so
-    /// the OPEN half is `ambition_platformer2d::input::SemanticActionId` and the registry
+    /// the OPEN half is `crate::input::SemanticActionId` and the registry
     /// that holds it. This is where a capability's actions reach a composition:
     ///
     /// ```ignore

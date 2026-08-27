@@ -17,6 +17,7 @@
 //! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
+use ambition_platformer2d_core::{BodyKinematics};
 use ambition_characters::actor::ai::ActorStatus;
 use ambition_combat::actor_tuning::ActorConfig;
 use bevy::ecs::query::QueryData;
@@ -29,7 +30,7 @@ use bevy::prelude::Component;
 // rollback domain, Mary-O's shell state machine) sits ABOVE this crate. Named
 // from its owner; deliberately NOT re-exported.
 
-use super::super::enemies::ActorSurfaceState;
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_combat::components::BodyMelee;
 // The body a reset hands back. Below both of the domains that restore it —
 // respawn and the mount dismount — and imported, never re-exported.
@@ -40,7 +41,6 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
 use crate::actor::AncillaryMovementBundle;
-pub use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,

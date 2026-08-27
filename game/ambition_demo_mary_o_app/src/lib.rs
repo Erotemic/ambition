@@ -226,7 +226,7 @@ fn install_mary_o_audio(app: &mut App) {
         .add_systems(
             Startup,
             setup_mary_o_audio_library
-                .in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
+                .in_set(ambition_platformer2d::platformer::schedule::PresentationSetupSet),
         );
 }
 

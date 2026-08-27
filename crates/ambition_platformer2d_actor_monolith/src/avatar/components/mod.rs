@@ -8,10 +8,6 @@
 //! experience, which no other body has.
 
 
-// Re-export generic player markers from the platformer runtime.
-pub use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-// Stable facade for the player-slot marker used by brain/player code.
-pub use ambition_characters::control::PlayerSlot;
 
 // ⛔ A `///` WITH NOTHING OF ITS OWN TO DOCUMENT. This line survived the wallet's
 // move and then silently attached itself to whatever item came next — which was

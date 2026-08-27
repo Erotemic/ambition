@@ -120,7 +120,6 @@ pub fn open_death_interlude(
     }
 }
 
-pub use ambition_combat::death_rules::tick_death_interlude;
 
 /// The window closed: ask the roster whether the level goes back.
 ///

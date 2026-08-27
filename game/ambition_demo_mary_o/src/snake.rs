@@ -430,9 +430,8 @@ pub fn register_ai_slop_character(app: &mut App) {
 /// hit point, a forward walk that reverses at walls, contact damage as their
 /// whole offense, and a policy that notices nobody.
 fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_speed: f32) {
-    use ambition_platformer2d::actors::character_runtime::{
-        CharacterDefinition, CharacterDefinitionAppExt,
-    };
+    use ambition_platformer2d::character::CharacterDefinition;
+    use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
     use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
     use ambition_platformer2d::characters::brain::{
         BrainProfile, CharacterBrainTemplate, MoveStyleSpec,

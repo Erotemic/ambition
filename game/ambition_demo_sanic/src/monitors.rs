@@ -24,7 +24,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::features::FeatureEcsWorldOverlay;
+use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;

@@ -311,9 +311,6 @@ mod tests {
     /// the transition, not applied to everything the pass touches.
     #[test]
     fn a_waking_actor_keeps_the_intent_its_brain_just_wrote() {
-        use ambition_characters::actor::control::ActorControlFrame;
-        use ambition_characters::control::ActorControl;
-        use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
         // the derive runs AHEAD of its reader — see the note above `body_at`.

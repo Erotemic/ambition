@@ -4,17 +4,8 @@
 //! application registration seam and the typed finalization barrier.
 //! [`super::CharacterLoadStates`] reports the asset-loading side.
 
-// TODO(compat-remove): migrate `character_runtime::{..}` callers to
-// `ambition_characters::{binding_namespaces, prepared}` and remove these re-exports.
-pub use ambition_characters::binding_namespaces::{
-    MoveId, PortraitTarget, RangedPayload, SfxCueId, SheetTarget, VerbId, VfxTag,
-};
-pub use ambition_characters::prepared::{
-    CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
-    CharacterPreparationPlugin, CharacterRegistrationError, MissingCharacterFacts,
-    PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
-};
 
+use ambition_characters::prepared::{CharacterBindings, CharacterRegistrationError};
 use ambition_characters::actor::definition::CharacterDefinition;
 
 // Test-only preparation seams used by the child `definition_tests` module.

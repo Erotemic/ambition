@@ -27,7 +27,7 @@ pub fn apply_item_grants(
     for request in requests.read() {
         owned.grant(request.item, request.count);
         info!(
-            target: "ambition_platformer2d_actor_monolith::items::narrative",
+            target: "crate::items::narrative",
             "give_item: granted {}x {:?}", request.count, request.item,
         );
     }
@@ -51,7 +51,7 @@ pub fn apply_shop_transactions(
     for request in requests.read() {
         let outcome = request.apply(&mut wallet, &mut owned);
         info!(
-            target: "ambition_platformer2d_actor_monolith::items::narrative",
+            target: "crate::items::narrative",
             "{:?} {:?} @ {} -> {outcome:?} (balance now {})",
             request.side, request.item, request.price, wallet.balance,
         );

@@ -17,7 +17,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     use bevy::prelude::*;
 
     let combat_size = ae::Vec2::new(80.0, 80.0);
-    let behavior = crate::features::bosses::BossBehaviorProfile::clockwork_warden();
+    let behavior = ambition_boss_encounter::behavior::BossBehaviorProfile::clockwork_warden();
     // The boss's attack moveset: a FloorSlam geometry strike → an Active-window move.
     let cap = BossCapability {
         specials: vec![(BossAttackProfile::Strike("floor_slam".to_string()), 0.5)],
@@ -113,7 +113,7 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 /// half pins: a boss can be a rider whose hurtboxes live on the body it rides.
 #[test]
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
-    use crate::features::bosses::BossBehaviorProfile;
+    use ambition_boss_encounter::behavior::BossBehaviorProfile;
 
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let pos = ae::Vec2::new(500.0, 400.0);
@@ -184,7 +184,6 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
 
 #[test]
 fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
-    use crate::features::bosses::BossBehaviorProfile;
 
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let behavior = BossBehaviorProfile::mockingbird();

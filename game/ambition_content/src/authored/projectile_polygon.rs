@@ -6,7 +6,7 @@
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{ActionSet, MoveStyleSpec, RangedActionSpec, RangedCharge};
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// His cannon, and what holding the button buys.
 ///

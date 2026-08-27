@@ -143,7 +143,7 @@ pub struct SfxSpec {
     /// what the trim is for — the level they are relative TO is now defined.
     ///
     /// The reference and the normalisation live in
-    /// `ambition_audio::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS`; this field
+    /// `crate::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS`; this field
     /// carries no level of its own without a renderer to interpret it.
     pub volume: f32,
     pub attack: f32,

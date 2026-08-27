@@ -419,8 +419,8 @@ fn interact_buffered_starts_npc_dialogue() {
 
 /// Regression for the presentation-reader ordering contract:
 /// every system added to
-/// [`crate::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`] must run
-/// after [`crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
+/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`] must run
+/// after [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
 ///
 /// Structural check: inspect the actual Bevy schedule graph rather than depend on the
 /// executor's behavior with two otherwise-unordered systems. `.after()` between sets becomes a

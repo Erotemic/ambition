@@ -16,6 +16,12 @@
 use super::*;
 use ambition_combat::components::{ActorFaction, ActorIdentity};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+use ambition_gameplay_trace::BodyTraceSnapshot;
+use ambition_gameplay_trace::ActorTraceBuffer;
+use ambition_gameplay_trace::CollisionTraceShape;
+use ambition_gameplay_trace::ActorTraceFrame;
+use ambition_gameplay_trace::default_dump_dir;
+use ambition_gameplay_trace::write_actor_dump;
 
 fn body_kind(is_player: bool, faction: Option<&ActorFaction>) -> String {
     if is_player {
@@ -191,7 +197,6 @@ pub fn flush_actor_dump(mut buffer: ResMut<ActorTraceBuffer>) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     fn world_960x768() -> ae::World {
         ae::World::new("arena", ae::Vec2::new(960.0, 768.0), ae::Vec2::ZERO, vec![])

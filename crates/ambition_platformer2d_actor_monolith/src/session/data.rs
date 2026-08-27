@@ -103,12 +103,6 @@ pub fn load_data_asset_handle(
     commands.insert_resource(Platformer2dGameplayDefaultsHandle(asset_server.load(path)));
 }
 
-// This module intentionally contains only non-spatial sandbox tuning; the audio data schema
-// lives DOWN in the `ambition_audio` crate. Re-exported so every `crate::session::data::*`
-// audio path resolves unchanged.
-pub use ambition_audio::spec::{
-    MusicRegistry, MusicTrack, SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec,
-};
 
 #[cfg(test)]
 mod tests;

@@ -3,14 +3,15 @@
 //! `ambition_asset_manager::platformer_assets` owns catalog/resource/profile
 //! behavior. This module only gathers Ambition-game rows from gameplay/content
 //! registries and delegates to that crate, preserving the historical
-//! `ambition_platformer2d_actor_monolith::assets::platformer_assets` import path while the
+//! `crate::assets::platformer_assets` import path while the
 //! surrounding asset presentation code is still being carved.
 
 use ambition_asset_manager::platformer_assets as core;
 use ambition_asset_manager::{AssetManifest, AssetProfile};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 
-use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
+use ambition_sprite_sheet::game_assets::sandbox_image_manifest;
+use ambition_sprite_sheet::game_assets::GameAssetConfig;
 
 pub use core::embedded_core;
 pub use core::ids;
@@ -59,7 +60,7 @@ impl bevy::prelude::Plugin for AmbitionAssetSourcePlugin {
 pub fn desktop_dev_default_catalog(
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    music: &crate::session::data::MusicRegistry,
+    music: &ambition_audio::spec::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
     let config = GameAssetConfig {
@@ -82,7 +83,7 @@ pub fn build_platformer2d_asset_catalog(
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    music: &crate::session::data::MusicRegistry,
+    music: &ambition_audio::spec::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalog {
     build_sandbox_catalog_with(
@@ -106,7 +107,7 @@ pub fn build_sandbox_catalog_with(
     config: &GameAssetConfig,
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    music: &crate::session::data::MusicRegistry,
+    music: &ambition_audio::spec::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
     extend: impl FnOnce(&mut AssetManifest),
 ) -> Platformer2dAssetCatalog {
@@ -122,7 +123,7 @@ pub fn build_sandbox_catalog_with(
 pub fn sandbox_catalog_inputs(
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    music: &crate::session::data::MusicRegistry,
+    music: &ambition_audio::spec::MusicRegistry,
     worlds: &ambition_platformer2d_world::world_manifest::WorldManifest,
 ) -> Platformer2dAssetCatalogInputs {
     let mut inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
@@ -143,7 +144,7 @@ pub fn sandbox_catalog_inputs(
 fn sandbox_catalog_inputs_without_worlds(
     character_catalog: &CharacterCatalog,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
-    music: &crate::session::data::MusicRegistry,
+    music: &ambition_audio::spec::MusicRegistry,
 ) -> Platformer2dAssetCatalogInputs {
     Platformer2dAssetCatalogInputs {
         scale_variants: texture_scale_variants(),

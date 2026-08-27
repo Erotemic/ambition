@@ -406,7 +406,7 @@ fn app_with_cast() -> App {
     let mut app = app();
     use crate::character_runtime::CharacterDefinitionAppExt;
     app.register_character(
-        crate::character_runtime::CharacterDefinition::new(
+        ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_villager",
             "Villager",
             "brain_command_tests",

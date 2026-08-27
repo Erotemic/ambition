@@ -93,3 +93,12 @@ name = "preview_vanity_card"
 path = "src/bin/preview_vanity_card.rs"
 test = false
 bench = false
+
+# The moveset inspector's data source. It boots the composed host and reports
+# what the SHIPPED cast resolves to, which is the only version of the numbers a
+# balance decision can be made against.
+[[bin]]
+name = "moveset_export"
+path = "src/bin/moveset_export.rs"
+test = false
+bench = false

@@ -6,9 +6,10 @@
 //! against a hand-built [`ObservationFrame`] and replayable
 //! deterministically.
 
+use ambition_characters::brain::smash::{CrowdingSignal, TerrainAwareness};
 use ambition_platformer2d_core as ae;
 
-use super::super::snapshot::BrainSnapshot;
+use ambition_characters::brain::snapshot::BrainSnapshot;
 
 /// Per-tick read-only view of the world the brain consumes. Layout
 /// stays flat (no nested Options inside Options) so the cost of
@@ -156,68 +157,6 @@ impl ObservationFrame {
 /// below the engage band so normal screen-down spacing is unaffected. See
 /// [`ObservationFrame::side_run_toward_target`].
 pub const SIDE_ALIGN_DEADZONE_PX: f32 = 22.0;
-
-/// Anti-clump signal. The driver system computes this once per tick
-/// per actor and feeds it through [`BrainSnapshot`]; the brain
-/// stages just read it.
-///
-/// Two pressure components are tracked separately so the brain can
-/// weigh same-faction crowding stronger than mixed-faction crowding
-/// (per the design: 1-2 non-faction near is tolerable; 3+ pushes).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct CrowdingSignal {
-    /// Count of same-faction allies within crowding radius.
-    pub same_faction_count: u8,
-    /// Count of other-faction characters (including the player)
-    /// within crowding radius.
-    pub other_faction_count: u8,
-    /// Unit-ish direction pointing AWAY from the centroid of
-    /// nearby actors. Zero vector when nobody's around.
-    pub away_dir: ae::Vec2,
-    /// Aggregate pressure in `[0, 1+]`. The mode stage compares
-    /// against `SmashCfg.crowding_threshold` to decide
-    /// `Reposition`. Same-faction allies contribute more weight
-    /// than non-faction characters; non-faction characters only
-    /// start contributing at count >= 3.
-    pub pressure: f32,
-}
-
-impl CrowdingSignal {
-    /// Stage-aware pressure aggregation. Same-faction allies are
-    /// the dominant signal; non-faction characters only start
-    /// to pressure above a count of 2 (a single curious NPC or
-    /// the player shouldn't make a goblin sidestep).
-    ///
-    /// Weight calibration: a single same-faction ally within the
-    /// crowding radius already triggers `Reposition` against the
-    /// default `SmashCfg::STRIKER_DEFAULT.crowding_threshold = 0.65`
-    /// — without this, the 2-goblin encounter case (each actor sees
-    /// only 1 nearby ally) never trips the anti-clump pressure and
-    /// the pair stacks up identically on the player.
-    pub fn compute_pressure(same: u8, other: u8) -> f32 {
-        let same_weight = same as f32 * 0.70;
-        let other_weight = if other >= 3 {
-            (other as f32 - 2.0) * 0.15
-        } else {
-            0.0
-        };
-        (same_weight + other_weight).min(2.0)
-    }
-}
-
-/// Stage / ledge / hazard awareness. Stubs today so the API surface
-/// is locked in for the next slice — ledges + drop-offs land when
-/// the snapshot builder learns about `Solid` block geometry
-/// underneath the actor.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct TerrainAwareness {
-    /// True when the actor is suspended over a gap with no platform
-    /// below within fall range (off-stage).
-    pub off_stage: bool,
-    /// Distance to the nearest stage edge (px). `f32::MAX` = no
-    /// edge nearby / unknown.
-    pub nearest_ledge_distance: f32,
-}
 
 /// Build an `ObservationFrame` from a `BrainSnapshot`. Pure — no
 /// Bevy world access. The driver system populates the snapshot's

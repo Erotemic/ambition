@@ -1,7 +1,7 @@
-use super::super::observation::CrowdingSignal;
-use super::super::SmashCfg;
 use super::*;
-use crate::brain::action_set::{MeleeActionSpec, SwipeSpec};
+use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+use ambition_characters::brain::smash::CrowdingSignal;
+use ambition_characters::brain::smash::SmashCfg;
 
 fn obs_at(distance_x: f32, attacking: bool) -> ObservationFrame {
     ObservationFrame {
@@ -166,7 +166,7 @@ fn engage_on_cooldown_holds_instead_of_attacking() {
 /// executor; possession fires the special via `special_pressed`.
 #[test]
 fn engage_on_cooldown_holds_even_with_a_signature_special() {
-    use crate::brain::action_set::SpecialActionSpec;
+    use ambition_characters::brain::action_set::SpecialActionSpec;
     let cfg = SmashCfg::STRIKER_DEFAULT;
     let actions = ActionSet {
         melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),

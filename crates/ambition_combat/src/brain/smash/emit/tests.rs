@@ -1,5 +1,5 @@
-use super::super::observation::CrowdingSignal;
 use super::*;
+use ambition_characters::brain::smash::CrowdingSignal;
 
 fn obs_at(distance_x: f32) -> ObservationFrame {
     ObservationFrame {
@@ -32,7 +32,7 @@ fn obs_at(distance_x: f32) -> ObservationFrame {
 
 #[test]
 fn walk_emits_locomotion_along_dir() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     emit_inputs(
         SpecificAction::Walk { dir: 1.0 },
         &obs_at(300.0),
@@ -41,7 +41,7 @@ fn walk_emits_locomotion_along_dir() {
     assert!(frame.locomotion.x > 0.0);
     assert_eq!(frame.locomotion.y, 0.0);
     assert!(frame.facing > 0.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     emit_inputs(
         SpecificAction::Walk { dir: -1.0 },
         &obs_at(300.0),
@@ -53,7 +53,7 @@ fn walk_emits_locomotion_along_dir() {
 
 #[test]
 fn melee_attack_sets_melee_pressed_and_attack_axis() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     emit_inputs(
         SpecificAction::MeleeAttack {
             dir: ae::Vec2::new(1.0, 0.0),
@@ -68,7 +68,7 @@ fn melee_attack_sets_melee_pressed_and_attack_axis() {
 
 #[test]
 fn ranged_attack_sets_fire_with_dir() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     emit_inputs(
         SpecificAction::RangedAttack {
             dir: ae::Vec2::new(0.0, -1.0),
@@ -87,14 +87,14 @@ fn ranged_attack_sets_fire_with_dir() {
 
 #[test]
 fn jump_emits_jump_pressed_edge() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     emit_inputs(SpecificAction::Jump, &obs_at(200.0), &mut frame);
     assert!(frame.jump_pressed);
 }
 
 #[test]
 fn idle_zeros_locomotion_but_keeps_facing() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Target on the left → expect actor to face left.
     emit_inputs(SpecificAction::Idle, &obs_at(-200.0), &mut frame);
     assert_eq!(frame.locomotion, ae::LocalAxes::ZERO);
@@ -110,7 +110,7 @@ fn idle_zeros_locomotion_but_keeps_facing() {
 /// instead of two, and it fails the moment somebody restores the drop-to-Idle.
 #[test]
 fn a_chosen_shield_presses_the_guard_and_stops_moving() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     assert!(
         !frame.shield_held,
         "a neutral frame already guards, so this test cannot tell whether \
@@ -132,7 +132,7 @@ fn a_chosen_shield_presses_the_guard_and_stops_moving() {
 ///  `ActorControlFrame` has no dodge bit.
 #[test]
 fn a_chosen_dodge_is_still_reserved_and_says_so() {
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     emit_inputs(
         SpecificAction::Dodge {
             dir: ae::Vec2::new(1.0, 0.0),

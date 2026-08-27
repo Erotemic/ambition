@@ -16,8 +16,8 @@
 use ambition_platformer2d_core as ae;
 
 use super::action::SpecificAction;
-use super::data::DifficultyProfile;
-use super::SmashState;
+use ambition_characters::brain::smash::DifficultyProfile;
+use ambition_characters::brain::smash::SmashState;
 
 /// Apply the difficulty filter to a chosen action. Mutates the
 /// actor's RNG seed so consecutive ticks produce different rolls.

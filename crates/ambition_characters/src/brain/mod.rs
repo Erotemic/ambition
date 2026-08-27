@@ -46,10 +46,11 @@ pub use boss_pattern::{
 pub use player::tick_player_brain;
 pub use profile::BrainProfile;
 #[allow(unused_imports)]
-pub use smash::{
-    BroadMode, CrowdingSignal, DifficultyProfile, ObservationFrame, SmashCfg, SmashState,
-    SpecificAction, TerrainAwareness,
-};
+// ⛔ THE DATA ONLY. `CrowdingSignal`, `ObservationFrame`, `SpecificAction` and
+// `TerrainAwareness` went with the behaviour to `ambition_combat::brain::smash`
+// — they are the stages' own vocabulary, not the enum's. What stays is what
+// `StateMachineCfg::Smash` names by value and what the snapshot encoder reads.
+pub use smash::{BroadMode, DifficultyProfile, SmashCfg, SmashState};
 #[allow(unused_imports)]
 pub use snapshot::BrainSnapshot;
 #[allow(unused_imports)]

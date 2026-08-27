@@ -121,7 +121,7 @@ impl CrowdObservation {
 pub(crate) struct CrowdFacts {
     alive_by_entity: HashMap<Entity, bool>,
     neighbor_by_id: HashMap<String, ae::Vec2>,
-    crowding_by_id: HashMap<String, ambition_characters::brain::smash::observation::CrowdingSignal>,
+    crowding_by_id: HashMap<String, ambition_characters::brain::smash::CrowdingSignal>,
 }
 
 impl CrowdFacts {
@@ -135,7 +135,7 @@ impl CrowdFacts {
     pub(crate) fn crowding(
         &self,
         id: &str,
-    ) -> Option<ambition_characters::brain::smash::observation::CrowdingSignal> {
+    ) -> Option<ambition_characters::brain::smash::CrowdingSignal> {
         self.crowding_by_id.get(id).copied()
     }
 

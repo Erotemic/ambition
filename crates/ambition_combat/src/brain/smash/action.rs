@@ -9,10 +9,10 @@
 
 use ambition_platformer2d_core as ae;
 
-use super::super::action_set::ActionSet;
-use super::data::BroadMode;
 use super::observation::ObservationFrame;
-use super::SmashCfg;
+use ambition_characters::brain::action_set::ActionSet;
+use ambition_characters::brain::smash::BroadMode;
+use ambition_characters::brain::smash::SmashCfg;
 
 /// Local replacement for the `SignumOr` trait that lives in
 /// `content::features::util` with restrictive visibility. The brain

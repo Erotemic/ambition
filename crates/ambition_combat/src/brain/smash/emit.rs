@@ -1,7 +1,7 @@
 //! Stage 5 — emit inputs.
 //!
 //! Translates a [`SpecificAction`] into the matching
-//! [`crate::actor::control::ActorControlFrame`] fields. This is the only stage that
+//! [`ambition_characters::actor::control::ActorControlFrame`] fields. This is the only stage that
 //! knows the integration pipeline's frame schema — everything
 //! upstream stays vocabulary-pure.
 
@@ -39,7 +39,7 @@ const SPRINT_SPEED_PX_S: f32 = 260.0;
 pub fn emit_inputs(
     action: SpecificAction,
     obs: &ObservationFrame,
-    out: &mut crate::actor::control::ActorControlFrame,
+    out: &mut ambition_characters::actor::control::ActorControlFrame,
 ) {
     // Facing is set unconditionally toward the target (when one exists) so even Idle
     // mid-engagement faces the threat. Facing is a LOCAL +1/-1 (the body writes
@@ -104,7 +104,7 @@ pub fn emit_inputs(
         SpecificAction::RangedAttack { dir } => {
             if dir.length_squared() > 1e-6 {
                 out.fire = Some(
-                    crate::actor::control::ActorFireRequest::controlled_body_local(
+                    ambition_characters::actor::control::ActorFireRequest::controlled_body_local(
                         dir,
                         // Speed routed through ActionSet at resolve time;
                         // emit a placeholder here.
@@ -158,7 +158,7 @@ pub fn emit_inputs(
             // the next ordinary attack into an accidental smash.
             out.attack_axis = if forward {
                 ae::LocalAxes::new(
-                    crate::actor::attack_gesture::TILT_DEFLECTION
+                    ambition_characters::actor::attack_gesture::TILT_DEFLECTION
                         * if obs.self_facing < 0.0 { -1.0 } else { 1.0 },
                     0.0,
                 )

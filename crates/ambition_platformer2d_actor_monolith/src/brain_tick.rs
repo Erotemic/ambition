@@ -58,7 +58,7 @@ pub fn tick_brain_with_actions(
         StateMachineCfg::BossPattern { cfg, state } => {
             tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
         }
-        StateMachineCfg::Smash { cfg, state } => ambition_characters::brain::smash::tick_smash(
+        StateMachineCfg::Smash { cfg, state } => ambition_combat::brain::smash::tick_smash(
             cfg, state, actions, snapshot, perception, out,
         ),
         StateMachineCfg::Fighter { cfg, state } => {

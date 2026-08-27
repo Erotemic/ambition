@@ -6,9 +6,9 @@
 //! [`MODE_MIN_DWELL_S`] before another mode can take over (except
 //! for hard overrides like stun / out-of-range → Idle).
 
-use super::data::BroadMode;
 use super::observation::ObservationFrame;
-use super::{SmashCfg, SmashState};
+use ambition_characters::brain::smash::BroadMode;
+use ambition_characters::brain::smash::{SmashCfg, SmashState};
 
 /// Minimum time a mode must dwell before another mode can replace
 /// it. Hard overrides (stun, target dead, target out of aggro)

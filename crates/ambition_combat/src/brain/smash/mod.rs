@@ -1,15 +1,19 @@
 //! Smash-brawl brain pipeline: observe, choose a broad mode, choose a capability-gated
-//! action, apply difficulty policy, then emit an [`crate::actor::control::ActorControlFrame`].
+//! action, apply difficulty policy, then emit an [`ambition_characters::actor::control::ActorControlFrame`].
 //! Each stage is pure over its input plus [`SmashCfg`] / [`SmashState`].
 
-use super::action_set::ActionSet;
-use super::snapshot::BrainSnapshot;
+// ⭐ THE PINNED DATA, NAMED DOWNWARD. These live in `ambition_characters`
+// because the `Brain` encoder there reads them and the orphan rule will not
+// let them move up; this crate depends on that one, so naming them is legal
+// and is the whole shape of the split.
+use ambition_characters::brain::action_set::ActionSet;
+use ambition_characters::brain::smash::{BroadMode, SmashCfg, SmashState};
+use ambition_characters::brain::snapshot::BrainSnapshot;
 // `ae` is used both by `maybe_substitute_ranged` (the ranged-verb emit) and the
 // tests, so the import is no longer test-gated.
 use ambition_platformer2d_core as ae;
 
 pub mod action;
-pub mod data;
 pub mod difficulty;
 pub mod emit;
 pub mod mode;
@@ -19,11 +23,10 @@ pub mod observation;
 mod arena;
 
 pub use action::{choose_action, SpecificAction};
-pub use data::{BroadMode, DifficultyProfile, ObsHistory, SmashCfg, SmashState, OBS_HISTORY_LEN};
 pub use difficulty::apply_difficulty;
 pub use emit::emit_inputs;
 pub use mode::choose_mode;
-pub use observation::{observe, CrowdingSignal, ObservationFrame, TerrainAwareness};
+pub use observation::{observe, ObservationFrame};
 
 /// How long a reactive block is held once triggered (s) — long enough to span a
 /// jab's active window.
@@ -52,10 +55,10 @@ pub fn tick_smash(
     state: &mut SmashState,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
-    perception: Option<&crate::perception::WorldView>,
-    out: &mut crate::actor::control::ActorControlFrame,
+    perception: Option<&ambition_characters::perception::WorldView>,
+    out: &mut ambition_characters::actor::control::ActorControlFrame,
 ) {
-    *out = crate::actor::control::ActorControlFrame::neutral();
+    *out = ambition_characters::actor::control::ActorControlFrame::neutral();
     if !snapshot.alive {
         state.mode = BroadMode::Idle;
         return;
@@ -79,7 +82,7 @@ pub fn tick_smash(
         // note that stood here said escape did not exist yet and that this would
         // be its arm when it did; it does, and this is.
         state.mode = BroadMode::Idle;
-        if crate::control::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
+        if ambition_characters::control::struggling_this_tick(snapshot.captured_for, snapshot.dt) {
             emit_inputs(SpecificAction::CaptureStruggle, &obs, out);
         }
         return;

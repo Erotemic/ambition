@@ -1,4 +1,5 @@
 use super::*;
+use ambition_characters::brain::smash::DifficultyProfile;
 
 fn snap_with_target_at_x(target_x: f32) -> BrainSnapshot {
     let mut s = BrainSnapshot::idle();
@@ -15,7 +16,7 @@ fn idles_when_target_out_of_range() {
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful();
     let snap = snap_with_target_at_x(2000.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert_eq!(
         frame.locomotion.x, 0.0,
@@ -35,7 +36,7 @@ fn relentless_duelist_chases_a_foe_past_aggro_radius() {
     let mut state = SmashState::default();
     let actions = melee_actions();
     let snap = snap_with_target_at_x(cfg.aggro_radius + 400.0);
-    let mut f = crate::actor::control::ActorControlFrame::neutral();
+    let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
     assert!(
         f.locomotion.x > 0.0,
@@ -53,7 +54,7 @@ fn ambient_striker_still_idles_past_aggro_radius() {
     let mut state = SmashState::default();
     let actions = melee_actions();
     let snap = snap_with_target_at_x(cfg.aggro_radius + 400.0);
-    let mut f = crate::actor::control::ActorControlFrame::neutral();
+    let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
     assert_eq!(
         f.locomotion.x, 0.0,
@@ -78,7 +79,7 @@ fn stale_fight_forces_an_offensive_push_after_a_lull() {
     };
     let actions = melee_actions();
     let snap = snap_with_target_at_x(40.0); // inside attack_range
-    let mut f = crate::actor::control::ActorControlFrame::neutral();
+    let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
     assert!(
         f.melee_pressed,
@@ -103,7 +104,7 @@ fn no_stale_push_while_offense_is_fresh() {
     };
     let actions = melee_actions();
     let snap = snap_with_target_at_x(40.0);
-    let mut f = crate::actor::control::ActorControlFrame::neutral();
+    let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
     assert!(
         !f.melee_pressed,
@@ -145,7 +146,7 @@ fn grounded_facing_does_not_rapid_flip_on_a_gravity_axis_stacked_foe() {
         snap.actor_on_ground = true;
         snap.target_alive = true;
         snap.sim_time = i as f32 / 60.0;
-        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
         if f.facing.signum() != prev_facing.signum() {
             flips += 1;
@@ -166,7 +167,7 @@ fn approaches_when_target_in_aggro_but_out_of_attack() {
     let actions = ActionSet::peaceful();
     // Target at 300 px — inside aggro (460), outside engage (70).
     let snap = snap_with_target_at_x(300.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.0,
@@ -180,13 +181,13 @@ fn melee_smash_swings_when_target_is_point_blank() {
     let cfg = SmashCfg::STRIKER_DEFAULT;
     let mut state = SmashState::default();
     let actions = ActionSet {
-        melee: Some(crate::brain::MeleeActionSpec::Swipe(
-            crate::brain::SwipeSpec::STRIKER_DEFAULT,
+        melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+            ambition_characters::brain::SwipeSpec::STRIKER_DEFAULT,
         )),
         ..ActionSet::peaceful()
     };
     let snap = snap_with_target_at_x(20.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(frame.melee_pressed, "point-blank melee actor should swing");
 }
@@ -207,7 +208,7 @@ fn crisp_striker_cfg() -> SmashCfg {
 
 fn ranged_actions() -> ActionSet {
     ActionSet {
-        ranged: Some(crate::brain::RangedActionSpec::rock(300.0, 2)),
+        ranged: Some(ambition_characters::brain::RangedActionSpec::rock(300.0, 2)),
         ..ActionSet::peaceful()
     }
 }
@@ -221,7 +222,7 @@ fn ranged_capable_actor_fires_at_mid_range() {
     let mut state = SmashState::default();
     let actions = ranged_actions();
     let snap = snap_with_target_at_x(300.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.fire.is_some(),
@@ -231,7 +232,7 @@ fn ranged_capable_actor_fires_at_mid_range() {
     // The brain no longer rate-limits: it attempts a shot on every in-band
     // tick. A second tick still emits `fire` (the BODY throttles, not the
     // brain — invariant I3). This is what a spam controller would also do.
-    let mut frame2 = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame2 = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame2);
     assert!(
         frame2.fire.is_some(),
@@ -242,9 +243,9 @@ fn ranged_capable_actor_fires_at_mid_range() {
 /// A `WorldView` whose terrain is the given solids, with self at the origin —
 /// the perception a body at (0,0) would have.
 fn view_with_terrain(
-    terrain: Vec<crate::perception::PerceivedSolid>,
-) -> crate::perception::WorldView {
-    use crate::perception::{SelfView, Viewport, WorldView};
+    terrain: Vec<ambition_characters::perception::PerceivedSolid>,
+) -> ambition_characters::perception::WorldView {
+    use ambition_characters::perception::{SelfView, Viewport, WorldView};
     WorldView {
         self_view: SelfView {
             pos: ae::Vec2::ZERO,
@@ -255,7 +256,7 @@ fn view_with_terrain(
             on_ground: true,
             aerial: false,
             alive: true,
-            faction: crate::actor::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
             can_fire: true,
             can_blink: false,
             burst: ambition_platformer2d_core::BurstManeuver::None,
@@ -278,7 +279,7 @@ fn view_with_terrain(
 /// REAL brain pipeline + REAL `WorldView::line_of_fire` over the carried solids.
 #[test]
 fn ranged_shot_suppressed_when_line_of_fire_blocked() {
-    use crate::perception::{PerceivedSolid, SolidKind};
+    use ambition_characters::perception::{PerceivedSolid, SolidKind};
     let cfg = crisp_striker_cfg();
     let actions = ranged_actions();
     let snap = snap_with_target_at_x(300.0); // body (0,0) → target (300,0)
@@ -286,7 +287,7 @@ fn ranged_shot_suppressed_when_line_of_fire_blocked() {
     // Clear view: the body fires (matches the None-perception behavior).
     let clear = view_with_terrain(vec![]);
     let mut state = SmashState::default();
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, Some(&clear), &mut frame);
     assert!(
         frame.fire.is_some(),
@@ -300,7 +301,7 @@ fn ranged_shot_suppressed_when_line_of_fire_blocked() {
         kind: SolidKind::Solid,
     }]);
     let mut state = SmashState::default();
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(
         &cfg,
         &mut state,
@@ -327,13 +328,13 @@ fn melee_takes_precedence_over_ranged_in_reach() {
     let cfg = crisp_striker_cfg();
     let mut state = SmashState::default();
     let actions = ActionSet {
-        melee: Some(crate::brain::MeleeActionSpec::Swipe(
-            crate::brain::SwipeSpec::STRIKER_DEFAULT,
+        melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+            ambition_characters::brain::SwipeSpec::STRIKER_DEFAULT,
         )),
         ..ranged_actions()
     };
     let snap = snap_with_target_at_x(20.0); // inside attack_range
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(frame.melee_pressed, "in-reach actor swings");
     assert!(frame.fire.is_none(), "does not fire ranged in melee reach");
@@ -353,7 +354,7 @@ fn brain_does_not_self_rate_limit_fire_body_owns_the_rate() {
     snap.dt = 0.2;
 
     for tick in 0..8 {
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
         assert!(
             frame.fire.is_some(),
@@ -382,7 +383,7 @@ fn closing_a_large_gap_is_throttle_and_never_a_burst_press() {
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful(); // no ranged → close, not a poke
     let snap = snap_with_target_at_x(300.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.8,
@@ -407,7 +408,7 @@ fn a_sprint_is_only_for_large_gaps() {
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful();
     let snap = snap_with_target_at_x(120.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
@@ -428,7 +429,7 @@ fn a_non_sprinting_actor_walks_the_same_large_gap() {
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful();
     let snap = snap_with_target_at_x(300.0);
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
     assert!(
         frame.locomotion.x > 0.0 && frame.locomotion.x < 0.8,
@@ -461,7 +462,7 @@ fn run_tick(
     let mut snap = snap_with_target_at_x(target_x);
     snap.sim_time = t;
     snap.dt = 1.0 / 60.0;
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(cfg, state, actions, &snap, None, &mut frame);
     frame.locomotion.vec()
 }
@@ -553,8 +554,8 @@ fn crisp_duelist() -> SmashCfg {
 
 fn melee_actions() -> ActionSet {
     ActionSet {
-        melee: Some(crate::brain::MeleeActionSpec::Swipe(
-            crate::brain::SwipeSpec::STRIKER_DEFAULT,
+        melee: Some(ambition_characters::brain::MeleeActionSpec::Swipe(
+            ambition_characters::brain::SwipeSpec::STRIKER_DEFAULT,
         )),
         ..ActionSet::peaceful()
     }
@@ -576,7 +577,7 @@ fn duelist_resets_to_neutral_after_a_poke() {
     // Tick 1: mid-swing (active window) at point-blank → the swing latches.
     let mut swinging = snap_with_target_at_x(20.0);
     swinging.attack_active_remaining = 0.05;
-    let mut f1 = crate::actor::control::ActorControlFrame::neutral();
+    let mut f1 = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &swinging, None, &mut f1);
     assert!(state.was_attacking, "the swing should latch was_attacking");
     assert!(!f1.melee_pressed, "no new swing is committed mid-swing");
@@ -589,7 +590,7 @@ fn duelist_resets_to_neutral_after_a_poke() {
     // falling edge arms the reset, and the duelist backs AWAY instead of
     // re-swinging.
     let done = snap_with_target_at_x(20.0);
-    let mut f2 = crate::actor::control::ActorControlFrame::neutral();
+    let mut f2 = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &done, None, &mut f2);
     assert!(
         state.neutral_reset_timer > 0.0,
@@ -615,10 +616,10 @@ fn grunt_has_no_neutral_reset() {
     let actions = melee_actions();
     let mut swinging = snap_with_target_at_x(20.0);
     swinging.attack_active_remaining = 0.05;
-    let mut f1 = crate::actor::control::ActorControlFrame::neutral();
+    let mut f1 = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &swinging, None, &mut f1);
     let done = snap_with_target_at_x(20.0);
-    let mut f2 = crate::actor::control::ActorControlFrame::neutral();
+    let mut f2 = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &done, None, &mut f2);
     assert_eq!(
         state.neutral_reset_timer, 0.0,
@@ -643,7 +644,7 @@ fn defense_over_approach(cfg: &SmashCfg, closing_px_s: f32, start_x: f32) -> (bo
         let mut snap = snap_with_target_at_x(x);
         snap.sim_time = t;
         snap.dt = dt;
-        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
         tick_smash(cfg, &mut state, &actions, &snap, None, &mut f);
         blinked |= f.blink_pressed;
         shielded |= f.shield_held;
@@ -710,7 +711,7 @@ fn duelist_regroups_and_runs_after_taking_damage() {
         snap.sim_time = t;
         snap.dt = dt;
         snap.health_fraction = hp;
-        let mut f = crate::actor::control::ActorControlFrame::neutral();
+        let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
         tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
         if state.regroup_timer > 0.0 {
             regrouped = true;
@@ -747,7 +748,7 @@ fn dead_actor_emits_neutral_frame() {
     let actions = ActionSet::peaceful();
     let mut snap = snap_with_target_at_x(100.0);
     snap.alive = false;
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     // Pre-poison: if `tick_smash` early-returns without writing,
     // the assertion below would catch a leak from the caller's
     // pre-existing frame state.
@@ -817,7 +818,7 @@ fn grounded_approach_runs_toward_target_under_rotated_gravity() {
     snap.target_pos = ae::Vec2::new(0.0, 300.0); // purely screen-vertical (no screen-x)
     snap.actor_on_ground = true;
     snap.target_alive = true;
-    let mut f = crate::actor::control::ActorControlFrame::neutral();
+    let mut f = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, &snap, None, &mut f);
     // to_target_side = (0,300)·(0,-1) = -300  run toward it is negative.
     assert!(
@@ -959,7 +960,7 @@ fn airborne_shielding_is_a_policy_the_game_states() {
         state.shield_hold_timer = 0.2;
         let mut snap = snap_with_target_at_x(60.0);
         snap.actor_on_ground = false; // in the air, mid-shield-window
-        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         tick_smash(
             cfg,
             &mut state,
@@ -1000,11 +1001,11 @@ fn snap_holding(pummels: u8) -> BrainSnapshot {
     s
 }
 
-fn tick(snap: &BrainSnapshot) -> crate::actor::control::ActorControlFrame {
+fn tick(snap: &BrainSnapshot) -> ambition_characters::actor::control::ActorControlFrame {
     let cfg = crisp_duelist();
     let mut state = SmashState::default();
     let actions = ActionSet::peaceful();
-    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     tick_smash(&cfg, &mut state, &actions, snap, None, &mut frame);
     frame
 }

@@ -21,6 +21,7 @@
 
 pub mod authored_volumes;
 pub mod banner;
+pub mod brain;
 pub mod breakables;
 pub mod capture;
 #[cfg(feature = "causal")]

@@ -1485,12 +1485,12 @@ pub(crate) fn compute_crowding_by_id(
     // never mistaken for an ally to spread from — even a SAME-faction one (two `Npc`
     // duelists feuding via a grudge).
     opponent_id_by_id: &std::collections::HashMap<String, String>,
-) -> std::collections::HashMap<String, ambition_characters::brain::CrowdingSignal> {
+) -> std::collections::HashMap<String, ambition_characters::brain::smash::CrowdingSignal> {
     const CROWDING_RADIUS_PX: f32 = 80.0;
     const AERIAL_CROWDING_RADIUS_PX: f32 = 220.0;
     let mut crowding_by_id: std::collections::HashMap<
         String,
-        ambition_characters::brain::CrowdingSignal,
+        ambition_characters::brain::smash::CrowdingSignal,
     > = std::collections::HashMap::new();
     for (id_a, pos_a, kind_a) in requests {
         let mut count: u8 = 0;
@@ -1529,11 +1529,11 @@ pub(crate) fn compute_crowding_by_id(
             let away = (*pos_a - centroid).normalize_or_zero();
             crowding_by_id.insert(
                 id_a.clone(),
-                ambition_characters::brain::CrowdingSignal {
+                ambition_characters::brain::smash::CrowdingSignal {
                     same_faction_count: count,
                     other_faction_count: 0,
                     away_dir: away,
-                    pressure: ambition_characters::brain::CrowdingSignal::compute_pressure(
+                    pressure: ambition_characters::brain::smash::CrowdingSignal::compute_pressure(
                         count, 0,
                     ),
                 },
@@ -1753,7 +1753,7 @@ fn build_enemy_brain_snapshot(
     body: &super::super::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
     target_pos: ae::Vec2,
     target_alive: bool,
-    crowding: Option<ambition_characters::brain::CrowdingSignal>,
+    crowding: Option<ambition_characters::brain::smash::CrowdingSignal>,
     dt: f32,
     sim_time: f32,
     gravity_dir: ae::Vec2,

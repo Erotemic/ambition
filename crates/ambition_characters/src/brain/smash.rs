@@ -1,30 +1,15 @@
-//! THE SMASH BRAIN'S DATA, and it is data because the ORPHAN RULE says so.
+//! THE SMASH BRAIN'S DATA — and only its data, since 2026-08-27.
 //!
-//! ⛔⛔ `Brain`'s `SnapshotState` impl is bound to this crate — `ambition_characters`
-//! owns `Brain` — and `ambition_combat` DEPENDS on this crate, so this crate can
-//! never name combat. Every type the Brain encoder reads is therefore pinned
-//! here and cannot follow the behaviour up, however the behaviour is carved.
-//! `snapshot_impls.rs` reads `SmashState`, `BroadMode` and `ObsHistory`, so those
-//! three are the pinned set for this subtree.
+//! ⛔⛔ THE BEHAVIOUR LEFT (D168). `tick_smash`, the mode/action/emit stages,
+//! the difficulty filter and the arena harness are `ambition_combat::brain::smash`
+//! now: a floor crate owns what a character IS, and the layer above owns how it
+//! THINKS. What could not follow is everything below, because `Brain`'s snapshot
+//! encoder is bound to THIS crate by the orphan rule and `ambition_combat`
+//! depends on this crate — so a type the encoder reads can never move up.
 //!
-//! ⚠ AND THE SENTENCE ABOVE IS DELIBERATELY NOT SPELLED THE OBVIOUS WAY.
-//! `check_absence_contracts.py` finds encoded types by regexing raw source for
-//! the impl header that binds the snapshot trait to a type, and it does NOT strip
-//! comments — so writing that header in PROSE invents a wire-format entry and
-//! turns the contract red. It cost two debugging rounds here, once for the real
-//! phrase and once for the version with a placeholder type. Describe the impl;
-//! never spell its header.
-//!
-//! ⭐ THE MODULE EXISTS TO BE PROVED, not to be tidy. If anything below reaches
-//! into this subtree's behaviour — `tick_smash`, `choose_action`, `observe`,
-//! `apply_difficulty` — this file stops compiling, which is the whole point: the
-//! split that lets the behaviour leave has to be checkable, and D168's estimate
-//! of it ("253 lines") was not.
-//!
-//! ⭐ `BroadMode` and `DifficultyProfile` joined them here, so the pinned set for
-//! this subtree is COMPLETE in one module: `choose_mode` and `apply_difficulty`
-//! stay beside their own behaviour and import the shapes from here, which is the
-//! direction that lets the behaviour leave later.
+//! ⚠ NEVER SPELL THAT IMPL HEADER IN PROSE: `check_absence_contracts.py` finds
+//! encoded types by regexing raw source for it and does not strip comments, so
+//! writing it here invents a wire-format entry. Describe it instead.
 
 use ambition_platformer2d_core as ae;
 
@@ -339,7 +324,7 @@ impl Default for ObsHistory {
 
 impl ObsHistory {
     /// Record this tick's observed opponent position.
-    pub(super) fn push(&mut self, sim_time: f32, target_pos: ae::Vec2) {
+    pub fn push(&mut self, sim_time: f32, target_pos: ae::Vec2) {
         self.samples[self.write] = (sim_time, target_pos);
         self.write = (self.write + 1) % OBS_HISTORY_LEN;
         self.count = (self.count + 1).min(OBS_HISTORY_LEN);
@@ -374,7 +359,7 @@ impl ObsHistory {
     /// faster than its latency. Until the buffer covers the window (fight
     /// start), returns the oldest sample it has; `None` only when no sample has
     /// been recorded yet.
-    pub(super) fn delayed(&self, now: f32, delay: f32) -> Option<ae::Vec2> {
+    pub fn delayed(&self, now: f32, delay: f32) -> Option<ae::Vec2> {
         if self.count == 0 {
             return None;
         }
@@ -524,4 +509,77 @@ impl DifficultyProfile {
         accuracy: 0.98,
         mash_speed_hz: 2.0,
     };
+}
+
+// ⛔⛔ THESE TWO CAME BACK FROM THE BEHAVIOUR MOVE, and the compiler is why.
+// `BrainSnapshot` — the brain's INPUT, and this crate's — carries
+// `crowding: Option<CrowdingSignal>` and `terrain: Option<TerrainAwareness>` by
+// value, so they are floor vocabulary however much they read like observation
+// stages. The move took them up with `observation.rs` and `ambition_characters`
+// stopped compiling in two lines, which is exactly the check the split is for.
+//
+// ⭐ THE STAGE THAT BUILDS THEM DID LEAVE. `observe` is
+// `ambition_combat::brain::smash::observation`; what stays is the SHAPE the
+// snapshot promises to carry.
+
+/// Anti-clump signal. The driver system computes this once per tick
+/// per actor and feeds it through [`BrainSnapshot`]; the brain
+/// stages just read it.
+///
+/// Two pressure components are tracked separately so the brain can
+/// weigh same-faction crowding stronger than mixed-faction crowding
+/// (per the design: 1-2 non-faction near is tolerable; 3+ pushes).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CrowdingSignal {
+    /// Count of same-faction allies within crowding radius.
+    pub same_faction_count: u8,
+    /// Count of other-faction characters (including the player)
+    /// within crowding radius.
+    pub other_faction_count: u8,
+    /// Unit-ish direction pointing AWAY from the centroid of
+    /// nearby actors. Zero vector when nobody's around.
+    pub away_dir: ae::Vec2,
+    /// Aggregate pressure in `[0, 1+]`. The mode stage compares
+    /// against `SmashCfg.crowding_threshold` to decide
+    /// `Reposition`. Same-faction allies contribute more weight
+    /// than non-faction characters; non-faction characters only
+    /// start contributing at count >= 3.
+    pub pressure: f32,
+}
+
+impl CrowdingSignal {
+    /// Stage-aware pressure aggregation. Same-faction allies are
+    /// the dominant signal; non-faction characters only start
+    /// to pressure above a count of 2 (a single curious NPC or
+    /// the player shouldn't make a goblin sidestep).
+    ///
+    /// Weight calibration: a single same-faction ally within the
+    /// crowding radius already triggers `Reposition` against the
+    /// default `SmashCfg::STRIKER_DEFAULT.crowding_threshold = 0.65`
+    /// — without this, the 2-goblin encounter case (each actor sees
+    /// only 1 nearby ally) never trips the anti-clump pressure and
+    /// the pair stacks up identically on the player.
+    pub fn compute_pressure(same: u8, other: u8) -> f32 {
+        let same_weight = same as f32 * 0.70;
+        let other_weight = if other >= 3 {
+            (other as f32 - 2.0) * 0.15
+        } else {
+            0.0
+        };
+        (same_weight + other_weight).min(2.0)
+    }
+}
+
+/// Stage / ledge / hazard awareness. Stubs today so the API surface
+/// is locked in for the next slice — ledges + drop-offs land when
+/// the snapshot builder learns about `Solid` block geometry
+/// underneath the actor.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TerrainAwareness {
+    /// True when the actor is suspended over a gap with no platform
+    /// below within fall range (off-stage).
+    pub off_stage: bool,
+    /// Distance to the nearest stage edge (px). `f32::MAX` = no
+    /// edge nearby / unknown.
+    pub nearest_ledge_distance: f32,
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
+use ambition_characters::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
 
 fn striker_actions() -> ActionSet {
     ActionSet {

@@ -8,10 +8,10 @@
 
 use ambition_platformer2d_core as ae;
 
-use super::super::action_set::ActionSet;
-use super::super::snapshot::BrainSnapshot;
-use super::{SmashCfg, SmashState};
-use crate::actor::control::ActorControlFrame;
+use ambition_characters::actor::control::ActorControlFrame;
+use ambition_characters::brain::action_set::ActionSet;
+use ambition_characters::brain::smash::{SmashCfg, SmashState};
+use ambition_characters::brain::snapshot::BrainSnapshot;
 
 // ----- tuning constants (brain-level kinematics) -----
 

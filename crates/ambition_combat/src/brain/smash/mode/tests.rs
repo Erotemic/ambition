@@ -1,5 +1,5 @@
-use super::super::observation::CrowdingSignal;
 use super::*;
+use ambition_characters::brain::smash::CrowdingSignal;
 use ambition_platformer2d_core as ae;
 
 fn obs_at(distance_x: f32) -> ObservationFrame {

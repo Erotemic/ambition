@@ -24,6 +24,7 @@ mod a_save_remembers_where_you_left_things;
 mod a_teleported_subject_does_not_get_chased;
 mod actor_phase_split;
 mod admiral_gun_sword;
+mod author_teleport_blink;
 mod app_local_catalog_composition;
 mod asset_id_platform_parity;
 mod authored_fighter_ladder;

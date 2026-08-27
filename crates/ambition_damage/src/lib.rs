@@ -392,7 +392,9 @@ pub fn resolve_body_hit(
     if died {
         bevy::log::info!(
             target: "ambition::mount",
-            "lethal blow: damage={damage} (raw={raw_damage})",
+            "lethal blow: damage={damage} (raw={raw_damage}) unstoppable={unstoppable} \
+             — `unstoppable` means the BLAST ZONE, which spends the whole pool \
+             and no survivability number can answer",
         );
     }
     BodyHitResolution::Damaged { damage, died }

@@ -321,6 +321,15 @@ const MOVE_COLUMNS = [
   ["charged", "Dmg×", (m) => m.derived.max_damage_charged,
     (m) => (m.smash_charge_mult > 1 ? int(m.derived.max_damage_charged) : "—")],
   ["kb", "KB", (m) => m.derived.max_knockback, (m) => int(m.derived.max_knockback)],
+  /* A SEPARATE COLUMN, NOT A BIGGER `Dmg`. Sorting a moveset by damage with
+   * shots folded in would rank a projectile against a melee hitbox as though a
+   * player could choose between them at the same range. */
+  ["shot", "Shot", (m) => m.derived.projectile_damage,
+    (m) => (m.derived.projectile_damage === null || m.derived.projectile_damage === undefined
+      ? "\u2014"
+      : m.derived.projectile_damage_charged
+        ? `${int(m.derived.projectile_damage)}\u2192${int(m.derived.projectile_damage_charged)}`
+        : int(m.derived.projectile_damage))],
   ["reach", "Reach", (m) => m.derived.reach, (m) => int(m.derived.reach)],
   ["hits", "Boxes", (m) => m.derived.hits, (m) => int(m.derived.hits)],
 ];
@@ -434,7 +443,30 @@ function renderMoveDetail(c, m) {
   if (m.autocancel_after_s !== null) row("Autocancel", `${f1(m.autocancel_after_s * BUNDLE.sim_hz)} f`);
   if (m.start_impulse) row("Start impulse", `(${int(m.start_impulse[0])}, ${int(m.start_impulse[1])})`);
   if (m.repeat) row("Loops", `${f2(m.repeat.from_s)}–${f2(m.repeat.to_s)}s, max ${f2(m.repeat.max_s)}s`);
-  if (m.derived.fires_projectile) row("Fires", "the body's ranged action");
+  /* THE SHOT, AS ITS OWN OFFENCE. A pure ranged attack has no body hitbox, so
+   * every melee row above it reads 0 — and "Fires: the body's ranged action"
+   * left a move that hits for 14 looking harmless. The numbers are reported
+   * BESIDE the body's, never folded into them: a projectile is not a melee
+   * hitbox, and a balance view that conflated them would be lying about reach,
+   * about trades, and about what a shield is for. */
+  if (m.derived.fires_projectile) {
+    const d = m.derived;
+    row("Fires", d.projectile_source === "equipped"
+      ? "an equipped weapon"
+      : "the body's ranged action");
+    if (d.fire_f !== null && d.fire_f !== undefined) row("Fire frame", `${f1(d.fire_f)} f`);
+    if (d.projectile_damage !== null && d.projectile_damage !== undefined) {
+      row("Shot damage", d.projectile_damage_charged
+        ? `${int(d.projectile_damage)} → ${int(d.projectile_damage_charged)} charged`
+        : int(d.projectile_damage));
+    }
+    if (d.projectile_speed !== null && d.projectile_speed !== undefined) {
+      row("Shot speed", d.projectile_speed_charged
+        ? `${int(d.projectile_speed)} → ${int(d.projectile_speed_charged)} px/s charged`
+        : `${int(d.projectile_speed)} px/s`);
+    }
+    if (d.projectile_size_charged) row("Shot size", `×${f2(d.projectile_size_charged)} charged`);
+  }
 
   const canvas = el("canvas", { class: "hitboxes", width: 420, height: 300 });
 
@@ -572,6 +604,11 @@ const COMPARE_COLUMNS = [
   ["damage", "Dmg", (r) => r.m.derived.max_damage, int],
   ["charged", "Dmg×", (r) => r.m.derived.max_damage_charged, int],
   ["kb", "KB", (r) => r.m.derived.max_knockback, int],
+  /* The compare view's whole job is "is this slot out of line", and a roster
+   * whose ranged fighters all read 0 damage answers that wrong for every one
+   * of them. */
+  ["shot", "Shot", (r) => r.m.derived.projectile_damage, int],
+  ["shotf", "Fire f", (r) => r.m.derived.fire_f, f1],
   ["growth", "Growth", (r) => {
     const gs = r.m.windows.flatMap((w) => w.volumes.map((v) => v.knockback_growth))
       .filter((g) => g !== null && g !== undefined);

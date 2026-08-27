@@ -155,6 +155,48 @@ if (gridWithoutArt.length) {
   );
 }
 
+/* THE TWO RANGED CASES, BY NAME. A firing move draws its shot from one of two
+ * places and the export used to report only the first, so the grid's one charge
+ * shot exported as a move with no damage. Both are pinned because they are
+ * different code paths that produce the same field. */
+const RANGED_CASES = [
+  { character: "npc_pirate_admiral", move: "run_out_the_guns", source: "equipped", charges: false },
+  { character: "projectile_polygon", move: "polygon_projectile_charge_shot", source: "body", charges: true },
+];
+for (const want of RANGED_CASES) {
+  const c = (bundle.characters ?? []).find((x) => x.id === want.character);
+  if (!c) { problems.push(`ranged case: no character ${want.character}`); continue; }
+  const m = (c.moves ?? []).find((x) => x.id === want.move);
+  if (!m) { problems.push(`ranged case: ${want.character} has no move ${want.move}`); continue; }
+  const d = m.derived ?? {};
+  if (!d.fires_projectile) {
+    problems.push(`${want.move}: does not fire, so its shot fields prove nothing`);
+    continue;
+  }
+  if (d.projectile_source !== want.source) {
+    problems.push(
+      `${want.move}: shot came from '${d.projectile_source}', expected '${want.source}'`
+    );
+  }
+  /* A firing move with a null shot is the exact defect this pins: the move
+   * visibly fires and the viewer has nothing to show for it. */
+  if (!(d.projectile_damage > 0) || !(d.projectile_speed > 0)) {
+    problems.push(
+      `${want.move}: fires but reports damage=${d.projectile_damage} speed=${d.projectile_speed}`
+    );
+  }
+  if (want.charges) {
+    /* A charge that pays nothing is a charge nobody would hold. */
+    if (!(d.projectile_damage_charged > d.projectile_damage)) {
+      problems.push(
+        `${want.move}: charges, but full damage ${d.projectile_damage_charged} does not beat its tap ${d.projectile_damage}`
+      );
+    }
+  } else if (d.projectile_damage_charged !== null && d.projectile_damage_charged !== undefined) {
+    problems.push(`${want.move}: does not charge, yet reports a charged damage`);
+  }
+}
+
 const unique = [...new Set(problems)];
 if (unique.length) {
   console.error(`[bundle-contract] FAIL — ${unique.length} problem(s):`);

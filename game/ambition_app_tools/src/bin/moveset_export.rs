@@ -224,7 +224,12 @@ fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_cata
     pulses
 }
 
-fn derived_json(spec: &MoveSpec) -> serde_json::Value {
+/// `body_ranged` is the fighter's STANDING ranged kit — the action a firing move
+/// uses when it equips nothing of its own.
+fn derived_json(
+    spec: &MoveSpec,
+    body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
+) -> serde_json::Value {
     let actives: Vec<_> = spec
         .windows
         .iter()
@@ -306,14 +311,35 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         .map(|e| e.at_s)
         .fold(f32::NAN, f32::min);
     let fires_projectile = !fire_at_s.is_nan();
-    // The shot's own numbers, from the ranged action this move EQUIPS. A move
-    // that equips nothing fires the body's standing ranged kit, which is not a
-    // property of the move and is deliberately not reported here.
-    let shot = spec
+    // ⭐⭐ THE SHOT, IN THE RUNTIME'S OWN PRECEDENCE: what the move EQUIPS, then
+    // the body's standing ranged kit.
+    //
+    // ⛔⛔ THE SECOND HALF USED TO BE OMITTED ON PURPOSE, and the reasoning was
+    // wrong. The note here said the body's kit "is not a property of the move
+    // and is deliberately not reported" — but a move whose whole content is
+    // firing that kit HAS no other offence, so omitting it exported Projectile
+    // Polygon's neutral-B, the grid's one charge shot, as a move with no damage
+    // and no speed. The move does not OWN the kit; it does determine that the
+    // kit is what comes out, and that is the question a balance view asks.
+    let equipped = spec
         .equips
         .as_deref()
         .and_then(ambition_platformer2d::characters::brain::held_item_by_id)
         .and_then(|item| item.ranged);
+    let shot_source = if equipped.is_some() { "equipped" } else { "body" };
+    let shot = equipped.or_else(|| body_ranged.cloned());
+    // ⭐ AND A CHARGEABLE SHOT OWES ITS CEILING. A tap and a full hold are two
+    // different moves in every balance conversation the genre has; reporting the
+    // uncharged base alone describes the one nobody is worried about.
+    let charged = shot.as_ref().and_then(|r| {
+        r.charge.as_ref().map(|c| {
+            (
+                (r.damage as f32 * c.damage_mult).round() as i32,
+                r.speed * c.speed_mult,
+                c.size_mult,
+            )
+        })
+    });
     // Endlag: from the last hittable instant to the end of the move. A move
     // with no active window owes its whole duration, which is the honest answer
     // for a pure-mobility special.
@@ -351,6 +377,15 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         "fire_f": fires_projectile.then(|| frames(fire_at_s)),
         "projectile_damage": shot.as_ref().map(|r| r.damage),
         "projectile_speed": shot.as_ref().map(|r| r.speed),
+        // WHOSE shot this is. A viewer that could not tell an equipped weapon
+        // from the body's own kit would report the same number for two
+        // different balance facts.
+        "projectile_source": shot.as_ref().map(|_| shot_source),
+        // `None` for a shot that does not charge, which is every ranged action
+        // that has not opted in.
+        "projectile_damage_charged": charged.map(|(d, _, _)| d),
+        "projectile_speed_charged": charged.map(|(_, s, _)| s),
+        "projectile_size_charged": charged.map(|(_, _, m)| m),
         // The charge payoff a fully held release applies, so a smash's real
         // ceiling is one multiplication away rather than folklore.
         "max_damage_charged": (max_damage as f32 * spec.smash_charge_mult).round() as i32,
@@ -378,7 +413,11 @@ fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde
     })
 }
 
-fn move_json(spec: &MoveSpec, verbs: &[String]) -> serde_json::Value {
+fn move_json(
+    spec: &MoveSpec,
+    verbs: &[String],
+    body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
+) -> serde_json::Value {
     serde_json::json!({
         "id": spec.id,
         "display_name": spec.display_name.clone(),
@@ -410,7 +449,7 @@ fn move_json(spec: &MoveSpec, verbs: &[String]) -> serde_json::Value {
         })),
         "windows": spec.windows.iter().map(window_json).collect::<Vec<_>>(),
         "events": spec.events.iter().map(event_json).collect::<Vec<_>>(),
-        "derived": derived_json(spec),
+        "derived": derived_json(spec, body_ranged),
     })
 }
 
@@ -437,11 +476,17 @@ fn character_json(
 ) -> serde_json::Value {
     let contract = prepared.kit.projectable_moveset();
     let by_move = contract.map(verbs_by_move).unwrap_or_default();
+    // ⭐ THE BODY'S STANDING RANGED KIT, which a firing move that equips nothing
+    // is the one that comes out of. See `derived_json`.
+    let body_ranged = prepared
+        .kit
+        .action_set()
+        .and_then(|set| set.ranged.as_ref());
     let moves: Vec<_> = contract
         .map(|c| {
             c.moves
                 .iter()
-                .map(|m| move_json(m, by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[])))
+                .map(|m| move_json(m, by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[]), body_ranged))
                 .collect()
         })
         .unwrap_or_default();

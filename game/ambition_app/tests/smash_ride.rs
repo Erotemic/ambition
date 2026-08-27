@@ -445,6 +445,31 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     );
     let before = sharks(&mut app);
 
+    // ⛔⛔ AIRBORNE, because that is how a recovery is actually pressed and how
+    // Jon pressed it: his log reads `grounded=false` on nearly every summon,
+    // and every test here had been pressing from a standing start. A shark
+    // summoned under a falling body meets different geometry, different contact
+    // and a different frame than one summoned under a body at rest.
+    ambition_platformer2d::sim::drive_control_frame(
+        app.world_mut(),
+        ambition_platformer2d::engine_core::ControlFrame {
+            jump_pressed: true,
+            jump_held: true,
+            ..Default::default()
+        },
+    );
+    app.update();
+    for _ in 0..12 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                jump_held: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+    }
+
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         special_pressed: true,

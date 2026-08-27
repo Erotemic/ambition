@@ -201,6 +201,26 @@ pub fn cancelable(
     m
 }
 
+/// FIXED KNOCKBACK: this hit launches the same at 0% and at 200%.
+///
+/// ⭐⭐ THE THING [`strike`] CANNOT SAY. Its builder takes one `f32` and reads
+/// zero as *"this stage decides"* — which is what every caller has always meant
+/// — so `Some(0.0)`, a hit whose launch does NOT grow with its victim's damage,
+/// was unreachable through it. Its own comment says as much and points here:
+/// *"a move that wants FIXED knockback says so on the volume"*. This is that
+/// sentence, made callable, so the next move that wants it does not reach into
+/// `windows[..].volumes[..]` by hand.
+///
+/// The customers are moves whose whole identity is landing the same every time:
+/// a multi-hit pulse whose carry must not dissolve at high percent, and a hold
+/// that is supposed to hold everyone equally.
+pub fn fixed_knockback(mut m: MoveSpec) -> MoveSpec {
+    for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
+        volume.knockback_growth = Some(0.0);
+    }
+    m
+}
+
 /// A CONDITIONAL TECHNIQUE ON CONTACT — the engine's `on_hit` seam, applied to
 /// every volume the move lands.
 ///

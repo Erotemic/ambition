@@ -145,9 +145,9 @@ mod tests {
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "actor",
                 &["polygon", "pointed_polygon"][..],
-                // The trap takes BOTH halves of the down slot, and the flyline
-                // takes the up: three verbs that are hers and not borrowed.
-                3,
+                // All four specials are hers, and the down slot is a posture
+                // pair: five verbs she authored rather than borrowed.
+                5,
             ),
             (
                 crate::medic_moveset::medic_moveset(),

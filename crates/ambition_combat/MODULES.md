@@ -40,8 +40,9 @@
 | [`targeting`](src/targeting.rs) | Per-frame combat relationship and `ActorTarget` selection. |
 | [`util`](src/util.rs) | Small feature-side helpers that do not own a subsystem. |
 | [`variation`](src/variation.rs) | Stable per-actor variation helpers for ECS feature actors. |
+| [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

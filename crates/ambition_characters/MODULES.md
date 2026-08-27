@@ -25,10 +25,11 @@
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |
 | [`smash_ride`](src/smash_ride.rs) | Summon-a-mount-and-ride: the authored vocabulary. |
 | [`smash_teleport`](src/smash_teleport.rs) | Teleport-as-a-recovery: the authored vocabulary. |
+| [`smash_vitality`](src/smash_vitality.rs) | A move that changes its own mover's health: the authored vocabulary. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`technique`](src/technique.rs) | THE AUTHORED SCHEMAS OF ENGINE TECHNIQUES — the params an `on_hit` effect carries, and nothing that executes one. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

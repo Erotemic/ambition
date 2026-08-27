@@ -155,8 +155,46 @@ impl BodyHealth {
         }
     }
 
+    /// PAY health for something, never falling below `floor`.
+    ///
+    /// ⭐⭐ A COST IS NOT AN INJURY, and the whole reason this is not
+    /// [`Self::damage`] is the list of things damage does that a price must not.
+    /// Damage consults invulnerability — a fighter still holding respawn
+    /// protection would get her special FREE, which is not a discount anybody
+    /// authored. Damage reports a kill — a move that could end the match by
+    /// being pressed is not a cost, it is a suicide button. And damage is
+    /// attributed: something hit you.
+    ///
+    /// ⭐ WHAT IT KEEPS IS THE METER. Spending health advances `accumulated`
+    /// exactly as an injury would, because in a platform fighter the meter is
+    /// the real currency: a Medic who has bought three bursts of tempo launches
+    /// farther for the rest of the stock, and that is the price. Charging the
+    /// pool and not the meter would make the cost invisible at the only moment
+    /// it matters.
+    ///
+    /// ⛔ IT PAYS WHAT IT CAN AFFORD. At or below the floor it takes nothing
+    /// and the move still happens — deliberately. The alternative is a fighter
+    /// whose special stops existing at low health, which is when she needs it;
+    /// a body down to its last point of margin has already paid.
+    ///
+    /// Returns what was actually taken.
+    pub fn spend(&mut self, amount: i32, floor: i32) -> i32 {
+        if amount <= 0 {
+            return 0;
+        }
+        let floor = floor.max(1);
+        let affordable = (self.health.current - floor).max(0);
+        let paid = amount.min(affordable);
+        if paid == 0 {
+            return 0;
+        }
+        self.health.current -= paid;
+        self.accumulated = self.accumulated.saturating_add(paid);
+        paid
+    }
+
     /// STATE the meter outright — a ruleset placing a body at an authored
-    /// starting damage.
+    /// starting damage."""
     ///
     /// ⛔⛔ NOT A HIT, AND THE DIFFERENCES ARE THE POINT. It does not consult
     /// invulnerability (nobody attacked), it does not drain the pool (a starting

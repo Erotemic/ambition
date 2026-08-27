@@ -86,6 +86,7 @@ pub mod music;
 pub mod ninja_shadow_oni_leader_moveset;
 pub mod medic_moveset;
 pub mod officer_moveset;
+pub mod special_slots;
 pub mod oiler_moveset;
 pub mod patent_clerk_moveset;
 pub mod pirate_admiral_moveset;

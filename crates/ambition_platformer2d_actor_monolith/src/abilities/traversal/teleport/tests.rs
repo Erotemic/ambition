@@ -232,6 +232,10 @@ fn an_authored_teleport_records_one_scripted_remap() {
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TELEPORT.to_string()),
             params: ambition_entity_catalog::ParamValue::from_typed(&TeleportParams {
+                // AIMED, not an ambush: this arm is about the ledger, and
+                // an empty stage has nobody to get behind.
+                behind_nearest_foe: false,
+                behind_gap: 0.0,
                 distance: 250.0,
                 // No assist: this arm is about the LEDGER, and a ledge catch
                 // would move the arrival for a second reason.
@@ -253,4 +257,213 @@ fn an_authored_teleport_records_one_scripted_remap() {
          no entry reads to the collision oracle as unexplained clipping, and a \
          second Class-B author on the same frame becomes invisible",
     );
+}
+
+// ---------------------------------------------------------------------------
+// The ambush chooser.
+//
+// ⛔⛔ EVERY RULE HERE STRADDLES ITS BOUNDARY. `reach` is a magnitude, so it
+// needs an arm inside it and an arm outside; "nearest" needs two foes and an
+// assertion about which; "foe" needs a body that is one and a body that is not.
+// A chooser tested only on the case it was written for agrees with a chooser
+// that snaps to whoever happens to be first in the query.
+// ---------------------------------------------------------------------------
+
+/// A body at `pos` with a `32x64` frame, on `team`, tracked as player `slot`.
+fn body(id: u32, slot: u8, team: &str, pos: ae::Vec2) -> FoeCandidate {
+    sized_body(id, slot, team, pos, HALF)
+}
+
+fn sized_body(id: u32, slot: u8, team: &str, pos: ae::Vec2, half: ae::Vec2) -> FoeCandidate {
+    FoeCandidate {
+        entity: Entity::from_raw_u32(id).expect("a valid test entity id"),
+        pos,
+        half,
+        faction: Default::default(),
+        team: Some(ambition_combat::targeting::MatchTeam::new(team)),
+        driving: None,
+        sim: Some(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(slot)),
+    }
+}
+
+/// Reach and gap wide enough that neither is what the arm under test is about.
+const REACH: f32 = 400.0;
+const GAP: f32 = 18.0;
+
+#[test]
+fn an_ambush_arrives_on_the_far_side_of_the_foe_facing_back_at_him() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let foe = body(2, 1, "blue", ae::Vec2::new(120.0, 0.0));
+    let stage = vec![me, foe];
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    // Past him, by his half-width plus hers plus the authored gap.
+    assert_eq!(ambush.arrival.x, 120.0 + HALF.x + HALF.x + GAP);
+    // ⛔ AND SHE LOOKS BACK. She travelled +x, so she must end up facing -x.
+    assert_eq!(ambush.facing, -1.0);
+}
+
+/// ⛔ THE MIRRORED ARM. A foe on her LEFT puts the arrival further left, and a
+/// sign error that reads as "behind" in one direction reads as "in front of" in
+/// the other.
+#[test]
+fn a_foe_on_the_other_side_puts_the_arrival_on_the_other_side() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let foe = body(2, 1, "blue", ae::Vec2::new(-120.0, 0.0));
+    let stage = vec![me, foe];
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    assert_eq!(ambush.arrival.x, -120.0 - HALF.x - HALF.x - GAP);
+    assert_eq!(ambush.facing, 1.0);
+}
+
+/// ⛔⛔ THE GAP IS BETWEEN EDGES, so a foe twice her width pushes the arrival
+/// twice as far out — the same authored number reading the same behind bodies of
+/// any size is the entire reason it is not a centre offset.
+#[test]
+fn a_wider_foe_pushes_the_arrival_further_out_by_exactly_its_edge() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let wide = sized_body(
+        2,
+        1,
+        "blue",
+        ae::Vec2::new(120.0, 0.0),
+        ae::Vec2::new(48.0, 32.0),
+    );
+    let stage = vec![me, wide];
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    assert_eq!(ambush.arrival.x, 120.0 + 48.0 + HALF.x + GAP);
+}
+
+/// ⛔⛔ FEET TO FEET, NOT CENTRE TO CENTRE. `+y` is gravity-down. A foe twice her
+/// height standing on the same floor has his centre 32px higher than hers; a
+/// centre-matched arrival would leave her floating at his waist.
+#[test]
+fn the_arrival_stands_where_the_foe_stands() {
+    // Both on a floor at y = 0: her centre is 32 above it, his is 64 above it.
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, -32.0));
+    let tall = sized_body(
+        2,
+        1,
+        "blue",
+        ae::Vec2::new(120.0, -64.0),
+        ae::Vec2::new(16.0, 64.0),
+    );
+    let stage = vec![me, tall];
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    assert_eq!(
+        ambush.arrival.y, -32.0,
+        "her feet belong on the floor he is standing on, not at his centre"
+    );
+}
+
+#[test]
+fn the_nearest_foe_is_the_one_ambushed() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let far = body(2, 1, "blue", ae::Vec2::new(300.0, 0.0));
+    let near = body(3, 2, "blue", ae::Vec2::new(-90.0, 0.0));
+    let stage = vec![me, far, near];
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    assert!(
+        ambush.arrival.x < -90.0,
+        "the foe 90px away is nearer than the one 300px away, and the arrival \
+         landed at {}",
+        ambush.arrival.x
+    );
+}
+
+/// ⛔⛔ `reach` IS A RANGE AND THE MOVE REFUSES OUTSIDE IT. The version this
+/// replaced clamped the TRAVEL instead, which put her 320px along the line to a
+/// foe 900px away — in front of him, mid-stage, with the move spent.
+#[test]
+fn a_foe_beyond_the_reach_is_not_a_target_at_all() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let distant = body(2, 1, "blue", ae::Vec2::new(900.0, 0.0));
+    let stage = vec![me, distant];
+    assert!(
+        ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_none(),
+        "a foe 900px away is out of a 400px reach, so the move must refuse \
+         rather than deposit her partway"
+    );
+}
+
+/// ⛔ THE PAIRED ARM: the same foe, one pixel INSIDE the reach, is taken.
+#[test]
+fn a_foe_just_inside_the_reach_is_taken() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let edge = body(2, 1, "blue", ae::Vec2::new(REACH - 1.0, 0.0));
+    let stage = vec![me, edge];
+    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_some());
+}
+
+#[test]
+fn an_empty_stage_has_nobody_to_get_behind() {
+    let me = body(1, 0, "red", ae::Vec2::ZERO);
+    let stage = vec![me];
+    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_none());
+}
+
+/// ⛔⛔ A TEAMMATE IS NOT A FOE, and this is the arm that separates "the nearest
+/// body" from "the nearest foe". A chooser that took whoever was closest would
+/// pass every other test in this file.
+#[test]
+fn a_teammate_standing_closer_is_never_the_target() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
+    let ally = body(2, 1, "red", ae::Vec2::new(40.0, 0.0));
+    let foe = body(3, 2, "blue", ae::Vec2::new(200.0, 0.0));
+    let stage = vec![me, ally, foe];
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    assert!(
+        ambush.arrival.x > 200.0,
+        "the ally 40px away must be skipped for the foe 200px away, and the \
+         arrival landed at {}",
+        ambush.arrival.x
+    );
+}
+
+/// ⛔ AND SHE NEVER AMBUSHES HERSELF, which is the degenerate case of the above
+/// — she is in her own candidate list by construction.
+#[test]
+fn the_teleporter_is_not_its_own_target() {
+    let me = body(1, 0, "red", ae::Vec2::ZERO);
+    let stage = vec![me];
+    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_none());
+}
+
+/// ⛔⛔ AN EXACT TIE RESOLVES BY `SimId`, NOT BY LIST ORDER. Two foes equidistant
+/// on opposite sides is the state a rollback rewind can re-present with the
+/// query in the other order; if the answer moved with it the match desyncs.
+#[test]
+fn an_exact_distance_tie_is_broken_by_sim_id_and_not_by_query_order() {
+    let me = || body(1, 0, "red", ae::Vec2::ZERO);
+    let left = || body(2, 9, "blue", ae::Vec2::new(-150.0, 0.0));
+    let right = || body(3, 4, "blue", ae::Vec2::new(150.0, 0.0));
+
+    let one = vec![me(), left(), right()];
+    let other = vec![me(), right(), left()];
+    let a = ambush_arrival(&one[0], &one, REACH, GAP, 1.0).expect("a foe in reach");
+    let b = ambush_arrival(&other[0], &other, REACH, GAP, 1.0).expect("a foe in reach");
+    assert_eq!(
+        a.arrival, b.arrival,
+        "the two foes are exactly equidistant, so reversing the candidate list \
+         must not change who gets ambushed"
+    );
+    assert!(
+        a.arrival.x > 150.0,
+        "player slot 4 sorts before slot 9, so the RIGHT foe wins the tie and \
+         the arrival landed at {}",
+        a.arrival.x
+    );
+}
+
+/// ⛔ DIRECTLY ABOVE HIM THERE IS NO "BEHIND", so the tiebreak is where she is
+/// LOOKING — and it must actually depend on that, or the move silently always
+/// picks +x for a foe on the same column.
+#[test]
+fn a_foe_on_the_same_column_is_passed_the_way_she_faces() {
+    let me = body(1, 0, "red", ae::Vec2::new(0.0, -200.0));
+    let below = body(2, 1, "blue", ae::Vec2::new(0.0, 0.0));
+    let stage = vec![me, below];
+    let facing_right = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("in reach");
+    let facing_left = ambush_arrival(&stage[0], &stage, REACH, GAP, -1.0).expect("in reach");
+    assert!(facing_right.arrival.x > 0.0);
+    assert!(facing_left.arrival.x < 0.0);
 }

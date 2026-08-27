@@ -47,7 +47,7 @@ pub fn author_moveset() -> MovesetContract {
         &["polygon", "pointed_polygon"],
         "author",
     );
-    replace_up_special(&mut set, authors_teleport());
+    crate::special_slots::replace_special(&mut set, "special_up", authors_teleport());
     set
 }
 
@@ -65,6 +65,9 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
         spec,
         TELEPORT_AT_S,
         ambition_characters::smash_teleport::TeleportParams {
+            // Aimed, like every recovery: the stick, then straight up.
+            behind_nearest_foe: false,
+            behind_gap: 0.0,
             // Further than the robot's, and slower to come out: he pays for the
             // distance in the frames before it.
             distance: 250.0,
@@ -85,30 +88,6 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     // that spends nothing is flight. Restating the rule here instead would put a
     // second copy of it beside the one place that decides it.
     ambition_characters::smash_repertoire::UpSpecial::Standard(spec).into_spec()
-}
-
-/// Swap whatever answers `special_up` for `replacement`, everywhere.
-///
-/// ⛔⛔ THE OLD MOVE LEAVES, IT IS NOT SHADOWED. A contract carries its moves in
-/// a list and its bindings in a table, so re-pointing the verb and leaving the
-/// old `MoveSpec` behind produces a table with an unreachable move in it — which
-/// every census that walks `moves` then reports as part of this fighter's kit.
-fn replace_up_special(
-    set: &mut MovesetContract,
-    replacement: ambition_platformer2d::entity_catalog::MoveSpec,
-) {
-    let displaced = set.verbs.get("special_up").cloned();
-    set.verbs
-        .insert("special_up".to_string(), replacement.id.clone());
-    if let Some(old) = displaced {
-        // Only if nothing ELSE still binds it: a table may legitimately answer
-        // two verbs with one move.
-        let still_bound = set.verbs.values().any(|id| *id == old);
-        if !still_bound {
-            set.moves.retain(|m| m.id != old);
-        }
-    }
-    set.moves.push(replacement);
 }
 
 #[cfg(test)]

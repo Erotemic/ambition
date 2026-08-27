@@ -23,6 +23,7 @@ pub mod smash_capture;
 pub mod smash_bomb;
 pub mod smash_ride;
 pub mod smash_teleport;
+pub mod smash_vitality;
 pub mod smash_fighter;
 pub mod smash_repertoire;
 mod snapshot_impls;

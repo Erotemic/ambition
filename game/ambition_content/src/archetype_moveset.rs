@@ -123,30 +123,40 @@ mod tests {
     /// the panic fired inside a headless boot, nineteen tests deep.
     #[test]
     fn a_borrowed_table_renames_every_id_and_collides_with_nothing() {
-        for (borrowed, archetype, owner, prefixes) in [
+        for (borrowed, archetype, owner, prefixes, owned_slots) in [
             (
                 crate::author_moveset::author_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "author",
                 &["polygon", "pointed_polygon"][..],
+                // His up-B is his own; everything else is the archetype's.
+                1,
             ),
             (
                 crate::officer_moveset::officer_moveset(),
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
                 &["polygon_brawler", "pugnacious_polygon"][..],
+                // His side-B is the draw; everything else is the archetype's.
+                1,
             ),
             (
                 crate::actor_moveset::actor_moveset(),
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "actor",
                 &["polygon", "pointed_polygon"][..],
+                // The trap takes BOTH halves of the down slot, and the flyline
+                // takes the up: three verbs that are hers and not borrowed.
+                3,
             ),
             (
                 crate::medic_moveset::medic_moveset(),
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "medic",
                 &["polygon_brawler", "pugnacious_polygon"][..],
+                // All four specials are hers, and the down slot is a posture
+                // pair: five verbs she authored rather than borrowed.
+                5,
             ),
         ] {
             assert_eq!(
@@ -228,10 +238,18 @@ mod tests {
                     mine.id
                 );
             }
-            assert!(
-                compared + 2 >= archetype.verbs.len(),
-                "{owner} matched only {compared} of the archetype's {} bound \
-                 verbs — a rename that stopped lining up makes this check vacuous",
+            // ⛔⛔ EXACT, NOT A TOLERANCE. This used to allow a slack of two,
+            // which was sized when one fighter owned one slot — and the moment
+            // the Actor owned three it could not tell "she authored her own down
+            // and up specials" from "the rename quietly stopped lining up",
+            // which is the only thing this assertion exists to catch. A fighter
+            // states how many slots are HERS and the rest must match.
+            assert_eq!(
+                compared + owned_slots,
+                archetype.verbs.len(),
+                "{owner} matched {compared} of the archetype's {} bound verbs \
+                 and claims {owned_slots} of its own — a rename that stopped \
+                 lining up makes this check vacuous",
                 archetype.verbs.len()
             );
         }

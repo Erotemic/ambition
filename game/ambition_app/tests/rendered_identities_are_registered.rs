@@ -28,11 +28,20 @@ fn target_dir() -> PathBuf {
 /// (`officer.py`'s own doc calls him *"an easter-egg fighter, not a reference
 /// rig"*) and a character exists in the renderer before it exists in the game.
 ///
+/// ⚠ 13 → 15 on 2026-08-27, and the review is this note: `actor` and `medic` are
+/// two more SVG-rigged targets (written 00:47/00:48, mid-authoring — their own
+/// docs call them *"a performer who commits to the role completely"* and *"a
+/// field paramedic who fights the way she works"*). The hand check the ratchet
+/// asks for says NEITHER has a catalog row, which is the same not-a-defect the
+/// 08-24 note describes: a character exists in the renderer before it exists in
+/// the game.
+///
 /// ⛔⛔ THIS COUNT READS THE RENDERER CHECKOUT ON DISK, INCLUDING UNTRACKED
 /// FILES. So it moves with work in progress that this repository cannot see, and
 /// it will need LOWERING again if either target goes away before it lands. A
-/// failure here that nobody's commit explains is that.
-const COMPUTED_ID_TARGETS: usize = 13;
+/// failure here that nobody's commit explains is that — and this bump is exactly
+/// that case, caught by a full-suite run rather than by anything in the diff.
+const COMPUTED_ID_TARGETS: usize = 15;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

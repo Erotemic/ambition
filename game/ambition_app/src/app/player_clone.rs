@@ -19,13 +19,13 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
-use ambition_platformer2d::characters::control::{ActorControl};
+use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 use ambition_platformer2d::sprite_sheet::character::{
-    CharacterAnimator, build_character_sprite_with_render_size, feet_anchor_for_render_size,
-    sprite_render_size,
+    build_character_sprite_with_render_size, feet_anchor_for_render_size, sprite_render_size,
+    CharacterAnimator,
 };
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 
@@ -89,11 +89,12 @@ pub fn spawn_requested_player_clone(
     let scratch = ae::BodyClusterScratch::new_with_abilities(spawn, ae::AbilitySet::sandbox_all());
 
     let size = scratch.kinematics.size;
-    let transform = Transform::from_translation(ambition_platformer2d::engine_core::config::world_to_bevy(
-        &world.0,
-        spawn,
-        ambition_platformer2d::engine_core::config::WORLD_Z_PLAYER,
-    ));
+    let transform =
+        Transform::from_translation(ambition_platformer2d::engine_core::config::world_to_bevy(
+            &world.0,
+            spawn,
+            ambition_platformer2d::engine_core::config::WORLD_Z_PLAYER,
+        ));
 
     // The clone carries the IDENTICAL movement component set as the player and
     // every actor: `BodyKinematics` (shared kinematic truth) + the shared
@@ -101,7 +102,8 @@ pub fn spawn_requested_player_clone(
     // player's `PlayerSimulationBundle` and `ActorClusterSeed::into_components`
     // nest — the convergence the ActorBody-unwrap bought.
     let kinematics = scratch.kinematics;
-    let movement = ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(scratch);
+    let movement =
+        ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(scratch);
     // The published combat footprint every body carries (§A6); kept live by
     // `integrate_home_body` like the primary's.
     let hurtbox = ae::CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
@@ -225,8 +227,9 @@ pub fn tick_player_clone_brains(
         snapshot.sim_time = clock.0;
         snapshot.dt = dt;
 
-        let mut frame = ambition_platformer2d::characters::actor::control::ActorControlFrame::neutral();
-        brain.tick(&snapshot, &mut frame);
+        let mut frame =
+            ambition_platformer2d::characters::actor::control::ActorControlFrame::neutral();
+        ambition_platformer2d::actors::brain_tick::tick_brain(&mut brain, &snapshot, &mut frame);
         control.0 = frame;
     }
 }
@@ -240,7 +243,9 @@ pub fn tick_player_clone_brains(
 /// same reason: a reset whose room preflight refuses must leave the running session exactly as
 /// it found it.
 pub fn despawn_player_clones_on_reset(
-    mut committed: MessageReader<ambition_platformer2d::actors::session::reset::NewGameResetCommitted>,
+    mut committed: MessageReader<
+        ambition_platformer2d::actors::session::reset::NewGameResetCommitted,
+    >,
     clones: Query<Entity, With<PlayerClone>>,
     mut commands: Commands,
 ) {
@@ -256,7 +261,10 @@ pub fn despawn_player_clones_on_reset(
 pub fn sync_player_clone_transform(
     world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
     mut clones: Query<
-        (&ambition_platformer2d::actors::actor::BodyKinematics, &mut Transform),
+        (
+            &ambition_platformer2d::actors::actor::BodyKinematics,
+            &mut Transform,
+        ),
         With<PlayerClone>,
     >,
 ) {

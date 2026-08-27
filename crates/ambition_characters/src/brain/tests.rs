@@ -1,6 +1,22 @@
 use super::*;
 use crate::brain::action_set::RangedStyle;
 
+/// Tick a `Brain` through the NINE simple arms, for tests that build one.
+///
+/// ⭐ TEST-LOCAL ON PURPOSE. `Brain::tick` was deleted when the dispatcher split
+/// (D168): the outer match over all twelve variants now lives in the actor
+/// monolith, because three of the arms are destined for crates above this one.
+/// Nothing in production needed the inherent method — it had zero callers here —
+/// so this is a convenience for fixtures, not the road back.
+fn tick_simple(
+    brain: &mut Brain,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+) -> bool {
+    let Brain::StateMachine(cfg) = brain;
+    crate::brain::state_machine::tick_simple_state_machine(cfg, snapshot, out)
+}
+
 #[test]
 fn brain_display_contains_label() {
     // Display impl for state-machine brains embeds the label —
@@ -217,7 +233,7 @@ fn brain_tick_survives_100_ticks_for_every_template() {
             snap.sim_time = (i as f32) / 60.0;
             snap.dt = 1.0 / 60.0;
             let mut frame = crate::actor::control::ActorControlFrame::neutral();
-            brain.tick(&snap, &mut frame);
+            tick_simple(&mut brain, &snap, &mut frame);
             // No NaN propagation.
             assert!(frame.locomotion.x.is_finite());
             assert!(frame.locomotion.y.is_finite());
@@ -240,8 +256,8 @@ fn brain_tick_is_deterministic_given_same_snapshot() {
     let mut b = a.clone();
     let mut frame_a = crate::actor::control::ActorControlFrame::neutral();
     let mut frame_b = crate::actor::control::ActorControlFrame::neutral();
-    a.tick(&snap, &mut frame_a);
-    b.tick(&snap, &mut frame_b);
+    tick_simple(&mut a, &snap, &mut frame_a);
+    tick_simple(&mut b, &snap, &mut frame_b);
     assert_eq!(frame_a, frame_b, "same brain + same snapshot → same frame");
 }
 
@@ -393,7 +409,7 @@ fn brain_tick_dispatches_through_enum() {
     let mut b = Brain::StateMachine(StateMachineCfg::StandStill);
     let mut out = crate::actor::control::ActorControlFrame::neutral();
     out.melee_pressed = true; // pre-poisoned
-    b.tick(&BrainSnapshot::idle(), &mut out);
+    tick_simple(&mut b, &BrainSnapshot::idle(), &mut out);
     assert!(!out.melee_pressed);
 }
 
@@ -510,7 +526,7 @@ fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
     snap.sim_time = 5.0; // past fire_cooldown_s 0.8
 
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
-    brain.tick(&snap, &mut frame);
+    tick_simple(&mut brain, &snap, &mut frame);
     assert!(
         frame.fire.is_some(),
         "Skirmisher inside aggro + past cooldown must emit fire intent",
@@ -570,8 +586,8 @@ fn melee_brute_brain_resolves_through_action_set() {
 
     let mut frame_a = crate::actor::control::ActorControlFrame::neutral();
     let mut frame_b = crate::actor::control::ActorControlFrame::neutral();
-    brain_a.tick(&snap, &mut frame_a);
-    brain_b.tick(&snap, &mut frame_b);
+    tick_simple(&mut brain_a, &snap, &mut frame_a);
+    tick_simple(&mut brain_b, &snap, &mut frame_b);
     assert!(frame_a.melee_pressed);
     assert!(frame_b.melee_pressed);
 
@@ -606,7 +622,6 @@ fn melee_brute_brain_resolves_through_action_set() {
 /// couch match, and only one of them gets a press that lands between two ticks.
 #[test]
 fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
-    use crate::control::{PlayerSlot, SlotControlLatches};
     use ambition_platformer2d_core::ControlFrame;
 
     let mut latches = crate::control::SlotControlLatches::default();
@@ -637,7 +652,6 @@ fn a_secondary_seats_sub_tick_tap_is_not_swallowed() {
 
 #[test]
 fn each_seats_latch_is_its_own() {
-    use crate::control::{PlayerSlot, SlotControlLatches};
     use ambition_platformer2d_core::ControlFrame;
 
     let mut latches = crate::control::SlotControlLatches::default();
@@ -665,7 +679,6 @@ fn each_seats_latch_is_its_own() {
 /// The primary seat follows the same rule.
 #[test]
 fn resetting_a_seat_drops_its_held_levels_not_just_its_edges() {
-    use crate::control::{PlayerSlot, SlotControlLatches};
     use ambition_platformer2d_core::ControlFrame;
 
     let mut latches = crate::control::SlotControlLatches::default();

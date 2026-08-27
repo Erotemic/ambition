@@ -7,17 +7,16 @@
 use ambition_platformer2d_core::{self as ae, Vec2};
 
 use crate::actor::control::ActorControlFrame;
-use crate::brain::fighter::data::{ApmLedger, FighterCfg, FighterState, FoeSample, PendingAttack};
-use crate::brain::fighter::habit::{Choice, HabitModel};
+use crate::brain::fighter::data::{FighterCfg, FighterState, FoeSample, PendingAttack};
+use crate::brain::fighter::habit::Choice;
 use crate::brain::fighter::options::{
     generate_options, AttackCandidate, MovementVerb, UtilityWeights,
 };
-use crate::brain::fighter::profile::FighterBrainProfile;
 use crate::brain::fighter::recovery::{BodyKit, RecoveryLens};
-use crate::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
+use crate::brain::fighter::rollout::refine_by_rollout;
 use crate::brain::fighter::situation::{classify, Situation};
 use crate::brain::BrainSnapshot;
-use crate::perception::{DelayedPerception, WorldView};
+use crate::perception::WorldView;
 
 /// SplitMix64. One step per CONSUMED sample, which is what makes the stream
 /// reproducible under rollback: a tick that reads no noise leaves the seed

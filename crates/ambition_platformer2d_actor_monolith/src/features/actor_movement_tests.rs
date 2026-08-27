@@ -138,7 +138,7 @@ fn tick_peaceful(
         air_jumps_remaining: 0,
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    brain.tick(&snapshot, &mut frame);
+    crate::brain_tick::tick_brain(brain, &snapshot, &mut frame);
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     seed.update_for_test(
         world,

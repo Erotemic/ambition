@@ -161,7 +161,7 @@ fn a_brain_drives_a_full_player_body_through_the_player_movement() {
         snapshot.dt = dt;
 
         let mut frame = ActorControlFrame::neutral();
-        brain.tick(&snapshot, &mut frame);
+        crate::brain_tick::tick_brain(&mut brain, &snapshot, &mut frame);
 
         let input = input_from_frame(&frame);
         step_axis_body(&world, &mut scratch, &mut model, input, dt);

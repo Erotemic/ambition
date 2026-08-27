@@ -5,8 +5,7 @@
 //! pins the replacement: invalidity is `None`, and every real slot is left
 //! exactly as it was.
 
-use crate::control::{PlayerSlot, SlotControls};
-use crate::control::{SlotGestures, SlotInteractionState};
+use crate::control::SlotInteractionState;
 
 /// A gesture state that is visibly non-default in every slot, so a stray write
 /// anywhere shows up as a difference rather than as a value that happened to

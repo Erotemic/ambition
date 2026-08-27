@@ -16,8 +16,7 @@
 
 use ambition_platformer2d_core as ae;
 
-use super::action_set::ActionSet;
-use super::smash::{tick_smash, SmashCfg, SmashState};
+use super::smash::{SmashCfg, SmashState};
 use super::snapshot::BrainSnapshot;
 
 // ===== Top-level state-machine variant =====
@@ -120,38 +119,16 @@ impl StateMachineCfg {
     }
 }
 
-/// Tick a state-machine brain: read the snapshot, mutate the brain's
-/// own state, and write the abstract intent into `out`.
-///
-/// The `Smash` variant ignores the actor's [`ActionSet`] here (falls
-/// back to a peaceful default that disables melee). Callers that
-/// want a Smash actor to actually attack should call
-/// [`tick_state_machine_with_actions`] instead, threading the
-/// actor's `ActionSet` through. The two-entry-point split keeps
-/// existing callers (player brain driver, NPC sims) source-compat
-/// while the actor driver opt-in into the ActionSet-aware path.
-pub fn tick_state_machine(
+pub fn tick_simple_state_machine(
     sm: &mut StateMachineCfg,
     snapshot: &BrainSnapshot,
     out: &mut crate::actor::control::ActorControlFrame,
-) {
-    tick_state_machine_with_actions(sm, &ActionSet::peaceful(), snapshot, None, out);
-}
-
-/// Like [`tick_state_machine`] but threads the actor's `ActionSet`
-/// to the Smash brain so it knows what attacks are available.
-pub fn tick_state_machine_with_actions(
-    sm: &mut StateMachineCfg,
-    actions: &ActionSet,
-    snapshot: &BrainSnapshot,
-    perception: Option<&crate::perception::WorldView>,
-    out: &mut crate::actor::control::ActorControlFrame,
-) {
+) -> bool {
     if !snapshot.alive {
         // Dead actors emit a neutral frame regardless of brain. Write
         // explicitly so a pre-poisoned `out` doesn't leak through.
         *out = crate::actor::control::ActorControlFrame::neutral();
-        return;
+        return true;
     }
     match sm {
         StateMachineCfg::StandStill => tick_stand_still(out),
@@ -161,18 +138,16 @@ pub fn tick_state_machine_with_actions(
         StateMachineCfg::Skirmisher { cfg, state } => tick_skirmisher(cfg, state, snapshot, out),
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
         StateMachineCfg::ChargeCrash { cfg, state } => tick_charge_crash(cfg, state, snapshot, out),
-        StateMachineCfg::BossPattern { cfg, state } => {
-            tick_boss_pattern_via_state_machine(cfg, state, snapshot, out)
-        }
-        StateMachineCfg::Smash { cfg, state } => {
-            tick_smash(cfg, state, actions, snapshot, perception, out)
-        }
-        StateMachineCfg::Fighter { cfg, state } => {
-            super::fighter::tick_fighter(cfg, state, snapshot, perception, out)
-        }
         StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
         StateMachineCfg::PlayerDemo { cfg, state } => tick_player_demo(cfg, state, snapshot, out),
+        // ⚠ NAMED, not a `_` arm. A new variant has to come here and say which
+        // side of the split it is on, instead of silently becoming somebody
+        // else's problem at runtime.
+        StateMachineCfg::BossPattern { .. }
+        | StateMachineCfg::Smash { .. }
+        | StateMachineCfg::Fighter { .. } => return false,
     }
+    true
 }
 
 // ===== StandStill =====
@@ -1199,7 +1174,7 @@ fn tick_player_demo(
 // path like every other body — no bespoke call site. A snapshot WITHOUT those
 // fields (any non-boss caller that somehow holds a BossPattern brain) ticks under
 // a Dormant phase, which emits only the idle sway, never a strike.
-fn tick_boss_pattern_via_state_machine(
+pub fn tick_boss_pattern_via_state_machine(
     cfg: &super::BossPatternCfg,
     state: &mut super::BossPatternState,
     snapshot: &BrainSnapshot,

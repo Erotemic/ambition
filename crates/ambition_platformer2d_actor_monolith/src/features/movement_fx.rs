@@ -971,20 +971,6 @@ mod tests {
         );
     }
 
-    /// One op plus a landing of the given impact, as `(sfx, vfx)`.
-    fn presentation_for_landing(
-        op: ae::MovementOp,
-        impact_speed: f32,
-    ) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
-        let mut events = ae::FrameEvents::default();
-        events.operations.push(op);
-        events.ground_contact = ae::GroundContactTransition::Landed {
-            impact_speed,
-            involuntary: false,
-        };
-        run_events(events)
-    }
-
     /// A landing with no floor-game op resolving it.
     fn presentation_for_landing_only(impact_speed: f32) -> (Vec<SfxMessage>, Vec<VfxMessage>) {
         let mut events = ae::FrameEvents::default();

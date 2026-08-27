@@ -21,6 +21,7 @@ pub mod avatar;
 pub mod causal;
 #[cfg(test)]
 mod character_roster;
+pub mod brain_tick;
 pub mod construction;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.

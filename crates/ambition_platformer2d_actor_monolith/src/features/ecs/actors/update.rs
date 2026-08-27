@@ -583,7 +583,13 @@ pub fn tick_actor_brains(
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);
                     with_causal_sink(&mut causal, || {
-                        brain_ref.tick_with_actions(actions, &snapshot, Some(&world_view), &mut bf)
+                        crate::brain_tick::tick_brain_with_actions(
+                            brain_ref,
+                            actions,
+                            &snapshot,
+                            Some(&world_view),
+                            &mut bf,
+                        )
                     });
                     bf
                 } else {

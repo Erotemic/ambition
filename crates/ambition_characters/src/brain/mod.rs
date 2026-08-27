@@ -54,9 +54,9 @@ pub use smash::{
 pub use snapshot::BrainSnapshot;
 #[allow(unused_imports)]
 pub use state_machine::{
-    tick_state_machine, AuthoredWorldPatrolLane, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg,
-    MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState, SniperCfg,
-    SniperState, StateMachineCfg, WandererCfg, NPC_PATROL_SPEED,
+    tick_simple_state_machine, AuthoredWorldPatrolLane, ChargeCrashCfg, ChargeCrashState,
+    MeleeBruteCfg, MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState,
+    SniperCfg, SniperState, StateMachineCfg, WandererCfg, NPC_PATROL_SPEED,
 };
 
 #[cfg(test)]
@@ -94,42 +94,21 @@ impl Brain {
         })
     }
 
-    /// Tick the brain: read the snapshot, mutate any internal state,
-    /// and write the abstract intent into `out`. Does not consult the
-    /// actor's `ActionSet`; the Smash brain falls back to a peaceful
-    /// default. Use [`Brain::tick_with_actions`] when the caller knows
-    /// the actor's capabilities and wants the Smash brain to commit
-    /// actual attacks.
-    pub fn tick(
-        &mut self,
-        snapshot: &BrainSnapshot,
-        out: &mut crate::actor::control::ActorControlFrame,
-    ) {
-        match self {
-            Brain::StateMachine(cfg) => tick_state_machine(cfg, snapshot, out),
-        }
-    }
-
-    /// Like [`Brain::tick`] but threads the actor's `ActionSet`. The
-    /// Smash brain uses this to gate `MeleeAttack` / `RangedAttack`
-    /// emission on the actor's actual melee/ranged capability. Other
-    /// brain backends ignore the ActionSet.
-    /// `perception` is the body's headless `WorldView` (the world-out port). The
-    /// Smash brain consumes it for tactical gates (line-of-fire); other backends
-    /// ignore it. Pass `None` from pure-stage tests / callers without perception.
-    pub fn tick_with_actions(
-        &mut self,
-        actions: &action_set::ActionSet,
-        snapshot: &BrainSnapshot,
-        perception: Option<&crate::perception::WorldView>,
-        out: &mut crate::actor::control::ActorControlFrame,
-    ) {
-        match self {
-            Brain::StateMachine(cfg) => state_machine::tick_state_machine_with_actions(
-                cfg, actions, snapshot, perception, out,
-            ),
-        }
-    }
+    // ⛔⛔ `Brain::tick` AND `Brain::tick_with_actions` ARE GONE, and their
+    // absence is the point. They were a match over every variant, so behaviour
+    // placement followed the enum: three of the twelve arms are 22k lines of
+    // platform-fighter and boss thinking whose destination is a crate ABOVE this
+    // one, and a dispatcher living here could never call upward (D168).
+    //
+    // ⭐ THE SPLIT, not a move. `state_machine::tick_simple_state_machine`
+    // answers the nine ordinary NPC arms — this crate's own business — and says
+    // so; the composition that owns the whole set dispatches the other three.
+    // That is `ambition_platformer2d_actor_monolith::brain_tick`, which already
+    // depends on every candidate destination and is in every capability closure
+    // anyway.
+    //
+    // ⚠ measured before doing it: this crate had ZERO production callers of
+    // either method. It was an inherent method by habit, not by need.
 
     /// Is this brain currently hostile? Debug tooling / "is this
     /// actor a threat right now" queries use this. State-machine

@@ -77,6 +77,14 @@ fn attack_gesture_history_round_trips_through_rollback_codec() {
                 posture: AttackPosture::Airborne,
             },
         ),
+        // ⛔⛔ NON-DEFAULT ON PURPOSE. These two fields arrived with the
+        // special-turn window and this file did not compile for however long —
+        // nothing gates this crate's test target, and `cargo check -p
+        // ambition_app --all-targets` does not build it. Filling them with
+        // `0` / `0.0` would make the file compile and test nothing; a codec that
+        // forgets to encode them fails here instead.
+        special_turn_ticks: 3,
+        prev_lateral_sign: -1.0,
     };
     let bytes = encode_state(&state);
     assert_eq!(decode_state::<AttackGestureState>(&bytes), Some(state));

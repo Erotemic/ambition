@@ -28,7 +28,6 @@
 
 use crate::actor::control::ActorControlFrame;
 use crate::brain::fighter::habit::HabitModel;
-use crate::brain::fighter::options::AttackBinding;
 use crate::brain::fighter::profile::FighterBrainProfile;
 use crate::brain::fighter::rollout::ShadowTuning;
 use crate::perception::DelayedPerception;

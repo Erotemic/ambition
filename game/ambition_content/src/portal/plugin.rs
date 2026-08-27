@@ -29,7 +29,7 @@ use super::transit_adapter::{sync_ground_items_to_transitable, sync_transitable_
 use super::transit_body_adapter::{
     apply_portal_carried_momentum, ensure_portal_bodies, ensure_projectile_portal_bodies,
     portal_player_input_adapter, reconcile_kernel_bodies_after_portal_transit,
-    sync_portal_reorient_from_settings,
+    rotate_projectile_acceleration_after_portal_transit, sync_portal_reorient_from_settings,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -256,6 +256,15 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             portal_player_input_adapter
+                .run_if(gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .after(portal_transit),
+        );
+        // The projectile half of the same reconciliation: a carried WORLD
+        // acceleration must rotate with the velocity it accompanies.
+        app.add_systems(
+            sim,
+            rotate_projectile_acceleration_after_portal_transit
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),

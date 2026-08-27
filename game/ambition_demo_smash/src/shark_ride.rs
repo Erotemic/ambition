@@ -288,6 +288,17 @@ pub fn depart_when_riderless(
         let Ok(kin) = departs.get(event.mount) else {
             continue;
         };
+        // ⛔ THIS LINE SPENT A WHILE IN THE WRONG SYSTEM, announcing "rider left"
+        // from the arm that handles a REFUSED board. The probe caught it: ten
+        // dismounts in a production run and not one departure logged, which
+        // reads exactly like sharks piling up on the stage. They were leaving;
+        // only the announcement was misfiled.
+        bevy::log::info!(
+            target: "ambition::mount",
+            "shark departing (rider left): mount={:?} reason={:?}",
+            event.mount,
+            event.reason,
+        );
         commands.entity(event.mount).insert(Departing {
             remaining: DEPART_SECONDS,
             velocity: departure_heading(kin.pos) * DEPART_SPEED,
@@ -373,11 +384,6 @@ pub fn send_away_a_shark_nobody_boarded(
         bevy::log::info!(
             target: "ambition::mount",
             "shark departing (board refused): mount={:?}",
-            event.mount,
-        );
-        bevy::log::info!(
-            target: "ambition::mount",
-            "shark departing (rider left): mount={:?}",
             event.mount,
         );
         commands.entity(event.mount).insert(Departing {

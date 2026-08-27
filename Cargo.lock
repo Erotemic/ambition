@@ -178,6 +178,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_app",
  "ambition_content",
+ "ambition_demo_smash",
  "ambition_platformer2d",
  "bevy",
  "image",

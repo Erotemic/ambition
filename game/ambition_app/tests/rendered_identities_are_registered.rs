@@ -33,6 +33,13 @@ fn target_dir() -> PathBuf {
 /// NEITHER had a catalog row, which was the same not-a-defect the 08-24 note
 /// describes: a character exists in the renderer before it exists in the game.
 ///
+/// ⛔⛔ AND THE NOTE ABOVE LANDED WITHOUT ITS CONSTANT. The 13 → 15 review was
+/// written and `COMPUTED_ID_TARGETS` stayed 13, so the branch carried a red test
+/// and a doc block describing the number it had not set. A counter and the prose
+/// that justifies it are one change; verified 2026-08-27 that `medic` and
+/// `actor` do have `character_catalog.ron` rows, which is the hand check this
+/// ratchet asks for.
+///
 /// ⭐ BOTH HAVE ONE NOW, and the count did not move — which is the point of the
 /// bucket. It counts targets whose `character_id` this scanner cannot read as a
 /// LITERAL, and both name it `TARGET_NAME`; being registered in the catalog is a
@@ -50,7 +57,7 @@ fn target_dir() -> PathBuf {
 /// describes happening again: two renderer targets that were on disk when the
 /// count was last set are not on disk now, and nothing in this repository's
 /// history explains either. No commit here touched the renderer.
-const COMPUTED_ID_TARGETS: usize = 13;
+const COMPUTED_ID_TARGETS: usize = 15;
 
 /// Every literal `character_id` value in one target source, accepting dict keys
 /// with either quote style and keyword-argument syntax.

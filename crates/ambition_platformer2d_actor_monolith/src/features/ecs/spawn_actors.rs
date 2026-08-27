@@ -1305,6 +1305,30 @@ pub(crate) fn spawn_runtime_minion_into(
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
+    // ⛔⛔ AND ITS DEATH IS NOT WRITTEN DOWN. A summoned body inherits its
+    // character's `RespawnPolicy`, which DEFAULTS to `DeadStaysDead` — and that
+    // policy means "when this body dies, set the save flag `enemy_<id>_dead`
+    // FOREVER". That is a statement about a PLACEMENT: one authored actor,
+    // standing in one room, which the player killed. A summon is not a placement.
+    // It has no room, it is made fresh every time somebody calls for it, and its
+    // `config.id` is a FIXED STRING shared by every instance ever summoned.
+    //
+    // ⭐⭐ SO ONE DEATH POISONED EVERY LATER SUMMON, PERMANENTLY. The pirate's
+    // recovery shark spawns as `smash_ride_shark`; the first one that died wrote
+    // `enemy_smash_ride_shark_dead`, and `sync_ecs_actors_with_save` — which runs
+    // EVERY SIM TICK, not on load — then zeroed `health.current` on the first
+    // tick of every shark summoned afterwards, in that save, for good. The rider
+    // boarded a body that was alive when it was built and dead one tick later,
+    // and the log could only say "its health pool reached zero": no hit had
+    // landed, so nothing upstream had anything to report. A fresh save rode
+    // perfectly, which is why every test stayed green.
+    //
+    // ⭐ `OnRoomReenter` IS THE POLICY THAT MEANS "NOT PERSISTED": it writes no
+    // flag on death and reads none on load. The two lines that made a summon
+    // transient are now the two lines that say so — a timer that never fires and
+    // a liveness nobody records.
+    enemy.config.tuning.respawn =
+        ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_aabb(aabb);
     EnemyActorSpawnPlan::hostile(
         format!("Runtime minion: {name}"),

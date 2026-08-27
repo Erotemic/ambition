@@ -107,7 +107,7 @@ fn a_player_pilots_a_mount_end_to_end() {
 
     sim.world_mut()
         .entity_mut(rider)
-        .insert((RidingOn { mount }, Mounted));
+        .insert(ambition_platformer2d::mount::rider_of(mount));
     sim.world_mut()
         .entity_mut(mount)
         .insert(MountSlot { rider: Some(rider) });
@@ -229,7 +229,7 @@ fn a_dead_mount_rebuilds_its_riders_brain_through_the_real_schedule() {
         .insert(Brain::stand_still());
     sim.world_mut()
         .entity_mut(rider)
-        .insert((RidingOn { mount }, Mounted));
+        .insert(ambition_platformer2d::mount::rider_of(mount));
     sim.world_mut()
         .entity_mut(mount)
         .insert(MountSlot { rider: Some(rider) });

@@ -200,6 +200,38 @@ pub struct MountedBrainCache {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Mounted;
 
+/// The rider's half of an ACTIVE mount relation, as components.
+///
+/// ⛔⛔ ONE RECIPE, BECAUSE THERE WERE TWO. `board` installed
+/// `RidingOn + Mounted + PoseOwnedExternally`; the authored welder (`wire_mount`)
+/// and the older fixtures installed the first two and not the third. That is not
+/// a missing line, it is a BIFURCATION in what the relation MEANS: a runtime
+/// rider had its locomotion suppressed by the kernel and an authored rider went
+/// on walking underneath a saddle that repaired the pose afterwards. Two roads
+/// into one relation is exactly how the pilot licence shipped broken twice, and
+/// a component recipe spelled out at every call site is the same shape.
+///
+/// ⭐ COMPONENTS RATHER THAN A WORLD WRITE, because the two callers hold
+/// different authorities — `board` has `&mut World`, the welder has `Commands` —
+/// and the thing they must agree on is WHAT the relation is made of, not how it
+/// is written. Legality (licence, reservation, occupancy) stays in `board`: this
+/// installs a relation already judged legal.
+pub fn rider_of(mount: Entity) -> (RidingOn, Mounted, ambition_platformer2d_core::PoseOwnedExternally) {
+    (
+        RidingOn { mount },
+        Mounted,
+        // The one fact a constrained body owes the domains that cannot see this
+        // one: the movement kernel must not integrate its locomotion, and a move
+        // may forbid itself while it is set.
+        ambition_platformer2d_core::PoseOwnedExternally,
+    )
+}
+
+/// The mount's half of an active mount relation.
+pub fn saddle_holding(rider: Entity) -> MountSlot {
+    MountSlot { rider: Some(rider) }
+}
+
 /// Authored sky-rider collision size. A standalone cove PirateRaider is
 /// 44x78 (~125 px tall rendered through the 1.6× pirate sheet
 /// collision_scale), but a shark-rider is an authored compact sky variant.
@@ -719,14 +751,8 @@ pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> 
     // constrained body owes the domains that cannot see this one — the movement
     // kernel must not integrate its locomotion and a move may forbid itself
     // while it is set. See the marker's own note for why it lives in `_core`.
-    world.entity_mut(rider).insert((
-        RidingOn { mount },
-        Mounted,
-        ambition_platformer2d_core::PoseOwnedExternally,
-    ));
-    world.entity_mut(mount).insert(MountSlot {
-        rider: Some(rider),
-    });
+    world.entity_mut(rider).insert(rider_of(mount));
+    world.entity_mut(mount).insert(saddle_holding(rider));
     true
 }
 
@@ -926,6 +952,14 @@ pub fn enforce_mount_rider_link(
     // per frame and the hashmap stays small.
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
+    // ⭐⭐ THE POOL ITSELF, not just the verdict on it, because "its health pool
+    // reached zero" has three causes that want three different fixes and the
+    // verdict alone cannot tell them apart: a pool that DRAINED (something hit
+    // it — there is a `lethal blow` line above), a pool that was never positive
+    // (construction handed the summon a dead body), and a pool restored wrong by
+    // a rewind. `36/36, 36 damage taken` and `0/0, 0 damage taken` are the same
+    // `false` and opposite bugs.
+    let mut mount_pool: HashMap<Entity, (i32, i32, i32)> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
     for (mount_entity, mount_health, mountable) in &mounts {
         // ⛔ A MOUNT WITHOUT A HEALTH POOL IS A BROKEN MOUNT, not an immortal
@@ -939,6 +973,12 @@ pub fn enforce_mount_rider_link(
         // An indestructible vehicle would be an authored policy, not a missing
         // component.
         let alive = mount_health.is_some_and(|h| h.alive());
+        if let Some(health) = mount_health {
+            mount_pool.insert(
+                mount_entity,
+                (health.current(), health.max(), health.damage_taken()),
+            );
+        }
         if mount_health.is_none() {
             bevy::log::error!(
                 target: "ambition::mount",
@@ -982,12 +1022,23 @@ pub fn enforce_mount_rider_link(
         let alive = seen.unwrap_or(false);
         if !alive && was_mounted.is_some() {
             match seen {
-                Some(false) => bevy::log::info!(
-                    target: "ambition::mount",
-                    "mount DIED under its rider: mount={:?} rider={rider_entity:?} — \
-                     its health pool reached zero",
-                    riding.mount,
-                ),
+                Some(false) => {
+                    let (current, max, taken) =
+                        mount_pool.get(&riding.mount).copied().unwrap_or((0, 0, 0));
+                    bevy::log::info!(
+                        target: "ambition::mount",
+                        "mount DIED under its rider: mount={:?} rider={rider_entity:?} — \
+                         its health pool reached zero at {current}/{max} with {taken} \
+                         damage taken. ⛔ READ THE THREE CASES: {taken} > 0 means \
+                         something HIT it and a `lethal blow` line above says how \
+                         hard; {taken} == 0 with {max} > 0 means the pool was \
+                         emptied by something that is not a hit (a rewind, a save \
+                         sync, a direct write) and no survivability number will \
+                         answer it; {max} == 0 means construction handed the \
+                         summon a body that was never alive",
+                        riding.mount,
+                    )
+                }
                 None => bevy::log::warn!(
                     target: "ambition::mount",
                     "mount VANISHED from the saddle lookup: mount={:?} \

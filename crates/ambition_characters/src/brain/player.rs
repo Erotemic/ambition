@@ -145,7 +145,37 @@ pub fn tick_player_brain_from_control(
 
     // Facing: prefer local side intent; fall back to snapshot facing when stick
     // is neutral so the actor doesn't snap to (0).
-    out.facing = if local_axis.x.abs() > 0.01 {
+    //
+    // ⛔⛔ AND ONLY WHILE THE BODY MAY ACTUALLY TURN, which is what made the
+    // BACK AIR dead content for the whole cast (D252, found 2026-08-27 by
+    // `moveset_takes` on the first run that recorded the resolved gesture).
+    // This wrote a facing every tick, grounded or not; it reaches the movement
+    // kernel as `MotionStepContext::facing_intent` and is applied there
+    // unconditionally, so an airborne fighter TURNED TO FACE the back input
+    // before the press was read. `attack_dir_from_axis` then folds the
+    // reversal away — `forward = axis.x * facing` — and every back-air press
+    // resolved as `Forward`. Fourteen fighters authored an `attack_air_back`
+    // none of them could throw.
+    //
+    // ⭐ THE RULE WAS ALREADY WRITTEN DOWN ONE LAYER DOWN and this contradicted
+    // it: `movement/abilities.rs` gates its own steering on
+    // `ground.on_ground || flight.fly_enabled` — an airborne body may not turn
+    // from the stick. Two authorities disagreed and the aerial one won because
+    // it wrote to a field applied later. Stated here at the PRODUCER, where the
+    // field's own doc already says what to do: `0.0`/unchanged means *leave the
+    // actor's existing facing alone*.
+    //
+    // ⛔ THE FLYER IS NOT AIRBORNE IN THIS SENSE. `actor_aerial` is a
+    // gravity-free FREE-MOVER (a possessed flyer, a `Floating` NPC), and it
+    // steers in 2D by `velocity_target` — it has always turned freely and must
+    // keep doing so, which is the same carve-out `fly_enabled` makes below.
+    //
+    // ⚠ THIS IS THE HUMAN ROAD ONLY. A brain that wants to face a particular
+    // way still says so; the reverse aerial rush stays a GROUNDED pivot that
+    // the jump resolves, and `resolve_attack_gestures` still owns folding a
+    // turnaround into an aim.
+    let may_turn = snapshot.actor_on_ground || snapshot.actor_aerial;
+    out.facing = if may_turn && local_axis.x.abs() > 0.01 {
         local_axis.x.signum()
     } else {
         snapshot.actor_facing

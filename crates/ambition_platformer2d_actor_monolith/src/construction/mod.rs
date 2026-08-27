@@ -977,15 +977,22 @@ pub fn verify_rig_composition(
     violations
 }
 
-/// Wire a rider onto a mount: `RidingOn` + `Mounted` on the rider, `MountSlot`
-/// on the mount going back. One function writes both ends.
+/// Wire a rider onto a mount. One function writes both ends, and it writes them
+/// from the SAME recipe the runtime board uses.
+///
+/// ⛔⛔ IT USED TO SPELL THE RECIPE OUT and got it wrong by one component:
+/// `RidingOn + Mounted`, with no `PoseOwnedExternally`. Once that marker acquired
+/// real movement semantics the two roads into one relation stopped meaning the
+/// same thing — a runtime-boarded rider had its locomotion suppressed by the
+/// kernel while an authored rider went on walking under a saddle that repaired
+/// the pose afterwards. See [`ambition_mount::rider_of`].
 fn wire_mount(rider: Entity, mount: Entity, _relation: &ActorRelation, ctx: &mut Ctx<'_, '_, '_>) {
     ctx.commands
         .entity(rider)
-        .insert((ambition_mount::RidingOn { mount }, ambition_mount::Mounted));
+        .insert(ambition_mount::rider_of(mount));
     ctx.commands
         .entity(mount)
-        .insert(ambition_mount::MountSlot { rider: Some(rider) });
+        .insert(ambition_mount::saddle_holding(rider));
 }
 
 /// That leaves a rider pointing at a mount that does not point back, and
@@ -1011,6 +1018,20 @@ fn verify_mount(
     if world.get::<ambition_mount::Mounted>(rider).is_none() {
         return RelationCheck::MissingCapability {
             component: "Mounted",
+        };
+    }
+    // ⛔⛔ AND THE THIRD COMPONENT, which this check did not know about while the
+    // welder was not installing it — so the verification agreed with the bug. A
+    // rider without `PoseOwnedExternally` still runs its own locomotion: the
+    // kernel integrates it, the saddle overwrites the result, and the pair reads
+    // as correct at every seam except the one where a launch is staged. See
+    // [`ambition_mount::rider_of`], which is now the only place the recipe lives.
+    if world
+        .get::<ambition_platformer2d_core::PoseOwnedExternally>(rider)
+        .is_none()
+    {
+        return RelationCheck::MissingCapability {
+            component: "PoseOwnedExternally",
         };
     }
     // Both ends must still carry the capabilities the preflight approved them

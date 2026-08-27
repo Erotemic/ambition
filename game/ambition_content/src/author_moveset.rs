@@ -81,7 +81,16 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
         },
     );
     let spec = ambition_characters::moveset_authoring::sfx(spec, 0.0, "player.attack.charge");
-    let spec = ambition_characters::moveset_authoring::sfx(spec, TELEPORT_AT_S, "player.blink");
+    // ⛔⛔ NO AUTHORED BLINK CUE HERE. `apply_authored_teleports` emits
+    // `PLAYER_BLINK` itself at the transit, for EVERY authored teleport — so a
+    // move-timeline event at `TELEPORT_AT_S` asked the same frame for the same
+    // cue down a second road, and Author's Revision requested it twice (GPT 5.6,
+    // 2026-08-27). The executor is the one authority, which is what it already
+    // is for every other teleport in the game.
+    //
+    // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS. The Actor's trap and
+    // wire and Alice's side-B author the cue for moves that do NOT run the
+    // teleport executor; those are the cue being chosen, not duplicated.
     // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. This move is
     // inserted AFTER `SmashRepertoire::into_contract` has lowered the table it
     // joins, so nothing else will stamp `gates.recovery` on it — and an up-B

@@ -791,16 +791,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // damage are registered below on their owning phase sets.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
-                // Rider/mount pose sync. Runs immediately after the
-                // per-actor brain tick so the rider's brain has had
-                // a chance to emit fire intent for the target from
-                // a position close to where it'll actually be after
-                // the snap. update_ecs_actors integrates each
-                // actor's velocity; this system zeros it again and
-                // snaps the rider back to the mount-relative
-                // position so the rider doesn't drift away on the
-                // next frame.
-                ambition_mount::sync_riders_to_mounts,
                 // Boss brain decides intent first; integration consumes
                 // `desired_vel` after optional content-side steering.
                 sync_boss_encounter_phase,
@@ -928,9 +918,35 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
         );
+        // ⛔⛔ THE SADDLE IS A POST-INTEGRATION CONSTRAINT, and until now it
+            // only SAID so. It sat in a chained tuple whose comment claimed it
+            // ran after `update_ecs_actors` — a system that no longer exists —
+            // and the tuple did not contain the integrator at all, so the two
+            // pose authorities for a ridden body had no stated order between
+            // them. Whether the rider was snapped to its mount before or after
+            // the movement pass moved it was a scheduler-topology accident.
+            //
+            // ⭐ `AfterIntegrate` IS THE PHASE FOR EXACTLY THIS, and capture's
+            // equivalent external constraint already lives there. A constraint
+            // that owns a body's final pose has to run after the thing that
+            // proposes it, and now the schedule is what says so.
+            //
+            // ⚠ THIS DOES NOT YET STOP THE RIDER INTEGRATING ITS OWN
+            // LOCOMOTION — it only fixes which authority speaks last. Making a
+            // held body decline the movement pass is the other half, and
+            // `PoseOwnedExternally` is the fact it will read.
         app.add_systems(
             sim,
             sync_actor_read_model.in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+        );
+        // ⭐ AND IT FOLLOWS THE READ MODEL, exactly as the capture constraint
+        // below does: the coarse-box mirror runs first so an external pose
+        // authority gets the last word.
+        app.add_systems(
+            sim,
+            ambition_mount::sync_riders_to_mounts
+                .after(sync_actor_read_model)
+                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
         );
         // A body already in somebody's hands is put back after it moved. The
         // coarse-box mirror runs first so this external constraint is the last

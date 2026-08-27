@@ -791,11 +791,25 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::shark_ride::depart_when_riderless,
                 crate::shark_ride::send_away_a_shark_nobody_boarded,
-                crate::shark_ride::tick_departures,
             )
                 .chain()
                 .after(ambition_platformer2d::mount::apply_dismount_requests)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
+        );
+        // ⛔⛔ THE DEPARTURE'S INTENT IS WRITTEN WHERE INTEGRATION WILL READ IT.
+        // It used to run in `CombatSet::Settle`, at the end of the tick, and a
+        // departing shark has no rider — so on the NEXT tick its own brain
+        // republished `ActorControl` before the movement pass, overwriting the
+        // heading this system had set. The shark was told to leave once per tick
+        // and talked out of it once per tick.
+        //
+        // ⭐ `BeforeIntegrate` IS THE PHASE THAT MEANS "the intent integration
+        // is about to consume". Writing a velocity target anywhere the brain
+        // still speaks after you is writing it into a value somebody else owns.
+        app.add_systems(
+            sim,
+            crate::shark_ride::tick_departures
+                .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::BeforeIntegrate),
         );
         // THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
         // it runs in `PlayerInput` and NOT in `Settle`. It shipped in `Settle`

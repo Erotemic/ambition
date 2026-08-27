@@ -529,53 +529,79 @@ pub fn board_reserved_mounts(
     mut refused: MessageWriter<RideRefused>,
 ) {
     let dt = time.sim_dt();
-    // ⛔ THE CLOCK RUNS ON EVERY RESERVATION, before any of the arms below. A
-    // countdown that only advanced for reservations that were ALSO in range
-    // would never expire the one case it exists for.
-    let mut timed_out: Vec<(Entity, Entity)> = Vec::new();
-    for (mount, mut reservation, _) in &mut reserved {
+    // ⛔⛔ ONE OUTCOME PER RESERVATION PER TICK, DECIDED IN ONE PASS. The first
+    // version ticked every clock, collected the expiries, and THEN scanned the
+    // same query for arrivals — and `Commands::remove` is deferred, so a
+    // reservation that expired and was in range on the same tick got both: a
+    // `RideRefused` from the expiry arm and a board attempt from the arrival
+    // arm. The ruleset would have been told its ride was refused and then found
+    // its rider welded on. Deciding here means the three endings are exclusive
+    // by construction rather than by whichever arm ran first.
+    //
+    // ⭐ ARRIVAL WINS A TIE. A rider who reached the saddle on the very tick the
+    // clock ran out has arrived; refusing them on a technicality would be the
+    // deadline enforcing itself against the thing it exists to bound.
+    enum Outcome {
+        Board(MountReservedFor),
+        Expired(Entity),
+        RiderGone(Entity),
+    }
+    let mut decided: Vec<(Entity, Outcome)> = Vec::new();
+    for (mount, mut reservation, kin) in &mut reserved {
         reservation.expires_in -= dt;
+        let Ok(rider_kin) = riders.get(reservation.rider) else {
+            // A rider with no body has not arrived and never will.
+            decided.push((mount, Outcome::RiderGone(reservation.rider)));
+            continue;
+        };
+        let gap = kin.pos.distance(rider_kin.pos);
+        if gap <= reservation.board_within {
+            decided.push((mount, Outcome::Board(*reservation)));
+            continue;
+        }
         if reservation.expires_in <= 0.0 {
-            timed_out.push((mount, reservation.rider));
+            decided.push((mount, Outcome::Expired(reservation.rider)));
+            continue;
+        }
+        // ⭐ THE WAITING STATE SAYS ITSELF. "Never boarded" and "was refused"
+        // used to produce identical evidence, which is none. `debug!` because
+        // this repeats every tick of an approach.
+        bevy::log::debug!(
+            target: "ambition::mount",
+            "reservation waiting: mount={mount:?} rider={:?} gap={gap:.1} \
+             board_within={:.1} expires_in={:.2}s",
+            reservation.rider,
+            reservation.board_within,
+            reservation.expires_in,
+        );
+    }
+    // Sorted: two mounts resolving on one tick must be decided in a stable
+    // order, and `Query` iteration order is not guaranteed.
+    decided.sort_by_key(|(mount, _)| *mount);
+    let mut arrivals: Vec<(Entity, MountReservedFor)> = Vec::new();
+    for (mount, outcome) in decided {
+        match outcome {
+            Outcome::Board(reservation) => arrivals.push((mount, reservation)),
+            Outcome::Expired(rider) => {
+                bevy::log::warn!(
+                    target: "ambition::mount",
+                    "reservation EXPIRED unreached: mount={mount:?} rider={rider:?} — \
+                     the rider never came within boarding range",
+                );
+                commands.entity(mount).remove::<MountReservedFor>();
+                refused.write(RideRefused { rider, mount });
+            }
+            Outcome::RiderGone(rider) => {
+                bevy::log::warn!(
+                    target: "ambition::mount",
+                    "reservation abandoned: mount={mount:?} rider={rider:?} no longer \
+                     has a body",
+                );
+                commands.entity(mount).remove::<MountReservedFor>();
+                refused.write(RideRefused { rider, mount });
+            }
         }
     }
-    timed_out.sort();
-    for (mount, rider) in timed_out {
-        bevy::log::warn!(
-            target: "ambition::mount",
-            "reservation EXPIRED unreached: mount={mount:?} rider={rider:?} — \
-             the rider never came within boarding range",
-        );
-        commands.entity(mount).remove::<MountReservedFor>();
-        refused.write(RideRefused { rider, mount });
-    }
-    let reserved = reserved.as_readonly();
-    // Sorted: two mounts arriving on one tick must be decided in a stable order,
-    // and `Query` iteration order is not guaranteed.
-    let mut arrivals: Vec<(Entity, MountReservedFor)> = reserved
-        .iter()
-        .filter_map(|(mount, reservation, kin)| {
-            let rider_kin = riders.get(reservation.rider).ok()?;
-            let gap = kin.pos.distance(rider_kin.pos);
-            // ⭐ THE WAITING STATE SAYS ITSELF. A reservation that is simply not
-            // reached yet used to be invisible — no line, no message, nothing —
-            // so "the mount never boarded" and "the mount was refused" produced
-            // identical evidence, which is none. `debug!` rather than `info!`
-            // because this repeats every tick of an approach.
-            if gap > reservation.board_within {
-                bevy::log::debug!(
-                    target: "ambition::mount",
-                    "reservation waiting: mount={mount:?} rider={:?} gap={gap:.1} \
-                     board_within={:.1} expires_in={:.2}s",
-                    reservation.rider,
-                    reservation.board_within,
-                    reservation.expires_in,
-                );
-                return None;
-            }
-            Some((mount, *reservation))
-        })
-        .collect();
     arrivals.sort_by_key(|(mount, _)| *mount);
     for (mount, reservation) in arrivals {
         commands.entity(mount).remove::<MountReservedFor>();
@@ -627,18 +653,6 @@ pub fn board_reserved_mounts(
                 });
             }
         });
-    }
-    // Retire a reservation whose rider is gone entirely, so the mount is not
-    // held forever for a body that no longer exists.
-    let mut orphaned: Vec<(Entity, Entity)> = reserved
-        .iter()
-        .filter(|(_, reservation, _)| riders.get(reservation.rider).is_err())
-        .map(|(mount, reservation, _)| (mount, reservation.rider))
-        .collect();
-    orphaned.sort();
-    for (mount, rider) in orphaned {
-        commands.entity(mount).remove::<MountReservedFor>();
-        refused.write(RideRefused { rider, mount });
     }
 }
 
@@ -1211,6 +1225,20 @@ where
     registrar.rollback_component_clone_entity_ref::<MountReservedFor>(
         OWNER,
         "mount.reserved_for",
+        // ⚠ THE PROBE IS THE RIDER, AND THAT IS A DETECTION LIMIT WORTH NAMING.
+        // The whole component is cloned and restored, so `expires_in` and
+        // `board_within` REWIND correctly — this is not a correctness gap. What
+        // the checksum covers is the rider's stable sim identity, because raw
+        // entity bits are not comparable across a resimulation, which is the
+        // entire reason this registrar variant exists. So a divergence in the
+        // reservation's CLOCK would be corrected but not DETECTED.
+        //
+        // ⛔ FOLDING THE CLOCK IN WOULD NOT BE FREE: the probed variant takes a
+        // `u64` and no entity mapping, and hashing an entity's bits is exactly
+        // the mistake the identity projection exists to prevent. If reservations
+        // ever outlive a rollback window by enough for the clock to drift
+        // observably, the answer is a probe that folds the identity AND the
+        // remaining time, not a second registration.
         |held| held.rider,
     );
     registrar.rollback_map_entities::<MountReservedFor>(OWNER, "map.mount_reserved_for");

@@ -2740,6 +2740,33 @@ three more. The shape of the conclusion survives — the tick is a downward disp
 with no in-crate PRODUCTION consumer — but a session that plans against "3, all in
 the monolith" will be surprised by `ambition_app`.
 
+⭐⭐⭐ **AND THE 50-TEST COST DISSOLVES IF THE DISPATCHER SPLITS INSTEAD OF
+MOVING — designed 2026-08-27, after the three data splits made the shape
+visible.** The premise behind "50 in-crate test call sites break" is that
+`tick_state_machine` is ONE function that must go up whole. It does not have to
+be one function.
+
+```text
+STAYS in ambition_characters   tick_simple_state_machine(cfg, …) -> bool
+                               the NINE arms, which are ordinary NPC behaviour a
+                               floor crate should keep; returns false for the
+                               three it does not handle
+GOES to the monolith           the outer match: try the simple dispatcher, and
+                               on false call fighter / smash / boss_pattern in
+                               whichever crate now owns them
+```
+
+⇒ **the 50 in-crate tests keep calling a characters-side function unchanged**,
+because 60 of their 62 variant constructions are exactly the nine arms that stay
+— the row already measured that and drew the wrong conclusion from it. Only the
+two `BossPattern` constructions need a new home, which is the "price is two" the
+row claimed for a different design and gets here for real.
+
+⛔ AND IT IS NOT A SHIM. The simple dispatcher is not a compatibility wrapper
+around a moved thing; it is the nine arms' own entry point, in the crate that
+owns them, and nothing else calls it. The outer match is the only thing that
+moves, and it moves ONCE.
+
 ⇒ **ORDERING, THEREFORE: the dispatcher moves to the monolith FIRST and alone**
 (nine arms become `pub`, 50 in-crate tests call arms directly, ~8 external call
 sites change from `brain.tick(…)` to a free function). Only after that is

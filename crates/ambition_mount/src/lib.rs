@@ -200,6 +200,38 @@ pub struct MountedBrainCache {
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct Mounted;
 
+/// The rider's half of an ACTIVE mount relation, as components.
+///
+/// ⛔⛔ ONE RECIPE, BECAUSE THERE WERE TWO. `board` installed
+/// `RidingOn + Mounted + PoseOwnedExternally`; the authored welder (`wire_mount`)
+/// and the older fixtures installed the first two and not the third. That is not
+/// a missing line, it is a BIFURCATION in what the relation MEANS: a runtime
+/// rider had its locomotion suppressed by the kernel and an authored rider went
+/// on walking underneath a saddle that repaired the pose afterwards. Two roads
+/// into one relation is exactly how the pilot licence shipped broken twice, and
+/// a component recipe spelled out at every call site is the same shape.
+///
+/// ⭐ COMPONENTS RATHER THAN A WORLD WRITE, because the two callers hold
+/// different authorities — `board` has `&mut World`, the welder has `Commands` —
+/// and the thing they must agree on is WHAT the relation is made of, not how it
+/// is written. Legality (licence, reservation, occupancy) stays in `board`: this
+/// installs a relation already judged legal.
+pub fn rider_of(mount: Entity) -> (RidingOn, Mounted, ambition_platformer2d_core::PoseOwnedExternally) {
+    (
+        RidingOn { mount },
+        Mounted,
+        // The one fact a constrained body owes the domains that cannot see this
+        // one: the movement kernel must not integrate its locomotion, and a move
+        // may forbid itself while it is set.
+        ambition_platformer2d_core::PoseOwnedExternally,
+    )
+}
+
+/// The mount's half of an active mount relation.
+pub fn saddle_holding(rider: Entity) -> MountSlot {
+    MountSlot { rider: Some(rider) }
+}
+
 /// Authored sky-rider collision size. A standalone cove PirateRaider is
 /// 44x78 (~125 px tall rendered through the 1.6× pirate sheet
 /// collision_scale), but a shark-rider is an authored compact sky variant.
@@ -719,14 +751,8 @@ pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> 
     // constrained body owes the domains that cannot see this one — the movement
     // kernel must not integrate its locomotion and a move may forbid itself
     // while it is set. See the marker's own note for why it lives in `_core`.
-    world.entity_mut(rider).insert((
-        RidingOn { mount },
-        Mounted,
-        ambition_platformer2d_core::PoseOwnedExternally,
-    ));
-    world.entity_mut(mount).insert(MountSlot {
-        rider: Some(rider),
-    });
+    world.entity_mut(rider).insert(rider_of(mount));
+    world.entity_mut(mount).insert(saddle_holding(rider));
     true
 }
 

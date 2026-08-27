@@ -1397,60 +1397,89 @@ fn a_body_transited_flush_with_the_ground_can_still_walk() {
     );
 }
 
-/// ⭐⭐ A HELD BODY DOES NOT SPEND ITS LAUNCH, and gets it in full once released.
+/// ⭐⭐ A HELD BODY BANKS THE LAUNCH THAT WILL FREE IT AND ABSORBS THE ONE THAT
+/// WILL NOT.
 ///
-/// ⛔⛔ THE DEFECT THIS PINS, measured on the pirate's shark 2026-08-27: the
-/// kernel drained the pending launch on every step, including steps where a
-/// saddle owned the rider's pose and overwrote `vel` with zero straight after.
-/// So a hit strong enough to end the ride was CONSUMED — the rider tumbled, the
-/// dismount fired a stage later, and the body dropped out of the saddle at zero
-/// velocity. The knockback had already been spent into a value somebody else
-/// was about to erase.
+/// ⛔⛔ THE FIRST DEFECT, measured on the pirate's shark 2026-08-27: the kernel
+/// drained the pending launch on every step, including steps where a saddle owned
+/// the rider's pose and overwrote `vel` with zero straight after. A hit strong
+/// enough to end the ride was CONSUMED — the rider tumbled, the dismount fired a
+/// stage later, and the body dropped out of the saddle at zero velocity.
 ///
-/// ⭐ THE ARMS STRADDLE THE OWNERSHIP FLAG with everything else held still: same
-/// staged launch, same body, same tick budget. Held, the launch survives and the
-/// body has not moved; released, the same staged launch is spent and the body
-/// carries it.
+/// ⛔⛔ AND THE REPAIR FOR IT WAS TOO BROAD, which a GPT review Jon relayed the
+/// same day caught: deferring EVERY launch meant a weak hit that flinches a rider
+/// and leaves it aboard also staged its travel, and nothing ever spent it. The jab
+/// waited in the gateway until the ride ended for a reason of its own — the lease
+/// ran out, the player jumped off — and THEN threw the body across the stage,
+/// seconds after the hit that caused it.
+///
+/// ⭐⭐ SO THE ARMS STRADDLE `tumble_speed`, not the ownership flag, because the
+/// magnitude is what the rule actually compares. Same body, same tuning, same
+/// constraint, same tick budget: only the size of the hit differs. A launch that
+/// tumbles is the one that will END the constraint and must outlive the release; a
+/// launch that does not is one the constraint ABSORBED, and absorbing it is the
+/// whole of what "the saddle held him through that hit" means.
 #[test]
-fn a_pose_owned_body_keeps_its_pending_launch_until_it_is_released() {
+fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
     let world = empty_world();
-    let launch = Vec2::new(400.0, -300.0);
+    // Below and above the same threshold. `(400, -300)` is exactly 500 long.
+    const TUMBLES_ABOVE: f32 = 400.0;
+    let weak = Vec2::new(80.0, -60.0); // 100 — a jab
+    let strong = Vec2::new(400.0, -300.0); // 500 — a launch
 
-    let mut held_scratch =
-        BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::default());
-    let mut held_model = MotionModel::default();
-    {
-        let mut clusters = held_scratch.as_mut();
-        clusters.flight.stage_launch(launch, false);
-        step_motion(
-            &mut held_model,
-            &mut clusters,
-            MotionStepContext {
-                world: &world,
-                input: InputState::default(),
-                frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
-                facing_intent: 0.0,
-                dt: DT,
-                contact: crate::movement::body_contact::BodyContactField::NONE,
-                pose_owned_externally: true,
-            },
-        );
-    }
+    let held_tick = |launch: Vec2| -> (BodyClusterScratch, MotionModel) {
+        let mut scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::default());
+        let mut params = AxisSweptParams::default();
+        params.abilities.tumble_speed = TUMBLES_ABOVE;
+        let mut model = MotionModel::axis_swept(params);
+        {
+            let mut clusters = scratch.as_mut();
+            clusters.flight.stage_launch(launch, false);
+            step_motion(
+                &mut model,
+                &mut clusters,
+                MotionStepContext {
+                    world: &world,
+                    input: InputState::default(),
+                    frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
+                    facing_intent: 0.0,
+                    dt: DT,
+                    contact: crate::movement::body_contact::BodyContactField::NONE,
+                    pose_owned_externally: true,
+                },
+            );
+        }
+        (scratch, model)
+    };
+
+    // ── THE LAUNCH THAT WILL FREE THE BODY IS BANKED. ──
+    let (mut banked, mut banked_model) = held_tick(strong);
     assert_eq!(
-        held_scratch.as_mut().flight.pending_launch,
-        launch,
-        "a body whose pose another authority owns spent its launch anyway — the \
-         knockback goes into a velocity the constraint overwrites this same tick, \
-         so the hit lands and the body never moves"
+        banked.as_mut().flight.pending_launch,
+        strong,
+        "a body whose pose another authority owns spent a TUMBLING launch anyway \
+         — the knockback goes into a velocity the constraint overwrites this same \
+         tick, so the hit lands and the body never moves"
     );
 
-    // ...AND THE SAME STAGED LAUNCH IS SPENT THE MOMENT NOBODY OWNS THE POSE.
-    // Without this arm the assertion above is satisfied by a kernel that never
-    // accepts a launch at all.
-    {
-        let mut clusters = held_scratch.as_mut();
+    // ── THE LAUNCH THE CONSTRAINT ABSORBED IS RETIRED. ──
+    let (mut absorbed, mut absorbed_model) = held_tick(weak);
+    assert_eq!(
+        absorbed.as_mut().flight.pending_launch,
+        Vec2::ZERO,
+        "a hit too weak to tumble stayed staged under the constraint — it is now \
+         waiting for whatever releases the pose NEXT, which is how a jab landed \
+         seconds later as a launch"
+    );
+
+    // ── AND THE RELEASE TELLS THEM APART. Without this pair the two assertions
+    //    above are equally satisfied by a kernel that drops every launch and by
+    //    one that spends none. ──
+    let release = |scratch: &mut BodyClusterScratch, model: &mut MotionModel| {
+        let mut clusters = scratch.as_mut();
         step_motion(
-            &mut held_model,
+            model,
             &mut clusters,
             MotionStepContext {
                 world: &world,
@@ -1462,18 +1491,29 @@ fn a_pose_owned_body_keeps_its_pending_launch_until_it_is_released() {
                 pose_owned_externally: false,
             },
         );
-    }
-    let mut released = held_scratch.as_mut();
+    };
+    release(&mut banked, &mut banked_model);
+    let freed = banked.as_mut();
     assert_eq!(
-        released.flight.pending_launch,
+        freed.flight.pending_launch,
         Vec2::ZERO,
-        "the launch was still staged after a free tick, so it is not being spent \
-         at all rather than being deferred"
+        "the banked launch was still staged after a free tick, so it is not being \
+         spent at all rather than being deferred"
     );
     assert!(
-        released.kinematics.vel.x > 1.0,
-        "the released body carries no lateral knockback ({:?}), so the launch was \
-         dropped rather than deferred",
-        released.kinematics.vel
+        freed.kinematics.vel.x > 1.0,
+        "the released body carries no lateral knockback ({:?}), so the tumbling \
+         launch was dropped rather than deferred",
+        freed.kinematics.vel
+    );
+
+    release(&mut absorbed, &mut absorbed_model);
+    let after = absorbed.as_mut();
+    assert!(
+        after.kinematics.vel.x.abs() < 1.0,
+        "a flinch the constraint absorbed reappeared as travel ({:?}) on the tick \
+         the pose was released — which is the stale-knockback bug, arriving \
+         exactly one release late",
+        after.kinematics.vel
     );
 }

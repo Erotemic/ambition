@@ -162,7 +162,22 @@ pub fn step_motion(
     // pose, which is the tick the body is free to fly.
     if ctx.pose_owned_externally {
         let staged = clusters.flight.pending_launch_state();
-        accept_external_launch(model, clusters, &ctx, staged, LaunchTravel::Deferred);
+        let tumbles = accept_external_launch(model, clusters, &ctx, staged, LaunchTravel::Deferred);
+        // ⛔⛔ AND AN ABSORBED LAUNCH IS RETIRED RATHER THAN BANKED. Deferring
+        // EVERY launch was too broad: a weak hit that flinches a rider and leaves
+        // it aboard also staged its travel, and nothing spent it — so the jab sat
+        // in the gateway until the ride ended for an unrelated reason (the lease
+        // ran out, the player jumped off) and THEN threw the body across the
+        // stage, seconds after the hit that caused it.
+        //
+        // ⭐ THE TWO CASES ARE TOLD APART BY THE FLOOR GAME, not by the
+        // constraint's identity. A launch that tumbles is the one that will end
+        // the constraint — its travel has to outlive the release. A launch that
+        // does not tumble is one the constraint ABSORBED, and absorbing it is the
+        // whole of what "the saddle held him through that hit" means.
+        if !tumbles {
+            let _ = clusters.flight.take_launch();
+        }
     } else {
         let launch = clusters.flight.take_launch();
         accept_external_launch(model, clusters, &ctx, launch, LaunchTravel::Applied);
@@ -300,15 +315,23 @@ enum LaunchTravel {
     Deferred,
 }
 
+/// Put a staged launch through the one gateway, and report whether it STARTED A
+/// TUMBLE.
+///
+/// ⭐⭐ THE ANSWER IS WHAT AN EXTERNAL POSE OWNER NEEDS. A launch that tumbles is
+/// the one that will END the constraint, so its travel has to survive to the
+/// tick the body is free; a launch that does not tumble is ABSORBED by the
+/// constraint and must be retired, or it waits — forever, until something
+/// unrelated releases the pose — and then fires. See the caller.
 fn accept_external_launch(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: &MotionStepContext<'_>,
     launch: crate::body_clusters::PendingLaunch,
     travel: LaunchTravel,
-) {
+) -> bool {
     if launch.is_empty() {
-        return;
+        return false;
     }
     let flinchless = launch.flinchless;
     let launch = launch.velocity;
@@ -330,7 +353,9 @@ fn accept_external_launch(
             if !flinchless
                 && super::knockdown::jab_lock(&mut axis.state, axis.params, launch.length())
             {
-                return;
+                // Pinned where it lies: the launch is spent on the pin and there
+                // is no travel left to defer.
+                return false;
             }
             if travel == LaunchTravel::Applied {
                 clusters.kinematics.vel = launch;
@@ -359,7 +384,9 @@ fn accept_external_launch(
                 // you planted, and a body whose authored `tumble_speed` is `0.0`
                 // — every body in Ambition today — is byte-identical to before.
                 clusters.ground.on_ground = false;
+                return true;
             }
+            return false;
         }
         MotionModel::SurfaceMomentum(momentum) => {
             let mut body = SurfaceBody {
@@ -384,6 +411,9 @@ fn accept_external_launch(
             }
         }
     }
+    // ⛔ NEITHER OF THE OTHER TWO MODELS HAS A FLOOR GAME, so neither can start
+    // a tumble, so neither has a launch worth banking past a constraint.
+    false
 }
 
 fn step_surface_momentum(

@@ -527,7 +527,7 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     );
     let rider = app
         .world_mut()
-        .spawn((Mounted, RidingOn { mount }, ActorControl(rider_frame)))
+        .spawn((ambition_mount::rider_of(mount), ActorControl(rider_frame)))
         .id();
     app.world_mut()
         .entity_mut(mount)

@@ -653,12 +653,40 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         let anchor = owner_pos.get(&hitbox.owner).copied().unwrap_or((0.0, 0.0));
         // The SAME resolution the combat runtime uses, so a recorded box is the
         // box that could hit somebody rather than a redrawn approximation.
-        let aabb = hitbox.world_aabb(ambition_platformer2d::engine_core::Vec2::new(
-            anchor.0, anchor.1,
-        ));
+        let at = ambition_platformer2d::engine_core::Vec2::new(anchor.0, anchor.1);
+        let aabb = hitbox.world_aabb(at);
+        // ⛔⛔ THE REAL SHAPE, not the box around it. `world_aabb` sits directly
+        // beside `world_volume` and I reached for the wrong one, so a rotated
+        // box, a disc and a convex arc were all recorded as the axis-aligned
+        // rectangle that CONTAINS them — which for a sweeping arc is a great
+        // deal larger than the thing that can actually hit you, and is the
+        // difference between a diagram and a decoration.
+        //
+        // ⭐ THE AABB STAYS BESIDE IT. It is the broad phase the engine itself
+        // uses, a viewer can draw it without knowing any shape, and keeping both
+        // means an old take still renders.
+        let shape = match hitbox.world_volume(at) {
+            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => serde_json::json!({ "kind": "aabb" }),
+            ambition_platformer2d::engine_core::CombatVolume::Obb { center, half, rotation } => serde_json::json!({
+                "kind": "obb",
+                "center": [center.x, center.y],
+                "half": [half.x, half.y],
+                "rotation": rotation,
+            }),
+            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => serde_json::json!({
+                "kind": "circle",
+                "center": [center.x, center.y],
+                "radius": radius,
+            }),
+            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => serde_json::json!({
+                "kind": "convex",
+                "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
+            }),
+        };
         frame.hitboxes.push(serde_json::json!({
             "pos": [(aabb.min.x + aabb.max.x) * 0.5, (aabb.min.y + aabb.max.y) * 0.5],
             "half": [(aabb.max.x - aabb.min.x) * 0.5, (aabb.max.y - aabb.min.y) * 0.5],
+            "shape": shape,
             "damage": hitbox.damage,
             // Already read for the anchor above and then thrown away, which is
             // how the opponent's swings got counted as the subject's.

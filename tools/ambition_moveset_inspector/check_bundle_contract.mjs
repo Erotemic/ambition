@@ -197,6 +197,40 @@ for (const want of RANGED_CASES) {
   }
 }
 
+/* THE TAKES' HITBOX GEOMETRY, when takes exist. A recording whose strikes are
+ * all `aabb` is one made before the shape was recorded — the view then draws
+ * every arc as the rectangle around it, which overstates reach by a median 1.8x
+ * and up to 5.3x on this cast. Warned rather than failed: takes are optional
+ * and a stale one is a re-record, not a broken build. */
+try {
+  const takesPath = new URL("./data/takes/takes.json", import.meta.url);
+  const takes = JSON.parse(readFileSync(takesPath, "utf8"));
+  const rows = takes.takes ?? takes;
+  const kinds = new Map();
+  for (const take of rows) {
+    for (const frame of take.frames ?? []) {
+      for (const h of frame.hitboxes ?? []) {
+        const kind = h.shape?.kind ?? "MISSING";
+        kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+      }
+    }
+  }
+  const total = [...kinds.values()].reduce((a, b) => a + b, 0);
+  if (total && (kinds.get("MISSING") ?? 0) > 0) {
+    console.warn(
+      `[bundle-contract] WARN — ${kinds.get("MISSING")}/${total} recorded hitboxes carry no shape; ` +
+      "re-record with a current moveset_takes or they draw as bounding boxes"
+    );
+  } else if (total) {
+    console.log(
+      `[bundle-contract] takes: ${total} hitboxes — ` +
+      [...kinds].map(([k, n]) => `${n} ${k}`).join(", ")
+    );
+  }
+} catch {
+  /* No takes yet is the ordinary case on a fresh tree. */
+}
+
 const unique = [...new Set(problems)];
 if (unique.length) {
   console.error(`[bundle-contract] FAIL — ${unique.length} problem(s):`);

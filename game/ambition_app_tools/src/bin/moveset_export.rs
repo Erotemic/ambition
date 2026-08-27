@@ -102,6 +102,40 @@ fn window_json(window: &ambition_platformer2d::entity_catalog::MoveWindow) -> se
 /// same for a move whose timeline has a gap, a multi-hit, or an `Invuln` window
 /// wedged in — and "how long until this can hit me" is the question the genre
 /// asks.
+/// The move's Active windows grouped into PULSES: one continuous stretch of
+/// Active time each, in start order.
+///
+/// ⛔ CONTIGUITY IS THE RULE THE RUNTIME USES, so it is the rule here. Windows
+/// that touch or overlap are one pulse and share one per-victim ledger; a real
+/// GAP between them earns a second connection. Deriving a carry any other way
+/// makes a sweetspot pair look like a multihit and a genuine multihit look the
+/// same as one.
+fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_catalog::MoveWindow>> {
+    let mut actives: Vec<&ambition_platformer2d::entity_catalog::MoveWindow> = spec
+        .windows
+        .iter()
+        .filter(|w| matches!(w.tag, WindowTag::Active))
+        .collect();
+    actives.sort_by(|a, b| a.start_s.total_cmp(&b.start_s));
+
+    let mut pulses: Vec<Vec<&ambition_platformer2d::entity_catalog::MoveWindow>> = Vec::new();
+    let mut open_until = f32::NEG_INFINITY;
+    for window in actives {
+        // `>` and not `>=`: windows that merely TOUCH leave no Active gap, so
+        // the fighter never stopped swinging and the ledger never reset.
+        if window.start_s > open_until {
+            pulses.push(Vec::new());
+            open_until = f32::NEG_INFINITY;
+        }
+        open_until = open_until.max(window.end_s);
+        pulses
+            .last_mut()
+            .expect("a pulse was opened above")
+            .push(window);
+    }
+    pulses
+}
+
 fn derived_json(spec: &MoveSpec) -> serde_json::Value {
     let actives: Vec<_> = spec
         .windows
@@ -115,20 +149,35 @@ fn derived_json(spec: &MoveSpec) -> serde_json::Value {
         .map(|w| w.end_s - w.start_s)
         .sum::<f32>()
         .max(0.0);
-    let volumes: Vec<_> = spec
-        .windows
-        .iter()
-        .flat_map(|w| w.volumes.iter())
-        .collect();
+    let volumes: Vec<_> = spec.windows.iter().flat_map(|w| w.volumes.iter()).collect();
     // The biggest single connection, which is what a kill-power comparison
     // wants; the SUM is what a multi-hit's full carry is worth, and they are
     // different questions, so both ship.
     let max_damage = volumes.iter().map(|v| v.damage).max().unwrap_or(0);
-    let sum_damage: i32 = volumes.iter().map(|v| v.damage).sum();
-    let max_knockback = volumes
+    // ⛔⛔ THE CARRY IS BY PULSE, NOT BY VOLUME, and flattening every volume into
+    // one sum reported a SWEETSPOT/SOURSPOT attack as a multihit — the UI drew
+    // `21 (32 all hits)` for a move that can only ever land one of them. The
+    // runtime is explicit: *"A pulse is ONE continuous stretch of Active time,
+    // and it owns ONE per-victim ledger shared by every sibling volume in it. A
+    // GAP in Active time starts a new pulse and earns a second hit"* — so
+    // siblings inside a pulse are ALTERNATIVES and only separated pulses
+    // accumulate (GPT 5.6, 2026-08-27).
+    //
+    // ⭐ THE STATIC UPPER BOUND, said as what it is: the best reachable outcome
+    // of each pulse, summed over the pulses. A file cannot know which volume
+    // connects; it can know that at most one of them does.
+    let sum_damage: i32 = active_pulses(spec)
         .iter()
-        .map(|v| v.knockback)
-        .fold(0.0f32, f32::max);
+        .map(|pulse| {
+            pulse
+                .iter()
+                .flat_map(|w| w.volumes.iter())
+                .map(|v| v.damage)
+                .max()
+                .unwrap_or(0)
+        })
+        .sum();
+    let max_knockback = volumes.iter().map(|v| v.knockback).fold(0.0f32, f32::max);
     // Reach is measured to the FAR EDGE of the volume along the facing axis:
     // a box centred at 34 with a 26 half-extent reaches 60, and that is the
     // spacing a player actually feels.
@@ -192,10 +241,9 @@ fn event_json(event: &ambition_platformer2d::entity_catalog::MoveEvent) -> serde
         // ⭐ EXHAUSTIVE ON PURPOSE. A new event kind is a new thing a move can
         // do, and a catch-all would report it as `"other"` in a tool whose whole
         // job is to show what a move does. The compiler names the gap instead.
-        MoveEventKind::Impulse { local, mode, .. } => (
-            "impulse",
-            format!("{mode:?} ({}, {})", local.0, local.1),
-        ),
+        MoveEventKind::Impulse { local, mode, .. } => {
+            ("impulse", format!("{mode:?} ({}, {})", local.0, local.1))
+        }
         MoveEventKind::Ranged => ("ranged", String::new()),
     };
     serde_json::json!({
@@ -247,7 +295,10 @@ fn move_json(spec: &MoveSpec, verbs: &[String]) -> serde_json::Value {
 fn verbs_by_move(contract: &MovesetContract) -> BTreeMap<String, Vec<String>> {
     let mut by_move: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (verb, move_id) in &contract.verbs {
-        by_move.entry(move_id.clone()).or_default().push(verb.clone());
+        by_move
+            .entry(move_id.clone())
+            .or_default()
+            .push(verb.clone());
     }
     by_move
 }
@@ -255,7 +306,9 @@ fn verbs_by_move(contract: &MovesetContract) -> BTreeMap<String, Vec<String>> {
 fn character_json(
     id: &str,
     prepared: &ambition_platformer2d::actors::character_runtime::PreparedCharacterDefinition,
-    catalog: Option<&ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogEntry>,
+    catalog: Option<
+        &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogEntry,
+    >,
     on_grid: bool,
 ) -> serde_json::Value {
     let contract = prepared.kit.projectable_moveset();
@@ -339,10 +392,8 @@ fn main() {
         .map(|w| w[1].clone())
         .unwrap_or_else(|| "tools/ambition_moveset_inspector/data/moveset_bundle.json".to_string());
 
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::NoWindow,
-        true,
-    );
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // ⛔ THE REGISTRY IS FILLED BY A `Startup` SYSTEM, so a build that has never
     // updated has a catalog and no registry at all — the exact trap
     // `smash_roster_movesets` records. One frame is enough; several are cheap.

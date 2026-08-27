@@ -1976,6 +1976,28 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
                 jump.recovery_charges == 0 && spec.gates.recovery.arms_freefall();
         }
     }
+    // ⭐⭐ THE ONE LINE THAT SAYS A MOVE HAPPENED, and it is here because this is
+    // the ACCEPTANCE authority: every attack, every special, from the trigger
+    // road and the cancel road alike, passes through this function and nothing
+    // else does. A log at the input edge would report presses that were refused;
+    // a log at an effect would miss the moves that author none.
+    //
+    // ⛔ `info!` UNDER ITS OWN TARGET, not `debug!`. Jon asked for a log he can
+    // hand back when something misbehaves — *"a log for when a player input a
+    // major move… effects between those would be also easier to understand"* —
+    // and a line nobody can see by default does not do that job. The target is
+    // what keeps it filterable.
+    //
+    // ⚠ IT WILL REPEAT UNDER ROLLBACK. A resimulated frame re-runs this and says
+    // the move started again. That is honest — the simulation really did start
+    // it again — and the alternative, an authoritative-pass guard, hides the
+    // resim from exactly the reader who needs to see it. Read a burst of
+    // identical lines as a rewind, not as a repeated press.
+    bevy::log::info!(
+        target: "ambition::moves",
+        "move accepted: entity={entity:?} move=`{}` grounded={started_grounded}",
+        spec.id,
+    );
     commands.entity(entity).insert(
         MovePlayback::new(spec, facing)
             .with_aim(aim)

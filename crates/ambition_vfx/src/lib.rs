@@ -134,6 +134,9 @@ pub struct SummonedRide {
     /// summoned at the rider's own position satisfies this on the tick it
     /// exists. See `ambition_mount::MountReservedFor`.
     pub board_within: f32,
+    /// How long the mount waits to be reached before giving up and telling the
+    /// ruleset. See `ambition_mount::MountReservedFor::expires_in`.
+    pub board_deadline_s: f32,
 }
 
 /// A composable non-projectile effect an actor *technique* emits.

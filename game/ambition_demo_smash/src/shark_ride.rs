@@ -59,6 +59,9 @@ pub struct Departing {
 /// (D246) is the same mechanism with a longer approach.
 const SUMMON_BOARD_RADIUS: f32 = 96.0;
 
+/// How long a summoned shark waits for its summoner before it gives up.
+const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
+
 /// How fast a dismissed shark leaves.
 const DEPART_SPEED: f32 = 1_400.0;
 
@@ -109,6 +112,13 @@ pub fn translate_shark_summons(
         // *"that might be too hard to balance… have it spawn in directly where
         // the pirate is."* A fly-in is a different mount ARRIVAL, not a
         // different mount.
+        bevy::log::info!(
+            target: "ambition::mount",
+            "summon requested: summoner={:?} character=`{}` at {:?}",
+            message.actor,
+            params.character_id,
+            kin.pos,
+        );
         effects.write(ambition_platformer2d::vfx::EffectRequest {
             owner: message.actor,
             effect: ambition_platformer2d::vfx::Effect::Summon(
@@ -140,6 +150,13 @@ pub fn translate_shark_summons(
                         // few pixels in the tick between the summon and the
                         // board still boards.
                         board_within: SUMMON_BOARD_RADIUS,
+                        // ⭐ SHORT, BECAUSE THE SHARK APPEARS UNDERFOOT. If the
+                        // admiral is not aboard within this, something is wrong
+                        // rather than slow, and the ruleset would rather hear
+                        // about it than watch an unclaimed shark hover forever.
+                        // D246's fly-in will want a longer one — it is the
+                        // approach budget then, not an error budget.
+                        board_deadline_s: SUMMON_BOARD_DEADLINE_S,
                     }),
                 },
             ),
@@ -293,8 +310,23 @@ pub fn send_away_a_shark_nobody_boarded(
 ) {
     for event in refused.read() {
         let Ok(kin) = bodies.get(event.mount) else {
+            bevy::log::warn!(
+                target: "ambition::mount",
+                "refused shark has no body to send away: mount={:?}",
+                event.mount,
+            );
             continue;
         };
+        bevy::log::info!(
+            target: "ambition::mount",
+            "shark departing (board refused): mount={:?}",
+            event.mount,
+        );
+        bevy::log::info!(
+            target: "ambition::mount",
+            "shark departing (rider left): mount={:?}",
+            event.mount,
+        );
         commands.entity(event.mount).insert(Departing {
             remaining: DEPART_SECONDS,
             velocity: departure_heading(kin.pos) * DEPART_SPEED,

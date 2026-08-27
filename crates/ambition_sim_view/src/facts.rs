@@ -541,8 +541,23 @@ pub fn rebuild_dynamic_feature_views(
     use ambition_sprite_sheet::game_assets;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {
-        // Encounter mobs are hostile by construction; skip any peaceful one.
-        let (false, Some(config)) = (disposition.is_peaceful(), config) else {
+        // ⛔⛔ "PEACEFUL" IS NOT "DOES NOT EXIST", AND THIS ARM USED TO SAY IT WAS.
+        // It read *"Encounter mobs are hostile by construction; skip any peaceful
+        // one"* and dropped them — so a runtime mob that was not fighting
+        // published no `DynamicFeatureFact`, `spawn_dynamic_feature_visuals`
+        // never made it a `FeatureVisual`, and it had no sprite no matter how
+        // healthy its art was. That is how the pirate's summoned shark came out
+        // INVISIBLE: it is deliberately nobody's enemy, the targeting stand-down
+        // marks an unengaged hostile actor peaceful anyway, and presentation then
+        // declined to draw a body that was standing right there. Jon saw a debug
+        // box and nothing else; every measurement said the actor was fine,
+        // because it was — the renderer was never asked.
+        //
+        // ⭐ THE FIELD FOR THIS ALREADY EXISTED. `fighting` is exactly the
+        // distinction the skip was abusing existence to express, and the
+        // post-boss arm below has always used it that way. Two arms disagreed
+        // with a third in the same function.
+        let Some(config) = config else {
             continue;
         };
         view.0.push(DynamicFeatureFact {
@@ -552,13 +567,19 @@ pub fn rebuild_dynamic_feature_views(
             pos: aabb.center,
             size: aabb.size(),
             visual_kind: FeatureVisualKind::Actor,
-            fighting: true,
+            fighting: !disposition.is_peaceful(),
+            // ⚠ STILL THE BRAIN'S KEY for a peaceful one. Unlike a post-boss NPC
+            // there is no dialogue interactable to resolve art from, and an
+            // encounter mob's art is its own either way — a shark that stops
+            // hunting is still a shark.
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
             prop_sheet: None,
         });
     }
     for (id, aabb, disposition, config) in &staged_actors {
-        let (false, Some(config)) = (disposition.is_peaceful(), config) else {
+        // The same correction as the arm above: a staged actor that is not
+        // fighting is still a body somebody has to be able to see.
+        let Some(config) = config else {
             continue;
         };
         view.0.push(DynamicFeatureFact {
@@ -568,7 +589,7 @@ pub fn rebuild_dynamic_feature_views(
             pos: aabb.center,
             size: aabb.size(),
             visual_kind: FeatureVisualKind::Actor,
-            fighting: true,
+            fighting: !disposition.is_peaceful(),
             sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
             prop_sheet: None,
         });
@@ -793,6 +814,70 @@ impl Plugin for SimViewPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐⭐ A PEACEFUL ENCOUNTER MOB IS STILL A BODY SOMEBODY HAS TO SEE.
+    ///
+    /// ⛔⛔ THIS ARM USED TO DROP THEM, under a comment asserting that *"encounter
+    /// mobs are hostile by construction"*. They are not: the pirate's summoned
+    /// shark is deliberately nobody's enemy, and the targeting stand-down marks
+    /// any unengaged hostile actor peaceful anyway. A dropped fact means no
+    /// `DynamicFeatureFact`, so `spawn_dynamic_feature_visuals` never builds a
+    /// `FeatureVisual`, so the body has no sprite — however healthy its art is.
+    /// Jon played it and saw a debug box hovering where a burning shark should
+    /// be, and every measurement of the ACTOR came back correct, because the
+    /// actor was correct. Presentation was never asked to draw it.
+    ///
+    /// ⭐ IT ASSERTS `fighting` TOO, not just presence. `fighting` is the field
+    /// the skip was abusing existence to express, and a fix that published the
+    /// mob while still calling it a fighter would trade one wrong answer for
+    /// another.
+    #[test]
+    fn a_peaceful_encounter_mob_still_publishes_a_visual_fact() {
+        use ambition_platformer2d_actor_monolith::features::{
+            ActorConfig, ActorDisposition, CenteredAabb, EncounterMob, FeatureId,
+        };
+        let mut app = App::new();
+        app.init_resource::<DynamicFeatureViews>();
+        app.add_systems(Update, rebuild_dynamic_feature_views);
+
+        let config = ActorConfig {
+            id: "smash_ride_shark".into(),
+            name: "Burning Flying Shark".into(),
+            tuning: Default::default(),
+            brain_profile: Default::default(),
+            brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "burning_flying_shark".into(),
+            ),
+            sprite_override_npc_name: None,
+            sprite_character_id: Some("npc_burning_flying_shark".into()),
+            preserves_mirror_symmetry: false,
+        };
+        app.world_mut().spawn((
+            EncounterMob {
+                encounter_id: "smash".into(),
+            },
+            FeatureId("smash_ride_shark".to_string()),
+            CenteredAabb::new(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(48.0, 22.0)),
+            ActorDisposition::Peaceful,
+            config,
+        ));
+        app.update();
+
+        let views = app.world().resource::<DynamicFeatureViews>();
+        let shark = views
+            .0
+            .iter()
+            .find(|fact| fact.id == "smash_ride_shark")
+            .expect(
+                "a peaceful encounter mob published no visual fact, so nothing \
+                 downstream will ever give it a sprite",
+            );
+        assert!(
+            !shark.fighting,
+            "a peaceful mob was published as a fighter, which is the opposite \
+             error from the one this test exists for"
+        );
+    }
 
     #[test]
     fn hud_facts_track_the_controlled_body() {

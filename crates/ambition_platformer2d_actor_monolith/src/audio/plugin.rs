@@ -52,8 +52,8 @@ impl Plugin for Platformer2dAudioPlugin {
             // `SfxBankResource` and the second writer no-ops.
             .add_plugins(ambition_audio::SfxBankAssetPlugin)
             // Browser AudioContext unlock telemetry.
-            .add_plugins(super::WebAudioUnlockPlugin)
-            .init_resource::<super::RadioStationState>()
+            .add_plugins(ambition_audio::web_unlock::WebAudioUnlockPlugin)
+            .init_resource::<ambition_audio::library::RadioStationState>()
             .init_resource::<ambition_audio::render::ProviderSfxHandleCache>()
             .init_resource::<AudioEnvironment>()
             .init_resource::<DefaultMusicStarted>()
@@ -204,7 +204,7 @@ struct AudioRequestState<'w, 's> {
             ambition_platformer2d_world::rooms::RoomMusicRequest,
         >,
     >,
-    radio: Option<ResMut<'w, super::RadioStationState>>,
+    radio: Option<ResMut<'w, ambition_audio::library::RadioStationState>>,
     narrative: Option<ResMut<'w, ambition_conversation::NarrativeMusicRequest>>,
     intent: Option<ResMut<'w, crate::music::MusicIntent>>,
     director: Option<ResMut<'w, crate::music::MusicDirectorState>>,

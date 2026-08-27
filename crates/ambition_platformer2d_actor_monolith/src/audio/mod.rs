@@ -35,20 +35,12 @@ pub use environment::{
 };
 #[cfg(feature = "audio")]
 pub use plugin::Platformer2dAudioPlugin;
-// The playback library + render cache + web unlock moved to the
-// `ambition_audio` crate (Stage 20 / B1); re-exported so historical
-// `crate::audio::…` paths keep resolving.
-#[cfg(feature = "audio")]
-pub use ambition_audio::library::{
-    amplitude_to_decibels, set_radio_track, start_default_music_when_ready, switch_to_music_track,
-    AudioLibrary, DefaultMusicStart, DefaultMusicStarted, MusicChannel, MusicPlaybackState,
-    MusicTrackRuntime, RadioStationState, SfxChannel, SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID,
-};
-#[cfg(feature = "audio")]
-pub use ambition_audio::render::ProviderSfxHandleCache;
-#[cfg(feature = "audio")]
-pub use ambition_audio::web_unlock::{AudioUnlockState, WebAudioUnlockPlugin};
-#[cfg(feature = "audio")]
-pub use ambition_audio::{
-    audio_play_sfx_messages, SfxBankAsset, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
-};
+// ⛔⛔ THE `ambition_audio` RE-EXPORTS ARE GONE (D33, 2026-08-27). Twenty-odd
+// names — the playback library, the render cache, the web-unlock plugin and the
+// sfx bank — were forwarded here so *"historical `crate::audio::…` paths keep
+// resolving"*. Historical paths resolving is what a facade is FOR, and it is
+// also what makes a coupling census read this crate as the owner of an audio
+// library it does not own. One consumer in the tree still used them.
+//
+// ⭐ What stays is what this module declares: the environment model and the
+// plugin that installs it.

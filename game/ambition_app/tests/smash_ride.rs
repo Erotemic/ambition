@@ -894,9 +894,25 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     assert!(sharks(&mut app) >= 1, "no shark to be thrown off");
 
     // ── A HIT THAT DOES NOT LAUNCH LEAVES HIM ABOARD. ──
-    // ⛔ Written as the published FACT rather than by staging a jab: `tumbling`
-    // is what the rule reads, so setting anything else would test a different
-    // rule and pass for the wrong reason.
+    //
+    // ⛔⛔ THIS ARM DOES NOT HIT HIM, AND SO PROVES ONLY THAT AN UNDISTURBED
+    // PIRATE STAYS MOUNTED FOR TWENTY FRAMES. A GPT review Jon relayed on
+    // 2026-08-27 caught it; the launch half below does all the work. Recorded
+    // rather than repaired here because giving it a real hit needs two things
+    // this file does not have yet — see D207's row:
+    //
+    //   1. A LOW-KNOCKBACK HITBOX THAT ACTUALLY REACHES A MOUNTED RIDER.
+    //      Tried: the same shape the launch arm below uses, with `damage: 4` and
+    //      `FeelScale(0.35)`. `BodyHealth::damage_taken()` never moved, so the
+    //      hit did not land — the launch arm's strong hitbox does, so something
+    //      about a mounted rider or the weak volume differs and needs measuring.
+    //   2. A SPENT RECOVERY TO REFUND. Measured: the mounted admiral holds a
+    //      FULL charge (`recovery_charges == 1`, `on_ground == false`) even
+    //      though `call_the_shark` is authored `SpendWithoutFreefall`. The
+    //      kernel's grounded refresh hands a floor-pressed recovery straight
+    //      back — D204's own decision note says the rule is PER USE, and the
+    //      code says per airtime. Until that is settled, "the flinch restored
+    //      the charge" is a check that cannot fail.
     for _ in 0..20 {
         app.update();
     }

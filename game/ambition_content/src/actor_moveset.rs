@@ -73,9 +73,11 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
             // A stride, not a hair's breadth: she arrives in range to act and
             // not already overlapping him.
             behind_gap: 18.0,
-            // ⛔ THE CAP IS WHAT KEEPS IT A SPECIAL. Without it the move is a
+            // ⛔ THE RANGE IS WHAT KEEPS IT A SPECIAL. Without it the move is a
             // stage-wide snap to whoever exists; with it, an opponent who keeps
-            // his distance is out of reach and she has spent the frames.
+            // his distance is simply not a target and she has spent the frames.
+            // About four body-lengths — far enough to punish someone spacing
+            // her out, short enough that he can leave.
             distance: 320.0,
             // ⛔ NO LEDGE ASSIST. That radius exists to save a RECOVERY aimed at
             // a platform edge; an ambush that quietly hopped onto a ledge she

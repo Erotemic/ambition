@@ -1,4 +1,3 @@
-use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 use super::*;
 use ambition_boss_encounter::BossBehaviorProfileExt;
 use ambition_boss_encounter::BossClusterScratch;

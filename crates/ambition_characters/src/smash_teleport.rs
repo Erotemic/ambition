@@ -51,10 +51,11 @@ pub struct TeleportParams {
     /// does nothing. Every other technique's params in this crate are primitives
     /// and tuples for the same reason; this comment is that rule written down.
     ///
-    /// ⚠ WITH NO FOE ON THE STAGE IT DOES NOTHING AT ALL — not "goes somewhere
-    /// default". A teleport that fires into empty space because there was nobody
-    /// to get behind spends the move and puts the fighter somewhere nobody asked
-    /// for; standing still is the honest failure.
+    /// ⚠ WITH NO FOE IN REACH IT DOES NOTHING AT ALL — not "goes somewhere
+    /// default", and not "goes as far as it can toward him". A teleport that
+    /// fires into empty space because there was nobody to get behind spends the
+    /// move and puts the fighter somewhere nobody asked for; standing still is
+    /// the honest failure. [`Self::distance`] is the range that decides it.
     #[serde(default)]
     pub behind_nearest_foe: bool,
     /// World px between the foe's EDGE and the arriving fighter's, when
@@ -62,10 +63,20 @@ pub struct TeleportParams {
     ///
     /// ⛔ FROM THE EDGE, NOT THE CENTRE, so a fighter arrives the same distance
     /// behind a small body and a large one. Arriving inside a Bowser is not the
-    /// same move as arriving behind him.
+    /// same move as arriving behind him. The other axis follows the same rule:
+    /// the arriving fighter's FEET are placed at the foe's feet, not her centre
+    /// at his centre, so a height difference does not bury her or stand her on
+    /// his shoulders.
     #[serde(default)]
     pub behind_gap: f32,
     /// How far the teleport carries, walls permitting, in world px.
+    ///
+    /// ⛔⛔ FOR AN AMBUSH THIS IS A RANGE, NOT A LEASH, and the difference is
+    /// the whole move. A foe further away than this is NOT A TARGET and the
+    /// teleport refuses; it does not carry the fighter this far along the line
+    /// toward him, which would land her in front of him — or inside him — having
+    /// spent the move to reach the worst position on the stage. Within the
+    /// range she travels however far the far side of him actually is.
     pub distance: f32,
     /// How far from the resolved destination a LEDGE may be and still catch the
     /// arrival, in world px.

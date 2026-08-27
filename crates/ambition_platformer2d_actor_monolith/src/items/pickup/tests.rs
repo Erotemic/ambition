@@ -1311,3 +1311,74 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
          under whatever lands on it"
     );
 }
+
+/// The settle publishes the speed the item was travelling AT THE COLLISION.
+///
+/// ⛔⛔ THE ONLY PLACE THAT NUMBER EXISTS. `ground_item_physics` applies gravity,
+/// finds the step blocked, and zeroes `vel` — so a consumer reading the live
+/// velocity after the fact reads ZERO for every impact however hard, and one
+/// reading its own memory of last tick reads a different number again. This is
+/// the seam the Smash bomb's impact detonation hangs on (GPT 5.6, 2026-08-27):
+/// it used to keep a `last_speed` of its own and got both hard cases wrong — a
+/// bomb thrown at a near wall collides on its FIRST free tick, when the
+/// remembered speed is still the zero it had in a hand.
+///
+/// ⭐ THE ARM IS THE FIRST-TICK CASE ON PURPOSE, because that is the one no
+/// remembered-speed scheme can answer: the item is given a hard velocity and a
+/// wall close enough that ONE step reaches it.
+#[test]
+fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
+    let mut app = App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "impact",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(200.0, 360.0),
+            vec![ae::Block::solid(
+                "wall",
+                Vec2::new(300.0, 0.0),
+                Vec2::new(20.0, 400.0),
+            )],
+        )),
+    );
+    app.insert_resource(ambition_time::WorldTime {
+        raw_dt: 1.0 / 60.0,
+        scaled_dt: 1.0 / 60.0,
+    });
+    app.add_systems(Update, ground_item_physics);
+
+    // Just clear of the wall, thrown at it hard enough that one step lands
+    // inside — the whole point is that it settles on its FIRST stepped tick.
+    let thrown = Vec2::new(900.0, 0.0);
+    let item = app
+        .world_mut()
+        .spawn(GroundItem {
+            spec: axe_spec(),
+            pos: Vec2::new(280.0, 100.0),
+            vel: thrown,
+            half_extent: Vec2::splat(PICKUP_HALF),
+        })
+        .id();
+
+    app.update();
+
+    let settled = app
+        .world()
+        .get::<SettledItem>(item)
+        .expect("one step at 900 px/s into a wall 10px away must be blocked");
+    assert!(
+        settled.impact_speed >= 900.0,
+        "the settle reported {} px/s for an item thrown at {} — the speed was \
+         read after the collision zeroed it, or from a tick that predates the \
+         throw",
+        settled.impact_speed,
+        thrown.x,
+    );
+    assert_eq!(
+        app.world().get::<GroundItem>(item).unwrap().vel,
+        Vec2::ZERO,
+        "premise: the step must actually have zeroed the velocity, or the \
+         assertion above is reading a live value rather than a published one",
+    );
+}

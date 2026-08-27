@@ -558,7 +558,7 @@ fn construct_authored_ground_item(
             // predicate can see, and stepping it drops the whole authored
             // population out of the world (measured: a room rebuild came back
             // with zero ground items where it had fifteen).
-            crate::items::pickup::SettledItem,
+            crate::items::pickup::SettledItem::default(),
         ),
     );
 }

@@ -315,8 +315,6 @@ fn a_consumer_can_ask_whether_its_session_is_still_healthy() {
 /// beacon must not out-count the frames the session actually advanced.
 #[test]
 fn a_rewound_counter_does_not_out_count_the_frames_it_ran() {
-    use ambition_platformer2d::bevy::prelude::*;
-
     let mut app = outlander::build_outlander_rollback_app().expect("rollback host");
     let before_frame = ambition_platformer2d::rollback::health(&app).frame().expect("a frame");
 

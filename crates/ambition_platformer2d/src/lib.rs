@@ -598,7 +598,10 @@ pub mod engine {
 
 /// Windowed host plugin groups and host-facing seams.
 pub mod windowed_host {
-    /// Windowed / fullscreen, as persisted host state.
+    /// Windowed / fullscreen, as persisted host state. Gated because the crate
+    /// behind it is an optional capability edge: a consumer that did not ask
+    /// for persistence has no persisted host state to name.
+    #[cfg(feature = "ambition_persistence")]
     pub use ambition_persistence::host::windowing::DisplayModeState;
     #[cfg(feature = "input")]
     pub use ambition_platformer2d_host::HostInputBindingsPlugin;

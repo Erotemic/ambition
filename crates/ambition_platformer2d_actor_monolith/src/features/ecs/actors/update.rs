@@ -1002,7 +1002,21 @@ pub fn integrate_sim_bodies(
             &ambition_combat::components::ActorTarget,
             Option<&mut ambition_characters::control::ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
-            Option<&ambition_mount::Mounted>,
+            // ⛔⛔ THE SADDLE, NOT THE RIDER'S MARKER. This row used to read
+            // `Option<&Mounted>`, and `Mounted` is stamped on the RIDER — see
+            // `mount::board`, which puts `RidingOn`/`Mounted` on the rider and
+            // `MountSlot` on the mount. So a shark CARRYING a rider never had
+            // `Mounted`, this always resolved false, and the `!is_mounted` guard
+            // on the charge-crash suicide never fired. The pirate boarded and the
+            // shark detonated itself against the stage about twenty milliseconds
+            // later, every single time, taking the recovery with it.
+            //
+            // ⭐ THE QUESTION IS "AM I BEING RIDDEN", and only the saddle answers
+            // it. Asking the rider's marker of a mount is a category error that
+            // reads as a plain `false`, which is why it survived: the guard was
+            // there, it was spelled right, and it was wired to a component this
+            // entity can never have.
+            Option<&ambition_mount::MountSlot>,
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,
@@ -1135,7 +1149,9 @@ pub fn integrate_sim_bodies(
             None,
             &mut motion_model,
             target.pos,
-            mounted.is_some(),
+            // Ridden means somebody is IN the saddle, not merely that a saddle
+            // exists: an empty `MountSlot` outlives its rider's dismount.
+            mounted.is_some_and(|slot| slot.rider.is_some()),
             &feature_world,
             combat_tuning,
             &steering,

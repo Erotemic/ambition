@@ -54,10 +54,23 @@ pub struct Departing {
 
 /// How close the shark must be before the admiral is aboard.
 ///
-/// The shark is summoned at the admiral's own position, so this is satisfied
-/// immediately; it exists as a number rather than as "always" because the fly-in
-/// (D246) is the same mechanism with a longer approach.
-const SUMMON_BOARD_RADIUS: f32 = 96.0;
+/// ⛔⛔ THE SUMMON DOES NOT GET THE POSITION IT ASKS FOR, and this number has to
+/// cover the difference. `translate_shark_summons` names the admiral's own
+/// centre, and construction then places the body through
+/// `actor_spawn_center_for_collision`, which preserves the authored BOTTOM EDGE
+/// when the sprite's collision footprint differs from the requested box. ⭐
+/// MEASURED at 62px for this pair, through the real composition, by
+/// `an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons`.
+///
+/// ⚠ IT WAS 96, WHICH LEFT 34px OF MARGIN NOBODY HAD MEASURED. A shark that
+/// misses this radius is not refused — it waits out its reservation and leaves,
+/// so the admiral spends the up-B and gets nothing. That failure is silent by
+/// construction, which is exactly the shape this repo keeps paying for, so the
+/// allowance is set from the measurement with room rather than from taste.
+///
+/// ⭐ D246 REPLACES THE REASON FOR THIS NUMBER. Once the shark flies in, this
+/// stops being "cover construction's placement" and becomes "you have arrived".
+const SUMMON_BOARD_RADIUS: f32 = 200.0;
 
 /// How long a summoned shark waits for its summoner before it gives up.
 const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;

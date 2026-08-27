@@ -914,7 +914,27 @@ pub fn enforce_mount_rider_link(
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
     for (mount_entity, mount_health, mountable) in &mounts {
-        let alive = mount_health.is_some_and(|h| h.alive());
+        // ⛔⛔ NO HEALTH POOL IS NOT A CORPSE. This read `is_some_and(alive)`, so
+        // a mount carrying no `BodyHealth` at all resolved DEAD — and the very
+        // next line hands that to the dissolution arm, which announces
+        // `MountDied` and puts the rider off. A body that cannot die was being
+        // treated as one that already had, on the first tick it was ridden.
+        //
+        // ⭐ ABSENCE MEANS "NOTHING HERE CAN KILL IT". A mount with a pool lives
+        // or dies by it; a mount without one has no way to reach zero, so the
+        // honest answer is alive. The permissive reading is wrong for a
+        // CAPABILITY — see `board`, where "says nothing" must mean "may not" —
+        // and right for a LIVENESS, because the two questions are opposites:
+        // one asks what you are allowed to do, the other what has happened to
+        // you, and nothing has happened to a body with no pool to empty.
+        let alive = mount_health.map_or(true, |h| h.alive());
+        if !alive {
+            bevy::log::info!(
+                target: "ambition::mount",
+                "mount reads DEAD: mount={mount_entity:?} health={:?}",
+                mount_health.map(|h| h.alive()),
+            );
+        }
         mount_alive.insert(mount_entity, alive);
         mount_death_impact.insert(
             mount_entity,

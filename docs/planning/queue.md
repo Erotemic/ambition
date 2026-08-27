@@ -5650,19 +5650,43 @@ DEPENDENCY ON THE MONOLITH IS 20/24 FACADE.** Of the 24 names it imported from
 `ambition_platformer2d_core` (4), `shared_tangle` (2), `ambition_geometry` (1) and
 `ambition_boss_encounter` (1). All twenty now name their owning crate.
 
-⛔ **THE DELETION GATE FOR THE EDGE ITSELF IS FOUR TYPES AND ONE FUNCTION:**
+⛔ **THE DELETION GATE FOR THE EDGE ITSELF WAS FOUR TYPES AND ONE FUNCTION, AND
+IS NOW TWO:**
 
 ```text
-ActorConfig · ActorStatus     features/ecs/actor_clusters.rs
-SwitchFeature · SwitchOn      encounter/switches.rs
-configure_platformer2d_simulation_phases   schedule/ — TEST-only reach
+✔ SwitchFeature · SwitchOn    MOVED to ambition_encounter::switches 2026-08-26
+▢ ActorConfig · ActorStatus   features/ecs/actor_clusters.rs
+▢ configure_platformer2d_simulation_phases   schedule/ — TEST-only reach
 ```
 
-⇒ move those four types and `ambition_sim_view` can drop
+⇒ move the last two and `ambition_sim_view` can drop
 `ambition_platformer2d_actor_monolith` from its `Cargo.toml` outright — a CRATE
-EDGE deleted, which is a different and larger thing than a carve. ⚠ they are
-rollback-registered, so the move owes the FOUR things a move owes, the fourth
-being the declaration nothing checks.
+EDGE deleted, which is a different and larger thing than a carve.
+
+✔ **THE SWITCH HALF LANDED, AND ITS DESTINATION WAS NEVER A JUDGEMENT.**
+`SwitchFeature` and `SwitchActivated` carry `ambition_encounter::SwitchActivation`,
+so the vocabulary named the crate. Five rollback declarations travelled with the
+types — the obligation nothing enforces, because a declaration compiles fine in
+the crate its type just left — and the stable names did not change, so the wire
+did not move.
+
+⛔⛔ **`rebuild_encounter_switch_index` STAYED BEHIND, and that is the reusable
+half.** It reads a switch's `FeatureId`, which is `ambition_combat` vocabulary
+`ambition_encounter` does not link; taking the system would have bought a CRATE
+EDGE to carry one field read. ⇒ **a move splits at the vocabulary boundary, not
+at the file boundary** — the types went, the query stayed, and each is now beside
+what it is written in terms of.
+
+⚠ **AND ONLY ONE LEDGER NOTICED.** `rollback_exit_oracle`'s presence-probe list
+keys on FULL type paths and its failure was the single thing in the tree that saw
+`SwitchActivationQueue` move; the schema baselines key on STABLE NAMES and were
+silent, correctly.
+
+⇒ **`ActorConfig` IS A CAMPAIGN, NOT A STEP: 127 refs across 45 files**, and it
+is built from `features::ecs::actor_tuning::{ActorTuning, BrainProfile}`, so the
+move drags those two with it. `ActorStatus` is the cheap one — 23 refs, and its
+only vocabulary is `ambition_characters::actor::ai::CharacterAiMode`, which names
+its destination.
 
 ⭐ **NEXT CANDIDATE MEASURED AT HEAD: `features/movement_fx.rs`, 1,108 lines and
 TWO outward items, both removable.** `crate::actor::BodyAnimFacts` is a re-export

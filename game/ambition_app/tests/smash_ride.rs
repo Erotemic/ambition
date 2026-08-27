@@ -626,3 +626,165 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
          is exactly what Jon reported in play while the shortcut tests stayed green"
     );
 }
+
+
+/// ⭐⭐ TWO THRESHOLDS, AND THEY ARE NOT THE SAME ONE.
+///
+/// Jon named both and they are easy to conflate: a hit that FLINCHES refreshes
+/// the up-B, and a hit that LAUNCHES takes you off the shark. A jab that flinches
+/// a rider leaves it aboard. `BodyMotionFacts::tumbling` is the engine's own word
+/// for *"launched with no control"*, which is why `dismount_launched_riders`
+/// reads it rather than a knockback magnitude somebody would have to defend.
+///
+/// ⛔⛔ NEITHER HALF WAS TESTED. The rule shipped as an authored condition and a
+/// comment; nothing asked whether a flinching hit leaves the rider aboard, and
+/// nothing asked whether a launch takes it off. A rule with no arm on either side
+/// of its threshold is a rule the next refactor is free to move.
+#[test]
+fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+    // ⛔ THE ATTACKER MUST NOT BE THE VICTIM. A hitbox skips self-hits, so a
+    // strike owned by the rider cannot land on the rider — the first version of
+    // this test did exactly that and measured a fighter at full health.
+    let rival = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 1)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a second fighter")
+    };
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral never boarded, so neither threshold below is being measured"
+    );
+    let sharks = |app: &mut App| -> usize {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    assert!(sharks(&mut app) >= 1, "no shark to be thrown off");
+
+    // ── A HIT THAT DOES NOT LAUNCH LEAVES HIM ABOARD. ──
+    // ⛔ Written as the published FACT rather than by staging a jab: `tumbling`
+    // is what the rule reads, so setting anything else would test a different
+    // rule and pass for the wrong reason.
+    for _ in 0..20 {
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral came off the shark without ever being launched"
+    );
+
+    // ── AND A LAUNCH TAKES HIM OFF. ──
+    // ⛔⛔ LAUNCHED FOR REAL, NOT BY SETTING THE FACT. The first version wrote
+    // `BodyMotionFacts::tumbling = true` by hand and failed — because that fact
+    // is DERIVED by the movement pass every tick, so the write was recomputed
+    // away before the rule ever read it. A test that sets a derived value is
+    // testing its own assignment.
+    {
+        let world = app.world_mut();
+        let rider_pos = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos;
+        world.spawn((
+            ambition_platformer2d::combat::strike::Hitbox {
+                owner: rival,
+                // ⛔ THE HOSTILE SIDE. A `Player`-sourced strike against a
+                // Player-faction rider reads as friendly fire and is refused;
+                // the shark took one only because `Neutral` always does.
+                source: ambition_platformer2d::vfx::HitSide::Enemy,
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                    center: rider_pos,
+                },
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
+                shape: None,
+                facing: 1.0,
+                damage: 14,
+                // Hard enough to tumble: this is the launch half of Jon's pair.
+                knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(6.0),
+                launch_dir: Some(ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0)),
+                frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+                reaction: None,
+                strike_sfx: None,
+            },
+            ambition_platformer2d::combat::strike::HitboxHits::default(),
+        ));
+    }
+    for _ in 0..10 {
+        app.update();
+    }
+    // ⛔ THE PREMISE: the hit actually LAUNCHED him. `tumbling` is what the rule
+    // reads, so a strike that damaged without launching would make the assertion
+    // below pass for the wrong reason — or fail for one.
+    assert!(
+        app.world()
+            .get::<ambition_platformer2d::engine_core::BodyMotionFacts>(seat0)
+            .is_some_and(|facts| facts.tumbling),
+        "the strike did not launch the admiral, so this measures nothing about \
+         the launch threshold"
+    );
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "the admiral was launched and stayed in the saddle — `tumbling` is the \
+         engine's word for 'hit hard enough to lose control', and it is the \
+         whole of the rule that takes a rider off"
+    );
+}

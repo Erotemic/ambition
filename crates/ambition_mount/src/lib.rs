@@ -926,6 +926,14 @@ pub fn enforce_mount_rider_link(
     // per frame and the hashmap stays small.
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
+    // ⭐⭐ THE POOL ITSELF, not just the verdict on it, because "its health pool
+    // reached zero" has three causes that want three different fixes and the
+    // verdict alone cannot tell them apart: a pool that DRAINED (something hit
+    // it — there is a `lethal blow` line above), a pool that was never positive
+    // (construction handed the summon a dead body), and a pool restored wrong by
+    // a rewind. `36/36, 36 damage taken` and `0/0, 0 damage taken` are the same
+    // `false` and opposite bugs.
+    let mut mount_pool: HashMap<Entity, (i32, i32, i32)> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
     for (mount_entity, mount_health, mountable) in &mounts {
         // ⛔ A MOUNT WITHOUT A HEALTH POOL IS A BROKEN MOUNT, not an immortal
@@ -939,6 +947,12 @@ pub fn enforce_mount_rider_link(
         // An indestructible vehicle would be an authored policy, not a missing
         // component.
         let alive = mount_health.is_some_and(|h| h.alive());
+        if let Some(health) = mount_health {
+            mount_pool.insert(
+                mount_entity,
+                (health.current(), health.max(), health.damage_taken()),
+            );
+        }
         if mount_health.is_none() {
             bevy::log::error!(
                 target: "ambition::mount",
@@ -982,12 +996,23 @@ pub fn enforce_mount_rider_link(
         let alive = seen.unwrap_or(false);
         if !alive && was_mounted.is_some() {
             match seen {
-                Some(false) => bevy::log::info!(
-                    target: "ambition::mount",
-                    "mount DIED under its rider: mount={:?} rider={rider_entity:?} — \
-                     its health pool reached zero",
-                    riding.mount,
-                ),
+                Some(false) => {
+                    let (current, max, taken) =
+                        mount_pool.get(&riding.mount).copied().unwrap_or((0, 0, 0));
+                    bevy::log::info!(
+                        target: "ambition::mount",
+                        "mount DIED under its rider: mount={:?} rider={rider_entity:?} — \
+                         its health pool reached zero at {current}/{max} with {taken} \
+                         damage taken. ⛔ READ THE THREE CASES: {taken} > 0 means \
+                         something HIT it and a `lethal blow` line above says how \
+                         hard; {taken} == 0 with {max} > 0 means the pool was \
+                         emptied by something that is not a hit (a rewind, a save \
+                         sync, a direct write) and no survivability number will \
+                         answer it; {max} == 0 means construction handed the \
+                         summon a body that was never alive",
+                        riding.mount,
+                    )
+                }
                 None => bevy::log::warn!(
                     target: "ambition::mount",
                     "mount VANISHED from the saddle lookup: mount={:?} \

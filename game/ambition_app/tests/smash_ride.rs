@@ -1647,3 +1647,273 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
          not gimpable, it is deletable, and 'about three hits' is false"
     );
 }
+
+/// ⭐⭐ THE ADMIRAL FLIES THE SHARK AROUND. Jon: *"a test where the pirate —
+/// headlessly — does its up-b in the real game, and then controls the shark to
+/// fly around, and we test that we actually were able to fly around."*
+///
+/// ⛔⛔ WHY THIS IS NOT COVERED BY THE ARMS ABOVE. They hold ONE direction for
+/// 60 ticks and ask whether the pair moved. That passes on a shark with momentum
+/// and no steering, on a shark that is falling, and on a pair drifting together
+/// because the weld pins them — three ways to travel 40px while answering
+/// nothing the stick said. Flight is the claim that the MOUNT OBEYS, and the only
+/// evidence for obedience is REVERSAL: the same body going the other way when
+/// the stick does, and going UP against gravity when asked.
+///
+/// ⛔⛔ AND IT WATCHES EVERY TICK RATHER THAN THE ENDPOINTS. Jon's failure was a
+/// ride that ended ~20ms after it began; an assertion at the end of a 150-tick
+/// leg cannot tell "flown for two and a half seconds" from "put down instantly
+/// and walked there". The loop below names the tick the link broke and the
+/// mount's own pool at that moment, so a red here reads as a diagnosis.
+#[test]
+fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
+    use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::engine_core::ControlFrame;
+    use ambition_platformer2d::mount::RidingOn;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    // ── THE ROAD A PLAYER TRAVELS: pick off the grid, not `smash_roster`. The
+    //    up-B shipped broken twice on this road while the shortcut stayed green.
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_SELECT_ROUTE,
+        )));
+    for _ in 0..120 {
+        app.update();
+    }
+    let admiral_index = {
+        let grid = app
+            .world()
+            .get_resource::<SmashRoster>()
+            .expect("the select screen assembled its grid");
+        grid.0
+            .iter()
+            .position(|id| id == ambition_demo_smash::SMASH_SHARK_RIDER)
+            .unwrap_or_else(|| {
+                panic!("the shark rider is not on the grid: {:?}", grid.0)
+            })
+    };
+    {
+        let mut select = app
+            .world_mut()
+            .get_resource_mut::<SmashSelect>()
+            .expect("the select screen has its state");
+        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_pick(0, admiral_index);
+        select.set_occupant(1, SlotOccupant::Cpu);
+        select.set_pick(1, admiral_index);
+        assert!(select.ready(), "two decided seats did not make a startable match");
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::select_screen::StartRequested(true));
+    {
+        let mut live = false;
+        for _ in 0..900 {
+            app.update();
+            let (seated, held) = {
+                let world = app.world_mut();
+                let mut all = world.query::<&MatchSeat>();
+                let seated = all.iter(world).count();
+                let mut q = world.query_filtered::<
+                    &MatchSeat,
+                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                >();
+                (seated, q.iter(world).count())
+            };
+            if seated > 0 && held == 0 {
+                live = true;
+                break;
+            }
+        }
+        assert!(live, "the opening ceremony never released the cast");
+    }
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so every control frame below reaches nobody"
+    );
+
+    // ── UP-B FROM THE AIR, which is how a recovery is pressed. ──
+    ambition_platformer2d::sim::drive_control_frame(
+        app.world_mut(),
+        ControlFrame { jump_pressed: true, jump_held: true, ..Default::default() },
+    );
+    app.update();
+    for _ in 0..12 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ControlFrame { jump_held: true, ..Default::default() },
+        );
+        app.update();
+    }
+    let up_special = ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ControlFrame { special_pressed: false, ..up_special },
+        );
+        app.update();
+    }
+    for _ in 0..20 {
+        app.update();
+    }
+
+    let mount = app
+        .world()
+        .get::<RidingOn>(seat0)
+        .map(|riding| riding.mount)
+        .expect(
+            "the admiral is not on a shark after an airborne up-B, so nothing \
+             below is about flying one",
+        );
+
+    // ⭐ ONE LEG OF FLIGHT: hold a stick, step the app, and refuse to reach the
+    // end of the leg with the pair broken. Returns how far the RIDER travelled
+    // on each axis, which is the fact each assertion below is about.
+    //
+    // ⛔ THE RIDER'S POSITION, NOT THE MOUNT'S, because the rider is what the
+    // player is: a mount that flies away from underneath its rider is a failed
+    // weld, not a flight, and reading the mount would call it a success.
+    let fly = |app: &mut App, leg: &str, ticks: usize, frame: ControlFrame| -> ambition_platformer2d::engine_core::Vec2 {
+        let from = app
+            .world()
+            .get::<BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos;
+        for tick in 0..ticks {
+            ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
+            app.update();
+            if app.world().get::<RidingOn>(seat0).is_none() {
+                // ⭐⭐ THE POOL AT THE MOMENT IT BROKE. "He came off" is the same
+                // sentence for a mount that died, a lease that ran out and a
+                // rider that bailed, and Jon spent a day inside that ambiguity.
+                let pool = app
+                    .world()
+                    .get::<BodyHealth>(mount)
+                    .map(|h| format!("{}/{} ({} damage taken)", h.current(), h.max(), h.damage_taken()))
+                    .unwrap_or_else(|| "the mount no longer exists".to_string());
+                panic!(
+                    "the ride ended {tick} tick(s) into the `{leg}` leg — the \
+                     admiral cannot fly the shark around because he is not on it \
+                     for the trip. The mount's pool at that moment: {pool}. A \
+                     full pool says he was PUT OFF (lease, launch or bail); a \
+                     drained one says the mount was KILLED under him; a 0/0 says \
+                     it was never alive."
+                );
+            }
+        }
+        app.world()
+            .get::<BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos
+            - from
+    };
+
+    // ── RIGHT, THEN LEFT. The reversal is the whole proof: momentum, gravity and
+    //    a passive weld all travel, and none of them turn around when the stick
+    //    does. ──
+    let right = fly(&mut app, "hold right", 45, ControlFrame { axis_x: 1.0, ..Default::default() });
+    assert!(
+        right.x > 60.0,
+        "holding right moved the pair {:.1}px on x — the mount is not answering \
+         the rider's stick, which is the whole of 'fly around'",
+        right.x
+    );
+    let left = fly(&mut app, "hold left", 45, ControlFrame { axis_x: -1.0, ..Default::default() });
+    assert!(
+        left.x < -60.0,
+        "holding left moved the pair {:.1}px on x after holding right moved it \
+         {:.1}px — a ride that only ever travels one way is carrying momentum, \
+         not taking direction",
+        left.x,
+        right.x
+    );
+
+    // ── AND UP, AGAINST GRAVITY. `+y` is gravity-DOWN, so a recovery that
+    //    recovers makes y SMALLER. This is the arm that separates a mount from a
+    //    fancy fall: everything above is true of a body drifting sideways as it
+    //    sinks. ──
+    let up = fly(&mut app, "hold up", 60, ControlFrame { axis_y: -1.0, ..Default::default() });
+    assert!(
+        up.y < -40.0,
+        "holding up moved the pair {:.1}px on y (`+y` is gravity-down, so a climb \
+         is NEGATIVE) — the shark is not carrying its rider upward, and a recovery \
+         that cannot gain height is not a recovery",
+        up.y
+    );
+
+    // ── THE WELD HELD FOR THE WHOLE TRIP. ──
+    {
+        let world = app.world_mut();
+        let rider = world
+            .get::<BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos;
+        let saddle = world
+            .get::<BodyKinematics>(mount)
+            .expect("the mount the admiral is still riding has kinematics")
+            .pos;
+        let gap = saddle.distance(rider);
+        assert!(
+            gap < 200.0,
+            "after 150 ticks of flight the rider sits {gap:.1}px from the shark \
+             he is riding — the pair travelled, but not together"
+        );
+    }
+    // ── AND IT IS THE SAME SHARK, not a second one summoned mid-flight. ──
+    assert_eq!(
+        app.world().get::<RidingOn>(seat0).map(|riding| riding.mount),
+        Some(mount),
+        "the admiral finished the trip on a DIFFERENT shark than he started it \
+         on, so the legs above measured two rides rather than one flight"
+    );
+    // ── AND NOTHING TOOK A BITE OUT OF IT. This is the arm that speaks directly
+    //    to what Jon saw in play: his shark died under him within a frame of
+    //    boarding, with no `lethal blow` in the log to say what hit it. A pool
+    //    that quietly loses health during an uneventful flight is that bug
+    //    caught early. ──
+    {
+        let pool = app
+            .world()
+            .get::<BodyHealth>(mount)
+            .copied()
+            .expect("the mount the admiral is still riding has a health pool");
+        assert_eq!(
+            pool.damage_taken(),
+            0,
+            "the shark took {} damage across a flight in which nothing struck it \
+             — the pool is being drained by something that is not a hit, which is \
+             exactly the shape of a mount dying under its rider for no reason \
+             anybody can read out of the log",
+            pool.damage_taken()
+        );
+        assert!(
+            pool.current() > 0,
+            "the shark the admiral is still riding is at {}/{} — it is dead and \
+             carrying him anyway",
+            pool.current(),
+            pool.max()
+        );
+    }
+}

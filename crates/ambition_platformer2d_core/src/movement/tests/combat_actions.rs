@@ -159,7 +159,7 @@ fn a_gentle_stick_leans_the_raised_guard_and_letting_go_recentres_it() {
     scratch.ground.on_ground = true;
     scratch.abilities.abilities.shield = true;
 
-    let mut step = |input: InputState, scratch: &mut BodyClusterScratch| {
+    let step = |input: InputState, scratch: &mut BodyClusterScratch| {
         update_player_with_tuning_scratch(&world, scratch, input, 1.0 / 60.0, tuning);
     };
 
@@ -1651,7 +1651,7 @@ fn a_ground_guard_does_not_survive_leaving_the_ground() {
         let mut tuning = TEST_TUNING;
         tuning.base.shield = crate::ShieldTuning::PLATFORM_FIGHTER;
         tuning.base.shield.air_guard = air_guard;
-        let mut step = |scratch: &mut BodyClusterScratch| {
+        let step = |scratch: &mut BodyClusterScratch| {
             update_player_with_tuning_scratch(
                 &world,
                 scratch,

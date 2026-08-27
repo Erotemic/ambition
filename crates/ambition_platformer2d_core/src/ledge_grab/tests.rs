@@ -1854,7 +1854,7 @@ fn the_ledge_lets_go_of_a_body_that_hangs_past_the_limit() {
     );
 
     // Hold the stick neutral: this measures the CLOCK, not an input.
-    let mut hang_for = |scratch: &mut BodyClusterScratch, seconds: f32| {
+    let hang_for = |scratch: &mut BodyClusterScratch, seconds: f32| {
         let steps = (seconds / 0.016).round() as i32;
         for _ in 0..steps {
             let mut events = crate::movement::FrameEvents::default();

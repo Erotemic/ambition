@@ -35,13 +35,18 @@ use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
 ///
 /// ⭐⭐ THE PAUSE IS NOT A PAUSE. It is `SURFACE_AT_S - SINK_AT_S` of
 /// `BodyMode::Submerged`, and she is STEERING for all of it — Jon: *"I do want
-/// the player to be able to control where they move."* Long enough to cross a
-/// respectable stretch of stage at her run speed, short enough that the move
-/// still reads as one action rather than a second character state.
+/// the player to be able to control where they move."*
+///
+/// ⭐ A FULL SECOND, WHICH IS A LOT, AND DELIBERATELY. Jon, 2026-08-27: *"Give
+/// them 1 second under the stage at 1.2x run speed. I'm biasing towards making
+/// moves too powerful to start."* At 1.2× her 204 run speed that is roughly 245
+/// world px of travel — most of a smash stage — and it is meant to be obviously
+/// strong so the tuning conversation starts from "how much do we take away"
+/// rather than from "is this move worth pressing".
 const DOOR_OPENS_S: f32 = 0.10;
 const SINK_AT_S: f32 = 0.16;
-const SURFACE_AT_S: f32 = 0.62;
-const TRAP_ENDS_S: f32 = 0.78;
+const SURFACE_AT_S: f32 = 1.16;
+const TRAP_ENDS_S: f32 = 1.32;
 
 /// How far above her the engine looks for a floor to come up through.
 ///

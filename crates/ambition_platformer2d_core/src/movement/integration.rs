@@ -1054,8 +1054,7 @@ pub(super) fn integrate_submerged_clusters(
     let body_frame = frame.basis();
     let world_stick = body_frame.to_world(Vec2::new(local_stick.x, 0.0));
     // Her own top speed, so a fast character travels under the stage the way she
-    // travels over it. `SUBMERGED_SPEED_FRAC` is the one number this mode adds:
-    // slower than running, because the trip is supposed to cost something.
+    // travels over it. `SUBMERGED_SPEED_FRAC` is the one number this mode adds.
     let speed = tuning.locomotion.max_run_speed * SUBMERGED_SPEED_FRAC;
     kinematics.vel = world_stick * speed;
     kinematics.pos += kinematics.vel * dt;
@@ -1067,7 +1066,14 @@ pub(super) fn integrate_submerged_clusters(
 /// different move for a fast character than for a slow one, and this mode is
 /// meant to be reusable — the mole, the burrower and the diver all want "like
 /// running, but under things".
-const SUBMERGED_SPEED_FRAC: f32 = 0.82;
+///
+/// ⭐⭐ FASTER THAN RUNNING, WHICH IS A BALANCE POSITION AND NOT A PHYSICAL
+/// CLAIM. Jon, 2026-08-27: *"1.2x run speed. I'm biasing towards making moves
+/// too powerful to start."* Nothing about being under a stage makes a body
+/// quicker; the number is here to make the trip worth taking while the move is
+/// being judged, and it is the first knob to turn when it turns out to be too
+/// good. The earlier 0.82 was the opposite instinct and was mine, not authored.
+const SUBMERGED_SPEED_FRAC: f32 = 1.2;
 
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,

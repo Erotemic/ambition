@@ -157,11 +157,25 @@ pub fn sync_morph_ball_visual(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    // ⛔⛔ EVERY DRAWN BODY, ASKED ITS OWN POSE — not "the primary player",
+    // and not `single_mut()`. This took
+    // `Query<&mut Visibility, (With<PlayerVisual>, With<PrimaryPlayer>, …)>` and
+    // `single_mut()`d it inside an `if let Ok(…)`, so the hide was skipped in
+    // SILENCE whenever that resolved to anything other than exactly one entity —
+    // and the ball, whose own query is a plain `MorphBallVisual` singleton, kept
+    // drawing. The result is the ball painted on top of a robot that never went
+    // away, which is what it has been doing.
+    //
+    // ⛔ THE SAME QUERY HAS ALREADY BURNED THIS REPOSITORY ONCE.
+    // `rebuild_hostile_wielded_items_view` records it in as many words: a
+    // `PrimaryPlayerOnly` query `single()`d and returned from *"so in a match,
+    // where no session home avatar exists"* the fact vanished entirely. A body's
+    // own `BodyPoseView` is the fact; who the primary player is was never part
+    // of the question.
     mut player_query: Query<
-        &mut Visibility,
+        (&ambition_sim_view::BodyPoseView, &mut Visibility),
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
-            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
             Without<MorphBallVisual>,
         ),
     >,
@@ -187,19 +201,24 @@ pub fn sync_morph_ball_visual(
         let render = bevy::math::Vec2::new(pose.size.x * 1.10, pose.size.y * 1.10);
         sprite.custom_size = Some(render);
         *ball_visibility = Visibility::Visible;
-        if let Ok(mut player_vis) = player_query.single_mut() {
-            *player_vis = Visibility::Hidden;
-        }
     } else {
         *ball_visibility = Visibility::Hidden;
-        if let Ok(mut player_vis) = player_query.single_mut() {
+    }
+    // ⭐ AND THE HIDE IS PER BODY, decided by that body's OWN `morph_ball` fact
+    // rather than by the one the ball happens to be following. It runs on both
+    // arms so a body that stops being morphed is handed back even on the frame
+    // the ball is still showing for somebody else.
+    for (pose, mut player_vis) in &mut player_query {
+        if pose.morph_ball {
+            if *player_vis != Visibility::Hidden {
+                *player_vis = Visibility::Hidden;
+            }
+        } else if matches!(*player_vis, Visibility::Hidden) {
             // Inherited visibility lets the parent / overlay control
             // hiding (death overlay, room transition fade); we only
             // override to Visible when leaving morph ball, then drop
             // back to Inherited so we don't fight other systems.
-            if matches!(*player_vis, Visibility::Hidden) {
-                *player_vis = Visibility::Inherited;
-            }
+            *player_vis = Visibility::Inherited;
         }
     }
 }
@@ -267,6 +286,99 @@ mod tests {
 
     fn vis(app: &App, e: Entity) -> Visibility {
         *app.world().get::<Visibility>(e).unwrap()
+    }
+
+    /// A drawn body WITHOUT the `PrimaryPlayer` marker: a fighter in a match.
+    ///
+    /// ⛔⛔ THE RIG ABOVE COULD NOT SEE THE BUG. It spawns exactly one body and
+    /// gives it `PrimaryPlayer`, which is the one shape the old
+    /// `single_mut()` hide worked for — so all three arms above passed against
+    /// code that never hid anything in an actual match.
+    fn match_rig(bodies: &[bool]) -> (App, Vec<Entity>, Entity) {
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+                "t",
+                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                ambition_platformer2d_core::Vec2::ZERO,
+                Vec::new(),
+            )),
+        );
+        // One of them is the session's own avatar so the BALL still has a pose
+        // to follow; the others are fighters, exactly as a match spawns them.
+        let mut ids = Vec::new();
+        for (i, morph) in bodies.iter().enumerate() {
+            let mut body = app.world_mut().spawn((
+                PlayerVisual,
+                PlayerEntity,
+                pose(*morph),
+                Visibility::Inherited,
+                Transform::default(),
+            ));
+            if i == 0 {
+                body.insert(PrimaryPlayer);
+            }
+            ids.push(body.id());
+        }
+        let ball = app
+            .world_mut()
+            .spawn((
+                MorphBallVisual,
+                Sprite::default(),
+                Transform::default(),
+                Visibility::Hidden,
+            ))
+            .id();
+        app.add_systems(Update, sync_morph_ball_visual);
+        (app, ids, ball)
+    }
+
+    /// ⛔⛔ THE REPORTED BUG, AT THE SHAPE IT ACTUALLY HAPPENS. Jon, 2026-08-27:
+    /// *"the morph ball has had a long time bug where the sprite behind it never
+    /// disappears, so you see the morph ball on top of the robot."* A second
+    /// drawn body is all it takes: the old hide asked for exactly one
+    /// `PrimaryPlayer` body and skipped in silence when it did not get one,
+    /// while the ball's own singleton query carried on drawing.
+    #[test]
+    fn a_morphed_body_is_hidden_even_with_other_bodies_on_screen() {
+        let (mut app, bodies, ball) = match_rig(&[true, false]);
+        app.update();
+        assert_eq!(vis(&app, ball), Visibility::Visible, "the ball draws");
+        assert_eq!(
+            vis(&app, bodies[0]),
+            Visibility::Hidden,
+            "the morphed body must not draw through the ball just because a \
+             second body exists"
+        );
+    }
+
+    /// ⛔ AND ONLY THE MORPHED ONE. A hide keyed on "somebody is morphed" rather
+    /// than on each body's own fact would take the other fighter off the screen.
+    #[test]
+    fn a_body_that_is_not_morphed_keeps_drawing_while_another_is() {
+        let (mut app, bodies, _ball) = match_rig(&[true, false]);
+        app.update();
+        assert_eq!(
+            vis(&app, bodies[1]),
+            Visibility::Inherited,
+            "the fighter who is not balled up is still on the stage"
+        );
+    }
+
+    /// ⛔ A BODY WITH NO `PrimaryPlayer` AT ALL still hides, which is the
+    /// zero-match half of the same failure — `rebuild_hostile_wielded_items_view`
+    /// records that a `PrimaryPlayerOnly` query matches NOTHING in a match,
+    /// *"where no session home avatar exists"*.
+    #[test]
+    fn a_morphed_fighter_that_is_not_the_primary_player_still_hides() {
+        let (mut app, bodies, _ball) = match_rig(&[false, true]);
+        app.update();
+        assert_eq!(
+            vis(&app, bodies[1]),
+            Visibility::Hidden,
+            "the hide must not depend on which body the session calls its own"
+        );
     }
 
     /// The reported bug: "morph ball still draws the robot". In morph the ball

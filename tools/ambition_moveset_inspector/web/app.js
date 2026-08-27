@@ -995,12 +995,70 @@ function takeFacts(t, frame) {
   $("#take-facts").replaceChildren(kv);
 }
 
+/* ---------- status ---------- */
+
+/* ⭐⭐ THE PAGE EXPLAINS ITSELF. All of this was already answerable on the
+ * server and none of it was reachable from the browser: the provenance went to
+ * a terminal the person looking at the pictures was not reading. "I can't tell
+ * if it is trying to call the tool or not, or if it knows where it is" is a
+ * bug in the VIEW, not in the tool it is reporting on. */
+async function renderStatusView() {
+  const body = $("#status-body");
+  body.replaceChildren(el("p", { class: "note" }, "asking the server…"));
+  let doc;
+  try {
+    doc = await (await fetch("/api/status")).json();
+  } catch (error) {
+    body.replaceChildren(el("p", { class: "note" }, `the server did not answer: ${error}`));
+    return;
+  }
+
+  const panels = [];
+  const panel = (title, rows, note) => {
+    const kv = el("dl", { class: "kv" });
+    for (const [k, v] of rows) kv.append(el("dt", {}, k), el("dd", {}, v));
+    const kids = [el("h2", {}, title), kv];
+    if (note) kids.push(el("p", { class: "note" }, note));
+    panels.push(el("div", { class: "panel" }, ...kids));
+  };
+
+  panel("Where it is", [
+    ["Repo", doc.repo],
+    ["Sprites", `${doc.sprites_dir}${doc.sprites_dir_exists ? "" : "  (MISSING)"}`],
+    ["Renders", doc.renders_dir],
+  ], "The sprite directory is the engine's own, served read-only — the page draws exactly what the build would.");
+
+  const b = doc.bundle || {};
+  panel("Data", [
+    ["Bundle", b.exists ? `${b.fighters} fighters, ${b.sheets} sheets, ${b.schema} (built ${b.built})` : "MISSING — run moveset_export"],
+    ["Takes", doc.takes && doc.takes.exists ? `recorded ${doc.takes.built}` : "none yet — run moveset_takes"],
+    ["Cached renders", (doc.cached_renders || []).length ? doc.cached_renders.join(", ") : "none yet"],
+  ], b.exists && !b.sheets ? "⚠ the bundle carries no sheet table, so Engine Takes can only draw boxes — re-export with a current moveset_export." : "");
+
+  /* ⛔ THE BUILD COMMAND FOR EVERY BINARY, PRESENT OR NOT. Somebody refreshing a
+   * two-day-old binary needs the same line as somebody who has none. */
+  for (const [name, info] of Object.entries(doc.binaries || {})) {
+    panel(name, [
+      ["Status", info.found ? `built ${info.built}` : "NOT BUILT"],
+      ["Path", info.found ? info.path : info.looked_in.join("  |  ")],
+      ["Build", info.build_command],
+    ], info.found ? "" : name === "capture_scene"
+      ? "Without it, Engine Takes falls back to CPU-derived sprites and says so."
+      : name === "moveset_takes"
+        ? "Without it there are no recorded takes to look at."
+        : "Without it the bundle already on disk is served as-is.");
+  }
+
+  body.replaceChildren(el("div", { class: "cols" }, ...panels));
+}
+
 /* ---------- shell ---------- */
 function showView(name) {
   for (const b of document.querySelectorAll("nav.tabs button")) b.classList.toggle("on", b.dataset.view === name);
   for (const v of document.querySelectorAll(".view")) v.classList.toggle("on", v.id === `view-${name}`);
   if (name === "compare") renderCompare();
   if (name === "takes") drawTake();
+  if (name === "status") renderStatusView();
 }
 
 async function boot() {
@@ -1048,6 +1106,7 @@ async function boot() {
   /* The art can be turned off. A hitbox that sits behind a big sprite is hard to
    * read, and "where exactly is this volume" is a question the boxes answer
    * better alone — so this view can be either instrument. */
+  $("#status-refresh").addEventListener("click", renderStatusView);
   $("#take-art").addEventListener("click", (e) => {
     state.takeArt = state.takeArt === false;
     e.target.classList.toggle("on", state.takeArt !== false);

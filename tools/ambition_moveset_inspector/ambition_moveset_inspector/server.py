@@ -11,6 +11,7 @@ Routes:
   ``/data/...``         the exported bundle and any recorded takes
   ``/api/review``       GET one review by subject, POST to save one
   ``/api/reviews``      GET every review
+  ``/api/status``       GET what this server has, where, and how old it is
   ``/api/render``       GET a GPU-rendered animation of one fighter, on demand
   ``/render/...``       the rendered frames themselves
 """
@@ -185,6 +186,88 @@ def render_animation(character: str, frames: int, stride: int) -> tuple[int, dic
     return 200, document
 
 
+def inspector_status() -> dict:
+    """Everything the page needs to explain ITSELF.
+
+    ⭐⭐ THE UI COULD NOT SAY WHAT IT WAS DOING. Jon, 2026-08-27: *"I don't see
+    any art at the moment. Not sure if that's because the binaries are not built,
+    because the webui is not reporting the status of what it has, or what it is
+    doing. I can't tell if it is trying to call the tool or not, or if it knows
+    where it is."* Every one of those was answerable on the server and none of it
+    was reachable from the browser — the provenance went to a terminal the person
+    looking at the pictures was not reading.
+    """
+    import os
+
+    bundle_path = DATA / "moveset_bundle.json"
+    takes_path = DATA / "takes" / "takes.json"
+    bundle_meta: dict = {"exists": bundle_path.exists()}
+    if bundle_meta["exists"]:
+        bundle_meta["built"] = _built_at(bundle_path)
+        try:
+            doc = json.loads(bundle_path.read_text())
+            bundle_meta["schema"] = doc.get("schema")
+            bundle_meta["fighters"] = len(doc.get("characters") or [])
+            bundle_meta["sheets"] = len(doc.get("sheets") or {})
+        except (OSError, ValueError) as error:
+            bundle_meta["error"] = str(error)
+
+    binaries = {}
+    root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
+    for name in ("moveset_export", "moveset_takes", "capture_scene"):
+        found = next(
+            (root / profile / name for profile in ("release", "debug")
+             if (root / profile / name).exists()),
+            None,
+        )
+        binaries[name] = {
+            "found": found is not None,
+            "path": str(found) if found else None,
+            "built": _built_at(found) if found else None,
+            "build_command": f"cargo build -p ambition_app_tools --bin {name}",
+            "looked_in": [str(root / p / name) for p in ("release", "debug")],
+        }
+
+    return {
+        "repo": str(REPO),
+        "sprites_dir": str(SPRITES),
+        "sprites_dir_exists": SPRITES.exists(),
+        "bundle": bundle_meta,
+        "takes": {
+            "exists": takes_path.exists(),
+            "built": _built_at(takes_path) if takes_path.exists() else None,
+        },
+        "renders_dir": str(RENDERS),
+        "cached_renders": sorted(p.name for p in RENDERS.glob("*")) if RENDERS.exists() else [],
+        "binaries": binaries,
+    }
+
+
+def _contained(root: Path, relative: str) -> str:
+    """Join ``relative`` under ``root``, refusing anything that escapes.
+
+    ⛔⛔ THE CHECK IS LEXICAL, AND IT HAS TO BE. This resolved the CANDIDATE and
+    asserted `relative_to(root)` — which is the obvious spelling and is wrong
+    wherever the served files are symlinks. This repo's sprite assets are exactly
+    that: symlinks into the main checkout. `resolve()` followed them OUT of the
+    worktree, containment failed, and the route 404'd every one of its own
+    legitimate files. That is why the inspector showed no art, and no amount of
+    looking at the browser would have found it.
+
+    ⭐ `normpath` COLLAPSES `..` WITHOUT TOUCHING THE FILESYSTEM, which is the
+    question a traversal guard actually asks: does the REQUESTED PATH climb out
+    of the root? Where the bytes ultimately live is the asset tree's business.
+    """
+    import os
+
+    rel = os.path.normpath(relative.lstrip("/"))
+    if rel.startswith("..") or os.path.isabs(rel):
+        # Answer as a miss rather than an error, so a probe learns nothing about
+        # what does or does not exist.
+        return str(root / "__outside_the_served_root__")
+    return str(root / rel)
+
+
 class InspectorHandler(SimpleHTTPRequestHandler):
     """Static files out of ``web/``, with ``data/`` and ``api/`` grafted on."""
 
@@ -205,55 +288,28 @@ class InspectorHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def translate_path(self, path: str) -> str:
-        """``/data/...`` lives beside ``web/``, not inside it.
+        """``/data/``, ``/render/`` and ``/art/`` live outside ``web/``.
 
-        The bundle is a generated artifact and the UI is source; keeping them in
-        one directory would mean either committing the artifact or gitignoring a
-        path inside the source tree.
+        The bundle and the renders are generated artifacts and the UI is source;
+        keeping them in one directory would mean either committing the artifacts
+        or gitignoring a path inside the source tree. The sprites are the
+        engine's own, served where they lie.
         """
         parsed = urlparse(path).path
-        if parsed.startswith("/data/"):
-            # ⛔⛔ RESOLVE AND CHECK CONTAINMENT. Joining the raw remainder let a
-            # request full of `../` walk out of `data/` and serve any file the
-            # process could read — confirmed reachable once `data/` exists (GPT
-            # 5.6, 2026-08-27). The default host is 127.0.0.1, but `--host` is
-            # deliberately supported, so on a bound interface this is file
-            # disclosure. `resolve()` collapses the traversal; `relative_to`
-            # is the assertion that it landed inside.
-            root = DATA.resolve()
-            candidate = (root / parsed[len("/data/"):]).resolve()
-            try:
-                candidate.relative_to(root)
-            except ValueError:
-                # Outside the bundle: answer as a miss rather than an error, so
-                # a probe learns nothing about what does or does not exist.
-                return str(root / "__outside_the_data_bundle__")
-            return str(candidate)
-        if parsed.startswith("/render/"):
-            root = RENDERS.resolve()
-            candidate = (root / parsed[len("/render/"):]).resolve()
-            try:
-                candidate.relative_to(root)
-            except ValueError:
-                return str(root / "__outside_the_render_cache__")
-            return str(candidate)
-        if parsed.startswith("/art/"):
-            # ⭐ THE SAME CONTAINMENT, for the same reason. Taking `.name` alone
-            # would already defeat `../`, but "this route happens to be safe by
-            # a different mechanism" is how the next route added here gets it
-            # wrong. One rule, asserted the same way at both seams.
-            root = SPRITES.resolve()
-            candidate = (root / parsed[len("/art/"):]).resolve()
-            try:
-                candidate.relative_to(root)
-            except ValueError:
-                return str(root / "__outside_the_sprite_directory__")
-            return str(candidate)
+        for prefix, root in (
+            ("/data/", DATA),
+            ("/render/", RENDERS),
+            ("/art/", SPRITES),
+        ):
+            if parsed.startswith(prefix):
+                return _contained(root, parsed[len(prefix):])
         return super().translate_path(path)
 
     # ---- routes ----
     def do_GET(self):  # noqa: N802 - stdlib naming
         parsed = urlparse(self.path)
+        if parsed.path == "/api/status":
+            return self._json(200, inspector_status())
         if parsed.path == "/api/render":
             query = parse_qs(parsed.query)
             character = (query.get("character") or [""])[0]

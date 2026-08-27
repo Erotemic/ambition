@@ -48,6 +48,7 @@ fn a_held_bolt_transits_an_authored_portal_in_the_real_app() {
                 bounces_remaining: 0,
                 world_hit: WorldHitPolicy::ExpireOnContact,
                 accel: ambition_platformer2d::engine_core::Vec2::ZERO,
+                hits_cleared_on_leg: 0,
             },
             HeldProjectile {
                 damage: 3,

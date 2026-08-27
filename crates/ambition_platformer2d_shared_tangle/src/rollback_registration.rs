@@ -128,6 +128,19 @@ where
         OWNER,
         "projectile.gameplay",
     );
+    // ⛔ THE SHOT'S OWN VICTIM LEDGER, and it is the same shape and the same
+    // registrar path as `combat.hitbox_hits` because it is the same rule: a
+    // continuous stretch of contact owns ONE per-victim answer, and a returning
+    // shot's second leg is a second stretch. An entity set cannot be snapshot by
+    // value — bevy_ggrs destroys and recreates what it names — so it clones and
+    // probes through the targets' stable sim identities.
+    registrar.rollback_component_clone_entity_set::<crate::projectile::ProjectileHits>(
+        OWNER,
+        "projectile.hits",
+        |hits| hits.hit.iter().copied().collect(),
+    );
+    registrar
+        .rollback_map_entities::<crate::projectile::ProjectileHits>(OWNER, "map.projectile_hits");
     registrar.declare_rollback_derived_component::<crate::frame_env::ResolvedMotionFrame>(
         OWNER,
         "derived.resolved_motion_frame",

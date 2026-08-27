@@ -51,6 +51,50 @@ pub struct ProjectileGameplay {
     /// `ZERO` for every shot that has not authored one, which is all of them but
     /// the ponytail.
     pub accel: Vec2,
+    /// WHICH LEG THIS SHOT'S VICTIM LEDGER WAS LAST CLEARED FOR.
+    ///
+    /// ⭐⭐ A RETURNING SHOT IS TWO CHANCES, AND THE GENRE SAYS SO. A boomerang
+    /// hits you going out and hits you coming back; what it must not do is hit
+    /// you on every tick it overlaps you. That is the same rule a multi-hit
+    /// move's PULSE already states — one continuous stretch owns one per-victim
+    /// ledger, and a gap starts a new one — and the leg is this shot's pulse.
+    ///
+    /// ⛔ THE LEG ITSELF IS DERIVED, NOT STORED. [`Self::leg`] reads it off the
+    /// motion the shot is already carrying, so it cannot disagree with the
+    /// trajectory. What has to be REMEMBERED is only which leg the ledger in
+    /// [`ProjectileHits`] belongs to, because "the leg changed since I last
+    /// cleared" is not a question this tick's velocity can answer.
+    ///
+    /// `0` for every shot that never turns around, which is all of them but the
+    /// ponytail — those carry no `accel`, so [`Self::leg`] is always `0` and the
+    /// ledger is never cleared. They also despawn on their first body hit, so
+    /// they never write to it either.
+    pub hits_cleared_on_leg: u8,
+}
+
+/// EVERY VICTIM THIS SHOT HAS ALREADY HIT ON THE LEG IT IS FLYING.
+///
+/// ⭐ MODELLED ON `HitboxHits`, and registered through the same registrar path
+/// (`rollback_component_clone_entity_set`) for the same reason: an entity set
+/// cannot be snapshot by value across a rollback, because bevy_ggrs destroys and
+/// recreates the entities it names. The probe reads it through the targets'
+/// stable sim identities.
+///
+/// ⛔ AUTHORITATIVE ROLLBACK STATE, not a cache. A resimulated frame that lost
+/// this ledger re-hits everybody the shot had already passed through, which is
+/// the machine-gun the leg rule exists to prevent — one desync per overlap.
+#[derive(Clone, Debug, Default, PartialEq, bevy::prelude::Component)]
+pub struct ProjectileHits {
+    pub hit: std::collections::HashSet<bevy::prelude::Entity>,
+}
+
+impl bevy::ecs::entity::MapEntities for ProjectileHits {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        self.hit = std::mem::take(&mut self.hit)
+            .into_iter()
+            .map(|entity| mapper.get_mapped(entity))
+            .collect();
+    }
 }
 
 fn projectile_down(gravity_dir: Vec2) -> Vec2 {
@@ -95,7 +139,25 @@ impl ProjectileGameplay {
                     -spec.initial_velocity() / out_s
                 }
             }),
+            hits_cleared_on_leg: 0,
         }
+    }
+
+    /// WHICH LEG THIS SHOT IS FLYING, from the motion it is already carrying.
+    ///
+    /// ⭐ THE SIGN OF `vel · accel` IS THE WHOLE ANSWER. A returning shot's
+    /// acceleration points back along its launch axis, so on the way OUT the two
+    /// oppose (`< 0`) and on the way HOME they agree (`> 0`); the turnaround is
+    /// the instant it crosses zero. A shot with no `accel` never leaves leg `0`,
+    /// which is every shot but the ponytail.
+    pub fn leg(&self, vel: Vec2) -> u8 {
+        u8::from(self.accel != Vec2::ZERO && vel.dot(self.accel) > 0.0)
+    }
+
+    /// Does this shot COME BACK? A shot that turns around outlives the body it
+    /// hits; every other shot is spent on contact.
+    pub fn returns(&self) -> bool {
+        self.accel != Vec2::ZERO
     }
 
     pub fn is_expired(&self) -> bool {
@@ -369,6 +431,7 @@ mod tests {
                 bounces_remaining: bounces,
                 world_hit: crate::projectile::WorldHitPolicy::Bouncing,
                 accel: Vec2::ZERO,
+                hits_cleared_on_leg: 0,
             },
         }
     }
@@ -440,8 +503,10 @@ mod tests {
     fn fireball_bounces_off_a_floor_top_then_expires_when_budget_runs_out() {
         // Body just above a block, moving down, one bounce left.
         let mut p = fireball(Vec2::new(50.0, 50.0), Vec2::new(0.0, 100.0), 1);
-        let block =
-            ambition_platformer2d_core::aabb_from_min_size(Vec2::new(40.0, 54.0), Vec2::new(20.0, 20.0));
+        let block = ambition_platformer2d_core::aabb_from_min_size(
+            Vec2::new(40.0, 54.0),
+            Vec2::new(20.0, 20.0),
+        );
 
         let first = p.resolve_solid_hit(block);
         assert_eq!(first, ProjectileSolidHit::Bounced);
@@ -458,8 +523,10 @@ mod tests {
     fn side_contact_expires_instead_of_bouncing() {
         // Body fully inside the block's y-range = a side hit, never a bounce.
         let mut p = fireball(Vec2::new(50.0, 60.0), Vec2::new(100.0, 0.0), 2);
-        let block =
-            ambition_platformer2d_core::aabb_from_min_size(Vec2::new(40.0, 40.0), Vec2::new(20.0, 60.0));
+        let block = ambition_platformer2d_core::aabb_from_min_size(
+            Vec2::new(40.0, 40.0),
+            Vec2::new(20.0, 60.0),
+        );
         assert_eq!(p.resolve_solid_hit(block), ProjectileSolidHit::Expired);
         assert_eq!(
             p.game.bounces_remaining, 2,

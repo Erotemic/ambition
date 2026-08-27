@@ -1769,6 +1769,8 @@ pub fn fire_held_ranged_system(
             // detonate-on-contact bolt is `ExpireOnContact` in spirit.
             world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
             accel: ae::Vec2::ZERO,
+            // No `accel`, so no return leg and no ledger to clear.
+            hits_cleared_on_leg: 0,
         },
         HeldProjectile {
             damage: ranged.damage(),

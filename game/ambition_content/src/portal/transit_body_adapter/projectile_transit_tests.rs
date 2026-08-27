@@ -27,6 +27,7 @@ fn straight_projectile() -> ProjectileGameplay {
         bounces_remaining: 0,
         world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
         accel: ambition_platformer2d::engine_core::Vec2::ZERO,
+        hits_cleared_on_leg: 0,
     }
 }
 

@@ -13,9 +13,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 
 use crate::{
-    LiveProjectile, ProjectileOwner, ProjectilePresentation,
-    ProjectileSeqCounter, ProjectileSpawnRequest, ProjectileStart,
-    ProjectileVisualId,
+    LiveProjectile, ProjectileOwner, ProjectilePresentation, ProjectileSeqCounter,
+    ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId,
 };
 
 /// Materialize requests whose projectile begins advancing on this tick.
@@ -88,6 +87,11 @@ fn materialize_matching(
             seq.next(),
             LiveProjectile,
             RoomScopedEntity,
+            // ⭐ EVERY SHOT CARRIES THE LEDGER, empty, rather than only the ones
+            // that come back. A component inserted later by whoever notices is a
+            // tick in which the shot has no answer to "have I hit this body
+            // already" — and under rollback that tick is resimulated.
+            ambition_platformer2d_shared_tangle::projectile::ProjectileHits::default(),
         ));
         scope.apply_to(&mut entity);
         round_scope.apply_to(&mut entity);
@@ -125,8 +129,7 @@ mod tests {
     use crate::{
         materialize_projectiles_for_next_tick, materialize_projectiles_for_this_tick,
         LiveProjectile, ProjectileKind, ProjectileOwner, ProjectileSeq, ProjectileSeqCounter,
-        ProjectileSpawnRequest, ProjectileStart,
-        ProjectileVisualId,
+        ProjectileSpawnRequest, ProjectileStart, ProjectileVisualId,
     };
 
     fn open_request(owner: Entity, start: ProjectileStart) -> ProjectileSpawnRequest {
@@ -160,31 +163,30 @@ mod tests {
     fn immediate_open_request_spawns_one_live_projectile_with_identity() {
         let mut app = app();
         app.add_systems(Update, materialize_projectiles_for_this_tick);
-        app.world_mut()
-            .write_message(open_request(Entity::PLACEHOLDER, ProjectileStart::StepThisTick));
+        app.world_mut().write_message(open_request(
+            Entity::PLACEHOLDER,
+            ProjectileStart::StepThisTick,
+        ));
         app.update();
 
-        let mut q = app.world_mut().query_filtered::<
-            (&ProjectileVisualId, &ProjectileSeq),
-            With<LiveProjectile>,
-        >();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&ProjectileVisualId, &ProjectileSeq), With<LiveProjectile>>();
         let rows: Vec<_> = q
             .iter(app.world())
             .map(|(visual_id, seq)| (visual_id.0.clone(), *seq))
             .collect();
-        assert_eq!(
-            rows,
-            vec![("glider".to_string(), ProjectileSeq(0))]
-        );
+        assert_eq!(rows, vec![("glider".to_string(), ProjectileSeq(0))]);
     }
 
     #[test]
     fn each_materializer_only_consumes_its_own_first_step_class() {
         let mut immediate = app();
         immediate.add_systems(Update, materialize_projectiles_for_this_tick);
-        immediate
-            .world_mut()
-            .write_message(open_request(Entity::PLACEHOLDER, ProjectileStart::StepNextTick));
+        immediate.world_mut().write_message(open_request(
+            Entity::PLACEHOLDER,
+            ProjectileStart::StepNextTick,
+        ));
         immediate.update();
         let count = immediate
             .world_mut()
@@ -195,9 +197,10 @@ mod tests {
 
         let mut deferred = app();
         deferred.add_systems(Update, materialize_projectiles_for_next_tick);
-        deferred
-            .world_mut()
-            .write_message(open_request(Entity::PLACEHOLDER, ProjectileStart::StepThisTick));
+        deferred.world_mut().write_message(open_request(
+            Entity::PLACEHOLDER,
+            ProjectileStart::StepThisTick,
+        ));
         deferred.update();
         let count = deferred
             .world_mut()
@@ -228,7 +231,9 @@ mod tests {
         ));
         app.update();
 
-        let mut q = app.world_mut().query_filtered::<&ProjectileSeq, With<LiveProjectile>>();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&ProjectileSeq, With<LiveProjectile>>();
         let mut seqs: Vec<_> = q.iter(app.world()).copied().collect();
         seqs.sort();
         assert_eq!(
@@ -267,14 +272,16 @@ mod tests {
     fn placeholder_owner_stays_ownerless_and_has_no_presentation_source() {
         let mut app = app();
         app.add_systems(Update, materialize_projectiles_for_this_tick);
-        app.world_mut()
-            .write_message(open_request(Entity::PLACEHOLDER, ProjectileStart::StepThisTick));
+        app.world_mut().write_message(open_request(
+            Entity::PLACEHOLDER,
+            ProjectileStart::StepThisTick,
+        ));
         app.update();
 
-        let mut q = app.world_mut().query_filtered::<
-            (Option<&ProjectileOwner>, Option<&ambition_sfx::BodyPresentationSource>),
-            With<LiveProjectile>,
-        >();
+        let mut q = app.world_mut().query_filtered::<(
+            Option<&ProjectileOwner>,
+            Option<&ambition_sfx::BodyPresentationSource>,
+        ), With<LiveProjectile>>();
         let rows: Vec<_> = q
             .iter(app.world())
             .map(|(owner, source)| (owner.is_some(), source.is_some()))

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v127
+ggrs-rollback-schema-v128
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -262,6 +262,7 @@ map.mount_reserved_for	entity-mapping	MountReservedFor	bevy_ggrs LoadWorld entit
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
 map.pending_challenge	entity-mapping	PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
+map.projectile_hits	entity-mapping	ProjectileHits	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
 map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.encounter_registry	resource-entity-mapping	EncounterRegistry	bevy_ggrs LoadWorld resource entity-reference remapping
@@ -383,6 +384,7 @@ presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone 
 presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 projectile.allegiance	component-canonical	ProjectileAllegiance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.hits	component-clone	ProjectileHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 projectile.kind	component-canonical	ProjectileKind	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.live_marker	component-canonical	LiveProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

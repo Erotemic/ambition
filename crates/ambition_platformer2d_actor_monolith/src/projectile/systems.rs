@@ -6,8 +6,6 @@ use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::allegiance::ProjectileAllegiance;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
-use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_boss_encounter::{BossClusterRef, BossConfig};
 use ambition_combat::components::{
     ActorAggression, ActorFaction, BreakableFeature, CenteredAabb, FeatureId,
@@ -15,7 +13,9 @@ use ambition_combat::components::{
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
+use ambition_gameplay_trace::GameplayTraceBuffer;
 use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
@@ -370,6 +370,8 @@ pub fn step_projectiles(
             // Read from the PROJECTILE rather than chased back through the owner,
             // because a shot outlives its firer and must still sound like it.
             Option<&ambition_sfx::BodyPresentationSource>,
+            // Whom this shot has already hit on the leg it is flying.
+            &mut ambition_platformer2d_shared_tangle::projectile::ProjectileHits,
         ),
         (
             With<LiveProjectile>,
@@ -433,13 +435,23 @@ pub fn step_projectiles(
     // across both factions; the seq counter is shared at spawn).
     let mut ordered: Vec<(Entity, ProjectileSeq)> = projectiles
         .iter()
-        .map(|(entity, _, _, _, _, seq, _, _, _)| (entity, *seq))
+        .map(|(entity, _, _, _, _, seq, _, _, _, _)| (entity, *seq))
         .collect();
     ordered.sort_by_key(|(_, seq)| *seq);
 
     for (proj_entity, _) in ordered {
-        let Ok((_, mut kin, mut game, owner, stamped_allegiance, _, kind, visual_id, bolt_source)) =
-            projectiles.get_mut(proj_entity)
+        let Ok((
+            _,
+            mut kin,
+            mut game,
+            owner,
+            stamped_allegiance,
+            _,
+            kind,
+            visual_id,
+            bolt_source,
+            mut already_hit,
+        )) = projectiles.get_mut(proj_entity)
         else {
             continue;
         };
@@ -527,10 +539,39 @@ pub fn step_projectiles(
         // PARRIED, and never asked about a grudge. Four rules that only existed on one side of a
         // fork whose whole content was who pulled the trigger.
         {
+            // ⭐⭐ A RETURNING SHOT IS TWO CHANCES, AND EACH VICTIM GETS ONE OF
+            // EACH. The ponytail despawned on its first body contact, which made
+            // every bit of the landed return-flight work unobservable in
+            // combat — she threw it, it hit somebody, and it never came back
+            // (GPT 5.6, 2026-08-27). ⛔ AND SIMPLY DELETING THE DESPAWN IS THE
+            // WRONG FIX: a shot that survives contact overlaps its victim for as
+            // many ticks as it takes to pass through, and damages on every one.
+            //
+            // ⭐ THE RULE IS THE PULSE RULE, which this codebase already states
+            // for multi-hit moves: one continuous stretch of contact owns ONE
+            // per-victim answer, and a gap starts a new one. A boomerang's legs
+            // are its two stretches — out, and home — so each victim is hit at
+            // most once per leg, the turnaround re-arms everybody, and hitting A
+            // never protects B.
+            //
+            // ⛔ THE LEG IS DERIVED AND THE LEDGER IS STORED, which is the split
+            // that matters: `ProjectileGameplay::leg` reads the trajectory the
+            // shot is already carrying and so cannot disagree with it, while
+            // `ProjectileHits` is authoritative rollback state because a
+            // resimulated frame that lost it re-hits everybody the shot had
+            // already passed through.
+            let leg = game.leg(kin.vel);
+            if leg != game.hits_cleared_on_leg {
+                already_hit.hit.clear();
+                game.hits_cleared_on_leg = leg;
+            }
             let mut struck = false;
             let mut reflected = false;
             for victim in &victims {
                 if Some(victim.entity) == owner_entity {
+                    continue;
+                }
+                if already_hit.hit.contains(&victim.entity) {
                     continue;
                 }
                 // An owned shot lands on a faction-foe OR a same-faction body its firer holds a
@@ -641,6 +682,7 @@ pub fn step_projectiles(
                 // the ONE victim-side reaction now — a player victim through
                 // `apply_player_hit_events`, an actor through `apply_actor_hit`.
                 // Emitting here too would double the cue.
+                already_hit.hit.insert(victim.entity);
                 struck = true;
                 break;
             }
@@ -656,7 +698,13 @@ pub fn step_projectiles(
                     }
                     .into_trace_event(tick),
                 );
-                commands.entity(proj_entity).despawn();
+                // ⭐ A SHOT THAT COMES BACK OUTLIVES WHAT IT HIT. Everything else
+                // is spent on contact, which is what a bolt IS; the ponytail is
+                // thrown and caught, and a throw that ends in the first body it
+                // touches is not the move Jon asked for.
+                if !game.returns() {
+                    commands.entity(proj_entity).despawn();
+                }
                 continue;
             }
 

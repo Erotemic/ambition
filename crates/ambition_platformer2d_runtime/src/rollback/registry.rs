@@ -22,7 +22,7 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// variant went on the end — but a peer on 126 cannot decode a `6`, and a
 /// fighter under the stage is exactly the state a desync would hide: invisible
 /// and intangible on one machine, standing in the open on the other.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 127;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 128;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

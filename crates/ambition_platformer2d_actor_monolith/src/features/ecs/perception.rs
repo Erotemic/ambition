@@ -643,7 +643,7 @@ pub(crate) fn perception_body_for(
     // This body's OWN row in the shared peer snapshot, so it cannot know itself
     // more precisely than its opponents know it.
     self_peer: Option<&PerceptionPeer>,
-    aggression: Option<&crate::features::components::ActorAggression>,
+    aggression: Option<&ambition_combat::components::ActorAggression>,
     // NOT `Option`, per ADR 0024 §1 ("absence is never a policy and no outer
     // query may interpret a missing component as axis-swept"). The `None` arm of
     // the old signature did precisely that, and it was invisible to

@@ -15,7 +15,7 @@ pub fn sync_actor_poses_from_feature_aabbs(
     mut actors: Query<
         (
             &CenteredAabb,
-            &mut super::super::super::components::ActorPose,
+            &mut ambition_combat::components::ActorPose,
             Option<&super::super::actor_clusters::BodyKinematics>,
             Option<ambition_boss_encounter::BossClusterRef>,
         ),
@@ -29,11 +29,8 @@ pub fn sync_actor_poses_from_feature_aabbs(
             .map(|k| k.facing)
             .or_else(|| boss.map(|feature| feature.kin.facing))
             .unwrap_or(pose.facing);
-        *pose = super::super::super::components::ActorPose::from_parts(
-            aabb.center,
-            aabb.half_size,
-            facing,
-        );
+        *pose =
+            ambition_combat::components::ActorPose::from_parts(aabb.center, aabb.half_size, facing);
     }
 }
 
@@ -95,9 +92,9 @@ pub(crate) fn observe_actor_decision_inputs(
         (
             Entity,
             &ActorDisposition,
-            &super::super::super::components::ActorTarget,
+            &ambition_combat::components::ActorTarget,
             Option<super::super::actor_clusters::ActorClusterQueryDataReadOnly>,
-            Option<&super::super::super::components::ActorFaction>,
+            Option<&ambition_combat::components::ActorFaction>,
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
         ),
         (
@@ -155,7 +152,7 @@ pub(crate) fn maintain_actor_pre_decision_state(
             With<CenteredAabb>,
             With<ActorIdentity>,
             With<ActorDisposition>,
-            With<super::super::super::components::ActorTarget>,
+            With<ambition_combat::components::ActorTarget>,
             With<ambition_platformer2d_core::movement::MotionModel>,
             Without<crate::actor::PlayerEntity>,
             Without<ambition_boss_encounter::BossConfig>,
@@ -263,7 +260,7 @@ pub fn tick_actor_brains(
     mut actors: Query<
         (
             Entity,
-            &super::super::super::components::ActorTarget,
+            &ambition_combat::components::ActorTarget,
             // Stateful decision policy. The frame it produces is buffered in
             // `ActorDecisionFrames`; this phase never borrows `ActorControl`.
             // `Option` because dynamically-spawned actors (debug tools, scripted
@@ -287,12 +284,12 @@ pub fn tick_actor_brains(
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
                 // Faction is still a self-view input; crowd observation consumed
                 // its own copy in the preceding phase.
-                Option<&super::super::super::components::ActorFaction>,
+                Option<&ambition_combat::components::ActorFaction>,
                 // §A7: this body's per-entity grudge, so its world-out `WorldView`
                 // resolves a same-faction grudge-duel opponent as hostile (matching
                 // `select_actor_targets`), not by faction alone. `Option` — a body
                 // with no personal feud has no grudge component read here.
-                Option<&super::super::super::components::ActorAggression>,
+                Option<&ambition_combat::components::ActorAggression>,
                 // §A7: this body's persistent world-belief, updated each tick from its
                 // fresh `WorldView` so its brain can pursue a foe that has left the
                 // viewport. Attached by `ensure_perception`; `Option` for the
@@ -1002,7 +999,7 @@ pub fn integrate_sim_bodies(
             Entity,
             &mut CenteredAabb,
             &mut BodyCombat,
-            &super::super::super::components::ActorTarget,
+            &ambition_combat::components::ActorTarget,
             Option<&mut ambition_characters::control::ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
             Option<&ambition_mount::Mounted>,
@@ -1297,7 +1294,7 @@ pub fn apply_actor_contact_damage(
         Query<
             (
                 Entity,
-                &super::super::super::components::ActorTarget,
+                &ambition_combat::components::ActorTarget,
                 Option<&ambition_characters::control::DrivingParticipant>,
                 // ⭐⭐ IS THIS BODY SEATED IN A MATCH? D206. Whether touching a
                 // body hurts is a CHARACTER trait
@@ -1437,10 +1434,7 @@ pub(crate) fn compute_nearest_neighbors(
 /// unit-testable in isolation from the actor tick.
 pub(crate) fn compute_crowding_by_id(
     requests: &[(String, ae::Vec2, ambition_combat::crowd::CrowdKind)],
-    faction_by_id: &std::collections::HashMap<
-        String,
-        super::super::super::components::ActorFaction,
-    >,
+    faction_by_id: &std::collections::HashMap<String, ambition_combat::components::ActorFaction>,
     // id → the id of the body it's actively fighting (its `ActorTarget`), so a foe is
     // never mistaken for an ally to spread from — even a SAME-faction one (two `Npc`
     // duelists feuding via a grudge).
@@ -1896,7 +1890,9 @@ pub fn tick_npc_idle_barks(
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     room_set: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_world::rooms::RoomSet>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >,
     >,
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.

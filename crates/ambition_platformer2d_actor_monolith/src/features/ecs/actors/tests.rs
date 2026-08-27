@@ -49,7 +49,11 @@ fn nearest_neighbor_is_same_kind_and_closest() {
     let reqs = vec![
         ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
         ("b".to_string(), ae::Vec2::new(10.0, 0.0), CrowdKind::Ground), // closest to a
-        ("c".to_string(), ae::Vec2::new(100.0, 0.0), CrowdKind::Ground),
+        (
+            "c".to_string(),
+            ae::Vec2::new(100.0, 0.0),
+            CrowdKind::Ground,
+        ),
         (
             "flyer".to_string(),
             ae::Vec2::new(1.0, 0.0),
@@ -68,12 +72,12 @@ fn nearest_neighbor_is_same_kind_and_closest() {
 /// should fire. Crowding only counts same-faction allies now.
 fn same_faction(
     ids: &[&str],
-) -> std::collections::HashMap<String, super::super::super::components::ActorFaction> {
+) -> std::collections::HashMap<String, ambition_combat::components::ActorFaction> {
     ids.iter()
         .map(|id| {
             (
                 id.to_string(),
-                super::super::super::components::ActorFaction::Enemy,
+                ambition_combat::components::ActorFaction::Enemy,
             )
         })
         .collect()
@@ -114,7 +118,11 @@ fn crowding_ignores_actors_outside_the_radius() {
     use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
         ("a".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
-        ("b".to_string(), ae::Vec2::new(500.0, 0.0), CrowdKind::Ground), // > 80px
+        (
+            "b".to_string(),
+            ae::Vec2::new(500.0, 0.0),
+            CrowdKind::Ground,
+        ), // > 80px
     ];
     assert!(
         compute_crowding_by_id(&reqs, &same_faction(&["a", "b"]), &no_opponents()).is_empty(),
@@ -130,7 +138,11 @@ fn crowding_ignores_a_different_faction_opponent() {
     // back-actor hold rule freezes both fighters instead of letting them close.
     use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
-        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
+        (
+            "pca".to_string(),
+            ae::Vec2::new(0.0, 0.0),
+            CrowdKind::Ground,
+        ),
         (
             "robot".to_string(),
             ae::Vec2::new(20.0, 0.0),
@@ -140,11 +152,11 @@ fn crowding_ignores_a_different_faction_opponent() {
     let mut factions = std::collections::HashMap::new();
     factions.insert(
         "pca".to_string(),
-        super::super::super::components::ActorFaction::Enemy,
+        ambition_combat::components::ActorFaction::Enemy,
     );
     factions.insert(
         "robot".to_string(),
-        super::super::super::components::ActorFaction::Boss,
+        ambition_combat::components::ActorFaction::Boss,
     );
     assert!(
         compute_crowding_by_id(&reqs, &factions, &no_opponents()).is_empty(),
@@ -162,7 +174,11 @@ fn crowding_ignores_a_same_faction_grudge_opponent() {
     // overrides the same-faction default.
     use ambition_combat::crowd::CrowdKind;
     let reqs = vec![
-        ("pca".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
+        (
+            "pca".to_string(),
+            ae::Vec2::new(0.0, 0.0),
+            CrowdKind::Ground,
+        ),
         (
             "robot".to_string(),
             ae::Vec2::new(20.0, 0.0),
@@ -198,7 +214,11 @@ fn aerial_actors_crowd_at_a_wider_radius_than_ground() {
     );
     let ground = vec![
         ("g1".to_string(), ae::Vec2::new(0.0, 0.0), CrowdKind::Ground),
-        ("g2".to_string(), ae::Vec2::new(150.0, 0.0), CrowdKind::Ground),
+        (
+            "g2".to_string(),
+            ae::Vec2::new(150.0, 0.0),
+            CrowdKind::Ground,
+        ),
     ];
     assert!(
         compute_crowding_by_id(&ground, &same_faction(&["g1", "g2"]), &no_opponents()).is_empty(),

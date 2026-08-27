@@ -27,8 +27,8 @@ use bevy::prelude::Component;
 // rollback domain, Mary-O's shell state machine) sits ABOVE this crate. Named
 // from its owner; deliberately NOT re-exported.
 
-use super::super::components::BodyMelee;
 use super::super::enemies::ActorSurfaceState;
+use ambition_combat::components::BodyMelee;
 // The body a reset hands back. Below both of the domains that restore it —
 // respawn and the mount dismount — and imported, never re-exported.
 use ambition_characters::actor::character_catalog::CharacterCatalog;

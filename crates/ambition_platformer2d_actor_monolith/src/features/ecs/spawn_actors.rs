@@ -231,8 +231,12 @@ pub(crate) fn spawn_staged_actor_into(
     let aabb = ae::Aabb::new(req.pos, req.half_size);
     match &req.kind {
         SpawnActorKind::Boss { brain, overrides } => {
-            let authored =
-                ambition_platformer2d_world::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, brain.clone());
+            let authored = ambition_platformer2d_world::rooms::Authored::new(
+                req.id.clone(),
+                req.name.clone(),
+                aabb,
+                brain.clone(),
+            );
             spawn_boss_with_overrides_into(
                 commands,
                 boss_catalog,
@@ -258,9 +262,16 @@ pub(crate) fn spawn_staged_actor_into(
             ) {
                 return;
             }
-            let payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain.clone(), character.clone());
-            let authored =
-                ambition_platformer2d_world::rooms::Authored::new(req.id.clone(), req.name.clone(), aabb, payload);
+            let payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+                brain.clone(),
+                character.clone(),
+            );
+            let authored = ambition_platformer2d_world::rooms::Authored::new(
+                req.id.clone(),
+                req.name.clone(),
+                aabb,
+                payload,
+            );
             // Staged outside the authored RoomSpec lists: mark it so the
             // renderer's runtime-visual discovery gives it a sprite, the same as
             // any authored enemy.
@@ -800,7 +811,7 @@ fn boss_actor_cluster(
     ambition_platformer2d_shared_tangle::body::SpawnBaseline,
     super::actor_clusters::ActorMotionPath,
     super::super::enemies::ActorSurfaceState,
-    super::super::components::BodyMelee,
+    ambition_combat::components::BodyMelee,
     crate::actor::AncillaryMovementBundle,
     ambition_platformer2d_core::movement::MotionModel,
     ambition_combat::CombatCapabilities,
@@ -870,7 +881,7 @@ fn boss_actor_cluster(
             surface_normal: ae::Vec2::new(0.0, -1.0),
             gravity_scale: 0.0,
         },
-        super::super::components::BodyMelee::default(),
+        ambition_combat::components::BodyMelee::default(),
         crate::actor::AncillaryMovementBundle::from_scratch(
             super::actor_clusters::ActorBody::from_kit(movement_kit, true, kin.size).0,
         ),
@@ -900,7 +911,9 @@ pub(crate) fn spawn_boss_with_overrides_into(
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_entity_catalog::placements::BossBrain,
+    >,
     overrides: &BossOverrides,
 ) {
     let mut boss = BossClusterScratch::new(
@@ -1296,7 +1309,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
     profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+    >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     faction: super::ActorFaction,
 ) {
@@ -1644,7 +1659,11 @@ fn attach_mount_role_from(
     if !pilotable.is_empty() {
         commands.entity(entity).insert((
             ambition_mount::CanPilot {
-                classes: pilotable.iter().cloned().map(ambition_mount::MountClass).collect(),
+                classes: pilotable
+                    .iter()
+                    .cloned()
+                    .map(ambition_mount::MountClass)
+                    .collect(),
             },
             ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
@@ -1661,7 +1680,9 @@ pub(super) fn spawn_solo_enemy_into(
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
     enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+    >,
     faction: super::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -1732,7 +1753,9 @@ pub(crate) fn spawn_interactable_into(
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::InteractableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::InteractableSpec,
+    >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);

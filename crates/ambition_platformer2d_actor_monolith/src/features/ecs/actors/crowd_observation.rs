@@ -20,8 +20,8 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::Entity;
 use std::collections::HashMap;
 
+use ambition_combat::components::ActorFaction;
 use ambition_combat::crowd::CrowdKind;
-use crate::features::components::ActorFaction;
 
 /// One body's contribution to the crowd picture.
 pub(crate) struct ObservedBody<'a> {
@@ -72,7 +72,8 @@ impl CrowdObservation {
         if !in_a_fight || !alive {
             return;
         }
-        self.requests.push((body.id.to_string(), body.pos, body.kind));
+        self.requests
+            .push((body.id.to_string(), body.pos, body.kind));
         if let Some(faction) = body.faction {
             self.faction_by_id.insert(body.id.to_string(), faction);
         }
@@ -105,11 +106,8 @@ impl CrowdObservation {
         // desync, not a wobble. The actor id is the stable semantic key.
         self.requests.sort_by(|a, b| a.0.cmp(&b.0));
         let neighbor_by_id = super::compute_nearest_neighbors(&self.requests);
-        let crowding_by_id = super::compute_crowding_by_id(
-            &self.requests,
-            &self.faction_by_id,
-            &opponent_id_by_id,
-        );
+        let crowding_by_id =
+            super::compute_crowding_by_id(&self.requests, &self.faction_by_id, &opponent_id_by_id);
         CrowdFacts {
             alive_by_entity: self.alive_by_entity,
             neighbor_by_id,
@@ -134,7 +132,10 @@ impl CrowdFacts {
     }
 
     /// Personal-space pressure on this body, if it is in the fight at all.
-    pub(crate) fn crowding(&self, id: &str) -> Option<ambition_characters::brain::smash::observation::CrowdingSignal> {
+    pub(crate) fn crowding(
+        &self,
+        id: &str,
+    ) -> Option<ambition_characters::brain::smash::observation::CrowdingSignal> {
         self.crowding_by_id.get(id).copied()
     }
 
@@ -144,7 +145,6 @@ impl CrowdFacts {
         &self.neighbor_by_id
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -169,7 +169,10 @@ mod tests {
     #[test]
     fn crowding_counts_fighters_and_ignores_bystanders() {
         let mut o = CrowdObservation::default();
-        let fighters = [Entity::from_raw_u32(1).expect("a valid test entity id"), Entity::from_raw_u32(2).expect("a valid test entity id")];
+        let fighters = [
+            Entity::from_raw_u32(1).expect("a valid test entity id"),
+            Entity::from_raw_u32(2).expect("a valid test entity id"),
+        ];
         o.note_actor(fighters[0], true, Some(body("a", 0.0)), true);
         o.note_actor(fighters[1], true, Some(body("b", 8.0)), true);
         let bystander = Entity::from_raw_u32(3).expect("a valid test entity id");
@@ -229,7 +232,12 @@ mod tests {
             let order: Vec<usize> = if flip { vec![2, 0, 1] } else { vec![0, 1, 2] };
             for (slot, i) in order.into_iter().enumerate() {
                 let (id, x) = ids[i];
-                o.note_actor(Entity::from_raw_u32(slot as u32 + 1).expect("a valid test entity id"), true, Some(body(id, x)), true);
+                o.note_actor(
+                    Entity::from_raw_u32(slot as u32 + 1).expect("a valid test entity id"),
+                    true,
+                    Some(body(id, x)),
+                    true,
+                );
             }
             o.finish()
         };

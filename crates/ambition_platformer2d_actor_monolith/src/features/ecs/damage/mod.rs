@@ -404,9 +404,9 @@ pub fn apply_feature_hit_events(
             // Provoke accumulator (shared aggression component). `Option` so
             // minimal test fixtures that spawn a bare actor without it still
             // match; production actors always carry it.
-            Option<&mut super::super::components::ActorAggression>,
+            Option<&mut ambition_combat::components::ActorAggression>,
             // Dialogue payload — present on talkable actors (drives barks).
-            Option<&super::super::components::ActorInteraction>,
+            Option<&ambition_combat::components::ActorInteraction>,
             // The actor's held locomotion, for directional influence (CM2). The
             // brain writes it every tick; DI reads the SAME field, so a level-9
             // CPU or RL policy DIs its own knockback like a human. `Option` for

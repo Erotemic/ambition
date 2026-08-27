@@ -41,14 +41,12 @@ pub mod brain_command;
 pub mod combat_rules;
 pub mod stocks_match;
 // Stable facade for boss attack geometry.
-pub use ambition_boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;
 pub mod ecs;
 pub(crate) mod enemies;
 mod npcs;
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
-pub use ambition_combat::components;
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
 // facts for whichever body produced them; `swim` and `ledge_grab` are thin shims over
 // engine-owned water / ledge state and name no `crate::` type at all.
@@ -74,7 +72,7 @@ pub use movement_fx::{
 // outward references to zero: one module spelling one crate two ways. Callers
 // name the crate that owns the thing.
 
-pub use boss_attack_geometry::{
+pub use ambition_boss_encounter::attack_geometry::{
     active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb, damageable_volumes,
     volumes_for_profile, world_space_body_aabbs_from_metrics, world_space_body_aabbs_from_parts,
     AnimationSelection, BossAnimationFrameSample, BossVolumeContext, CombatGeometry,
@@ -106,7 +104,7 @@ pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 // port is `FeatureInteractionSet::CutBarkCast`, the phase this system is placed in below.
 pub use npcs::speak_conversation_cut_barks;
 
-pub use components::{
+pub use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorFaction, ActorIdentity, ActorInteraction, ActorPose,
     ActorRenderSize, ActorSpriteOffset, ActorTarget, AggressionMode, AggressionTarget, BodyMelee,
     BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,

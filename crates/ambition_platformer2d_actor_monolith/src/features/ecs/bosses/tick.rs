@@ -5,9 +5,9 @@ use super::super::*;
 
 use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, StateMachineCfg};
 use ambition_characters::control::ActorControl;
+use ambition_combat::events::HitEvent;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
-use ambition_combat::events::{HitEvent};
 
 /// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
 /// fire intent — the controller→verb→move map.
@@ -381,7 +381,7 @@ pub fn tick_boss_brains_system(
             // The `BossAttackState` read-model is NOT written here (§A1 slice 1b) — the
             // projection owns it — so this tick no longer borrows it.
             &mut ambition_characters::brain::BossAttackIntent,
-            &super::super::super::components::ActorTarget,
+            &ambition_combat::components::ActorTarget,
             // The boss's authored special repertoire (body CAPABILITY, persisted
             // across a brain swap). Read only by the possession arm to map input
             // onto the boss's own moves; `Option` for test fixtures that spawn a
@@ -704,7 +704,7 @@ pub fn integrate_boss_bodies(
             &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
-            &super::super::super::components::ActorTarget,
+            &ambition_combat::components::ActorTarget,
             &mut CenteredAabb,
             &mut ambition_characters::actor::BodyCombat,
             // The body's explicit movement policy — a boss carries one from

@@ -1225,6 +1225,20 @@ where
     registrar.rollback_component_clone_entity_ref::<MountReservedFor>(
         OWNER,
         "mount.reserved_for",
+        // ⚠ THE PROBE IS THE RIDER, AND THAT IS A DETECTION LIMIT WORTH NAMING.
+        // The whole component is cloned and restored, so `expires_in` and
+        // `board_within` REWIND correctly — this is not a correctness gap. What
+        // the checksum covers is the rider's stable sim identity, because raw
+        // entity bits are not comparable across a resimulation, which is the
+        // entire reason this registrar variant exists. So a divergence in the
+        // reservation's CLOCK would be corrected but not DETECTED.
+        //
+        // ⛔ FOLDING THE CLOCK IN WOULD NOT BE FREE: the probed variant takes a
+        // `u64` and no entity mapping, and hashing an entity's bits is exactly
+        // the mistake the identity projection exists to prevent. If reservations
+        // ever outlive a rollback window by enough for the clock to drift
+        // observably, the answer is a probe that folds the identity AND the
+        // remaining time, not a second registration.
         |held| held.rider,
     );
     registrar.rollback_map_entities::<MountReservedFor>(OWNER, "map.mount_reserved_for");

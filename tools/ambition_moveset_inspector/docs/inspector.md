@@ -9,9 +9,29 @@ cast, without loading the game.
 tools/ambition_moveset_inspector/serve_inspector.sh --open
 ```
 
-The wrapper re-exports the bundle (`cargo run -p ambition_app_tools --bin
-moveset_export`) and then serves the UI at <http://127.0.0.1:8777>. Pass
-`--no-export` to look at the bundle already on disk.
+Serves the UI at <http://127.0.0.1:8777>. Pass `--no-export` to look at the
+bundle already on disk.
+
+⛔⛔ NOTHING HERE INVOKES CARGO. The wrapper used to `cargo run` the exporter on
+every start, which takes the cargo build LOCK — so opening the inspector could
+block, or be blocked by, an agent building on another branch. It runs binaries
+that already exist and PRINTS the build command for any it cannot find:
+
+```text
+[inspector] capture_scene is not built — Engine Takes will use CPU-derived sprites
+[inspector]   cargo build -p ambition_app_tools --bin capture_scene
+```
+
+Missing binaries are never fatal. No exporter means the bundle already on disk is
+served; no renderer means the CPU fallback; no `moveset_takes` means there are no
+takes to look at yet.
+
+⚠ THE COST OF NEVER BUILDING is that a binary can be older than the source it was
+built from. The exporter's path and build time are printed when it runs, so a
+stale answer is at least a visible one.
+
+Binaries are looked for in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}`,
+the convention `scripts/profile_desktop.sh` already uses.
 
 ## What it reads
 
@@ -163,7 +183,7 @@ The derived frame cursor is the FALLBACK now, not the only answer.
 ONE binary: **`capture_scene`**. Nothing else in the tool needs a GPU.
 
 ```bash
-# build it, or pass --with-renderer to serve_inspector.sh and it does this
+# you build it; the tool never will
 cargo build -p ambition_app_tools --bin capture_scene
 
 # and it is useful by hand

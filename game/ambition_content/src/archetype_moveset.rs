@@ -137,7 +137,8 @@ mod tests {
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
                 &["polygon_brawler", "pugnacious_polygon"][..],
-                0,
+                // His side-B is the draw; everything else is the archetype's.
+                1,
             ),
             (
                 crate::actor_moveset::actor_moveset(),

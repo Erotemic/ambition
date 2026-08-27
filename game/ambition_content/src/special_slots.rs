@@ -32,13 +32,45 @@ pub fn replace_special(set: &mut MovesetContract, verb: &str, replacement: MoveS
     set.moves.push(replacement);
 }
 
-/// Which verbs a fighter's four specials answer, for a test that wants to walk
-/// them. `special_air_down` is the airborne half of the down slot; a fighter
-/// whose down special means one thing in both postures still binds both.
+/// Which verbs a fighter's four specials answer.
+///
+/// ⛔⛔ THE NEUTRAL IS `special` AND THE SIDE IS `special_forward`. This list
+/// shipped saying `special_neutral` and `special_side`, which are not names any
+/// repertoire binds — `SmashRepertoire::into_contract` binds `special`,
+/// `special_forward`, `special_up`, `special_down` and `special_air_down`, and
+/// nothing pointed that out because nothing read the list. A
+/// [`replace_special`] aimed at a name nothing answers to is the quiet failure
+/// it invites: the new move goes into the table, a verb no press produces gets
+/// bound to it, and the archetype's own special stays bound and keeps coming
+/// out.
+///
+/// `special_air_down` is the airborne half of the down slot; a fighter whose
+/// down special means one thing in both postures still binds both.
 pub const SPECIAL_VERBS: &[&str] = &[
-    "special_neutral",
-    "special_side",
+    "special",
+    "special_forward",
     "special_down",
     "special_air_down",
     "special_up",
 ];
+
+#[cfg(test)]
+mod tests {
+    /// ⛔ EVERY NAME IN [`super::SPECIAL_VERBS`] IS ONE A SHIPPED TABLE ACTUALLY
+    /// BINDS. A constant listing verbs is only useful if it is the same
+    /// vocabulary the repertoire lowers to, and the way that stops being true is
+    /// silently — this list was wrong on two of five entries from the day it was
+    /// written.
+    #[test]
+    fn every_special_verb_is_one_a_shipped_fighter_answers() {
+        let brawler = crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset();
+        let pointed = crate::pointed_polygon_moveset::pointed_polygon_moveset();
+        for verb in super::SPECIAL_VERBS {
+            assert!(
+                brawler.verbs.contains_key(*verb) || pointed.verbs.contains_key(*verb),
+                "`{verb}` is not a verb either reference fighter binds, so a \
+                 `replace_special` aimed at it would bind a press nobody makes"
+            );
+        }
+    }
+}

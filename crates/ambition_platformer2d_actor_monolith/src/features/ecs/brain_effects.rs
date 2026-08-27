@@ -85,6 +85,14 @@ pub fn spawn_projectiles_from_brain_actions(
         &ambition_characters::actor::BodyHealth,
         Option<&ambition_combat::targeting::MatchTeam>,
         Option<&ambition_characters::control::DrivingParticipant>,
+        // ⛔⛔ THE WORLD'S HANDS ARE OFF IT, AND HEALTH DOES NOT SAY SO. D201's
+        // stock loss calls `health.reset()` the instant the stock is spent, so a
+        // fighter waiting out its death beat reads FULL HEALTH while lying
+        // untouchable at the blast line. This scan asked `health.alive()` and
+        // therefore bent an assisted shot toward a body nothing can hit — the
+        // same defect `select_actor_targets` already carries the lesson for, one
+        // authority over.
+        Has<ambition_combat::death_rules::OutOfPlay>,
         // ⛔ THE STABLE IDENTITY, because an exact distance tie decided by
         // `Entity` is a desync: bevy_ggrs destroys and recreates rollback
         // entities, so the raw id a resimulation sees is not the one the
@@ -221,9 +229,23 @@ pub fn spawn_projectiles_from_brain_actions(
                 let foes = shooters.get(msg.actor).ok().map(|(faction, team, driver)| {
                     candidates
                         .iter()
-                        .filter(move |(candidate, _, candidate_faction, health, candidate_team, candidate_driver, _)| {
-                            *candidate != msg.actor
-                                && health.alive()
+                        .filter(
+                            move |(
+                                candidate,
+                                _,
+                                candidate_faction,
+                                health,
+                                candidate_team,
+                                candidate_driver,
+                                out_of_play,
+                                _,
+                            )| {
+                                *candidate != msg.actor
+                                // The shared gate, not a second health reading.
+                                && !ambition_combat::util::body_is_untouchable(
+                                    Some(health),
+                                    *out_of_play,
+                                )
                                 && ambition_combat::targeting::combat_relation(
                                     matrix,
                                     *faction,
@@ -236,8 +258,9 @@ pub fn spawn_projectiles_from_brain_actions(
                                     *candidate_team,
                                 )
                                 .is_target()
-                        })
-                        .map(|(candidate, aabb, _, _, _, _, sim_id)| {
+                            },
+                        )
+                        .map(|(candidate, aabb, _, _, _, _, _, sim_id)| {
                             (candidate, sim_id.cloned(), aabb.center)
                         })
                         .collect::<Vec<_>>()

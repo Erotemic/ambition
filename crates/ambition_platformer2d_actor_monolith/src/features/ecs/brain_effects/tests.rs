@@ -300,3 +300,102 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
          it did not go away"
     );
 }
+
+/// ⭐⭐ AN ASSISTED SHOT DOES NOT BEND TOWARD A BODY NOTHING CAN HIT.
+///
+/// ⛔⛔ THE SCAN ASKED `health.alive()`, AND THAT IS NOT THE LIVENESS RULE ANY
+/// MORE. D201's stock loss calls `health.reset()` the instant the stock is
+/// spent, so a fighter waiting out its death beat reads FULL HEALTH while lying
+/// untouchable at the blast line. The assist happily picked it — the better
+/// target by angle, and the one the shot could not possibly connect with. The
+/// same defect was found and fixed in `select_actor_targets`; this is the other
+/// consumer, and it did not learn.
+///
+/// ⛔ THE DEAD ONE IS THE BETTER TARGET, deliberately. Put it further off the
+/// aim line and the arm passes on geometry rather than on eligibility.
+#[test]
+fn an_assisted_shot_ignores_an_out_of_play_candidate() {
+    use ambition_combat::targeting::MatchTeam;
+
+    let bend = |dead_is_present: bool| -> f32 {
+        let mut app = build_app();
+        let shooter_pos = ae::Vec2::ZERO;
+        let body = |name: &'static str, pos: ae::Vec2| {
+            let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
+            enemy_actor(ActorClusterSeed::new(
+                name,
+                name,
+                aabb,
+                ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+                &[],
+            ))
+        };
+        // ⛔ THE TWO COMPONENTS THE ASSIST READS THAT THE CLUSTER BUNDLE DOES
+        // NOT CARRY: without a faction the shooter is not readable at all and
+        // the assist silently falls through to the commanded direction, and
+        // without a box a candidate is not in the scan.
+        let arm = |app: &mut App, entity: Entity, pos: ae::Vec2, team: &str| {
+            app.world_mut().entity_mut(entity).insert((
+                ambition_characters::actor::ActorFaction::Enemy,
+                ae::CenteredAabb::new(pos, ae::Vec2::new(14.0, 23.0)),
+                MatchTeam::new(team),
+            ));
+        };
+        let shooter = app.world_mut().spawn(body("shooter", shooter_pos)).id();
+        arm(&mut app, shooter, shooter_pos, "left");
+        // Nearly on the aim line: this is the one an angle-ranked assist wants.
+        let dead = app
+            .world_mut()
+            .spawn(body("dead", ae::Vec2::new(400.0, -40.0)))
+            .id();
+        arm(&mut app, dead, ae::Vec2::new(400.0, -40.0), "right");
+        if dead_is_present {
+            app.world_mut()
+                .entity_mut(dead)
+                .insert(ambition_combat::death_rules::OutOfPlay);
+        }
+        let live = app
+            .world_mut()
+            .spawn(body("live", ae::Vec2::new(400.0, 260.0)))
+            .id();
+        arm(&mut app, live, ae::Vec2::new(400.0, 260.0), "right");
+
+        let mut spec = RangedActionSpec::rock(300.0, 1);
+        spec.aim_assist =
+            Some(ambition_characters::brain::action_set::AimAssist::half_plane(2000.0));
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor: shooter,
+                request: ActionRequest::Ranged {
+                    spec,
+                    origin: shooter_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    commitment: RangedCommitment::Attempt,
+                },
+            });
+        app.update();
+        let projectiles = live_projectile_bodies(&mut app);
+        assert_eq!(projectiles.len(), 1, "the shot did not come out");
+        projectiles[0].body.kin.vel.y
+    };
+
+    // ⛔ THE PREMISE: with both candidates ELIGIBLE the assist really does prefer
+    // the near-line one, so the arm below is about eligibility and not about a
+    // weapon that never bends at all.
+    let toward_dead = bend(false);
+    assert!(
+        toward_dead < -10.0,
+        "with both candidates alive the shot bent {toward_dead:?} on y — it did \
+         not prefer the near-line target, so marking that target out of play \
+         cannot be what changes the answer"
+    );
+    let with_dead_out = bend(true);
+    assert!(
+        with_dead_out > 10.0,
+        "the assist bent the shot {with_dead_out:?} on y with the near-line \
+         target OUT OF PLAY — a body the world's hands are off is not a target, \
+         and health does not say so because a spent stock resets it"
+    );
+}

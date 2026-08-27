@@ -1013,3 +1013,131 @@ fn the_summoned_shark_carries_no_contact_hazard() {
         );
     }
 }
+
+
+/// ⭐⭐ KILL THE SHARK AND THE ADMIRAL FALLS OFF — and can summon another.
+///
+/// Jon: *"If the shark is hit 3 times, then the shark dies and the rider would
+/// fall off."* Two halves, and the second is the one with teeth: ADR 0020
+/// deliberately KEEPS `RidingOn` attached when a mount dies, so a same-room reset
+/// can re-mount an authored pair. A summoned shark never comes back, so without
+/// `dissolve_the_ride_when_the_shark_dies` the admiral would be left logically
+/// riding a corpse forever — and `translate_shark_summons` refuses anybody
+/// already carrying `RidingOn`. One dead shark, no more sharks, for the match.
+#[test]
+fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::{Mountable, RidingOn};
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+    assert!(
+        app.world().get::<DrivingParticipant>(seat0).is_some(),
+        "seat 0 is not driven, so the press below reaches nobody"
+    );
+
+    let press_up_b = |app: &mut App| {
+        let up_special = ambition_platformer2d::engine_core::ControlFrame {
+            axis_y: -1.0,
+            special_pressed: true,
+            special_held: true,
+            ..Default::default()
+        };
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+        app.update();
+        for _ in 0..9 {
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    special_pressed: false,
+                    ..up_special
+                },
+            );
+            app.update();
+        }
+        for _ in 0..20 {
+            app.update();
+        }
+    };
+    press_up_b(&mut app);
+    let ridden = app
+        .world()
+        .get::<RidingOn>(seat0)
+        .map(|r| r.mount)
+        .expect("the admiral boarded, so there is a shark to kill");
+
+    // ── KILL IT. Enough damage that the pool is emptied whatever it is. ──
+    {
+        let world = app.world_mut();
+        let mut hp = world
+            .get_mut::<ambition_platformer2d::actor::BodyHealth>(ridden)
+            .expect("the shark carries its own pool");
+        hp.damage(9_999);
+    }
+    for _ in 0..30 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_none(),
+        "the shark died and the admiral is still logically riding it — ADR 0020 \
+         keeps the link across a mount's death on purpose, which is right for an \
+         authored pair whose shark respawns and wrong for a summon that never \
+         comes back"
+    );
+    // ⭐ AND THE UP-B IS FREE AGAIN. Without the dissolution above,
+    // `translate_shark_summons` would refuse forever: one dead shark, no more
+    // sharks, for the rest of the match.
+    let before = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    for _ in 0..180 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame::default(),
+        );
+        app.update();
+    }
+    press_up_b(&mut app);
+    let after = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<Mountable>>();
+        q.iter(world).count()
+    };
+    assert!(
+        after > before || app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral could not summon again after its shark died ({before} \
+         before, {after} after) — a dead mount had taken the ability with it"
+    );
+}

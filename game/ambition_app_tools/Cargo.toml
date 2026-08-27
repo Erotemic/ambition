@@ -102,3 +102,11 @@ name = "moveset_export"
 path = "src/bin/moveset_export.rs"
 test = false
 bench = false
+
+# The engine-take recorder. A frame-data table reports what a move DECLARES; a
+# take reports what the engine DID with it.
+[[bin]]
+name = "moveset_takes"
+path = "src/bin/moveset_takes.rs"
+test = false
+bench = false

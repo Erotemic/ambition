@@ -2619,6 +2619,32 @@ constructions, **60 are the nine arms that stay**. `BossPattern` appears twice.
 `Fighter` and `Smash` appear **zero** times — their tests live in their own
 subtrees and travel with the behaviour.
 
+✔✔ **THE FORCED SPLIT IS DONE FOR TWO OF THE THREE SUBTREES, 2026-08-26/27.**
+
+```text
+smash/data.rs     527   SmashCfg · ObsHistory · SmashState · BroadMode · DifficultyProfile
+                        ⇒ the pinned set for that subtree is COMPLETE in one module
+fighter/data.rs   203   FighterCfg · ApmLedger · PendingAttack · FighterState · FoeSample
+                        ⚠ AttackVerb · HabitModel · FighterBrainProfile · ShadowTuning
+                          are pinned too and still sit beside their own behaviour
+boss_pattern      ▢     six types already named in `encoded_types`, so its pinned
+                        set is the one that needs no measuring
+```
+
+⭐ **AND THE PROPERTY IS CHECKED RATHER THAN CLAIMED**: each `data.rs` may not
+name its subtree's behaviour, and it compiles, so the next session can price "the
+behaviour leaves" against a boundary that exists. ⚠ each split turned two or three
+same-module method calls into `pub(super)` — the kind of thing a line-count
+estimate cannot see, and the reason the row's "253 lines" was never going to
+survive.
+
+⛔ A TRAP THE NEXT SLICE WILL HIT TOO: `check_absence_contracts.py` finds encoded
+types by regexing raw source for the header that binds the snapshot trait to a
+type, and it does NOT strip comments. Writing that header in a doc comment
+invents a wire-format entry and turns the contract red — twice here, once for the
+real type and once for the placeholder that replaced it. Describe the impl; never
+spell its header.
+
 ⛔⛔⛔ **AND THE ORPHAN RULE ALREADY DECIDES WHICH HALF MAY LEAVE — measured
 2026-08-26. This is the MECHANISM behind "the 253 does not survive contact", and
 it is a compiler rule rather than an estimate.**

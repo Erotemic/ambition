@@ -81,6 +81,20 @@ pub struct CharacterSheetSpec {
     /// land near the collision-box bottom). Authoritative value lives in
     /// the RON's `body_metrics.feet_anchor_norm.y`.
     pub feet_anchor_y: f32,
+    /// Sprite anchor x (normalized; the body's own centre as a fraction of the
+    /// frame, measured from the frame's centre). Authoritative value lives in
+    /// the RON's `body_metrics.feet_anchor_norm.x`.
+    ///
+    /// ⛔⛔ THIS WAS A HARD-CODED `0.0` AT THE ANCHOR, and the sheets have carried
+    /// the right number all along. `0.0` means "centre the art on the FRAME",
+    /// and a frame is not a character: the art sits wherever the packer's crop
+    /// left it, so a body drawn `0.0` is drawn off its own collision box by
+    /// exactly how far off-centre it was packed. Invisible for the population
+    /// that happens to sit near the middle (the other polygons are within 4%)
+    /// and unmissable for the ones that do not — `projectile_polygon` is 17%
+    /// of a 377px frame and `officer` is 25% of a 326px one, which is a box
+    /// standing beside its own fighter.
+    pub feet_anchor_x: f32,
     /// Pixel inset on every URect to prevent bilinear filtering from
     /// pulling neighboring frame pixels at the seam.
     pub frame_sample_inset: u32,
@@ -507,6 +521,17 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         .enumerate()
         .filter_map(|(idx, row)| CharacterAnim::from_name(&row.animation).map(|anim| (anim, idx)))
         .collect();
+    // ⭐ THE SAME FACT AS `feet_anchor_y`, off the same authored point, and it
+    // needs no override: a `y` override exists because a character may want its
+    // feet planted somewhere other than where the art puts them, which is a
+    // GAMEPLAY choice. There is no equivalent for `x` — the body's horizontal
+    // centre is a measurement of the art, not a decision about it.
+    let feet_anchor_x = record
+        .body_metrics
+        .as_ref()
+        .and_then(|b| b.feet_anchor_norm)
+        .map(|p: NormPoint| p.x)
+        .unwrap_or(0.0);
     let feet_anchor_y = tuning.feet_anchor_y_override.unwrap_or_else(|| {
         record
             .body_metrics
@@ -532,6 +557,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         anim_rows,
         record: record.clone(),
         collision_scale,
+        feet_anchor_x,
         feet_anchor_y,
         frame_sample_inset,
     }

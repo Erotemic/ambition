@@ -462,3 +462,89 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
         disagreements.join("\n")
     );
 }
+
+/// ⭐⭐ THE ART IS DRAWN ON ITS OWN BOX, not on the middle of its packed cell.
+///
+/// ⛔⛤ THE DEFECT, reported in play 2026-08-27: *"the projectile polygon's
+/// collision box is extremely disjoint from its art."* The anchor returned
+/// `Anchor(Vec2::new(0.0, ay))` — the `y` read off the sheet's own
+/// `feet_anchor_norm` and the `x` a hard-coded zero. Zero is a claim about the
+/// FRAME, and a frame is not a character: it is a cell sized by the widest pose,
+/// and the art sits wherever the crop left it. So every body was drawn off its
+/// collision box by exactly how far off-centre it was packed.
+///
+/// ⛔⛔ AND THE REST OF THE ENGINE ALREADY DISAGREED WITH IT. `FrameToBody::
+/// planting_feet` maps an authored hitbox polygon by `(px - feet.x)`, so the
+/// HITBOXES were measured from the body's own centre while the ART was measured
+/// from the cell's. The two were out by `feet.x - frame_w/2` — 64.5px for the
+/// projectile polygon — which is a fighter, its damage boxes and its collision
+/// box in three different places.
+///
+/// ⭐ THE ARMS STRADDLE THE POPULATION. A body packed near the middle would pass
+/// this whatever the anchor did (the other polygons are within 4% and that is
+/// why nobody saw it for so long), so the assertion needs a sheet that is
+/// badly off-centre to mean anything at all.
+#[test]
+fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
+    // ⛔ FAR OFF-CENTRE AND NEAR IT, in one loop. The near-centre row is not
+    // decoration: it is what says the fix is a CORRECTION rather than a constant
+    // shift applied to everybody.
+    for (target, min_offset) in [
+        ("projectile_polygon", 0.10_f32),
+        ("officer", 0.10),
+        ("pointed_polygon", 0.0),
+    ] {
+        // ⛔⛔ NOT `else { continue }`. The first version of this test skipped a
+        // missing key silently and therefore passed with the DEFECT RESTORED —
+        // measured, not feared: forcing the anchor back to a hard-coded `0.0`
+        // left it green, because all three rows had skipped. A row that cannot
+        // be found is a broken test, not an absent case.
+        let record = record_for_sheet_key(target).unwrap_or_else(|| {
+            panic!(
+                "`{target}` is not a baked sheet key, so this row asserted \
+                 nothing (keys are bare names -- `projectile_polygon`, not \
+                 `projectile_polygon_spritesheet`)"
+            )
+        });
+        let metrics = record
+            .body_metrics
+            .as_ref()
+            .unwrap_or_else(|| panic!("{target} publishes body metrics"));
+        let feet = metrics
+            .feet_pixel
+            .unwrap_or_else(|| panic!("{target} publishes a feet pixel"));
+        let frame_w = record.frame_width.max(1) as f32;
+        // The body's own centre, as the fraction of the frame the anchor is
+        // measured in. This is the number the sheet already stores in
+        // `feet_anchor_norm.x`, recomputed here from the pixel it came from so
+        // the test does not simply read back the field under test.
+        let want = feet.x / frame_w - 0.5;
+        assert!(
+            want.abs() >= min_offset,
+            "{target} is only {:.1}% off its frame centre, so it cannot tell a \
+             body-centred anchor from a frame-centred one — this row was chosen \
+             to be the case that can fail",
+            want.abs() * 100.0,
+        );
+
+        let spec = spec_from_record(record, &SheetTuning::default());
+        let collision = Vec2::new(40.0, 80.0);
+        let anchor = feet_anchor_for_render_size(&spec, collision, sprite_render_size(&spec, collision));
+        // ⛔ THE TOLERANCE ADMITS AUTHORING ROUNDING AND NOTHING ELSE. A handful
+        // of sheets store a `feet_anchor_norm.x` that differs from the feet pixel
+        // it was derived from in the third decimal (the officer's is -0.250000
+        // against a recomputed -0.248466, 0.15% of his frame) — the emitter
+        // rounded, and that is not a defect worth a red test. `0.01` is twenty
+        // times the largest such drift in the library and seventeen times SMALLER
+        // than the bug it guards, so neither case can be mistaken for the other.
+        assert!(
+            (anchor.0.x - want).abs() < 0.01,
+            "{target}: the sprite anchors at x={:.6} but its body sits at x={:.6} \
+             of the frame — the quad is centred on the packed cell, so the art is \
+             drawn {:.1}% of a {frame_w}px frame away from the box that represents it",
+            anchor.0.x,
+            want,
+            (anchor.0.x - want).abs() * 100.0,
+        );
+    }
+}

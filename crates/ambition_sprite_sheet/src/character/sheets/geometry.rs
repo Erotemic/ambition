@@ -75,7 +75,17 @@ pub fn feet_anchor_for_render_size(
     let render_height = render_size.y.max(1.0);
     let half_collision_y = collision.y * 0.5;
     let ay = spec.feet_anchor_y + half_collision_y / render_height;
-    Anchor(Vec2::new(0.0, ay))
+    // ⛔⛔ THE X WAS `0.0`, AND `0.0` IS A CLAIM ABOUT THE FRAME rather than about
+    // the character: it centres the art on the packed cell, and the art sits
+    // wherever the crop left it inside that cell. Every sheet already measures
+    // the difference — `body_metrics.feet_anchor_norm.x` IS the body's centre as
+    // a fraction of the frame — and it was read for `y` and dropped for `x`.
+    //
+    // ⭐ SO A BODY IS DRAWN ON ITS OWN BOX NOW. `projectile_polygon` is packed
+    // 17% of a 377px frame left of centre and `officer` 25% of a 326px one, which
+    // is why they read as a collision box standing NEXT TO a fighter; a sheet
+    // that authors no body metrics still answers `0.0` and is byte-identical.
+    Anchor(Vec2::new(spec.feet_anchor_x, ay))
 }
 
 /// Build the textured sprite for a character given its collision-box size.

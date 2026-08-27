@@ -122,20 +122,27 @@ function rowCursorsFor(take) {
 
 function drawBodyArt(ctx, b, X, Y, scale, ticksOnRow) {
   if (!b.art) return false;
-  const [key, row] = b.art;
+  const [key, row, holds] = b.art;
   const entry = sheetImage(key);
   if (!entry) return false;
   const { meta, pages } = entry;
   const sheetRow = (meta.rows || [])[row];
   if (!sheetRow || !sheetRow.rects || !sheetRow.rects.length) return false;
-  /* The row's own timing, in take ticks per frame. A row with no duration is a
-   * still: hold frame 0 rather than dividing by zero into NaN. */
+  /* ⛔⛔ `duration_secs` IS PER FRAME, NOT PER ROW. The engine's animator does
+   * `elapsed -= row.duration_secs` once per frame advance, so a 6-frame row at
+   * 0.13 runs for 0.78s. This divided by the frame count and played every
+   * animation six times too slowly. A row with no duration is a still. */
   const simHz = (BUNDLE && BUNDLE.sim_hz) || 60;
   const count = sheetRow.rects.length;
   const perFrame = sheetRow.duration_secs > 0
-    ? Math.max(1, Math.round((sheetRow.duration_secs * simHz) / count))
+    ? Math.max(1, Math.round(sheetRow.duration_secs * simHz))
     : 0;
-  const frameIndex = perFrame > 0 ? Math.floor((ticksOnRow || 0) / perFrame) % count : 0;
+  /* ⛔⛔ AND A CLIP HOLDS ITS LAST FRAME rather than looping — `tick_slot` sets
+   * `clip_held` and stops. Looping a swing shows it restarting into its own
+   * windup while the recovery is still running, which is a move that does not
+   * exist. A resting pose loops; the recorder says which this is. */
+  const raw = perFrame > 0 ? Math.floor((ticksOnRow || 0) / perFrame) : 0;
+  const frameIndex = perFrame === 0 ? 0 : holds ? Math.min(raw, count - 1) : raw % count;
   const rect = sheetRow.rects[frameIndex];
   if (!rect) return false;
   const [sx, sy, sw, sh, page, offX, offY] = rect;

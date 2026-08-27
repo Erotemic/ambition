@@ -46,9 +46,38 @@ sub-rects with trim offsets. The server exposes the engine's own sprite director
 read-only at `/art/`, so nothing is copied and the page always shows what the
 build would draw.
 
-A take records `[sheet_key, row_index]` per body per tick. The FRAME within the
-row is derived in the viewer by counting consecutive ticks on that row — one
-clock (the sim tick the take was recorded at) instead of two that can drift.
+A take records `[sheet_key, row_index, holds_last_frame]` per body per tick. The
+FRAME within the row is derived in the viewer by counting consecutive ticks on
+that row — one clock (the sim tick the take was recorded at) instead of two that
+can drift.
+
+## What is REAL here and what is RECONSTRUCTED
+
+Worth stating plainly, because "recorded from the engine" is easy to over-claim.
+
+REAL — observed from a running composed host:
+
+- the simulation itself: real control frames, physics, move resolution, body
+  positions, live hitboxes, summons;
+- WHICH MOVE is playing on each tick (`MovePlayback`);
+- the art: the engine's own sheets, served from its own asset directory;
+- WHICH ROW that move draws from — resolved through the move's authored
+  `ClipBinding` and `clip_slot`, the same function and the same fallback chain
+  the renderer walks.
+
+RECONSTRUCTED — computed by the viewer, matching the engine's rules but not read
+from it:
+
+- **the frame cursor.** `CharacterAnimator` does not exist headless, so the
+  viewer re-derives the frame from ticks-on-row. It follows the animator's rules
+  (`duration_secs` is PER FRAME; a clip holds its last frame, a pose loops) but
+  it is a reimplementation and can drift from the real one.
+- **⚠ every non-move pose.** The game picks from 56 semantic body states — walk,
+  run, fall, land, crouch, shield, hitstun, tumble. This picks `jump` when
+  airborne and `idle` otherwise. A fighter walking or in hitstun therefore shows
+  IDLE, which is the largest fidelity gap in this view.
+- **⚠ mirroring** uses `facing` alone. `authored_faces_left` is exported and not
+  yet applied, so a left-drawn sheet may face the wrong way.
 
 ⛔ Two traps are already paid for here, and both cost a rebuild:
 

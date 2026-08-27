@@ -170,7 +170,7 @@ fn drawn_row_of(
     worn: Option<&str>,
     playing: Option<&ambition_platformer2d::entity_catalog::MoveSpec>,
     on_ground: Option<bool>,
-) -> Option<(String, u32)> {
+) -> Option<(String, u32, bool)> {
     use ambition_platformer2d::sprite_sheet::character::sheets::{
         try_load_spec_for_target, SheetTuning,
     };
@@ -185,14 +185,20 @@ fn drawn_row_of(
             .chain(spec_move.clip.fallbacks.iter().map(String::as_str))
             .collect();
         if let Some(slot) = spec.clip_slot(chain) {
-            return Some((key, slot as u32));
+            // ⛔⛔ A MOVE'S CLIP PLAYS ONCE AND HOLDS ITS LAST FRAME. That is
+            // `CharacterAnimator::tick_slot`, which sets `clip_held` and stops —
+            // a swing does not loop back to its windup while the recovery runs.
+            // A viewer that looped it would show the move restarting mid-move.
+            return Some((key, slot as u32, true));
         }
     }
     // ⛔ AND A RESTING BODY IS NOT NOTHING. Without this the view would show art
     // only while a move is playing and a bare box the rest of the time, which
     // reads as the art being broken rather than the fighter standing still.
     let resting = if on_ground == Some(false) { "jump" } else { "idle" };
-    spec.clip_slot([resting, "idle"]).map(|slot| (key, slot as u32))
+    // ⭐ AND A RESTING POSE LOOPS, which is the other half of the same rule.
+    spec.clip_slot([resting, "idle"])
+        .map(|slot| (key, slot as u32, false))
 }
 
 /// Read the world once. Everything here is a read; nothing is mutated, so a
@@ -359,14 +365,19 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             // ticks a body has held the same row, which is exact playback timing
             // out of the recording itself rather than a second clock to keep in
             // step with the first.
-            "art": drawn.as_ref().map(|(sheet, row)| serde_json::json!([sheet, row])),
+            // `[sheet_key, row_index, holds_last_frame]`. The third is the
+            // difference between a swing and a stance: a move's clip plays once
+            // and holds, a resting pose loops.
+            "art": drawn
+                .as_ref()
+                .map(|(sheet, row, holds)| serde_json::json!([sheet, row, holds])),
             // ⭐ WHY THERE IS NO ART, when there is none. "the picture is missing"
             // has three causes that look identical in a viewer — no pose published,
             // no sheet joined, or a sheet with no row for this pose — and a take
             // that does not distinguish them sends the next reader back through
             // the whole chain. Cheap, and it has already paid for itself once.
             "has_pose": has_pose,
-            "sheet": drawn.as_ref().map(|(sheet, _)| sheet),
+            "sheet": drawn.as_ref().map(|(sheet, ..)| sheet),
         }));
     }
 

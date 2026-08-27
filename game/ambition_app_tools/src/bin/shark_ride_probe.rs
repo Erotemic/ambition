@@ -135,5 +135,48 @@ fn main() {
         );
         app.update();
     }
+    // ⭐ A VERDICT, NOT A PILE OF LINES. This binary exists so a person can see
+    // what the engine did; making them count `boarded:` lines to find out puts
+    // the reading back on them. ⛔ It is still not a TEST — nothing here fails a
+    // build — it just says plainly what it saw.
+    let world = app.world_mut();
+    let mut mounts = world.query_filtered::<
+        Entity,
+        bevy::prelude::With<ambition_platformer2d::mount::Mountable>,
+    >();
+    let all: Vec<Entity> = mounts.iter(world).collect();
+    let left_over = all.len();
+    // A shark on its way out and a shark loitering look the same in a count, and
+    // "boxes piling up" was the original report. `Departing` is the difference.
+    let departing = all
+        .iter()
+        .filter(|e| {
+            world
+                .get::<ambition_demo_smash::shark_ride::Departing>(**e)
+                .is_some()
+        })
+        .count();
+    let ridden = all
+        .iter()
+        .filter(|e| {
+            world
+                .get::<ambition_platformer2d::mount::MountSlot>(**e)
+                .is_some_and(|slot| slot.rider.is_some())
+        })
+        .count();
+    let loitering = left_over.saturating_sub(departing + ridden);
+    let mut riders = world.query::<&ambition_platformer2d::mount::RidingOn>();
+    let still_riding = riders.iter(world).count();
+    eprintln!(
+        "shark_ride_probe: {left_over} shark(s) on the stage - {ridden} ridden, {departing} departing, {loitering} LOITERING; {still_riding} rider(s) aboard"
+    );
+    if loitering > 0 {
+        eprintln!(
+            "shark_ride_probe: WARN {loitering} shark(s) are neither ridden nor leaving, which is the 'boxes piling up' shape"
+        );
+    }
+    eprintln!(
+        "shark_ride_probe: read the log above for `boarded:`,          `shark departing (rider left)` and — if anything went wrong —          `mount DIED under its rider`, `mount VANISHED from the saddle lookup`          or `lethal blow: damage=N`"
+    );
     eprintln!("shark_ride_probe: done");
 }

@@ -658,12 +658,41 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     sim.world_mut()
         .entity_mut(rider)
         .insert(Brain::stand_still());
-    sim.world_mut()
-        .entity_mut(rider)
-        .insert((RidingOn { mount }, Mounted));
-    sim.world_mut()
-        .entity_mut(mount)
-        .insert(MountSlot { rider: Some(rider) });
+    sim.world_mut().entity_mut(rider).insert((
+        RidingOn { mount },
+        Mounted,
+        // ⭐⭐ THE COMPONENTS A SUMMONED, LEASED RIDE ADDS, and this population is
+        // the reason to put them here rather than trust that somebody will. This
+        // sweep's own note says it is about POPULATION, not accounting — the
+        // hole that hid `PogoTargetContributor` was a body nobody swept, not a
+        // rule nobody wrote. D207 added three components that only exist while a
+        // body is ridden or waiting to be, and none of them had ever been in
+        // this pair.
+        //
+        // `PoseOwnedExternally` is stamped by `mount::board`; `RideLease` is the
+        // ride's clock; `MountReservedFor` is a mount held for a rider who has
+        // not boarded yet, which is a state this pair never reaches naturally
+        // and so is asserted onto the mount below.
+        ambition_platformer2d::engine_core::PoseOwnedExternally,
+        ambition_platformer2d::mount::RideLease { remaining: 5.0 },
+    ));
+    sim.world_mut().entity_mut(mount).insert((
+        MountSlot { rider: Some(rider) },
+        ambition_platformer2d::mount::MountReservedFor {
+            rider,
+            lease_seconds: 5.0,
+            board_within: 96.0,
+            expires_in: 1.0,
+        },
+        // The departure a dismissed mount carries. ⚠ Smash-owned rather than
+        // engine-owned, which is why it is spelled out here: a component this
+        // sweep cannot see is a component whose rollback registration nothing
+        // checks.
+        ambition_demo_smash::shark_ride::Departing {
+            remaining: 2.0,
+            velocity: ambition_platformer2d::engine_core::Vec2::new(-1400.0, 0.0),
+        },
+    ));
 
     // Sweep on every tick of the weld's life. The mount-only components are
     // inserted by systems that run after the weld, and some are transient.

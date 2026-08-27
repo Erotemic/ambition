@@ -599,7 +599,7 @@ impl MovePlayback {
     /// ASKED for; charge mode is where they agree.
     #[must_use]
     pub fn charged_by_gesture(
-        mut self,
+        self,
         started_by: Option<ambition_entity_catalog::ChargeGesture>,
     ) -> Self {
         self.charged_by_gesture_resuming(started_by, None)

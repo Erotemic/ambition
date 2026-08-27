@@ -504,3 +504,75 @@ fn from_spec_lowers_kind_data_onto_body() {
     );
     assert_eq!(body.kin.pos, Vec2::ZERO);
 }
+
+/// ⭐ THE BOOMERANG GOES OUT, STOPS, AND COMES HOME, and each of those three is
+/// asserted separately — a shot that merely decelerated would pass a test that
+/// only checked "it is not as far as it should be".
+#[test]
+fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
+    const OUT_S: f32 = 0.34;
+    const DT: f32 = 1.0 / 60.0;
+    let mut spec = ProjectileKind::Hadouken.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
+    spec.boomerang_return_s = Some(OUT_S);
+    spec.max_lifetime = OUT_S * 2.0 + 0.15;
+    let mut body = ProjectileBody::from_spec(spec);
+
+    // OUT: half the outbound leg in, it is moving away.
+    for _ in 0..(OUT_S / DT / 2.0) as usize {
+        body.tick(DT, Vec2::new(0.0, 1.0));
+    }
+    let halfway = body.kin.pos.x;
+    assert!(halfway > 0.0, "the tail must go out, and it is at {halfway}");
+    assert!(body.kin.vel.x > 0.0, "…and still be going out");
+
+    // STOP: at the turnaround its speed along the throw is gone.
+    while body.game.age < OUT_S {
+        body.tick(DT, Vec2::new(0.0, 1.0));
+    }
+    let apex = body.kin.pos.x;
+    assert!(
+        body.kin.vel.x.abs() < 20.0,
+        "the tail must have stopped at the turnaround, and it is doing {}",
+        body.kin.vel.x
+    );
+    assert!(
+        apex > halfway,
+        "…having travelled further out first ({halfway} -> {apex})"
+    );
+
+    // HOME: it passes back through the throw point, moving the other way.
+    let mut returned = false;
+    while body.tick(DT, Vec2::new(0.0, 1.0)) {
+        if body.kin.pos.x <= 0.0 {
+            returned = true;
+            break;
+        }
+    }
+    assert!(
+        returned,
+        "the tail must come back through the hand that threw it; it expired at \
+         x={}",
+        body.kin.pos.x
+    );
+    assert!(body.kin.vel.x < 0.0, "…still travelling homeward");
+}
+
+/// ⛔ THE PAIRED ARM. The same shot without a turnaround keeps going, so the
+/// test above is about `boomerang_return_s` and not about the stepper having
+/// quietly acquired a drag term.
+#[test]
+fn a_shot_with_no_turnaround_never_comes_back() {
+    const DT: f32 = 1.0 / 60.0;
+    let spec = ProjectileKind::Hadouken.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
+    assert_eq!(spec.boomerang_return_s, None);
+    let mut body = ProjectileBody::from_spec(spec);
+    let mut last = f32::NEG_INFINITY;
+    while body.tick(DT, Vec2::new(0.0, 1.0)) {
+        assert!(
+            body.kin.pos.x >= last,
+            "a straight shot must never travel backwards"
+        );
+        last = body.kin.pos.x;
+    }
+    assert!(last > 0.0);
+}

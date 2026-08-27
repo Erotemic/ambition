@@ -122,6 +122,7 @@ pub fn fire_volley_system(
                 // Straight volley: this ability authors no bounce.
                 bounces: 0,
                 bounce_on_world_contact: false,
+                boomerang_return_s: None,
             },
             ProjectileStart::StepThisTick,
         ));

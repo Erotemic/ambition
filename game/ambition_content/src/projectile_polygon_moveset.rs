@@ -46,6 +46,21 @@ const MUZZLE: (f32, f32) = (0.0, -8.0);
 /// windup that plays out on release.
 const CHARGE_FIRE_AT_S: f32 = 0.26;
 
+/// The held-item id her side-B takes hold of. See `polygon_ponytail` in the
+/// held-item registry: a held item for a thing that is part of her, because the
+/// seam is "while this move plays the fighter is WIELDING this, and its ranged
+/// verb is the shot" — which is what throwing your own tail is.
+const PONYTAIL: &str = "polygon_ponytail";
+
+/// When the tail leaves her hand. Late enough to read as a wind-up and be
+/// punishable on reaction.
+const PONYTAIL_THROWN_AT_S: f32 = 0.16;
+
+/// When the move ends — and with it the grip. Shorter than the tail's round
+/// trip on purpose: she is free to act while it is still out, which is the
+/// whole reason a boomerang is worth throwing.
+const PONYTAIL_ENDS_S: f32 = 0.40;
+
 /// THE CHARGE BALL — the genre's held neutral-B, and this fighter's identity.
 ///
 /// Hold Special and the timeline freezes at [`CHARGE_HOLD_AT_S`] while the ball
@@ -350,29 +365,44 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
 
     let neutral_special = charge_shot();
 
-    let side_special = impulse(
-        committed_tail(
-            strike(Strike {
-                id: "polygon_projectile_vector_rush",
-                clip: "attack_side",
-                startup_s: 0.11,
-                active_s: 0.11,
-                recover_s: 0.23,
-                offset: (24.0, -2.0),
-                half_extents: (26.0, 22.0),
-                damage: 11,
-                knockback: 116.0,
-                knockback_growth: 2.18,
-                launch_dir: Some((1.0, -0.23)),
-                on_hit: None,
-            }),
-            0.55,
-            0.10,
-        ),
-        0.11,
-        (590.0, 0.0),
-        ImpulseMode::Set,
+    // SIDE — `polygon_ponytail_boomerang`. SHE THROWS HER OWN TAIL.
+    //
+    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"I think the projectile polygon should be
+    // able to use her ponytail as a boomarang for her side-b."* It replaces
+    // `polygon_projectile_vector_rush`, a lunging body-check that said nothing
+    // about the ranged member of the trio being ranged.
+    //
+    // ⭐ THE THROW IS THE SAME SEAM THE ADMIRAL'S GUN-SWORD USES.
+    // `MoveSpec::equips` puts a thing in the fighter's hands for exactly as long
+    // as the move's own clock runs and fires ITS ranged verb — so "grab your
+    // ponytail and throw it" is one move rather than an equip the player has to
+    // sequence, and the tail's flight is authored on the tail rather than on
+    // her.
+    //
+    // ⛔ NO MELEE VOLUME. The tail IS the damage, going out and coming back;
+    // a move that also carried a strike would be two moves on one button.
+    let side_special = ambition_characters::moveset_authoring::hitless_special(
+        "polygon_ponytail_boomerang",
+        "attack_side",
+        PONYTAIL_THROWN_AT_S,
+        PONYTAIL_ENDS_S,
     );
+    let mut side_special = side_special;
+    side_special.display_name = Some("Ponytail".to_string());
+    side_special.equips = Some(PONYTAIL.to_string());
+    side_special.events.push(MoveEvent {
+        at_s: PONYTAIL_THROWN_AT_S,
+        kind: MoveEventKind::Ranged,
+    });
+    // A small forward step on the throw — additive, so it is a lean rather than
+    // a lunge and advertises no route to a recovery search.
+    let side_special = impulse(
+        side_special,
+        PONYTAIL_THROWN_AT_S,
+        (140.0, 0.0),
+        ImpulseMode::Add,
+    );
+
     let mut uppercut = strike(Strike {
         id: "polygon_projectile_recoil_lift",
         clip: "attack_up",
@@ -548,7 +578,7 @@ mod tests {
             // special, and the id exists nowhere else in the tree — the list was
             // the last reference to a move that had been renamed out.
             "polygon_projectile_charge_shot",
-            "polygon_projectile_vector_rush",
+            "polygon_ponytail_boomerang",
             "polygon_projectile_recoil_lift",
             "polygon_projectile_low_burst",
             "polygon_projectile_downward_vector",

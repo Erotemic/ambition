@@ -40,6 +40,16 @@ pub struct ProjectileSpec {
     /// trace + visual layer; the engine does not interpret it. A game's charge
     /// mechanic stamps it when it scales `damage` / `half_extent`.
     pub charge_tier: u8,
+    /// Seconds until this shot has stopped and starts coming back, or `None`
+    /// for a shot that never turns around — which is every shot but the
+    /// ponytail. See [`super::ProjectileGameplay::accel`], which this resolves
+    /// into at spawn.
+    ///
+    /// ⛔ IT IS THE TIME TO THE TURNAROUND, NOT THE TIME TO GET HOME. The return
+    /// leg takes the same time as the outbound one, so a shot authored at `0.4`
+    /// passes back through the launch point at `0.8` and wants a lifetime a
+    /// little past that.
+    pub boomerang_return_s: Option<f32>,
 }
 
 impl ProjectileSpec {

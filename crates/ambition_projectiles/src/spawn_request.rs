@@ -124,6 +124,7 @@ pub fn build_in_flight_projectile(
         // fire has already applied its charge tier to damage/size before it
         // reaches this request seam.
         charge_tier: 0,
+        boomerang_return_s: request.boomerang_return_s,
     };
     InFlightProjectile {
         body: ProjectileBody::from_spec(spec),
@@ -149,6 +150,7 @@ mod tests {
             visual_id: "bolt".into(),
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         }
     }
 

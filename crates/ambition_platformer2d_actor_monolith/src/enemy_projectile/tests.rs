@@ -99,6 +99,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             // Straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         },
         ActorFaction::Player,
     );
@@ -208,6 +209,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             // Straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         },
     );
 
@@ -283,6 +285,7 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
             // Straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         },
         ActorFaction::Enemy,
     );
@@ -682,6 +685,7 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
         visual_id: String::new(),
         bounces: 0,
         bounce_on_world_contact: false,
+        boomerang_return_s: None,
     });
     let seq: ProjectileSeq = {
         let mut counter = app
@@ -780,6 +784,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
             // Straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         },
         ActorFaction::Enemy,
     );
@@ -899,6 +904,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             // Straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         },
         ProjectileStart::StepThisTick,
     ));
@@ -1082,6 +1088,7 @@ fn spawn_executor_attaches_visual_id() {
             // Straight shot: this ability authors no bounce.
             bounces: 0,
             bounce_on_world_contact: false,
+            boomerang_return_s: None,
         },
         ProjectileStart::StepThisTick,
     ));

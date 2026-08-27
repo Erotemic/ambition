@@ -193,6 +193,9 @@ pub fn spawn_projectiles_from_brain_actions(
             bounce_on_world_contact: false,
             max_lifetime: PROJECTILE_MAX_LIFETIME,
             half_extent: PROJECTILE_HALF_EXTENT,
+            // The pool's own straight envelope never turns around; a shot that
+            // does says so on its authored flight.
+            boomerang_return_s: None,
         });
         let gravity_dir = -surface
             .map(|s| s.surface_normal)
@@ -269,6 +272,7 @@ pub fn spawn_projectiles_from_brain_actions(
             visual_id,
             bounces: flight.bounces,
             bounce_on_world_contact: flight.bounce_on_world_contact,
+            boomerang_return_s: flight.boomerang_return_s,
         };
         if uses_gun_sword {
             sfx.write(SfxMessage::Play {

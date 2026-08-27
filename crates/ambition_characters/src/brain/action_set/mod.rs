@@ -219,6 +219,36 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // ⭐ THE POLYGON'S PONYTAIL, taken hold of for one move and let go again.
+        //
+        // ⛔ A HELD ITEM FOR A THING THAT IS PART OF HER, and that is the point
+        // rather than a compromise: the seam `MoveSpec::equips` opens is "while
+        // this move plays, the fighter is WIELDING this, and its ranged verb is
+        // the shot" — and grabbing your own tail and throwing it is exactly
+        // that. The alternative was a second ranged slot on the character, which
+        // would have made every fighter's action set carry a field one of them
+        // uses.
+        items.insert(
+            "polygon_ponytail",
+            HeldItemSpec {
+                id: "polygon_ponytail".into(),
+                melee: None,
+                ranged: Some(
+                    RangedActionSpec::bolt(430.0, 7)
+                        // ⭐ IT COMES BACK. `0.34` to the turnaround means it is
+                        // home at `0.68` — long enough to cross the spacing she
+                        // fights at, short enough that throwing it is a
+                        // commitment rather than a zoning wall.
+                        .with_flight(ProjectileFlight::boomerang(0.34))
+                        .with_visual("polygon_bolt")
+                        // The move's own recovery is the cadence: a second
+                        // recharge would refuse a shot the move was already
+                        // accepted to fire.
+                        .with_refire(0.0),
+                ),
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         // ⭐ THE ADMIRAL'S OWN GUN-SWORD, drawn for one move and put away again.
         //
         // ⛔ A ROW OF ITS OWN RATHER THAN A LOUDER `gun_sword`, because the
@@ -495,6 +525,21 @@ pub struct ProjectileFlight {
     pub max_lifetime: f32,
     /// Half-extent of the shot's body.
     pub half_extent: ae::Vec2,
+    /// Seconds until this shot has stopped and starts coming BACK, or `None`
+    /// for a shot that flies on — which is every shot in the game but one.
+    ///
+    /// ⭐ THE BOOMERANG, AS ONE NUMBER. Jon, 2026-08-27: *"I think the
+    /// projectile polygon should be able to use her ponytail as a boomarang for
+    /// her side-b."* It is resolved into a constant acceleration back along the
+    /// launch axis at spawn, so a thrown tail slows, stops, and comes home the
+    /// way it went out — and needs no reference to the thrower, which is what
+    /// keeps a returning shot inside the projectile stepper's pure signature.
+    ///
+    /// ⛔ THE TIME TO THE TURNAROUND, NOT THE TIME HOME. The return leg costs
+    /// the same as the outbound one, so a shot authored at `0.4` passes back
+    /// through the launch point at `0.8` and wants a lifetime a little past
+    /// that. [`Self::boomerang`] does that arithmetic.
+    pub boomerang_return_s: Option<f32>,
 }
 
 impl ProjectileFlight {
@@ -506,7 +551,20 @@ impl ProjectileFlight {
         bounce_on_world_contact: false,
         max_lifetime: 2.4,
         half_extent: ae::Vec2::new(10.0, 8.0),
+        boomerang_return_s: None,
     };
+
+    /// A shot that goes out, stops, and comes back — `out_s` to the turnaround.
+    ///
+    /// The lifetime is the round trip plus a little, so the tail expires just
+    /// past the hand that threw it rather than sailing off behind her.
+    pub const fn boomerang(out_s: f32) -> Self {
+        Self {
+            boomerang_return_s: Some(out_s),
+            max_lifetime: out_s * 2.0 + 0.15,
+            ..Self::STRAIGHT
+        }
+    }
 
     /// An arcing shot that skips off floors — gravity plus a bounce budget.
     pub const fn arcing(gravity: f32, bounces: u8) -> Self {

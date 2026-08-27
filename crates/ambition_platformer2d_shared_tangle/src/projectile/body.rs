@@ -35,6 +35,22 @@ pub struct ProjectileGameplay {
     /// How this shot resolves against world geometry — authored on the spec
     /// (a property of the ability, firer-agnostic), NOT derived from `faction`.
     pub world_hit: super::WorldHitPolicy,
+    /// A constant WORLD acceleration this shot carries, on top of gravity.
+    ///
+    /// ⭐ THE BOOMERANG IS THIS AND NOTHING ELSE: an acceleration pointed back
+    /// along the launch axis makes a shot slow, stop, and come home the way it
+    /// went out — and it needs no reference to the thrower, which is what keeps
+    /// it inside `tick`'s pure signature. A tail thrown from a fighter who then
+    /// walks away still returns to where it was thrown from, which is what a
+    /// boomerang does.
+    ///
+    /// ⛔ NOT A SUBSTITUTE FOR `gravity`, which is a magnitude along the world's
+    /// own down and stays the one authority on falling. This is a vector the
+    /// SHOT carries; the two add.
+    ///
+    /// `ZERO` for every shot that has not authored one, which is all of them but
+    /// the ponytail.
+    pub accel: Vec2,
 }
 
 fn projectile_down(gravity_dir: Vec2) -> Vec2 {
@@ -68,6 +84,17 @@ impl ProjectileGameplay {
             bounces_remaining: spec.bounces,
             // World-hit policy is the spec's (the ability's), firer-agnostic.
             world_hit: spec.world_hit,
+            // ⭐ RESOLVED AT SPAWN, from the launch velocity the spec already
+            // knows. A boomerang authors "come back after N seconds"; turning
+            // that into an acceleration needs the speed and the direction, and
+            // this is the one place both exist.
+            accel: spec.boomerang_return_s.map_or(Vec2::ZERO, |out_s| {
+                if out_s <= 0.0 {
+                    Vec2::ZERO
+                } else {
+                    -spec.initial_velocity() / out_s
+                }
+            }),
         }
     }
 
@@ -90,7 +117,7 @@ impl ProjectileGameplay {
             return false;
         }
         let down = projectile_down(gravity_dir);
-        body.vel += down * (self.gravity * dt);
+        body.vel += (down * self.gravity + self.accel) * dt;
         body.pos += body.vel * dt;
         true
     }
@@ -341,6 +368,7 @@ mod tests {
                 damage: 2,
                 bounces_remaining: bounces,
                 world_hit: crate::projectile::WorldHitPolicy::Bouncing,
+                accel: ae::Vec2::ZERO,
             },
         }
     }

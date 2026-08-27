@@ -192,6 +192,7 @@ pub fn spawn_apple_rain_from_special_messages(
                     // Straight shot: this ability authors no bounce.
                     bounces: 0,
                     bounce_on_world_contact: false,
+                    boomerang_return_s: None,
                 },
                 ProjectileStart::StepThisTick,
             ));
@@ -421,6 +422,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                             // Straight shot: this ability authors no bounce.
                             bounces: 0,
                             bounce_on_world_contact: false,
+                            boomerang_return_s: None,
                         },
                         ProjectileStart::StepThisTick,
                     ));

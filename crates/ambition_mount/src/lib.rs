@@ -969,7 +969,36 @@ pub fn enforce_mount_rider_link(
         if !rider_health.alive() {
             continue;
         }
-        let alive = mount_alive.get(&riding.mount).copied().unwrap_or(false);
+        // ⛔⛔ `unwrap_or(false)` TURNS "I NEVER SAW THIS ENTITY" INTO "IT DIED",
+        // and those are different failures with the same consequence: the rider
+        // is put off and the ruleset is told the mount was lost. A mount absent
+        // from the lookup is a mount the `With<MountSlot>` query did not match —
+        // an ordering or archetype problem — and reporting it as a death sends
+        // whoever reads the log looking for damage that never happened.
+        //
+        // ⭐ SO THE TWO SAY DIFFERENT THINGS. This fires once, on the tick the
+        // pair actually dissolves, rather than every tick a dead mount exists.
+        let seen = mount_alive.get(&riding.mount).copied();
+        let alive = seen.unwrap_or(false);
+        if !alive && was_mounted.is_some() {
+            match seen {
+                Some(false) => bevy::log::info!(
+                    target: "ambition::mount",
+                    "mount DIED under its rider: mount={:?} rider={rider_entity:?} — \
+                     its health pool reached zero",
+                    riding.mount,
+                ),
+                None => bevy::log::warn!(
+                    target: "ambition::mount",
+                    "mount VANISHED from the saddle lookup: mount={:?} \
+                     rider={rider_entity:?} — it carries no `MountSlot` this tick, so \
+                     it was never examined; this is NOT a death, and the rider is \
+                     about to be put off as though it were",
+                    riding.mount,
+                ),
+                Some(true) => {}
+            }
+        }
         match (alive, was_mounted.is_some()) {
             // Mount alive, rider already mounted → steady state. The
             // sync system snaps each frame; nothing to do here.

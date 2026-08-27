@@ -128,7 +128,11 @@ impl<'a> ActorMut<'a> {
         target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
         dt: f32,
-        _is_mounted: bool,
+        // Something else owns this body's pose. Named for the FACT rather than
+        // for the saddle: see `PoseOwnedExternally`. ⛔ This is the RIDER's side
+        // of the relationship — "somebody is carrying me" — and it is not the
+        // mount's `MountSlot` question, which the charge-crash guard asks.
+        pose_owned_externally: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
         motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         // The body's current acceleration/reference frame, resolved ONCE by the
@@ -232,6 +236,17 @@ impl<'a> ActorMut<'a> {
             combat,
             tumbling,
             out_of_play,
+            // ⭐⭐ AND THIS IS WHERE `_is_mounted` FINALLY MEANS SOMETHING. The
+            // parameter sat unused with a leading underscore, so a rider in a
+            // saddle ran the whole movement pass and the saddle constraint
+            // repaired the result afterwards — two authorities, and a snap
+            // cannot undo a spent double-jump.
+            //
+            // ⛔ IT READS THE MARKER, NOT THE MOUNT. `PoseOwnedExternally` says
+            // "somebody else owns this pose" without saying who, which is what
+            // lets a lift or a grab reach the same road later without this
+            // crate learning what a saddle is.
+            pose_owned_externally,
             contact_field,
         );
 
@@ -292,6 +307,8 @@ impl<'a> ActorMut<'a> {
         tumbling: bool,
         // See `update`'s own parameter, and the call site below.
         out_of_play: bool,
+        // Something else owns this body's pose — see `step_body`'s own note.
+        pose_owned_externally: bool,
         contact_field: ae::BodyContactField<'_>,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
@@ -380,6 +397,11 @@ impl<'a> ActorMut<'a> {
             // asserted, so the next opener costs nothing. (The same function
             // already carries the same lesson about `playing_a_move`.)
             out_of_play,
+            // ⭐ THE FACT, READ RATHER THAN INFERRED. `PoseOwnedExternally` is
+            // stamped by `mount::board` and lives in `_core` precisely so the
+            // domains that hold a body and the domains that read one need not
+            // know about each other. This is its first consumer.
+            pose_owned_externally,
             ae::MotionStepContext {
                 world,
                 input,

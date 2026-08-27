@@ -18,8 +18,31 @@ pub fn step_body(
     axis_tuning: ae::MovementTuning,
     // Out-of-play is enforced here so controller-specific roads cannot define different dead-body motion.
     out_of_play: bool,
+    // SOMETHING ELSE OWNS THIS BODY'S POSE — a saddle, a lift, a grab.
+    //
+    // ⛔⛔ NOT THE SAME THING AS `out_of_play`, AND NOT ROUTED THROUGH IT. The
+    // out-of-play arm halts velocity, zeroes `dt` and leans on a control hold
+    // having already neutralised a dead body's input. A held body is not dead:
+    // a rider steers its mount and swings from the saddle, so its combat and
+    // action controls must keep working. What it must NOT do is drive itself.
+    //
+    // ⭐ SO THIS TAKES THE LOCOMOTION AND LEAVES EVERYTHING ELSE. The stick is
+    // zeroed and the movement verbs are cleared, because a jump or a dodge
+    // consumed here changes state the external constraint CANNOT undo — a snap
+    // fixes a position, not a spent double-jump or an armed dodge. Position is
+    // the constraint's to own and it is welcome to it.
+    pose_owned_externally: bool,
     mut ctx: ae::MotionStepContext<'_>,
 ) -> ae::MotionStepResult {
+    if pose_owned_externally {
+        // ⛔ THE UNDAMPED STICK GOES TOO. Edge detection compares this tick's
+        // stick against last tick's, so leaving it live would hand a rider who
+        // simply HELD a direction through a ride a fresh press the moment they
+        // got off — the same trap `undamped_axes`' own note describes.
+        ctx.input.axes = Default::default();
+        ctx.input.undamped_axes = None;
+        ctx.input.movement = Default::default();
+    }
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
         axis.params = axis_tuning.axis_swept_params();
     }

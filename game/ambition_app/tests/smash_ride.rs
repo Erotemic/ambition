@@ -493,6 +493,31 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     );
     let before = sharks(&mut app);
 
+    // ⛔⛔ AIRBORNE, because that is how a recovery is actually pressed and how
+    // Jon pressed it: his log reads `grounded=false` on nearly every summon,
+    // and every test here had been pressing from a standing start. A shark
+    // summoned under a falling body meets different geometry, different contact
+    // and a different frame than one summoned under a body at rest.
+    ambition_platformer2d::sim::drive_control_frame(
+        app.world_mut(),
+        ambition_platformer2d::engine_core::ControlFrame {
+            jump_pressed: true,
+            jump_held: true,
+            ..Default::default()
+        },
+    );
+    app.update();
+    for _ in 0..12 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                jump_held: true,
+                ..Default::default()
+            },
+        );
+        app.update();
+    }
+
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         special_pressed: true,
@@ -550,10 +575,37 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
             .get::<RidingOn>(seat0)
             .map(|r| r.mount)
             .expect("just asserted the admiral is aboard");
-        let mut hp = world
-            .get_mut::<ambition_platformer2d::actor::BodyHealth>(mount)
-            .expect("a summoned shark carries its own pool");
-        hp.damage(10);
+        let shark_pos = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(mount)
+            .expect("the shark has kinematics")
+            .pos;
+        // ⭐⭐ A REAL HITBOX, NOT A SYNTHETIC `damage()` CALL. The point of this
+        // arm is that an OPPONENT'S SWING reaches the shark: it is Neutral, and
+        // `CombatRelation::damage_lands` is true for `Foe | Neutral` — nobody
+        // AIMS at it (`is_target` is Foe-only) but everything HITS it. Poking
+        // the health pool directly would prove the pool's arithmetic and skip
+        // the question that matters.
+        world.spawn((
+            ambition_platformer2d::combat::strike::Hitbox {
+                // The seat that is not the rider: an opponent's swing.
+                owner: seat0,
+                source: ambition_platformer2d::vfx::HitSide::Player,
+                anchor: ambition_platformer2d::combat::strike::HitboxAnchor::World {
+                    center: shark_pos,
+                },
+                half_extent: ambition_platformer2d::engine_core::Vec2::new(60.0, 60.0),
+                shape: None,
+                facing: 1.0,
+                // A middling connection: the admiral's own table runs 2 to 17.
+                damage: 10,
+                knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(0.0),
+                launch_dir: None,
+                frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
+                reaction: None,
+                strike_sfx: None,
+            },
+            ambition_platformer2d::combat::strike::HitboxHits::default(),
+        ));
     }
     for _ in 0..30 {
         app.update();

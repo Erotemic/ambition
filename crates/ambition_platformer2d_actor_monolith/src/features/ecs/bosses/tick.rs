@@ -763,7 +763,8 @@ pub fn integrate_boss_bodies(
             Some(envelope.0),
             &mut motion_model,
             target.pos,
-            // A boss is never mounted.
+            // A boss is never mounted, and nothing carries one either.
+            false,
             false,
             &feature_world,
             combat_tuning,

@@ -676,7 +676,10 @@ pub(crate) fn integrate_actor_body(
     // `Perception` pattern, never a parallel system.
     motion_model: &mut MotionModel,
     target_pos: ae::Vec2,
+    // Somebody is riding THIS body. Guards the charge-crash suicide.
     is_being_ridden: bool,
+    // Somebody is carrying THIS body. Declines the locomotion pass.
+    pose_owned_externally: bool,
     feature_world: &ae::World,
     combat_tuning: ambition_combat::events::FeatureCombatTuning,
     steering: &ActorSteering,
@@ -772,7 +775,10 @@ pub(crate) fn integrate_actor_body(
         target_pos,
         combat_tuning,
         dt,
-        is_being_ridden,
+        // ⛔ THE RIDER'S FACT, NOT THE MOUNT'S. `is_being_ridden` guards the
+        // charge-crash below and belongs to a body somebody is sitting ON;
+        // what `update` needs is whether somebody is carrying THIS one.
+        pose_owned_externally,
         brain_frame,
         motion_model,
         motion_frame,
@@ -1017,6 +1023,11 @@ pub fn integrate_sim_bodies(
             // there, it was spelled right, and it was wired to a component this
             // entity can never have.
             Option<&ambition_mount::MountSlot>,
+            // ⛔⛔ THE OTHER END OF THE SAME RELATIONSHIP, and it is a different
+            // question. `MountSlot` above says "somebody is riding ME"; this
+            // says "somebody is carrying me". A body can be either, neither, or
+            // — a rider on a mount that is itself ridden — both.
+            bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
             &mut MotionModel,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_platformer2d_core::BodyMotionFacts,
@@ -1123,6 +1134,7 @@ pub fn integrate_sim_bodies(
         mut control,
         mut anim,
         mounted,
+        pose_owned_externally,
         mut motion_model,
         resolved_frame,
         mut motion_facts,
@@ -1152,6 +1164,7 @@ pub fn integrate_sim_bodies(
             // Ridden means somebody is IN the saddle, not merely that a saddle
             // exists: an empty `MountSlot` outlives its rider's dismount.
             mounted.is_some_and(|slot| slot.rider.is_some()),
+            pose_owned_externally,
             &feature_world,
             combat_tuning,
             &steering,

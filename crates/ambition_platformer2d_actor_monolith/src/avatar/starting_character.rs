@@ -1008,19 +1008,61 @@ pub fn sustain_bubble_shield(
         &ActionSet,
         Option<&ambition_combat::moveset::MovePlayback>,
         &mut ambition_characters::control::ActorControl,
+        // WHICH SPECIAL THIS PRESS MEANS. See the directional note below.
+        Option<&ambition_combat::moveset::ActorMoveset>,
+        Option<&ambition_platformer2d_core::BodyKinematics>,
+        Option<&ambition_platformer2d_core::BodyGroundState>,
     )>,
 ) {
     use ambition_characters::brain::SpecialActionSpec;
-    for (actions, playback, mut control) in &mut bodies {
+    for (actions, playback, mut control, moveset, kin, ground) in &mut bodies {
         let Some(SpecialActionSpec::Special(key)) = actions.special.as_ref() else {
             continue;
         };
         if key != "bubble_shield" {
             continue;
         }
-        let pressed = control.0.special_pressed;
         let playing = playback.is_some_and(|p| p.spec.id == *key);
-        if pressed || playing {
+        // ⛔⛔ A RAW SPECIAL EDGE IS NOT A BUBBLE-SHIELD PRESS, and reading it as
+        // one broke every OTHER special the body owns (D253, GPT 5.6 review
+        // 2026-08-27). `player_robot_v3` names `bubble_shield` as its body-kit
+        // special AND authors a full directional repertoire — rocket dash,
+        // phase shift, the stabilizers. This ran in `PlayerInputSet::ControlGate`
+        // on the bare `special_pressed` edge, so EVERY special press raised the
+        // guard first: grounded shield plus a direction is an evade, airborne is
+        // an air dodge, and by the time `Combat` asked which special was meant
+        // the move was refused from the state this layer had just created. One
+        // shared authority error, reported as five broken moves.
+        //
+        // ⭐ SO ASK, DO NOT GUESS — with the SAME two calls the resolver uses.
+        // `attack_dir_from_axis` is the one place a facing is folded into an
+        // aim, and `move_for_directional_verb` is the one place a direction
+        // picks a special. Reimplementing either here would replace one
+        // authority problem with two.
+        //
+        // ⭐ A BODY WITH NO REPERTOIRE STILL SHIELDS ON ANY PRESS. That is the
+        // ordinary body kit this compatibility layer was written for, where
+        // Special means exactly one thing and a direction cannot select
+        // anything else.
+        let means_the_bubble = match moveset {
+            None => true,
+            Some(moveset) => {
+                let direction = ambition_combat::moveset::attack_dir_from_axis(
+                    control.0.attack_axis,
+                    kin.map_or(1.0, |kin| kin.facing),
+                );
+                let grounded = ground.is_none_or(|ground| ground.on_ground);
+                moveset
+                    .0
+                    .move_for_directional_verb(
+                        ambition_combat::moveset::SPECIAL_VERB,
+                        direction,
+                        grounded,
+                    )
+                    .is_none_or(|spec| spec.id == *key)
+            }
+        };
+        if (control.0.special_pressed && means_the_bubble) || playing {
             control.0.shield_held = true;
         }
     }

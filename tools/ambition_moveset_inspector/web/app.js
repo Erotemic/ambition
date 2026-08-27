@@ -54,6 +54,55 @@ let TAKES = null;
  * synchronously per frame would stutter the scrubber. Each sheet is fetched once
  * on first use and the canvas simply draws the box alone until it arrives, so
  * the view is never blocked on art and never blank because of it. */
+/* THE GPU RENDER, ON DEMAND. `/api/render` asks the engine to actually draw a
+ * fighter; it may legitimately answer "not available" (no GPU, no binary) and
+ * the derived sprite blit below is what the view falls back to. Requested once
+ * per fighter per session and never awaited by the draw path — the canvas keeps
+ * drawing the fallback until real frames arrive, so the view is never blocked
+ * and never blank. */
+const RENDERS = new Map();
+function renderedFramesFor(character) {
+  if (!character) return null;
+  const have = RENDERS.get(character);
+  if (have !== undefined) return have;
+  RENDERS.set(character, null);
+  fetch(`/api/render?character=${encodeURIComponent(character)}&frames=24&stride=2`)
+    .then((r) => r.json())
+    .then((doc) => {
+      if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
+        /* Remember the refusal so the page does not re-ask on every redraw. */
+        RENDERS.set(character, { available: false, reason: doc && doc.reason });
+        renderStatus(character);
+        return;
+      }
+      const images = doc.urls.map((u) => {
+        const img = new Image();
+        img.src = u;
+        img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
+        return img;
+      });
+      RENDERS.set(character, { available: true, images, stride: doc.stride });
+      renderStatus(character);
+    })
+    .catch((error) => {
+      RENDERS.set(character, { available: false, reason: String(error) });
+      renderStatus(character);
+    });
+  return null;
+}
+
+/* Say WHICH picture is on screen. A view that silently swaps between engine
+ * frames and a CPU approximation is a view whose fidelity nobody can trust. */
+function renderStatus(character) {
+  const node = $("#take-source");
+  if (!node) return;
+  const have = RENDERS.get(character);
+  if (!have) { node.textContent = "sprites: derived (asking the engine…)"; return; }
+  node.textContent = have.available
+    ? "sprites: rendered by the engine"
+    : `sprites: derived — engine render unavailable${have.reason ? ` (${have.reason})` : ""}`;
+}
+
 const SHEETS = new Map();
 function sheetImage(key) {
   if (SHEETS.has(key)) return SHEETS.get(key);
@@ -804,6 +853,31 @@ function drawTake() {
   const X = (x) => (x - view[0]) * scale;
   const Y = (y) => (y - view[1]) * scale;
 
+  /* ⭐⭐ THE ENGINE'S OWN PICTURE, WHEN THERE IS ONE. A rendered frame is the
+   * whole scene as the game drew it, so it REPLACES the canvas rather than
+   * being composited into it — and the hitboxes still go over the top, because
+   * those are the diagnostic somebody opened this view for. Falls through to
+   * the derived sprites the moment the render is unavailable. */
+  const rendered = renderedFramesFor(t.character);
+  if (state.takeArt !== false && rendered && rendered.available) {
+    const images = rendered.images;
+    const shot = images[Math.min(Math.floor(state.takeFrame / (rendered.stride || 1)), images.length - 1)];
+    if (shot && shot.complete && shot.naturalWidth) {
+      ctx.drawImage(shot, 0, 0, cssW, cssH);
+      for (const h of frame.hitboxes || []) {
+        ctx.strokeStyle = "#e2564a";
+        ctx.fillStyle = "rgba(226,86,74,.22)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(X(h.pos[0] - h.half[0]), Y(h.pos[1] - h.half[1]), h.half[0] * 2 * scale, h.half[1] * 2 * scale);
+        ctx.fill(); ctx.stroke();
+      }
+      $("#take-frame").textContent = `${state.takeFrame} / ${t.frames.length - 1}`;
+      takeFacts(t, frame);
+      return;
+    }
+  }
+
   /* platforms */
   ctx.fillStyle = "#232733";
   for (const p of t.platforms || []) {
@@ -872,6 +946,14 @@ function drawTake() {
   }
 
   $("#take-frame").textContent = `${state.takeFrame} / ${t.frames.length - 1}`;
+  takeFacts(t, frame);
+}
+
+/* The frame's own numbers. Extracted because BOTH draw paths — the engine's
+ * rendered picture and the derived sprites — owe the same facts, and a reader
+ * must not be able to tell which one they are looking at from the panel going
+ * blank. */
+function takeFacts(t, frame) {
   const kv = el("dl", { class: "kv" });
   const row = (k, v) => { kv.append(el("dt", {}, k), el("dd", {}, v)); };
   row("Take", t.label);

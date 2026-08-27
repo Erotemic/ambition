@@ -155,3 +155,33 @@ enough: measured, it panics inside `bevy_pbr`'s skin batching, because
 render-target setup. Giving `moveset_takes` that same boot is the bounded piece of
 work that would let it read `CharacterAnimator::frame` directly and delete the
 derivation here.
+
+## The engine render (GPU, on demand)
+
+The derived frame cursor is the FALLBACK now, not the only answer.
+
+```bash
+cargo build -p ambition_app_tools --bin capture_scene
+target/debug/capture_scene hall_of_characters player /tmp/a/anim.png 480x360 \
+    --warmup 60 --character projectile_polygon --frames 24 --stride 2
+```
+
+`--frames N` re-arms the capture after each readback and numbers the files
+`<stem>.NNNN.png`; `--stride K` advances K sim frames between shots. A single
+shot keeps the exact path it was given, so every existing room recipe is
+unchanged.
+
+The inspector asks `/api/render?character=<id>` once per fighter per session and
+caches under `data/renders/<id>/`. Engine Takes then draws the engine's own
+picture with the hitboxes over it, and the label beside the scrubber reads
+`sprites: rendered by the engine`.
+
+⛔ EVERY FAILURE IS A JSON ANSWER. No GPU, no built binary, a driver that will not
+start — the route returns `503 {available: false, reason}` and the viewer falls
+back to the derived sprites, saying `sprites: derived — engine render unavailable
+(…)`. A view that silently swapped between the two would be one whose fidelity
+nobody could trust.
+
+⚠ The render is currently a whole-scene capture of a fighter standing in
+`hall_of_characters`; it is not yet driven per MOVE. Driving `--press` from the
+move's verb is the next step and is why the route already takes a frame count.

@@ -1839,7 +1839,28 @@ speeds the weapon up by roughly half, and that is your call rather than mine.
 
 ⚠ Either way the current behaviour is wrong: accept-then-veto is the bad middle.
 
-## 2026-08-27 — Should the moveset inspector need a GPU?
+## 2026-08-27 — Should the moveset inspector need a GPU? — ✅ DECIDED
+
+⭐ JON DECIDED, same day, and chose a shape none of the three options below had:
+*"having some binary that can be called to produce the moveset animation on a
+machine that requires a gpu to do it, and then having the animation be generated
+on demand, and using a fallback visualization if it wasn't available or we didn't
+have the gpu."*
+
+Better than (a), (b) or (c): the CPU tool stays fast and portable, and the real
+engine picture becomes an on-demand EXTRA rather than a requirement. Shipped as
+`capture_scene --frames N [--stride K]` (the binary that already had the GPU
+boot), an `/api/render` route that shells out and caches, and a viewer that falls
+back to the derived sprites and SAYS which one is on screen.
+
+⚠ THE DERIVED CURSOR THEREFORE STAYS, and so does its drift risk — it is now the
+fallback rather than the only answer. The pose-picker gap named below is closed
+only for fighters that have actually been rendered.
+
+The analysis is kept below, because the measurement is why the decision was
+possible at all.
+
+## (original question, 2026-08-27)
 
 The Engine Takes view plays a fighter's real sprites, but the FRAME within each
 animation is derived by the viewer rather than read from the engine. Jon:

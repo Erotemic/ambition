@@ -12918,6 +12918,50 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ▢ **D252 — THE BACK AIR IS UNREACHABLE FOR THE WHOLE CAST. (found 2026-08-27
+  by the moveset take recorder, on the first run that recorded the resolved
+  gesture)**
+
+Every fighter authors an `attack_air_back`. None of them can throw one.
+
+`moveset_takes` drives the nineteen repertoire presses through the real control
+frame into a real seated match and records what the engine did. Eighteen reach
+the move they drove. The nineteenth reports:
+
+```text
+[take] npc_pirate_admiral  attack_air_back  moves={"air_forward"}
+       MISMATCH: drove air_back but the engine played {"air_forward"}
+       frame 0: facing=-1.0  gesture=Forward/Tilt/Airborne
+```
+
+⇒ the fighter TURNS TO FACE the back input before the press is read, so
+`attack_dir_from_axis(axis, facing)` folds the reversal away and every back-air
+press resolves as `Forward`. The move exists, is bound
+(`attack_air_back -> air_back` in the verb table), has frame data, and is dead
+content for all fourteen fighters.
+
+⛔ TWO AUTHORITIES DISAGREE ABOUT AIR FACING, and the code says so out loud in
+both places:
+
+- `movement/abilities.rs` — `let can_turn = ground.on_ground || flight.fly_enabled;`
+  i.e. an airborne body may NOT turn from the stick.
+- `movement/recovery.rs:383` — *"The effort's own steering IS its facing intent:
+  a body that cannot turn in the air still points where it is trying to go."*
+  and `MotionStepContext::facing_intent` is applied unconditionally in
+  `movement/kernel.rs:368`.
+
+Both are defensible; they cannot both hold. The genre's answer is that an
+airborne body keeps its facing and a back input is a BACK ATTACK — that is the
+whole reason the slot exists — while the reverse aerial rush stays a GROUNDED
+pivot resolved by the jump.
+
+⛔ NOT FIXED IN THE RUN THAT FOUND IT. `facing_intent` is a shared movement
+kernel input reaching every body in the game (crawlers, bosses, surface-momentum
+riders, the recovery probe), and re-tuning air facing at 5am on an unattended run
+would change how every character points while attacking. The finding is recorded
+with its instrument: rerun `moveset_takes` after any change and the MISMATCH line
+is the acceptance test.
+
 - ◐ **D244 — THE LADDER'S CAP FORBIDS NOTHING; ITS REPERTOIRE DOES RISE, AND THE
   FIRST VERSION OF THIS ROW SAID OTHERWISE. (promoted from the intake 2026-08-26,
   corrected within the hour by the measurement that would falsify it)**

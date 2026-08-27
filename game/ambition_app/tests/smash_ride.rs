@@ -467,6 +467,66 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
         app.world().get::<RidingOn>(seat0).is_some(),
         "a shark exists and the admiral picked off the GRID is not on it"
     );
+
+    // ⭐⭐ AND THE RIDE SURVIVES BEING FLOWN, which is the arm that was missing.
+    // ⛔⛔ Jon's log showed `boarded` followed about twenty milliseconds later by
+    // `dismounted reason=MountLost`, EVERY time: the shark charge-crashed into
+    // the stage and detonated itself while carrying him. The suicide is guarded
+    // by `!is_mounted` and the guard was wired to `Option<&Mounted>` — a marker
+    // `mount::board` puts on the RIDER — so a shark with somebody in its saddle
+    // always read as unmounted. Every existing charge-crash test passed
+    // `is_mounted` as a LITERAL, so they pinned the function while the wiring was
+    // wrong.
+    //
+    // ⛔ SO THIS FLIES IT. A shark parked on a platform never reaches charge
+    // speed and never crashes, which is why the tests above missed this for a
+    // whole session; Jon's presses were airborne (`grounded=false`) and hit
+    // geometry immediately.
+    for _ in 0..90 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                axis_x: 1.0,
+                ..Default::default()
+            },
+        );
+        app.update();
+    }
+    assert!(
+        app.world().get::<RidingOn>(seat0).is_some(),
+        "the admiral was put off the shark within a second and a half of \
+         boarding it — the mount died under him, which is what a charge-crash \
+         suicide that cannot see its own rider does"
+    );
+    // ⛔⛔ AND IT BOARDED WITH ROOM TO SPARE. Measured here because the summon
+    // does NOT get the position it asks for: it names the rider's own centre,
+    // and `actor_spawn_center_for_collision` then preserves the authored BOTTOM
+    // EDGE, so the shark's centre lands 62px away for a body this size. That is
+    // inside `SUMMON_BOARD_RADIUS` and was inside it by 34px before anybody had
+    // measured either number — which is the kind of margin that holds until one
+    // sprite changes. Pinning the gap makes a placement change say so here
+    // rather than in play.
+    {
+        let world = app.world_mut();
+        let rider = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(seat0)
+            .expect("the rider has kinematics")
+            .pos;
+        let mount = world
+            .get::<RidingOn>(seat0)
+            .map(|r| r.mount)
+            .expect("just asserted");
+        let gap = world
+            .get::<ambition_platformer2d::actor::BodyKinematics>(mount)
+            .expect("the mount has kinematics")
+            .pos
+            .distance(rider);
+        assert!(
+            gap < 200.0,
+            "the ridden shark sits {gap:.1}px from its rider, which says the \
+             saddle weld is not holding the pair together"
+        );
+    }
     assert!(
         app.world().get::<RidingOn>(seat0).is_some(),
         "a shark exists and the admiral picked off the GRID is not on it — which \

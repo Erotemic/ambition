@@ -53,6 +53,32 @@ SPRITES = (
 )
 
 
+def capture_scene_candidates() -> list[Path]:
+    """Every place the renderer might be, in the order worth trying.
+
+    ⛔⛔ NOT JUST `target/debug`. This hard-coded one path, which is wrong two
+    ways that both bite real setups: `CARGO_TARGET_DIR` relocates the whole
+    directory (this repo ships `scripts/setup_target_bindmount.sh` for exactly
+    that), and a release build lands in `target/release`. Either one produced
+    "capture_scene is not built" against a tree where it plainly was.
+
+    ⭐ THE SAME CONVENTION `scripts/profile_desktop.sh` ALREADY USES —
+    `${CARGO_TARGET_DIR:-$repo_root/target}`, release and debug — so the two
+    agree about where this repo puts its binaries.
+    """
+    import os
+
+    root = Path(os.environ.get("CARGO_TARGET_DIR") or (REPO / "target"))
+    return [root / "release" / "capture_scene", root / "debug" / "capture_scene"]
+
+
+def find_capture_scene() -> Path | None:
+    for candidate in capture_scene_candidates():
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def render_animation(character: str, frames: int, stride: int) -> tuple[int, dict]:
     """Render one fighter's animation through the real engine, on demand.
 
@@ -87,12 +113,13 @@ def render_animation(character: str, frames: int, stride: int) -> tuple[int, dic
         except (OSError, ValueError):
             pass
 
-    binary = REPO / "target" / "debug" / "capture_scene"
-    if not binary.exists():
+    binary = find_capture_scene()
+    if binary is None:
         return 503, {
             "available": False,
             "reason": "capture_scene is not built",
             "hint": "cargo build -p ambition_app_tools --bin capture_scene",
+            "looked_in": [str(p) for p in capture_scene_candidates()],
         }
 
     out_dir.mkdir(parents=True, exist_ok=True)

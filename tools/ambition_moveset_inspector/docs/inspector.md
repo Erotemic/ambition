@@ -160,11 +160,25 @@ derivation here.
 
 The derived frame cursor is the FALLBACK now, not the only answer.
 
+ONE binary: **`capture_scene`**. Nothing else in the tool needs a GPU.
+
 ```bash
+# build it, or pass --with-renderer to serve_inspector.sh and it does this
 cargo build -p ambition_app_tools --bin capture_scene
+
+# and it is useful by hand
 target/debug/capture_scene hall_of_characters player /tmp/a/anim.png 480x360 \
     --warmup 60 --character projectile_polygon --frames 24 --stride 2
 ```
+
+The server looks for it in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}/`
+— the same convention `scripts/profile_desktop.sh` uses — and when it cannot find
+it, the `503` names every path it tried.
+
+⚠ For completeness, the two binaries the REST of the inspector needs, neither of
+which wants a GPU: `moveset_export` (the bundle; `serve_inspector.sh` runs it for
+you) and `moveset_takes` (the recorded takes; run it yourself for the fighters
+you care about).
 
 `--frames N` re-arms the capture after each readback and numbers the files
 `<stem>.NNNN.png`; `--stride K` advances K sim frames between shots. A single

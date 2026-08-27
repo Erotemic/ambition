@@ -61,6 +61,17 @@ const PONYTAIL_THROWN_AT_S: f32 = 0.16;
 /// whole reason a boomerang is worth throwing.
 const PONYTAIL_ENDS_S: f32 = 0.40;
 
+/// The held-item id her down-B lays. It has to be a REGISTERED held item or
+/// nobody can pick the bomb up, which is half the move.
+const BOMB_ITEM: &str = "polygon_bomb";
+
+/// When the bomb reaches the floor.
+const BOMB_LAID_AT_S: f32 = 0.18;
+
+/// When the move ends. She is committed for a beat afterwards, which is the
+/// cost of putting a live thing on the stage.
+const BOMB_ENDS_S: f32 = 0.46;
+
 /// THE CHARGE BALL — the genre's held neutral-B, and this fighter's identity.
 ///
 /// Hold Special and the timeline freezes at [`CHARGE_HOLD_AT_S`] while the ball
@@ -420,24 +431,56 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     uppercut.landing_lag_s = Some(0.25);
     let up_special = impulse(uppercut, 0.08, (0.0, -745.0), ImpulseMode::Set);
 
-    let grounded_down_special = committed_tail(
-        strike(Strike {
-            id: "polygon_projectile_low_burst",
-            clip: "attack_down",
-            startup_s: 0.13,
-            active_s: 0.10,
-            recover_s: 0.25,
-            offset: (0.0, 15.0),
-            half_extents: (31.0, 13.0),
-            damage: 11,
-            knockback: 105.0,
-            knockback_growth: 1.95,
-            launch_dir: Some((0.70, -0.72)),
-            on_hit: None,
-        }),
-        0.54,
-        0.05,
+    // DOWN (grounded) — `polygon_lay_bomb`. SHE PUTS A LIVE BOMB ON THE FLOOR.
+    //
+    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"The projectile polygon should poop a bomb
+    // onto the stage, they should be able to pick it up and throw it. The bomb
+    // should detonate in 4 seconds or if it hits something with enough velocity,
+    // whichever comes first."*
+    //
+    // ⭐ THE OBJECT IS A GROUND ITEM, which is what makes the second sentence
+    // free: picking things up and throwing them is machinery the engine already
+    // installs in every game. See `ambition_demo_smash::bomb`.
+    //
+    // ⛔ NO MELEE VOLUME. Laying a bomb is not a hit — the bomb is — and a
+    // down-B that also struck would be two moves on one button. It replaces
+    // `polygon_low_burst`, an ordinary low arc that said nothing about her.
+    let grounded_down_special = ambition_characters::moveset_authoring::hitless_special(
+        "polygon_lay_bomb",
+        "attack_down",
+        BOMB_LAID_AT_S,
+        BOMB_ENDS_S,
     );
+    let mut grounded_down_special = grounded_down_special;
+    grounded_down_special.display_name = Some("Lay a Bomb".to_string());
+    let grounded_down_special = ambition_characters::smash_bomb::author_drop_bomb(
+        grounded_down_special,
+        BOMB_LAID_AT_S,
+        ambition_characters::smash_bomb::DropBombParams {
+            item_id: BOMB_ITEM.to_string(),
+            // ⭐ JON'S NUMBER, verbatim: *"detonate in 4 seconds"*.
+            fuse_s: 4.0,
+            damage: 12,
+            blast_radius: 56.0,
+            // ⭐ "ENOUGH VELOCITY" IS A NUMBER, and this one sits between the two
+            // ways a bomb stops moving: `THROW_SPEED_X` is 320, so a THROWN bomb
+            // detonates on what it hits, and a bomb that merely fell out of her
+            // hands does not.
+            impact_speed: 260.0,
+            half_extents: (9.0, 9.0),
+            // Just behind and below her, so laying one does not put it inside
+            // her own body where nobody can pick it up.
+            offset: (-16.0, 14.0),
+        },
+    );
+    let grounded_down_special =
+        ambition_characters::moveset_authoring::sfx(grounded_down_special, BOMB_LAID_AT_S, "player.land.heavy");
+    let grounded_down_special = ambition_characters::moveset_authoring::vfx(
+        grounded_down_special,
+        BOMB_LAID_AT_S,
+        "poof_small",
+    );
+
     let mut airborne_down_special = strike(Strike {
         id: "polygon_projectile_downward_vector",
         clip: "air_down",
@@ -580,7 +623,7 @@ mod tests {
             "polygon_projectile_charge_shot",
             "polygon_ponytail_boomerang",
             "polygon_projectile_recoil_lift",
-            "polygon_projectile_low_burst",
+            "polygon_lay_bomb",
             "polygon_projectile_downward_vector",
             "polygon_projectile_grab",
             "polygon_projectile_pummel",

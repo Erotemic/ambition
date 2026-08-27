@@ -219,6 +219,28 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
+        // ⭐ THE BOMB SHE LAYS. A held item with no verb of its own — the whole
+        // point of it is that it is a THING somebody carries, and its behaviour
+        // lives on the object's own fuse rather than on a button.
+        //
+        // ⛔ IT MUST BE REGISTERED OR THE MOVE IS HALF A MOVE. `pickup_held_item_system`
+        // resolves a ground item to the spec it becomes in a hand, and an
+        // unregistered id is an object nobody can pick up — which is exactly
+        // half of what Jon asked the down-B for.
+        items.insert(
+            "polygon_bomb",
+            HeldItemSpec {
+                id: "polygon_bomb".into(),
+                melee: None,
+                ranged: None,
+                // ⛔ `Auto`, NOT `UseSystem`. A pure throwable is released by
+                // the ordinary throw road (`throw_held_item_system`); a
+                // `UseSystem` item would have Attack intercepted by a fire
+                // system that does not exist for it, and pressing Attack with a
+                // bomb in hand would do nothing at all.
+                use_behavior: HeldUseBehavior::Auto,
+            },
+        );
         // ⭐ THE POLYGON'S PONYTAIL, taken hold of for one move and let go again.
         //
         // ⛔ A HELD ITEM FOR A THING THAT IS PART OF HER, and that is the point

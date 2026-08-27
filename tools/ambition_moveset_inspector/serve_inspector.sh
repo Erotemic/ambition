@@ -40,27 +40,42 @@ find_bin() {
   return 1
 }
 
-say_missing() {
-  echo "[inspector] $1 is not built — $2" >&2
-  echo "[inspector]   cargo build -p ambition_app_tools --bin $1" >&2
+# ⭐⭐ ONE LINE PER BINARY, ALWAYS. Printing the build command only when
+# something was MISSING answered "why is this broken" and never "what am I
+# looking at" — and with nothing built by this script, which binary it picked and
+# how old that binary is IS the provenance of everything on screen. Jon:
+# *"It should show what the build command is, and the mtime or other info of the
+# binary it will use."*
+report_bin() {
+  local name="$1" lost="$2" path age
+  if path="$(find_bin "$name")"; then
+    age="$(( ( $(date +%s) - $(stat -c %Y "$path") ) / 60 ))"
+    if (( age < 60 )); then age="${age}m old"
+    elif (( age < 2880 )); then age="$(( age / 60 ))h old"
+    else age="$(( age / 1440 ))d old"; fi
+    printf '[inspector] %-15s %s  (built %s, %s)\n' \
+      "$name" "$path" "$(date -r "$path" '+%Y-%m-%d %H:%M')" "$age"
+  else
+    printf '[inspector] %-15s NOT BUILT — %s\n' "$name" "$lost" >&2
+    printf '[inspector] %-15s   cargo build -p ambition_app_tools --bin %s\n' "" "$name" >&2
+    return 1
+  fi
 }
+
+# ⛔ THE BUILD COMMANDS ARE ALWAYS VISIBLE, not only on the failure path. A
+# person who wants to REFRESH a binary that already exists needs the same line as
+# a person who has none, and only one of those two used to get it.
+echo "[inspector] this tool never builds; refresh a binary yourself with:"
+echo "[inspector]   cargo build -p ambition_app_tools --bin {moveset_export,moveset_takes,capture_scene}"
+
+report_bin moveset_export "serving whatever bundle is already on disk" || true
+report_bin moveset_takes  "there will be no recorded takes to look at"  || true
+report_bin capture_scene  "Engine Takes will use CPU-derived sprites"   || true
 
 if [[ "$export_bundle" == 1 ]]; then
   if exporter="$(find_bin moveset_export)"; then
-    echo "[inspector] exporting with $exporter ($(date -r "$exporter" '+%Y-%m-%d %H:%M'))"
     "$exporter" --out "$here/data/moveset_bundle.json" >/dev/null
-  else
-    say_missing moveset_export "serving whatever bundle is already on disk"
   fi
-fi
-
-# ⭐ NAMED, NOT BUILT. The renderer is the only GPU-dependent piece; the view
-# falls back to CPU-derived sprites without it and says which it is showing.
-if ! find_bin capture_scene >/dev/null; then
-  say_missing capture_scene "Engine Takes will use CPU-derived sprites"
-fi
-if ! find_bin moveset_takes >/dev/null; then
-  say_missing moveset_takes "there will be no recorded takes to look at"
 fi
 
 cd "$here"

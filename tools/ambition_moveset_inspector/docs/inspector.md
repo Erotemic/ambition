@@ -15,12 +15,24 @@ bundle already on disk.
 ⛔⛔ NOTHING HERE INVOKES CARGO. The wrapper used to `cargo run` the exporter on
 every start, which takes the cargo build LOCK — so opening the inspector could
 block, or be blocked by, an agent building on another branch. It runs binaries
-that already exist and PRINTS the build command for any it cannot find:
+that already exist, and prints the build command and each binary's provenance
+every time, whether or not anything is missing:
 
 ```text
-[inspector] capture_scene is not built — Engine Takes will use CPU-derived sprites
-[inspector]   cargo build -p ambition_app_tools --bin capture_scene
+[inspector] this tool never builds; refresh a binary yourself with:
+[inspector]   cargo build -p ambition_app_tools --bin {moveset_export,moveset_takes,capture_scene}
+[inspector] moveset_export  <target>/debug/moveset_export  (built 2026-08-27 17:04, 2h old)
+[inspector] moveset_takes   NOT BUILT — there will be no recorded takes to look at
+[inspector]                   cargo build -p ambition_app_tools --bin moveset_takes
 ```
+
+⭐ THE BUILD COMMAND IS NOT ONLY A FAILURE MESSAGE. Somebody refreshing a binary
+that already exists needs the same line as somebody who has none, and the age is
+what tells them whether they should.
+
+The renderer's own path and build time also ride back with its frames, so the
+Engine Takes label reads `sprites: rendered by the engine (capture_scene built
+2026-08-27 18:35)` and its tooltip is the binary's full path.
 
 Missing binaries are never fatal. No exporter means the bundle already on disk is
 served; no renderer means the CPU fallback; no `moveset_takes` means there are no

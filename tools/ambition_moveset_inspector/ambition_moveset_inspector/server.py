@@ -72,6 +72,17 @@ def capture_scene_candidates() -> list[Path]:
     return [root / "release" / "capture_scene", root / "debug" / "capture_scene"]
 
 
+def _built_at(path: Path) -> str | None:
+    """When this binary was built, for the viewer to show beside its pictures."""
+    import datetime
+
+    try:
+        stamp = path.stat().st_mtime
+    except OSError:
+        return None
+    return datetime.datetime.fromtimestamp(stamp).strftime("%Y-%m-%d %H:%M")
+
+
 def find_capture_scene() -> Path | None:
     for candidate in capture_scene_candidates():
         if candidate.exists():
@@ -158,11 +169,16 @@ def render_animation(character: str, frames: int, stride: int) -> tuple[int, dic
             "detail": tail[-3:] if tail else [],
         }
 
+    # ⭐ THE BINARY'S OWN PROVENANCE TRAVELS WITH THE FRAMES. Nothing here builds,
+    # so "which binary drew this and when was it built" is the only thing that
+    # distinguishes a current picture from one an hour of engine changes ago.
     document = {
         "available": True,
         "character": safe,
         "frames": len(shots),
         "stride": stride,
+        "renderer": str(binary),
+        "renderer_built": _built_at(binary),
         "urls": [f"/render/{safe}/{name}" for name in shots],
     }
     manifest.write_text(json.dumps(document))

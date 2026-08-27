@@ -15,10 +15,13 @@ use bevy::prelude::{
     Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
 };
 
-use super::super::util::{approximately_same_aabb, midpoint};
 use super::damage_drops::drop_currency_coin;
-use super::{sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat, BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity};
+use super::{
+    sync_actor_components_from_cluster, ActorDisposition, ActorIdentity, BodyCombat,
+    BreakableFeature, CenteredAabb, FeatureId, FeatureName, FeatureSimEntity,
+};
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use ambition_combat::util::{approximately_same_aabb, midpoint};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -80,8 +83,7 @@ pub struct FeatureHitWriters<'w, 's> {
     pub sfx: SfxWriter<'w>,
     pub vfx: MessageWriter<'w, VfxMessage>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
-    pub wallet_shield_spent:
-        MessageWriter<'w, ambition_damage::WalletShieldSpent>,
+    pub wallet_shield_spent: MessageWriter<'w, ambition_damage::WalletShieldSpent>,
     /// S4: KOs of bodies a RULESET owns, for the stocks loop. Written from the
     /// `RulesetOwnsDeath` arm, which is where the engine already stops and hands
     /// the consequence over.
@@ -97,8 +99,7 @@ pub struct FeatureHitWriters<'w, 's> {
     pub resolutions: Option<MessageWriter<'w, ambition_damage::BodyHitResolved>>,
     /// The LAUNCH the reaction produced. Same `Option` rule as above.
     #[cfg(feature = "causal")]
-    pub reactions:
-        Option<MessageWriter<'w, ambition_damage::BodyReactionApplied>>,
+    pub reactions: Option<MessageWriter<'w, ambition_damage::BodyReactionApplied>>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.
@@ -720,10 +721,7 @@ pub fn apply_feature_hit_events(
                 &mut motion_model,
                 &mut combat,
                 wallet_shield.map(|(wallet, shield)| {
-                    ambition_damage::WalletArmor::new(
-                        wallet.into_inner(),
-                        shield,
-                    )
+                    ambition_damage::WalletArmor::new(wallet.into_inner(), shield)
                 }),
                 aggression.as_deref_mut(),
                 interactable,
@@ -818,10 +816,7 @@ pub fn apply_feature_hit_events(
                 &mut health,
                 &mut combat,
                 wallet_shield.map(|(wallet, shield)| {
-                    ambition_damage::WalletArmor::new(
-                        wallet.into_inner(),
-                        shield,
-                    )
+                    ambition_damage::WalletArmor::new(wallet.into_inner(), shield)
                 }),
                 attack_state,
                 animation_frame,

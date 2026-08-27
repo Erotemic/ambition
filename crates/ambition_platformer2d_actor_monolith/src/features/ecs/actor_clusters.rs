@@ -31,8 +31,8 @@ use super::super::components::BodyMelee;
 use super::super::enemies::ActorSurfaceState;
 // The body a reset hands back. Below both of the domains that restore it —
 // respawn and the mount dismount — and imported, never re-exported.
-use super::super::path_motion::PathMotion;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_combat::path_motion::PathMotion;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;

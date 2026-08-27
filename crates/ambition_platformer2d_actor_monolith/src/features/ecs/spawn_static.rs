@@ -5,12 +5,15 @@
 
 use super::*;
 use crate::features::{ChestBundle, PickupBundle};
+use ambition_combat::hazard_runtime::HazardRuntime;
 use ambition_entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::prelude::Name;
 
 fn damage_volume_from_authored(
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::HazardVolumeSpec,
+    >,
 ) -> ambition_combat::DamageVolume {
     let mut damage = ambition_combat::Damage::new(
         authored.payload.damage,
@@ -33,7 +36,9 @@ fn damage_volume_from_authored(
     }
 }
 
-fn pickup_kind_from_spec(kind: &ambition_platformer2d_world::rooms::PickupKind) -> ambition_interaction::PickupKind {
+fn pickup_kind_from_spec(
+    kind: &ambition_platformer2d_world::rooms::PickupKind,
+) -> ambition_interaction::PickupKind {
     match kind {
         ambition_platformer2d_world::rooms::PickupKind::Health { amount } => {
             ambition_interaction::PickupKind::Health { amount: *amount }
@@ -56,7 +61,9 @@ fn pickup_kind_from_spec(kind: &ambition_platformer2d_world::rooms::PickupKind) 
 }
 
 fn pickup_from_authored(
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::PickupSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::PickupSpec,
+    >,
 ) -> ambition_interaction::Pickup {
     ambition_interaction::Pickup {
         id: authored.id.clone(),
@@ -66,16 +73,26 @@ fn pickup_from_authored(
     }
 }
 
-fn chest_state_from_spec(state: ambition_platformer2d_world::rooms::ChestStateSpec) -> ambition_interaction::ChestState {
+fn chest_state_from_spec(
+    state: ambition_platformer2d_world::rooms::ChestStateSpec,
+) -> ambition_interaction::ChestState {
     match state {
-        ambition_platformer2d_world::rooms::ChestStateSpec::Closed => ambition_interaction::ChestState::Closed,
-        ambition_platformer2d_world::rooms::ChestStateSpec::Opening => ambition_interaction::ChestState::Opening,
-        ambition_platformer2d_world::rooms::ChestStateSpec::Opened => ambition_interaction::ChestState::Opened,
+        ambition_platformer2d_world::rooms::ChestStateSpec::Closed => {
+            ambition_interaction::ChestState::Closed
+        }
+        ambition_platformer2d_world::rooms::ChestStateSpec::Opening => {
+            ambition_interaction::ChestState::Opening
+        }
+        ambition_platformer2d_world::rooms::ChestStateSpec::Opened => {
+            ambition_interaction::ChestState::Opened
+        }
     }
 }
 
 fn chest_from_authored(
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::ChestSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::ChestSpec,
+    >,
 ) -> ambition_interaction::Chest {
     ambition_interaction::Chest {
         id: authored.id.clone(),
@@ -105,7 +122,9 @@ fn breakable_trigger_from_spec(
     trigger: ambition_platformer2d_world::rooms::BreakableTriggerSpec,
 ) -> ambition_interaction::BreakableTrigger {
     match trigger {
-        ambition_platformer2d_world::rooms::BreakableTriggerSpec::OnHit => ambition_interaction::BreakableTrigger::OnHit,
+        ambition_platformer2d_world::rooms::BreakableTriggerSpec::OnHit => {
+            ambition_interaction::BreakableTrigger::OnHit
+        }
         ambition_platformer2d_world::rooms::BreakableTriggerSpec::OnStand => {
             ambition_interaction::BreakableTrigger::OnStand
         }
@@ -119,11 +138,15 @@ fn breakable_state_from_spec(
     state: ambition_platformer2d_world::rooms::BreakableStateSpec,
 ) -> ambition_interaction::BreakableState {
     match state {
-        ambition_platformer2d_world::rooms::BreakableStateSpec::Intact => ambition_interaction::BreakableState::Intact,
+        ambition_platformer2d_world::rooms::BreakableStateSpec::Intact => {
+            ambition_interaction::BreakableState::Intact
+        }
         ambition_platformer2d_world::rooms::BreakableStateSpec::Cracking => {
             ambition_interaction::BreakableState::Cracking
         }
-        ambition_platformer2d_world::rooms::BreakableStateSpec::Broken => ambition_interaction::BreakableState::Broken,
+        ambition_platformer2d_world::rooms::BreakableStateSpec::Broken => {
+            ambition_interaction::BreakableState::Broken
+        }
         ambition_platformer2d_world::rooms::BreakableStateSpec::Respawning => {
             ambition_interaction::BreakableState::Respawning
         }
@@ -131,7 +154,9 @@ fn breakable_state_from_spec(
 }
 
 fn breakable_from_authored(
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::BreakableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::BreakableSpec,
+    >,
 ) -> ambition_interaction::Breakable {
     ambition_interaction::Breakable {
         id: authored.id.clone(),
@@ -171,8 +196,12 @@ fn interaction_kind_from_spec(
             patrol_path_id: patrol_path_id.clone(),
             brain_override: brain_override.clone(),
         },
-        ambition_platformer2d_world::rooms::InteractionKindSpec::Chest => ambition_interaction::InteractionKind::Chest,
-        ambition_platformer2d_world::rooms::InteractionKindSpec::Pickup => ambition_interaction::InteractionKind::Pickup,
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Chest => {
+            ambition_interaction::InteractionKind::Chest
+        }
+        ambition_platformer2d_world::rooms::InteractionKindSpec::Pickup => {
+            ambition_interaction::InteractionKind::Pickup
+        }
         ambition_platformer2d_world::rooms::InteractionKindSpec::Breakable => {
             ambition_interaction::InteractionKind::Breakable
         }
@@ -183,7 +212,9 @@ fn interaction_kind_from_spec(
 }
 
 pub(super) fn interactable_from_authored(
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::InteractableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::InteractableSpec,
+    >,
 ) -> ambition_interaction::Interactable {
     ambition_interaction::Interactable {
         id: authored.id.clone(),
@@ -206,14 +237,24 @@ fn portal_color_from_spec(
         ambition_platformer2d_world::rooms::PortalChannelColorSpec::Yellow => {
             ambition_portal2d::PortalChannelColor::Yellow
         }
-        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Teal => ambition_portal2d::PortalChannelColor::Teal,
-        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Red => ambition_portal2d::PortalChannelColor::Red,
-        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Green => ambition_portal2d::PortalChannelColor::Green,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Teal => {
+            ambition_portal2d::PortalChannelColor::Teal
+        }
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Red => {
+            ambition_portal2d::PortalChannelColor::Red
+        }
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Green => {
+            ambition_portal2d::PortalChannelColor::Green
+        }
         ambition_platformer2d_world::rooms::PortalChannelColorSpec::Magenta => {
             ambition_portal2d::PortalChannelColor::Magenta
         }
-        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Cyan => ambition_portal2d::PortalChannelColor::Cyan,
-        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Rose => ambition_portal2d::PortalChannelColor::Rose,
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Cyan => {
+            ambition_portal2d::PortalChannelColor::Cyan
+        }
+        ambition_platformer2d_world::rooms::PortalChannelColorSpec::Rose => {
+            ambition_portal2d::PortalChannelColor::Rose
+        }
         ambition_platformer2d_world::rooms::PortalChannelColorSpec::Indexed(n) => {
             ambition_portal2d::PortalChannelColor::Indexed(n)
         }
@@ -226,7 +267,9 @@ pub(crate) fn spawn_hazard_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::HazardVolumeSpec,
+    >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
 ) {
     let hazard = HazardRuntime::new_with_paths(
@@ -341,7 +384,9 @@ pub(crate) fn lower_pickup_placement(
 pub fn spawn_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::PickupSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::PickupSpec,
+    >,
 ) -> bevy::ecs::entity::Entity {
     // `PickupBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
     // so insert through the session-only helper — `insert_room_in_session` would
@@ -356,7 +401,9 @@ pub(crate) fn spawn_pickup_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::PickupSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::PickupSpec,
+    >,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     commands.insert_session_scoped(
@@ -460,7 +507,9 @@ pub(crate) fn spawn_chest_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::ChestSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::ChestSpec,
+    >,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     // `ChestBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
@@ -501,7 +550,9 @@ pub(crate) fn spawn_breakable_into(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::BreakableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::BreakableSpec,
+    >,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = breakable_from_authored(authored);

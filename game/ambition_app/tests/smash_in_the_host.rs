@@ -2139,7 +2139,7 @@ fn settle_the_match_by_knockout(app: &mut App) {
         .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
         .cloned()
         .expect("a live match to settle");
-    let mut tick = |app: &mut App| {
+    let tick = |app: &mut App| {
         app.update();
         if let Some(boundary) = boundary {
             app.world_mut().insert_resource(boundary);

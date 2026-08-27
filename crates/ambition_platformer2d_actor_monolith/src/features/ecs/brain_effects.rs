@@ -19,13 +19,13 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_characters::brain::{
     action_set::{ActionRequest, ProjectileFlight, RangedCommitment},
     ActorActionMessage,
 };
 #[cfg(test)]
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Recoil applied to the firing enemy along the negative fire
@@ -256,7 +256,7 @@ pub fn spawn_projectiles_from_brain_actions(
 /// the helper available to the unit tests below without leaking
 /// `Platformer2dFeelTuningMonolith` through the public API.
 #[cfg(test)]
-fn default_combat_tuning() -> crate::features::events::FeatureCombatTuning {
+fn default_combat_tuning() -> ambition_combat::events::FeatureCombatTuning {
     Platformer2dFeelTuningMonolith::default().feature_combat_tuning()
 }
 

@@ -5,13 +5,14 @@
 
 use bevy::prelude::Entity;
 
-use super::super::super::{util::midpoint, NPC_HOSTILE_STRIKE_THRESHOLD};
+use super::super::super::NPC_HOSTILE_STRIKE_THRESHOLD;
 use super::super::damage_drops::{
     drop_currency_coin, drop_health_pickup, id_drops_health, spawn_death_explosion,
     spawn_split_offspring,
 };
 use super::super::{ae, ActorDisposition};
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource, SetFlagRequested};
+use ambition_combat::util::midpoint;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -155,7 +156,8 @@ pub(crate) fn apply_actor_hit(
     // death-ownership marker, which correlates and does not mean the same thing.
     // An eliminated fighter's body keeps standing, its death still belongs to
     // the match, and it is not fighting; the correlation breaks exactly there.
-    if !ambition_combat::components::CombatStanding::of(disposition, active_combatant).takes_damage()
+    if !ambition_combat::components::CombatStanding::of(disposition, active_combatant)
+        .takes_damage()
     {
         // Body-generic post-hit i-frame — the same consume-time gate
         // `resolve_body_hit` applies to a hostile body: a body that registered
@@ -393,16 +395,14 @@ pub(crate) fn apply_actor_hit(
             });
             return true;
         }
-        if let ambition_damage::BodyHitResolution::WalletShielded { spent } =
-            resolution
-        {
-            writers.wallet_shield_spent.write(
-                ambition_damage::WalletShieldSpent {
+        if let ambition_damage::BodyHitResolution::WalletShielded { spent } = resolution {
+            writers
+                .wallet_shield_spent
+                .write(ambition_damage::WalletShieldSpent {
                     victim: actor_entity,
                     amount: spent,
                     pos: em.kin.pos,
-                },
-            );
+                });
         }
         if resolution == ambition_damage::BodyHitResolution::Armored {
             // A worn armor row absorbed the hit (no actor wears one today; kept
@@ -530,7 +530,9 @@ pub(crate) fn apply_actor_hit(
         // its own contact rule re-attaches it. Archetypes authored with
         // `cling_breaks_on_hit: false` hold on when hit.
         if !killed && em.config.tuning.cling_breaks_on_hit {
-            if let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) = motion_model {
+            if let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) =
+                motion_model
+            {
                 let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
                 crawler.detach();
                 em.ground.on_ground = false;

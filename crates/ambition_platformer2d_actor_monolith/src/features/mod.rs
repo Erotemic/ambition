@@ -62,12 +62,17 @@ pub use movement_fx::{
     emit_movement_fx, handle_player_events,
 };
 
-pub use ambition_combat::events;
-pub use ambition_combat::hazard_runtime as hazards;
-pub use ambition_combat::path_motion;
-pub use ambition_combat::util;
-pub use ambition_platformer2d_world::collision as world_overlay;
-pub use ecs::effect_bus as bus;
+// ⛔⛔ SIX RE-EXPORT FACADES DELETED 2026-08-26, and FOUR of them had no
+// consumer at all. `events`, `hazard_runtime as hazards`, `path_motion`, `util`,
+// `collision as world_overlay` and `effect_bus as bus` all forwarded another
+// crate's module under this one's address, which is how a coupling census counts
+// `ambition_combat` and `ambition_platformer2d_world` as MONOLITH surface. The
+// two live consumers named `ambition_combat::events` directly instead, and
+// nothing else in the tree named the other four.
+//
+// ⭐ THE TELL, and it is the one that took the damage carve from an apparent ~70
+// outward references to zero: one module spelling one crate two ways. Callers
+// name the crate that owns the thing.
 
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb, damageable_volumes,
@@ -79,7 +84,7 @@ pub use bosses::{
     boss_attack_moveset, ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile,
     BossMovementProfile, BossRewardProfile,
 };
-pub use bus::{
+pub use ecs::effect_bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
 pub use ecs::{actor_component_snapshot, boss_component_snapshot};
@@ -173,12 +178,10 @@ pub use enemies::{ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX
 // `pub use ambition_combat::events` — so 74 sites read as coupling to the actor
 // crate for types it does not own, and `damage_apply`'s own tests reached the
 // monolith for exactly two names, both of them these. Callers name the owner.
-pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};
-pub use path_motion::PathMotion;
 
+use ambition_combat::util::*;
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
-use util::*;
 
 /// Schedules the gameplay-effect bus chain into
 /// [`crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].
@@ -198,15 +201,15 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ecs::arm_requested_challenges,
                 crate::items::narrative::apply_item_grants,
                 crate::items::narrative::apply_shop_transactions,
-                bus::apply_flag_effects,
-                bus::apply_quest_effects,
-                bus::apply_switch_effects,
+                ecs::effect_bus::apply_flag_effects,
+                ecs::effect_bus::apply_quest_effects,
+                ecs::effect_bus::apply_switch_effects,
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
                 ecs::tick_pending_challenges.run_if(gameplay_allowed),
                 ecs::apply_actor_stimuli,
-                bus::apply_gameplay_sfx_effects,
+                ecs::effect_bus::apply_gameplay_sfx_effects,
             )
                 .chain()
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),

@@ -6,7 +6,7 @@
 //! composition stays content-side, not here.
 
 use crate::encounter::SwitchActivated;
-use crate::features::events::{GameplaySfxRequested, SetFlagRequested};
+use ambition_combat::events::{GameplaySfxRequested, SetFlagRequested};
 use ambition_persistence::quest::QuestAdvanceRequested;
 use bevy::prelude::{MessageReader, ResMut};
 

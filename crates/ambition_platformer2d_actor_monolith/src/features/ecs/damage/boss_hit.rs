@@ -6,10 +6,10 @@
 //! immediate VFX (save Cleared + quest + music restore) are resolved by
 //! `update_boss_encounters` once the death outro elapses.
 
-use super::super::super::util::midpoint;
+use super::super::ae;
 use super::super::damage_drops::{drop_ability_pickup, drop_currency_coin, drop_health_pickup};
-use super::super::{ae};
 use ambition_combat::events::{GameplayBanner, HitEvent, HitSource};
+use ambition_combat::util::midpoint;
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
@@ -81,9 +81,7 @@ pub(crate) fn apply_entity_boss_damage(
         ambition_damage::BodyHitResolution::Blocked => (false, false, None),
         // No `WornEquipment`  the resolver never returns Armored for a boss.
         ambition_damage::BodyHitResolution::Armored => (true, false, None),
-        ambition_damage::BodyHitResolution::WalletShielded { spent } => {
-            (true, false, Some(spent))
-        }
+        ambition_damage::BodyHitResolution::WalletShielded { spent } => (true, false, Some(spent)),
         ambition_damage::BodyHitResolution::Damaged { died, .. } => {
             if died {
                 if let Some(phase) = status.encounter.as_mut() {
@@ -321,7 +319,9 @@ pub(crate) fn apply_boss_hit(
 // the combat kit (`ambition_combat::breakables`) — they are
 // generic breakable side-effect helpers shared by the typed-damage
 // path here and the kit's stand-to-break path.
-pub(crate) use ambition_combat::breakables::{begin_ecs_breakable_respawn, emit_breakable_destroyed};
+pub(crate) use ambition_combat::breakables::{
+    begin_ecs_breakable_respawn, emit_breakable_destroyed,
+};
 
 #[cfg(test)]
 mod entity_damage_tests {

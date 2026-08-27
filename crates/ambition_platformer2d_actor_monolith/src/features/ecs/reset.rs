@@ -6,7 +6,8 @@
 //! retry a room without having to leave and re-enter.
 
 use super::*;
-use ambition_combat::events::{ResetRoomFeaturesEvent};
+use ambition_combat::events::ResetRoomFeaturesEvent;
+use ambition_combat::path_motion::PathMotion;
 
 /// Spawned by THIS attempt at the room, and cleared when the attempt is.
 ///
@@ -335,18 +336,30 @@ mod reset_tests {
     #[test]
     fn reset_clears_every_live_projectile_regardless_of_presentation_family() {
         let mut app = app();
-        let open = app.world_mut().spawn(ambition_projectiles::LiveProjectile).id();
+        let open = app
+            .world_mut()
+            .spawn(ambition_projectiles::LiveProjectile)
+            .id();
         let named = app
             .world_mut()
-            .spawn((ambition_projectiles::LiveProjectile, ambition_projectiles::ProjectileKind::Fireball))
+            .spawn((
+                ambition_projectiles::LiveProjectile,
+                ambition_projectiles::ProjectileKind::Fireball,
+            ))
             .id();
 
         app.world_mut()
             .write_message(ResetRoomFeaturesEvent::default());
         app.update();
 
-        assert!(app.world().get_entity(open).is_err(), "open shot survived reset");
-        assert!(app.world().get_entity(named).is_err(), "named shot survived reset");
+        assert!(
+            app.world().get_entity(open).is_err(),
+            "open shot survived reset"
+        );
+        assert!(
+            app.world().get_entity(named).is_err(),
+            "named shot survived reset"
+        );
     }
 
     #[test]

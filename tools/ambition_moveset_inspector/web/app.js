@@ -71,7 +71,11 @@ function renderedFramesFor(character) {
     .then((doc) => {
       if (!doc || !doc.available || !doc.urls || !doc.urls.length) {
         /* Remember the refusal so the page does not re-ask on every redraw. */
-        RENDERS.set(character, { available: false, reason: doc && doc.reason });
+        RENDERS.set(character, {
+          available: false,
+          reason: doc && doc.reason,
+          hint: doc && doc.hint,
+        });
         renderStatus(character);
         return;
       }
@@ -81,7 +85,13 @@ function renderedFramesFor(character) {
         img.addEventListener("load", () => { if (state.view === "takes") drawTake(); });
         return img;
       });
-      RENDERS.set(character, { available: true, images, stride: doc.stride });
+      RENDERS.set(character, {
+        available: true,
+        images,
+        stride: doc.stride,
+        renderer: doc.renderer,
+        built: doc.renderer_built,
+      });
       renderStatus(character);
     })
     .catch((error) => {
@@ -98,9 +108,16 @@ function renderStatus(character) {
   if (!node) return;
   const have = RENDERS.get(character);
   if (!have) { node.textContent = "sprites: derived (asking the engine…)"; return; }
+  /* WHICH BINARY DREW THIS, AND WHEN IT WAS BUILT. Nothing in this tool builds,
+   * so that stamp is the only thing separating a current picture from one taken
+   * before an hour of engine changes. On the unavailable path, the build command
+   * is the useful half — a reason without a remedy is just a complaint. */
   node.textContent = have.available
-    ? "sprites: rendered by the engine"
-    : `sprites: derived — engine render unavailable${have.reason ? ` (${have.reason})` : ""}`;
+    ? `sprites: rendered by the engine${have.built ? ` (capture_scene built ${have.built})` : ""}`
+    : `sprites: derived — ${have.reason || "engine render unavailable"}`;
+  node.title = have.available
+    ? have.renderer || ""
+    : have.hint || "";
 }
 
 const SHEETS = new Map();

@@ -77,7 +77,11 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
 ## Priority 3 — concrete gameplay defects
 
-- ▢ **R5 — a held bomb explodes where it was picked up.** `bomb.rs` blasts at
+- ▣ **R5 — CLOSED `69a0918f5`. A held bomb explodes where it was picked up.**
+  `ItemWorldPos` answers "where is this item" generically: `InWorld` is the
+  world's copy, `Held` is the holder's HAND (the same `rider_hand_world_pos` the
+  wielded-item presentation draws with). ⛔ Not by keeping `GroundItem::pos`
+  updated for held items — that gives a held thing two authorities. `bomb.rs` blasts at
   `GroundItem.pos`; the fuse keeps burning under `ItemCustody::Held`; held-item
   physics deliberately stops updating that position. Give item custody a
   generic world-position semantic (`InWorld` → `GroundItem.pos`, `Held{holder}`
@@ -85,7 +89,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   writing `GroundItem.pos`. Regression: pick up at X, carry to Y, expire, blast
   at Y.
 
-- ▢ **R6 — gun-sword discharge is keyed to the string `"gun_sword"`.**
+- ▣ **R6 — CLOSED `216316bef`. Gun-sword discharge is keyed to the string
+  `"gun_sword"`.** `Discharge` (muzzle, fire cue, recoil) is authored on
+  `RangedActionSpec` beside the visual that was already there; both gun-swords
+  share `gun_sword_discharge()` and keep their own damage, speed and assist. The
+  fire site knows no weapon's name and its held-item query is gone. Regression
+  through the REAL side-B in the shipped composition (lasersword, 8 damage, hand
+  muzzle, -390 kick) plus a headless cue arm. Poisoned three ways.
   `brain_effects.rs` gates the lasersword projectile visual, the hand muzzle,
   `weapon.lasersword.fire` and the stronger recoil on an id compare. The
   Admiral's side-B equips `admiral_gun_sword` and gets none of it, though the
@@ -95,7 +105,12 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   keeping their own damage, speed and aim assist. Regression through the real
   Admiral side-B, including its 8 damage and its assist.
 
-- ▢ **R7 — aim assist bends toward `OutOfPlay` bodies.** The candidate scan in
+- ▣ **R7 — CLOSED (with R6's push). Aim assist bends toward `OutOfPlay`
+  bodies.** The scan asked `health.alive()`, and a spent stock calls
+  `health.reset()`, so a fighter in its death beat read FULL HEALTH.
+  `body_is_untouchable` is the gate. The regression's dead candidate is the
+  BETTER target, and both halves are asserted so the arm turns on eligibility
+  rather than geometry. The candidate scan in
   `brain_effects.rs` filters on health and relation and never rejects
   `OutOfPlay`, so a respawning fighter steals an assisted shot. Distinct from
   the CPU target-selection fix already landed. Use the shared liveness

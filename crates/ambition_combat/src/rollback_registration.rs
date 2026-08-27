@@ -314,8 +314,10 @@ where
     // It came from the actor monolith's crate root with `DeathCause`, which is
     // built from this crate's own `HitSource`. A stable name is an identity on the
     // wire, not an address.
-    registrar
-        .clear_message_on_rollback::<crate::death_rules::ActorDiedMessage>(OWNER, "message.actor_died");
+    registrar.clear_message_on_rollback::<crate::death_rules::ActorDiedMessage>(
+        OWNER,
+        "message.actor_died",
+    );
     registrar.clear_message_on_rollback::<crate::events::GameplaySfxRequested>(
         OWNER,
         "message.gameplay_sfx_requested",
@@ -366,6 +368,11 @@ where
         "combat.hitbox_lifetime",
         |lifetime| lifetime.remaining_s.to_bits() as u64,
     );
+    // ⭐ MOVED WITH ITS TYPE 2026-08-27 (D33). A declaration compiles perfectly
+    // well in the crate its type just left, which is why this is the obligation
+    // nothing enforces. ⛔ the STABLE NAME is unchanged — `actor.config` — so the
+    // wire did not move; only the OWNER string did.
+    registrar.rollback_component_clone::<crate::actor_tuning::ActorConfig>(OWNER, "actor.config");
 }
 
 /// Entity-free canonical projection of the staged victim-hit FIFO.
@@ -545,21 +552,21 @@ mod pending_hit_checksum_tests {
             attacker_id: attacker.map(SimId::placement),
             victim_id: victim.map(SimId::placement),
             event: HitEvent {
-            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),
-            damage: 0,
-            source: HitSource::Melee,
-            attacker: None,
-            target: HitTarget::Volume,
-            mode: HitMode::Knockback,
-            knockback: Some(crate::HitKnockback {
-                reaction,
-                dir: 1.0,
-                magnitude: crate::HitKnockbackMagnitude::LaunchSpeed(120.0),
-                source_pos: ae::Vec2::ZERO,
-                impact_pos: ae::Vec2::new(10.0, 0.0),
-                launch_dir: None,
-                follow: None,
-            }),
+                volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0)).into(),
+                damage: 0,
+                source: HitSource::Melee,
+                attacker: None,
+                target: HitTarget::Volume,
+                mode: HitMode::Knockback,
+                knockback: Some(crate::HitKnockback {
+                    reaction,
+                    dir: 1.0,
+                    magnitude: crate::HitKnockbackMagnitude::LaunchSpeed(120.0),
+                    source_pos: ae::Vec2::ZERO,
+                    impact_pos: ae::Vec2::new(10.0, 0.0),
+                    launch_dir: None,
+                    follow: None,
+                }),
                 ignored_targets: Vec::new(),
                 strike_sfx: None,
             },

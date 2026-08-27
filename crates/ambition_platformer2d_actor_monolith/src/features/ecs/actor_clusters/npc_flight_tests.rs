@@ -115,7 +115,7 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
     //  the invariant, stated so it cannot be satisfied by a coincidence: the
     // amble is the PROFILE's fraction of the body's top speed, and it is strictly
     // slower than the body can move.
-    let effort = crate::features::ecs::actor_tuning::BrainProfile::default().patrol_effort;
+    let effort = ambition_combat::actor_tuning::BrainProfile::default().patrol_effort;
     assert_eq!(
         tuning.patrol_speed,
         225.0 * effort,

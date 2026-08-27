@@ -19,6 +19,7 @@
 //! supply the vocabulary, and something downstream decides what a named cue
 //! sounds and looks like.
 
+pub mod actor_tuning;
 pub mod authored_volumes;
 pub mod banner;
 pub mod brain;

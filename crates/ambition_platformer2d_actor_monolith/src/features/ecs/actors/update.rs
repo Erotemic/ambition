@@ -1926,7 +1926,7 @@ pub fn tick_npc_idle_barks(
     npcs: Query<
         (
             &super::super::actor_clusters::BodyKinematics,
-            &super::super::actor_clusters::ActorConfig,
+            &ambition_combat::actor_tuning::ActorConfig,
             &ambition_characters::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,

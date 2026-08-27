@@ -15,10 +15,10 @@
 //! [`peaceful_config`] (the generic peaceful NPC seed a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
 
-use super::actor_clusters::ActorConfig;
+use ambition_combat::actor_tuning::ActorConfig;
 use super::{CombatKit, HeldItem};
 use ambition_combat::CombatCapabilities;
-use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile};
+use ambition_combat::actor_tuning::{ActorTuning, BrainProfile};
 use ambition_characters::actor::character_catalog::{CharacterBodyKind, CharacterCatalog};
 use ambition_characters::brain::{Brain, NPC_PATROL_SPEED};
 use ambition_entity_catalog::placements::CharacterBrain;

@@ -64,7 +64,7 @@ fn evaluate_enemy_ai_output(
     brain: &ambition_entity_catalog::placements::CharacterBrain,
     // Decision tuning comes from the brain profile; practice-target state is
     // passed separately from the body's combat authority.
-    profile: &crate::features::ecs::actor_tuning::BrainProfile,
+    profile: &ambition_combat::actor_tuning::BrainProfile,
     attack: &crate::features::BodyMelee,
     alive: bool,
     // Read from the body's `BodyCombat` authority.
@@ -675,7 +675,7 @@ mod aggro_authority_tests {
     use ambition_entity_catalog::placements::CharacterBrain;
 
     fn look(brain: CharacterBrain, aggro_radius: f32) -> CharacterAiMode {
-        let profile = crate::features::ecs::actor_tuning::BrainProfile {
+        let profile = ambition_combat::actor_tuning::BrainProfile {
             aggro_radius,
             attack_range: 8.0,
             ..Default::default()

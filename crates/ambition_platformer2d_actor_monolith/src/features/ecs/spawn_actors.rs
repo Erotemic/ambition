@@ -808,7 +808,7 @@ fn boss_actor_cluster(
     kin: &BodyKinematics,
 ) -> (
     ambition_characters::actor::ai::ActorStatus,
-    super::actor_clusters::ActorConfig,
+    ambition_combat::actor_tuning::ActorConfig,
     ambition_platformer2d_shared_tangle::body::SpawnBaseline,
     super::actor_clusters::ActorMotionPath,
     super::super::enemies::ActorSurfaceState,
@@ -835,7 +835,7 @@ fn boss_actor_cluster(
     // STRIKE offense is the frame-driven Boss hitboxes (`sync_boss_strike_hitboxes`), so
     // `is_hostile` (actor melee) stays off.
     let body_damage = config.behavior.body_damage;
-    let tuning = crate::features::ecs::actor_tuning::ActorTuning {
+    let tuning = ambition_combat::actor_tuning::ActorTuning {
         chase_speed: BOSS_FLIGHT_SPEED,
         max_run_speed: BOSS_FLIGHT_SPEED,
         is_aerial: true,
@@ -849,11 +849,11 @@ fn boss_actor_cluster(
         ..Default::default()
     };
     let weight = tuning.weight;
-    let actor_config = super::actor_clusters::ActorConfig {
+    let actor_config = ambition_combat::actor_tuning::ActorConfig {
         id: config.id.clone(),
         name: config.name.clone(),
         tuning,
-        brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
+        brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
         // The boss's REAL brain is its `BossPattern` `Brain` component. This
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.

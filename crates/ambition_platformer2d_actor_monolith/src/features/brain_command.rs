@@ -7,7 +7,7 @@
 //! displacing brain policy. Provocation remains a separate disposition authority.
 
 use ambition_combat::CombatCapabilities;
-use crate::features::ecs::actor_clusters::ActorConfig;
+use ambition_combat::actor_tuning::ActorConfig;
 use crate::features::{ActorAggression, ActorDisposition, CombatKit};
 use ambition_characters::actor::character_catalog::{
     qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,

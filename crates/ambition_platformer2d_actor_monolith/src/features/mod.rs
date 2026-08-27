@@ -127,10 +127,13 @@ pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
 };
-pub use ecs::actor_clusters::{
-    ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, BodyKinematics,
+pub use ecs::actor_clusters::{ActorClusterSeed, ActorMotionPath, ActorMut, BodyKinematics};
+// ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
+// config now live (D33, 2026-08-27). Re-exported here only because the
+// monolith's own module tree is a public surface many callers still walk.
+pub use ambition_combat::actor_tuning::{
+    ActorConfig, ActorTuning, BrainProfile, CharacterBrainTemplate,
 };
-pub use ecs::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
 pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
@@ -919,22 +922,22 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
         );
         // ⛔⛔ THE SADDLE IS A POST-INTEGRATION CONSTRAINT, and until now it
-            // only SAID so. It sat in a chained tuple whose comment claimed it
-            // ran after `update_ecs_actors` — a system that no longer exists —
-            // and the tuple did not contain the integrator at all, so the two
-            // pose authorities for a ridden body had no stated order between
-            // them. Whether the rider was snapped to its mount before or after
-            // the movement pass moved it was a scheduler-topology accident.
-            //
-            // ⭐ `AfterIntegrate` IS THE PHASE FOR EXACTLY THIS, and capture's
-            // equivalent external constraint already lives there. A constraint
-            // that owns a body's final pose has to run after the thing that
-            // proposes it, and now the schedule is what says so.
-            //
-            // ⚠ THIS DOES NOT YET STOP THE RIDER INTEGRATING ITS OWN
-            // LOCOMOTION — it only fixes which authority speaks last. Making a
-            // held body decline the movement pass is the other half, and
-            // `PoseOwnedExternally` is the fact it will read.
+        // only SAID so. It sat in a chained tuple whose comment claimed it
+        // ran after `update_ecs_actors` — a system that no longer exists —
+        // and the tuple did not contain the integrator at all, so the two
+        // pose authorities for a ridden body had no stated order between
+        // them. Whether the rider was snapped to its mount before or after
+        // the movement pass moved it was a scheduler-topology accident.
+        //
+        // ⭐ `AfterIntegrate` IS THE PHASE FOR EXACTLY THIS, and capture's
+        // equivalent external constraint already lives there. A constraint
+        // that owns a body's final pose has to run after the thing that
+        // proposes it, and now the schedule is what says so.
+        //
+        // ⚠ THIS DOES NOT YET STOP THE RIDER INTEGRATING ITS OWN
+        // LOCOMOTION — it only fixes which authority speaks last. Making a
+        // held body decline the movement pass is the other half, and
+        // `PoseOwnedExternally` is the fact it will read.
         app.add_systems(
             sim,
             sync_actor_read_model.in_set(crate::schedule::WorldPrepSet::AfterIntegrate),

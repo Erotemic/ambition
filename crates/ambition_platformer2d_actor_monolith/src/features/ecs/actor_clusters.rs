@@ -18,6 +18,7 @@
 //! - patrol path             → [`ActorMotionPath`]
 
 use ambition_characters::actor::ai::ActorStatus;
+use ambition_combat::actor_tuning::ActorConfig;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
@@ -50,62 +51,6 @@ pub use crate::platformer_runtime::body::BodyKinematics;
 /// intended combo hit, yet long enough to collapse a 60 fps contact/overlap stream to a single hit
 /// per window. Feel-tunable.
 pub const ACTOR_DAMAGE_IFRAME_S: f32 = 0.2;
-
-/// Authored configuration + identity for an actor (any disposition). Archetype-
-/// free by construction: the named roster enum is resolved at spawn and projected
-/// into generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`
-/// component), so neither the per-frame integration nor the runtime brain
-/// rebuilds (provoke, dismount) call back into the content roster. `spawn` records
-/// the authored baseline `reset_to_spawn` restores.
-#[derive(Component, Clone, Debug)]
-pub struct ActorConfig {
-    pub id: String,
-    pub name: String,
-    /// Per-frame runtime tuning snapshot (kit vocabulary), projected
-    /// from the archetype's authored spec at spawn.
-    pub tuning: crate::features::ecs::actor_tuning::ActorTuning,
-    /// Generic brain-construction inputs (kit vocabulary), projected
-    /// from the archetype at spawn so the runtime brain rebuilds
-    /// reconstruct a brain without naming the roster enum.
-    pub brain_profile: crate::features::ecs::actor_tuning::BrainProfile,
-    pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    /// LDtk display name of the original NPC when this enemy was spawned
-    /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
-    /// uses the default enemy sprite.
-    pub sprite_override_npc_name: Option<String>,
-    /// Sprite-catalog identity: the catalog `character_id` this actor's sprite
-    /// resolves to. `Some` for catalog characters (player, named NPCs/enemies,
-    /// content actors); `None` for a body that renders from a kind-default
-    /// sheet. Lets gameplay resolve any actor's `SheetRecord` / per-animation
-    /// hit/hurt metrics — the same sprite-metadata path the player and bosses
-    /// use — without reaching into the presentation registry. See
-    /// [`CombatGeometry`].
-    ///
-    /// NOT the body's gameplay character authority, and `WornCharacter` OUTRANKS it (AC7.1). It
-    /// is not: every seam that resolves a character asks `WornCharacter` first and falls back to a
-    /// sprite id only for a body that wears nothing — see `presentation.rs`'s `worn …
-    /// .or_else(tuning .sprite_character_id)`. That precedence is what lets a body SWAP its
-    /// character at runtime (Sanic's transformation) and take its new repertoire and volumes with
-    /// it while this field stays put.
-    pub sprite_character_id: Option<String>,
-    /// Does this body's autonomous driver share one deterministic cognitive
-    /// stream with its twins? Resolved from the character at construction — see
-    /// [`ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`].
-    ///
-    /// it lives HERE, on the config, because three roads build this body's
-    /// brain and they must not disagree: a match seat, a room spawn, and a
-    /// rewind/live restore all go through
-    /// [`enemy_default_brain`](crate::features::ecs::enemy_default_brain), and
-    /// the note on `PreparedCharacterDefinition::autonomous_profile` says why
-    /// that matters — *"spawn, rewind and live restore all make the same call,
-    /// which is why they cannot disagree"*. A trait the seat road looked up in a
-    /// registry the restore road cannot reach would let a rewound Emmy think
-    /// different thoughts from the one that was standing there a frame ago.
-    ///
-    /// `ActorConfig` is registered `rollback_component_clone`, so this rewinds
-    /// with the rest of the config and costs no wire format.
-    pub preserves_mirror_symmetry: bool,
-}
 
 /// Optional patrol path the kinematic step advances each tick.
 #[derive(Component, Clone, Debug, Default)]
@@ -583,7 +528,7 @@ impl ActorClusterSeed {
             ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
             |body| body.max_health,
         );
-        let tuning = crate::features::ecs::actor_tuning::ActorTuning {
+        let tuning = ambition_combat::actor_tuning::ActorTuning {
             patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             max_run_speed: authored_body
@@ -698,7 +643,7 @@ impl ActorClusterSeed {
                 id: id.into(),
                 name: name.into(),
                 tuning,
-                brain_profile: crate::features::ecs::actor_tuning::BrainProfile::default(),
+                brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
                 brain: config_brain,
                 sprite_override_npc_name: None,
                 // Peaceful actors already resolved their catalog id above.
@@ -816,7 +761,7 @@ impl ActorClusterSeed {
         // stationary mount that authors 0.0 would have been handed a sprinter's
         // top speed. Only an ABSENT locomotion block takes the default.
         let run_speed = locomotion.run_speed;
-        let tuning = crate::features::ecs::actor_tuning::ActorTuning {
+        let tuning = ambition_combat::actor_tuning::ActorTuning {
             // the PROFILE's pacing against the BODY's top speed — §4.7's
             // brain→body seam, both halves finally stated by their own
             // authority. These were `run_speed * 0.5` and `run_speed`, hard
@@ -1155,7 +1100,7 @@ mod tests {
         display_name: &'a str,
         max_health: i32,
         locomotion: ambition_characters::actor::CharacterLocomotion,
-        profile: crate::features::ecs::actor_tuning::BrainProfile,
+        profile: ambition_combat::actor_tuning::BrainProfile,
         practice_target: bool,
     ) -> crate::character_runtime::CharacterBodyBlueprint<'a> {
         crate::character_runtime::CharacterBodyBlueprint {
@@ -1293,7 +1238,7 @@ mod tests {
             run_speed: 200.0,
             ..Default::default()
         };
-        let profile = crate::features::ecs::actor_tuning::BrainProfile {
+        let profile = ambition_combat::actor_tuning::BrainProfile {
             patrol_effort: 0.25,
             chase_effort: 0.75,
             ..Default::default()
@@ -1409,7 +1354,7 @@ mod tests {
                     "Puppy Slug",
                     2,
                     ambition_characters::actor::CharacterLocomotion::default(),
-                    crate::features::ecs::actor_tuning::BrainProfile::default(),
+                    ambition_combat::actor_tuning::BrainProfile::default(),
                     practice_target,
                 ),
                 ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(32.0, 48.0)),

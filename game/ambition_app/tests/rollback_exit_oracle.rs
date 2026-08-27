@@ -437,7 +437,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored switch payload; the mutable half is SwitchOn, value-probed",
         ),
         (
-            "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorConfig",
+            "ambition_combat::actor_tuning::ActorConfig",
             "authored actor definition; nothing writes it after spawn",
         ),
         (

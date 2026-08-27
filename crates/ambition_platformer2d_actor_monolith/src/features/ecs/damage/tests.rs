@@ -731,7 +731,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     {
         let mut cfg = app
             .world_mut()
-            .get_mut::<super::super::actor_clusters::ActorConfig>(actor)
+            .get_mut::<ambition_combat::actor_tuning::ActorConfig>(actor)
             .unwrap();
         cfg.tuning.surface_walker = true;
         cfg.tuning.cling_breaks_on_hit = cling_breaks_on_hit;

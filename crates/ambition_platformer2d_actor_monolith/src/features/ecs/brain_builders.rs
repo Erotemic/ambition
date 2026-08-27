@@ -6,10 +6,10 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::actor_clusters::ActorConfig;
+use ambition_combat::actor_tuning::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
-use crate::features::ecs::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
+use ambition_combat::actor_tuning::{ActorTuning, BrainProfile, CharacterBrainTemplate};
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
@@ -57,8 +57,8 @@ pub(crate) fn default_fighting_kit() -> CombatKit {
 /// deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
 /// and using it here turned every provoked NPC — the kernel guide, a merchant —
 /// into a rock-thrower instead of a melee attacker like the pirates.
-pub(crate) fn default_provoked_policy() -> crate::features::ecs::actor_tuning::BrainProfile {
-    crate::features::ecs::actor_tuning::BrainProfile {
+pub(crate) fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile {
+    ambition_combat::actor_tuning::BrainProfile {
         template: ambition_characters::brain::CharacterBrainTemplate::Smash,
         aggro_radius: 460.0,
         attack_range: 150.0,

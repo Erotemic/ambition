@@ -420,7 +420,7 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
     ActorConfig {
         id: "villager".into(),
         name: "Villager".into(),
-        tuning: crate::features::ecs::actor_tuning::ActorTuning {
+        tuning: ambition_combat::actor_tuning::ActorTuning {
             // deliberately NOT the generic peaceful seed
             // (`max_run_speed: MAX_RUN_SPEED`): this is the body its character
             // built, and a controller change must leave it alone. the pool

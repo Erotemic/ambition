@@ -1,9 +1,24 @@
-//! Resolved per-actor tuning carried on the runtime actor config.
-//! Most fields are construction-time projections; `body_contact_damage` is mutable runtime state.
-//! Combat-relevant facts are projected separately onto combat components.
+//! PER-ACTOR RUNTIME TUNING, THE BRAIN-CONSTRUCTION INPUTS, AND THE CONFIG THAT
+//! CARRIES THEM.
+//!
+//! ⭐⭐ MOVED OUT OF THE ACTOR MONOLITH 2026-08-27 (D33). `ActorConfig` is an
+//! actor's authored IDENTITY — its id, its name, the kit its archetype was
+//! projected into, the brain it was authored with, the sprite it resolves to. It
+//! sat in a 95k-line crate because that is where the spawner happened to be.
+//!
+//! ⛔ AND THE DESTINATION IS DECIDED BY VOCABULARY, NOT BY TASTE. The obvious
+//! home was `ambition_characters` — "what a character IS" — and it is the WRONG
+//! one: `ActorTuning.movement` is an `crate::BodyMovementTuning`, and
+//! combat DEPENDS on characters, so the floor crate can never name it. The type
+//! follows what it is built from.
+//!
+//! ⛔⛔ AND IT WAS THE LAST REAL THING TYING `ambition_sim_view` TO THE MONOLITH.
+//! Of the 24 names the view crate imported from there, twenty were re-exports of
+//! other crates; this was one of the four that were not.
 
-use ambition_combat::BodyMovementTuning;
+use crate::components::BodyMovementTuning;
 use ambition_entity_catalog::placements::RespawnPolicy;
+use bevy::prelude::Component;
 
 /// Numeric and flag tuning resolved from body, brain policy, and placement.
 /// Per-frame systems consume this projection instead of re-resolving authored content.
@@ -80,14 +95,13 @@ impl Default for ActorTuning {
 impl ActorTuning {
     /// Where this body contests space when it fights — the one fact the
     /// crowding signal needs that positions do not carry.
-    pub fn crowd_kind(&self) -> ambition_combat::crowd::CrowdKind {
+    pub fn crowd_kind(&self) -> crate::crowd::CrowdKind {
         if self.is_aerial {
-            ambition_combat::crowd::CrowdKind::Aerial
+            crate::crowd::CrowdKind::Aerial
         } else {
-            ambition_combat::crowd::CrowdKind::Ground
+            crate::crowd::CrowdKind::Ground
         }
     }
-
 }
 
 /// Universal actor-brain template re-export.
@@ -160,4 +174,60 @@ mod authority_split_tests {
              establish that it belongs in none and delete it"
         );
     }
+}
+
+/// Authored configuration + identity for an actor (any disposition). Archetype-
+/// free by construction: the named roster enum is resolved at spawn and projected
+/// into generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`
+/// component), so neither the per-frame integration nor the runtime brain
+/// rebuilds (provoke, dismount) call back into the content roster. `spawn` records
+/// the authored baseline `reset_to_spawn` restores.
+#[derive(Component, Clone, Debug)]
+pub struct ActorConfig {
+    pub id: String,
+    pub name: String,
+    /// Per-frame runtime tuning snapshot (kit vocabulary), projected
+    /// from the archetype's authored spec at spawn.
+    pub tuning: ActorTuning,
+    /// Generic brain-construction inputs (kit vocabulary), projected
+    /// from the archetype at spawn so the runtime brain rebuilds
+    /// reconstruct a brain without naming the roster enum.
+    pub brain_profile: BrainProfile,
+    pub brain: ambition_entity_catalog::placements::CharacterBrain,
+    /// LDtk display name of the original NPC when this enemy was spawned
+    /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
+    /// uses the default enemy sprite.
+    pub sprite_override_npc_name: Option<String>,
+    /// Sprite-catalog identity: the catalog `character_id` this actor's sprite
+    /// resolves to. `Some` for catalog characters (player, named NPCs/enemies,
+    /// content actors); `None` for a body that renders from a kind-default
+    /// sheet. Lets gameplay resolve any actor's `SheetRecord` / per-animation
+    /// hit/hurt metrics — the same sprite-metadata path the player and bosses
+    /// use — without reaching into the presentation registry. See
+    /// [`CombatGeometry`].
+    ///
+    /// NOT the body's gameplay character authority, and `WornCharacter` OUTRANKS it (AC7.1). It
+    /// is not: every seam that resolves a character asks `WornCharacter` first and falls back to a
+    /// sprite id only for a body that wears nothing — see `presentation.rs`'s `worn …
+    /// .or_else(tuning .sprite_character_id)`. That precedence is what lets a body SWAP its
+    /// character at runtime (Sanic's transformation) and take its new repertoire and volumes with
+    /// it while this field stays put.
+    pub sprite_character_id: Option<String>,
+    /// Does this body's autonomous driver share one deterministic cognitive
+    /// stream with its twins? Resolved from the character at construction — see
+    /// [`ambition_characters::actor::CharacterDefinition::preserves_mirror_symmetry`].
+    ///
+    /// it lives HERE, on the config, because three roads build this body's
+    /// brain and they must not disagree: a match seat, a room spawn, and a
+    /// rewind/live restore all go through
+    /// [`enemy_default_brain`](ambition_characters::features::ecs::enemy_default_brain), and
+    /// the note on `PreparedCharacterDefinition::autonomous_profile` says why
+    /// that matters — *"spawn, rewind and live restore all make the same call,
+    /// which is why they cannot disagree"*. A trait the seat road looked up in a
+    /// registry the restore road cannot reach would let a rewound Emmy think
+    /// different thoughts from the one that was standing there a frame ago.
+    ///
+    /// `ActorConfig` is registered `rollback_component_clone`, so this rewinds
+    /// with the rest of the config and costs no wire format.
+    pub preserves_mirror_symmetry: bool,
 }

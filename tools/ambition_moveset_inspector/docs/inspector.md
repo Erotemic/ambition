@@ -9,9 +9,29 @@ cast, without loading the game.
 tools/ambition_moveset_inspector/serve_inspector.sh --open
 ```
 
-The wrapper re-exports the bundle (`cargo run -p ambition_app_tools --bin
-moveset_export`) and then serves the UI at <http://127.0.0.1:8777>. Pass
-`--no-export` to look at the bundle already on disk.
+Serves the UI at <http://127.0.0.1:8777>. Pass `--no-export` to look at the
+bundle already on disk.
+
+⛔⛔ NOTHING HERE INVOKES CARGO. The wrapper used to `cargo run` the exporter on
+every start, which takes the cargo build LOCK — so opening the inspector could
+block, or be blocked by, an agent building on another branch. It runs binaries
+that already exist and PRINTS the build command for any it cannot find:
+
+```text
+[inspector] capture_scene is not built — Engine Takes will use CPU-derived sprites
+[inspector]   cargo build -p ambition_app_tools --bin capture_scene
+```
+
+Missing binaries are never fatal. No exporter means the bundle already on disk is
+served; no renderer means the CPU fallback; no `moveset_takes` means there are no
+takes to look at yet.
+
+⚠ THE COST OF NEVER BUILDING is that a binary can be older than the source it was
+built from. The exporter's path and build time are printed when it runs, so a
+stale answer is at least a visible one.
+
+Binaries are looked for in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}`,
+the convention `scripts/profile_desktop.sh` already uses.
 
 ## What it reads
 
@@ -160,11 +180,25 @@ derivation here.
 
 The derived frame cursor is the FALLBACK now, not the only answer.
 
+ONE binary: **`capture_scene`**. Nothing else in the tool needs a GPU.
+
 ```bash
+# you build it; the tool never will
 cargo build -p ambition_app_tools --bin capture_scene
+
+# and it is useful by hand
 target/debug/capture_scene hall_of_characters player /tmp/a/anim.png 480x360 \
     --warmup 60 --character projectile_polygon --frames 24 --stride 2
 ```
+
+The server looks for it in `${CARGO_TARGET_DIR:-<repo>/target}/{release,debug}/`
+— the same convention `scripts/profile_desktop.sh` uses — and when it cannot find
+it, the `503` names every path it tried.
+
+⚠ For completeness, the two binaries the REST of the inspector needs, neither of
+which wants a GPU: `moveset_export` (the bundle; `serve_inspector.sh` runs it for
+you) and `moveset_takes` (the recorded takes; run it yourself for the fighters
+you care about).
 
 `--frames N` re-arms the capture after each readback and numbers the files
 `<stem>.NNNN.png`; `--stride K` advances K sim frames between shots. A single

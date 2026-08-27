@@ -12918,6 +12918,56 @@ crouch, Z-drop, recovery edge-cancel, route-authored defense, Pointed's autolink
 frame. A targeted rescan for direct world-axis mutations and allocator identities
 led back to the wavebounce, ledge-trump and bark findings rather than a third.
 
+- ✔ **D254 — THE OVERNIGHT BRIEF: A BALANCE INSPECTOR AND FIVE SPECIALS.
+  (2026-08-27, `overnight-agent3-moveset-and-specials`)**
+
+`docs/planning/overnight-goal-agent3.md`, all six items. What landed, and what
+each one is worth reading for:
+
+**The moveset balance inspector** — `tools/ambition_moveset_inspector/`, plus two
+binaries. `moveset_export` boots the composed host and reports what the SHIPPED
+cast resolves to (46 fighters, 881 moves), not what an authoring file writes;
+`moveset_takes` drives the nineteen repertoire presses through the real control
+frame into a real seated match and records what the ENGINE did with them. Four
+views: roster, one fighter's frame data with a timeline and a hitbox diagram, one
+SLOT across the whole roster with median-absolute-deviation outlier flags, and
+take playback. Durable feedback under `reviews/<character>/<move>.yaml`, keyed by
+the stable id so *"the pirate's forward smash is too strong"* survives the tuning
+pass it asks for; `--report` prints the standing notes for an agent told to
+address them.
+
+⭐⭐ AND IT IMMEDIATELY FOUND TWO THINGS NOTHING ELSE HAD: **D252** (the back air
+is unreachable for the whole cast) and **D253** (`player_robot_v3` cannot throw
+any of its five specials). Both are open rows above.
+
+**Pirate side-B** — `run_out_the_guns`. Draws the gun-sword (`MoveSpec::equips`,
+whose timer is the MOVE'S OWN CLOCK), fires it (`MoveEventKind::Ranged` now
+prefers the weapon a move drew), and bends the shot toward the nearest foe in the
+commanded half-plane (`AimAssist`, a property of the WEAPON, applied at the one
+place a shot's direction becomes world-space).
+
+**Power ball** — `SmashChargeSpec::stores`. A full charge WAITS instead of firing
+itself, and an interrupted one is banked for the next press. Decided in
+`cancel_move_playback`, the one teardown path, from a fact the playback already
+carries.
+
+**Ponytail boomerang** — `ProjectileGameplay::accel`, one new primitive: a
+constant world acceleration pointed back along the launch axis, which needs no
+reference to the thrower and so stays inside the stepper's pure signature.
+
+**Two teleports** — `smash.teleport` with a LEDGE ASSIST, the robot's and the
+Author's, same technique and assist radius, different effect ids.
+
+**Bomb down-B** — a `GroundItem` with a fuse, so the pick-up-and-throw half is
+machinery the engine already installs. ⚠ its own module records the gap: only the
+CONTROLLED SUBJECT can pick one up today.
+
+⛔⛔ FOUR SCHEMA BUMPS IN ONE BRANCH, v122 → v126: `actor.move_brandished_item`,
+`actor.stored_move_charge`, the projectile codec's `accel`, and
+`smash.live_bomb`. Every one is declared in the baseline it belongs to, and the
+codec-shape file was re-recorded — absorbing two files STALE ON MAIN that this
+branch never touches, said out loud in that commit rather than laundered.
+
 - ▢ **D253 — `player_robot_v3` HAS FIVE SPECIALS AND CANNOT THROW ANY OF THEM.
   (found 2026-08-27 by the moveset take recorder, on the run that re-seated
   before every take)**

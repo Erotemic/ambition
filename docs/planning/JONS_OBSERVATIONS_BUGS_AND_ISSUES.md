@@ -746,3 +746,40 @@ Three substantive items, all mine, all closed.
 * ⭐⭐ **AND THE LOG'S SHAPE POINTED AT A DIFFERENT DEFECT, WHICH WAS ALSO REAL.** `session-start scope=N` / `room-loaded` / `session-end scope=N` one frame apart reads as "the stage opened and something closed it", and a retired session's `ActiveMatch` does outlive its session by at least a frame. `StocksMatchSettled` names the match it decided and `verdict()` compares instances — but with BOTH sides of that comparison naming the retired match it agrees, so the previous match's `NoContest` applies to the match that replaced it. Only the SESSION knows which of the two is current, so `return_to_the_select_screen_when_the_match_ends` now refuses to read an `ActiveMatch` whose session is not `ActiveSessionScope::current()`. ⚠ The old road hid this: the 4.5s countdown and `fully_confirmed()` were always beaten by the new activation. The immediate exit Jon asked for on `NoContest` runs on the first frame the router says "on stage" — exactly the frame the leftover is still there.
 
 * ⛔ **THE FIXTURE FAILED TWICE BEFORE THE SUBJECT RAN, and both premises were worth asserting.** Asking to stop on the first gameplay frame throws the request away (`abandon_the_match_when_the_shell_asks` returns without acting when no `ActiveMatch` is seated, and the message is consumed either way); and deciding a cast on the frame the route flips is wiped by the arrival reset landing behind it. A player sees the fresh lobby before picking, and so does the test now.
+
+## Sixth review (GPT 5.6, partial — died mid-Finding-4), relayed by Jon 2026-08-27
+
+⚠ TWO REVIEWS IN ONE RELAY: an Up-B pass at HEAD `bc942727`, and a non-Up-B pass
+at `e29bc316` covering the `overnight-agent3-moveset-and-specials` merge. The
+second one was cut off partway through Finding 4. Items below are transcribed as
+open unless marked; ⛔ several may already be done — grep before working one.
+
+### Already closed by the session that received the review
+
+* ▣ **Finding 4 (non-Up-B) / D252 — the back air is dead content for the whole
+  cast.** GPT's diagnosis is the same one the queue row records and the same one
+  the fix acted on: `abilities.rs:228` says an airborne non-flyer may not turn,
+  `kernel.rs:427` applies `facing_intent` unconditionally, so the body turns to
+  face the back input and `attack_dir_from_axis` folds the reversal away. ✔ Fixed
+  at the PRODUCER (`brain/player.rs`), not in the shared kernel — the human
+  translator now steers facing only when the body may actually turn
+  (`actor_on_ground || actor_aerial`, the flyer carve-out matching `fly_enabled`).
+  Acceptance is the row's own instrument: `moveset_takes` went from
+  `MISMATCH: drove air_back but the engine played {"air_forward"}` to
+  `moves={"air_back"}`, 0 mismatches across all 19 takes.
+
+### Open — Up-B pass (HEAD `bc942727`)
+
+* ▢ **HIGH — being launched off the shark can consume the knockback and then erase it.** The rider runs the full kernel; `step_motion` takes the launch, then `sync_riders_to_mounts` pins the rider and zeroes velocity on the same tick, so the hit ends the RELATIONSHIP but the knockback is gone. ⚠ PARTLY ADDRESSED ALREADY by `pose_owned_externally` + `LaunchTravel::Deferred` — grep `pending_launch_state` before working this; the open half may be only the proof. The poison GPT asks for: mounted vs unmounted Pirate take the same strong hit, and the released body must actually TRAVEL.
+* ▢ **HIGH/MEDIUM — the 36-HP shark is one-shot by George.** `SUMMON_SHARK_HEALTH = 36`; George's forward smash is 21 × 1.7 full charge = `(21*1.7).round()` = 36. The test proving "no single hit kills it" scans only `pirate_admiral_moveset()`, not the selectable Smash roster. Build the census from the resolved repertoire and require `>` not `>=`. Also `shark_ride_probe` calls the Admiral's 29 the "worst single connection in the game", which is false.
+* ▢ **MEDIUM — the flinch half of `a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off` never hits the Pirate.** It waits ~20 frames and asserts `RidingOn`, so it proves only that an undisturbed rider stays mounted. Give it a real low-knockback hit and assert the hit landed, the recovery charge was restored, and `RidingOn` remains.
+* ▢ **MEDIUM — finish `PoseOwnedExternally`'s semantics.** Today it means "suppress voluntary axes before running the normal kernel"; the name implies "another authority owns this body's pose episode". Define what a constrained body still owes the kernel (gravity, collision, ground transitions, maneuver state) rather than running everything with a zero stick.
+* ▢ **D250 — CPU Pirate cannot reason about vehicle recovery.** The planner understands a `RecoveryLift` (one-shot displacement); `call_the_shark` authors none. Recovery should admit multiple route kinds — burst displacement, sustained movement authority, teleport. ⛔ GPT agrees with rejecting both hacks (fake impulse; special-casing the id).
+* ▢ Smaller: `tick_departures`' doc still claims `Combat::Settle` and next-tick intent; it runs in `WorldPrepSet::BeforeIntegrate`. The diagnostic probe still waits a fixed 240 frames instead of waiting on the open-match condition.
+
+### Open — non-Up-B pass (`e29bc316`), and GPT does NOT consider D254 complete
+
+* ▢ **FINDING 1 HIGH — brandishing a move weapon can duplicate a physically-held item.** `MoveBrandishedItem` stores only `move_id` + `previous: Option<String>` and overwrites the canonical `HeldItem`; `return_released_items()` then sees the body's held id no longer matches the `GroundItem` in `ItemCustody::Held` and returns the real object to `InWorld`. When the move ends the body reconstructs `HeldItem(A.spec)` from a string — logically holding A while A also lies on the floor. The brandish tests use a plain `HeldItem` and cannot see it. Fix: a temporary move weapon is an OVERLAY, not a replacement of the custody answer.
+* ▢ **FINDING 2 HIGH — stored neutral-B charge treats DEATH as an instruction to bank.** `cancel_move_playback` banks any unreleased storing charge, and death (`death_rules.rs`) and stock loss (`stocks.rs`) both call it — so a KO'd Projectile Polygon respawns with the charge banked, and an existing bank has no death/reset clear. The function's own comment argues no termination reason is needed; the stored-charge customer disproves it. Fix: an explicit end reason (store / release / interrupted / left play), not a character-specific death hook.
+* ▢ **FINDING 3 HIGH — D253's root cause is NOT flight posture.** `sustain_bubble_shield` (`avatar/starting_character.rs:983-1027`) reads the RAW `special_pressed` in `PlayerInputSet::ControlGate` and sets `shield_held` because Robot's body kit names `bubble_shield` — before anything resolves WHICH directional special was meant. Grounded shield + direction is an evade; airborne is an air dodge; Combat then refuses the special from the state the compatibility layer just created. One shared authority error, not five broken moves. ⛔ Update D253's queue diagnosis when this is fixed — the "flight posture" suspicion must not stay as the leading explanation.
+* ▢ Also listed, unreviewed in detail: a bomb that explodes while held explodes at its stale pickup position; the Admiral's temporary gun-sword does not receive the discharge behaviour its comments promise; stored charge has no deliberate "put it away" action; the side-B aim-assist scan can target `OutOfPlay` fighters; the ponytail boomerang disappears the first time it hits anyone; bomb interaction is single-controlled-subject and hard-impact detection only understands world geometry.

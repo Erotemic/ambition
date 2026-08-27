@@ -476,11 +476,34 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     // because a shark being steered by its rider never reaches the
     // stopped-dead-at-charge-speed geometry the crash predicate wants. The
     // occupied-versus-riderless wall impact is a separate poison and is owed.
-    for _ in 0..90 {
+    {
+        let world = app.world_mut();
+        let has_baseline = world
+            .get::<ambition_platformer2d::platformer::body::SpawnBaseline>(seat0)
+            .is_some();
+        let has_hp = world
+            .get::<ambition_platformer2d::actor::BodyHealth>(seat0)
+            .is_some();
+        let mount = world.get::<RidingOn>(seat0).map(|r| r.mount).unwrap();
+        let mount_slot = world
+            .get::<ambition_platformer2d::mount::MountSlot>(mount)
+            .is_some();
+        panic!(
+            "DIAG rider_SpawnBaseline={has_baseline} rider_BodyHealth={has_hp} \
+             mount_has_MountSlot={mount_slot}"
+        );
+    }
+    // ⛔⛔ FLOWN INTO THE STAGE, not merely flown. The shark's self-detonation
+    // fires when a fast charge is stopped dead by geometry, so a pair drifting
+    // in open air never reaches the condition — which is why the earlier version
+    // of this arm stayed green with the guard forced off and proved nothing.
+    // Jon's presses were airborne and hit something immediately.
+    for _ in 0..120 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame {
                 axis_x: 1.0,
+                axis_y: 1.0,
                 ..Default::default()
             },
         );

@@ -117,6 +117,20 @@ pub struct SummonSpec {
     /// that was not riding anything — and the dismount consumer skips a rider
     /// with no link, so the orphan never went away.
     pub ridden_by_summoner: Option<SummonedRide>,
+    /// Health for THIS occurrence, overriding the character's authored vitals.
+    ///
+    /// ⛔⛔ THE SAME CREATURE IS NOT THE SAME THING IN TWO GAMES. The burning
+    /// flying shark authors 6 HP, which is a fair pool for the game it was
+    /// written for; the pirate's up-B drops it into a platform fighter whose own
+    /// move table runs 2–17, so most single connections delete it — and it is
+    /// summoned exactly where its rider is, which in a fight is exactly where
+    /// the hits are. A recovery that dies to one stray hit is not a recovery.
+    ///
+    /// ⭐ ON THE SUMMON, NOT ON THE CHARACTER. Raising the authored number would
+    /// re-tune a creature that appears in another game entirely; the summoner is
+    /// the one that knows what THIS occurrence is for. `None` leaves the
+    /// character's own vitals alone, which is every summon that existed before.
+    pub health: Option<u32>,
 }
 
 /// The summoner rides what it makes, for this long.

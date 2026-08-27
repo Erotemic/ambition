@@ -1167,6 +1167,8 @@ pub(crate) fn spawn_runtime_minion(
         encounter_id,
         faction,
         aggression,
+        // A boss minion keeps the vitals its character authored.
+        None
     );
     root
 }
@@ -1188,6 +1190,9 @@ pub(crate) fn spawn_runtime_minion_into(
     encounter_id: impl Into<String>,
     faction: super::ActorFaction,
     aggression: super::ActorAggression,
+    // Health for THIS occurrence, overriding the character's authored vitals.
+    // See `ambition_vfx::SummonSpec::health`.
+    health: Option<u32>,
 ) {
     let id = id.into();
     let name = name.into();
@@ -1237,6 +1242,19 @@ pub(crate) fn spawn_runtime_minion_into(
         return;
     }
     // `new_character_in` already set HP from the character's own vitals.
+    //
+    // ⭐ …AND THE SUMMONER MAY OVERRIDE IT, because the same creature is not the
+    // same thing in two games. The burning flying shark authors 6 HP, which is
+    // fair where it was written and is one connection in a platform fighter
+    // whose move table runs 2–17 — and the pirate's up-B drops it exactly where
+    // its rider is, which in a fight is exactly where the hits are. `None`
+    // leaves the authored vitals alone, which is every summon that predates
+    // this. See `ambition_vfx::SummonSpec::health`.
+    if let Some(health) = health {
+        enemy.health = ambition_characters::actor::BodyHealth::new(
+            ambition_characters::actor::Health::new(health.max(1) as i32),
+        );
+    }
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
@@ -2104,6 +2122,7 @@ pub fn apply_summon_effects(
             summoner,
             taken,
             crate::construction::SummonedMinionParams {
+                health: s.health,
                 feature_id: s.id.clone(),
                 name: s.name.clone(),
                 pos: s.pos,

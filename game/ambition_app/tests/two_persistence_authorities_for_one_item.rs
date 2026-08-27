@@ -4,7 +4,9 @@
 //! through both representations, so the two restore paths must agree.
 
 use ambition_app::{AgentAction, Platformer2dSimHarness};
-use ambition_platformer2d::actors::items::{Item, ItemGrantRequested, OwnedItems};
+use ambition_platformer2d::item::Item;
+use ambition_platformer2d::item::ItemGrantRequested;
+use ambition_platformer2d::item::OwnedItems;
 use ambition_platformer2d::actors::session::durable_horizon::SaveRestored;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::platformer::construction::SpawnOrigin;
@@ -596,7 +598,7 @@ fn a_load_then_a_death_keeps_what_the_file_remembered() {
 
     // Something the file remembers, through the channel the game uses.
     sim.world_mut()
-        .write_message(ambition_platformer2d::actors::items::ItemGrantRequested {
+        .write_message(ambition_platformer2d::item::ItemGrantRequested {
             item: COUNTED_ITEM,
             count: 1,
         });

@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use crate::avatar::components::PrimaryPlayer;
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_dev_tools::DeveloperRuntimeState;

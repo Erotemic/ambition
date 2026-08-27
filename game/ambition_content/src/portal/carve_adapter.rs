@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core::cast::SolidWorldQuery;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_portal2d::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths};
 
 /// Copy this frame's portal-owned carves into the host collision overlay.

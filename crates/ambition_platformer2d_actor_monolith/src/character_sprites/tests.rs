@@ -575,7 +575,6 @@ fn an_authored_standing_height_is_the_height_the_body_derives() {
 #[test]
 #[ignore = "audit listing: prints what each character derives; read it, do not assert on it"]
 fn list_what_each_character_derives_for_its_body() {
-    use super::assets::sprite_body_collision_for_character_id_in;
 
     let catalog = test_catalog();
     let sheets = Default::default();

@@ -11,6 +11,7 @@ use ambition_combat::components::{
     BossDeathAnimation, BossPhase, CombatKit, FeatureId,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
 ///
@@ -27,7 +28,7 @@ pub fn sync_ecs_actors_with_save(
     // slot on load (the original attacker entity doesn't survive a save round-trip;
     // single-player has exactly one slot to be angry at).
     players: Query<
-        (Entity, Option<&crate::control::PlayerSlot>),
+        (Entity, Option<&ambition_characters::control::PlayerSlot>),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut actors: Query<
@@ -61,7 +62,7 @@ pub fn sync_ecs_actors_with_save(
     // anchor hostility to the lowest PlayerSlot so save-load behavior is replay-safe.
     let stable_player_grudge = players
         .iter()
-        .min_by_key(|(_, slot)| slot.copied().unwrap_or(crate::control::PlayerSlot::PRIMARY))
+        .min_by_key(|(_, slot)| slot.copied().unwrap_or(ambition_characters::control::PlayerSlot::PRIMARY))
         .map(|(entity, _)| entity);
     for (
         entity,

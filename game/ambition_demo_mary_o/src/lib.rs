@@ -1211,9 +1211,8 @@ pub fn install_mary_o_content(app: &mut App) {
     // character definition, not a mode of this one (§4.3), and it needs its own art
     // demanded or the grown Mary-O draws a placeholder.
     {
-        use ambition_platformer2d::actors::character_runtime::{
-            CharacterDefinition, CharacterDefinitionAppExt,
-        };
+        use ambition_platformer2d::character::CharacterDefinition;
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
         // The sheet TARGET, not the sheet file: `mary_o_v2_spritesheet.ron`
         // declares `target: "mary_o_v2"`, and the registry is keyed by the target.
         // A VOICE apiece — see the same note in the Sanic provider. Without one a
@@ -1636,7 +1635,7 @@ impl Plugin for MaryORulesPlugin {
         // The brick overlay contributor writes the collision overlay; a full app
         // inserts it (features/render plugins), but a thin rules-only harness may
         // not, and `init_resource` is idempotent — a no-op when already present.
-        app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
+        app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         // The cycle emitter writes this; the host's replay consumer drains it. The
         // engine registers it too (`NewGameResetPlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.

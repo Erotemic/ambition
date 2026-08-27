@@ -148,18 +148,18 @@ pub fn capture_minted_item_baseline(
 /// rewind across the commit must restore it or the world keeps an entitlement
 /// from a future that was un-happened.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct OwnedItemsBaseline(crate::items::OwnedItems);
+pub struct OwnedItemsBaseline(ambition_items::OwnedItems);
 
 impl OwnedItemsBaseline {
     /// `None` is not expressible: a checkpoint always saw SOME bag, and an empty one is a real
     /// answer.
-    pub fn remembered(&self) -> &crate::items::OwnedItems {
+    pub fn remembered(&self) -> &ambition_items::OwnedItems {
         &self.0
     }
 
     /// Adopt a bag as the baseline — the road a durable LOAD takes, mirroring
     /// `OccurrenceBaseline::adopt`.
-    pub fn adopt(&mut self, owned: crate::items::OwnedItems) {
+    pub fn adopt(&mut self, owned: ambition_items::OwnedItems) {
         self.0 = owned;
     }
 
@@ -191,7 +191,7 @@ impl OwnedItemsBaseline {
 
 pub fn capture_owned_items_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
-    owned: Option<Res<crate::items::OwnedItems>>,
+    owned: Option<Res<ambition_items::OwnedItems>>,
     baseline: Option<ResMut<OwnedItemsBaseline>>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
@@ -213,7 +213,7 @@ pub fn capture_owned_items_baseline(
 pub fn restore_owned_items_to_checkpoint(
     mut resets: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
     baseline: Option<Res<OwnedItemsBaseline>>,
-    owned: Option<ResMut<crate::items::OwnedItems>>,
+    owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     let requested = resets.read().count() > 0;
@@ -275,7 +275,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
 /// fifth cross-crate census.
 pub fn adopt_checkpoint_baselines_from_save(
     data: &AmbitionGameSaveData,
-    owned: &crate::items::OwnedItems,
+    owned: &ambition_items::OwnedItems,
     minted_baseline: Option<&mut MintedItemBaseline>,
     owned_baseline: Option<&mut OwnedItemsBaseline>,
 ) {

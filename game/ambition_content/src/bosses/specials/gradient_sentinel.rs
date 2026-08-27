@@ -7,7 +7,7 @@ use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
-use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
+use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileStart};
 use ambition_time::WorldTime;

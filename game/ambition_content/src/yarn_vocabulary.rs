@@ -221,13 +221,13 @@ pub fn cmd_restore_brain(
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
-/// resolved through [`ambition_platformer2d_actor_monolith::items::Item::from_dialog_id`]
+/// resolved through [`ambition_items::Item::from_dialog_id`]
 /// (loose spelling); an unknown kind or non-positive count is logged
 /// and ignored.
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::items::ItemGrantRequested,
+        ambition_items::ItemGrantRequested,
     >,
 ) {
     let Some(request) = item_grant(&kind, count) else {
@@ -242,43 +242,43 @@ pub fn cmd_give_item(
 
 /// `<<buy_item "id" price>>` — spend `price` from the player's wallet and grant
 /// one of the catalog item if affordable. A merchant dialogue node calls this on
-/// a purchase choice; the affordability check lives in [`ambition_platformer2d_actor_monolith::shop::buy`].
+/// a purchase choice; the affordability check lives in [`ambition_items::shop::buy`].
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested,
+        ambition_items::shop::ShopTransactionRequested,
     >,
 ) {
-    let Some(item) = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(&id) else {
+    let Some(item) = ambition_items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
     narrative.write(
-        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested {
+        ambition_items::shop::ShopTransactionRequested {
             item,
             price: price.max(0.0) as i32,
-            side: ambition_platformer2d_actor_monolith::shop::ShopSide::Buy,
+            side: ambition_items::shop::ShopSide::Buy,
         },
     );
 }
 
 /// `<<sell_item "id" price>>` — remove one of the catalog item and credit the
-/// wallet if the player owns it. See [`ambition_platformer2d_actor_monolith::shop::sell`].
+/// wallet if the player owns it. See [`ambition_items::shop::sell`].
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested,
+        ambition_items::shop::ShopTransactionRequested,
     >,
 ) {
-    let Some(item) = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(&id) else {
+    let Some(item) = ambition_items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
     narrative.write(
-        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested {
+        ambition_items::shop::ShopTransactionRequested {
             item,
             price: price.max(0.0) as i32,
-            side: ambition_platformer2d_actor_monolith::shop::ShopSide::Sell,
+            side: ambition_items::shop::ShopSide::Sell,
         },
     );
 }
@@ -294,13 +294,13 @@ pub fn cmd_sell_item(
 fn item_grant(
     kind: &str,
     count: f32,
-) -> Option<ambition_platformer2d_actor_monolith::items::ItemGrantRequested> {
+) -> Option<ambition_items::ItemGrantRequested> {
     if count <= 0.0 {
         return None;
     }
-    let item = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(kind)?;
+    let item = ambition_items::Item::from_dialog_id(kind)?;
     Some(
-        ambition_platformer2d_actor_monolith::items::ItemGrantRequested {
+        ambition_items::ItemGrantRequested {
             item,
             count: count as u32,
         },
@@ -467,7 +467,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_actor_monolith::items::Item;
+    use ambition_items::Item;
 
     //  two tests died with the functions they pinned
     // (`normalize_item_id_collapses_spelling_variants`,
@@ -481,7 +481,7 @@ mod tests {
         assert_eq!(
             item_grant("health_potion", 2.0),
             Some(
-                ambition_platformer2d_actor_monolith::items::ItemGrantRequested {
+                ambition_items::ItemGrantRequested {
                     item: Item::HealthCell,
                     count: 2
                 }
@@ -492,7 +492,7 @@ mod tests {
         assert_eq!(
             item_grant("HealthPotion", 1.9),
             Some(
-                ambition_platformer2d_actor_monolith::items::ItemGrantRequested {
+                ambition_items::ItemGrantRequested {
                     item: Item::HealthCell,
                     count: 1
                 }

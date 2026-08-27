@@ -4,13 +4,14 @@
 //! They reference existing sprite sheets; missing attack rows use the normal
 //! animation fallback path.
 
-use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, POSE_HITSTUN};
+use ambition_platformer2d::actors::character_runtime::{POSE_HITSTUN};
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition_platformer2d::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
 use ambition_platformer2d::entity_catalog::{MoveGates, MovesetContract, RecoveryUse};
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// Per-character parameters for the shared duelist moveset.
 #[derive(Clone, Copy, Debug)]
@@ -268,7 +269,7 @@ impl WithHealth for CharacterDefinition {
         // is the trade this stage is built on. `None` on `Vitals` means "the
         // author said nothing", which is the case a body must be able to
         // distinguish from an authored one-hit pool.
-        self.vitals = ambition_platformer2d::actors::character_runtime::Vitals {
+        self.vitals = ambition_platformer2d::characters::actor::definition::Vitals {
             max_health: Some(max_health),
             mass: Some(mass),
             // these two author no knockback WEIGHT, deliberately: the versus

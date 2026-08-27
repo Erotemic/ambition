@@ -3,7 +3,6 @@
 //! TODO(compat-remove): move `load_game_assets` out of the actor monolith, migrate callers to
 //! `ambition_sprite_sheet::game_assets`, then delete this module.
 
-pub use ambition_sprite_sheet::game_assets::*;
 
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -12,6 +11,12 @@ use ambition_boss_encounter::sprites;
 use crate::character_sprites;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;
+use ambition_sprite_sheet::game_assets::GameAssetConfig;
+use ambition_sprite_sheet::game_assets::GameAssets;
+use ambition_sprite_sheet::game_assets::load_entity_sprites;
+use ambition_sprite_sheet::game_assets::ParallaxTheme;
+use ambition_sprite_sheet::game_assets::load_parallax_layers_for_theme;
+use ambition_sprite_sheet::game_assets::EntitySprite;
 
 /// Build a fresh `GameAssets`, honoring `config` + the shared catalog resource.
 pub fn load_game_assets(

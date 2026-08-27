@@ -20,6 +20,8 @@ use bevy::prelude::*;
 const AUTHORED_BOSS_LANE_X: f32 = 4242.0;
 
 use super::actor_clusters::ActorClusterBundle;
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
 
 fn hostile(
     id: &str,
@@ -62,10 +64,10 @@ fn rider_kin(
 fn rider_surface(
     world: &bevy::prelude::World,
     e: bevy::prelude::Entity,
-) -> crate::features::ActorSurfaceState {
+) -> ambition_platformer2d_core::body_clusters::ActorSurfaceState {
     *world
         .entity(e)
-        .get::<crate::features::ActorSurfaceState>()
+        .get::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>()
         .expect("enemy entity has ActorSurfaceState")
 }
 
@@ -113,11 +115,11 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
     // Pre-poison rider velocity so the assertion that the sync
     // zeroes it isn't a no-op against the default.
     app.world_mut()
-        .get_mut::<crate::features::BodyKinematics>(rider)
+        .get_mut::<ambition_platformer2d_core::body_clusters::BodyKinematics>(rider)
         .unwrap()
         .vel = ae::Vec2::new(500.0, -200.0);
     app.world_mut()
-        .get_mut::<crate::features::ActorSurfaceState>(rider)
+        .get_mut::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(rider)
         .unwrap()
         .gravity_scale = 1.0;
 
@@ -315,7 +317,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
             name: "Boss Rider".into(),
             spawn: ae::Vec2::ZERO,
             brain: ambition_entity_catalog::placements::BossBrain::Dormant,
-            behavior: crate::features::BossBehaviorProfile::generic(
+            behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
                 ambition_boss_encounter::test_boss_catalog(),
                 "boss_rider",
             ),
@@ -557,8 +559,6 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
 /// identically to the enemy Skirmisher rider.
 #[test]
 fn a_player_controlled_rider_pilots_the_mount_agnostically() {
-    use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::control::ActorControl;
     use ambition_characters::control::PlayerSlot;
 
     let mut app = build_app();
@@ -735,7 +735,6 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     use ambition_boss_encounter::{
         BossEncounterPhase, BossProfile, PhaseTrigger, PhaseTriggerCondition,
     };
-    use ambition_characters::brain::Brain;
 
     // (1) The giant's "I am a rideable giant-class mount, and touching me does not hurt"
     // assertion lives with the CHARACTER now, in `ambition_content`'s
@@ -900,15 +899,13 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 /// active strike, the same limbs fall back to their home-station intent.
 #[test]
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
-    use crate::features::{route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics};
+    use crate::features::{route_boss_strikes_to_limbs};
     use ambition_boss_encounter::BossConfig;
     use ambition_boss_encounter::BossProfile;
-    use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
-    use ambition_characters::control::ActorControl;
 
     let profile = BossProfile::from_id(
         ambition_boss_encounter::test_boss_catalog(),
@@ -1064,15 +1061,12 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 /// and the moveset is the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
-    use crate::features::{route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics};
-    use ambition_boss_encounter::BossConfig;
+    use crate::features::{route_boss_strikes_to_limbs};
     use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
-    use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
     };
     use ambition_characters::brain::{BossAttackIntent, BossAttackState, BossCapability, Brain};
-    use ambition_characters::control::ActorControl;
     use ambition_characters::control::{PlayerSlot, SlotControls};
 
     let profile = BossProfile::from_id(
@@ -1110,7 +1104,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         )),
     );
     app.init_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>();
-    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    app.init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>();
     // The CONTROLLER: slot 0 holds down + attack (axis_y = +1 is toward-feet
     // under default gravity — the down-tilt).
     let mut controls = SlotControls::default();
@@ -1233,7 +1227,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             moveset,
             ambition_combat::components::ActorFaction::Boss,
             ambition_combat::components::ActorTarget::default(),
-            crate::features::FeatureSimEntity,
+            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             Mounted,
             RidingOn { mount: giant },
         ))

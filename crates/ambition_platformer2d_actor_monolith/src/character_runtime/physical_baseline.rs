@@ -7,8 +7,9 @@
 
 use bevy::ecs::system::EntityCommands;
 
-use super::{BodySource, PreparedCharacterDefinition};
+use super::{PreparedCharacterDefinition};
 use ambition_platformer2d_core::Vec2;
+use ambition_characters::actor::definition::BodySource;
 
 /// Boundary at which prepared physical facts may be applied to a body.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -2,16 +2,12 @@
 //! intent. Use primary-player helpers only for presentation/session semantics;
 //! generic simulation should operate on bodies or control authority instead.
 
+use ambition_platformer2d_shared_tangle::markers::{PrimaryPlayerOnly};
 use bevy::ecs::query::{QueryData, QueryFilter};
 use bevy::prelude::*;
 
-use super::components::PlayerSlot;
+use ambition_characters::control::PlayerSlot;
 
-/// The "primary player only" query filter is body vocabulary now — it lives in
-/// [`crate::actor`] (its single definition). Re-exported here for the player
-/// module's own consumers; new non-player code should import it from
-/// `crate::actor` directly.
-pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 
 /// Convenience: resolve the primary player's `Entity`. Returns `None`
 /// if no primary player exists yet (e.g. during pre-spawn startup) or
@@ -213,7 +209,6 @@ pub fn controlled_frame_down(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::*;
 
     /// Ask the real query the real question, through a system — a hand-built
     /// iterator would test my arithmetic rather than the function's contract.

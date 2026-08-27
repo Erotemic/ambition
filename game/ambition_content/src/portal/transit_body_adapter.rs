@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_boss_encounter::BossConfig;
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
-use ambition_platformer2d_actor_monolith::features::BodyKinematics;
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
     BodyTeleported, PortalBody, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalPolicy,
@@ -158,7 +158,7 @@ pub fn ensure_projectile_portal_bodies(
 /// world-imparted, so a genuine fling (fall in, wall out) still floors at full strength.
 pub fn apply_portal_carried_momentum(
     gravity: Option<
-        Res<ambition_platformer2d_actor_monolith::platformer_runtime::gravity::GravityField>,
+        Res<ambition_platformer2d_shared_tangle::gravity::GravityField>,
     >,
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
@@ -168,7 +168,7 @@ pub fn apply_portal_carried_momentum(
 ) {
     use ambition_portal2d::pieces::portal_map_vec;
     let gravity_dir =
-        ambition_platformer2d_actor_monolith::platformer_runtime::gravity::gravity_dir_or_default(
+        ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
             gravity.as_deref(),
         );
     let side = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir).side;

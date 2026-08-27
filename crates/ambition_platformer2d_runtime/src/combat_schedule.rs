@@ -381,7 +381,7 @@ impl Plugin for CombatSchedulePlugin {
         // here; read the module's second block first.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::ecs::shake_camera_on_landed_hits
+            ambition_combat::hit_camera_shake::shake_camera_on_landed_hits
                 .run_if(gameplay_allowed)
                 .in_set(CombatSet::Settle),
         );

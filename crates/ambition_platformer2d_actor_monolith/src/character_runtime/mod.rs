@@ -15,9 +15,6 @@ pub mod presentation;
 pub mod seating;
 pub mod staging;
 
-pub use ambition_characters::actor::definition::{
-    BodySource, CharacterDefinition, Lineage, Vitals,
-};
 #[cfg(test)]
 // Test-only preparation seams supplied by `ambition_characters::test-support`.
 #[cfg(test)]
@@ -28,11 +25,12 @@ pub use audit::{
     audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
     CharacterCapabilityGap,
 };
-pub use definition::{
-    CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
-    CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError,
+pub use ambition_characters::prepared::{
+    CharacterBodyBlueprint, CharacterCatalogGeneration, CharacterPreparationPlugin,
     MissingCharacterFacts, PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit,
 };
+pub use ambition_characters::prepared::{CharacterBindings, CharacterRegistrationError};
+pub use definition::CharacterDefinitionAppExt;
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
     POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
@@ -791,9 +789,9 @@ impl Plugin for CharacterRuntimePlugin {
                     // post-movement here (`PlayerSimulation` and `WorldPrep` both precede
                     // `Combat`), so this is the one slot where clocks and positions are
                     // simultaneously current.
-                    .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
-                    .after(crate::schedule::CombatSet::Playback)
-                    .before(crate::schedule::CombatSet::Resolve),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
+                    .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
+                    .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve),
             )
             .add_systems(
                 sim,
@@ -810,8 +808,8 @@ impl Plugin for CharacterRuntimePlugin {
                     presentation::inherit_projectile_presentation_sources,
                 )
                     .chain()
-                    .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
-                    .before(crate::schedule::CombatSet::Playback),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
+                    .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback),
             )
             .add_systems(
                 sim,
@@ -856,7 +854,7 @@ impl Plugin for CharacterRuntimePlugin {
                     .run_if(resource_exists::<
                         ambition_characters::actor::character_catalog::CharacterCatalog,
                     >)
-                    .in_set(crate::schedule::PlayerInputSet::CharacterProjection)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection)
                     .before(presentation::project_prepared_character_definitions),
             )
             .add_systems(
@@ -870,7 +868,7 @@ impl Plugin for CharacterRuntimePlugin {
                 //
                 // A phase name cannot make that mistake: the set says where it runs.
                 presentation::project_prepared_character_definitions
-                    .in_set(crate::schedule::PlayerInputSet::CharacterProjection),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection),
             )
             .add_systems(
                 sim,
@@ -886,7 +884,7 @@ impl Plugin for CharacterRuntimePlugin {
                 // condition itself rather than a schedule-level proxy for it,
                 // and a gate here would be a second opinion that could disagree.
                 live_match_clock::count_the_live_match_ticks
-                    .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )
             .add_systems(
                 Update,

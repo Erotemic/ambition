@@ -187,7 +187,6 @@ fn exemplar_barks_resolve_from_catalog() {
 /// authored `dialogue_hints` and NO bark pools still speaks on its Hall pedestal, in its own voice.
 #[test]
 fn a_character_with_only_suggested_lines_still_speaks_in_the_hall() {
-    use ambition_characters::actor::character_catalog::BarkSituation;
     let cat = catalog();
     assert!(
         cat.get("npc_marie_curry")

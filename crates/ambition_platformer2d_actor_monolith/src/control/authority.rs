@@ -5,15 +5,13 @@
 //! match `ControlAuthority`, which specifies how a roster seat is initially
 //! bound. This module reconciles runtime possession redirects only.
 
+use ambition_characters::control::{DrivingParticipant};
 use bevy::prelude::*;
 
 use ambition_characters::control::PlayerSlot;
 
 use crate::abilities::traversal::possession::PossessionState;
 
-// Shared control vocabulary lives with `Brain` and `PlayerSlot`; this module
-// owns only possession reconciliation.
-pub use ambition_characters::control::DrivingParticipant;
 
 /// Redirect the primary seat from the home body to a possessed body and back.
 ///
@@ -83,7 +81,6 @@ pub fn project_driving_participant(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abilities::traversal::possession::PossessionState;
     use ambition_characters::brain::Brain;
 
     /// Run the reconcile once over a world and read back who drives what.

@@ -9,6 +9,7 @@
 //! decode must stay in the same order, and `snapshot_unit_enum!` codes are
 //! authored per variant so inserting one never renumbers the rest.
 
+use ambition_combat::stocks::MatchVerdict;
 use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
     SnapshotCursor, SnapshotState,
@@ -185,7 +186,6 @@ impl SnapshotState for crate::character_runtime::live_match_clock::LiveMatchTick
 /// The stocks ruleset's verdict, and WHICH MATCH it is about.
 /// One byte of tag plus the winning side's label when there is one.
 fn encode_match_verdict(out: &mut Vec<u8>, verdict: &ambition_combat::stocks::MatchVerdict) {
-    use ambition_combat::stocks::MatchVerdict;
     match verdict {
         MatchVerdict::Winner(side) => {
             put_u8(out, 0);
@@ -197,7 +197,6 @@ fn encode_match_verdict(out: &mut Vec<u8>, verdict: &ambition_combat::stocks::Ma
 }
 
 fn decode_match_verdict(r: &mut Reader<'_>) -> Option<ambition_combat::stocks::MatchVerdict> {
-    use ambition_combat::stocks::MatchVerdict;
     match r.u8()? {
         0 => Some(MatchVerdict::Winner(r.str()?.to_string())),
         1 => Some(MatchVerdict::Draw),

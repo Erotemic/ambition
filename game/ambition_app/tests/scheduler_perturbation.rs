@@ -61,7 +61,7 @@ fn digest(sim: &mut Platformer2dSimHarness) -> String {
     let world = sim.world_mut();
     let mut rows: Vec<String> = world
         .query::<(
-            &ambition_platformer2d::actors::features::BodyKinematics,
+            &ambition_platformer2d::actor::BodyKinematics,
             &BodyHealth,
             Option<&BodyCombat>,
         )>()
@@ -111,7 +111,7 @@ fn perturb(sim: &mut Platformer2dSimHarness) {
     let schedule = app.sim_schedule();
 
     fn read_bodies_early(
-        bodies: Query<(&ambition_platformer2d::actors::features::BodyKinematics, &BodyHealth)>,
+        bodies: Query<(&ambition_platformer2d::actor::BodyKinematics, &BodyHealth)>,
         mut runs: ResMut<ProbeRuns>,
     ) {
         let mut seen = 0u64;
@@ -205,7 +205,7 @@ fn the_comparison_can_actually_see_a_divergence() {
         // A real conflicting writer: it nudges every body's velocity. This is
         // precisely what the benign probes must never do.
         fn shove_every_body(
-            mut bodies: Query<&mut ambition_platformer2d::actors::features::BodyKinematics>,
+            mut bodies: Query<&mut ambition_platformer2d::actor::BodyKinematics>,
         ) {
             for mut kin in &mut bodies {
                 kin.vel.x += 0.001;

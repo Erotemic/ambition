@@ -10854,9 +10854,14 @@ TRUTH above.** The 2026-08-16 capture (21 frames, two matches) found the
 documented nine-tap command seats the WRONG pair: `747x121`/`425x121` are
 grid cells 3/0 (Sanic and Player Robot v3, the generic-kit floor), not the
 authored pair. ⛔⛔ **and the correct cell coordinates have moved AGAIN,
-since 2026-08-20** — George Booul is cell 1 (`touch:479x121`) and the Pirate
-Admiral cell 4 (`touch:801x121`) now that one appended fighter took the
-roster grid from 15 cells to 16 and re-flowed it to six columns. ⚠ quote the
+since 2026-08-20** — George Booul is cell 1 (`touch:518x105`) and the Pirate
+Admiral cell 4 (`touch:761x105`) as of 2026-08-27, when a 21-fighter grid
+re-flowed to SIX columns and moved every column rather than shifting cells
+along by one; the previous recipe (`touch:479x121` / `touch:801x121`) landed in
+the GAPS between cells and both taps missed. Cell 1 and cell 4 are still the
+same two fighters — that they were NAMED is what caught it. The 2026-08-20
+drift before that was an appended fighter taking the roster grid from 15 cells
+to 16 and re-flowing it to six columns. ⚠ quote the
 CELL, not the pixels. ✔ **DONE 2026-08-26, and it was ONE literal, not two —
 `capture_scene`'s header no longer prints a recipe at all** (it says *"keep
 coordinate recipes covered by host tests because the UI layout can move"*), so

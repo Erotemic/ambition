@@ -7,12 +7,12 @@
 //! with this resource;
 //! rebuilding it once per frame keeps the augment cheap.
 
+use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_combat::*;
 
-pub use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 
 /// Rebuild the transient collision blocks contributed by ECS-owned features.
 /// The set `rebuild_feature_ecs_world_overlay` runs in, so a consumer can order

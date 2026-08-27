@@ -7,9 +7,6 @@
 //! module only as a stable place for presentation code/tests that
 //! want the public timing constants.
 
-pub use ambition_platformer2d_core::{
-    LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TOWARD_CLIMB_DELAY,
-};
 
 #[cfg(test)]
 mod tests {

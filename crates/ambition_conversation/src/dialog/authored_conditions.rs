@@ -49,14 +49,14 @@ pub fn install_condition_binding(
 fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut World) -> bool {
     let Some(id) = ConditionId::parse(&raw_id) else {
         warn!(
-            target: "ambition_conversation::dialog::authored_conditions",
+            target: "crate::dialog::authored_conditions",
             "condition({raw_id:?}, …): not a `domain.question` id; nothing was asked",
         );
         return false;
     };
     if !world.contains_resource::<ConditionCatalog>() {
         warn!(
-            target: "ambition_conversation::dialog::authored_conditions",
+            target: "crate::dialog::authored_conditions",
             "condition({raw_id:?}, …): no domain in this composition has published \
              any condition, so there is nothing to ask",
         );
@@ -72,7 +72,7 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
     match &outcome {
         ConditionOutcome::Unanswerable(reason) => {
             warn!(
-                target: "ambition_conversation::dialog::authored_conditions",
+                target: "crate::dialog::authored_conditions",
                 "condition({raw_id:?}, …) is unanswerable: {reason}",
             );
         }

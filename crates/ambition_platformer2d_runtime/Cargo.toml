@@ -47,6 +47,7 @@ ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_menu = { path = "../ambition_menu" }
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_items = { path = "../ambition_items" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # Cutscene PLAYBACK is rollback state (it gates participant input). The cutscene

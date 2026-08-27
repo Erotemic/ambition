@@ -101,7 +101,6 @@ fn player_action_set_melee_disabled_when_attack_ability_off() {
 /// Pins the same gating discipline for special-ability slots.
 #[test]
 fn player_action_set_special_disabled_when_shield_ability_off() {
-    use ambition_characters::brain::ActionSet;
     let mut player = crate::avatar::primary_player_scratch(
         ae::Vec2::new(0.0, 0.0),
         ae::AbilitySet::sandbox_all(),
@@ -244,7 +243,6 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
     use ambition_characters::brain::{
         emit_brain_action_messages, ActionRequest, ActorActionMessage, MeleeActionSpec,
     };
-    use bevy::transform::components::Transform;
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
     app.init_resource::<SlotControls>();

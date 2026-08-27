@@ -49,7 +49,7 @@ pub(crate) fn room_spec_paths(
 /// A mutation-free room feature construction failure.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoomFeatureConstructionError {
-    Placement(crate::world::placements::PlacementLoweringError),
+    Placement(ambition_platformer2d_world::placements::PlacementLoweringError),
     ContentStaging(RoomContentStagingError),
     DuplicateAuthoritativeId {
         room: String,

@@ -25,7 +25,7 @@
 
 use bevy::prelude::*;
 
-use crate::items::OwnedItems;
+use ambition_items::OwnedItems;
 use crate::session::durable_horizon::SaveRestored;
 use ambition_characters::actor::BodyWallet;
 use ambition_persistence::save::AmbitionGameSave;

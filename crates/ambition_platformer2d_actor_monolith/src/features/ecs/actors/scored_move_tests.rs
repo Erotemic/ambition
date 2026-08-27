@@ -419,7 +419,6 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
 /// platform-fighter policy, and this scorer is shared by every actor in every game the engine runs.
 #[test]
 fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
-    use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::fighter::data::ShadowTuning;
     use ambition_characters::brain::fighter::habit::{Choice, HabitModel};
     use ambition_characters::brain::fighter::options::{

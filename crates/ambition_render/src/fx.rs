@@ -82,7 +82,7 @@ fn note_effect_miss(fx: FxId) {
         .unwrap_or(false);
     if first {
         bevy::log::warn!(
-            target: "ambition_render::fx",
+            target: "crate::fx",
             "{fx} is not a row on any of the {} shipped FX sheets, so it draws a generic \
              particle burst instead of art; check the authored `Vfx {{ effect }}` id",
             ambition_sprite_sheet::fx::FX_SHEETS.len(),

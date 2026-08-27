@@ -1544,12 +1544,21 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
     // MEASURED 2026-08-26, not chosen: 17 of 19, with only George Booul and
     // Mary-O authoring a feel of their own.
     //
+    // ⛔⛔ RE-BASED 2026-08-27 TO 19 OF 21, AND NOT BECAUSE ANYBODY REGRESSED.
+    // `6a7517dc6` seated two more hand-drawn easter eggs, and neither authors a
+    // feel — so a count of the fighters STILL on the enemy's body rises whenever
+    // the cast grows, which is content breadth doing its job and not the thing
+    // this row exists to catch. The AUTHORED set is unchanged, and the assertion
+    // below is the half that says so: it names both authors, so a fighter LOSING
+    // its own body goes red however wide the grid gets. Re-basing the count
+    // without it would have left a ratchet that only new content can move.
+    //
     // ⚠ `sanic` is on this list for a DIFFERENT REASON than the other sixteen
     // and authoring him a `MovementTuning` would not move him: he is a
     // `SurfaceMomentum` body, so he has no `AxisManeuverState` and reads none of
     // these numbers. Taking him off costs the other motion model a seat for the
     // state, which is the engine gap the ledger records — not an authoring job.
-    const ON_THE_ENEMYS_BODY: usize = 17;
+    const ON_THE_ENEMYS_BODY: usize = 19;
     assert_eq!(
         silent.len(),
         ON_THE_ENEMYS_BODY,
@@ -3503,9 +3512,18 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // that goes quietly wrong every time the cast changes.
     //
     // Re-derived from `SelectLayout::portrait` centres, not by eye: cell 1 is
-    // (559.05, 105.25) and cell 4 is (801.9, 105.25).
-    const PORTRAIT_A: Vec2 = Vec2::new(559.0, 105.0);
-    const PORTRAIT_B: Vec2 = Vec2::new(802.0, 105.0);
+    // (518.58, 105.25) and cell 4 is (761.43, 105.25).
+    //
+    // ⛔⛔ AND THEY MOVED AGAIN ON 2026-08-27, for a reason the last drift did
+    // not have: `6a7517dc6` seated two more fighters, and 21 cells re-flow the
+    // grid to SIX columns where 19 gave a different pitch. So the cells did not
+    // shift along by one — every column moved, and the old points landed in the
+    // GAPS between cells. Both taps missed, both tokens went home, and the picks
+    // came back `[Random, Random]`. ⭐ The FIGHTERS are unchanged: George Booul
+    // is still cell 1 and the Pirate Admiral still cell 4, which is exactly why
+    // naming them rather than trusting the literals is what caught this.
+    const PORTRAIT_A: Vec2 = Vec2::new(518.0, 105.0);
+    const PORTRAIT_B: Vec2 = Vec2::new(761.0, 105.0);
     /// The pair the documented capture is FOR: the demo's own authored fighter
     /// against Ambition's own. Named, because a cell index is not a character.
     const WANTED: [&str; 2] = ["smash_george_booul", "npc_pirate_admiral"];

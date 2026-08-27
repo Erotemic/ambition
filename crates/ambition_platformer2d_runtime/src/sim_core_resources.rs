@@ -80,7 +80,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_time::time_control::RequestedClockScale>()
             .init_resource::<ambition_time::ClockState>()
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
-            .init_resource::<ambition_platformer2d_actor_monolith::trace::GameplayTraceBuffer>()
+            .init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>()
             .init_resource::<ambition_platformer2d_world::collision::MovingPlatformSet>()
             .init_resource::<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>()
             // The session's movement-tuning authority. Engine-owned with a
@@ -166,11 +166,11 @@ impl Plugin for SimCoreResourcesPlugin {
             // Feel + physics tuning defaults; the game's assembly pre-inserts
             // its authored values (init never clobbers).
             .init_resource::<ambition_combat::feel::Platformer2dFeelTuningMonolith>()
-            .init_resource::<ambition_platformer2d_actor_monolith::world::physics::PhysicsSandboxSettings>()
+            .init_resource::<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>()
             // Engine-typed settings/inventory defaults; games pre-insert
             // their authored starters.
             .init_resource::<ambition_persistence::settings::UserSettings>()
-            .init_resource::<ambition_platformer2d_actor_monolith::items::OwnedItems>()
+            .init_resource::<ambition_items::OwnedItems>()
             // The quest + boss-encounter registries are ENGINE vocabulary
             // read by the encounter/progression chains; content POPULATES
             // them (never owns the init).

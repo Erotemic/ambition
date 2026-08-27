@@ -528,7 +528,6 @@ fn the_decode_path_declares_a_registered_character_itself() {
 // ── Live quality Apply: the residency transition ───────────────────────────────
 
 mod live_quality_apply {
-    use super::*;
     use ambition_asset_manager::AssetProfile;
     use ambition_persistence::settings::{
         TextureResolutionScale, UserSettings, VisualQualityProfile,
@@ -568,7 +567,7 @@ mod live_quality_apply {
             &config,
             &characters,
             &ambition_boss_encounter::BossCatalog::default(),
-            &crate::session::data::MusicRegistry {
+            &ambition_audio::spec::MusicRegistry {
                 default_track: String::new(),
                 tracks: Vec::new(),
             },

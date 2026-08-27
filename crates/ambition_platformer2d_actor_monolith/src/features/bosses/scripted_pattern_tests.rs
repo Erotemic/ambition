@@ -371,7 +371,6 @@ fn gradient_sentinel_phase1_includes_gradient_lane_and_overfit_volley() {
 /// faster", which defeats the design.
 #[test]
 fn gradient_sentinel_phase2_includes_all_advanced_specials() {
-    use ambition_characters::brain::BossAttackProfile;
     let BossAttackPattern::Scripted { phase2, .. } =
         BossBehaviorProfile::clockwork_warden().attack_pattern
     else {

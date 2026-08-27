@@ -11,7 +11,7 @@
 //! bursts past its bounds and crashes into you. Defeat it, wield its crash
 //! yourself ("every boss a failed objective function, learn its attack").
 //!
-//! Mechanically it reuses two proven primitives: [`crate::platformer_runtime::collision::raycast_solids`]
+//! Mechanically it reuses two proven primitives: [`ambition_platformer2d_core::cast::raycast_solids`]
 //! (the same wall-stop the blink uses, so the lunge never lands inside geometry)
 //! and a one-shot `Player`-faction [`ambition_combat::events::HitEvent`] over the dash
 //! corridor (a `PlayerSlash` source, so it damages enemies and spares the
@@ -137,7 +137,7 @@ pub fn fire_dive_system(
     // safety net, so the lunge is stopped by moving platforms / ECS solids too.
     let collision = world.solids();
     let mut target = match collision.as_ref().and_then(|w| {
-        crate::platformer_runtime::collision::raycast_solids(
+        ambition_platformer2d_core::cast::raycast_solids(
             &**w,
             from,
             dir,

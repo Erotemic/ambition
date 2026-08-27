@@ -157,7 +157,7 @@ fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
     };
     let carves: Vec<ae::Aabb> = sim
         .world()
-        .get_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>()
+        .get_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>()
         .map(|o| o.portal_carves.clone())
         .unwrap_or_default();
     let composed =

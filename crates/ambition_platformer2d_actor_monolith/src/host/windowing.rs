@@ -3,7 +3,6 @@
 //! Display mode is user-facing configuration owned by the Settings menu. It is
 //! deliberately not part of the developer function-key deck.
 
-pub use ambition_persistence::host::windowing::{DisplayModeKind, DisplayModeState};
 
 #[cfg(test)]
 mod tests {

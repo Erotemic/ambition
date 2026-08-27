@@ -15,14 +15,16 @@
 use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
 
-use crate::features::{BodyKinematics, FeatureSimEntity, HeldItem};
+use crate::features::{HeldItem};
 use ambition_combat::components::ActorFaction;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::BodyMana;
+use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Held-item id of the vortex gauntlet.
 pub const VORTEX_ID: &str = "vortex";

@@ -22,8 +22,6 @@ pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 /// patrol range.
 pub const NPC_TALK_RADIUS: f32 = 80.0;
 
-/// Patrol speed for NPCs.
-pub use ambition_characters::brain::NPC_PATROL_SPEED;
 
 /// Engine-generic on-hit barks for an interactable actor whose catalog row
 /// authors no `barks.on_hit` pool (an unnamed mob, or a placed NPC carrying no
@@ -154,7 +152,7 @@ pub(crate) fn resolve_npc_brain(
             // treating a blank override as absent, exactly as
             // `resolve_initial_brain` does.
             bevy::log::warn!(
-                target: "ambition_platformer2d_actor_monolith::npcs",
+                target: "crate::npcs",
                 "NPC `{cid}` names no brain preset and its character authors no \
                  autonomous profile; stand-still fallback",
             );
@@ -167,7 +165,7 @@ pub(crate) fn resolve_npc_brain(
             _,
         )) => {
             bevy::log::warn!(
-                target: "ambition_platformer2d_actor_monolith::npcs",
+                target: "crate::npcs",
                 "NPC `{cid}` has no character catalog row in this context; stand-still fallback",
             );
             (ambition_characters::brain::Brain::stand_still(), None)
@@ -320,7 +318,6 @@ pub(crate) fn npc_dialogue_request(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     /// LDtk writes an unset string field as `""`, so a pedestal with no bespoke conversation
     /// reaches the dialogue bridge as `Some("")`.
@@ -422,7 +419,7 @@ mod tests {
 
     /// One registered character, prepared and published, with no `App` around it.
     fn registry_with(
-        definition: crate::character_runtime::CharacterDefinition,
+        definition: ambition_characters::actor::definition::CharacterDefinition,
     ) -> crate::character_runtime::PreparedCharacterRegistry {
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
@@ -447,7 +444,7 @@ mod tests {
         let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
         let npc = interactable();
         let registry = registry_with(
-            crate::character_runtime::CharacterDefinition::new("voice", "Voice", "another_game")
+            ambition_characters::actor::definition::CharacterDefinition::new("voice", "Voice", "another_game")
                 .with_voice(["only line", "second line"]),
         );
 
@@ -495,7 +492,7 @@ mod tests {
         let catalog = CharacterCatalog::from_data(parse_catalog(AMBIENT_ONLY));
         let npc = interactable();
         let registry = registry_with(
-            crate::character_runtime::CharacterDefinition::new("voice", "Voice", "another_game")
+            ambition_characters::actor::definition::CharacterDefinition::new("voice", "Voice", "another_game")
                 .with_voice(["ow, my paint", "that is enough"]),
         );
 
@@ -538,7 +535,7 @@ mod tests {
         let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
         let npc = interactable();
         let registry = registry_with(
-            crate::character_runtime::CharacterDefinition::new("voice", "Voice", "another_game")
+            ambition_characters::actor::definition::CharacterDefinition::new("voice", "Voice", "another_game")
                 .with_voice(["floor line"]),
         );
 
@@ -621,7 +618,6 @@ pub fn speak_conversation_cut_barks(
 /// : the NPC spawn path asks the CHARACTER what it normally does.
 #[cfg(test)]
 mod default_profile_tests {
-    use super::*;
 
     /// The provider both authorities are registered under. ONE constant on
     /// purpose: the whole point of the fixture is that a definition's provider
@@ -704,7 +700,7 @@ mod default_profile_tests {
     fn registry_naming(
         profile: Option<ambition_characters::brain::CharacterBrainTemplate>,
     ) -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut definition = crate::character_runtime::CharacterDefinition::new(
+        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_puppy_slug",
             "Puppy Slug",
             PROVIDER,

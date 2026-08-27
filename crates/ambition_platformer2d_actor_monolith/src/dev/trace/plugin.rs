@@ -1,6 +1,6 @@
 //! Module-local Bevy [`Plugin`] for the gameplay trace recorder.
 //!
-//! The trace runs in [`crate::schedule::Platformer2dSimulationPhaseMonolith::Trace`] (configured by
+//! The trace runs in [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Trace`] (configured by
 //! `app/schedule.rs`), which orders after `CoreSimulation` so the
 //! per-frame snapshot captures the resolved player state. Both the
 //! visible binary and the headless driver install this plugin via
@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use crate::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 pub struct TraceSchedulePlugin;

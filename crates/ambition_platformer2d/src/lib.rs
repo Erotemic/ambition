@@ -21,7 +21,7 @@ pub mod session;
 /// The platformer experience-provider protocol (authoring identity + the one
 /// shared preparation/activation lifecycle). Lives in
 /// `ambition_platformer2d_provider`; re-exported here so provider crates keep
-/// the `ambition_platformer2d::provider::…` path.
+/// the `crate::provider::…` path.
 pub use ambition_platformer2d_provider as provider;
 
 /// The causal inspector — "why did this actor change on this tick".
@@ -35,9 +35,9 @@ pub use ambition_platformer2d_provider as provider;
 /// source or naming an engine-private path.
 ///
 /// ```ignore
-/// use ambition_platformer2d::causal::{CausalRecording, RecordingPolicy, SubjectKey, domains};
+/// use crate::causal::{CausalRecording, RecordingPolicy, SubjectKey, domains};
 ///
-/// app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
+/// app.add_plugins(crate::causal::CausalPlugin);
 /// app.world_mut()
 /// .resource_mut::<CausalRecording>()
 /// .set_policy(RecordingPolicy::only([domains::MOVEMENT]));
@@ -67,13 +67,18 @@ pub mod causal {
 /// naming an engine-private path.
 ///
 /// ```ignore
-/// let mut registry = ambition_platformer2d::content::engine_schemas();
+/// let mut registry = crate::content::engine_schemas();
 /// registry.register(my_capability::my_schema())?;      // a capability's own
-/// let pack = ambition_platformer2d::content::compile_dir(path, &registry, &assets)?;
+/// let pack = crate::content::compile_dir(path, &registry, &assets)?;
 /// ```
 #[cfg(feature = "content_pack")]
 pub mod content {
     pub use ambition_content_pack::*;
+
+    /// The authored audio manifests a game registers its own tracks and cues in.
+    pub use ambition_audio::spec::{MusicRegistry, SfxRegistry};
+    /// Which sprite an authored entity draws as.
+    pub use ambition_sprite_sheet::game_assets::EntitySprite;
 
     /// The schemas the ENGINE itself owns, ready for a consumer to add to.
     ///
@@ -222,6 +227,7 @@ pub mod participant {
 /// Items as simulation state, when the item capability is installed.
 #[cfg(feature = "ambition_items")]
 pub mod item {
+    pub use ambition_items::{Item, ItemGrantRequested, OwnedItems};
     pub use ambition_platformer2d_actor_monolith::items::pickup::{GroundItem, ItemCustody};
 }
 
@@ -235,14 +241,21 @@ pub mod settings {
 ///
 /// A curated domain module, second of the set ADR 0031's decision 1 lists. It
 /// exists because the two sentinel consumers had to reach into
-/// `ambition_platformer2d::engine_core` — an IMPLEMENTATION crate the facade mirrors — for
+/// `crate::engine_core` — an IMPLEMENTATION crate the facade mirrors — for
 /// `transit_body`, `TransitVelocity` and `BodyClusterQueryData`, and into
-/// `ambition_platformer2d::platformer` for the marker and kinematics types you need to ask
+/// `crate::platformer` for the marker and kinematics types you need to ask
 /// "where is the player".
 ///
 /// Closed list, like [`world`]. Adding a type to a mirrored crate does not
 /// silently become public API.
 pub mod actor {
+    /// WHICH gameplay session owns the world right now. A resource that names an
+    /// earlier scope is a leftover, and reading one is how a retired match's
+    /// verdict gets applied to the match that replaced it.
+    pub use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
+    /// The lifecycle marker every feature-spawned sim entity carries, and the
+    /// extension that scopes a spawn to the session that owns it.
+    pub use ambition_platformer2d_shared_tangle::lifecycle::{FeatureSimEntity, SpawnScopedExt};
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
     /// The query filter for "the body this player already has", which a game
@@ -263,7 +276,7 @@ pub mod actor {
     /// the match it got.
     ///
     /// the input half is CLOSED :
-    /// `ambition_platformer2d::sim::drive_slot_frame` drives any seat, beside
+    /// `crate::sim::drive_slot_frame` drives any seat, beside
     /// `drive_control_frame` naming the primary. The seam had existed in
     /// `ambition_platformer2d_runtime` since and was simply never re-exported — so
     /// the finding described the FACADE, not the engine, which is the more
@@ -369,6 +382,10 @@ pub mod character {
     /// content before a session exists.
     pub use ambition_platformer2d_provider::PlatformerAuthoredCatalogRegistry;
 
+    /// Declaring a character in Rust, for the cases ADR 0032 keeps in Rust:
+    /// tests, procedural generation, unrepresentable schemas, and a cast whose
+    /// behavior is supplied by host code as a deliberate authoring choice.
+    pub use ambition_characters::actor::definition::{CharacterDefinition, Lineage, Vitals};
     pub use ambition_characters::actor::{CharacterLocomotion, ContactDamage, WornCharacter};
     /// Controller policy and locomotion vocabulary used by Rust-authored characters.
     ///
@@ -376,12 +393,7 @@ pub mod character {
     /// third-party game must be able to state how its own autonomous character
     /// moves and decides without importing the engine's internal crates.
     pub use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};
-    /// Declaring a character in Rust, for the cases ADR 0032 keeps in Rust:
-    /// tests, procedural generation, unrepresentable schemas, and a cast whose
-    /// behavior is supplied by host code as a deliberate authoring choice.
-    pub use ambition_platformer2d_actor_monolith::character_runtime::{
-        CharacterDefinition, CharacterDefinitionAppExt,
-    };
+    pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
 
     /// The pieces a match needs to author a fighter's kit — see
     /// `MatchParticipant::action_set`.
@@ -397,7 +409,7 @@ pub mod character {
     pub use ambition_characters::actor::character_catalog::CharacterPortraitRef;
     /// What a provider REGISTERED, so a screen can ask what a character
     /// declared rather than only what a catalog derived.
-    pub use ambition_platformer2d_actor_monolith::character_runtime::definition::PreparedCharacterRegistry;
+    pub use ambition_characters::prepared::PreparedCharacterRegistry;
     pub use ambition_platformer2d_actor_monolith::character_runtime::registered_portrait_target;
     /// What a character looks like, and whether its art has arrived.
     pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterLoadStates;
@@ -411,8 +423,11 @@ pub mod character {
 
 /// The simulation schedule a game joins its own systems to.
 pub mod sim {
+    /// The dev-only physics overrides a sandbox host may install.
+    pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
-        GameMode, Platformer2dSimulationPhaseMonolith, SimSchedule, SimScheduleExt,
+        BossSteerSlot, GameMode, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
+        SimSchedule, SimScheduleExt, SimulationSetupSet,
     };
 
     /// How device/screen/body axes are interpreted by scripted or participant input.
@@ -534,6 +549,13 @@ pub mod rollback;
 /// TODO(compat-remove): replace the remaining implementation-shaped crate mirrors
 /// with intentional domain API surfaces, then remove the mirrors.
 pub mod world {
+    /// A room's damaging volumes, as simulation state.
+    pub use ambition_combat::hazard_runtime::HazardFeature;
+    /// The derived solids/hazards a room contributes on top of its authored base.
+    /// Named here for the same reason `ResolvedMotionFrame` is: it is a world
+    /// fact, and reaching it through the actor crate is how a census mistakes it
+    /// for that crate's coupling.
+    pub use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
     /// The per-tick motion environment a body is stepped in. Named here rather
     /// than through the actor crate: it is a world-physics fact, and routing it
     /// through a domain crate's re-export is how a census mistakes it for that
@@ -550,7 +572,7 @@ pub mod world {
         collision, debug_label, placements, platforms, rooms, world_manifest,
     };
 }
-// Re-exported so a game can name bevy TYPES through `ambition_platformer2d::bevy::…`. NOTE:
+// Re-exported so a game can name bevy TYPES through `crate::bevy::…`. NOTE:
 // this does NOT let a crate `#[derive(Component)]`/`#[derive(Resource)]` through
 // the umbrella alone — bevy's derive macros resolve `::bevy_ecs` via the
 // CONSUMER's own Cargo.toml (`BevyManifest`), which a re-export does not satisfy.
@@ -570,6 +592,8 @@ pub mod engine {
 
 /// Windowed host plugin groups and host-facing seams.
 pub mod windowed_host {
+    /// Windowed / fullscreen, as persisted host state.
+    pub use ambition_persistence::host::windowing::DisplayModeState;
     #[cfg(feature = "input")]
     pub use ambition_platformer2d_host::HostInputBindingsPlugin;
     pub use ambition_platformer2d_host::{HostCameraPlugin, PlatformerHostPlugins};
@@ -613,7 +637,7 @@ pub mod presentation {
 /// resulting actor moved, attacked, took damage, or changed lifecycle state …
 /// without importing internal-shaped engine modules or reading engine source"*.
 ///
-/// So this module uses ONLY `ambition_platformer2d::causal::…` — no `ambition_causal`, no
+/// So this module uses ONLY `crate::causal::…` — no `ambition_causal`, no
 /// `ambition_platformer2d_runtime`, no `ambition_platformer2d_actor_monolith`. If a consumer would have to reach
 /// past the facade to do this, that shows up here as a compile error rather
 /// than as a paragraph somebody has to believe.
@@ -698,7 +722,7 @@ mod causal_sdk_tests {
 ///
 /// The program says an agent should *"add or modify a character and validate it
 /// without rebuilding Rust"* and do so *"without importing internal-shaped
-/// engine modules"*. This module uses ONLY `ambition_platformer2d::content::…` — no
+/// engine modules"*. This module uses ONLY `crate::content::…` — no
 /// `ambition_content_pack`, no `ambition_characters`. A consumer forced past the
 /// facade shows up here as a compile error.
 #[cfg(all(test, feature = "content_pack"))]

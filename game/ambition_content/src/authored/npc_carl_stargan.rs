@@ -8,7 +8,7 @@ use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{
     BrainProfile, CharacterBrainTemplate, MeleeActionSpec, MoveStyleSpec, SwipeSpec,
 };
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// Authored through [`super::AUTHORED_CAST`], the canonical buildable-cast registry.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {

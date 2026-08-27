@@ -25,7 +25,7 @@ use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{
     BrainProfile, CharacterBrainTemplate, MeleeActionSpec, MoveStyleSpec, SwipeSpec,
 };
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// Each pirate's authored controller policy matches its shipped role. The
 /// lookout and navigator use `skirmisher_ranger`; do not infer behavior from

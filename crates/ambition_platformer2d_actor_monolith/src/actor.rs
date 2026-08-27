@@ -18,7 +18,6 @@ use ambition_platformer2d_core::{
     BodyWallState,
 };
 
-pub use ambition_platformer2d_core::BodyKinematics;
 // Both surface here, on the neutral actor vocabulary, in the S5/S6 fold (R6).
 
 /// Shared movement-cluster components that, with [`BodyKinematics`], form the

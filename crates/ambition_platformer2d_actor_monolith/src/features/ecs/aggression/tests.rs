@@ -1,5 +1,5 @@
 use super::*;
-use crate::features::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use crate::features::NPC_HOSTILE_STRIKE_THRESHOLD;
 use ambition_combat::components::{CenteredAabb, FeatureId};
 use ambition_platformer2d_core::{self as ae, AabbExt};
@@ -276,7 +276,7 @@ fn npc_cast(
     max_health: Option<i32>,
 ) -> crate::character_runtime::PreparedCharacterRegistry {
     let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
-    let mut definition = crate::character_runtime::CharacterDefinition::new(
+    let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "npc_test_parrot",
         "Test Parrot",
         "test",
@@ -345,7 +345,7 @@ fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
 /// fixture's own disagreement rather than from provocation.
 #[test]
 fn a_flying_npc_stays_flying_when_it_is_provoked() {
-    use crate::features::enemies::ActorSurfaceState;
+    use ambition_platformer2d_core::ActorSurfaceState;
     use ambition_characters::brain::{Brain, StateMachineCfg};
 
     let mut app = App::new();

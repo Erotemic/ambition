@@ -16,7 +16,7 @@ use ambition_boss_encounter::pattern::validator::{
     fight_beats, validate_fight, FightFinding, Severity,
 };
 use ambition_content::bosses::{seed_library, validator_bands, BOSS_PROFILES_RON};
-use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
+use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 fn profiles() -> BTreeMap<String, BossBehaviorProfile> {
     ron::from_str(BOSS_PROFILES_RON).expect("boss_profiles.ron parses")

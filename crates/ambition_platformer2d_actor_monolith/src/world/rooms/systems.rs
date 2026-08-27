@@ -192,7 +192,7 @@ pub fn detect_room_transition_system(
                 );
             if ordinary_unpressed {
                 bevy::log::debug_once!(
-                    target: "ambition_platformer2d_actor_monolith::rooms",
+                    target: "crate::rooms",
                     "the controlled body is touching `{}` (Door) and has not \
                      pressed interact — ordinary; raised to WARN once a press \
                      is buffered and the transition still does not fire.",
@@ -201,7 +201,7 @@ pub fn detect_room_transition_system(
                 return;
             }
             bevy::log::warn_once!(
-                target: "ambition_platformer2d_actor_monolith::rooms",
+                target: "crate::rooms",
                 "the controlled body is TOUCHING loading zone `{}` ({:?}) and the \
                  transition did not fire. path delta = {:?} (sweep sample {}), \
                  interact buffered = {wants_interact}. A `Door` needs the press; \

@@ -58,7 +58,7 @@ fn two_players_have_independent_active_attacks() {
         .entity_mut(p1)
         .get_mut::<BodyMelee>()
         .expect("p1 has the component")
-        .swing = Some(crate::MeleeSwing::new(attack_spec));
+        .swing = Some(ambition_combat::components::MeleeSwing::new(attack_spec));
 
     let p1_attack = app
         .world()
@@ -190,7 +190,7 @@ fn clear_is_per_entity() {
             PlayerEntity,
             PlayerSlot(0),
             BodyMelee {
-                swing: Some(crate::MeleeSwing::new(attack_spec.clone())),
+                swing: Some(ambition_combat::components::MeleeSwing::new(attack_spec.clone())),
                 ..Default::default()
             },
         ))
@@ -201,7 +201,7 @@ fn clear_is_per_entity() {
             PlayerEntity,
             PlayerSlot(1),
             BodyMelee {
-                swing: Some(crate::MeleeSwing::new(attack_spec)),
+                swing: Some(ambition_combat::components::MeleeSwing::new(attack_spec)),
                 ..Default::default()
             },
         ))
@@ -286,7 +286,6 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
 #[test]
 fn untargeted_heal_routes_to_primary() {
     use crate::avatar::{apply_player_heal_requests, PlayerHealRequested};
-    use ambition_characters::actor::BodyHealth;
 
     let mut app = App::new();
     app.add_message::<PlayerHealRequested>();

@@ -4,7 +4,7 @@
 //! is that the sprite rig supplies safe reference poses that later humanoids can
 //! copy before adding bespoke anatomy or personality.
 
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition

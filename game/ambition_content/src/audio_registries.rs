@@ -9,8 +9,9 @@
 //! provider or deterministic combination and insert the playback resources they
 //! need. Audio authority is fully App-local — no process-global install seam.
 
-use ambition_platformer2d_actor_monolith::session::data::{MusicRegistry, SfxRegistry};
 
+use ambition_platformer2d::content::MusicRegistry;
+use ambition_platformer2d::content::SfxRegistry;
 pub const MUSIC_REGISTRY_RON: &str = include_str!("../assets/audio/music_registry.ron");
 pub const SFX_REGISTRY_RON: &str = include_str!("../assets/audio/sfx_registry.ron");
 

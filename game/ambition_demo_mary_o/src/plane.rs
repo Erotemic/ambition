@@ -5,9 +5,8 @@
 /// Zero aggro/attack radii keep the aerial brain roaming instead of diving;
 /// `patrol_effort: 1.0` preserves the authored full-speed patrol.
 pub(crate) fn register_snakes_on_a_plane_characters(app: &mut bevy::prelude::App) {
-    use ambition_platformer2d::actors::character_runtime::{
-        CharacterDefinition, CharacterDefinitionAppExt,
-    };
+    use ambition_platformer2d::character::CharacterDefinition;
+    use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
     use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
     use ambition_platformer2d::characters::brain::{
         BrainProfile, CharacterBrainTemplate, MoveStyleSpec,

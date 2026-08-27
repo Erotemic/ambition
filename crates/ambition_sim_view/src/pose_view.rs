@@ -189,7 +189,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_combat::BodyMelee>,
                 Option<&ambition_platformer2d_core::BodyBaseSize>,
                 Option<&BodyHealth>,
-                Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
+                Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
                 Option<&ambition_projectiles::PlayerProjectileState>,
             ),
             // ⛔ A THIRD GROUP BECAUSE BEVY'S QUERY TUPLE LIMIT IS FIFTEEN, not

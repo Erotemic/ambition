@@ -296,7 +296,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         .expect("arena");
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
-    let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
+    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
     let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
         &world,
         &platforms,
@@ -370,7 +370,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
         .expect("arena");
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
-    let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
+    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
     let augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
         &world,
         &platforms,
@@ -617,7 +617,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
     };
     let world = room.world.clone();
     let platforms = room.moving_platforms.clone();
-    let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
+    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
     let mut augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
         &world,
         &platforms,
@@ -725,7 +725,7 @@ fn goblin_encounter_real_walljump_repro() {
     };
     let world = room.world.clone();
     let platforms = room.moving_platforms.clone();
-    let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
+    let ecs_overlay = ambition_platformer2d::world::FeatureEcsWorldOverlay::default();
     let mut augmented = ambition_platformer2d::world::collision::world_with_sandbox_solids(
         &world,
         &platforms,

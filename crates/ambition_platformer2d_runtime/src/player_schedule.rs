@@ -293,7 +293,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
                 ambition_platformer2d_actor_monolith::session::death::open_death_interlude,
-                ambition_platformer2d_actor_monolith::session::death::tick_death_interlude,
+                ambition_combat::death_rules::tick_death_interlude,
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Outcome),

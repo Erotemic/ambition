@@ -119,7 +119,7 @@ fn every_death_drop_is_room_scoped_and_states_its_parent() {
     // `RoomResident` is the production type the transition's own query is built
     // from. Naming the marker here would have been a second spelling of the rule
     // that stops agreeing with the first the day the roster gains a term.
-    let mut residents = world.query_filtered::<Entity, crate::platformer_runtime::lifecycle::RoomResident>();
+    let mut residents = world.query_filtered::<Entity, ambition_platformer2d_shared_tangle::lifecycle::RoomResident>();
     let resident: std::collections::HashSet<Entity> = residents.iter(world).collect();
     let escapes_the_room: Vec<&str> = dropped
         .iter()

@@ -78,7 +78,7 @@ pub fn grapple_system(
     // Raycast against the composited collision world so the grapple can latch a
     // moving platform / ECS solid, not just the bare authored room.
     let Some((hit, _normal)) = world.solids().and_then(|w| {
-        crate::platformer_runtime::collision::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
+        ambition_platformer2d_core::cast::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
     }) else {
         // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
         sfx.write_for(

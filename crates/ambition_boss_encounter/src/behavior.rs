@@ -143,7 +143,7 @@ fn warn_once_unregistered_boss(key: &str) {
         .unwrap_or(false);
     if fresh {
         bevy::log::warn!(
-            target: "ambition_boss_encounter::behavior",
+            target: "crate::behavior",
             "boss '{key}' is not in boss_profiles.ron — spawning a GENERIC clone of \
              the clockwork warden under that id. It will draw the generic body no \
              matter how its sheet is wired, because `boss_sprites[\"{key}\"]` cannot \

@@ -60,7 +60,7 @@ fn body_driven_by(
     template: ambition_characters::brain::CharacterBrainTemplate,
 ) -> (ActorConfig, ambition_platformer2d_core::AbilitySet) {
     let mut definition =
-        crate::character_runtime::CharacterDefinition::new("fixture_body", "Fixture Body", "test")
+        ambition_characters::actor::definition::CharacterDefinition::new("fixture_body", "Fixture Body", "test")
             .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                 run_speed: 155.0,
                 move_style: MoveStyleSpec::Walk,
@@ -233,7 +233,7 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
 /// A body-complete fixture character that declares a SMASH controller policy —
 /// the shape the deleted `medium_striker` row carried.
 fn smash_fixture_cast() -> crate::character_runtime::PreparedCharacterRegistry {
-    let mut definition = crate::character_runtime::CharacterDefinition::new(
+    let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "fixture_striker",
         "Fixture Striker",
         "test",
@@ -581,7 +581,6 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
 
 /// Guard against inferring gameplay identity from presentation identity.
 mod authored_enemy_reads_its_character {
-    use super::*;
 
     // It published two rows with deliberately different pools so "the character's HP won" could
     // be told apart from "the archetype's did" — the comparison this module was built to make.
@@ -766,7 +765,7 @@ mod authored_enemy_reads_its_character {
         app.update();
 
         let world = app.world_mut();
-        let mut q = world.query::<&crate::features::BodyKinematics>();
+        let mut q = world.query::<&ambition_platformer2d_core::body_clusters::BodyKinematics>();
         let body = q
             .iter(world)
             .next()
@@ -900,7 +899,7 @@ mod authored_enemy_reads_its_character {
     }
 
     fn prepared() -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut definition = crate::character_runtime::CharacterDefinition::new(
+        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_busy_beaver",
             "Busy Beaver",
             "test",
@@ -918,7 +917,7 @@ mod authored_enemy_reads_its_character {
     /// A character COMPLETE enough to build a body from: it states how fast it
     /// runs, which is the discriminator `is_complete_body` uses.
     fn prepared_complete() -> crate::character_runtime::PreparedCharacterRegistry {
-        let mut definition = crate::character_runtime::CharacterDefinition::new(
+        let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
             "npc_busy_beaver",
             "Busy Beaver",
             "test",
@@ -974,7 +973,7 @@ mod authored_enemy_reads_its_character {
     /// The held-item id on the body a complete character builds, if any.
     fn spawn_held_item(item: Option<&'static str>) -> Option<String> {
         let mut definition =
-            crate::character_runtime::CharacterDefinition::new("npc_raider", "Cove Raider", "test")
+            ambition_characters::actor::definition::CharacterDefinition::new("npc_raider", "Cove Raider", "test")
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     run_speed: 230.0,
                     move_style: ambition_characters::brain::MoveStyleSpec::Walk,

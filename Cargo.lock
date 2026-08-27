@@ -899,6 +899,7 @@ dependencies = [
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_encounter",
+ "ambition_gameplay_trace",
  "ambition_input",
  "ambition_items",
  "ambition_load",

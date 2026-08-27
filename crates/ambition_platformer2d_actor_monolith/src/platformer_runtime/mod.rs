@@ -4,7 +4,6 @@
 //! callers to their owning crates, then delete those re-export modules and leave no generic runtime
 //! facade inside the actor monolith.
 
-pub use ambition_platformer2d_shared_tangle::{gravity, lifecycle, math, schedule, transit};
 
 pub mod collision;
 pub mod orientation;

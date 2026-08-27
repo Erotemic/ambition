@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 
-use ambition_platformer2d::actors::platformer_runtime::lifecycle::RoomResident;
+use ambition_platformer2d::platformer::lifecycle::RoomResident;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::world::rooms as world_rooms;
 
-use ambition_platformer2d::actors::world::physics;
+use ambition_platformer2d::sim as physics;
 use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
@@ -87,7 +87,7 @@ pub(super) fn handle_ldtk_hot_reload(
     // RESIDENTS of the room being replaced — an object in a body's custody rides
     // the reload with its holder, exactly as it rides a room transition. See
     // `RoomResident`.
-    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), RoomResident>,
+    room_visuals: Query<(Entity, Option<&ambition_platformer2d::actors::world::physics::PhysicsRoomEntity>), RoomResident>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     visual_assets: (
         Option<Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
@@ -346,7 +346,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
     moving_platforms: &mut Vec<ambition_platformer2d::world::platforms::MovingPlatformState>,
-    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), RoomResident>,
+    room_visuals: &Query<(Entity, Option<&ambition_platformer2d::actors::world::physics::PhysicsRoomEntity>), RoomResident>,
     assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
     quality: Option<&ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,

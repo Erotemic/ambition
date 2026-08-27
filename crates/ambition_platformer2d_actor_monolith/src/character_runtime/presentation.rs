@@ -216,7 +216,7 @@ pub fn inherit_projectile_presentation_sources(
 pub struct ProjectedCharacterKit {
     pub id: String,
     /// The cast this body's projected kit was derived from.
-    pub generation: super::definition::CharacterCatalogGeneration,
+    pub generation: ambition_characters::prepared::CharacterCatalogGeneration,
     /// Facts granted by the projected character, recorded so they can be
     /// retracted even if the character changes or leaves the catalog.
     pub granted: GrantedBodyFacts,
@@ -294,13 +294,13 @@ fn posed_body_for(
     prepared: &super::PreparedCharacterDefinition,
 ) -> Option<ambition_sprite_sheet::character::SpritePosedBody> {
     match prepared.body.as_ref()? {
-        super::BodySource::SpriteAuthored { world_per_pixel } => {
+        ambition_characters::actor::definition::BodySource::SpriteAuthored { world_per_pixel } => {
             Some(ambition_sprite_sheet::character::SpritePosedBody::new(
                 prepared.sheet.as_deref()?,
                 *world_per_pixel,
             ))
         }
-        super::BodySource::Explicit { .. } => None,
+        ambition_characters::actor::definition::BodySource::Explicit { .. } => None,
     }
 }
 
@@ -458,7 +458,7 @@ pub fn grant_prepared_character_body(
     commands: &mut Commands,
     entity: Entity,
     prepared: &super::PreparedCharacterDefinition,
-    generation: super::definition::CharacterCatalogGeneration,
+    generation: ambition_characters::prepared::CharacterCatalogGeneration,
     kit: KitOwnership,
     // THE BODY THIS ENTITY PLAYS WITH, already resolved by the caller.
     //

@@ -53,14 +53,14 @@ fn request_authored_command(
 ) {
     let Some(id) = CommandId::parse(&raw_id) else {
         warn!(
-            target: "ambition_conversation::dialog::authored_commands",
+            target: "crate::dialog::authored_commands",
             "command({raw_id:?}, …): not a `domain.verb` id; nothing was asked for",
         );
         return;
     };
     let Some(catalog) = catalog else {
         warn!(
-            target: "ambition_conversation::dialog::authored_commands",
+            target: "crate::dialog::authored_commands",
             "command({raw_id:?}, …): no domain in this composition has published \
              any command, so there is nothing to ask for",
         );
@@ -75,7 +75,7 @@ fn request_authored_command(
     // context, with no line number and no conversation.
     let Some(descriptor) = catalog.describe(&id) else {
         warn!(
-            target: "ambition_conversation::dialog::authored_commands",
+            target: "crate::dialog::authored_commands",
             "command({raw_id:?}, …): no such command is published; the installed \
              engine knows {} others",
             catalog.len(),
@@ -86,7 +86,7 @@ fn request_authored_command(
     match prepare_arguments(descriptor, &authored) {
         Ok(args) => narrative.write(RunAuthoredCommand::new(id, args)),
         Err(refusal) => warn!(
-            target: "ambition_conversation::dialog::authored_commands",
+            target: "crate::dialog::authored_commands",
             "command({raw_id:?}, …) was refused: {refusal}",
         ),
     }

@@ -4,7 +4,7 @@
 //! same broad safe-pose vocabulary while using larger fists and close-range body
 //! mechanics so future humanoid rigs have both armed and unarmed references.
 
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition

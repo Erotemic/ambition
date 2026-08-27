@@ -88,7 +88,7 @@ pub struct FeatureDebugQueries<'w, 's> {
             &'static ambition_platformer2d::characters::brain::BossAttackState,
             Option<&'static ambition_platformer2d::boss_encounter::attack_geometry::BossAnimationFrameSample>,
         ),
-        With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+        With<ambition_platformer2d::actor::FeatureSimEntity>,
     >,
     pub actors: Query<
         'w,
@@ -98,14 +98,14 @@ pub struct FeatureDebugQueries<'w, 's> {
             &'static ambition_platformer2d::combat::components::ActorAggression,
             &'static ambition_platformer2d::combat::components::CenteredAabb,
         ),
-        With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+        With<ambition_platformer2d::actor::FeatureSimEntity>,
     >,
     pub breakables: Query<
         'w,
         's,
         &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
-            With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+            With<ambition_platformer2d::actor::FeatureSimEntity>,
             With<ambition_platformer2d::combat::components::BreakableFeature>,
         ),
     >,
@@ -114,15 +114,15 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         &'static ambition_platformer2d::combat::components::CenteredAabb,
         (
-            With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+            With<ambition_platformer2d::actor::FeatureSimEntity>,
             With<ambition_platformer2d::combat::components::ChestFeature>,
         ),
     >,
     pub hazards: Query<
         'w,
         's,
-        &'static ambition_platformer2d::actors::features::HazardFeature,
-        With<ambition_platformer2d::actors::features::FeatureSimEntity>,
+        &'static ambition_platformer2d::world::HazardFeature,
+        With<ambition_platformer2d::actor::FeatureSimEntity>,
     >,
     /// Body-generic combat geometry read-model. Live hitboxes and effective
     /// hurtboxes are extracted once from simulation truth and shared by every
@@ -261,7 +261,7 @@ pub(crate) fn draw_player_debug(
     // The reticle could therefore point through a wall the blink stops at. The caller passes the
     // one collision read-API's answer now, so the preview and the action cannot disagree.
     blink_world: &ae::World,
-    attack: Option<&ambition_platformer2d::actors::MeleeSwing>,
+    attack: Option<&ambition_platformer2d::combat::components::MeleeSwing>,
     actions: Option<&ActionState<Platformer2dInputActionMonolith>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,

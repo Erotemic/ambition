@@ -5,7 +5,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, ResMut, With};
 
-use ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomResident;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_actor_monolith::rooms;
 use ambition_platformer2d_world::rooms as world_rooms;
 

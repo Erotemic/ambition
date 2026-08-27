@@ -7,7 +7,7 @@
 //!
 //! Nothing may depend on him being selectable. He is meant to be found.
 
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition

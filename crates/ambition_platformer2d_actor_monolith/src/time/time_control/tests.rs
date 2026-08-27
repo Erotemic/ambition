@@ -398,7 +398,6 @@ fn world_time_sim_dt_respects_time_scale() {
 #[test]
 fn suspended_frame_zeros_world_time_scaled_dt() {
     use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameMode};
-    use ambition_time::WorldTime;
     use bevy::state::app::StatesPlugin;
 
     let mut app = App::new();
@@ -459,8 +458,6 @@ fn suspended_frame_zeros_world_time_scaled_dt() {
 #[test]
 fn gameplay_frame_preserves_world_time_scaled_dt() {
     use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameMode};
-    use ambition_time::WorldTime;
-    use bevy::state::app::StatesPlugin;
 
     let mut app = App::new();
     app.add_plugins(StatesPlugin);

@@ -803,7 +803,6 @@ fn a_grab_press_while_holding_drops_the_item_where_the_body_stands() {
 /// mint exists because a quantity has no identity to hand back.
 #[test]
 fn throwing_a_menu_equipped_item_mints_an_identity_under_the_thrower() {
-    use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     let mut app = App::new();
     app.insert_resource(ControlFrame::default());
@@ -874,7 +873,6 @@ fn the_production_plugin_registers_the_custody_release() {
 /// second Attack finds nothing to grab.
 #[test]
 fn an_item_stowed_from_the_menu_returns_to_the_world_and_can_be_taken_again() {
-    use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     /// The menu's Stow, reduced to the one production call it makes. Driven off a
     /// flag so the test can place it on a specific tick.

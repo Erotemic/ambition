@@ -22,7 +22,8 @@
 
 use ambition_platformer2d::actors::avatar::PlayerIdentityBundle;
 use ambition_platformer2d::actors::body_mode::BodyModeCapabilities;
-use ambition_platformer2d::actors::control::{LocalPlayer, PlayerSlot};
+use ambition_platformer2d::sim::PlayerSlot;
+use ambition_platformer2d::actors::control::{LocalPlayer};
 use ambition_platformer2d::characters::actor::BodyAnimFacts;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::engine_core::BodyKinematics;

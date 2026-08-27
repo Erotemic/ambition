@@ -152,8 +152,8 @@ const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 /// authority. Author the intended character facts before making it buildable.
 pub fn authored_intrinsics(
     id: &str,
-    definition: ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition,
-) -> ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition {
+    definition: ambition_platformer2d::character::CharacterDefinition,
+) -> ambition_platformer2d::character::CharacterDefinition {
     // this is a RULE rather than nine arms, because the thing it replaces
     // was a rule too — a worse one. `hostile_brain_id_for_actor` asks whether
     // an id, a display name or a dialogue node contains `"pirate"`, or one of
@@ -342,7 +342,7 @@ mod tests {
 
         let definition = authored_intrinsics(
             "npc_puppy_slug",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "npc_puppy_slug",
                 "Puppy Slug",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -389,7 +389,7 @@ mod tests {
 
         let definition = authored_intrinsics(
             "stochastic_parrot",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "stochastic_parrot",
                 "Stochastic Parrot",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -435,7 +435,7 @@ mod tests {
             .filter(|id| {
                 let definition = authored_intrinsics(
                     id,
-                    ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    ambition_platformer2d::character::CharacterDefinition::new(
                         *id,
                         *id,
                         crate::AMBITION_CONTENT_PROVIDER,
@@ -485,7 +485,7 @@ mod tests {
             .filter(|id| {
                 authored_intrinsics(
                     id,
-                    ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    ambition_platformer2d::character::CharacterDefinition::new(
                         *id,
                         *id,
                         crate::AMBITION_CONTENT_PROVIDER,
@@ -560,7 +560,7 @@ mod tests {
         for id in crate::character_catalog::buildable_cast() {
             let authors_policy = Some(authored_intrinsics(
                 id,
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id,
                     id,
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -620,7 +620,7 @@ mod tests {
 
         let definition = authored_intrinsics(
             "npc_giant_gnu",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "npc_giant_gnu",
                 "Giant GNU",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -672,7 +672,7 @@ mod tests {
         let rider = |id: &str| {
             authored_intrinsics(
                 id,
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id,
                     "Rider",
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -730,7 +730,7 @@ mod tests {
 
         let definition = authored_intrinsics(
             "npc_giant_gnu_hands",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "npc_giant_gnu_hands",
                 "Giant GNU Hand",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -770,7 +770,7 @@ mod tests {
 
         let definition = authored_intrinsics(
             "sandbag",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "sandbag",
                 "Sandbag",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -802,7 +802,7 @@ mod tests {
 
         let definition = authored_intrinsics(
             "goblin",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "goblin",
                 "Goblin",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -896,7 +896,7 @@ mod tests {
     fn the_pirate_admiral_can_pilot_a_shark_because_it_is_a_pirate_admiral() {
         let definition = authored_intrinsics(
             "npc_pirate_admiral",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "npc_pirate_admiral",
                 "Pirate Admiral",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -947,7 +947,7 @@ mod tests {
             for id in ids {
                 let definition = authored_intrinsics(
                     id,
-                    ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    ambition_platformer2d::character::CharacterDefinition::new(
                         *id,
                         *id,
                         crate::AMBITION_CONTENT_PROVIDER,
@@ -968,7 +968,7 @@ mod tests {
         // rather than a migration.
         let goblin = authored_intrinsics(
             "goblin",
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "goblin",
                 "goblin",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -1075,7 +1075,7 @@ mod tests {
             ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
         ] {
             let bare =
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id,
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -1102,7 +1102,7 @@ mod tests {
     fn every_build_only_id_authors_something() {
         for id in buildable_only_cast() {
             let bare =
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id,
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -1176,7 +1176,7 @@ mod tests {
         let mut unregistered = Vec::new();
         for id in catalog.data().characters.keys() {
             let bare =
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id.as_str(),
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -1218,7 +1218,7 @@ mod tests {
         // would find nothing and pass while checking nothing at all.
         let authors_someone = catalog.data().characters.keys().any(|id| {
             let bare =
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id.as_str(),
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -1261,7 +1261,7 @@ mod tests {
         let mut broken = Vec::new();
         for id in &pirates {
             let bare =
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id.as_str(),
                     "unused",
                     crate::AMBITION_CONTENT_PROVIDER,
@@ -1288,7 +1288,7 @@ mod tests {
         // by accident. Without it this would also pass on a build where every
         // character got a provoked policy from somewhere else.
         let bare =
-            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+            ambition_platformer2d::character::CharacterDefinition::new(
                 "npc_alice",
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
@@ -1455,7 +1455,7 @@ mod assembled_provider_tests {
         let authors_a_profile = |id: &str| {
             let definition = super::authored_intrinsics(
                 id,
-                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                ambition_platformer2d::character::CharacterDefinition::new(
                     id,
                     id,
                     crate::AMBITION_CONTENT_PROVIDER,

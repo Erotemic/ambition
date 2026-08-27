@@ -806,7 +806,7 @@ fn a_character_that_stops_authoring_hurtboxes_has_them_retracted() {
 fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     let mut app = session_app();
     let mut shaped = CharacterDefinition::new("serpent", "Serpent", "demo").with_sheet("robot");
-    shaped.body = Some(crate::character_runtime::BodySource::SpriteAuthored {
+    shaped.body = Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
         world_per_pixel: 2.5,
     });
     app.register_character(shaped);

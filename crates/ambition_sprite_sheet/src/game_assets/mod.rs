@@ -433,7 +433,7 @@ pub fn load_entity_sprites(
     // no voice at all.
     if !missing.is_empty() {
         bevy::log::warn!(
-            target: "ambition_sprite_sheet::entity_sprites",
+            target: "crate::entity_sprites",
             "entity sprites: {}/{} resolved; the catalog refused {} of them, so \
              the features that use them draw as a colour fallback or not at all: \
              {:?}",

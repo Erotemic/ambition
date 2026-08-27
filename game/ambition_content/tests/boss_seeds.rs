@@ -24,7 +24,7 @@ use ambition_characters::brain::boss_pattern::{
     BossAttackPattern, BossAttackProfile, BossPatternStep,
 };
 use ambition_content::bosses::{seed_library, BOSS_PROFILES_RON};
-use ambition_platformer2d_actor_monolith::features::BossBehaviorProfile;
+use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 /// One authored appearance of an attack: its telegraph and active durations.
 #[derive(Clone, Copy, Debug)]

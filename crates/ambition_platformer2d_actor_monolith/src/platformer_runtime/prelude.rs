@@ -4,5 +4,4 @@
 //! schedule vocabulary) plus the sandbox-local `raycast_solids` seam, so the
 //! pre-extraction `crate::platformer_runtime::prelude::*` API is unchanged.
 
-pub use super::collision::raycast_solids;
-pub use ambition_platformer2d_shared_tangle::prelude::*;
+pub use ambition_platformer2d_core::cast::raycast_solids;

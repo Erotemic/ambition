@@ -11,15 +11,20 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_combat::components::BossPatternTimer;
 use ambition_combat::components::{
-    ActorAggression, ActorFaction, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
+    ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
     CombatKit, DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy,
-    PogoTargetVolumes, RuntimeStagedActor,
+    PogoTargetVolumes,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::prelude::{Message, Name};
+use ambition_platformer2d_core::body_clusters::BodyKinematics;
+use ambition_platformer2d_shared_tangle::construction::{ConstructionPlan, ConstructionScope};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
+use std::collections::HashMap;
 
 /// Programmatic actor-spawn request — the public seam for dropping a specific
 /// actor into a live sim at an arbitrary position WITHOUT authoring an LDtk room.
@@ -319,7 +324,6 @@ pub(super) fn wire_staged_grudges(
     commands: &mut bevy::prelude::Commands,
     staged: &[(String, bevy::prelude::Entity, Option<String>)],
 ) {
-    use std::collections::HashMap;
     let by_id: HashMap<&str, bevy::prelude::Entity> =
         staged.iter().map(|(id, e, _)| (id.as_str(), *e)).collect();
     for (_id, entity, foe_id) in staged {
@@ -829,7 +833,7 @@ fn boss_actor_cluster(
     ambition_combat::actor_tuning::ActorConfig,
     ambition_platformer2d_shared_tangle::body::SpawnBaseline,
     super::actor_clusters::ActorMotionPath,
-    super::super::enemies::ActorSurfaceState,
+    ambition_platformer2d_core::body_clusters::ActorSurfaceState,
     ambition_combat::components::BodyMelee,
     crate::actor::AncillaryMovementBundle,
     ambition_platformer2d_core::movement::MotionModel,
@@ -896,7 +900,7 @@ fn boss_actor_cluster(
             gravity_scale: 0.0,
         },
         super::actor_clusters::ActorMotionPath::default(),
-        super::super::enemies::ActorSurfaceState {
+        ambition_platformer2d_core::body_clusters::ActorSurfaceState {
             surface_normal: ae::Vec2::new(0.0, -1.0),
             gravity_scale: 0.0,
         },
@@ -1094,7 +1098,7 @@ pub(crate) fn spawn_boss_with_overrides_into(
     // special — runs through the SHARED moveset runtime (one move per profile), so the
     // boss's melee/special path is the actor's, retiring both `sync_boss_strike_hitboxes`
     // and `dispatch_boss_special` (§A1). Built from the capability repertoire.
-    let boss_attack_moves = crate::features::boss_attack_moveset(
+    let boss_attack_moves = crate::features::bosses::boss_attack_moveset(
         &boss_capability,
         &boss_attack_behavior,
         boss_attack_combat_size,
@@ -2098,7 +2102,6 @@ pub fn apply_summon_effects(
     // Read-only: the advance is a queued command, not a direct write.
     counters: bevy::prelude::Query<&ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
 ) {
-    use ambition_platformer2d_shared_tangle::construction::{ConstructionPlan, ConstructionScope};
 
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -2248,7 +2251,6 @@ pub fn apply_summon_effects(
     // consequently no `max()` recovery path: by the time the advance runs, the value it is
     // replacing has just been read under the same lock.
     commands.queue(move |world: &mut bevy::prelude::World| {
-        use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
 
         for (owner, reservation) in &reservations {
             let counter = world.get::<SimIdCounter>(*owner);
@@ -2337,8 +2339,6 @@ pub fn apply_summon_effects(
 
 #[cfg(test)]
 mod giant_hand_identity_tests {
-    use super::giant_hand_feature_id;
-    use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     /// The old form derived the `_N` suffix from `giant.index()`, an allocator slot: this pins
     /// that the suffix is now the authored id instead.
@@ -2381,8 +2381,6 @@ mod giant_hand_identity_tests {
 
 #[cfg(test)]
 mod runtime_giant_refusal_tests {
-    use super::*;
-    use bevy::prelude::{App, Update};
 
     #[test]
     fn a_refused_programmatic_giant_allocates_no_entity() {
@@ -2430,7 +2428,7 @@ mod runtime_giant_refusal_tests {
     /// above reads.
     fn giant_cast() -> crate::character_runtime::PreparedCharacterRegistry {
         let mut definition =
-            crate::character_runtime::CharacterDefinition::new("test_giant", "Test Giant", "test")
+            ambition_characters::actor::definition::CharacterDefinition::new("test_giant", "Test Giant", "test")
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     run_speed: 0.0,
                     ..Default::default()

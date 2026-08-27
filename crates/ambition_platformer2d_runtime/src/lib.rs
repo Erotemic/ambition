@@ -95,8 +95,9 @@ pub mod host_input {
         publish_seat_controls_when_nobody_else_does, seat_input_participants_for_roster,
         spawn_primary_input_participant, sync_primary_recipe_from_settings,
         toggle_player_trail_emission_from_actions, MenuFrameConsume, MenuFrameCutsceneSkip,
-        MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState, SimulationSetupSet,
+        MenuFramePopulate, MenuNavConsume, SeatBurstTriggerState,
     };
+    pub use ambition_platformer2d_shared_tangle::schedule::SimulationSetupSet;
     // Publication boundary re-exported with the host-facing shaping systems.
     pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
     // Frame-to-tick latch re-exported through the host-facing input seam.
@@ -305,7 +306,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         );
         // Shrine activation pulse (interaction → save flash).
-        app.init_resource::<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>();
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).
         // Local input publishes it; body mode / interaction / transitions
         // consume it for the controlled body's slot.

@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::data::MusicRegistry;
+use ambition_platformer2d::content::MusicRegistry;
 use ambition_encounter::encounter_reward_looted_flag;
 use ambition_platformer2d_ldtk::{field_string, LdtkProject};
 

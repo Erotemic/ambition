@@ -9,9 +9,10 @@
 use ambition_entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
-use ambition_platformer2d_actor_monolith::character_runtime::{
-    CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt, Lineage,
-};
+use ambition_characters::prepared::CharacterBindings;
+use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_characters::actor::definition::Lineage;
+use ambition_platformer2d_actor_monolith::character_runtime::{CharacterDefinitionAppExt};
 
 /// One incarnation of the player robot: everything about it that is not shared.
 ///
@@ -337,7 +338,7 @@ mod tests {
     /// box owned and the height wrong the next time a crop moves.
     #[test]
     fn v3s_body_is_his_sheets_and_he_still_stands_at_the_authored_height() {
-        use ambition_platformer2d_actor_monolith::character_runtime::BodySource;
+        use ambition_characters::actor::definition::BodySource;
 
         let catalog = crate::character_catalog::load_catalog();
         let definition = definition_from(&catalog, &V3);

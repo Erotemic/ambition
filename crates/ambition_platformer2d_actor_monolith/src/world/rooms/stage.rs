@@ -20,7 +20,7 @@ use bevy::prelude::{Commands, Resource};
 
 use super::transaction;
 use crate::features::{self, RoomFeatureConstructionPlan};
-use crate::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -410,7 +410,7 @@ mod tests {
             // limb rows, so a cast without it refuses the whole giant cluster.
             for id in ["combatant", "npc_giant_gnu_hands"] {
                 let mut definition =
-                    crate::character_runtime::CharacterDefinition::new(id, id, "test")
+                    ambition_characters::actor::definition::CharacterDefinition::new(id, id, "test")
                         .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                             run_speed: 155.0,
                             ..Default::default()
@@ -541,7 +541,7 @@ mod tests {
         mount_class: Option<&str>,
     ) -> crate::character_runtime::PreparedCharacterRegistry {
         let mut definition =
-            crate::character_runtime::CharacterDefinition::new("giant_gnu", "Giant GNU", "test")
+            ambition_characters::actor::definition::CharacterDefinition::new("giant_gnu", "Giant GNU", "test")
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     run_speed: 0.0,
                     ..Default::default()

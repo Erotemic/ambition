@@ -5,12 +5,13 @@
 use super::super::*;
 use ambition_combat::components::{ActorDisposition, ActorIdentity, CombatKit};
 
-use crate::features::bosses::ActorSpriteMetrics;
+use ambition_boss_encounter::behavior::ActorSpriteMetrics;
 use ambition_boss_encounter::attack_geometry::bounding_aabb;
 use ambition_characters::brain::{BossAttackState, Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::SheetRegistry;
 use bevy::prelude::Commands;
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Marker that a boss entity has had its sprite metrics applied
 /// (once-per-boss derivation gate). Inserted by

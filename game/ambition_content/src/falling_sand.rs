@@ -506,7 +506,7 @@ fn sync_falling_sand_spout_nozzles(
                 ambition_platformer2d_core::config::WORLD_Z_FX + 1.0,
             )),
             FallingSandSpoutNozzle { id },
-            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
+            ambition_platformer2d_shared_tangle::lifecycle::RoomVisual,
         ));
     }
 }
@@ -718,7 +718,7 @@ fn project_particles_to_movement_world(
         ambition_platformer2d_core::RoomGeometry,
     >,
     mut overlay: ResMut<
-        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+        ambition_platformer2d::world::FeatureEcsWorldOverlay,
     >,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
@@ -1182,7 +1182,7 @@ fn sync_material_visuals(
                 ambition_platformer2d_core::config::WORLD_Z_PLAYER + 4.0,
             )),
             FallingSandMaterialVisual { tile, kind },
-            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
+            ambition_platformer2d_shared_tangle::lifecycle::RoomVisual,
         ));
     }
 }
@@ -1249,7 +1249,7 @@ fn sync_sand_grid_texture(
                 image: handle,
                 drawn_tick: None,
             },
-            ambition_platformer2d_actor_monolith::platformer_runtime::lifecycle::RoomVisual,
+            ambition_platformer2d_shared_tangle::lifecycle::RoomVisual,
         ));
         return;
     };

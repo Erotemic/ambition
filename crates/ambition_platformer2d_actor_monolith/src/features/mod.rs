@@ -83,10 +83,6 @@ pub use movement_fx::{
 // outward references to zero: one module spelling one crate two ways. Callers
 // name the crate that owns the thing.
 
-pub use bosses::{
-    boss_attack_moveset, ActorSpriteMetrics, BossAttackProfile, BossBehaviorProfile,
-    BossMovementProfile, BossRewardProfile,
-};
 pub use ecs::effect_bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
@@ -121,39 +117,13 @@ pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,
 };
-pub use ecs::actor_clusters::{ActorClusterSeed, ActorMotionPath, ActorMut, BodyKinematics};
+pub use ecs::actor_clusters::{ActorClusterSeed, ActorMotionPath, ActorMut};
 // ⭐ NAMED FROM `ambition_combat`, where the actor's kit vocabulary and its
 // config now live (D33, 2026-08-27). Re-exported here only because the
 // monolith's own module tree is a public surface many callers still walk.
+pub use ecs::anim_helpers::{advance_actor_anim_overlays, ecs_breakable_state, ecs_chest_opened};
 pub use ecs::{
-    advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
-    apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
-    apply_spawn_actor_requests, apply_summon_effects, arm_requested_challenges,
-    boss_anim_state_for, boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs,
-    collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes,
-    dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state,
-    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
-    ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
-    ecs_hit_event_hits_breakable, integrate_boss_bodies, integrate_sim_bodies,
-    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
-    project_boss_attack_state_from_move, rebuild_dismounted_rider_brains,
-    rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
-    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
-    route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob,
-    spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan,
-    sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components,
-    sync_boss_encounter_phase, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
-    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_actor_brains,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering,
-    ChallengeRequested, EncounterMobSeed, FactionRelations, FeatureEcsWorldOverlay,
-    FeatureSimEntity, FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem,
-    Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, OccurrenceContinuity,
-    PendingChallenge, PickupArt, PickupCollect, PickupCollectLock, PickupMagnetize,
-    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
-    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
-    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+     apply_actor_contact_damage, apply_actor_stimuli, apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage, apply_spawn_actor_requests, apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,   ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable, integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move, rebuild_dismounted_rider_brains, rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes, refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs, select_actor_targets, snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions, spawn_room_feature_entities_from_plan, sync_actor_poses_from_feature_aabbs, sync_actor_read_model, sync_boss_actor_components, sync_boss_encounter_phase, sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorConstructionContext, ActorSteering, ChallengeRequested, EncounterMobSeed, FactionRelations, FeatureWorldOverlaySet, FriendlyFire, HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock, PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub(crate) use ecs::{
     maintain_actor_pre_decision_state, observe_actor_decision_inputs,
@@ -164,19 +134,22 @@ pub(crate) use ecs::{
 // twice through this crate — and `MomentumMotion` also RENAMED
 // `SurfaceMomentumMotion` on the way, so a caller could not grep the real type.
 // Callers name `_core`; the SDK keeps its own one-hop alias.
-pub use enemies::{ActorSurfaceState, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX};
+pub use ambition_entity_catalog::placements::RespawnPolicy;
+pub use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
+pub use enemies::{ENEMY_DEAD_UNTIL_REST_SUFFIX};
 // ⛔ THE COMBAT EVENT VOCABULARY LEFT THIS FACADE, 2026-08-26. All fifteen are
 // `ambition_combat::events`', re-exported up to `features` beside a whole-module
 // `pub use ambition_combat::events` — so 74 sites read as coupling to the actor
 // crate for types it does not own, and `damage_apply`'s own tests reached the
 // monolith for exactly two names, both of them these. Callers name the owner.
-pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};
+pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
+pub use npcs::{NPC_TALK_RADIUS};
 
 use ambition_combat::util::*;
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;
 
 /// Schedules the gameplay-effect bus chain into
-/// [`crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].
+/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].
 pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
@@ -204,7 +177,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ecs::effect_bus::apply_gameplay_sfx_effects,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
     }
 }
@@ -239,17 +212,16 @@ pub fn advance_gameplay_elapsed(
 /// function, same rule, two consumers with different timing needs — see the
 /// system's own documentation for why that is a refresh and not a clobber.
 pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
-    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     let sim = app.sim_schedule();
     app.add_systems(
         sim,
         refresh_body_damageable_volumes
-            .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::Combat)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
             // Victim geometry is published between the move clock and the damage pass: AFTER
             // `Playback`, because a move's first active frame must not publish the previous frame's
             // volumes, and BEFORE `Resolve`, because that is what reads them.
-            .after(crate::schedule::CombatSet::Playback)
-            .before(crate::schedule::CombatSet::Resolve)
+            .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
+            .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve)
             // The one intra-crate edge that is genuinely between two systems: the
             // character runtime resolves the silhouette this reads.
             .after(crate::character_runtime::hurtbox::resolve_body_hurtboxes),
@@ -262,7 +234,7 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
 /// semantic: targeting settles first, eligibility/projections are prepared,
 /// observations are frozen, reaction clocks advance, decision produces plain
 /// intent values, and only then does publication mutate `ActorControl`.
-/// Movement begins after the whole chain through [`crate::schedule::WorldPrepSet`].
+/// Movement begins after the whole chain through [`ambition_platformer2d_shared_tangle::schedule::WorldPrepSet`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum ActorDecisionSet {
     Targeting,
@@ -286,11 +258,11 @@ fn configure_actor_decision_phases(app: &mut App) {
             ActorDecisionSet::Publish,
         )
             .chain()
-            .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
     app.configure_sets(
         sim,
-        ActorDecisionSet::Publish.before(crate::schedule::WorldPrepSet::BeforeIntegrate),
+        ActorDecisionSet::Publish.before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
     );
     // ⭐⭐ THE ONE RESTRICTION PHASE, AND IT IS AFTER BOTH PUBLICATIONS (D202).
     //
@@ -314,8 +286,8 @@ fn configure_actor_decision_phases(app: &mut App) {
         )
             .chain()
             .after(ActorDecisionSet::Publish)
-            .before(crate::schedule::WorldPrepSet::BeforeIntegrate)
-            .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
 }
 
@@ -350,38 +322,38 @@ mod actor_decision_phase_tests {
         ("publish_actor_decision_frames", ActorDecisionSet::Publish),
     ];
 
-    const MOVEMENT_MEMBERSHIP: [(&str, crate::schedule::WorldPrepSet); 8] = [
+    const MOVEMENT_MEMBERSHIP: [(&str, ambition_platformer2d_shared_tangle::schedule::WorldPrepSet); 8] = [
         (
             "tick_capture_holds",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
             "steer_mount_from_rider",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
             "advance_moving_platforms",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
             "snapshot_body_contact",
-            crate::schedule::WorldPrepSet::BeforeIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
             "integrate_sim_bodies",
-            crate::schedule::WorldPrepSet::Integrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::Integrate,
         ),
         (
             "sync_actor_read_model",
-            crate::schedule::WorldPrepSet::AfterIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
         ),
         (
             "maintain_existing_capture_pose",
-            crate::schedule::WorldPrepSet::AfterIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
         ),
         (
             "apply_actor_contact_damage",
-            crate::schedule::WorldPrepSet::ContactDamage,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage,
         ),
     ];
 
@@ -435,7 +407,7 @@ mod actor_decision_phase_tests {
 
         let world_prep = graph
             .system_sets
-            .get_key(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
+            .get_key(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
             .expect("WorldPrep must be registered");
         for phase in DECISION_PHASES {
             let phase_key = graph
@@ -477,7 +449,7 @@ mod actor_decision_phase_tests {
             .expect("Publish must be registered");
         let before_integrate = graph
             .system_sets
-            .get_key(crate::schedule::WorldPrepSet::BeforeIntegrate.intern())
+            .get_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate.intern())
             .expect("BeforeIntegrate must be registered");
         assert!(
             graph
@@ -522,7 +494,7 @@ mod actor_decision_phase_tests {
         assert_membership(
             graph,
             "record_movement_operations",
-            crate::schedule::WorldPrepSet::AfterIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
         );
     }
 
@@ -545,23 +517,23 @@ mod actor_decision_phase_tests {
         assert_membership(
             graph,
             "maintain_existing_capture_pose",
-            crate::schedule::WorldPrepSet::AfterIntegrate,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
         );
         assert_membership(
             graph,
             "apply_actor_contact_damage",
-            crate::schedule::WorldPrepSet::ContactDamage,
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage,
         );
 
         // Half two: that phase is ordered ahead of contact damage's.
-        let set_key = |set: crate::schedule::WorldPrepSet| {
+        let set_key = |set: ambition_platformer2d_shared_tangle::schedule::WorldPrepSet| {
             graph
                 .system_sets
                 .get_key(set.intern())
                 .unwrap_or_else(|| panic!("{set:?} must be registered"))
         };
-        let settled = set_key(crate::schedule::WorldPrepSet::AfterIntegrate);
-        let contact_set = set_key(crate::schedule::WorldPrepSet::ContactDamage);
+        let settled = set_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate);
+        let contact_set = set_key(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage);
         assert!(
             graph
                 .dependency()
@@ -614,8 +586,7 @@ pub struct WorldPrepSchedulePlugin;
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
-        use crate::world::placements::PlacementLoweringAppExt;
-        use bevy::prelude::IntoScheduleConfigs;
+        use ambition_platformer2d_world::placements::PlacementLoweringAppExt;
 
         // Autonomous decision is ordered by semantic phase sets. Systems may
         // join WorldPrep without acquiring unrelated leaf-system edges.
@@ -633,7 +604,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             crate::features::combat_rules::project_combat_rules
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // S4: spend a stock per KO. `CombatSet:Settle` is the phase for "everything that reads
         // this tick's damage outcome rather than producing it", which is exactly what this is —
@@ -714,7 +685,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::causal::record_hit_reactions,
             )
                 .chain()
-                .in_set(crate::schedule::CombatSet::Settle),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Settle),
         );
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Hazard,
@@ -795,7 +766,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 sync_actor_poses_from_feature_aabbs,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // "This body starts again", announced to whoever authored it.
         //
@@ -809,7 +780,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             ae::announce_body_restarts
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
                 .before(rebuild_feature_ecs_world_overlay),
         );
         // Advance the accumulating sim clock before any actor brain reads its
@@ -820,7 +791,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             advance_gameplay_elapsed
                 .before(select_actor_targets)
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // R1.3: the SIM owns the boss animation frame + writes the geometry sample
         // (retiring the render→sim write-back in `animate_bosses`). Runs after the
@@ -906,11 +877,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 snapshot_body_contact,
             )
                 .chain()
-                .in_set(crate::schedule::WorldPrepSet::BeforeIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
         );
         app.add_systems(
             sim,
-            integrate_sim_bodies.in_set(crate::schedule::WorldPrepSet::Integrate),
+            integrate_sim_bodies.in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::Integrate),
         );
         // ⛔⛔ THE SADDLE IS A POST-INTEGRATION CONSTRAINT, and until now it
         // only SAID so. It sat in a chained tuple whose comment claimed it
@@ -931,7 +902,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `PoseOwnedExternally` is the fact it will read.
         app.add_systems(
             sim,
-            sync_actor_read_model.in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+            sync_actor_read_model.in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
         // ⭐ AND IT FOLLOWS THE READ MODEL, exactly as the capture constraint
         // below does: the coarse-box mirror runs first so an external pose
@@ -940,7 +911,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             ambition_mount::sync_riders_to_mounts
                 .after(sync_actor_read_model)
-                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
         // A body already in somebody's hands is put back after it moved. The
         // coarse-box mirror runs first so this external constraint is the last
@@ -951,7 +922,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             ambition_combat::capture::systems::maintain_existing_capture_pose
                 .after(sync_actor_read_model)
-                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
         #[cfg(feature = "causal")]
         app.add_systems(
@@ -959,12 +930,12 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             // Movement operations are published during integration. This observer
             // has no ordering dependency on post-integration projection.
             crate::causal::record_movement_operations
-                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
         app.add_systems(
             sim,
             apply_actor_contact_damage
-                .in_set(crate::schedule::WorldPrepSet::ContactDamage)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::ContactDamage)
                 .before(tick_npc_idle_barks),
         );
         // Same set, same schedule, same guarantee that every game gets it — but the registration
@@ -980,7 +951,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 ambition_platformer2d_shared_tangle::orientation::update_actor_roll,
             )
                 .chain()
-                .in_set(crate::schedule::WorldPrepSet::AfterIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
         // TARGETING owns feud settlement and target/disposition selection. The
         // short chain is intentional: selection must see the grudge state produced
@@ -1011,14 +982,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 .after(ambition_mount::steer_mount_from_rider)
-                .in_set(crate::schedule::WorldPrepSet::BeforeIntegrate),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
         );
         app.configure_sets(
             sim,
-            crate::schedule::BossSteerSlot
+            ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
                 .before(update_ecs_bosses)
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
         // The cut-rope steer system itself is registered by the content
         // plugin (`crate::content::bosses`), in `BossSteerSlot`.
@@ -1031,7 +1002,6 @@ pub struct FeatureCollectionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
-        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
             sim,
             (
@@ -1049,7 +1019,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 crate::avatar::regen_player_mana,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection),
         );
     }
 }
@@ -1062,7 +1032,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
 /// stayed pinned inside the monolith while every import measure said it was free.
 ///
 /// the order is now
-/// [`FeatureInteractionSet`](crate::schedule::FeatureInteractionSet), and each
+/// [`FeatureInteractionSet`](ambition_platformer2d_shared_tangle::schedule::FeatureInteractionSet), and each
 /// prose rationale lives on the variant it explains rather than beside the
 /// system it happened to precede. This plugin declares the total order ONCE and
 /// each domain only says which phase it is in — `conversation` says so from
@@ -1072,8 +1042,7 @@ pub struct FeatureInteractionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
-        use crate::schedule::FeatureInteractionSet;
-        use bevy::prelude::IntoScheduleConfigs;
+        use ambition_platformer2d_shared_tangle::schedule::FeatureInteractionSet;
 
         // the conversation domain installs itself: the authority, the
         // cut-bark port channel, its own narrative payload, its presentation
@@ -1137,7 +1106,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 FeatureInteractionSet::SwitchIndex,
             )
                 .chain()
-                .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
         );
 
         app.add_systems(
@@ -1179,7 +1148,6 @@ mod feature_interaction_order_tests;
 #[cfg(test)]
 mod sim_clock_tests {
     use super::{advance_gameplay_elapsed, GameplayElapsed};
-    use bevy::prelude::*;
 
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {

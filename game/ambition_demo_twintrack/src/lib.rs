@@ -515,9 +515,8 @@ pub fn install_twintrack_content(app: &mut App) {
         .expect("TwinTrack character catalog should be valid"),
     );
     {
-        use ambition_platformer2d::actors::character_runtime::{
-            CharacterDefinition, CharacterDefinitionAppExt,
-        };
+        use ambition_platformer2d::character::CharacterDefinition;
+        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(
                 TWINTRACK_CHARACTER_ID,

@@ -8,7 +8,7 @@ use ambition_characters::brain::{
     SpecialActionSpec,
 };
 use ambition_combat::components::ActorTarget;
-use ambition_platformer2d_actor_monolith::features::FeatureSimEntity;
+use ambition_platformer2d::actor::FeatureSimEntity;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;

@@ -966,7 +966,7 @@ fn realize_seat(
     seat: &PreparedSeat,
     // Which cast this match was prepared against — the applied-template stamp
     // records it, so a hot reload can tell a seated body apart from a current one.
-    cast_generation: super::definition::CharacterCatalogGeneration,
+    cast_generation: ambition_characters::prepared::CharacterCatalogGeneration,
 ) -> Entity {
     let mut seed = seat.seed.clone();
     // set on the SEED, not inserted beside it. `CombatCapabilities` is

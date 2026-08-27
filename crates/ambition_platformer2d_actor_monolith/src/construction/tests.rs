@@ -49,7 +49,7 @@ fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistr
             // The rideable body and its rider, the ADR 0020 pair.
             ("fixture_mount", Some(("shark", &[][..]))),
         ] {
-            let mut definition = crate::character_runtime::CharacterDefinition::new(id, id, "test")
+            let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(id, id, "test")
                 .with_locomotion(ambition_characters::actor::CharacterLocomotion {
                     run_speed: 155.0,
                     move_style: ambition_characters::brain::MoveStyleSpec::Walk,
@@ -70,7 +70,7 @@ fn fixture_cast() -> &'static crate::character_runtime::PreparedCharacterRegistr
             registry.insert_prepared(finalized.prepared);
         }
         // The RIDER: it pilots a `"shark"`-class mount and is not itself one.
-        let mut rider = crate::character_runtime::CharacterDefinition::new(
+        let mut rider = ambition_characters::actor::definition::CharacterDefinition::new(
             "pirate_raider",
             "pirate_raider",
             "test",
@@ -1161,7 +1161,6 @@ fn a_summoner_without_a_counter_is_refused_before_spawning() {
 /// identities it hands out do not overlap.
 #[test]
 fn successive_summons_allocate_non_overlapping_identities() {
-    use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
 
     let mut world = summon_world();
     let boss = world
@@ -1269,7 +1268,6 @@ fn every_parameter_variant_matches_its_descriptor() {
 /// applies.
 #[test]
 fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
-    use ambition_platformer2d_shared_tangle::sim_id::SimIdCounter;
     use bevy::prelude::{IntoScheduleConfigs, Query, Schedule};
 
     fn interlope(mut counters: Query<&mut SimIdCounter>) {
@@ -2092,7 +2090,7 @@ fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
     room.enemy_spawns.push(authored);
 
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-        crate::character_runtime::CharacterDefinition::new("npc_giant", "Giant GNU", "test")
+        ambition_characters::actor::definition::CharacterDefinition::new("npc_giant", "Giant GNU", "test")
             .with_mount(ambition_characters::actor::CharacterMount {
                 class: Some("giant".to_string()),
                 ..Default::default()
@@ -3137,7 +3135,7 @@ fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
     use ambition_entity_catalog::PickupKind;
     let mut room = empty_room("gallery");
     room.placements
-        .push(crate::world::placements::PlacementRecord::new(
+        .push(ambition_platformer2d_world::placements::PlacementRecord::new(
             "ring_1",
             PlacementSchema::Pickup(PickupSpec {
                 kind: PickupKind::Health { amount: 1 },
@@ -3148,7 +3146,7 @@ fn placement_room() -> ambition_platformer2d_world::rooms::RoomSpec {
             ae::Aabb::new(ae::Vec2::new(64.0, 32.0), ae::Vec2::splat(8.0)),
         ));
     room.placements
-        .push(crate::world::placements::PlacementRecord::new(
+        .push(ambition_platformer2d_world::placements::PlacementRecord::new(
             "door_1",
             PlacementSchema::Interactable(InteractableSpec::new(
                 "Enter",
@@ -3538,7 +3536,7 @@ fn an_unbuildable_body_refuses_the_plan_before_anything_is_built() {
     let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
     cast.insert_prepared(
         crate::character_runtime::prepare_and_finalize_for_test(
-            crate::character_runtime::CharacterDefinition::new("npc_mute", "Mute", "test"),
+            ambition_characters::actor::definition::CharacterDefinition::new("npc_mute", "Mute", "test"),
             &crate::character_runtime::CharacterBindings::default(),
         )
         .prepared,
@@ -3590,7 +3588,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
     *character = ambition_entity_catalog::CharacterId::new("npc_test_shark");
 
     let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-        crate::character_runtime::CharacterDefinition::new("npc_test_shark", "Shark", "test")
+        ambition_characters::actor::definition::CharacterDefinition::new("npc_test_shark", "Shark", "test")
             .with_mount(ambition_characters::actor::CharacterMount {
                 class: Some("shark".to_string()),
                 ..Default::default()

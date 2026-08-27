@@ -179,7 +179,7 @@ pub enum ActorConstructionParams {
     /// record identity + kind); it is executable freight, exactly like every
     /// row's frozen `construct`.
     Placement {
-        record: crate::world::placements::PlacementRecord,
+        record: ambition_platformer2d_world::placements::PlacementRecord,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
         lower: crate::world::placements::LoweringFn,
     },
@@ -1879,7 +1879,7 @@ fn resolve_planned_character<'a>(
 /// missing-row verdict. (Upgrading the unparseable-Custom case to a planning
 /// ERROR is deliberate future work; this slice is behavior-preserving.)
 pub fn placement_requests(
-    placements: &crate::world::placements::PlacementLoweringPlan<
+    placements: &ambition_platformer2d_world::placements::PlacementLoweringPlan<
         crate::world::placements::ActorPlacementContext,
     >,
     room_id: &str,

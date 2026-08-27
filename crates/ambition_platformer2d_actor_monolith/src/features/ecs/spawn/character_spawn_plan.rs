@@ -70,7 +70,7 @@ pub(crate) fn report_unprepared_character(
     // No published cast is a composition gap, not a per-character content fault.
     if prepared.is_empty() {
         bevy::log::warn!(
-            target: "ambition_platformer2d_actor_monolith::spawn",
+            target: "crate::spawn",
             "this composition published NO prepared cast at all, and {placement} \
              names character `{missing}` — so it, and every other character-named \
              placement in this room, falls back to {}. The room expects a cast \
@@ -80,7 +80,7 @@ pub(crate) fn report_unprepared_character(
         );
     } else {
         bevy::log::warn!(
-            target: "ambition_platformer2d_actor_monolith::spawn",
+            target: "crate::spawn",
             "{placement} names character `{missing}`, which this composition has \
              not registered; it falls back to {}. This is correct only for a \
              BORROWED character in a partial composition.",
@@ -109,7 +109,7 @@ mod tests {
     fn a_plan_resolves_the_character_it_names() {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-            crate::character_runtime::CharacterDefinition::new(
+            ambition_characters::actor::definition::CharacterDefinition::new(
                 "npc_busy_beaver",
                 "Busy Beaver",
                 "test",
@@ -160,7 +160,7 @@ mod tests {
     fn a_cast_of_one() -> crate::character_runtime::PreparedCharacterRegistry {
         let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-            crate::character_runtime::CharacterDefinition::new("npc_somebody", "Somebody", "test"),
+            ambition_characters::actor::definition::CharacterDefinition::new("npc_somebody", "Somebody", "test"),
             &crate::character_runtime::CharacterBindings::default(),
         );
         registry.insert_prepared(finalized.prepared);

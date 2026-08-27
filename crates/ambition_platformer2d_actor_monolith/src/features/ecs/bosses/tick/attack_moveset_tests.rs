@@ -2,8 +2,8 @@ use super::*;
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::brain::{BossAttackProfile, BossCapability};
 
-fn warden_behavior() -> crate::features::bosses::BossBehaviorProfile {
-    crate::features::bosses::BossBehaviorProfile::clockwork_warden()
+fn warden_behavior() -> ambition_boss_encounter::behavior::BossBehaviorProfile {
+    ambition_boss_encounter::behavior::BossBehaviorProfile::clockwork_warden()
 }
 
 /// Boss-fold slice (fable review §A1): EVERY boss strike runs through the SHARED

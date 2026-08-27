@@ -50,7 +50,7 @@ pub fn blink_target(
     // Pull-back must use the body's extent IN the blink direction — a vertical
     // blink needs half-height, not half-width — or a diagonal blink embeds.
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-    let mut target = match crate::platformer_runtime::collision::raycast_solids(
+    let mut target = match ambition_platformer2d_core::cast::raycast_solids(
         world,
         from,
         dir,

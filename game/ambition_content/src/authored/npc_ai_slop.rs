@@ -5,7 +5,7 @@
 
 use ambition_characters::actor::{CharacterLocomotion, ContactDamage};
 use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.

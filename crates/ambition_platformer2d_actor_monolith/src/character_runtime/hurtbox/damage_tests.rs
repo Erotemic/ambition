@@ -417,10 +417,10 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
             // those edges constraining nothing and silently tests a different
             // schedule than the one that ships.
             ambition_combat::moveset::advance_move_playback
-                .in_set(crate::schedule::CombatSet::Playback),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback),
             (apply_hitbox_damage, capture_hits)
                 .chain()
-                .in_set(crate::schedule::CombatSet::Resolve),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve),
         ),
     );
     app.add_message::<HitEvent>();

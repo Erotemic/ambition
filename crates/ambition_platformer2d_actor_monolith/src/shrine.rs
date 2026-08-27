@@ -15,6 +15,7 @@
 //!   the affordance/prompt system via an `Interactable` is the follow-up (see
 //!   TODO "Healing / save-point shrine").
 
+use ambition_platformer2d_shared_tangle::shrine::{ShrineActivationPulse};
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyHealth;
@@ -366,7 +367,6 @@ pub fn resume_at_checkpoint_on_reset(
     );
 }
 
-pub use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 
 #[cfg(test)]
 mod tests;

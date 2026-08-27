@@ -515,7 +515,6 @@ fn collect_perception_peers_snapshots_every_body() {
 /// allegiance rather than from the shot's presentation vocabulary.
 #[test]
 fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_side() {
-    use bevy::prelude::*;
 
     let mut app = App::new();
     app.init_resource::<PerceptionProjectiles>();
@@ -690,7 +689,6 @@ fn hitstun_outranks_a_swing_and_a_swing_outranks_a_shield() {
 
 #[test]
 fn i_frames_are_perceivable_because_the_body_flashes() {
-    use ambition_characters::actor::BodyCombat;
     let mut c = BodyCombat::default();
     assert!(!body_invulnerable(Some(&c)));
     c.damage_invuln_timer = 0.2;

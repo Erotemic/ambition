@@ -757,7 +757,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
             .unwrap()
             .on_ground = true;
         app.world_mut()
-            .get_mut::<crate::features::ActorSurfaceState>(actor)
+            .get_mut::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(actor)
             .unwrap()
             .surface_normal = ae::Vec2::new(1.0, 0.0);
     }
@@ -785,7 +785,7 @@ fn struck_cling_breaker_loses_its_surface_and_falls() {
     let (app, actor) = slash_clung_surface_walker(true);
     let surf = app
         .world()
-        .get::<crate::features::ActorSurfaceState>(actor)
+        .get::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(actor)
         .unwrap();
     assert!(
         !app.world()
@@ -817,7 +817,7 @@ fn struck_surface_walker_holds_on_when_cling_does_not_break() {
     let (app, actor) = slash_clung_surface_walker(false);
     let surf = app
         .world()
-        .get::<crate::features::ActorSurfaceState>(actor)
+        .get::<ambition_platformer2d_core::body_clusters::ActorSurfaceState>(actor)
         .unwrap();
     assert!(
         app.world()
@@ -929,7 +929,7 @@ fn enemy_defeat_drops_a_collectible_currency_coin() {
 
 #[test]
 fn defeated_boss_drops_its_signature_ability() {
-    use crate::features::BossBehaviorProfile;
+    use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
     // Each boss's reward ability is content data (`boss_profiles.ron`):
     // verify the authored pairings and that each resolves to a real catalog
     // item. Read off the RON-loaded profile by id — the engine names none.
@@ -988,7 +988,6 @@ fn defeated_boss_drops_its_signature_ability() {
 fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
     use crate::abilities::ranged::{beam, meteor, sentry, shockwave, volley, vortex};
     use crate::abilities::traversal::dive;
-    use crate::features::BossBehaviorProfile;
     // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
     // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON
     // against the ability id consts so the two can't drift apart.
@@ -1591,7 +1590,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
                     name: "Heavy".into(),
                     spawn: ae::Vec2::ZERO,
                     brain: ambition_entity_catalog::placements::BossBrain::Dormant,
-                    behavior: crate::features::BossBehaviorProfile::generic(
+                    behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
                         ambition_boss_encounter::test_boss_catalog(),
                         "heavy",
                     ),
@@ -1916,7 +1915,6 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
 
 #[test]
 fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
-    use bevy::ecs::message::Messages;
 
     let mut app = App::new();
     app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());

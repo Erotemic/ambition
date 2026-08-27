@@ -16,7 +16,6 @@
 //! - the `BrainActionCounter` observer is unaffected (it counts but
 //!   doesn't consume)
 
-use ambition_combat::actor_tuning::ActorConfig;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 

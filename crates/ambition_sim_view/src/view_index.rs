@@ -21,7 +21,7 @@ use ambition_combat::components::FeatureId;
 use ambition_combat::components::Opened;
 use ambition_combat::components::PickupFeature;
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
-use ambition_platformer2d_actor_monolith::features::HazardFeature;
+use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_platformer2d_core::ActorSurfaceState;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
@@ -242,7 +242,7 @@ pub fn rebuild_feature_view_index(
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
             Option<
-                &ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll,
+                &ambition_platformer2d_shared_tangle::orientation::ActorRoll,
             >,
             // Sheet-authored quad placement, for a body whose art does not sit
             // centred in its frame. Absent for every ordinary actor.
@@ -271,7 +271,7 @@ pub fn rebuild_feature_view_index(
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
         // use, so a boss rights itself under flipped / sideways gravity instead of
         // staying screen-axis-aligned (it floats, but it should still flip).
-        Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
+        Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
     )>,
 ) {
     index.begin_rebuild();

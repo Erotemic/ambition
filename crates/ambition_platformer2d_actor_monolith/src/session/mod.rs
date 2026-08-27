@@ -21,5 +21,4 @@ pub mod reset;
 pub mod setup;
 pub mod teardown;
 
-pub use ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested;
 pub use teardown::{reset_session_scoped_resources_on_retire, SessionTeardownPlugin};

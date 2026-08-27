@@ -90,7 +90,7 @@ fn spawn_dialogue_runner(
     let entity = commands.spawn(runner).id();
     commands.insert_resource(DialogueRunnerEntity(entity));
     info!(
-        target: "ambition_dialog::bridge",
+        target: "crate::bridge",
         "spawned DialogueRunner entity {entity:?}",
     );
 }
@@ -135,7 +135,7 @@ fn dispatch_pending_dialog_requests(
     let Some(runner_e) = runner_e else {
         if state.pending_start.is_some() || state.pending_close {
             warn!(
-                target: "ambition_dialog::bridge",
+                target: "crate::bridge",
                 "dispatch_pending_dialog_requests: DialogueRunner not spawned yet; \
                  pending request will be retried next frame",
             );
@@ -144,7 +144,7 @@ fn dispatch_pending_dialog_requests(
     };
     let Ok(mut runner) = runner_q.get_mut(runner_e.0) else {
         warn!(
-            target: "ambition_dialog::bridge",
+            target: "crate::bridge",
             "dispatch_pending_dialog_requests: DialogueRunnerEntity points at {:?} \
              but no DialogueRunner component there",
             runner_e.0,
@@ -163,7 +163,7 @@ fn dispatch_pending_dialog_requests(
         }
         if !runner.node_exists(&dialogue_id) {
             warn!(
-                target: "ambition_dialog::bridge",
+                target: "crate::bridge",
                 "start({dialogue_id:?}): Yarn node not found. Add it to a \
                  file in assets/dialogue/sandbox/*.yarn with a matching title header",
             );
@@ -177,7 +177,7 @@ fn dispatch_pending_dialog_requests(
         }
         if let Err(e) = runner.try_start_node(&dialogue_id) {
             warn!(
-                target: "ambition_dialog::bridge",
+                target: "crate::bridge",
                 "try_start_node({dialogue_id:?}) failed: {e}",
             );
             state.active = false;
@@ -191,7 +191,7 @@ fn dispatch_pending_dialog_requests(
         state.line_last_before_options = false;
         state.options_reveal = crate::runtime::OptionsRevealState::default();
         info!(
-            target: "ambition_dialog::bridge",
+            target: "crate::bridge",
             "start_node({dialogue_id}) — runner advancing next tick",
         );
     }
@@ -202,7 +202,7 @@ fn dispatch_pending_dialog_requests(
         if let Some(option_id) = option_id {
             if let Err(e) = runner.select_option(option_id) {
                 warn!(
-                    target: "ambition_dialog::bridge",
+                    target: "crate::bridge",
                     "select_option({option_id:?}) failed: {e}",
                 );
             }
@@ -265,7 +265,7 @@ fn publish_dialogue_context(runner: &mut DialogueRunner, context: &DialogueConte
     for (name, value) in vars {
         if let Err(e) = storage.set(name.to_string(), value) {
             warn!(
-                target: "ambition_dialog::bridge",
+                target: "crate::bridge",
                 "could not publish {name} into Yarn variable storage: {e}",
             );
         }

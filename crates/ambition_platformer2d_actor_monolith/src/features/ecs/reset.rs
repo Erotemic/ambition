@@ -6,6 +6,7 @@
 //! retry a room without having to leave and re-enter.
 
 use super::*;
+use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorIdentity, ActorInteraction, BreakableFeature,
     CenteredAabb, Collected, Opened, RespawnTimer, StandTimer,
@@ -13,6 +14,7 @@ use ambition_combat::components::{
 use ambition_combat::events::ResetRoomFeaturesEvent;
 use ambition_combat::path_motion::PathMotion;
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Spawned by THIS attempt at the room, and cleared when the attempt is.
 ///
@@ -288,7 +290,6 @@ mod reset_tests {
     //! transient feature markers so a room can be retried: collected
     //! pickups un-collect, opened chests un-open, broken breakables
     //! return to Intact. No event -> no change.
-    use super::*;
     use ambition_interaction::Breakable;
     use bevy::prelude::{App, Entity, Update};
 

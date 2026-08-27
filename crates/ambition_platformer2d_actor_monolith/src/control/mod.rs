@@ -13,8 +13,9 @@ pub mod queries;
 pub mod slots;
 
 pub use acting::ActingParticipant;
-pub use authority::{project_driving_participant, DrivingParticipant};
-pub use components::{LocalPlayer, PlayerSlot};
+pub use ambition_characters::control::DrivingParticipant;
+pub use authority::project_driving_participant;
+pub use components::{LocalPlayer};
 pub use input_systems::{
     cleanup_timers_system, derive_slot_direction_gestures, interaction_input_system,
     tick_home_body_reaction_timers, tick_room_transition_cooldown, InputTimersAdvanced,
@@ -25,3 +26,4 @@ pub use queries::{
     seat_frame_down, seat_frame_this_tick, shape_seat_frame, sort_players_by_slot,
 };
 pub use slots::PrimarySlotInputCommit;
+

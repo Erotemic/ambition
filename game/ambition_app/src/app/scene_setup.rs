@@ -11,7 +11,6 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 #[cfg(feature = "audio")]
-use ambition_platformer2d::actors::session::data::{MusicRegistry, SfxRegistry};
 // The platform VISUAL spawn is presentation and lives in the actor monolith;
 // the platform STATE it renders is the world crate's and is named there.
 #[cfg(feature = "audio")]
@@ -24,6 +23,8 @@ use ambition_platformer2d::render::rendering::{HudText, QuestPanelText};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 use ambition_platformer2d::sfx::BankProvider;
+use ambition_platformer2d::content::MusicRegistry;
+use ambition_platformer2d::content::SfxRegistry;
 
 /// Build and insert the host-resident audio library (packed SFX bank +
 /// catalog-resolved music assets) and its playback state. An asset CACHE —

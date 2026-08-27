@@ -6,6 +6,15 @@
 //! frame diffs, and `build_frame`/`record_frame` snapshot assembly.
 
 use super::*;
+use ambition_gameplay_trace::OobReason;
+use ambition_gameplay_trace::CollisionTraceShape;
+use ambition_gameplay_trace::PreviousFrameSnapshot;
+use ambition_gameplay_trace::GameplayTraceFrame;
+use ambition_gameplay_trace::PlayerTraceState;
+use ambition_gameplay_trace::MovingPlatformTraceState;
+use ambition_gameplay_trace::GameplayTraceBuffer;
+use ambition_gameplay_trace::GameplayTraceEvent;
+use ambition_gameplay_trace::DumpReason;
 
 /// The world envelope / inside-solid check is delegated to
 /// `ae::classify_player_safety` so the trace recorder and

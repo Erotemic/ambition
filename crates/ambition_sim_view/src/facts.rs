@@ -315,7 +315,7 @@ pub fn rebuild_shrines_view(
 
 pub fn tick_shrine_activation_pulse(
     world_time: Res<ambition_time::WorldTime>,
-    mut activation: ResMut<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>,
+    mut activation: ResMut<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>,
 ) {
     if activation.remaining > 0.0 {
         activation.remaining = (activation.remaining - world_time.scaled_dt).max(0.0);
@@ -922,13 +922,13 @@ mod tests {
             scaled_dt: 0.1,
         });
         app.insert_resource(
-            ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse { remaining: 0.25 },
+            ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse { remaining: 0.25 },
         );
         app.add_systems(Update, tick_shrine_activation_pulse);
         app.update();
         let remaining = app
             .world()
-            .resource::<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>()
+            .resource::<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>()
             .remaining;
         assert!((remaining - 0.15).abs() < 1e-6);
         for _ in 0..5 {
@@ -936,7 +936,7 @@ mod tests {
         }
         assert_eq!(
             app.world()
-                .resource::<ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse>()
+                .resource::<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>()
                 .remaining,
             0.0,
             "pulse clamps at zero"

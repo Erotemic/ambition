@@ -13,7 +13,7 @@
 //!
 //! Nothing may depend on her being selectable. She is meant to be found.
 
-use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition

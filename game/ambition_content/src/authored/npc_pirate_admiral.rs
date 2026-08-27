@@ -7,7 +7,7 @@
 //!
 //! MOVES ONLY. A table is the whole job.
 
-use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 /// AC5: it authors its LOCOMOTION too, which is the one fact that stood
 /// between this character and building its own body. It ships as

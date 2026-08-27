@@ -10,7 +10,7 @@
 //!
 //! ⛔ THE MONOLITH STILL BUILDS PAIRS AND THAT IS CORRECT. 106 references to
 //! these components live in its construction and spawn roads; after the carve
-//! they spell `ambition_mount::` instead of `crate::features::` and compile
+//! they spell `crate::` instead of `crate::features::` and compile
 //! unchanged. An inward edge is a caller naming a domain, not a dependency the
 //! domain has.
 //!
@@ -1169,7 +1169,7 @@ impl bevy::ecs::entity::MapEntities for RidingOn {
 /// STOPPED HALF WAY. The types, the systems and the saddle constraint all moved
 /// here, but `actor_monolith/rollback_registration.rs` — whose own header
 /// promises *"the actor runtime names only state defined in this crate"* — went
-/// on naming seven `ambition_mount::` components and two of their entity
+/// on naming seven `crate::` components and two of their entity
 /// mappings. So adding one mutable field to a mount component meant editing this
 /// crate AND remembering a census in a crate that no longer owns the domain, and
 /// forgetting the second half is a silent desync rather than a compile error.

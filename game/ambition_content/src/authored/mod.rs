@@ -11,7 +11,7 @@
 //! compile into anything, rather than registering as a body that authors
 //! nothing.
 
-use ambition_characters::actor::definition::CharacterDefinition;
+use ambition_platformer2d::character::CharacterDefinition;
 
 mod actor;
 mod author;

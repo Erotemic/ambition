@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
-use crate::actor::AncillaryMovementBundle;
+use ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle;
 use crate::body_mode::BodyModeCapabilities;
 use crate::control::{LocalPlayer};
 use ambition_characters::actor::BodyAnimFacts;

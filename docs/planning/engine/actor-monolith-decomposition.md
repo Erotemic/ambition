@@ -1075,7 +1075,16 @@ only one of the three shapes.
 ⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
 138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
 vocabulary names from FOUR crates, so it composes something a single alias does
-not. It stays. But a census cannot tell composition from republication, so the
+not. It stays.
+✔✔ **IT DOES NOT. DELETED 2026-08-28, and the ruling was sound while the premise
+held.** The 27 re-exports went on 2026-08-27, leaving the module as the bundle
+plus a doc. And the bundle did not have to stay either: nineteen of its twenty
+fields are `_core` body clusters and the twentieth is `shared_tangle`'s
+`ResolvedMotionFrame`, so **`shared_tangle::body` is the lowest crate that can
+name them all** — `AncillaryMovementBundle` lives there now and `actor.rs` is
+gone. ⇒ *"it composes something a single alias does not"* was true, and the thing
+it composed belonged one crate down. **A ruling that rests on a measurement dies
+with the measurement**: re-read the premise, not the verdict. But a census cannot tell composition from republication, so the
 resolution is written down ONCE here instead of re-derived per carve:
 
 ```text

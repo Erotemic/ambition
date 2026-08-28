@@ -17,9 +17,9 @@
 //! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
-use ambition_platformer2d_core::{BodyKinematics};
 use ambition_characters::actor::ai::ActorStatus;
 use ambition_combat::actor_tuning::ActorConfig;
+use ambition_platformer2d_core::BodyKinematics;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
@@ -30,8 +30,8 @@ use bevy::prelude::Component;
 // rollback domain, Mary-O's shell state machine) sits ABOVE this crate. Named
 // from its owner; deliberately NOT re-exported.
 
-use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_combat::components::BodyMelee;
+use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 // The body a reset hands back. Below both of the domains that restore it —
 // respawn and the mount dismount — and imported, never re-exported.
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -40,13 +40,13 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
-use crate::actor::AncillaryMovementBundle;
 use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
     BodyWallState,
 };
+use ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle;
 
 /// Deliberately shorter than the player's attack cadence (~0.4 s swipe) so it never eats an
 /// intended combo hit, yet long enough to collapse a 60 fps contact/overlap stream to a single hit
@@ -63,7 +63,7 @@ pub struct ActorMotionPath(pub Option<PathMotion>);
 /// shared `kin` is the single source of kinematic truth).
 ///
 /// This is not a spawned component: a spawned actor carries the 18 clusters
-/// as real ECS components (via [`crate::actor::AncillaryMovementBundle`], the
+/// as real ECS components (via [`ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle`], the
 /// SAME bundle the player nests), so the per-frame integration borrows them as
 /// the non-kinematics half of a `BodyClustersMut` view exactly like the player.
 /// `ActorBody` only holds the scratch while a [`ActorClusterSeed`] is being
@@ -199,7 +199,7 @@ impl<'a> ActorMut<'a> {
 pub struct ActorClusterQueryData {
     pub kin: &'static mut BodyKinematics,
     /// §3.1 motion record. Runtime actor/boss entities are spawned with the
-    /// shared [`crate::actor::AncillaryMovementBundle`], so this is required at
+    /// shared [`ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle`], so this is required at
     /// the ECS query seam; only the owned scratch harness keeps an optional slot.
     pub sweep: &'static mut ae::SweepSample,
     pub status: &'static mut ActorStatus,
@@ -440,7 +440,7 @@ impl ActorClusterSeed {
         // The prepared cast, so this road can ask the CHARACTER whether it
         // flies before it asks the catalog. `Option` because a composition with
         // no registered characters is the ordinary case, not a degraded one.
-        prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
+        prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
@@ -704,14 +704,14 @@ impl ActorClusterSeed {
         // completeness is the blueprint's EXISTENCE, so nothing in here
         // asks whether the character said enough — see
         // `PreparedCharacterDefinition::body_blueprint`.
-        body: crate::character_runtime::CharacterBodyBlueprint<'_>,
+        body: ambition_characters::prepared::CharacterBodyBlueprint<'_>,
         aabb: ae::Aabb,
         config_brain: ambition_entity_catalog::placements::CharacterBrain,
         // The room's authored kinematic paths, so a `Patrol { path_id }`
         // placement gets its path — see the note at [`Self::motion`] below.
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
-        let crate::character_runtime::CharacterBodyBlueprint {
+        let ambition_characters::prepared::CharacterBodyBlueprint {
             character_id,
             display_name,
             max_health,
@@ -1008,8 +1008,8 @@ impl ActorClusterSeed {
 #[cfg(test)]
 pub(crate) fn fixture_body_blueprint(
     display_name: &str,
-) -> crate::character_runtime::CharacterBodyBlueprint<'_> {
-    crate::character_runtime::CharacterBodyBlueprint {
+) -> ambition_characters::prepared::CharacterBodyBlueprint<'_> {
+    ambition_characters::prepared::CharacterBodyBlueprint {
         character_id: "fixture_body",
         display_name,
         max_health: 4,
@@ -1103,8 +1103,8 @@ mod tests {
         locomotion: ambition_characters::actor::CharacterLocomotion,
         profile: ambition_combat::actor_tuning::BrainProfile,
         practice_target: bool,
-    ) -> crate::character_runtime::CharacterBodyBlueprint<'a> {
-        crate::character_runtime::CharacterBodyBlueprint {
+    ) -> ambition_characters::prepared::CharacterBodyBlueprint<'a> {
+        ambition_characters::prepared::CharacterBodyBlueprint {
             character_id,
             display_name,
             max_health,

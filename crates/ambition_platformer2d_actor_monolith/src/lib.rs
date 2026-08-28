@@ -37,7 +37,6 @@ pub mod abilities;
 pub mod ability_cooldown;
 pub mod action_scheme;
 /// Neutral actor-vocabulary home for shared sim-state (the keystone re-home target).
-pub mod actor;
 /// "What would each button do right now?" — the per-frame verb table the HUD
 /// labels its buttons from. A BRIDGE (input x body x world -> verb), which is why
 /// it is neither `control` nor `features`. Moved off `player/` in R6d.
@@ -109,7 +108,6 @@ pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 // `ambition_platformer2d_world` name it there directly, not through this 95k crate.
 
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
-
 
 #[cfg(test)]
 mod safe_pos_tests;

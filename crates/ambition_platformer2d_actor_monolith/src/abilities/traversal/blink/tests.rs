@@ -202,7 +202,7 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             // Every body carries the per-tick resolved frame + full clusters
             // (ADR 0024; the transit authority reconciles through them) — the
             // ancillary bundle carries both.
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(
                     ae::Vec2::new(100.0, 100.0),
                     ae::AbilitySet::default(),
@@ -229,7 +229,7 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
             ambition_platformer2d_core::movement::MotionModel::default(),
             HeldItem::new(actor_spec),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(
                     ae::Vec2::new(500.0, 500.0),
                     ae::AbilitySet::default(),

@@ -832,7 +832,7 @@ fn boss_actor_cluster(
     super::actor_clusters::ActorMotionPath,
     ambition_platformer2d_core::body_clusters::ActorSurfaceState,
     ambition_combat::components::BodyMelee,
-    crate::actor::AncillaryMovementBundle,
+    ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle,
     ambition_platformer2d_core::movement::MotionModel,
     ambition_combat::CombatCapabilities,
     ambition_combat::CombatTuning,
@@ -902,7 +902,7 @@ fn boss_actor_cluster(
             gravity_scale: 0.0,
         },
         ambition_combat::components::BodyMelee::default(),
-        crate::actor::AncillaryMovementBundle::from_scratch(
+        ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
             super::actor_clusters::ActorBody::from_kit(movement_kit, true, kin.size).0,
         ),
         // Every integrated body carries an explicit policy from spawn — the

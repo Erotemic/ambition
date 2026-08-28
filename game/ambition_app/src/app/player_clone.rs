@@ -103,7 +103,7 @@ pub fn spawn_requested_player_clone(
     // nest — the convergence the ActorBody-unwrap bought.
     let kinematics = scratch.kinematics;
     let movement =
-        ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(scratch);
+        ambition_platformer2d::platformer::body::AncillaryMovementBundle::from_scratch(scratch);
     // The published combat footprint every body carries (§A6); kept live by
     // `integrate_home_body` like the primary's.
     let hurtbox = ae::CenteredAabb::from_center_size(kinematics.pos, kinematics.size);

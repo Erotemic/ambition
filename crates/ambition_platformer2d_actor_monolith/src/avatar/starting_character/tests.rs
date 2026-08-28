@@ -181,7 +181,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -247,7 +247,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -319,7 +319,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -433,7 +433,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -510,7 +510,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
             // (which include the persisted capability set the overlay rebuilds
             // a HostCode / unknown kit from).
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -598,7 +598,7 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -660,7 +660,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -1688,7 +1688,7 @@ fn a_spawned_player_body_receives_the_prepared_action_set_on_its_first_tick() {
             ActorMoveset(Default::default()),
             ambition_characters::brain::action_set::IdentityKit::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -1769,7 +1769,7 @@ fn a_re_worn_character_moves_the_bodys_health_pool_without_healing_it() {
                 health.health.current = 6;
                 health
             },
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -1968,7 +1968,7 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
             )),
             ambition_platformer2d_shared_tangle::body::Mass(BODY_MASS),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2081,7 +2081,7 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2156,7 +2156,7 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
                 100,
             )),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2269,7 +2269,7 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
             )),
             ambition_platformer2d_shared_tangle::body::Mass(BODY_MASS),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2332,7 +2332,7 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
             Name::new("unset"),
             ActionSet::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -2410,7 +2410,7 @@ fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
             Name::new("unset"),
             ActionSet::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),

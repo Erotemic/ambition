@@ -52,7 +52,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),
@@ -125,7 +125,7 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
             PrimaryPlayer,
             MotionModel::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     run_jump,
@@ -199,7 +199,7 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
             PrimaryPlayer,
             MotionModel::default(),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     air_jump_base,
@@ -277,7 +277,7 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
             ActionSet::default(),
             ActorMoveset(Default::default()),
             ambition_platformer2d_core::BodyKinematics::default(),
-            crate::actor::AncillaryMovementBundle::from_scratch(
+            ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
                     ambition_platformer2d_core::Vec2::ZERO,
                     ambition_platformer2d_core::AbilitySet::sandbox_all(),

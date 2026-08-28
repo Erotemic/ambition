@@ -400,10 +400,26 @@ publish_provider_action_edges        `InputSet::Route`. `just_pressed`, sorted b
   refuses to know that on purpose (it carries `PulseBody`, not an actor-domain
   type), so the last hop — `SemanticActionPressed` → `PulseRequested { body }` —
   belongs to whoever mounts both, and that is the correct place for it.
-  ▢ **AND PRESENTABLE IS STILL OPEN**: `ControlSlot` has 8 variants and
-  `TouchActionButton` 20, so a provider action can now be pressed and still cannot
-  be DRAWN. That is the next slice, and the measurement above still stands — the
-  presentation road is the expensive one.
+  ◐ **AND PRESENTABLE IS A DIFFERENT KIND OF PROBLEM THAN THE PLAN RECORDS —
+  re-measured 2026-08-28.** The *"a provider action has to appear in THREE closed
+  enums"* table counts `ControlSlot` and `TouchActionButton` as arbitrary limits
+  alongside the device enum. They are not the same kind of thing. The device enum
+  is a closed vocabulary with no reason to be closed; the other two are
+  DESCRIPTIONS OF HARDWARE — `ControlSlot` is the buttons a controller has (11 of
+  them at HEAD, not the 8 the table says), and `TouchActionButton` is the buttons
+  that fit on a phone screen. And the touch mapping runs the direction the table
+  implies it does not: `touch_button_slot` goes BUTTON → slot → `prompt.label_for`,
+  so the overlay draws its fixed set and asks the prompt what each one is called.
+  ⇒ **a provider action becomes presentable by being ASSIGNED a slot, not by
+  widening one.** Adding a 21st on-screen button is a layout decision about finite
+  screen space; giving a provider action a face button is a decision about a finite
+  controller. Neither is plumbing, and neither is expensive in the way the note
+  meant — *"presentation is the expensive road"* was measuring a hand-written
+  mapping table that turns out to point the other way.
+  ⚠ **and keyboard already sidesteps it entirely**: `ProviderBindings` binds
+  `pulse` to a key with no slot in sight, which is why the road above works today.
+  What has no answer yet is a provider action on a PAD or a PHONE, and that answer
+  is a design call about which finite button it takes.
 
   ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
   service locator, and NO edit to the 35-variant enum**, which is the combination

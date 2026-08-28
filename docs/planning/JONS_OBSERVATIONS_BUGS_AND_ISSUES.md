@@ -837,26 +837,38 @@ stops ending the flight, most throws never reach the return leg at all.
 `a945c1de5`, AND I MIS-ATTRIBUTED IT.** A sweep that morning reported the job red
 and I read it as the flinch test that was red at the same time, without opening
 the job's own output. It was not. Switching the runner to `cargo nextest`
-printed the failures by name for the first time — 6458 tests, six still red:
+printed the failures by name for the first time — 6458 tests, seven red. Each has
+now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
 
-* ▢ **`ambition_demo_twintrack_app::twintrack_it` — five, and they share a
-  shape: a body that should be STILL is moving.** `both_observers_measure_the_light_pulse_at_the_invariant_speed`
-  fails its own premise — *"the lab twin should be at rest, was 0.08836941"*, a
-  beta of 0.088 rather than under 1e-4. `each_seat_moves_its_own_body_and_leaves_the_others_alone`,
+* ▢ **`ambition_demo_twintrack_app::twintrack_it` — five, PRE-EXISTING and
+  MEASURED so.** At `a945c1de5`, run alone, `each_seat_moves_its_own_body_and_leaves_the_others_alone`
+  fails with the same numbers as today: the laboratory twin goes
+  `715.9127 → 713.8359` while seat zero presses RIGHT. The four siblings
+  (`both_observers_measure_the_light_pulse_at_the_invariant_speed` — *"the lab
+  twin should be at rest, was 0.08836941"* against a 1e-4 premise —
   `with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched`,
-  `the_two_observers_disagree_about_the_pulses_direction_and_colour` and
-  `two_observers_report_different_orderings_of_the_same_flash_pair` fail beside
-  it. ⚠ NOT ATTRIBUTED. They reproduce identically under libtest, so this is not
-  a process-isolation effect of the new runner; what the runner changed is that
-  the names are now printed. The twintrack crate itself has not been touched in
-  weeks, so the cause is upstream of it — most likely the movement work merged
-  from `specials-are-real-moves`, and that is a guess rather than a measurement.
-* ▢ **`ambition_demo_smash_app::smash_it::the_repertoire_gets_used::holding_attack_walks_the_jab_string_into_the_rapid_jab`.**
-  Same status: red, unattributed, reproduces under both runners.
+  `the_two_observers_disagree_about_the_pulses_direction_and_colour`,
+  `two_observers_report_different_orderings_of_the_same_flash_pair`) share the
+  shape: a body that should be still is drifting.
+  * ⛔⛔ **AND THE ASSERTION'S OWN MESSAGE IS A MISDIAGNOSIS.** It says *"the two
+    seats are sharing one control frame"* — but the twin moved 2.07px LEFT while
+    the input pressed RIGHT. A shared frame would push it the other way. Whoever
+    picks this up should not start from that sentence.
+  * ⚠ One thing DID change and it is not what fails: the twin's resting `y` went
+    `450` → `446.015` between that baseline and today, which the movement work
+    merged from `specials-are-real-moves` explains. The failing assertion is on
+    `x` and is identical either side.
+* ✔ **`ambition_demo_smash_app::…::holding_attack_walks_the_jab_string_into_the_rapid_jab`
+  is NOT a regression.** It passes ALONE at HEAD (39/39) and at every bisect
+  point between the merge and HEAD. It failed only inside the 6458-test run,
+  where nextest has ~14 test processes live at once. A Bevy app test that is
+  sensitive to CPU contention is worth knowing about; it is not a code defect,
+  and treating it as one would have sent somebody hunting a change that does not
+  exist.
 * ✔ `ambition_sprite_sheet::fx::every_authored_effect_row_is_reachable_by_name`
-  was the seventh and is fixed — 196 rows, because the trapdoor art arrived with
-  the renderer that draws one.
+  — fixed: 196 rows, because the trapdoor art arrived with the renderer that
+  draws one.
 
 ⭐ THE LESSON IS THE MIS-ATTRIBUTION, not the reds. A job that prints one verdict
-for six hundred tests is a job whose failures get explained by whatever else was
-failing that morning. `./run_tests.sh` names them now.
+for six thousand tests is a job whose failures get explained by whatever else was
+failing that morning, and I did exactly that. `./run_tests.sh` names them now.

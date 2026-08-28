@@ -20,7 +20,22 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — a thirteen-finding review, and the sharpest was about the previous fix
+## 2026-08-28, LATEST — the ledger has TWO shapes and the standard grep sees one
+
+⛔⛔ **READ THIS BEFORE REGENERATING AN OPEN-WORK LIST.** `queue.md` holds open
+work as `- ▢ **D…` bullet rows AND as rows of its staffing TABLE. The command
+every session uses — `grep -n '^- ▢ \*\*D' docs/planning/queue.md` — returns **7**;
+the table holds **25 more** that are not `✔`/`☑`. ⇒ a session following that
+instruction literally reads a fifth of the ledger, and has been all month.
+
+⭐ Five of the twenty-five are Jon's own asks from 2026-08-25/26 — D203, D205,
+D246, D247, D248 — and **D205 was marked `unstaffed` while both halves of it were
+already shipping**: the aimed teleport verb (`teleport.rs:345`, resolving through
+the shared `ability_aim_world`), the robot's `phase_shift` up-B, and the Author's.
+Nobody re-checked it because nobody's list contained it. The correction and the
+two-command replacement are in `queue.md`'s own header.
+
+## 2026-08-28 — a thirteen-finding review, and the sharpest was about the previous fix
 
 ⭐⭐ **The whole pass is recorded with a sha per finding in
 [`triage/gpt-review-2026-08-28.md`](triage/gpt-review-2026-08-28.md).** Read that

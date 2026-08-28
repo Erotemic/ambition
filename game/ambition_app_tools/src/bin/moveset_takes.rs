@@ -444,26 +444,28 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // loop's clothes.
     static SHEET_KEYS: std::sync::OnceLock<std::collections::HashMap<String, String>> =
         std::sync::OnceLock::new();
-    let sheet_keys = SHEET_KEYS.get_or_init(|| world
-        .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
-        .map(|catalog| {
-            catalog
-                .data()
-                .characters
-                .iter()
-                .filter_map(|(id, entry)| {
-                    let base = entry
-                        .spritesheet
-                        .rsplit('/')
-                        .next()?
-                        .trim_end_matches(".png")
-                        .trim_end_matches("_spritesheet")
-                        .to_string();
-                    (!base.is_empty()).then(|| (id.clone(), base))
-                })
-                .collect()
-        })
-        .unwrap_or_default());
+    let sheet_keys = SHEET_KEYS.get_or_init(|| {
+        world
+            .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
+            .map(|catalog| {
+                catalog
+                    .data()
+                    .characters
+                    .iter()
+                    .filter_map(|(id, entry)| {
+                        let base = entry
+                            .spritesheet
+                            .rsplit('/')
+                            .next()?
+                            .trim_end_matches(".png")
+                            .trim_end_matches("_spritesheet")
+                            .to_string();
+                        (!base.is_empty()).then(|| (id.clone(), base))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    });
 
     let mut bodies = world.query::<(
         Entity,
@@ -603,7 +605,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
             frame.riding = riding.map(|mount| {
                 rows.iter()
                     .find(|(e, ..)| *e == mount)
-.and_then(|row| row.6.clone())
+                    .and_then(|row| row.6.clone())
                     // ⛔ THE MOUNT'S STABLE ID, never its entity index: a raw
                     // entity id is not an identity and makes two runs differ.
                     .or_else(|| {
@@ -846,7 +848,19 @@ fn platforms(app: &mut App) -> Vec<serde_json::Value> {
 /// admiral off the stage: the recording showed a body frozen below the floor
 /// with `grounded: false` forever, and the press went to somebody who was not
 /// there. The settle can detect that state; only a re-seat can fix it.
-fn reseat(app: &mut App, character: &str) {
+/// Returns whether SEAT ZERO ACTUALLY ARRIVED.
+///
+/// ⛔⛔ IT USED TO RETURN NOTHING AND SPEND A FIXED 240 UPDATES, which is a
+/// duration rather than a postcondition: if the route did not come up, or the
+/// roster named a character the host could not build, the recorder went on to
+/// take a fighter's whole moveset off an empty stage and said nothing. A count
+/// of updates is evidence that time passed, not that staging worked.
+///
+/// ⭐ THE 240 STAY AS A CEILING, not as the answer — the loop still ends early
+/// the moment the subject is there, so the common case got faster as well as
+/// honest.
+#[must_use]
+fn reseat(app: &mut App, character: &str) -> bool {
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster([character, character]));
     app.world_mut()
@@ -857,7 +871,11 @@ fn reseat(app: &mut App, character: &str) {
         ));
     for _ in 0..240 {
         app.update();
+        if settle_facts(app.world_mut()).is_some() {
+            return true;
+        }
     }
+    false
 }
 
 /// `verb -> move id` for one character, read from the composed host.
@@ -961,36 +979,71 @@ fn ensure_airborne(app: &mut App) -> bool {
 /// to look at three booleans. At up to 480 iterations per take and 19 takes per
 /// character that is the dominant cost of a recording, and none of it was the
 /// simulation.
-fn settle_facts(world: &mut World) -> (bool, bool, bool) {
+struct SettleFacts {
+    grounded: bool,
+    playing: bool,
+    riding: bool,
+    /// Whether this body's LOCOMOTION allows it to come to rest in the air.
+    ///
+    /// ⛔⛔ THE QUESTION `ever_stood` WAS STANDING IN FOR, and it is not the same
+    /// question. That flag answered *"has this body reported ground since this
+    /// call to `settle` began"* — an observation about the last few ticks —
+    /// while the thing that decides whether an airborne fighter is settled or
+    /// still falling is a CAPABILITY the body carries. A flyer at rest in the
+    /// air is settled; an ordinary fighter in the air is mid-jump.
+    flies: bool,
+}
+
+/// `None` means SEAT ZERO IS NOT THERE, which is never a settled stage.
+///
+/// ⛔⛔ IT USED TO RETURN `(false, false, false)` FOR THAT, the same triple an
+/// idle airborne fighter produces — so a recording with no subject read as ready
+/// on its first iteration and every take after it described a stage with nobody
+/// on it. Absence and rest are different answers and the type says so now.
+fn settle_facts(world: &mut World) -> Option<SettleFacts> {
     let mut q = world.query::<(
         &ambition_platformer2d::actor::MatchSeat,
         Option<&ambition_platformer2d::engine_core::BodyGroundState>,
         Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
         Option<&ambition_platformer2d::mount::RidingOn>,
+        Option<&ambition_platformer2d::engine_core::BodyFlightState>,
     )>();
-    for (seat, ground, playing, riding) in q.iter(world) {
-        if seat.0 != 0 {
-            continue;
-        }
-        return (
-            ground.is_some_and(|g| g.on_ground),
-            playing.is_some(),
-            riding.is_some(),
-        );
+    q.iter(world)
+        .find(|(seat, ..)| seat.0 == 0)
+        .map(|(_, ground, playing, riding, flight)| SettleFacts {
+            grounded: ground.is_some_and(|g| g.on_ground),
+            playing: playing.is_some(),
+            riding: riding.is_some(),
+            flies: flight.is_some_and(|f| f.fly_enabled),
+        })
+}
+
+/// Is the stage at rest, given what seat zero reports?
+///
+/// Separated from the stepping loop because the whole content of `settle` is
+/// this decision, and it is answerable without a composed host.
+///
+/// ⛔ `None` — no seat zero — is NOT settled. It is the absence of the subject,
+/// and a recorder that reads it as rest describes an empty stage under a
+/// fighter's name.
+fn settled_now(facts: Option<&SettleFacts>) -> bool {
+    let Some(facts) = facts else {
+        return false;
+    };
+    if facts.playing || facts.riding {
+        return false;
     }
-    (false, false, false)
+    // Grounded is rest for anybody. Airborne is rest only for a body whose
+    // locomotion says so, which is the flying Robot this rule was widened for.
+    facts.grounded || facts.flies
 }
 
 fn settle(app: &mut App) -> bool {
-    let mut ever_stood = false;
     for _ in 0..SETTLE_LIMIT {
         drive(app, ControlFrame::default());
-        let (grounded, playing, riding) = settle_facts(app.world_mut());
-        ever_stood |= grounded;
-        if playing || riding {
-            continue;
-        }
-        if grounded || !ever_stood {
+        // Keep stepping while there is no subject — a re-seat lands through
+        // deferred commands and the body may still be arriving.
+        if settled_now(settle_facts(app.world_mut()).as_ref()) {
             return true;
         }
     }
@@ -1104,7 +1157,17 @@ fn main() {
         // A partner, so contact rules and targeting behave as they do in a
         // match. A solo stage is a different simulation from the one the
         // inspector claims to be showing.
-        reseat(&mut app, character);
+        // ⛔ THE PER-CHARACTER STAGING IS THE SAME POSTCONDITION. A character the
+        // host cannot build yields no seat zero, and everything below — the
+        // stage geometry, the verb table, every take — would describe an empty
+        // match under that character's name.
+        if !reseat(&mut app, character) {
+            println!(
+                "[take] {character:<24} SKIPPED - seat zero never appeared, so \
+                 this character has no stage to record on"
+            );
+            continue;
+        }
         let stage = platforms(&mut app);
         // The fighter's own verb table, so a take can say which move the press
         // was SUPPOSED to reach rather than only which one came out.
@@ -1126,9 +1189,18 @@ fn main() {
             // ⛔ IT COSTS 240 TICKS PER TAKE and is worth every one: an
             // instrument whose answer depends on what ran before it is not
             // measuring the thing it names.
-            reseat(&mut app, character);
-            let settled = settle(&mut app);
-            if !settled {
+            // ⛔ A MISSING SUBJECT IS A DIFFERENT FAILURE FROM A BUSY ONE, and
+            // the two used to print the same warning — or none at all, since an
+            // empty stage settled immediately.
+            if !reseat(&mut app, character) {
+                println!(
+                    "[take] {character:<24} {:<16} SKIPPED - seat zero never \
+                     appeared after a re-seat, so there is nothing to record",
+                    verb.verb
+                );
+                continue;
+            }
+            if !settle(&mut app) {
                 println!(
                     "[take] {character:<24} {:<16} WARNING - the stage would not go quiet \
                      even after a re-seat; read this take with that in mind",
@@ -1385,4 +1457,57 @@ fn main() {
         "[moveset-takes] {} take(s) -> {out}",
         bundle["takes"].as_array().map_or(0, Vec::len)
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{settled_now, SettleFacts};
+
+    fn facts(grounded: bool, playing: bool, riding: bool, flies: bool) -> SettleFacts {
+        SettleFacts {
+            grounded,
+            playing,
+            riding,
+            flies,
+        }
+    }
+
+    /// ⛔⛔ AN EMPTY STAGE IS NOT A QUIET ONE.
+    ///
+    /// `settle_facts` returned `(false, false, false)` both for an idle airborne
+    /// fighter and for NO SEAT ZERO AT ALL, and `settle` accepted
+    /// `grounded || !ever_stood` with `ever_stood` starting false — so on its
+    /// first iteration a missing fighter, an ordinary airborne fighter and a
+    /// flying Robot all read as settled. Only the third was intended, and these
+    /// takes are the project's canonical evidence about what a move does.
+    #[test]
+    fn a_stage_with_nobody_on_it_never_settles() {
+        assert!(!settled_now(None));
+    }
+
+    /// ⛔ AND AN ORDINARY FIGHTER IN THE AIR IS MID-JUMP, not at rest. The old
+    /// `ever_stood` flag asked *"has this body reported ground since this call
+    /// began"* — an observation about the last few ticks — where the question is
+    /// a CAPABILITY the body carries.
+    #[test]
+    fn an_ordinary_fighter_settles_only_once_it_is_standing() {
+        assert!(!settled_now(Some(&facts(false, false, false, false))));
+        assert!(settled_now(Some(&facts(true, false, false, false))));
+    }
+
+    /// ⭐ AND A FLYER AT REST IN THE AIR IS SETTLED, which is the case the loop
+    /// was widened for and the only one the old rule got right.
+    #[test]
+    fn a_flying_fighter_settles_without_ever_touching_the_floor() {
+        assert!(settled_now(Some(&facts(false, false, false, true))));
+    }
+
+    /// A move still playing or a body still riding is busy either way.
+    #[test]
+    fn a_busy_body_is_not_settled_however_it_moves() {
+        for flies in [false, true] {
+            assert!(!settled_now(Some(&facts(true, true, false, flies))));
+            assert!(!settled_now(Some(&facts(true, false, true, flies))));
+        }
+    }
 }

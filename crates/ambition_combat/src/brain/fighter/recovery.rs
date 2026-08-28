@@ -23,35 +23,6 @@ pub struct BodyKit {
     pub movement: ae::MovementTuning,
 }
 
-/// One displacement a body's repertoire can command, in the terms a
-/// [`RecoveryProbe`](ae::movement::recovery::RecoveryProbe) needs.
-///
-/// Derived from a move's frame data by
-/// [`lifting_candidates`](ambition_characters::brain::fighter::options::lifting_candidates); nothing here
-/// names a move, a verb or a character.
-///
-/// a route is a PROPOSAL, never a claim. Holding one says the body can
-/// throw this displacement, and says nothing about whether throwing it helps —
-/// that question belongs to [`RecoveryLens::best_route`], which asks the kernel.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RecoveryLift {
-    /// Engine units per second, against gravity.
-    pub speed: f32,
-    /// Engine units per second along the body's FACING, the other half of
-    /// the same commanded velocity (`MoveFrameData::lift_side`). Negative for a
-    /// move that hauls its owner backwards — the recoil of firing forwards is a
-    /// real authored shape.
-    ///
-    /// zero for a straight-up recovery, which is why every seat that had one is unaffected. A
-    /// `Set` impulse overrides the drift outright, so a probe that dropped this half searched a
-    /// move the body cannot throw.
-    pub side: f32,
-    /// Proper-time seconds from the press to the burst — the windup the body has
-    /// to survive first. A probe that ignored it would certify recoveries the
-    /// real move is too slow to make.
-    pub after_s: f32,
-}
-
 /// Where a rolled line left the ground, in the terms the kernel needs to take it
 /// from there.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -121,7 +92,7 @@ pub struct RecoveryLens {
     probe: ae::movement::recovery::RecoveryProbe,
     /// the displacements this body could throw, in probe order. Capped at
     /// [`MAX_PROBED_ROUTES`].
-    routes: Vec<RecoveryLift>,
+    routes: Vec<ambition_entity_catalog::RecoveryRoute>,
 }
 
 impl RecoveryLens {
@@ -139,7 +110,7 @@ impl RecoveryLens {
     pub fn from_view(
         view: &WorldView,
         kit: BodyKit,
-        routes: &[RecoveryLift],
+        routes: &[ambition_entity_catalog::RecoveryRoute],
         dt: f32,
     ) -> Option<Self> {
         let stage = view.stage;
@@ -212,21 +183,86 @@ impl RecoveryLens {
         body
     }
 
-    /// This lens's search, armed with one route's displacement.
-    fn armed(&self, route: RecoveryLift) -> ae::movement::recovery::RecoveryProbe {
+    /// This lens's search, armed with one BURST's displacement.
+    fn armed(&self, speed: f32, side: f32, after_s: f32) -> ae::movement::recovery::RecoveryProbe {
         self.probe.with_policy(
             ae::movement::recovery::RecoveryPolicy::drift_jump_and_burst(
                 ae::movement::recovery::RecoveryBurst {
                     // Body-local: `+y` is toward the feet, so a lift is negative,
                     // and `+x` is toward the facing the effort is steering.
-                    local: ae::Vec2::new(route.side, -route.speed),
+                    local: ae::Vec2::new(side, -speed),
                     // The windup, in kernel steps of THIS probe.
-                    at_step: (route.after_s / self.probe.dt.max(f32::EPSILON))
-                        .round()
-                        .max(0.0) as usize,
+                    at_step: (after_s / self.probe.dt.max(f32::EPSILON)).round().max(0.0) as usize,
                 },
             ),
         )
+    }
+
+    /// The nearest thing in this lens's world a body could come to rest on, in
+    /// lens coordinates. `None` for a perceived stage with no solids at all.
+    fn nearest_support(&self, from: ae::Vec2) -> Option<ae::Vec2> {
+        self.world
+            .blocks
+            .iter()
+            .map(|block| {
+                let aabb = block.aabb;
+                let clamped = ae::Vec2::new(
+                    from.x.clamp(aabb.min.x, aabb.max.x),
+                    from.y.clamp(aabb.min.y, aabb.max.y),
+                );
+                (clamped, clamped.distance_squared(from))
+            })
+            .min_by(|a, b| {
+                a.1.partial_cmp(&b.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| {
+                        (a.0.x, a.0.y)
+                            .partial_cmp(&(b.0.x, b.0.y))
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+            })
+            .map(|(point, _)| point)
+    }
+
+    /// ⭐⭐ A ROUTE THAT CARRIES THE BODY, ASKED THE SAME WAY A BURST IS.
+    ///
+    /// A teleport and a summoned steerable mount differ in every way except the
+    /// one this search is about: each puts the body up to `carry` closer to
+    /// something it can stand on, and then it is an ordinary falling body again
+    /// — which is the half the kernel is the authority on. So the carry is
+    /// applied to the POSITION and the buttons-only probe answers from there.
+    ///
+    /// ⛔ IT DOES NOT SIMULATE THE RIDE. Seconds of steering under a live
+    /// opponent is not a thing this probe models, and pretending to would make
+    /// the search confidently wrong. What it models is the claim the author
+    /// made: *this gets you home from within this far*. The COST of the route —
+    /// a teleport is instant and a five-second ride is five seconds of being
+    /// shot at — is a different question and belongs to the scorer.
+    ///
+    /// ⛔ AND IT CARRIES NO VELOCITY. A body that arrives somewhere else arrives
+    /// there having stopped, which is what both roads actually do.
+    fn carried(&self, at: RecoveryQuery, carry: f32) -> ae::movement::recovery::RecoveryOutlook {
+        let here = at.pos - self.origin;
+        let landed = match self.nearest_support(here) {
+            Some(support) => {
+                // ⛔ AIMED ABOVE THE LEDGE, NOT AT IT. The nearest point ON a
+                // solid is inside the solid as far as the kernel is concerned,
+                // and a body dropped there resets rather than lands. A ride ends
+                // by putting its rider OVER something and letting go, which is a
+                // body-height against gravity from the surface it is over.
+                let target = support - self.frame.down() * self.body_size.y;
+                let toward = (target - here).normalize_or_zero();
+                here + toward * carry.min(target.distance(here))
+            }
+            None => here,
+        };
+        let moved = RecoveryQuery {
+            pos: landed + self.origin,
+            vel: ae::Vec2::ZERO,
+            air_jumps_left: at.air_jumps_left,
+        };
+        let body = self.scratch(moved);
+        ae::movement::recovery::probe_recovery(&self.world, &body, self.frame, self.probe)
     }
 
     /// ASK THE KERNEL WHICH OF THIS BODY'S ACTIONS IS USEFUL FROM HERE.
@@ -262,12 +298,21 @@ impl RecoveryLens {
             };
         }
         for (index, route) in self.routes.iter().enumerate() {
-            last = ae::movement::recovery::probe_recovery(
-                &self.world,
-                &body,
-                self.frame,
-                self.armed(*route),
-            );
+            last = match *route {
+                ambition_entity_catalog::RecoveryRoute::Burst { speed, side, at_s } => {
+                    ae::movement::recovery::probe_recovery(
+                        &self.world,
+                        &body,
+                        self.frame,
+                        self.armed(speed, side, at_s),
+                    )
+                }
+                // A route with nothing to search is not a route; `lifting_candidates`
+                // filters these out, and the arm is here so a future kind cannot
+                // be silently probed as a burst.
+                ambition_entity_catalog::RecoveryRoute::None => continue,
+                carrying => self.carried(at, carrying.carry()),
+            };
             if last.regained() {
                 return RouteVerdict {
                     outlook: last,

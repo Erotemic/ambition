@@ -12,7 +12,7 @@
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
 | [`author_moveset`](src/author_moveset.rs) | The Author — the sword archetype's table, wielded with a pen. |
 | [`authored`](src/authored/mod.rs) | Every character this provider AUTHORS, one file each. |
-| [`authored_movesets`](src/authored_movesets.rs) | Every moveset this crate authors, in one list. |
+| [`authored_movesets`](src/authored_movesets.rs) | Every moveset THIS CRATE authors, in one list. |
 | [`banter`](src/banter.rs) | Ambition's authored combat-banter lines. |
 | [`bob_moveset`](src/bob_moveset.rs) | Bob's repertoire — the engineer, and the one who RECEIVES. |
 | [`bosses`](src/bosses/mod.rs) | Named Ambition boss content registration. |

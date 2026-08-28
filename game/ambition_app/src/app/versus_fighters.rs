@@ -4,14 +4,14 @@
 //! They reference existing sprite sheets; missing attack rows use the normal
 //! animation fallback path.
 
-use ambition_platformer2d::actors::character_runtime::{POSE_HITSTUN};
+use ambition_platformer2d::actors::character_runtime::POSE_HITSTUN;
+use ambition_platformer2d::character::CharacterDefinition;
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::combat::moveset::{simple_melee, SimpleMeleeParams};
 use ambition_platformer2d::entity_catalog::{
     HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
 };
 use ambition_platformer2d::entity_catalog::{MoveGates, MovesetContract, RecoveryUse};
-use ambition_platformer2d::character::CharacterDefinition;
 
 /// Per-character parameters for the shared duelist moveset.
 #[derive(Clone, Copy, Debug)]
@@ -89,6 +89,7 @@ pub fn duelist_moveset(numbers: DuelistNumbers) -> MovesetContract {
             // statement `SmashRepertoire::GROUNDED` makes. Left at the engine
             // default, which is "the body keeps steering".
             roots_steering: false,
+            recovery_route: None,
             // Not a recovery: the duel arena authors no up-B slot, so nothing
             // here spends the once-per-airtime budget.
             recovery: RecoveryUse::None,

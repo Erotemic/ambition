@@ -41,6 +41,7 @@ const GROUNDED: MoveGates = MoveGates {
     // by the same statement. A dash attack keeps its slide, which is the move's
     // own impulse and never was steering.
     roots_steering: true,
+    recovery_route: None,
 };
 /// Aerials are airborne-only for the mirror reason: a grounded press must not
 /// reach a move whose whole design is that landing costs you.
@@ -59,6 +60,7 @@ const AIRBORNE: MoveGates = MoveGates {
     // rule: the genre trades ground control for air control, and a fighter that
     // could not steer a forward air would lose every edgeguard it has.
     roots_steering: false,
+    recovery_route: None,
 };
 /// The specials: a move that answers its button from the ground OR the air.
 const EITHER: MoveGates = MoveGates {
@@ -76,6 +78,7 @@ const EITHER: MoveGates = MoveGates {
     // What a special does to its owner's motion is the SPECIAL's own business
     // and is authored on its windows.
     roots_steering: false,
+    recovery_route: None,
 };
 
 /// The neutral special, or a stated reason there is no authored one.
@@ -415,6 +418,11 @@ impl SmashRepertoire {
                 // `recovery` above. `call_the_shark` sets it; a stance template
                 // overwriting it would delete the rule.
                 forbidden_while_held: _,
+                // ⛔ THE MOVE'S OWN, for the same reason as the two above: only
+                // the move can say it summons a vehicle or teleports, and a
+                // posture template that overwrote it would delete the route the
+                // planner reads.
+                recovery_route: _,
             } = gates;
             spec.gates.grounded = grounded;
             spec.gates.roots_steering = roots_steering;
@@ -453,6 +461,7 @@ mod tests {
             gates: MoveGates {
                 grounded: Some(true),
                 roots_steering: false,
+                recovery_route: None,
                 // ⛔ A POSTURE KNOWS NOTHING ABOUT RECOVERIES. This is the neutral value the
                 // lowering loop then DISCARDS in favour of whatever the move or the slot
                 // said; see the destructure in `into_contract`.

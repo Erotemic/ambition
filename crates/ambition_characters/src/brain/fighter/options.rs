@@ -267,29 +267,46 @@ impl OptionSet {
 /// would let a big negative reach_fit be bought back by kill potential.
 const REACH_TOLERANCE: f32 = 2.0;
 
-/// Candidate self-displacement routes with positive against-gravity speed.
+/// Every move in this kit that OFFERS A WAY HOME, in a deterministic order.
 ///
-/// Candidates are sorted by lift speed then move id for deterministic bounded
-/// probing; [`RecoveryLens::best_route`](super::recovery::RecoveryLens::best_route)
-/// decides usefulness from current world state. Legality/posture filtering is
-/// upstream.
+/// ⭐⭐ THE FILTER IS THE ROUTE, NOT THE LIFT. This asked `lift_speed > 0.0`,
+/// which is the shape of exactly one route kind — the genre's ordinary up-B —
+/// and so it could not see the pirate's shark (seconds of movement authority)
+/// or the Author's teleport (a discontinuity). Both author a real way home and
+/// both read `0.0` here, so the CPU saw a fighter with no recovery at all
+/// (D250). `MoveFrameData::recovery_route` is the resolved answer and this asks
+/// it.
 ///
-/// TODO(recovery-search): measure whether bounded probing should also include
-/// purely horizontal displacement routes.
+/// ⛔ LEGALITY STILL APPLIES, and it is the same rule as before: a body past the
+/// blastzone has one problem, and a route it cannot BEGIN does not solve it.
+///
+/// ⛔ THE ORDER IS NOT A RANKING. It is a deterministic prefix for bounded
+/// probing (ADR 0023) and the LENS decides usefulness from the current world —
+/// which is the whole reason it is not sorted by "how much lift". Bursts come
+/// first by lift because that is the order this list has always had and the
+/// existing seats depend on nothing else; the carrying routes follow, longest
+/// carry first, then move id.
 pub fn lifting_candidates(kit: &[AttackCandidate]) -> Vec<&AttackCandidate> {
-    // legality applies here too, and it is the same rule. A body past the
-    // blastzone has one problem, but a lifting move it cannot BEGIN does not
-    // solve it — offering one would make `Recovery` name a route the press
-    // cannot take, which is the failure this filter exists to stop one layer up.
     let mut lifts: Vec<&AttackCandidate> = kit
         .iter()
-        .filter(|c| c.legality == ActionLegality::Now && c.frames.lift_speed > 0.0)
+        .filter(|c| {
+            c.legality == ActionLegality::Now && c.frames.recovery_route.offers_a_way_home()
+        })
         .collect();
+    let key = |c: &AttackCandidate| match c.frames.recovery_route {
+        ambition_entity_catalog::RecoveryRoute::Burst { speed, .. } => (0u8, speed),
+        other => (1u8, other.carry()),
+    };
     lifts.sort_by(|a, b| {
-        b.frames
-            .lift_speed
-            .partial_cmp(&a.frames.lift_speed)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        let (a_kind, a_size) = key(a);
+        let (b_kind, b_size) = key(b);
+        a_kind
+            .cmp(&b_kind)
+            .then_with(|| {
+                b_size
+                    .partial_cmp(&a_size)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .then_with(|| a.move_id.cmp(&b.move_id))
     });
     lifts

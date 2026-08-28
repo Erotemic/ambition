@@ -158,7 +158,15 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
 ## Priority 4 — architecture still open
 
-- ▢ **R12 — finish the `PoseOwnedExternally` contract.** It currently means
+- ▣ **R12 — CLOSED `fc04a8990`. Finish the `PoseOwnedExternally` contract.**
+  The doc names ownership axis by axis and an app-level arm asserts each on a
+  real ride. ⛔ The speculative harms do NOT happen — measured over 299 mounted
+  ticks: zero ledge grabs, zero gait, grounded only on the handoff tick — so the
+  kernel's discarded pass is WASTED, not wrong, and the decomposition would have
+  repaired a defect nobody has. ⭐ What the test DID find: an evade is spent out
+  of the maneuver BUFFER, so a press made on the floor was still spent inside the
+  saddle (air dodge on mounted tick 2). The control phase refuses the spend —
+  refused, not erased. It currently means
   four things (zero voluntary axes, verbs cleared, tumbling launch travel
   deferred, kernel otherwise runs) and says nothing about what an externally
   posed body still ADVANCES. Decide ownership explicitly for gravity,

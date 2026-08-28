@@ -267,3 +267,99 @@ fn hadouken_expires_on_solid_in_system() {
         bodies.len()
     );
 }
+
+/// ⛔⛔ WHICH OF TWO OVERLAPPING VICTIMS A SHOT HITS WAS QUERY ORDER (D199).
+///
+/// The victim loop `break`s on the first row that qualifies, and it iterated a
+/// Bevy query — archetype order, which is not a promise and which a rollback
+/// resimulation does not reproduce. Damage is rollback-authoritative state, so
+/// deciding it by iteration order is deterministically wrong.
+///
+/// ⭐ THE ARM THAT CATCHES IT IS SPAWN ORDER, not a single arrangement: the two
+/// bodies are spawned near and far, then far and near, and the SAME one must be
+/// hit both times. A test that spawned them once would agree with the bug
+/// whenever the archetype happened to list the near body first.
+#[test]
+fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() {
+    fn hit_victim(near_first: bool) -> String {
+        let mut app = min_app();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        // ⛔ BOTH MUST ACTUALLY OVERLAP THE SHOT, or the test proves nothing:
+        // a fireball at 395 moving 50px/s covers 0.8px in a tick, so bodies
+        // 40px apart are not a choice — only the near one is ever reachable and
+        // the loop has nothing to arbitrate. 28px-wide bodies at 400 and 408
+        // both contain the endpoint. (Measured: the first version placed them at
+        // 400 and 440 and passed with the ordering REMOVED.)
+        let order = if near_first {
+            [("near", 400.0), ("far", 408.0)]
+        } else {
+            [("far", 408.0), ("near", 400.0)]
+        };
+        app.add_systems(
+            Startup,
+            move |mut commands: Commands,
+                  catalog: Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >| {
+                for (id, x) in order {
+                    crate::features::spawn_encounter_mob(
+                        &mut commands,
+                        &catalog,
+                        &Default::default(),
+                        &crate::character_runtime::fixture_cast(&["fixture_striker"]),
+                        ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                        "projectile_test",
+                        crate::features::EncounterMobSeed {
+                            id: id.into(),
+                            character: Some("fixture_striker"),
+                            brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                                "fixture_striker".into(),
+                            ),
+                            pos: ae::Vec2::new(x, 300.0),
+                            size: ae::Vec2::new(28.0, 46.0),
+                        },
+                    );
+                }
+            },
+        );
+        app.update();
+        {
+            let spec = ProjectileKind::Fireball.spec(
+                ae::Vec2::new(395.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ambition_projectiles::ProjectileBody::from_spec(spec);
+            body.kin.pos = ae::Vec2::new(395.0, 300.0);
+            body.kin.vel = ae::Vec2::new(50.0, 0.0);
+            crate::projectile::tests::spawn_player_projectile(&mut app, body);
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        let world = app.world_mut();
+        let mut query = world.query::<(&ActorIdentity, &BodyHealth)>();
+        let hurt: Vec<String> = query
+            .iter(world)
+            .filter(|(_, health)| health.health.current < health.health.max)
+            .map(|(identity, _)| identity.id().to_string())
+            .collect();
+        assert_eq!(
+            hurt.len(),
+            1,
+            "exactly one body should take the shot: {hurt:?}"
+        );
+        hurt.into_iter().next().unwrap()
+    }
+
+    assert_eq!(hit_victim(true), "near");
+    assert_eq!(
+        hit_victim(false),
+        "near",
+        "the far body took the shot because it was spawned first — the victim \
+         is being chosen by archetype order, which a rewind does not reproduce"
+    );
+}

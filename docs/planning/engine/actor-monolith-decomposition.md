@@ -1096,6 +1096,18 @@ this crate**, which is precisely how a census reads the monolith as their owner.
 Deleted; 66 files repointed. ⭐ the module is not a facade otherwise: `MatchSeat`,
 `ActiveMatch`, `PreparedMatch`, `MatchRules` and the load states really are its
 own, so this is a republication removed rather than a module carved.
+✔✔ **AND WITH THOSE GONE, `actor_clusters` (1,409 lines) NAMES ZERO MONOLITH
+PATHS IN ANY OF THE THREE SHAPES.** Its last one was
+`character_sprites::sprite_body_collision_for_character_id_in`, whose entire body
+is `catalog.data()` plus a call to
+`ambition_sprite_sheet::…::sprite_body_collision_for_character_id_from_data` —
+and all three callers already held both halves. Naming the derivation directly
+made a 1,409-line module look decoupled over a `.data()`.
+⇒ **`actor_clusters` is the thing that kept `damage` and `integrate_boss_bodies`
+where they are, and it is now the next carve.** ⚠ price it before believing this:
+what remains is its OUTWARD deps and whether a destination can hold
+`ActorClusterQueryData`, `ActorMut` and `ActorClusterSeed` without an upward edge.
+
 ⭐ **DO IT COMPILER-DRIVEN.** Delete the `pub use` block FIRST and let the 87
 errors enumerate the callers; a sed sweep over qualified paths misses the grouped
 `use super::{A, B}` forms and the bare names inside the module's own children. But a census cannot tell composition from republication, so the

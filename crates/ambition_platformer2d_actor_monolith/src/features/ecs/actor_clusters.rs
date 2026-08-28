@@ -345,9 +345,13 @@ pub fn sprite_render_size_for_name_in(
     catalog
         .id_for_authored_identity(name)
         .and_then(|cid| {
-            crate::character_sprites::sprite_body_collision_for_character_id_in(
+            // ⭐ THE DERIVATION, NOT THE MONOLITH'S ADAPTER AROUND IT. The
+            // adapter's whole body is `catalog.data()` plus this call, and this
+            // caller already holds both halves — so naming it here made
+            // `actor_clusters` look coupled to the monolith over a `.data()`.
+            ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(
                 authored,
-                catalog,
+                catalog.data(),
                 cid,
                 ldtk_fallback,
             )
@@ -499,9 +503,9 @@ impl ActorClusterSeed {
         // remember the render-quad size so the sprite still draws at scale.
         let ldtk_collision = aabb.half_size() * 2.0;
         let body = character_id.and_then(|cid| {
-            crate::character_sprites::sprite_body_collision_for_character_id_in(
+            ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(
                 authored,
-                catalog,
+                catalog.data(),
                 cid,
                 ldtk_collision,
             )
@@ -733,9 +737,9 @@ impl ActorClusterSeed {
         // same character resolves it — one body per character, however it is
         // spawned.
         let ldtk_collision = aabb.half_size() * 2.0;
-        let sprite_body = crate::character_sprites::sprite_body_collision_for_character_id_in(
+        let sprite_body = ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(
             authored,
-            catalog,
+            catalog.data(),
             character_id,
             ldtk_collision,
         );

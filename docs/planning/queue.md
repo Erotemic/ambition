@@ -12981,8 +12981,11 @@ reference to the thrower and so stays inside the stepper's pure signature.
 Author's, same technique and assist radius, different effect ids.
 
 **Bomb down-B** — a `GroundItem` with a fuse, so the pick-up-and-throw half is
-machinery the engine already installs. ⚠ its own module records the gap: only the
-CONTROLLED SUBJECT can pick one up today.
+machinery the engine already installs. ⚠ its own module recorded a gap — only the
+CONTROLLED SUBJECT could pick one up — ✔ **closed since, by R10 (`a901cdc2f`)**:
+the pickup/throw/fire loop runs over `DrivenBodies`, the union of the controlled
+subject and every `DrivingParticipant`, ordered by `SimId`. Four seats, four
+hands.
 
 ⛔⛔ FOUR SCHEMA BUMPS IN ONE BRANCH, v122 → v126: `actor.move_brandished_item`,
 `actor.stored_move_charge`, the projectile codec's `accel`, and

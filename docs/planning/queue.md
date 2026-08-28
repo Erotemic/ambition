@@ -9621,7 +9621,28 @@ the tag as a literal `0/1/2/3`, so it names the VALUES, not the type's path.
 ⇒ **what remains is ONE concept, not four**: the `StateMachineCfg::Fighter`
 variant, which `state_machine/mod.rs` declares, `brain/mod.rs` maps to the string
 `"fighter"`, the codec tags `3`, and the monolith matches at eight sites. ⭐ the
-ratchet stayed green throughout.
+ratchet stayed green throughout, and its `brain/snapshot.rs` CARVE-OUT is gone —
+an exclusion kept past the edge it excused is a hole, and that file is guarded now
+(poison-verified both ways).
+
+⭐⭐ **AND THE CARVE IS NOT WHAT ITS NAME SAYS — measured 2026-08-28. THE FIGHTER
+BRAIN IS ALREADY TWO CRATES, and the thinking is already above the floor:**
+
+```text
+ambition_combat::brain::fighter        7,398   the THINKING — `tick_fighter`,
+                                               dispatched from the monolith's
+                                               `brain_tick`
+ambition_characters::brain::fighter    3,596   the DATA — cfg, state, options,
+                                               situation, profile
+ambition_combat::brain::smash          4,529   (the same shape, one arm over)
+```
+
+⇒ **the slice is not "carve the fighter brain out of the floor" — it is "let the
+DATA join its own behaviour"**, which is one crate move, not a new crate. And the
+thing pinning the data down is precisely the enum variant: `StateMachineCfg::
+Fighter { cfg, state }` is why `FighterCfg`/`FighterState` cannot leave, while
+`tick_fighter` left long ago. ⚠ the seam is still the blocker; it is just a much
+smaller and better-understood one than "10,644 lines want a home".
 
 `brain/fighter` was recorded as 10,644 lines; the GENERIC brain named it
 in five places (widened from an initial undercount of three — the contract's

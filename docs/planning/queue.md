@@ -10127,6 +10127,40 @@ refuses body lifecycle   spawn/despawn/residency/possession are the actor
 contract — hitlag and hitstop are rules a fight obeys, not decoration on one — so
 the next borderline case has a worked example rather than only a rule.
 
+⭐⭐ **AND THE ROW FINALLY HAS AN EXIT, because its thesis is COUNTABLE — measured
+2026-08-28.** Of the eighteen crates that are carve destinations, **three state
+what they REFUSE** (`ambition_combat`, `ambition_platformer2d_shared_tangle`,
+`ambition_binding`) and fifteen say only what they hold. That is this row in one
+number, and it is why the row could never close: it was a principle with no
+count.
+
+▢ **EXIT: every ACTIVE carve destination states its refusal.** Not all eighteen —
+a crate nobody is carving into does not need the sentence, and inventing refusals
+for it would be fabrication dressed as documentation.
+
+✔ **Three more written 2026-08-28, and each cites the event that proves it** —
+the row's own method, since a refusal nobody has tested is an aspiration:
+
+```text
+ambition_characters       refuses the actor INTEGRATION layer (already a
+                          checked absence contract) and anything the SHEET
+                          derives — `ActorSpriteMetrics` was refused here first
+ambition_boss_encounter   refuses GENERIC body geometry. A boss was the first
+                          customer of AABB overlap and `CombatGeometry`, not
+                          their owner, and holding them made a whole seam read
+                          as boss vocabulary. 531 lines left this month.
+                          ⇒ the test: would the SECOND consumer be a boss?
+ambition_sprite_sheet     refuses anything `ambition_characters` must read (it
+                          depends on that crate, so hosting one inverts the
+                          edge) and refuses to say how tall a body STANDS —
+                          the catalog decides that; the sheet supplies the
+                          pixels it is measured against
+```
+
+⇒ **six of the active destinations now state one; `ambition_mount`,
+`ambition_damage` and `ambition_conversation` do not yet**, and those three are
+the remaining work on this row rather than the other twelve.
+
 ⛔⛔ **AND THE SHARPER LESSON, from the crate literally named `shared_tangle`: a
 DEPENDENCY refusal is not an ADMISSION RULE.** Its header already said it depends
 on no monolith, content, presentation, app assembly or devtools — and turned away

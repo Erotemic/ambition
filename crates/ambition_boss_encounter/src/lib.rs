@@ -8,6 +8,18 @@
 //! The runtime owns the outer progression schedule; this crate exposes named content
 //! sets so game-specific systems can interleave without the runtime depending on
 //! boss content.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES, because a destination that says nothing accepts
+//! everything — and this one accepted for months.
+//!
+//! - **Generic body geometry.** A boss was the FIRST customer of AABB overlap,
+//!   swept extents and the shared `CombatGeometry` vocabulary, not their owner,
+//!   and holding them made every consumer read that vocabulary as boss-specific.
+//!   531 lines left for `ambition_combat::body_geometry` and the sprite metrics
+//!   for `ambition_sprite_sheet`; ⛔ do not let the next generic concept land here
+//!   because a boss needed it first.
+//! - **Anything whose second consumer would not be a boss.** That is the test,
+//!   and it is answerable before the code moves.
 
 pub mod anim;
 pub mod attack_geometry;

@@ -5,6 +5,19 @@
 //! in game content crates. Genre-specific platform-fighter policy currently lives here for
 //! dependency reasons but is a carve target; floor-level APIs should remain vocabulary that
 //! every platformer composition can reasonably share.
+//!
+//! ⛔⛔ WHAT THIS CRATE REFUSES, because a destination that says nothing accepts
+//! everything.
+//!
+//! - **The actor INTEGRATION layer.** A character is what a body IS and what
+//!   decides for it; wiring bodies into a running simulation is the layer above.
+//!   Enforced rather than promised —
+//!   `characters-do-not-depend-on-the-actor-integration-layer` in
+//!   `scripts/check_absence_contracts.py` is that sentence as a check.
+//! - **Anything the SHEET derives.** Frame rects, measured body extents and
+//!   render sizes belong to `ambition_sprite_sheet`, which depends on this crate;
+//!   hosting them here inverts that edge. `ActorSpriteMetrics` was refused on
+//!   exactly this ground before it found its owner.
 
 pub mod action_scheme;
 pub mod actor;

@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`actor_sprite_metrics`](src/actor_sprite_metrics.rs) | What a generated sheet says about the BODY inside its frames: frame size, the per-animation pixel rectangles, and the render size those imply. |
 | [`baked_portrait_rons`](src/baked_portrait_rons.rs) | Compile-time table of `(asset_relative_manifest_path, ron_text)` pairs for every independently published `*_portraits.ron` under `assets/sprites/`. |
 | [`baked_sheet_rons`](src/baked_sheet_rons.rs) | Compile-time table of `(filename_root, ron_text)` pairs for every `*_spritesheet.ron` under `assets/sprites/`. |
 | [`binding`](src/binding.rs) | Typed animation-row binding for one sprite sheet. |
@@ -21,7 +22,7 @@
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

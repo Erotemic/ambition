@@ -2724,3 +2724,238 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
         .map_or(0, |h| h.damage_taken());
     (vel, after - before, frames)
 }
+
+/// ⭐⭐ WHAT A BODY THE SADDLE OWNS STILL ADVANCES — the `PoseOwnedExternally`
+/// contract, stated as behaviour.
+///
+/// D255/R12. The marker meant four things and said none of them: zero the stick,
+/// clear the movement verbs, defer a tumbling launch's travel, and otherwise run
+/// the ordinary kernel — while `sync_riders_to_mounts` overwrites position,
+/// velocity, facing and the ground fact afterwards. Two authorities compute a
+/// displacement and one of them wins, which is the arrangement the marker was
+/// introduced to remove.
+///
+/// ⛔⛔ AND THE SPECULATIVE HARMS DO NOT HAPPEN — measured before writing this,
+/// with the stick jammed toward the stage edge for 299 mounted ticks: ZERO ledge
+/// grabs, ZERO gait facts, and grounded on exactly the one tick he boards from.
+/// The kernel's pass is WASTED, not WRONG. Decomposing the kernel to fix that
+/// would have been a repair to a defect nobody has.
+///
+/// ⇒ SO WHAT WAS MISSING IS THE WRITING-DOWN. Every one of those properties held
+/// by luck — by the pin's `invalidate()`, by the cleared stick — and nothing said
+/// which were guaranteed. This arm is the guarantee:
+///
+/// ```text
+/// DISPLACEMENT   the constraint's, wholly. Velocity is ZERO on every mounted
+///                tick, so no integration of the kernel's survives to the next.
+/// GROUND         the constraint's: a body in a saddle is not standing on
+///                anything, whatever a fabricated sweep would have said.
+/// LEDGES         unreachable. A rider cannot catch what it is not travelling
+///                past under its own power.
+/// GAIT           unpublished. `running`/`dashing` describe a body driving
+///                itself, and this one is not.
+/// CLOCKS         STILL RUNNING, and that is the half `out_of_play` gets wrong
+///                for its own good reasons — a rider swings from the saddle, so
+///                hitstun has to decay or the flinch that put it there never
+///                ends.
+/// ```
+#[test]
+fn a_saddled_body_advances_its_clocks_and_none_of_its_displacement() {
+    use ambition_platformer2d::actor::MatchSeat;
+    use ambition_platformer2d::mount::RidingOn;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    app.world_mut()
+        .insert_resource(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+    for _ in 0..900 {
+        app.update();
+        let (seated, held) = {
+            let world = app.world_mut();
+            let mut all = world.query::<&MatchSeat>();
+            let seated = all.iter(world).count();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ScriptedControl>,
+            >();
+            (seated, q.iter(world).count())
+        };
+        if seated > 0 && held == 0 {
+            break;
+        }
+    }
+    let seat0 = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MatchSeat)>();
+        q.iter(world)
+            .find(|(_, seat)| seat.0 == 0)
+            .map(|(entity, _)| entity)
+            .expect("the match seats a first fighter")
+    };
+
+    let up_special = ambition_platformer2d::engine_core::ControlFrame {
+        axis_y: -1.0,
+        special_pressed: true,
+        special_held: true,
+        ..Default::default()
+    };
+    ambition_platformer2d::sim::drive_control_frame(app.world_mut(), up_special);
+    app.update();
+    for _ in 0..9 {
+        ambition_platformer2d::sim::drive_control_frame(
+            app.world_mut(),
+            ambition_platformer2d::engine_core::ControlFrame {
+                special_pressed: false,
+                ..up_special
+            },
+        );
+        app.update();
+    }
+    // Steer HARD toward the stage edge for the whole ride: a rider that can
+    // catch a ledge it should not is only visible where there is a ledge.
+    // ⛔⛔ GUARD HELD, NOT JUMP. Clearing the movement verbs is the half of this
+    // contract with a consequence the constraint cannot undo — a snap fixes a
+    // position, not a spent evade — so the arm that measures it has to actually
+    // hold one. ⚠ Jump was the obvious press and it is the WRONG one: jump is
+    // how a rider bails out of the saddle, so holding it ended the ride on tick
+    // one and the whole arm measured a pirate standing on the floor.
+    let steer = ambition_platformer2d::engine_core::ControlFrame {
+        axis_x: -1.0,
+        axis_y: 1.0,
+        shield_held: true,
+        ..Default::default()
+    };
+    let dodge_spent = |app: &App| {
+        app.world()
+            .get::<ambition_platformer2d::engine_core::BodyDodgeState>(seat0)
+            .is_some_and(|dodge| dodge.air_dodge_spent)
+    };
+    let mut riding_ticks = 0;
+    let mut ledge_ticks = 0;
+    let mut ground_ticks: Vec<usize> = Vec::new();
+    let mut gait_ticks = 0;
+    let mut moving_ticks = 0;
+    let mut carried = 0.0_f32;
+    let mut started_at = None;
+    for _ in 0..300 {
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), steer);
+        app.update();
+        let Some(mount) = app.world().get::<RidingOn>(seat0).map(|r| r.mount) else {
+            continue;
+        };
+        riding_ticks += 1;
+        let kin = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(seat0)
+            .expect("a rider has kinematics");
+        let here = kin.pos;
+        started_at.get_or_insert(here);
+        carried = carried.max(here.distance(started_at.expect("set above")));
+        if kin.vel != ambition_platformer2d::engine_core::Vec2::ZERO {
+            moving_ticks += 1;
+        }
+        // ⛔ THE RIDER IS WHERE THE MOUNT IS. Not asserted as an offset — that
+        // number is the saddle's and belongs to the mount crate's own tests —
+        // but as a bound: a rider whose own integration survived would drift
+        // out of the saddle within a few ticks of a 260px/s flight.
+        let mount_pos = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(mount)
+            .expect("the mount has kinematics")
+            .pos;
+        assert!(
+            here.distance(mount_pos) < 96.0,
+            "the rider is {:.0}px from its mount — the saddle is not the only \
+             authority on where it is",
+            here.distance(mount_pos)
+        );
+        let facts = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyMotionFacts>(seat0);
+        if facts.is_some_and(|f| f.ledge.is_some()) {
+            ledge_ticks += 1;
+        }
+        if facts.is_some_and(|f| f.running || f.dashing || f.initial_dashing) {
+            gait_ticks += 1;
+        }
+        if app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyGroundState>(seat0)
+            .is_some_and(|g| g.on_ground)
+        {
+            ground_ticks.push(riding_ticks - 1);
+        }
+    }
+
+    // ⛔ THE PREMISE: he rode, and he rode SOMEWHERE. Every count below is zero
+    // for a test that measured a pirate standing on the floor.
+    assert!(
+        riding_ticks > 60,
+        "only {riding_ticks} mounted ticks were observed, so the counts below \
+         are about almost nothing"
+    );
+    assert!(
+        carried > 100.0,
+        "the ride moved him {carried:.0}px — a saddle that goes nowhere would \
+         satisfy every assertion here for the wrong reason"
+    );
+
+    assert_eq!(
+        moving_ticks, 0,
+        "the rider ended {moving_ticks} of {riding_ticks} mounted ticks carrying \
+         velocity. The saddle owns displacement; a nonzero velocity is the \
+         kernel's own integration surviving into the next tick, which is the \
+         second authority `PoseOwnedExternally` exists to remove"
+    );
+    // ⛔⛔ THE HANDOFF TICK IS NOT A DEFECT, AND FINDING THAT OUT IS WHY THIS
+    // COUNTS INDICES RATHER THAN OCCURRENCES. The shark appears where the
+    // admiral is standing and the pin takes his pose on that same tick, so on
+    // mounted tick ZERO he is genuinely still on the floor — the constraint is
+    // holding him where he is, which is on it. From tick one the ride has him
+    // and the floor is not an answer any more. A test that simply demanded zero
+    // would be asserting that the handoff is instantaneous, which it is not, and
+    // one that skipped a leading window would be hiding how wide that window is.
+    assert_eq!(
+        ground_ticks,
+        vec![0],
+        "the rider was grounded on mounted ticks {ground_ticks:?}. Tick 0 is the \
+         handoff, where he really is still on the floor; anything else is a body \
+         in a saddle standing on something"
+    );
+    // ⚠ THESE TWO ARE CONSEQUENCES, NOT INDEPENDENT GUARANTEES, and saying so is
+    // the point. Poison-checked: restoring the live stick leaves both at zero,
+    // because `running` needs `on_ground` and a ledge needs a body travelling
+    // past one — both of which the ground fact above already denies. They are
+    // kept as guards against a future change that hands either back, and they
+    // measure nothing about the stick clearing, which the jump arm below does.
+    assert_eq!(
+        ledge_ticks, 0,
+        "the rider caught a ledge {ledge_ticks} times while somebody else was \
+         flying it past one"
+    );
+    assert_eq!(
+        gait_ticks, 0,
+        "the rider published a gait on {gait_ticks} mounted ticks; `running` and \
+         `dashing` describe a body driving itself"
+    );
+
+    // ⭐ THE VERB HALF, and it is the one with a consequence. He held the guard
+    // and a direction for the whole ride — grounded that is a roll, airborne it
+    // is an air dodge — and a saddle can put a body back where it belongs and
+    // cannot give a spent evade back.
+    assert!(
+        !dodge_spent(&app),
+        "the rider spent its air dodge while somebody else owned its pose"
+    );
+}

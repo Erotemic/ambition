@@ -20,7 +20,42 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — the only whole-workspace test build is a disk tool
+## 2026-08-28, LATEST — three sizes in three documents were 3–4× wrong
+
+⛔⛔ **A NUMBER INSIDE REASONING NOBODY DOUBTS IS NEVER RE-CHECKED.** Three
+figures, all describing the same module, all quoted to price the same carve:
+
+```text
+D166 (queue.md)          "brain/fighter is 10,644 lines"      → 3,596
+brain/mod.rs (a comment) "three arms are 22k lines"           → 5,399
+brain_tick.rs            the same 22k, in the file the split   → corrected
+                         produced
+```
+
+⇒ the ARGUMENTS did not depend on them (a floor-crate dispatcher cannot call
+upward at any size), which is exactly why they survived — and a slice looked 3× its
+size for nine days. ⭐ **`wc -l` the thing before quoting a plan's size.**
+
+⭐⭐ **AND THE FIGHTER CARVE IS NOT WHAT ITS NAME SAYS.** The thinking already
+lives above the floor (`ambition_combat::brain::fighter`, 7,398 lines,
+`tick_fighter` dispatched from the monolith); what is stuck in `ambition_characters`
+is the DATA (3,596). ⇒ the slice is *"let the data join its own behaviour"*, and
+the thing pinning it down is one enum variant.
+✔ **two of its four edges closed the same day, with no seam and no wire change**:
+`AttackCandidate`/`AttackBinding`/`AttackVerb`/`ActionLegality` were never fighter
+vocabulary — `AttackBinding`'s own doc says *"the ordinary gesture vocabulary, not
+a fighter-only bypass"* — and live in `brain/attack_kit.rs` now. The ratchet's
+`brain/snapshot.rs` carve-out went with the edge it excused; ⛔ an exclusion kept
+past its edge is a hole, not a record.
+
+⚠ **AND WHEN A CHECKER REFUSES YOUR ADDITION, READ WHAT IT SAYS THE RULE IS.** I
+tried to declare `SurfaceRamp::segments` in the LDtk contract; the Python set
+rejected the new `on_invalid` word and the Rust prover then explained the actual
+constraint — *"only an `open` field may have no rule"* — because a disposition
+describes what happens to a value the GRAMMAR rejects, and that field declares no
+grammar. The omission was CORRECT. Reverted whole.
+
+## 2026-08-28 — the only whole-workspace test build is a disk tool
 
 ⛔⛔ **`cargo check -p ambition_app --all-targets` CANNOT SEE ANOTHER CRATE'S TEST
 TARGET, AND NEITHER CAN `cargo build -p <demo>`.** Three broken test targets

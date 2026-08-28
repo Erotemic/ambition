@@ -131,6 +131,7 @@ mod smash_in_the_host;
 mod one_update_one_tick;
 mod zero_duration_pump;
 mod smash_ride;
+mod the_trap_holds_her_under;
 mod smash_roster_movesets;
 mod starting_character_selection;
 mod stocks;

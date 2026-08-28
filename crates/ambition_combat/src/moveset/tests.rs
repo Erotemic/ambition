@@ -3963,6 +3963,7 @@ fn charging_smash() -> MoveSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
             stores: false,
+            roots: true,
         }),
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -4201,6 +4202,59 @@ fn the_released_fraction_is_frozen_for_the_rest_of_the_move() {
         );
         assert!((pb.charge_scale() - scale).abs() < 1e-6);
     }
+}
+
+/// ⛔⛔ ...AND A CHARGING TRAPDOOR TRAVELS. The freeze is one mechanic and it
+/// serves two moves: a smash holds a WINDUP, and the Actor's trapdoor holds a
+/// second of travel under the stage. Jon asked for both in his own words — *"they
+/// should not be able to walk or move"* for the first, *"I do want the player to
+/// be able to control where they move"* for the second — so the policy says
+/// which it is instead of the runtime inferring it from the gesture.
+///
+/// ⛔ THE SAME FIXTURE AND THE SAME PRESS as the rooted arm below, with ONE
+/// field changed. A test that built its own app could pass while agreeing with
+/// the bug, because what is being pinned is that `roots` reaches
+/// `motion_scale_now` through the live playback — not that the field exists.
+#[test]
+fn a_charge_whose_policy_does_not_root_leaves_the_body_its_steering() {
+    let (mut app, body) = smash_charge_app();
+    // The one difference from the rooted arm: this policy holds travel.
+    {
+        let mut moveset = app
+            .world_mut()
+            .get_mut::<ActorMoveset>(body)
+            .expect("the fixture body carries a moveset");
+        for m in &mut moveset.0.moves {
+            if let Some(policy) = m.smash_charge.as_mut() {
+                policy.roots = false;
+            }
+        }
+    }
+    press_smash(&mut app, body, true);
+    for _ in 0..6 {
+        app.update();
+    }
+    let held = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the smash is playing")
+        .clone();
+    assert!(
+        held.charge.is_some_and(|c| c.charging()),
+        "the premise: the clock is frozen at the hold point, t = {}",
+        held.t,
+    );
+    assert!(
+        !held.rooted_by_charge(),
+        "a policy that does not root reported a rooted body",
+    );
+    assert_eq!(
+        held.motion_scale_now(),
+        held.spec.motion_scale_at(held.t),
+        "a non-rooting freeze took {} of the body's steering; the move's own \
+         authored lock is the only authority while it holds",
+        held.motion_scale_now(),
+    );
 }
 
 /// ⛔ A CHARGING FIGHTER DOES NOT WALK. Jon, 2026-08-23: *"when the character is
@@ -7512,6 +7566,7 @@ fn storing_smash() -> MoveSpec {
         hold_at_s: CHARGE_HOLD_AT_S,
         max_hold_s: CHARGE_MAX_HOLD_S,
         stores: true,
+        roots: true,
     });
     spec
 }

@@ -57,6 +57,10 @@ struct SceneCaptureConfig {
     fit_room: bool,
     /// Optional `character_catalog.ron` id to spawn the player AS (its sprite +
     /// moveset). `None` = the default protagonist. Behind `--character <id>`.
+    ///
+    /// ⭐ ON `--route smash_gameplay` IT SEATS A MATCH instead, two of this
+    /// character against each other — because a smash move photographed in an
+    /// exploration room is photographed under exploration rules.
     character: Option<String>,
     /// When the focus positional is the literal `player`, center the camera on
     /// the live player entity's position after warmup (no coordinate hunting).
@@ -179,6 +183,7 @@ OPTIONS:
     --frames N          take N shots, numbered <stem>.NNNN.png [default: 1]
     --stride K          sim frames between shots of a sequence [default: 1]
     --character ID      spawn the player AS this catalog character
+                        (with --route smash_gameplay: seats a match of two)
     --route ID          photograph a shell route instead of a room
     --press SEQ         drive input first, e.g. `Down,Enter` or `touch:167x523`
                         (`hold:up` / `release:up` / `wait:30` also work)
@@ -868,6 +873,35 @@ fn go_to_route(
              as booted rather than re-activating it"
         );
         return;
+    }
+    // ⭐⭐ A SMASH MOVE IS PHOTOGRAPHED UNDER SMASH RULES, and that needs a
+    // CAST. Jon, 2026-08-28: *"when we are doing smash moves we probably should
+    // be using the smash stage and not any ambition stages, to make sure that
+    // we're actually getting smash rules and not ambition which might be
+    // different."* He is right, and the tool made the wrong road the easy one:
+    // `--route smash_gameplay` with no roster activates a stage with NOBODY ON
+    // IT — the camera sits at its default over empty sky, which D130 already
+    // recorded once as a mystery — so the only way to see a fighter was
+    // `--character <id>` on an exploration ROOM, under exploration rules.
+    //
+    // ⛔ THE SAME TWO LINES `moveset_takes::reseat` USES, deliberately: a
+    // roster resource and the route change. The alternative is the select
+    // screen's documented tap coordinates, which have drifted three times in
+    // two weeks and pick fighters by GRID CELL rather than by name.
+    if route == ambition_demo_smash::SMASH_GAMEPLAY_ROUTE {
+        if let Some(character) = config.character.clone() {
+            eprintln!(
+                "capture_scene: seating '{character}' twice on the smash stage,                  so the route comes up with a match rather than an empty stage"
+            );
+            commands.insert_resource(ambition_demo_smash::smash_roster([
+                character.as_str(),
+                character.as_str(),
+            ]));
+        } else {
+            eprintln!(
+                "capture_scene: '{route}' with no --character seats no cast; the                  stage will come up empty"
+            );
+        }
     }
     commands.write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(route),

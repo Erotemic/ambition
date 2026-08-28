@@ -40,13 +40,29 @@ use ambition_platformer2d::entity_catalog::{MoveSpec, MovesetContract};
 /// ⭐ A FULL SECOND, WHICH IS A LOT, AND DELIBERATELY. Jon, 2026-08-27: *"Give
 /// them 1 second under the stage at 1.2x run speed. I'm biasing towards making
 /// moves too powerful to start."* At 1.2× her 204 run speed that is roughly 245
-/// world px of travel — most of a smash stage — and it is meant to be obviously
-/// strong so the tuning conversation starts from "how much do we take away"
-/// rather than from "is this move worth pressing".
+/// world px of travel — most of a smash stage.
+///
+/// ⭐⭐ AND THE SECOND IS A CEILING NOW, NOT A DURATION. Jon, 2026-08-28: *"she
+/// should be able to pop up at any time from it."* The beat under the stage is
+/// a HELD one — `MAX_UNDER_S` is how long she may stay, and letting go of
+/// Special before then brings her up early, which is what makes the trip a
+/// decision instead of a fixed animation.
 const DOOR_OPENS_S: f32 = 0.10;
 const SINK_AT_S: f32 = 0.16;
-const SURFACE_AT_S: f32 = 1.16;
-const TRAP_ENDS_S: f32 = 1.32;
+/// Where the timeline FREEZES while Special is held — a hair after she is under.
+///
+/// ⛔ AFTER `SINK_AT_S`, AND THAT ORDER IS THE MECHANIC. The submerge beat is a
+/// timed event on this timeline; freezing the clock ON it or before it would
+/// hold her at the mouth of the hole forever, above ground and hittable.
+const HOLD_UNDER_AT_S: f32 = 0.17;
+/// The longest she may stay under. Reaching it surfaces her whether or not the
+/// button is still down — a submerged fighter is untouchable, so an indefinite
+/// hold would be a stall.
+const MAX_UNDER_S: f32 = 1.0;
+const SURFACE_AT_S: f32 = 0.20;
+/// How long the emergence hits for.
+const FIREWORK_S: f32 = 0.12;
+const TRAP_ENDS_S: f32 = 0.44;
 
 /// How far above her the engine looks for a floor to come up through.
 ///
@@ -60,6 +76,10 @@ const SURFACE_REACH: f32 = 140.0;
 /// The door itself. ⛔ NOT `four_point_glint`, which is the Author's blink
 /// and the whole complaint: a trapdoor is wood and hinges, not a star flash.
 const TRAPDOOR_VFX: &str = "trapdoor_boards";
+
+/// The emergence. ⛔ NOT the boards: those are the door opening, and this is
+/// what comes out of it.
+const FIREWORK_VFX: &str = "starstuff_burst";
 
 /// The flyline catches her later than the trap drops her: the wire goes taut
 /// before it pulls, which is the beat `fly`'s first two frames draw.
@@ -231,9 +251,83 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     // so leaving the gap costs them nothing.
     for window in &mut spec.windows {
         if matches!(window.tag, ambition_entity_catalog::WindowTag::Recovery) {
-            window.start_s = SURFACE_AT_S;
+            window.start_s = SURFACE_AT_S + FIREWORK_S;
         }
     }
+    // ⭐⭐ THE EMERGENCE IS A STRIKE, and Jon asked for it in those words: *"she
+    // should be able to pop up at any time from it in a big firework display
+    // that damages whoever is on top or above the trap door when she emerges."*
+    // Standing on a door somebody is under has to be a mistake, or the move is
+    // free.
+    //
+    // ⛔ THE COLUMN IS CENTRED AND UNFACED. `offset.x` mirrors with facing and
+    // this one is zero, because the door is UNDER her — a firework that came out
+    // at an angle would let a camper stand on the hinge side. It reaches from
+    // just below her feet to well over her head, which is what *"on top or
+    // above"* names.
+    //
+    // ⛔ AND IT IS AUTHORED ON THE TIMELINE, NOT EMITTED BY THE TECHNIQUE. The
+    // clock FREEZES at `HOLD_UNDER_AT_S` and resumes on release, so this window
+    // arrives whenever she comes up without knowing anything about when that
+    // was — the same property that lets `author_trapdoor`'s surfacing beat stay
+    // a plain timed event.
+    spec.windows.push(ambition_entity_catalog::MoveWindow {
+        start_s: SURFACE_AT_S,
+        end_s: SURFACE_AT_S + FIREWORK_S,
+        tag: ambition_entity_catalog::WindowTag::Active,
+        volumes: vec![ambition_entity_catalog::HitVolume {
+            shape: ambition_entity_catalog::VolumeShape::Rect {
+                offset: (0.0, -12.0),
+                half_extents: (34.0, 46.0),
+            },
+            damage: 12,
+            knockback: 150.0,
+            // Unauthored: the stage's rule scales this launch with the victim's
+            // percent, which is what a kill move wants and what the monologue
+            // deliberately refuses.
+            knockback_growth: None,
+            // Straight up, out of the floor. +y is DOWN.
+            launch_dir: Some((0.0, -1.0)),
+            on_hit: None,
+            // ⛔ NOT A SLASH. `HitVolume::vfx` is the ARC a blade draws, and
+            // naming an effect there asks the slash machinery to swing a
+            // firework out of her hand. The show is authored as an event on the
+            // timeline below, where it lands at the DOOR; what this volume
+            // draws is the engine's default attack sweep, which is what every
+            // strike of hers draws.
+            vfx: None,
+            hit_sfx: None,
+            reaction: None,
+        }],
+        // Coming out of a hole is not a moment she steers through.
+        motion_scale: 0.0,
+        sustain_effect: None,
+    });
+    // ⭐⭐ THE HOLD IS THE MOVE'S SECOND, and it is the shipped charge mechanic
+    // rather than a new one. `MoveCharge` freezes a timeline at an authored
+    // point while a button is down, accrues the hold in the owner's proper
+    // time, and resumes on release or at the maximum — which is exactly *"she
+    // should be able to pop up at any time"* with a ceiling on it.
+    //
+    // ⛔ AND IT MUST NOT ROOT HER. A smash's freeze roots because a windup is a
+    // commitment; this one holds TRAVEL. `SmashChargeSpec::roots` is where the
+    // two uses of one mechanic say which they are.
+    spec.smash_charge = Some(ambition_entity_catalog::SmashChargeSpec {
+        hold_at_s: HOLD_UNDER_AT_S,
+        max_hold_s: MAX_UNDER_S,
+        // Nothing is banked: what she was holding was a position, and she is
+        // out of the hole either way.
+        stores: false,
+        roots: false,
+    });
+    // The press that STARTED this move is the one that holds it — down-Special.
+    spec.charge_gesture = ambition_entity_catalog::ChargeGesture::Special;
+    // ⭐ THE DISPLAY, at the door and on the frame she comes through it.
+    //
+    // ⛔ AND IT ASKS FOR NO CUE. `FxRequest` fans one request into the effect
+    // AND the `vfx.<family>.<row>` sound its own name addresses, so naming a
+    // second cue here would be the same bang down two roads on one frame.
+    let spec = ambition_characters::moveset_authoring::vfx(spec, SURFACE_AT_S, FIREWORK_VFX);
     // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
     // the second one is the half whose absence is a fighter gone for the match.
     let spec = author_trapdoor(
@@ -322,6 +416,110 @@ mod tests {
     /// player's steering multiplied by zero while the module doc said *"no
     /// gravity, no geometry — and still steering"*.
     ///
+    /// ⛔⛔ SHE COMES UP WHEN SHE LETS GO, and the beat under the stage is the
+    /// shipped CHARGE mechanic rather than a second one. Jon, 2026-08-28: *"she
+    /// should be able to pop up at any time from it."*
+    ///
+    /// Three facts, and each of them is a way the move breaks if it is missing.
+    /// The gesture must be `Special`, because `charged_by_gesture` enters charge
+    /// mode only where the press that started the use and the move's own
+    /// `charge_gesture` AGREE — a `Smash` policy here would freeze on a button
+    /// this move is never reached by, which is to say never. The hold point must
+    /// sit AFTER the submerge event, or the clock stops at the mouth of the hole
+    /// with her above ground and hittable. And it must not ROOT: `motion_scale`
+    /// is not the only thing that can take her steering away, and the other one
+    /// is the freeze itself.
+    #[test]
+    fn the_second_under_the_stage_is_a_held_beat_that_does_not_root_her() {
+        let set = actor_moveset();
+        for id in ["actor_trapdoor", "actor_trapdoor_air"] {
+            let trap = set
+                .moves
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("{id} is in the table"));
+            assert_eq!(
+                trap.charge_gesture,
+                ambition_entity_catalog::ChargeGesture::Special,
+                "{id} is reached by a Special press, so that is the press that holds it",
+            );
+            let policy = trap
+                .charge_policy()
+                .unwrap_or_else(|| panic!("{id} authors a hold"));
+            assert!(
+                policy.hold_at_s > SINK_AT_S,
+                "{id} freezes at {}s, which is not after the submerge beat at {SINK_AT_S}s —                  she would be held at the mouth of the hole, above ground and hittable",
+                policy.hold_at_s,
+            );
+            assert!(
+                policy.hold_at_s < SURFACE_AT_S,
+                "{id} freezes at {}s, which is not before she surfaces at {SURFACE_AT_S}s",
+                policy.hold_at_s,
+            );
+            assert!(
+                !policy.roots,
+                "{id} would root her for the whole held beat, and travelling is what \
+                 the beat is FOR",
+            );
+            assert!(
+                (policy.max_hold_s - MAX_UNDER_S).abs() < 1e-6,
+                "{id} may be held for {}s, wanted the authored ceiling {MAX_UNDER_S}s",
+                policy.max_hold_s,
+            );
+        }
+    }
+
+    /// ⛔⛔ THE EMERGENCE HITS, and the column is what Jon named: *"a big
+    /// firework display that damages whoever is on top or above the trap
+    /// door."*
+    ///
+    /// ⛔ THE ARMS STRADDLE THE DOOR, because a volume test that only samples
+    /// the middle cannot tell a column from a puddle. A body standing ON the
+    /// boards and a body a body-height above them are both inside it; a body
+    /// standing a stage-width away is not, or the move would be a screen wipe.
+    #[test]
+    fn coming_up_through_the_boards_is_a_strike_over_the_door() {
+        let set = actor_moveset();
+        let trap = set
+            .moves
+            .iter()
+            .find(|m| m.id == "actor_trapdoor")
+            .expect("the trap is in the table");
+        let firework = trap
+            .windows
+            .iter()
+            .find(|w| matches!(w.tag, ambition_entity_catalog::WindowTag::Active))
+            .expect("the trap ends in a strike");
+        assert!(
+            firework.start_s >= SURFACE_AT_S && firework.start_s < TRAP_ENDS_S,
+            "the firework starts at {}s, which is not when she surfaces ({SURFACE_AT_S}s)",
+            firework.start_s,
+        );
+        let volume = firework.volumes.first().expect("the strike has a volume");
+        assert!(volume.damage > 0, "a firework that hits for nothing is a puff");
+        let ambition_entity_catalog::VolumeShape::Rect {
+            offset,
+            half_extents,
+        } = volume.shape
+        else {
+            panic!("the firework is a rect");
+        };
+        assert_eq!(
+            offset.0, 0.0,
+            "the door is UNDER her, so the column may not lean the way she faces",
+        );
+        for (point, inside, what) in [
+            ((0.0, 24.0), true, "standing on the boards"),
+            ((0.0, -48.0), true, "a body-height above the door"),
+            ((0.0, -120.0), false, "well above the door"),
+            ((120.0, 0.0), false, "a stage-width away"),
+        ] {
+            let hit = (point.0 - offset.0).abs() <= half_extents.0
+                && (point.1 - offset.1).abs() <= half_extents.1;
+            assert_eq!(hit, inside, "a body {what} is {}inside the firework", if hit { "" } else { "not " });
+        }
+    }
+
     /// ⛔ THE ARMS STRADDLE BOTH EDGES, because a rule about an interval that is
     /// only sampled inside it cannot tell "the gap is open" from "every window
     /// is 1.0". Dropping through the boards and climbing back out are still

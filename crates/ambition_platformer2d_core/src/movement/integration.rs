@@ -143,7 +143,7 @@ pub(super) fn integrate_velocity_clusters(
     // carry her out from under it, and flight would fight the mode for the same
     // velocity. Being absent outranks being busy.
     if clusters.body_mode.body_mode == BodyMode::Submerged {
-        integrate_submerged_clusters(clusters.kinematics, state, input, dt, frame, tuning);
+        integrate_submerged_clusters(world, clusters.kinematics, state, input, dt, frame, tuning);
     } else if state.dash_timer > 0.0 {
         state.dash_timer = dec(state.dash_timer, dt);
     } else if climbing {
@@ -1047,6 +1047,7 @@ pub fn integrate_normal_spine(
 /// reach depend on how she entered it, which is a thing the player cannot see
 /// and would have to learn.
 pub(super) fn integrate_submerged_clusters(
+    world: &crate::world::World,
     kinematics: &mut crate::body_clusters::BodyKinematics,
     state: &mut AxisManeuverState,
     input: InputState,
@@ -1063,9 +1064,80 @@ pub(super) fn integrate_submerged_clusters(
     // Her own top speed, so a fast character travels under the stage the way she
     // travels over it. `SUBMERGED_SPEED_FRAC` is the one number this mode adds.
     let speed = tuning.locomotion.max_run_speed * SUBMERGED_SPEED_FRAC;
-    kinematics.vel = world_stick * speed;
-    kinematics.pos += kinematics.vel * dt;
+    let step = world_stick * speed * dt;
+    // ⛔⛔ AND THE STEP IS REFUSED IF IT LEAVES THE SURFACE. Written here rather
+    // than in the sweep below because a submerged body is passable against
+    // every block in the world, so the sweep has nothing to stop it with — and
+    // because this is where the position is actually set.
+    let step = if stays_over_its_surface(world, kinematics, step, frame.down()) {
+        step
+    } else {
+        Vec2::ZERO
+    };
+    // ⛔ THE VELOCITY IS ZEROED WITH THE STEP, not merely left unapplied. It is
+    // what the sweep re-applies, what the swept sample publishes and what
+    // survives into the tick she surfaces on; a body that refused to move and
+    // still reported 245 px/s would come out of the boards sprinting.
+    kinematics.vel = step / dt.max(f32::EPSILON);
+    kinematics.pos += step;
 }
+
+/// Refuse a submerged step that would leave the surface the body is under.
+///
+/// ⭐⭐ THIS IS WHAT MAKES THE TRAPDOOR A DOOR. Jon, 2026-08-28: it *"can only
+/// move along a ground surface (i.e. it can't go over a ledge)."* Travel under
+/// the stage is travel along a specific piece of stage; walking off the end of
+/// it and coming up in open air is a teleport with extra steps.
+///
+/// ⛔ REFUSED WHOLE, NOT CLAMPED TO THE EDGE. A tick of submerged travel is
+/// about four world px, so stopping one tick short of the lip is invisible —
+/// and a bisection to find the exact edge would be a solver in the middle of a
+/// sweep, for a difference nobody can see.
+///
+/// ⛔ SOLID ONLY. A one-way platform is not a surface you can be UNDER: the
+/// whole stage's drop-through geometry would otherwise read as ground and let
+/// her travel the sky.
+fn stays_over_its_surface(
+    world: &crate::world::World,
+    kinematics: &crate::body_clusters::BodyKinematics,
+    step: Vec2,
+    gravity_dir: Vec2,
+) -> bool {
+    if step == Vec2::ZERO {
+        return true;
+    }
+    use crate::geometry::AabbExt as _;
+    let Some(dir) = step.try_normalize() else {
+        return true;
+    };
+    let body = kinematics.aabb_oriented(gravity_dir);
+    let half = body.half_size();
+    let gravity_half = half.x * gravity_dir.x.abs() + half.y * gravity_dir.y.abs();
+    let travel_half = half.x * dir.x.abs() + half.y * dir.y.abs();
+    // ⛔⛔ THE LEADING FOOT, NOT THE WHOLE FOOTPRINT. A probe the body's own
+    // width asks *"is ANY of me still over ground"*, and the answer is yes until
+    // the door has walked entirely off the lip — she stopped a body-width past
+    // the edge, hanging over open air, which is the thing this rule exists to
+    // refuse. The leading corner is what must still be supported.
+    let feet = body.center() + gravity_dir * gravity_half;
+    let lead = feet + step + dir * travel_half;
+    let probe_half = dir.abs() * SURFACE_LEAD_PROBE
+        + gravity_dir.abs() * (SUBMERGED_GROUND_PROBE * 0.5);
+    let probe_center =
+        lead - dir * SURFACE_LEAD_PROBE + gravity_dir * (SUBMERGED_GROUND_PROBE * 0.5);
+    world.body_overlaps_any(crate::geometry::Aabb::new(probe_center, probe_half), |block| {
+        matches!(block.kind, crate::world::BlockKind::Solid)
+    })
+}
+
+/// Half-width of the leading-edge ground probe. Small, because it is asking
+/// about a corner rather than about a footprint.
+const SURFACE_LEAD_PROBE: f32 = 1.0;
+
+/// How deep under a submerged body the kernel looks for the surface it is
+/// travelling along. Two body-widths would let her round a corner she cannot
+/// see; a single pixel would drop her on a seam between two blocks.
+const SUBMERGED_GROUND_PROBE: f32 = 8.0;
 
 /// How fast a submerged body travels, as a fraction of its own run speed.
 ///

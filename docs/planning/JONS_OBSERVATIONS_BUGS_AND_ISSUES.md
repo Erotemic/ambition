@@ -922,3 +922,61 @@ now been BISECTED against a worktree at `a945c1de5` rather than guessed at:
 ⭐ THE LESSON IS THE MIS-ATTRIBUTION, not the reds. A job that prints one verdict
 for six thousand tests is a job whose failures get explained by whatever else was
 failing that morning, and I did exactly that. `./run_tests.sh` names them now.
+
+### The Trap: she is visible under the stage, and the trapdoor is a puff (2026-08-28)
+
+⭐⭐ **JON:** *"the actor's down-b has her go subterranian, but her body needs to
+be masked so its not visible when she is under ground, right now her head is
+poking out, and she is flashing likely due to the invulnerability state always
+producing a flash, which is not what it should be doing. Often it does but it
+shouldn't always be the case. There should be a trapdoor sprite she is replaced
+with on the ground that can only move along a ground surface (i.e. it can't go
+over a ledge). And she should be able to pop up at any time from it in a big
+firework display that damages whoever is on top or above the trap door when she
+emerges. I'm thinking it might be a good idea to rename the actor given its
+conflation with a very core concept in the architecture. But we can do that in a
+different pass."*
+
+* ✔ **VISIBLE + FLASHING — ONE CAUSE, FIXED 2026-08-28.** `update_body_mode`
+  resolved Standing-or-Crouching from the stick and wrote it UNCONDITIONALLY, so
+  `BodyMode::Submerged` was deleted on the tick AFTER the trapdoor set it.
+  `Climbing` and `MorphBall` survived only because they have arms of their own in
+  that function; the mode the trapdoor added had none. Every symptom followed:
+  she was never hidden (so `sync_submerged_visibility` had nothing to hide), she
+  kept gravity and geometry, and the move's `Invuln` window blinked her for a
+  second while she stood on the boards she had just dropped through. The blink
+  itself is innocent — `overlay_look` already returns zero intensity for a hidden
+  source, so a body that is properly absent does not flash. Photographed either
+  side with `capture_scene pirate_cove player --character actor --press
+  hold:down,g,release:down --frames 30 --stride 3`.
+* ✔ **A TRAPDOOR SPRITE SHE IS REPLACED WITH — 2026-08-28.**
+  `rendering/submerged.rs` grew a door: one per submerged body (not a singleton
+  — `morph_ball.rs` next door is one and its own comments record what that
+  cost), drawn at her FEET because a submerged body never moves along gravity so
+  the feet line IS the surface she is under, and retired the tick she surfaces.
+  Procedural, for the reason the morph ball is: the shipped `trapdoor_boards`
+  art is an EFFECT that plays once and ends, and what was wanted is a persistent
+  object.
+* ✔ **SURFACE-LOCKED TRAVEL — 2026-08-28.** `integrate_submerged_clusters`
+  refuses a step whose LEADING FOOT would leave solid ground. ⛔ The first
+  version probed the whole footprint and stopped her a body-width PAST the lip,
+  hanging over open air — *"is any of me still over ground"* is the wrong
+  question. Refused whole rather than clamped to the edge: a tick of submerged
+  travel is about four world px. Written in the integrator and not the sweep,
+  because a submerged body is passable against every block in the world so the
+  sweep has nothing to stop her with.
+* ✔ **POP UP AT ANY TIME, WITH A FIREWORK THAT HITS ABOVE THE DOOR —
+  2026-08-28.** The beat under the stage is the shipped CHARGE mechanic, not a
+  new one: `MoveCharge` freezes a timeline at an authored point while a button
+  is held and resumes on release or at the maximum. So the second Jon authored
+  becomes a CEILING, releasing Special surfaces her early, and the emergence
+  window arrives whenever she comes up without knowing when that was.
+  ⛔ ONE NEW KNOB: `SmashChargeSpec::roots`, default `true`. A smash's freeze
+  roots because a windup is a commitment (*"they should not be able to walk or
+  move"*); this one holds TRAVEL (*"I do want the player to be able to control
+  where they move"*). Two uses of one mechanic, saying which they are.
+  The emergence is a centred, unfaced column from below her feet to well over
+  her head — the door is UNDER her, so a firework that leaned would let a camper
+  stand on the hinge side.
+* ▢ **RENAME "the actor"** — Jon's own note that it collides with the engine's
+  actor concept. Explicitly deferred to its own pass.

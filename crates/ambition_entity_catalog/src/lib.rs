@@ -1248,6 +1248,25 @@ pub struct SmashChargeSpec {
     /// them.
     #[serde(default)]
     pub stores: bool,
+    /// Does the freeze ROOT the body?
+    ///
+    /// ⭐⭐ `true` FOR EVERY SMASH IN THE GAME, and Jon's rule is why: *"when
+    /// the character is charging their smash attack, they should not be able to
+    /// walk or move."* A windup you can stroll out of is not a commitment.
+    ///
+    /// ⛔⛔ AND IT IS A PROPERTY OF THE POLICY, NOT OF CHARGING. The Actor's
+    /// trapdoor freezes its timeline through this exact mechanic — hold the
+    /// button, hold the beat — and the beat it holds is TRAVEL: she is under
+    /// the stage steering, and Jon asked for that in the same breath as the
+    /// move itself (*"I do want the player to be able to control where they
+    /// move"*). Rooting that freeze would delete the move. So the two uses of
+    /// one mechanic say which they are instead of the runtime guessing from
+    /// the gesture.
+    ///
+    /// DEFAULT `true`, which is byte-parity for every policy authored before
+    /// this field existed.
+    #[serde(default = "charge_roots_by_default")]
+    pub roots: bool,
 }
 
 /// Which press holds a move's charge.
@@ -1284,6 +1303,12 @@ impl SmashChargeSpec {
         }
         (held_s / self.max_hold_s).clamp(0.0, 1.0)
     }
+}
+
+/// Serde default for [`SmashChargeSpec::roots`]: a charge roots its body, which
+/// is what every policy authored before the field meant.
+fn charge_roots_by_default() -> bool {
+    true
 }
 
 /// Serde default for [`MoveEventKind::Vfx::scale`]: the presentation default
@@ -1491,6 +1516,7 @@ impl MoveSpec {
                 // smash you could bank and throw later is a different mechanic
                 // and would arrive here by accident rather than by authoring.
                 stores: false,
+                roots: true,
             })
         }) else {
             return None;

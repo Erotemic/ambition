@@ -53,6 +53,15 @@ census="yes"
 census_hz="1"
 headless="no"
 headless_ticks="1800"
+# The launch target a bare `--headless` gets. `sandbox` is `run_game.sh`'s own
+# direct-entry alias: normal bodies, normal movement, normal collision, no
+# special save file and no special room.
+default_headless_scenario="sandbox"
+headless_scenario="n/a"
+# Passed straight through to run_game.sh, so the warm build and the launch it
+# wraps both honour it. Empty means "cargo's default", which on an agent
+# worktree is the WHOLE machine -- see scripts/agent_worktree.sh jobs.
+cargo_jobs=""
 
 # Scenario markers AND the in-process censuses. A frame spike that does not
 # appear next to the chunk it happened in is a spike nobody can attribute.
@@ -74,8 +83,12 @@ On a machine with no usable GPU (the dev VM):
 
   scripts/profile_desktop.sh --headless
 
-runs the game's own supported headless path and collects everything that stays
-meaningful there, labelling the GPU measurements it could not take.
+runs the game's own supported headless path in the sandbox scenario and
+collects everything that stays meaningful there, labelling the GPU measurements
+it could not take. Name a different scenario the way run_game.sh would:
+
+  scripts/profile_desktop.sh --headless -- smash
+  scripts/profile_desktop.sh --headless -- -- --start-room goblin_encounter
 
 Modes:
   timeline-run    Launch, record until the game exits (or --duration), slice
@@ -99,8 +112,12 @@ Build selection:
 
 Headless / no-GPU:
   --headless              Run the game's headless path (--headless) instead of
-                           opening a window. GPU/render-pass diagnostics are
-                           reported as not-applicable rather than missing.
+                           opening a window. Launches the `sandbox` scenario
+                           unless the arguments after -- already name a launch
+                           target or start room, because a bare headless host
+                           sits on the launcher route and simulates no bodies.
+                           GPU/render-pass diagnostics are reported as
+                           not-applicable rather than missing.
   --headless-ticks N      Ticks to run headlessly. Default: 1800.
 
 Census:
@@ -118,6 +135,9 @@ Options:
   -F, --freq HZ           perf record sampling frequency. Default: 99.
   -I, --interval MS       perf stat interval in milliseconds. Default: 1000.
   -p, --pid PID           PID to attach to (attach modes).
+  -j, --jobs N            Cargo parallel job count, passed to ./run_game.sh for
+                           both the warm build and the launch. On an agent
+                           worktree use `scripts/agent_worktree.sh jobs N`.
   -o, --out DIR           Output base directory. Default: target/profiles.
   --name NAME             Output directory name suffix. Default: MODE-TIMESTAMP.
   --events LIST           perf stat events.
@@ -198,6 +218,9 @@ while [[ $# -gt 0 ]]; do
         --headless) headless="yes" ;;
         --headless-ticks) shift; [[ $# -gt 0 ]] || fail "--headless-ticks requires a value"; is_positive_int "$1" || fail "--headless-ticks must be positive"; headless="yes"; headless_ticks="$1" ;;
         --headless-ticks=*) headless_ticks="${1#--headless-ticks=}"; is_positive_int "$headless_ticks" || fail "--headless-ticks must be positive"; headless="yes" ;;
+        -j|--jobs) shift; [[ $# -gt 0 ]] || fail "--jobs requires a job count"; is_positive_int "$1" || fail "--jobs must be a positive integer"; cargo_jobs="$1" ;;
+        -j[0-9]*) cargo_jobs="${1#-j}"; is_positive_int "$cargo_jobs" || fail "-j must be a positive integer" ;;
+        --jobs=*) cargo_jobs="${1#--jobs=}"; is_positive_int "$cargo_jobs" || fail "--jobs must be a positive integer" ;;
         --census-hz) shift; [[ $# -gt 0 ]] || fail "--census-hz requires a value"; census_hz="$1" ;;
         --census-hz=*) census_hz="${1#--census-hz=}" ;;
         --no-census) census="no" ;;
@@ -236,10 +259,48 @@ split_run_args() {
     done
 }
 
+# Did the caller name WHICH game to run? Any launch target, scenario alias, or
+# room/entry game argument counts. `run_game.sh` owns this vocabulary; the list
+# is its mode aliases, and a word added there without being added here only
+# costs the profiler its default, never a wrong launch.
+caller_chose_a_scenario() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            sandbox|ambition-sandbox) return 0 ;;
+            cut-rope|cut-rope-boss|smirking-behemoth|you-have-to-cut-the-rope) return 0 ;;
+            sanic|sanic-demo) return 0 ;;
+            mary-o|mary_o|maryo|mary-o-demo) return 0 ;;
+            smash|smash-demo) return 0 ;;
+            twintrack|twin-track|twintrack-demo) return 0 ;;
+            --direct|--start-room|--start-room=*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
 build_effective_run_args() {
     split_run_args "${run_args[@]+"${run_args[@]}"}"
     effective_run_args=("$build_profile")
     if [[ "$want_tracy" == "yes" ]]; then effective_run_args+=(--features profile); fi
+    if [[ -n "$cargo_jobs" ]]; then effective_run_args+=(--jobs "$cargo_jobs"); fi
+    # ⛔ A HEADLESS RUN WITH NO SCENARIO PROFILES NOTHING WORTH PROFILING.
+    # Bare `--headless` steps the production shared host, which sits on the
+    # startup/launcher route: zero bodies, no movement, no collision. It
+    # succeeds, and the bundle describes host composition. Pick the sandbox --
+    # the ordinary supported entry, not a profiling-only setup -- so the
+    # default command produces a representative simulation workload. A caller
+    # who named a scenario keeps it.
+    if [[ "$headless" == "yes" ]]; then
+        if caller_chose_a_scenario \
+            "${launcher_args[@]+"${launcher_args[@]}"}" \
+            "${game_args[@]+"${game_args[@]}"}"; then
+            headless_scenario="caller-specified"
+        else
+            effective_run_args+=("$default_headless_scenario")
+            headless_scenario="$default_headless_scenario (profiler default)"
+        fi
+    fi
     effective_run_args+=("${launcher_args[@]+"${launcher_args[@]}"}")
     local extra_game_args=()
     if [[ "$headless" == "yes" ]]; then
@@ -576,6 +637,7 @@ write_metadata() {
         echo "include_raw_data=$include_raw_data"
         echo "include_perf_script=$include_perf_script"
         echo "cargo_profile=$build_profile"
+        echo "cargo_jobs=${cargo_jobs:-<cargo default>}"
         echo "profile_dir=$plan_profile_dir"
         echo "cargo_features=$plan_features"
         echo "package=$plan_package"
@@ -584,6 +646,7 @@ write_metadata() {
         echo "launch_plan_status=$plan_status"
         echo "headless=$headless"
         echo "headless_ticks=$headless_ticks"
+        echo "headless_scenario=$headless_scenario"
         echo "tracy_requested=$want_tracy"
         echo "census_enabled=$census"
         echo "census_hz=$census_hz"
@@ -1019,15 +1082,8 @@ main() {
     log "profiling the $build_profile build: ${plan_binary:-<unresolved>}"
     if [[ -n "$plan_features" ]]; then log "cargo features: $plan_features"; fi
     if [[ "$headless" == "yes" ]]; then
-        log "headless run ($headless_ticks ticks): GPU and render-pass measurements are not applicable"
-        # `--headless` alone steps the production shared host, which sits on the
-        # startup/launcher route and simulates no bodies. That is the right
-        # default (it is what the windowed binary opens on), and it is not what
-        # somebody profiling the simulation wants.
-        case " ${launcher_args[*]-} ${game_args[*]-} " in
-            *" sandbox "*|*" --direct "*|*" ambition-sandbox "*) ;;
-            *) log "  for a gameplay/simulation capture instead: $0 --headless -- sandbox" ;;
-        esac
+        log "headless run: scenario $headless_scenario, $headless_ticks ticks"
+        log "  GPU and render-pass measurements are not applicable to a headless run"
     fi
     local out_dir tarball
     if [[ "$mode" == "all-run" ]]; then

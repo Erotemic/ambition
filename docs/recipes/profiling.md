@@ -331,11 +331,26 @@ artifact, records why, and the rest of the run is still collected.
 ```
 
 This runs the game's own supported headless path (`--headless
---headless-ticks N`, default 1800), which composes no renderer. You still get
-Tracy system timings, `perf`, the simulation systems, schedule and entity
-counts, body counts, asset CPU work, and the frame-interval census. The
-report marks every GPU and render-pass measurement **not applicable** rather
-than absent, because a headless run is not evidence that rendering is cheap.
+--headless-ticks N`, default 1800) in the **sandbox** scenario, which composes
+no renderer. You still get Tracy system timings, `perf`, the simulation
+systems, schedule and entity counts, body counts, asset CPU work, and the
+frame-interval census. The report marks every GPU and render-pass measurement
+**not applicable** rather than absent, because a headless run is not evidence
+that rendering is cheap.
+
+The scenario is chosen because a bare headless host sits on the startup/launcher
+route and simulates **zero bodies** — it succeeds, and it profiles nothing worth
+profiling. `sandbox` is `run_game.sh`'s ordinary direct-entry alias, not a
+profiling-only setup; the profiler adds the word and changes nothing else. Name
+your own and it is used instead:
+
+```bash
+./scripts/profile_desktop.sh --headless -- smash
+./scripts/profile_desktop.sh --headless -- -- --start-room goblin_encounter
+```
+
+`summary.md` records which scenario ran, in the `scenario` row of its first
+table.
 
 Do not use a software rasterizer as a stand-in for a GPU. If a windowed run on
 this machine falls back to llvmpipe/lavapipe, `summary.md` says

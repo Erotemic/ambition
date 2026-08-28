@@ -83,10 +83,15 @@ fn experiment(app: &mut App) -> TwinTrackExperiment {
 ///
 /// ⇒ **the gap is a commands flush.** `adopt_the_laboratory_twin` QUEUES
 /// `DrivingParticipant`, and one tick of her life happens before it lands.
-/// `restore_the_laboratory_twins_mark` puts her back, and the reason it is a
-/// separate system on `Added` rather than a line inside the adoption is that the
-/// adoption samples her BEFORE the step it needs to undo — measured, it read
-/// `720.0` with zero velocity and corrected nothing.
+///
+/// ⛔⛔ AND THE FIRST FIX FOR THAT WAS THE WRONG SHAPE. A system on
+/// `Added<LaboratoryTwin>` put her `x` and velocity back the tick after
+/// adoption — which repairs the two fields it knows about and leaves whatever
+/// else a brute's tick touched. She is authored `CharacterBrainTemplate::
+/// StandStill` now (`BrainProfile::default()` is `MeleeBrute`, so a character
+/// that authors no profile is CONSTRUCTED as one), so the tick before her seat
+/// lands has nothing to do and there is nothing to undo. Poisoning the template
+/// back to `MeleeBrute` fails five arms in this file.
 #[test]
 #[ignore = "PROBE, print-only: what moves the laboratory twin"]
 fn probe_what_moves_the_laboratory_twin() {

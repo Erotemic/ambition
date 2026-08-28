@@ -197,6 +197,44 @@ pub struct EditableMovementTuning {
     /// See [`ae::MovementTuning::spot_dodge_time`] — 0.0 means the grounded
     /// evade is always the roll.
     pub spot_dodge_time: f32,
+    /// CARRIED, NOT EDITED — see the `parry_timing` line in the round trip
+    /// below. A parry-timing swap is a rules DECLARATION about which game a
+    /// stage reproduces, and rebuilding it from `default()` on an unrelated
+    /// edit silently replaced whatever the stage had declared.
+    ///
+    /// ⭐ `reflect(ignore)` IS THE POINT, not a workaround: this struct is
+    /// reflected to BUILD THE SLIDERS, so a field the inspector must not offer
+    /// is a field reflection must not see. Carried and invisible is exactly the
+    /// contract the comment above asks for.
+    #[reflect(ignore)]
+    pub parry_timing: ae::ParryTiming,
+    /// The MATCH's evade-staling and tech rules, carried for the same reason
+    /// and hidden for the same reason. A fighter's authored tuning sets these
+    /// in one preset beside `parry_timing`; the editor must return them
+    /// unchanged rather than zero.
+    #[reflect(ignore)]
+    pub dodge_stale_step: f32,
+    #[reflect(ignore)]
+    pub dodge_stale_floor: f32,
+    #[reflect(ignore)]
+    pub dodge_stale_recovery: f32,
+    #[reflect(ignore)]
+    pub untechable_launch_speed: f32,
+    #[reflect(ignore)]
+    pub evade_cancel_tail: f32,
+    /// The ground-movement PHASES and the crouch cost — a rules declaration
+    /// like the six above, carried for the same reason and hidden for the same
+    /// reason.
+    #[reflect(ignore)]
+    pub crouch_speed_frac: f32,
+    #[reflect(ignore)]
+    pub initial_dash_time: f32,
+    #[reflect(ignore)]
+    pub initial_dash_speed: f32,
+    #[reflect(ignore)]
+    pub turnaround_time: f32,
+    #[reflect(ignore)]
+    pub teeter_margin: f32,
     pub parry_window_time: f32,
     /// Shield integrity, its drain/regen rates, its cost per blocked point, and
     /// the dizzy a break costs. `shield_max_health = 0.0` = unlimited guard.
@@ -273,17 +311,23 @@ impl EditableMovementTuning {
             max_run_speed: self.max_run_speed,
             max_air_speed: self.max_air_speed,
             run_commit_frac: self.run_commit_frac,
-            // ⛔ NOT AN F3 SLIDER. What a crouch costs is a MATCH rule the stage
-            // declares (`MatchBody::crouch_speed_frac`), not a per-session dev
-            // tuning knob, so this projection keeps the engine default and the
-            // ruleset composes its own over it.
-            crouch_speed_frac: ae::DEFAULT_TUNING.crouch_speed_frac,
-            // Carried, not edited: which ground-movement PHASES a game has is a
-            // rules declaration, like the crouch cost above it.
-            initial_dash_time: ae::DEFAULT_TUNING.initial_dash_time,
-            initial_dash_speed: ae::DEFAULT_TUNING.initial_dash_speed,
-            turnaround_time: ae::DEFAULT_TUNING.turnaround_time,
-            teeter_margin: ae::DEFAULT_TUNING.teeter_margin,
+            // ⛔ NOT AN F3 SLIDER — and carried rather than defaulted, for the
+            // reason the dash phases below are. What a crouch costs is a MATCH
+            // rule the stage declares (`MatchBody::crouch_speed_frac`); the
+            // ruleset composing its own over the default only works when there
+            // IS a default to compose over, and it is not this projection's job
+            // to decide there was none.
+            crouch_speed_frac: self.crouch_speed_frac,
+            // ⛔⛔ "CARRIED, NOT EDITED" — AND IT WAS NOT CARRIED. This said the
+            // right thing and did the opposite: reading `DEFAULT_TUNING`
+            // REPLACES whatever the stage declared with the engine's answer, so
+            // a game with its own dash phases lost them to an unrelated slider.
+            // Carried means carried; the ONLY thing "not edited" adds is that no
+            // inspector row offers it, which `reflect(ignore)` is for.
+            initial_dash_time: self.initial_dash_time,
+            initial_dash_speed: self.initial_dash_speed,
+            turnaround_time: self.turnaround_time,
+            teeter_margin: self.teeter_margin,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,
@@ -325,14 +369,20 @@ impl EditableMovementTuning {
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
             dodge_roll_endlag: self.dodge_roll_endlag,
-            // Dodge staling is a MATCH rule, not a per-body dev knob: the
-            // editor tunes one body, and staling is about the option.
-            dodge_stale_step: 0.0,
-            dodge_stale_floor: 1.0,
-            dodge_stale_recovery: 0.0,
-            // A match rule, not a per-body dev knob.
-            untechable_launch_speed: 0.0,
-            evade_cancel_tail: 0.0,
+            // ⛔⛔ THE SAME HOLE `parry_timing` HAD, five fields wide, and the
+            // audit this row asked for. These are MATCH rules rather than
+            // per-body dev knobs — the editor tunes one body, and staling is
+            // about the option — but a fighter's tuning genuinely CARRIES them
+            // (`abilities.rs` authors `dodge_stale_step: 0.25`,
+            // `untechable_launch_speed: 1400.0` and the rest beside
+            // `parry_timing: OnRaise`, in one preset). Zeroing them on the way
+            // back out deleted the match's rules because somebody dragged an
+            // unrelated slider.
+            dodge_stale_step: self.dodge_stale_step,
+            dodge_stale_floor: self.dodge_stale_floor,
+            dodge_stale_recovery: self.dodge_stale_recovery,
+            untechable_launch_speed: self.untechable_launch_speed,
+            evade_cancel_tail: self.evade_cancel_tail,
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
@@ -342,9 +392,19 @@ impl EditableMovementTuning {
             jab_lock_speed: self.jab_lock_speed,
             jab_lock_limit: self.jab_lock_limit,
             spot_dodge_time: self.spot_dodge_time,
-            //  NOT editable: a parry-timing swap is a rules DECLARATION about
-            // which game a stage reproduces, not a slider to drag mid-session.
-            parry_timing: ae::ParryTiming::default(),
+            // ⛔⛔ NOT EDITABLE IS NOT THE SAME AS NOT CARRIED, and this line
+            // used to do the second while claiming the first. A parry-timing
+            // swap is a rules DECLARATION about which game a stage reproduces —
+            // so it is not a slider, and rebuilding it from `default()` on ANY
+            // edit DELETED the declaration: touch an unrelated knob and the
+            // stage's ruleset was gone, silently.
+            //
+            // ⭐ `air_guard` two dozen lines down carries the same rule and got
+            // it right — *"NOT editable, for the same reason `parry_timing` is
+            // not"* — while doing the opposite thing. Two fields, one stated
+            // rule, opposite behaviour; this is now the one `air_guard` says it
+            // is.
+            parry_timing: self.parry_timing,
             parry_window_time: self.parry_window_time,
             shield: ae::ShieldTuning {
                 max_health: self.shield_max_health,
@@ -443,6 +503,17 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             jab_lock_speed: value.jab_lock_speed,
             jab_lock_limit: value.jab_lock_limit,
             spot_dodge_time: value.spot_dodge_time,
+            parry_timing: value.parry_timing,
+            dodge_stale_step: value.dodge_stale_step,
+            dodge_stale_floor: value.dodge_stale_floor,
+            dodge_stale_recovery: value.dodge_stale_recovery,
+            untechable_launch_speed: value.untechable_launch_speed,
+            evade_cancel_tail: value.evade_cancel_tail,
+            crouch_speed_frac: value.crouch_speed_frac,
+            initial_dash_time: value.initial_dash_time,
+            initial_dash_speed: value.initial_dash_speed,
+            turnaround_time: value.turnaround_time,
+            teeter_margin: value.teeter_margin,
             parry_window_time: value.parry_window_time,
             shield_max_health: value.shield.max_health,
             shield_drain_per_second: value.shield.drain_per_second,
@@ -804,5 +875,79 @@ mod adapter_tests {
             -123.0,
             "authored content survives an inspector nobody touched"
         );
+    }
+
+    /// ⛔⛔ AN EDIT MUST NOT DELETE THE RULES IT WAS NOT ABOUT (D186).
+    ///
+    /// The round trip rebuilt six fields from constants: `parry_timing` from
+    /// `default()` and the five evade-staling / tech rules from zero. A fighter
+    /// carries all six in one authored preset — `abilities.rs` sets
+    /// `dodge_stale_step: 0.25` and `untechable_launch_speed: 1400.0` beside
+    /// `parry_timing: OnRaise` — so dragging ANY unrelated slider silently
+    /// replaced the stage's ruleset with the engine's defaults and said nothing.
+    ///
+    /// ⭐ THE ARM IS AN EDIT TO SOMETHING ELSE. Asserting the fields survive a
+    /// round trip with no edit would agree with the bug: the wipe happens on the
+    /// way BACK OUT, so the test has to touch one knob and read the others.
+    #[test]
+    fn editing_one_knob_does_not_wipe_the_rules_it_was_not_about() {
+        let declared = ae::MovementTuning {
+            // ⛔ `OnRelease`, NOT `OnRaise`. `OnRaise` IS the default, so a test
+            // that declared it agreed with the wipe — measured: poisoning the
+            // projection back to `default()` left this arm green.
+            parry_timing: ae::ParryTiming::OnRelease,
+            dodge_stale_step: 0.25,
+            dodge_stale_floor: 0.34,
+            dodge_stale_recovery: 1.2,
+            untechable_launch_speed: 1400.0,
+            evade_cancel_tail: 4.0 / 60.0,
+            jump_speed: -500.0,
+            ..Default::default()
+        };
+        let mut editable = EditableMovementTuning::from(declared);
+        // The unrelated slider somebody actually dragged.
+        editable.jump_speed = -600.0;
+        let out = editable.as_engine();
+
+        assert_eq!(out.jump_speed, -600.0, "the edit itself must land");
+        assert_eq!(
+            out.parry_timing,
+            ae::ParryTiming::OnRelease,
+            "the stage's parry ruling was replaced by the engine default"
+        );
+        assert_eq!(out.dodge_stale_step, 0.25);
+        assert_eq!(out.dodge_stale_floor, 0.34);
+        assert_eq!(out.dodge_stale_recovery, 1.2);
+        assert_eq!(out.untechable_launch_speed, 1400.0);
+        assert_eq!(out.evade_cancel_tail, 4.0 / 60.0);
+    }
+
+    /// ⛔⛔ AND FIVE MORE FIELDS SAID "CARRIED" WHILE NOT CARRYING. The
+    /// projection read `DEFAULT_TUNING` for the crouch cost and the four
+    /// ground-movement phase timings under a comment reading *"Carried, not
+    /// edited: which ground-movement PHASES a game has is a rules
+    /// declaration"* — which is the right rule and the opposite behaviour. A
+    /// game with its own dash phases lost them to an unrelated slider.
+    #[test]
+    fn a_games_own_movement_phases_survive_an_unrelated_edit() {
+        let declared = ae::MovementTuning {
+            crouch_speed_frac: 0.4,
+            initial_dash_time: 0.11,
+            initial_dash_speed: 900.0,
+            turnaround_time: 0.07,
+            teeter_margin: 6.0,
+            jump_speed: -500.0,
+            ..Default::default()
+        };
+        let mut editable = EditableMovementTuning::from(declared);
+        editable.jump_speed = -600.0;
+        let out = editable.as_engine();
+
+        assert_eq!(out.jump_speed, -600.0, "the edit itself must land");
+        assert_eq!(out.crouch_speed_frac, 0.4);
+        assert_eq!(out.initial_dash_time, 0.11);
+        assert_eq!(out.initial_dash_speed, 900.0);
+        assert_eq!(out.turnaround_time, 0.07);
+        assert_eq!(out.teeter_margin, 6.0);
     }
 }

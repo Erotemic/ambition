@@ -3103,9 +3103,15 @@ is a module question, not a coupling — do not reopen this row for it.
   ✔ **EVERY `▢` UNDER THIS ROW IS CLOSED as of 2026-08-28** — the interaction seam
   (2026-08-19), the possessed flyer's throttle, and both steps of the
   attack-geometry carve. ⚠ **the ROW is not**: its milestone is *"merge
-  `integrate_home_body` with `integrate_actor_body`"*, and that still waits on the
-  HIT-EMPHASIS feel decision, which is Jon's and is stated below as blocking TIME
-  INTEGRATION only. ⇒ what remains here is one decision, not one slice.
+  `integrate_home_body` with `integrate_actor_body`"*, which is a real remaining
+  slice.
+  ⛔⛔ **AND I NEARLY RECORDED IT AS BLOCKED ON A DECISION JON ALREADY MADE.** The
+  paragraph near the end of this row said *"the hit-emphasis decision blocks TIME
+  INTEGRATION only"*; the paragraph 280 lines ABOVE it says the blocker is gone —
+  Jon ruled `awaiting-maintainer-decision.md` **#6** on 2026-08-17: *hitlag freezes
+  the BODY that is in it, on both roads*. ⇒ **the merge is EXECUTABLE.** A row that
+  contradicts itself at two ends is the same shape as D240's back-air symptom and
+  its closure five rows apart, and it cost the same hour.
 
 ⭐⭐ **THE CONTROLLED-BODY INTERACTION SEAM IS FINISHED — 2026-08-19.** Two
 breaches were invisible in single player: the POSE was written unconditionally

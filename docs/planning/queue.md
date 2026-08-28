@@ -10985,6 +10985,27 @@ side/bottom on a tail or a limb   REAL (npc_trex_enemy)
 `rest`) are suspect and should be MEASURED before anybody redraws them; the
 headline "40 of 186 targets warn" is an upper bound on the work, not the work.
 
+⚠ **AND THE TWO CONFIRMED-REAL ONES LEFT HAVE A THIRD FRAME SHAPE — priced 2026-08-28,
+not attempted.** `davy_hylbert` (42) and `pipi_tau` (36) warn identically (crouch
+bottom, roll left AND right, death both) and are sibling generators: both
+`FRAME_W = FRAME_H = 128`, both drawing a pose at ABSOLUTE canvas coordinates
+with no root fraction and no padding constant. So neither of the two fixes that
+worked today transfers:
+
+```text
+perfect_cellular_automaton   ONE constant (`PADDING`) produced frame, art AND hitboxes
+npc_trex_enemy               a frame plus a ROOT FRACTION, moved together
+davy_hylbert / pipi_tau      absolute pose coords — enlarging the frame leaves the
+                             character in the corner, and `FaceGuide(source_width=
+                             FRAME_W, …)` normalises the PORTRAIT crop against it
+```
+
+⇒ their fix is a canvas grow PLUS a pose translation PLUS the same shift applied
+to `FaceGuide.center_x/center_y`, on two files. That is the *"art authoring with
+a gameplay consequence"* this row already flags, and it wants an eye on the
+result rather than a mechanical edit. ⭐ `le_beast` (39, TOP on idle and jump) is
+a third shape again and is the smallest of the three.
+
 ⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
 AUTHORED.** It is one of the three still on the legacy road, so a wider frame is
 a DIVISOR change and would resize it — which is exactly the trap this row found

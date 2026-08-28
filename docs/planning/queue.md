@@ -3435,10 +3435,15 @@ Progress against that milestone is tracked in the focused plan, not here. ⛔
 **read it before starting a slice** — a row that looks more complete than the
 code is the most expensive kind of stale, and so is one that looks less.
 
-⚠ **the hit-emphasis decision blocks TIME INTEGRATION only.** Control authority
-converged on 2026-08-14 without it (one `tick_controlled_brains`); merging
-`integrate_home_body` with `integrate_actor_body` still waits on it. Do not let
-the feel decision be quoted as a blocker on unrelated control-authority work.
+⛔ **STALE SINCE 2026-08-17, corrected 2026-08-28.** This said *"the hit-emphasis
+decision blocks TIME INTEGRATION only … merging `integrate_home_body` with
+`integrate_actor_body` still waits on it"*. Jon RULED it that day — decision **#6**,
+*hitlag freezes the BODY that is in it, on both roads* — and the paragraph 280
+lines above already recorded that. ⇒ the merge is executable; nothing here waits
+on a feel call. ⚠ the original warning's other half still holds, which is why this
+replaces the sentence rather than deleting it: do not let a feel decision be
+quoted as a blocker on unrelated control-authority work — which is exactly what
+this sentence itself became for eleven days.
 
 ⭐ the milestone already delivered what the other programs needed: D115's
 moving-world work, D116 multiplayer and the persistent-world programs all build

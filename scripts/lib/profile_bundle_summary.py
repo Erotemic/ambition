@@ -90,6 +90,27 @@ def build_summary(bundle: Bundle) -> str:
     meta = bundle.metadata()
     lines: list[str] = ["# Profiling bundle", ""]
 
+    # `all-run` writes one sub-bundle per mode and this top level holds only
+    # the shared metadata; say so instead of reporting a page of UNAVAILABLE.
+    children = sorted(
+        name
+        for name in os.listdir(bundle.path)
+        if os.path.isdir(os.path.join(bundle.path, name))
+        and os.path.exists(os.path.join(bundle.path, name, "summary.md"))
+    )
+    if children:
+        lines += [
+            "This run captured several modes. Each has its own complete bundle:",
+            "",
+        ]
+        lines += [f"- [`{name}/summary.md`]({name}/summary.md)" for name in children]
+        lines += [
+            "",
+            "The sections below describe only what this top level holds — the shared",
+            "build, host, and capture settings.",
+            "",
+        ]
+
     headless = meta.get("headless") == "yes"
     log = bundle.read("game-stderr-stamped.txt") or bundle.read("game-stdout-stamped.txt")
     adapter_match = ADAPTER.search(log) or ADAPTER.search(bundle.read("perf-record.stderr"))

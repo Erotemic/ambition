@@ -3098,8 +3098,14 @@ would be a rename campaign that buys one indirection.
 lives under `characters::brain`, which is the module it was carved OUT of. That
 is a module question, not a coupling — do not reopen this row for it.
 
-- ▢ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
+- ◐ **D117 — Finish the controlled-character actor kernel. UNBLOCKED 2026-08-17:
   the decision it rested on is ANSWERED.**
+  ✔ **EVERY `▢` UNDER THIS ROW IS CLOSED as of 2026-08-28** — the interaction seam
+  (2026-08-19), the possessed flyer's throttle, and both steps of the
+  attack-geometry carve. ⚠ **the ROW is not**: its milestone is *"merge
+  `integrate_home_body` with `integrate_actor_body`"*, and that still waits on the
+  HIT-EMPHASIS feel decision, which is Jon's and is stated below as blocking TIME
+  INTEGRATION only. ⇒ what remains here is one decision, not one slice.
 
 ⭐⭐ **THE CONTROLLED-BODY INTERACTION SEAM IS FINISHED — 2026-08-19.** Two
 breaches were invisible in single player: the POSE was written unconditionally
@@ -3267,7 +3273,7 @@ collision_aabb / SimpleActorGeometry — production call sites
 header now says what the module actually holds, and records the measurement
 so nobody re-derives it.
 
-▢ **THE CARVE IT IMPLIES IS REFUSED FOR NOW, WITH CAUSE AND A SIZE.** The
+✔ **THE CARVE IT IMPLIES IS DONE 2026-08-28 (both steps below).** The
 universal half of `attack_geometry` wants to live below the boss crate beside
 the other body vocabulary — but `CombatGeometry` names `ActorSpriteMetrics`
 and `AnimationSelection`, both boss-crate types, and the edge runs
@@ -3307,7 +3313,7 @@ thing. ⚠ and a hazard on the way: `ActorSpriteMetrics` was carrying SIX LINES 
 A DELETED STRUCT'S DOC (`BossRuntime`), so walking back over `///` lines to find
 where its own docs began landed in the previous item's and produced a bad cut.
 Detached in its own commit.
-▢ **STEP TWO** is `AnimationSelection` + `CombatGeometry` + the volume math →
+✔ **STEP TWO** was `AnimationSelection` + `CombatGeometry` + the volume math →
 `ambition_combat`, for one downward edge `combat → sprite_sheet`.
 ⭐ **AND IT IS A SPLIT, NOT A MOVE — measured 2026-08-28.** With
 `ActorSpriteMetrics` gone, `attack_geometry/` (990 non-test lines) names exactly

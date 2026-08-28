@@ -34,11 +34,24 @@ fn player_pos(world: &mut World) -> ambition_platformer2d::engine_core::Vec2 {
     q.single(world).expect("primary player").pos
 }
 
-/// ⭐ THE ENEMY STANDS ALMOST ON TOP OF THE PLAYER, and that number is load
-/// bearing. At 60px the automaton's contact footprint shoves the player away
-/// before anything it AIMS can reach — measured over 900 frames at that spacing:
-/// five hits, every one `HitSource::Contact`, which is attrition and correctly
-/// freezes nothing. Close enough to be shot, and its glider connects.
+/// ⭐ THE ENEMY STARTS OUTSIDE ITS OWN REACH AND WALKS IN, and that is the
+/// fixture's whole design. Placed close, the automaton's contact footprint is
+/// what reaches the player first: measured over 900 frames at +26, +60 and
+/// +100, every hit is `HitSource::Contact` — attrition, which correctly freezes
+/// nothing, so the fixture reports 0.036s of player hitlag and no freeze and
+/// looks like the bug it is guarding against.
+///
+/// ⛔⛔ THE OLD NUMBER WAS TUNED AGAINST A SIZE THE CHARACTER NO LONGER HAS.
+/// `perfect_cellular_automaton` was `body_kind: Floating` with no authored
+/// height, so its body came out of `ldtk_box × collision_scale / FRAME_H` —
+/// the spawn box below and the sheet's PUBLISHING PADDING. Authoring its
+/// `standing_height` (D129, 2026-08-28) took the frame out of the derivation
+/// and the tuned spacing stopped working, which is the correct consequence.
+///
+/// ⇒ 200px is not tuned: it is OUTSIDE the automaton's authored
+/// `attack_range: 150` and well inside its `aggro: 540`, so it closes the gap
+/// and throws an aimed attack the way it would in a room. The connect is then
+/// the brain's decision rather than an accident of where the test put a body.
 #[derive(Debug, Default)]
 struct Bout {
     /// The hardest hitlag the PLAYER served — proof the player was hit at all.
@@ -58,7 +71,7 @@ fn a_hit_that_lands_on_the_player_freezes_the_match() {
     sim.spawn_enemy_character_at(
         ENEMY_ID,
         "Perfect Cellular Automaton",
-        (p.x + 26.0, p.y),
+        (p.x + 200.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
         "perfect_cellular_automaton",

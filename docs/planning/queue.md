@@ -10802,6 +10802,59 @@ new frame in the same commit — and the second is a bigger change than it looks
 shortening a lunge's drawn reach makes the drawing disagree with the reach its
 hitbox still has. Worth Jon's eye before somebody picks a number.
 
+✔✔ **CLOSED FOR `perfect_cellular_automaton` 2026-08-28 — and the refusal above
+was WRONG about where the coupling lives, which is why it read as blocked.** The
+claim was that `pca_gameplay.py` authors hitboxes in ABSOLUTE draw coordinates,
+so a wider frame moves every one of them. It authors them in the LOGICAL RIG,
+and `PADDING` is the single knob that produces both:
+
+```text
+pca_gameplay.PADDING = 18                       ← one constant
+_px(v)                = (v + PADDING) * RENDER_SCALE      every hitbox
+FRAME_SIZE            = (RIG + 2*PADDING) * RENDER_SCALE  the frame
+perfect_cellular_automaton.py:173                         every art anchor
+```
+
+⇒ frame, art and hitboxes all move together BY CONSTRUCTION — the coupling the
+note warned about is what `PADDING` was built to handle, and `noether_gameplay`
+already runs the same pattern at 28. **`PADDING = 45`, and all 53 clipped frames
+are gone**, measured by asking the tool rather than modelling it:
+
+```text
+18 → 53 clipped (left 36, right 17)   492x684   7 pages
+30 → 25 clipped (left 24, right 1)    564x756
+40 →  1 clipped (right 1)             624x816   7 pages
+45 →  0                               654x846   7 pages
+```
+
+⭐ **the page count does not move, because the packer trims transparent margin
+before packing** — so the atlas cost of this fix is nothing.
+
+⛔⛔ **BUT IT SURFACED A DEFECT BIGGER THAN THE ROW, and this is the part worth
+carrying: A FRAME IS A DIVISOR OF HOW BIG A CHARACTER IS.**
+`catalog_join.rs:154`, the branch taken when `body_kind` has no default height:
+
+```text
+scale     = ldtk_max × collision_scale / FRAME_H
+collision = body_px × ldtk_max × collision_scale / FRAME_H
+```
+
+⇒ widening PCA's frame with **no art change whatsoever** took its body from
+**67.8 to 54.8** and broke `duel_pca_body_is_sprite_authored_not_the_tiny_ldtk_box`
+— a test that had every right to fail. ⇒ **D129 cannot be closed by widening
+frames alone**: on that road the only cure for a cut is a bigger frame, and a
+bigger frame silently resizes the character. **27 of 134 catalog rows are on it**
+(every `Wide`/`Floating`/`Crawler` not authoring a height).
+
+⇒ **the fix that comes with the un-clipping, and the pattern for the rest of this
+row**: author the character's `standing_height` in the same commit. PCA now
+carries `standing_height: Some(67.8)` — the height it had before the frame moved
+— which is the same move the three pirate heavies got on 2026-08-22, and it takes
+a select-screen fighter off a road where a publishing detail decides its size.
+✔ app gate clean, `ambition_demo_smash_app` 39/39, and
+`print_the_two_render_size_publishers` still reports 0.0% disagreement over 146
+characters with PCA at exactly `28.1x67.8`.
+
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**
 

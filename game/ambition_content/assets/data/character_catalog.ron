@@ -823,6 +823,13 @@
             manifest: "sprites/perfect_cellular_automaton_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
+            // Its MEASURED height, authored 2026-08-28 so the FRAME stops deciding
+            // it. `Floating` has no default, so this row rode
+            // `ldtk_box x collision_scale / FRAME_H` — and a frame is publishing
+            // padding, not a claim about how tall anybody is. Widening the frame to
+            // clear D129's 53 clipped frames shrank the body 67.8 -> 54.8 with no
+            // art change, which is the whole reason this number is written down now.
+            standing_height: Some(67.8),
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
             // and third travellers). Both automatons share one `authored_intrinsics`

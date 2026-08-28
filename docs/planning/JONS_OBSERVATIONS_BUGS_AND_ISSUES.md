@@ -98,7 +98,17 @@
     ink  = body_px × fit        DOES NOT
     ```
 
-    ⇒ the padding is TRANSPARENT, so `frame/body` is how much empty margin each sheet carries, not how tall anyone looks. `npc_lab_raider` and `npc_pirate_admiral` draw a body **48.0 px tall each** — measured at HEAD by `print_the_two_render_size_publishers`, whose `drawn(render)` column is the ink: admiral `27.0x48.0` inside a `44.1x48.9` quad, lab_raider `51.6x48.0` inside `71.3x75.4`. Same height, different margins. ⇒ **re-cropping is a memory and overdraw win and NOT a size fix**, so it is not on this item's road; the six numbers are. (`player_robot_v3` 2.81 and `npc_puppy_slug` 3.07 are not comparable — the robot lineage is `SpriteAuthored` so this number never ships for it, and a sprawled quadruped legitimately draws past its body box.)
+    ⚠⚠ **AND THAT CORRECTION WAS ITSELF HALF WRONG — corrected again the same day, by a measurement rather than an argument.** It is true on the `standing_height` road and FALSE on the legacy one, and `catalog_join.rs:154` is where they part:
+
+    ```text
+    height road   scale = height / body_h                 no `frame` anywhere
+    legacy road   scale = ldtk_max × collision_scale / FRAME_H
+                  ⇒ collision = body_px × ldtk_max × cs / FRAME_H
+    ```
+
+    ⇒ **on the legacy road the frame is a DIVISOR of how big the character is**, so transparent margin really is a size control there: pad the frame and the character shrinks, crop it and they grow. Measured, not derived — widening `perfect_cellular_automaton`'s frame from 492x684 to 654x846 with **no art change at all** took its body from 67.8 to 54.8. ⇒ **27 of 134 characters are on that road** (every `Wide`/`Floating`/`Crawler` that does not author a height), and for them your "re-crop the sheets" instinct was right.
+
+    ⇒ the padding is TRANSPARENT, so `frame/body` is how much empty margin each sheet carries, not how tall anyone looks — **for the 107 characters on the height road**, which is every `Standard` (48 by default) plus the four rows that author a number. `npc_lab_raider` and `npc_pirate_admiral` draw a body **48.0 px tall each** — measured at HEAD by `print_the_two_render_size_publishers`, whose `drawn(render)` column is the ink: admiral `27.0x48.0` inside a `44.1x48.9` quad, lab_raider `51.6x48.0` inside `71.3x75.4`. Same height, different margins. ⇒ **re-cropping is a memory and overdraw win and NOT a size fix**, so it is not on this item's road; the six numbers are. (`player_robot_v3` 2.81 and `npc_puppy_slug` 3.07 are not comparable — the robot lineage is `SpriteAuthored` so this number never ships for it, and a sprawled quadruped legitimately draws past its body box.)
   * ⇒ ⭐⭐ **so all three of your size reports reduce to ONE blocked question, and it is the six numbers.** **3 of 145** rows author a height at HEAD — the three heavies you ruled on (`broadside_bess` 58.7, `iron_mary` 56.2, `salt_annet` 60.4) — so 142 characters still take the legacy branch. The data the good branch needs is already there: **203 of 206 spritesheets publish `body_metrics`**, all six Standard pirates included. Nothing is left to build; the six numbers are the whole remaining input.
 
 * Low priority: For the web build we can't use kaledioscope because lunex doesn't support wasm

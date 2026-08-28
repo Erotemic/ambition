@@ -42,7 +42,7 @@ causal = ["ambition_app/causal"]
 
 [dependencies]
 ambition_app = { path = "../ambition_app" }
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d" }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["capture"] }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 # `capture_scene` stages real rooms and `preview_vanity_card` plays a real shell
 # segment, so both reach the content crate directly rather than through the app.
@@ -110,3 +110,7 @@ name = "moveset_takes"
 path = "src/bin/moveset_takes.rs"
 test = false
 bench = false
+
+[[bin]]
+name = "zero_time_capture_spike"
+path = "src/bin/zero_time_capture_spike.rs"

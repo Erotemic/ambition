@@ -129,6 +129,7 @@ mod smash_cpu_cognition;
 mod smash_cpus_damage_each_other;
 mod smash_in_the_host;
 mod one_update_one_tick;
+mod zero_duration_pump;
 mod smash_ride;
 mod smash_roster_movesets;
 mod starting_character_selection;

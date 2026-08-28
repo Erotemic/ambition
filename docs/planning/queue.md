@@ -11003,8 +11003,16 @@ davy_hylbert / pipi_tau      absolute pose coords — enlarging the frame leaves
 ⇒ their fix is a canvas grow PLUS a pose translation PLUS the same shift applied
 to `FaceGuide.center_x/center_y`, on two files. That is the *"art authoring with
 a gameplay consequence"* this row already flags, and it wants an eye on the
-result rather than a mechanical edit. ⭐ `le_beast` (39, TOP on idle and jump) is
-a third shape again and is the smallest of the three.
+result rather than a mechanical edit.
+
+⚠ **`le_beast` (39, TOP on idle and jump) IS THE SAME SHAPE, not a fourth** —
+checked 2026-08-28, correcting an earlier line here that called it a third one.
+`FRAME_W = FRAME_H = 128`, `auto_crop=False`, and every stroke at an absolute
+canvas coordinate (`(64 + side * 10, 108)`). ⛔ and the cut is on the TOP, which
+is the awkward direction: extra room added to a canvas lands at the BOTTOM unless
+the whole drawing moves down, and there is no single origin to move it by — the
+constants are spread through `_draw_character`. ⇒ three targets, ONE remaining
+technique, and it is the expensive one.
 
 ⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
 AUTHORED.** It is one of the three still on the legacy road, so a wider frame is

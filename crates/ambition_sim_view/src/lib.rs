@@ -12,8 +12,8 @@ mod attack_vfx_view;
 pub mod camera_snapshot;
 mod combat_geometry_view;
 mod control_prompt;
-mod dialog_view;
 mod defense_view;
+mod dialog_view;
 mod facts;
 pub mod local_view;
 mod pose_view;
@@ -30,16 +30,16 @@ pub use combat_geometry_view::{
     CombatStrikeGeometryView,
 };
 pub use control_prompt::{
-    publish_frontend_context_prompt, rebuild_control_prompt, ControlContextKind, ControlPrompt,
-    ControlPromptRebuilt, PromptEntry, PromptNaming,
+    project_prompt_readiness, publish_frontend_context_prompt, rebuild_control_prompt,
+    ControlContextKind, ControlPrompt, ControlPromptRebuilt, PromptEntry, PromptNaming,
 };
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
 // slot vocabulary without a direct `entity_catalog` dep.
 pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use camera_snapshot::{local_view_facts, CameraViewState, PresentedViewState};
-pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use defense_view::{defense_cue_causes, DefenseCueCauses};
+pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use local_view::{
     compose_local_views, resolve_view_subjects, spawn_local_view, the_only_view, BoundLocalView,
@@ -47,10 +47,9 @@ pub use local_view::{
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
 pub use pose_view::{
-    rebuild_body_pose_views, rebuild_guard_breaks_view,
-    rebuild_launched_bodies_view, rebuild_shield_rings_view, BodyPoseView, GuardBreakFact,
-    GuardBreaksView, LaunchedBodiesView, LaunchedBodyFact,
-    ShieldRingFact, ShieldRingsView,
+    rebuild_body_pose_views, rebuild_guard_breaks_view, rebuild_launched_bodies_view,
+    rebuild_shield_rings_view, BodyPoseView, GuardBreakFact, GuardBreaksView, LaunchedBodiesView,
+    LaunchedBodyFact, ShieldRingFact, ShieldRingsView,
 };
 pub use presented_pose::{
     PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
@@ -139,6 +138,11 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // "What does each control do right now" for the controlled
                 // subject — the touch overlay reads this instead of the sim.
                 rebuild_control_prompt.in_set(ControlPromptRebuilt),
+                // ⛔ AFTER the rebuild, and OUTSIDE its cache. The rebuild skips
+                // quiet frames on purpose; a fire-rate floor decays every tick,
+                // so reading it in there would re-derive the scheme all the way
+                // through every recharge.
+                project_prompt_readiness.after(ControlPromptRebuilt),
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         );

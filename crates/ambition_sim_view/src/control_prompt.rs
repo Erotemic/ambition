@@ -124,6 +124,24 @@ pub struct PromptEntry {
     /// would go stale on the first rebind, and the player would be told to press
     /// a key that does nothing.
     pub binding: Option<String>,
+    /// Can this slot's action FIRE right now? `true` for every slot that has no
+    /// cooldown, which is all of them but the ranged one today.
+    ///
+    /// ⭐⭐ A BOOL, NOT A FRACTION, and the difference is what it costs to keep
+    /// true. A fill fraction changes EVERY FRAME while a weapon recharges, and
+    /// this view is rebuilt behind a change-detection cache whose whole purpose
+    /// is to skip quiet frames — so a fraction here would re-derive the scheme
+    /// sixty times a second for a number nothing had asked for. A bool flips
+    /// twice per shot. ⇒ the ruling this answers asks that *"an unavailable shot
+    /// is legible"*, not that it is metered; a meter can have its own fact the
+    /// day a design wants one.
+    ///
+    /// ⛔ WRITTEN AFTER THE DERIVE, NOT INSIDE IT — see
+    /// [`project_prompt_readiness`]. The scheme answers what a slot DOES and
+    /// caches on the authorities that decide it; whether it is ready right now is
+    /// a per-tick body fact, and folding it into the cache key would defeat the
+    /// cache for every recharging weapon on the stage.
+    pub ready: bool,
 }
 
 /// The published prompt the on-screen buttons render. A plain-data snapshot
@@ -146,6 +164,16 @@ impl ControlPrompt {
             .iter()
             .find(|e| e.slot == slot)
             .map(|e| e.label.as_str())
+    }
+
+    /// Can this slot fire right now? `true` for a slot the prompt does not carry,
+    /// because a button drawn for an action the body does not have is not
+    /// "recharging" — it is not there, and `label_for` is what says so.
+    pub fn ready_for(&self, slot: ControlSlot) -> bool {
+        self.entries
+            .iter()
+            .find(|e| e.slot == slot)
+            .is_none_or(|e| e.ready)
     }
 }
 
@@ -386,6 +414,9 @@ pub fn rebuild_control_prompt(
     let entries = scheme
         .iter()
         .map(|action| PromptEntry {
+            // Every slot is drawn ready here; `project_prompt_readiness` is the
+            // one writer that says otherwise.
+            ready: true,
             slot: action.slot,
             label: match naming.as_deref().copied().unwrap_or_default() {
                 PromptNaming::ByButton => button_label(action.slot).to_owned(),
@@ -402,6 +433,46 @@ pub fn rebuild_control_prompt(
         })
         .collect();
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
+}
+
+/// Say which prompt slots cannot fire right now.
+///
+/// ⭐⭐ THE FACT IS THE BODY'S, and it is read rather than modelled:
+/// `BodyMelee::ranged_cooldown` is the fire-rate floor the body itself enforces
+/// (*"a spam controller and a human produce the same weapon rate"*), so a prompt
+/// derived from it cannot disagree with what a press actually does. A second
+/// timer in presentation would be a second answer to a question the sim answers.
+///
+/// ⛔ A SEPARATE SYSTEM FROM THE REBUILD ABOVE, and that is the whole design.
+/// The scheme derive caches on the authorities that decide what a slot DOES and
+/// skips quiet frames; `ranged_cooldown` decays EVERY tick, so reading it inside
+/// that derive would re-run the whole thing sixty times a second while any weapon
+/// recharges. This writes one bool in place instead.
+///
+/// ⚠ It runs on the SAME subject the rebuild followed, so a swap of the driven
+/// body cannot leave one fighter's readiness on another's prompt.
+pub fn project_prompt_readiness(
+    controlled: Option<Res<ControlledSubject>>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    bodies: Query<&ambition_combat::components::BodyMelee>,
+    mut prompt: ResMut<ControlPrompt>,
+) {
+    let subject = controlled
+        .as_deref()
+        .and_then(|controlled| controlled.0)
+        .or_else(|| primary.single().ok());
+    let recharging = subject
+        .and_then(|body| bodies.get(body).ok())
+        .is_some_and(|melee| melee.ranged_cooldown > 0.0);
+    for entry in &mut prompt.entries {
+        // ⛔ ONLY the slot the cooldown governs. `ranged_cooldown` is documented
+        // as orthogonal to melee (invariant I3), so dimming anything else here
+        // would report a restriction the body does not impose.
+        let ready = entry.slot != ControlSlot::Projectile || !recharging;
+        if entry.ready != ready {
+            entry.ready = ready;
+        }
+    }
 }
 
 /// Is the player working a SURFACE rather than driving a body — and what does
@@ -512,6 +583,110 @@ mod tests {
         app.insert_resource(ControlledSubject(None));
         app.add_systems(Update, rebuild_control_prompt);
         app
+    }
+
+    /// A RECHARGING SHOT SAYS SO, AND ONLY THAT SHOT DOES.
+    ///
+    /// ⭐⭐ THE RULING THIS ANSWERS is *"give recharge enough presentation that an
+    /// unavailable shot is legible"* — owed since D241 and drawn by nothing.
+    /// `BodyMelee::ranged_cooldown` is the body's OWN fire-rate floor, so a prompt
+    /// derived from it cannot tell the player a press will work when the body will
+    /// refuse it.
+    ///
+    /// ⛔ THE SECOND ARM IS THE ONE THAT MATTERS. `ranged_cooldown` is documented
+    /// as orthogonal to melee (invariant I3), so a readiness projection that dimmed
+    /// the whole prompt would report a restriction the body does not impose — and
+    /// "the ranged button went grey" and "every button went grey" look identical
+    /// from a single assertion about the ranged one.
+    #[test]
+    fn a_recharging_ranged_slot_is_the_only_one_that_stops_reading_ready() {
+        use ambition_combat::components::BodyMelee;
+
+        let mut app = app();
+        app.add_systems(
+            Update,
+            project_prompt_readiness.after(rebuild_control_prompt),
+        );
+        let mut abilities = AbilitySet::default();
+        abilities.jump = true;
+        abilities.attack = true;
+        // ⛔ THE MOVESET NEEDS A `ranged` VERB, or the prompt draws no Projectile
+        // slot and `ready_for` answers `true` for an action that is not there —
+        // which is the honest answer and would have passed this test for the
+        // wrong reason. Caught by the floor below.
+        let (_, mut moveset) = authorities(true, Some("swat"));
+        let shot = moveset.0.moves[0].clone();
+        moveset
+            .0
+            .verbs
+            .insert("ranged".to_string(), shot.id.clone());
+        let body = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                BodyAbilities::new(abilities),
+                moveset,
+                BodyMelee::default(),
+            ))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        app.update();
+
+        // ⛔ THE FLOOR: the slot is drawn at all. A readiness assertion about a
+        // prompt with no ranged entry passes for the wrong reason.
+        let ranged_drawn = |app: &App| {
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .any(|e| e.slot == ControlSlot::Projectile)
+        };
+        assert!(
+            ranged_drawn(&app),
+            "the fixture draws no Projectile slot, so every readiness claim below \
+             is about an action this body does not have"
+        );
+        assert!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .all(|e| e.ready),
+            "a body that has fired nothing has no slot to dim"
+        );
+
+        // Fire: the body arms its own floor.
+        app.world_mut()
+            .get_mut::<BodyMelee>(body)
+            .expect("the fixture has melee state")
+            .ranged_cooldown = 0.4;
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert!(
+            !prompt.ready_for(ControlSlot::Projectile),
+            "the ranged slot is recharging and the prompt still reads it as ready"
+        );
+        for slot in [ControlSlot::Jump, ControlSlot::Attack] {
+            assert!(
+                prompt.ready_for(slot),
+                "{slot:?} went unready on a RANGED cooldown, which is orthogonal to it"
+            );
+        }
+
+        // And it comes back on its own clock, without a second writer.
+        app.world_mut()
+            .get_mut::<BodyMelee>(body)
+            .expect("the fixture has melee state")
+            .ranged_cooldown = 0.0;
+        app.update();
+        assert!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .ready_for(ControlSlot::Projectile),
+            "the shot recharged and the prompt is still dim"
+        );
     }
 
     #[test]

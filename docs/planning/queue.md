@@ -13590,9 +13590,21 @@ still meets the floor and a `CommittedMove` is guaranteed its shot. Measured on
 `duel_arena`: **PCA melee 36, robot melee 23, hp 60→34 / 60→51** — more melee
 than either rejected option, because a refused move no longer costs a windup
 (the gate runs before `proposer.spend`, so the ordinary buffer re-proposes).
-▢ STILL OWED: the presentation half of the ruling — *"give recharge enough
-presentation that an unavailable shot is legible"*. Nothing draws
-`ranged_cooldown`.
+✔ **PAID 2026-08-28: the presentation half of the ruling** — *"give recharge
+enough presentation that an unavailable shot is legible"*. `PromptEntry::ready`
+carries it and the touch overlay dims the button; the fact comes from
+`BodyMelee::ranged_cooldown`, the body's OWN fire-rate floor, so a dimmed button
+and a refused press cannot part company. ⛔ **A BOOL, NOT A FILL FRACTION**: the
+prompt rebuild sits behind a change-detection cache built to skip quiet frames,
+and a fraction changes EVERY frame while a weapon recharges — the ruling asks
+that the shot be legible, not metered. ⛔ and it is written by
+`project_prompt_readiness` AFTER the derive rather than inside it, for the same
+reason. ⭐ **DIMMED, NEVER HIDDEN**: a button that vanished would take the key
+with it. ⚠ the guard's second arm is the load-bearing one — `ranged_cooldown` is
+orthogonal to melee (invariant I3), and *"the ranged button went grey"* and
+*"every button went grey"* look identical from one assertion. Poison-verified
+both ways, and the fixture needed a `ranged` verb before it measured anything at
+all.
 
 ⛔⛔ **#20 IS NOT A THIRD MAGNITUDE BOUND, AND MEASURING IT NAMED THE BLOCKER.**
 The dash floor (`along.abs() > want.abs()`) and the shield brake

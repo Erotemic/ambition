@@ -10939,6 +10939,26 @@ npc_burning_flying_shark  two
 `sprite_body_collision_for_character_id_in` returns `None` before either branch
 is reached. They do not block deleting `catalog_join.rs:154`'s `_ =>` arm.
 
+✔ **AND UN-CLIPPING BECAME SAFE FOR NINETEEN CHARACTERS THE MOMENT THEY AUTHORED
+A HEIGHT — `npc_trex_enemy` is the first, 2026-08-28.** 57 of its 60 frames were
+cut (every idle on the left, the tail swipe and death on the bottom), and its
+root sits at a FRACTION of a work frame rather than at a padding constant, so
+the fix is the frame and the fraction moved together: work `832x640 → 1000x760`,
+frame `416x320 → 500x380`, root `x 0.33 → 0.4426` / `y 0.72 → 0.6063`. Zero cut
+frames, still one page. ⭐ its derived height is **exactly 70.50 either way**,
+because the authored number is now the input — the whole point of the previous
+paragraph.
+
+⚠ **its collision WIDTH moved 131.6 → 143.3, and that is the fix rather than a
+side effect**: the measured body grew because the tail that used to be cropped is
+now drawn, and `every_characters_drawing_is_the_size_of_the_body_it_collides_with`
+is the assertion that these two must describe one creature.
+
+⛔⛔ **DO NOT UN-CLIP `npc_puppy_slug` (17 cut frames) UNTIL ITS HEIGHT IS
+AUTHORED.** It is one of the three still on the legacy road, so a wider frame is
+a DIVISOR change and would resize it — which is exactly the trap this row found
+on the automaton. Its two crawler variants already author heights and are safe.
+
 ▢ **so the arm's deletion gate is three numbers**, and they are Jon's — see
 [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 36.
 ⛔ do NOT pick them by taking the most common box: the puppy slug's two most

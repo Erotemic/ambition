@@ -845,7 +845,7 @@ pub struct RefinedChoice {
     /// The press that reaches [`Self::move_id`], carried beside it so the
     /// refinement's winner can be EXECUTED as the move it won with. `None`
     /// exactly when `move_id` is.
-    pub binding: Option<ambition_characters::brain::fighter::options::AttackBinding>,
+    pub binding: Option<ambition_characters::brain::attack_kit::AttackBinding>,
     /// Movement lines the rollout found SUICIDAL, by L2 verb.
     ///
     /// Empty when the profile runs no rollouts or nothing self-KO'd. A verb in

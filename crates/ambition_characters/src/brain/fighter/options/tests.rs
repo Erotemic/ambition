@@ -1,6 +1,7 @@
 use super::*;
 use crate::actor::attack_gesture::AttackDir;
 use crate::actor::ActorFaction;
+use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate, AttackVerb};
 use crate::perception::{BodyPhase, PerceivedActor, SelfView, StageView, WorldView};
 use ambition_platformer2d_core as ae;
 

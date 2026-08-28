@@ -6121,7 +6121,7 @@ fn a_fighter_brain_charges_a_smash_through_the_real_chain() {
     // built from the SAME `charging_smash()` spec the body plays, so the frame
     // data the brain reasons about and the timeline the charge freezes on are
     // one authoring.
-    use ambition_characters::brain::fighter::options::{
+    use ambition_characters::brain::attack_kit::{
         ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
     };
     let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();

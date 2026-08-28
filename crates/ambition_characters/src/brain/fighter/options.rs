@@ -8,10 +8,10 @@
 //! Decision cadence and calibration live outside this module. The weights here are starting
 //! values; ladder evaluation owns tuning.
 
+use crate::brain::attack_kit::{ActionLegality, AttackBinding, AttackCandidate};
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 
-use crate::actor::attack_gesture::AttackDir;
 
 use super::situation::{is_punishable, Situation};
 use crate::perception::{BodyPhase, Perceived, PerceivedActor};
@@ -153,90 +153,6 @@ impl Default for UtilityWeights {
     fn default() -> Self {
         Self::v1()
     }
-}
-
-/// How a chosen attack is actually PRESSED.
-///
-/// L2 scored every move in the kit, L3 refined the choice, `RefinedChoice::move_id` named a
-/// concrete move — and the emission set `melee_pressed = true` with a neutral axis, so
-/// `trigger_moveset_moves` resolved whatever the DEFAULT gesture maps to. The brain decided whether
-/// to attack and never which attack.
-///
-/// It is the ordinary gesture vocabulary, not a fighter-only bypass: a verb plus
-/// a direction is exactly what a human's stick and button produce, and what
-/// `move_for_directional_verb` consumes. The POSTURE is deliberately absent — the
-/// body's real grounded state decides it at press time, and a brain that could
-/// claim a posture it does not have would be reaching past the no-cheat contract
-/// to pick a move its body cannot reach.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AttackBinding {
-    pub verb: AttackVerb,
-    pub direction: AttackDir,
-}
-
-/// The three press KINDS a moveset distinguishes. Not the move — the button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum AttackVerb {
-    /// The plain attack button (`"attack"` and its directional variants).
-    #[default]
-    Basic,
-    /// Attack with a smash/strong hint (`"smash_*"`, falling back to `attack_*`).
-    Smash,
-    /// The special button (`"special"` and its directional variants).
-    Special,
-    /// The GRAB button (`"grab"`).
-    ///
-    /// no directional variants, and a CENTRED stick. A grab is a button,
-    /// not a stick gesture — a deflection beside it would arm a flick the next
-    /// ordinary attack would inherit as an accidental smash.
-    Grab,
-}
-
-/// One attack the caller's kit offers. The caller resolves these from the body's
-/// moveset; L2 never queries anything.
-///
-/// The caller enumerates BINDINGS and asks the moveset what each one reaches, so
-/// a candidate is a move the body can actually be made to perform — a move with
-/// no binding (a buff, a summon, an on-hit technique) never enters the kit, and
-/// a scored choice is executable by construction.
-#[derive(Clone, Debug, PartialEq)]
-pub struct AttackCandidate {
-    pub move_id: String,
-    pub frames: MoveFrameData,
-    pub binding: AttackBinding,
-    /// Whether the BODY can begin this move on this tick — see
-    /// [`ActionLegality`]. Supplied by the caller, which is the only layer that
-    /// can see the running `MovePlayback`.
-    pub legality: ActionLegality,
-}
-
-/// CAN this action begin right now? — a question about the BODY's state,
-/// kept deliberately separate from *how useful would it be*, which is the
-/// scorer's ([`Features`]) subject.
-///
-/// it is a FILTER, never a weight. A cheap move that cannot be started is
-/// not a slightly worse option than one that can — it is not an option. Pricing
-/// it low would leave it winning whenever the kit is bad, which is exactly how
-/// the "an attack that cannot REACH is not an option" filter came to exist one
-/// class over.
-///
-/// the third state is deliberately absent and named here so it is not
-/// invented twice. `BodyActionBuffer` IS fed now, so a press that cannot
-/// execute this tick but would be consumed on the first actionable frame is a
-/// real option — `BufferableSoon` — and issuing it is what a person pressing
-/// into the tail of endlag is doing. What is still missing is the fact it needs:
-/// the brain cannot see the buffer's remaining window against the body's
-/// remaining lock, and without that comparison "legal eventually" still must not
-/// read as "press now".
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ActionLegality {
-    /// Nothing owns the body, or the running move's cancel windows admit this
-    /// one under its hit-state condition.
-    #[default]
-    Now,
-    /// Another move owns the body and its cancel windows do not admit this one.
-    /// The press would be discarded, so the brain does not spend it.
-    BlockedByPlayback,
 }
 
 /// L2's working set for one decision tick.
@@ -460,7 +376,7 @@ pub fn generate_options(
         // press.
         .filter(|c| c.legality == ActionLegality::Now)
         .map(|c| {
-            use super::options::AttackVerb;
+            use crate::brain::attack_kit::AttackVerb;
             let fa = frame_advantage(c.frames.startup_s, their_commitment, kit_slowest_startup);
             let power = if kit_max_damage > 0 {
                 c.frames.max_damage as f32 / kit_max_damage as f32

@@ -16,6 +16,7 @@
 //! resolved [`action_set::ActionRequest`].
 
 pub mod action_set;
+pub mod attack_kit;
 pub mod boss_pattern;
 /// The advanced fighter brain (fighter-brain.md): L1's situation classifier today.
 pub mod fighter;

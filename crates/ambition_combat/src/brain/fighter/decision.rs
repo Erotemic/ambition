@@ -9,12 +9,13 @@ use ambition_platformer2d_core::{self as ae, Vec2};
 use super::recovery::{BodyKit, RecoveryLens};
 use super::rollout::refine_by_rollout;
 use ambition_characters::actor::control::ActorControlFrame;
+use ambition_characters::brain::attack_kit::AttackCandidate;
 use ambition_characters::brain::fighter::data::{
     FighterCfg, FighterState, FoeSample, PendingAttack,
 };
 use ambition_characters::brain::fighter::habit::Choice;
 use ambition_characters::brain::fighter::options::{
-    generate_options, AttackCandidate, MovementVerb, UtilityWeights,
+    generate_options, MovementVerb, UtilityWeights,
 };
 use ambition_characters::brain::fighter::situation::{classify, Situation};
 use ambition_characters::brain::BrainSnapshot;
@@ -391,7 +392,7 @@ fn decide(
     // Keep the authored move id with the physical binding so traces can identify
     // the selected action even when multiple moves share a button/direction.
     let wants_attack: Option<(
-        ambition_characters::brain::fighter::options::AttackBinding,
+        ambition_characters::brain::attack_kit::AttackBinding,
         String,
     )> = match endorsed_recovery {
         Some(verdict) if verdict.regained() => verdict
@@ -449,7 +450,7 @@ fn decide(
             ticks: jitter,
             binding: *binding,
             hold_ticks: match binding.verb {
-                ambition_characters::brain::fighter::options::AttackVerb::Smash => {
+                ambition_characters::brain::attack_kit::AttackVerb::Smash => {
                     super::charge::hold_ticks(
                         situation,
                         // ⛔ THE MOVE'S OWN HOLD POINT, not its startup. The charge
@@ -483,7 +484,7 @@ fn decide(
                 // window already NAMES, so holding a move that authors no chain
                 // is a no-op. Asking the brain which moves have chains would put
                 // a second copy of the cancel table in the scorer.
-                ambition_characters::brain::fighter::options::AttackVerb::Basic => {
+                ambition_characters::brain::attack_kit::AttackVerb::Basic => {
                     super::charge::string_hold_ticks(
                         situation,
                         options
@@ -502,7 +503,7 @@ fn decide(
                 // and the fallback holds through its startup, which for a
                 // special that does not charge is a no-op — exactly as it is
                 // for a smash that does not.
-                ambition_characters::brain::fighter::options::AttackVerb::Special => {
+                ambition_characters::brain::attack_kit::AttackVerb::Special => {
                     super::charge::hold_ticks(
                         situation,
                         options
@@ -520,7 +521,7 @@ fn decide(
                         cfg.tick_hz,
                     )
                 }
-                ambition_characters::brain::fighter::options::AttackVerb::Grab => 0,
+                ambition_characters::brain::attack_kit::AttackVerb::Grab => 0,
             },
         });
     }
@@ -607,12 +608,12 @@ struct DecisionSummary<'a, 'k> {
 /// flick detector — which is correct: the next directional press is then a fresh
 /// gesture rather than the tail of this one.
 fn aim_the_stick(
-    binding: ambition_characters::brain::fighter::options::AttackBinding,
+    binding: ambition_characters::brain::attack_kit::AttackBinding,
     facing: f32,
     frame: &mut ActorControlFrame,
 ) {
     use ambition_characters::actor::attack_gesture::AttackDir;
-    use ambition_characters::brain::fighter::options::AttackVerb;
+    use ambition_characters::brain::attack_kit::AttackVerb;
 
     // A body whose facing has not been established yet still has to aim
     // somewhere; `+1` keeps `Forward` meaning `+x` rather than collapsing the
@@ -651,10 +652,10 @@ fn aim_the_stick(
 /// resolves — so a fighter reaches its up-tilt the same way a player does, and a
 /// move with no binding was never in the kit to be chosen.
 fn press_the_chosen_attack(
-    binding: ambition_characters::brain::fighter::options::AttackBinding,
+    binding: ambition_characters::brain::attack_kit::AttackBinding,
     frame: &mut ActorControlFrame,
 ) {
-    use ambition_characters::brain::fighter::options::AttackVerb;
+    use ambition_characters::brain::attack_kit::AttackVerb;
 
     match binding.verb {
         AttackVerb::Basic => {
@@ -679,14 +680,14 @@ fn press_the_chosen_attack(
 
 /// Which button a chosen verb holds down while it charges.
 fn charge_gesture_of(
-    verb: ambition_characters::brain::fighter::options::AttackVerb,
+    verb: ambition_characters::brain::attack_kit::AttackVerb,
 ) -> ambition_entity_catalog::ChargeGesture {
     match verb {
         // A held Special is a charge shot. Every other verb holds Attack — a
         // smash charges on it and a basic continues a string on it — or holds
         // nothing at all, in which case the counter is zero and neither field
         // goes down.
-        ambition_characters::brain::fighter::options::AttackVerb::Special => {
+        ambition_characters::brain::attack_kit::AttackVerb::Special => {
             ambition_entity_catalog::ChargeGesture::Special
         }
         _ => ambition_entity_catalog::ChargeGesture::Smash,

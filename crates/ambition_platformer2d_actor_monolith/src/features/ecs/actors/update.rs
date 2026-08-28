@@ -1573,7 +1573,7 @@ pub(super) fn attack_kit_of(
     // `ActionLegality`. `None` means nothing owns the body and everything is
     // startable.
     playback: Option<&ambition_combat::moveset::MovePlayback>,
-) -> Vec<ambition_characters::brain::fighter::options::AttackCandidate> {
+) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
         brain,
@@ -1585,9 +1585,7 @@ pub(super) fn attack_kit_of(
         return Vec::new();
     };
     use ambition_characters::actor::attack_gesture::AttackDir;
-    use ambition_characters::brain::fighter::options::{
-        AttackBinding, AttackCandidate, AttackVerb,
-    };
+    use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
 
     // ENUMERATE THE PRESSES, ASK WHAT EACH ONE REACHES.
     //
@@ -1666,8 +1664,8 @@ fn legality_of(
     playback: Option<&ambition_combat::moveset::MovePlayback>,
     verb_name: &str,
     move_id: &str,
-) -> ambition_characters::brain::fighter::options::ActionLegality {
-    use ambition_characters::brain::fighter::options::ActionLegality;
+) -> ambition_characters::brain::attack_kit::ActionLegality {
+    use ambition_characters::brain::attack_kit::ActionLegality;
     let Some(pb) = playback else {
         // Nothing owns the body: every candidate is startable.
         return ActionLegality::Now;
@@ -1706,11 +1704,9 @@ fn capture_candidate(
     moveset: &ambition_combat::moveset::ActorMoveset,
     grounded: bool,
     playback: Option<&ambition_combat::moveset::MovePlayback>,
-) -> Option<ambition_characters::brain::fighter::options::AttackCandidate> {
+) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
-    use ambition_characters::brain::fighter::options::{
-        AttackBinding, AttackCandidate, AttackVerb,
-    };
+    use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
     use ambition_characters::smash_capture::{CaptureAttemptParams, CAPTURE_ATTEMPT};
 
     let spec = moveset.0.move_for_directional_verb(

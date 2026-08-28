@@ -24,10 +24,10 @@ use super::decision::tick_fighter;
 use super::scenarios::{suite, Scenario};
 use ambition_characters::actor::attack_gesture::AttackDir;
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::brain::fighter::data::{FighterCfg, FighterState};
-use ambition_characters::brain::fighter::options::{
+use ambition_characters::brain::attack_kit::{
     ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
 };
+use ambition_characters::brain::fighter::data::{FighterCfg, FighterState};
 use ambition_characters::brain::fighter::profile::FighterBrainProfile;
 use ambition_characters::brain::BrainSnapshot;
 

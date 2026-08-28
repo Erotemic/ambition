@@ -125,7 +125,7 @@ pub struct PendingAttack {
     /// Ticks remaining before the press is emitted. Counts DOWN.
     pub ticks: u32,
     /// What to press when it matures.
-    pub binding: super::options::AttackBinding,
+    pub binding: crate::brain::attack_kit::AttackBinding,
     /// How long to keep Attack down after the press — the charge, decided by
     /// the situation that chose the move rather than by the one it matures in,
     /// because the opening being paid for is the one that was read.

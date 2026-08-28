@@ -84,7 +84,7 @@ pub struct BrainSnapshot {
     /// Empty by default, which is the honest answer for every non-fighter brain
     /// and for an inert test snapshot: `generate_options` then produces no
     /// attacks and the fighter plays movement only.
-    pub attack_kit: Vec<crate::brain::fighter::options::AttackCandidate>,
+    pub attack_kit: Vec<crate::brain::attack_kit::AttackCandidate>,
     /// Which body this is, as the integration layer names it.
     ///
     /// The brain genuinely cannot know: a snapshot is pure body state, and a

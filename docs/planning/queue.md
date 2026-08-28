@@ -9606,6 +9606,23 @@ each, no dependency.
 ⇒ **the blocker was never the size.** It is the four edges below plus the encoded
 tag and the monolith's eight call sites.
 
+✔✔ **AND TWO OF THE FOUR CLOSED THE SAME DAY, WITHOUT THE SEAM.** The row says
+edges 1 and 2 *"collapse to ONE"* because `attack_kit` travels with the fighter
+brain — that assumed the KIT is fighter vocabulary. It is not, and
+`AttackBinding`'s own doc says so: *"the ordinary gesture vocabulary, not a
+fighter-only bypass: a verb plus a direction is exactly what a human's stick and
+button produce"*. The field is FILLED by the actors-side snapshot builder from the
+body's live `ActorMoveset`; the brain is merely told it.
+⇒ `AttackCandidate`, `AttackBinding`, `AttackVerb` and `ActionLegality` live in
+`brain/attack_kit.rs` now — a sibling of `snapshot.rs`, not a child of `fighter`.
+That closes **edge 1** (the snapshot's field) and **edge 4** (the codec's reach
+for `AttackVerb`) with no registration seam and no wire change: the encoder writes
+the tag as a literal `0/1/2/3`, so it names the VALUES, not the type's path.
+⇒ **what remains is ONE concept, not four**: the `StateMachineCfg::Fighter`
+variant, which `state_machine/mod.rs` declares, `brain/mod.rs` maps to the string
+`"fighter"`, the codec tags `3`, and the monolith matches at eight sites. ⭐ the
+ratchet stayed green throughout.
+
 `brain/fighter` was recorded as 10,644 lines; the GENERIC brain named it
 in five places (widened from an initial undercount of three — the contract's
 `fighter::` grep under `brain/` couldn't see a rollback codec that hand-writes

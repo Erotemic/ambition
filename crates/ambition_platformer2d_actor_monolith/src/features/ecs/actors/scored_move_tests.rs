@@ -209,7 +209,7 @@ fn scene_guarding(gap: f32, guarding: bool) -> WorldView {
 /// rather than assuming tick one.
 fn frame_when_the_fighter_attacks(
     brain: &mut Brain,
-    kit: Vec<ambition_characters::brain::fighter::options::AttackCandidate>,
+    kit: Vec<ambition_characters::brain::attack_kit::AttackCandidate>,
     view: &WorldView,
 ) -> ambition_characters::actor::control::ActorControlFrame {
     let Brain::StateMachine(StateMachineCfg::Fighter { cfg, state }) = brain else {
@@ -300,7 +300,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     );
 
     use ambition_characters::actor::attack_gesture::AttackDir;
-    use ambition_characters::brain::fighter::options::AttackVerb;
+    use ambition_characters::brain::attack_kit::AttackVerb;
     let uptilt = kit
         .iter()
         .find(|c| c.move_id == "uptilt")
@@ -404,7 +404,7 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     );
     assert_eq!(
         grab.binding.verb,
-        ambition_characters::brain::fighter::options::AttackVerb::Grab,
+        ambition_characters::brain::attack_kit::AttackVerb::Grab,
         "the grab is bound to some other button"
     );
 }
@@ -421,11 +421,12 @@ fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
 #[test]
 fn a_guard_ignoring_move_is_what_answers_a_raised_shield() {
     use ambition_characters::actor::attack_gesture::AttackDir;
+    use ambition_characters::brain::attack_kit::{
+        ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
+    };
     use ambition_characters::brain::fighter::data::ShadowTuning;
     use ambition_characters::brain::fighter::habit::{Choice, HabitModel};
-    use ambition_characters::brain::fighter::options::{
-        generate_options, ActionLegality, AttackBinding, AttackCandidate, AttackVerb,
-    };
+    use ambition_characters::brain::fighter::options::generate_options;
     use ambition_characters::brain::fighter::situation::classify;
     use ambition_characters::brain::fighter::FighterBrainProfile;
     use ambition_combat::brain::fighter::rollout::refine_by_rollout;

@@ -374,48 +374,6 @@ production-path test when the behavior crosses systems/phases
 
 Aggregate simulation tests are evidence about outcomes, not causal proof.
 
-### A green test is evidence until you make it red
-
-⛔⛔ **The failure that keeps happening is a green result that is green FOR AN
-UNRELATED REASON.** The shark up-B shipped broken in play four times while the
-suite stayed green, and the tests were green five distinct ways: a harness with
-no damage source, so a survivability bug could not appear; a hitbox anchored to a
-remembered point that silently stopped landing once the test jumped first, where
-*"no damage taken"* reads identically to *"survived"*; a test writing a DERIVED
-fact the movement pass recomputed away; a strike owned by its own victim, and
-strikes skip self-hits; and a `HitSide::Player` strike refused as friendly fire
-against a Player-faction rider.
-
-⇒ **Probe the fix out and demand red.** If removing the change leaves the test
-green, the test is not about the change.
-
-⛔ **AND POISON THE CONSUMER OF WHAT YOU CHANGED, not the place it is produced.**
-This is where the discipline is most often applied and still misses. Three
-examples from one day, each poison-verified and each poison aimed one layer too
-early:
-
-```text
-made a field nullable and poisoned the per-job payload
-   → the three AGGREGATES still summed it as zero; the ledger stayed wrong
-keyed a menu arm by `Action` and poisoned one row tapped twice
-   → two DIFFERENT rows sharing an action still armed each other
-swept a projectile's victim test with the two bodies 40px apart
-   → at 50px/s a shot covers 0.8px in a tick; only one was ever reachable,
-     and the fixture passed with the fix removed
-```
-
-⚠ **A rule with a magnitude needs arms that STRADDLE it**, and a default value is
-the classic vacuous choice: a parry-timing test that declared `OnRaise` — which
-IS the default — stayed green while the projection was poisoned back to
-`default()`.
-
-⛔ **Corollary: a RED test is evidence about the TEST until checked.** Three of
-the launch-threshold failures were the test's fault while the engine was correct.
-
-⭐ **What catches this sooner**: a test that travels the road the PLAYER travels
-(the select screen, not an injected roster), and a survivability arm that lands
-the LARGEST hit in the game rather than a middling one.
-
 A CPU-vs-CPU distribution changing does not establish which mechanism broke.
 
 When moving shared types across crate boundaries, compile/test the touched packages' test targets.

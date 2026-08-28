@@ -68,6 +68,24 @@ ambition_require_python_module \
     "$renderer_py" ambition_music_renderer \
     "run ./run_developer_setup.sh or set AMBITION_MUSIC_PYTHON=/path/to/python"
 
+# The sampled instrument libraries. `render_music.sh` — the renderer's own entry
+# point — sources this; this script did not, so the REPO-level regen (the path
+# run_developer_setup.sh drives) rendered every cue without the SFZ/LV2/VST3/CLAP
+# search paths and quietly took the General-MIDI fallback for anything sampled.
+# Same one line, so both entry points resolve the same instruments.
+audio_tools_env="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}/env.sh"
+if [ -f "$audio_tools_env" ]; then
+    echo "==> instrument libraries: $audio_tools_env"
+    # shellcheck disable=SC1090
+    source "$audio_tools_env"
+else
+    echo "==> instrument libraries: none at ${audio_tools_env%/env.sh}"
+    echo "    sampled instruments will render through the General-MIDI fallback."
+    echo "    install them with:"
+    echo "      tools/ambition_music_renderer/setup.sh                       # sfizz + LV2 hosts"
+    echo "      tools/ambition_music_renderer/download_ambition_audio_tools.sh /data/audio-tools"
+fi
+
 echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES; adaptive cues per-section)"
 if [ "$skip_render" -eq 1 ]; then
     (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio publish)

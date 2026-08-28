@@ -3276,6 +3276,32 @@ it. ⇒ moving the trait means moving three things, not one: a D33-shaped
 slice, not a file move. ⭐ unifying the publish first makes that carve
 strictly smaller — one call site to move instead of two.
 
+⭐⭐ **RE-PRICED 2026-08-28, AND THE THREE THINGS DO NOT GO TO ONE PLACE — which
+is why the carve looked bigger than it is.** `ambition_characters` was the wrong
+destination for all of it:
+
+```text
+ActorSpriteMetrics    → ambition_sprite_sheet.  It IS sprite metrics: frame dims,
+                        `PixelRect`, `NamedPixelRect`, a render size. `characters`
+                        cannot host it (no `sprite_sheet` dep, and adding one
+                        inverts the edge — `sprite_sheet` depends on `characters`).
+                        42 uses inside `boss_encounter`, all mechanical.
+AnimationSelection    → with the trait. `{ keys, elapsed_s, live_frame_index }` —
+                        pure data, no boss vocabulary at all, and its own doc says
+                        *"once resolved the world-space volume derivation is
+                        identical for all of them"*. 7 uses.
+CombatGeometry + the  → ambition_combat, whose manifest already claims the
+volume math             subject: *"Damage / Hitbox / Hurtbox / DamageVolume"*.
+                        ONE new edge, `combat → sprite_sheet`, and it is downward:
+                        `sprite_sheet` names neither `combat` nor `boss_encounter`.
+```
+
+⇒ the size is 42 + 7 mechanical renames plus one dependency line, not a redesign.
+⛔ do it COMPILER-DRIVEN as the boss carve was: move, then let the errors
+enumerate the callers — the consumers outside `boss_encounter` are
+`sim_view::combat_geometry_view` (8), `render::debug_viz` (5) and the app's
+gizmos (4), and a grep over qualified paths would miss the grouped and bare forms.
+
 ✔ **AND ONE THING THIS FOUND ON THE WAY, MEASURED RATHER THAN ASSERTED: A
 POSSESSED FLYER CANNOT REACH ITS OWN TOP SPEED. FIXED 2026-08-28.**
 ⭐⭐ **THE FIELD'S OWN DOC ALREADY SAID WHERE THE FIX GOES.**

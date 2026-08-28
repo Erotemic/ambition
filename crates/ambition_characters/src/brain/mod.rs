@@ -98,9 +98,16 @@ impl Brain {
 
     // ⛔⛔ `Brain::tick` AND `Brain::tick_with_actions` ARE GONE, and their
     // absence is the point. They were a match over every variant, so behaviour
-    // placement followed the enum: three of the twelve arms are 22k lines of
-    // platform-fighter and boss thinking whose destination is a crate ABOVE this
-    // one, and a dispatcher living here could never call upward (D168).
+    // placement followed the enum: three of the twelve arms are platform-fighter
+    // and boss thinking whose destination is a crate ABOVE this one, and a
+    // dispatcher living here could never call upward (D168).
+    //
+    // ⚠ this said "22k lines" — re-measured 2026-08-28 and it is 5,399, tests
+    // included: fighter 3,596, boss_pattern 1,218, smash 585. The whole `brain/`
+    // tree is 12,466, so 22k was never any subset of it. The ARGUMENT does not
+    // depend on the number — a dispatcher here still cannot call upward at any
+    // size — which is exactly why an unchecked figure survived in a comment
+    // whose reasoning nobody had cause to doubt.
     //
     // ⭐ THE SPLIT, not a move. `state_machine::tick_simple_state_machine`
     // answers the nine ordinary NPC arms — this crate's own business — and says

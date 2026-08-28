@@ -1086,6 +1086,16 @@ Record these measurements after meaningful waves, not after every tiny edit:
 | Actor-monolith builds in the measured full-suite workflow | 16 | suite target remains <=2; carves also reduce cost per build |
 | Root modules | 42 | descriptive only; do not optimize this count directly |
 
+⭐ **Measured 2026-08-28, after the boss carve: `src/**/*.rs` is 107,354 lines.**
+⛔ **AND THAT NUMBER IS NEARLY USELESS ON ITS OWN, which is worth saying once
+rather than re-deriving each time.** 110,911 → 107,354 is 3.2% over three weeks
+in which mount, boss ECS, boss attack-moveset, `SpawnBaseline`, `TemporaryControl`
+and the rollback declarations all left — because carves REMOVE lines while the
+game keeps ADDING them, and this row cannot tell those apart. The measures that
+moved and mean something are the OUTWARD EDGE COUNTS per module, which is what the
+re-measured candidate table above tracks, and the count of modules naming ZERO
+monolith paths. Read this row as a trend, never as a verdict on a slice.
+
 Add a focused compile-time measurement once the first substantial carve lands so
 later waves can compare clean-build and representative incremental-edit cost.
 The compile-time goal is both **less work per actor edit** and **more independent

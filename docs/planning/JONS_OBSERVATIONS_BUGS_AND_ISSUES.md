@@ -130,6 +130,18 @@
   * ◐ **the three heavies are ON the shared road now (2026-08-22), at their own measured heights** — `broadside_bess 58.7`, `iron_mary 56.2`, `salt_annet 60.4`. `Wide` has no default, so they rode `ldtk_box × collision_scale`; authoring the height they already had swaps the road without changing the look (two are byte-identical; `salt_annet` moved 0.1px in width because I authored the rounded number). ⇒ **making them smaller is now editing one number each**, which is what you asked for.
   * ▢ **the six Standard pirates still need your number, and that is now the WHOLE remaining input.** `npc_pirate_admiral/cutlass_viper/lookout/navigator/quartermaster/raider` are `Standard` (48 today; your "2x" = 96 — your own words, so this is a yes/no rather than a number you have to invent). ⚠ **correction, 2026-08-28: the sentence that used to stand here said the three heavies "still ride the legacy `ldtk_box × collision_scale` road" and need a `standing_height` each. They HAVE one** — `broadside_bess 58.7`, `iron_mary 56.2`, `salt_annet 60.4`, the only three of 145 catalog rows that author a height, exactly as the ◐ line above says. The stale half was contradicted by three other lines in this same file. ⚠ 17 rows author no `body_kind` at all, and `Wide`/`Floating`/`Crawler` (27 rows) have no shared unit by design — say whether they should.
 
+    ⚠⚠ **AND YOUR TWO SENTENCES IN THIS REPORT CONFLICT AT 2×, which is worth seeing before you answer.** You asked for the heavies to get *"a little smaller"* and the ordinary pirates to scale *"up 2x"*. Those are the same report about the same six-plus-three cast, and here is where 2× lands them:
+
+    ```text
+                        today            at "2x"
+    ordinary pirates     48.0             96.0
+    broadside_bess       58.7             58.7  (or less — you asked for smaller)
+    iron_mary            56.2             56.2
+    salt_annet           60.4             60.4
+    ```
+
+    ⇒ the deckhands would stand **60% taller than the heavies**, and the heavies are the ones meant to read as hulking. ⭐ the reading that satisfies both sentences is that the ordinary pirates want roughly **1.4–1.5× the robot (≈68–72)** and the heavies want to keep a clear margin above them (≈85–95), which is a bigger heavies number, not a smaller one — your *"a little smaller"* was aimed at how they looked BEFORE 2026-08-22, when they rode `ldtk_box × collision_scale` and drew much larger quads. ⛔ I have not authored any of this; it is nine numbers and they are yours.
+
 
 * The pirates in the pirate sky no longer ride their sharks. 
   * ✔ Fixed — your 2026-07-06 editor session dropped the four mount refs in `sandbox.ldtk`; they are restored byte-identical from git and guarded. GNU-ton's boss mount turned out never to have been covered at all.

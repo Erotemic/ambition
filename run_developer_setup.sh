@@ -1,17 +1,35 @@
 #!/usr/bin/env bash
-# Idempotently prepare a fresh checkout for desktop development. The default
-# path installs host/Rust tools, initializes submodules, creates tool-local
-# Python environments, regenerates assets, and checks the desktop target.
-# Existing tool environments are reused by normal asset commands.
+# Idempotently prepare a fresh checkout for desktop development.
+#
+# The DEFAULT is the fast path to a runnable game: host libraries, the Rust
+# toolchain, submodules, tool-local Python environments, generated assets, and
+# a desktop target check. Nothing that only an analysis or authoring specialist
+# needs is installed unless asked for, because a first clone's job is to run.
+#
+# Everything heavier is one extra argument:
+#
+#   --profile           the profiling/analysis toolchain: perf, strace,
+#                       heaptrack, hotspot, vulkan/mesa info tools, Tracy built
+#                       from source, cargo-flamegraph, and the cargo analysis
+#                       tools (llvm-cov, modules, sweep, mark-sweep, nextest).
+#                       Costs ~190 apt packages (hotspot alone pulls the KDE
+#                       Frameworks stack) plus several source builds.
+#   --audio-libraries   the sampled instrument libraries under /data/audio-tools
+#                       plus sfizz. WITHOUT this the music renderer still works
+#                       and every cue still renders — sampled instruments simply
+#                       take the General-MIDI fallback, which is a quality
+#                       difference, not a failure.
+#   --full              both of the above.
 #
 # Usage:
-#   ./run_developer_setup.sh [--skip-system-packages] [--skip-rust]
-#       [--no-profile] [--skip-submodules] [--skip-tally]
-#       [--skip-python] [--skip-assets] [--skip-cargo-check]
+#   ./run_developer_setup.sh [--profile] [--audio-libraries] [--full]
+#       [--skip-system-packages] [--skip-rust] [--skip-submodules]
+#       [--skip-tally] [--skip-python] [--skip-assets] [--skip-cargo-check]
 #
 # Environment:
 #   AMBITION_TOOL_PYTHON=3.12
 #   UV_EXCLUDE_NEWER=YYYY-MM-DD
+#   AMBITION_AUDIO_TOOLS_ROOT=/data/audio-tools
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,8 +47,12 @@ skip_submodules=0
 skip_python=0
 skip_assets=0
 skip_cargo_check=0
-skip_profiling=0
 skip_tally=0
+
+# Opt-in, not opt-out. These were once on by default and the default run spent
+# almost all of its time on them before it ever reached the game.
+want_profiling=0
+want_audio_libraries=0
 
 # Tracy speaks a versioned wire protocol and REFUSES to connect to a client
 # built against a different version, so the server we build must match the
@@ -70,7 +92,9 @@ while [ "$#" -gt 0 ]; do
         --skip-assets) skip_assets=1 ;;
         --skip-cargo-check) skip_cargo_check=1 ;;
         --skip-tally) skip_tally=1 ;;
-        --no-profile) skip_profiling=1 ;;
+        --profile) want_profiling=1 ;;
+        --audio-libraries) want_audio_libraries=1 ;;
+        --full) want_profiling=1; want_audio_libraries=1 ;;
         -h|--help) usage; exit 0 ;;
         *) fatal "unknown option: $1" ;;
     esac
@@ -154,13 +178,13 @@ install_system_packages() {
         wayland-protocols
     )
     local -a optional_pkgs=(musescore-general-soundfont)
-    if [ "$skip_profiling" -eq 0 ]; then
+    if [ "$want_profiling" -eq 1 ]; then
         required_pkgs+=("${profiling_pkgs[@]}")
         # Optional, not required: a headless box has no use for the Tracy GUI,
         # and its absence must not fail setup or block the CLI tools.
         optional_pkgs+=("${tracy_gui_pkgs[@]}")
     else
-        log "skipping profiling toolchain packages (--no-profile)"
+        log "profiling packages not requested (--profile adds them)"
     fi
 
     # Required first, and fatal on failure: nothing downstream builds without
@@ -196,16 +220,33 @@ ensure_rust() {
     rustup component add rustfmt clippy llvm-tools-preview
     have cargo || fatal "cargo is not on PATH after Rust setup"
 
-    ensure_cargo_tool cargo-llvm-cov cargo-llvm-cov
-    ensure_cargo_tool cargo-modules cargo-modules
-    ensure_cargo_tool cargo-sweep cargo-sweep
-    ensure_cargo_tool cargo-mark-sweep cargo-mark-sweep
-    # Per-test wall times, which stable libtest cannot report: `--report-time`
-    # is nightly-only, so ranking the slowest tests in a 1600s suite otherwise
-    # means timing each test binary by hand. nextest also runs each test in its
-    # own process, so a test that only passes on a sibling's leftover state
-    # shows up as a failure instead of hiding.
-    ensure_cargo_tool cargo-nextest cargo-nextest
+    # ⛔ NONE of these is on the path from a clone to a running game, and every
+    # one is a source build. They were unconditional, and together they were the
+    # single largest block of a default run — cargo-modules alone compiles the
+    # rust-analyzer crate graph. Each is reachable without them:
+    #   cargo-llvm-cov    only `run_game.sh --cov`
+    #   cargo-mark-sweep  only `scripts/sweep_cargo_target.sh`, which already
+    #                     prints its own install line when it is missing
+    #   cargo-modules     no caller in the repo
+    #   cargo-sweep       no caller in the repo
+    #   cargo-nextest     `scripts/run_tests.py` says so itself, at its
+    #                     definition: "OPTIONAL, NOT REQUIRED. A contributor
+    #                     without nextest still gets the same" results, because
+    #                     the runner falls back to plain `cargo test`.
+    if [ "$want_profiling" -eq 1 ]; then
+        ensure_cargo_tool cargo-llvm-cov cargo-llvm-cov
+        ensure_cargo_tool cargo-modules cargo-modules
+        ensure_cargo_tool cargo-sweep cargo-sweep
+        ensure_cargo_tool cargo-mark-sweep cargo-mark-sweep
+        # Per-test wall times, which stable libtest cannot report:
+        # `--report-time` is nightly-only, so ranking the slowest tests in a
+        # 1600s suite otherwise means timing each test binary by hand. nextest
+        # also runs each test in its own process, so a test that only passes on
+        # a sibling's leftover state shows up as a failure instead of hiding.
+        ensure_cargo_tool cargo-nextest cargo-nextest
+    else
+        log "cargo analysis tools not requested (--profile adds them)"
+    fi
 
     log "Rust ready: $(rustc --version)"
 }
@@ -269,8 +310,7 @@ build_tracy_tool() {
 }
 
 ensure_profiling_tools() {
-    if [ "$skip_profiling" -eq 1 ]; then
-        log "skipping profiling toolchain (--no-profile)"
+    if [ "$want_profiling" -eq 0 ]; then
         return 0
     fi
 
@@ -559,6 +599,60 @@ install_scripts_env() {
         || fatal "scripts/.venv installed but 'pytest' is not importable — the repo's own Python suites cannot run"
 }
 
+# The sampled instrument libraries, and the sfizz/LV2 hosts that can actually
+# play them.
+#
+# ⛔ THE RENDERER IS NOT BROKEN WITHOUT THESE. `render/group.py` warns per
+# instrument and falls back to General MIDI, so a default checkout still renders
+# every cue — the GM soundfonts are in the required package list precisely so it
+# can. What the libraries buy is quality, at the cost of gigabytes, which is why
+# they are opt-in rather than part of the fast path.
+#
+# The downloader writes `$root/env.sh`, which is what `regen_music.sh` and
+# `render_music.sh` source to expose the SFZ/LV2/VST3/CLAP search paths.
+ensure_audio_libraries() {
+    local root renderer
+    root="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}"
+    renderer="$repo_root/tools/ambition_music_renderer"
+
+    if [ "$want_audio_libraries" -eq 0 ]; then
+        if [ -f "$root/env.sh" ]; then
+            log "sampled instrument libraries already present at $root"
+        else
+            log "sampled instruments not requested (--audio-libraries adds them);"
+            log "   music renders through the General-MIDI fallback until then"
+        fi
+        return 0
+    fi
+
+    if [ ! -x "$renderer/setup.sh" ]; then
+        warn "$renderer/setup.sh is missing; skipping the audio toolchain"
+        return 0
+    fi
+
+    # sfizz first: without a player, a downloaded SFZ library is inert.
+    log "installing the native audio toolchain (sfizz, LV2/VST3 hosts)"
+    "$renderer/setup.sh" || warn "audio toolchain setup reported a failure; continuing"
+
+    # /data is root-owned on a fresh box and the downloader does not escalate,
+    # so its first `mkdir -p` would fail on a path the developer never chose.
+    if ! mkdir -p "$root" 2>/dev/null && [ ! -w "$root" ]; then
+        if have sudo; then
+            log "creating $root as $(whoami)"
+            sudo mkdir -p "$root" && sudo chown "$(id -u):$(id -g)" "$root" || true
+        fi
+    fi
+    if [ ! -w "$root" ]; then
+        warn "$root is not writable; skipping the library download"
+        warn "set AMBITION_AUDIO_TOOLS_ROOT to a path you own and rerun"
+        return 0
+    fi
+
+    log "downloading sampled instrument libraries into $root (this is large)"
+    "$renderer/download_ambition_audio_tools.sh" "$root" \
+        || warn "instrument library download reported a failure; cues will use the fallback"
+}
+
 regenerate_assets() {
     if [ "$skip_assets" -eq 1 ]; then
         log "skipping generated assets"
@@ -634,6 +728,9 @@ ensure_profiling_tools
 ensure_resource_tally
 ensure_submodules
 ensure_python_tools
+# Before the assets: regen_music.sh sources this phase's env.sh to find the
+# instruments, so installing them afterwards would render the fallback anyway.
+ensure_audio_libraries
 regenerate_assets
 check_desktop_target
 
@@ -641,6 +738,18 @@ echo
 if [ "$skip_assets" -eq 0 ] && [ "$skip_cargo_check" -eq 0 ]; then
     log "developer setup complete"
     log "the checkout is ready for: ./run_game.sh"
+    # Plain `if`s, not `[ ... ] && log`: this is the last statement in the
+    # script, and a short-circuit whose test is false would make a successful
+    # setup exit non-zero.
+    if [ "$want_profiling" -eq 0 ] || [ "$want_audio_libraries" -eq 0 ]; then
+        log "not installed (each is one argument away):"
+        if [ "$want_profiling" -eq 0 ]; then
+            log "   --profile          profiling + cargo analysis toolchain"
+        fi
+        if [ "$want_audio_libraries" -eq 0 ]; then
+            log "   --audio-libraries  sampled instruments (music uses the GM fallback without them)"
+        fi
+    fi
 else
     log "selected developer setup phases complete"
     log "rerun without skip flags for the zero-to-runnable setup"

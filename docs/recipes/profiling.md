@@ -36,11 +36,19 @@ of zone statistics — per-Bevy-system timings an agent can rank.
 
 ### Getting the tools
 
-`./run_developer_setup.sh` installs the whole profiling toolchain: `perf` and
-`strace` (which `profile_desktop.sh` requires), `vulkaninfo`/`glxinfo` (which
-its host-environment report reads), `cargo-flamegraph`, `hotspot`,
-`heaptrack`, and Tracy built from source into `~/.local/bin`. Pass
-`--no-profile` to skip all of it.
+`./run_developer_setup.sh --profile` installs the whole profiling toolchain:
+`perf` and `strace` (which `profile_desktop.sh` requires), `vulkaninfo`/`glxinfo`
+(which its host-environment report reads), `cargo-flamegraph`, `hotspot`,
+`heaptrack`, and Tracy built from source into `~/.local/bin` — plus the cargo
+analysis tools (`llvm-cov`, `modules`, `sweep`, `mark-sweep`, `nextest`).
+
+⚠ **It is opt-in, and it used to be the default.** A bare setup is the fast path
+to a running game and installs none of this: `hotspot` alone pulls the KDE
+Frameworks stack (~190 apt packages between them), and every cargo tool above is
+a source build. Nothing here is needed to run or test the game — `run_tests.py`
+falls back to plain `cargo test` when nextest is absent — so it is not on the
+zero-to-runnable path. Pass `--profile` when you intend to profile, or `--full`
+to add the sampled instrument libraries as well.
 
 Tracy is built rather than installed because Ubuntu does not package it, and
 it is pinned to the version read out of the `tracy-client-sys` crate the game

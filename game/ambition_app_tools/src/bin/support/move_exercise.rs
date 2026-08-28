@@ -320,6 +320,15 @@ pub struct Subject {
     pub grounded: Option<bool>,
     pub playing: Option<String>,
     pub riding: bool,
+    /// Whether this body's LOCOMOTION allows it to come to rest in the air.
+    ///
+    /// ⛔⛔ THE QUESTION `ever_stood` WAS STANDING IN FOR, and it is not the same
+    /// question. That flag answered *"has this body reported ground since this
+    /// call to `settle` began"* — an observation about the last few ticks —
+    /// while the thing that decides whether an airborne fighter is settled or
+    /// still falling is a CAPABILITY the body carries. A flyer at rest in the
+    /// air is settled; an ordinary fighter in the air is mid-jump.
+    pub flies: bool,
 }
 
 /// Seat zero, or `None` when nothing is seated there.
@@ -331,14 +340,16 @@ pub fn subject(app: &mut App) -> Option<Subject> {
         Option<&ambition_platformer2d::engine_core::BodyGroundState>,
         Option<&ambition_platformer2d::combat::moveset::MovePlayback>,
         Option<&ambition_platformer2d::mount::RidingOn>,
+        Option<&ambition_platformer2d::engine_core::BodyFlightState>,
     )>();
     q.iter(world)
         .find(|(seat, ..)| seat.0 == 0)
-        .map(|(_, kin, ground, playing, riding)| Subject {
+        .map(|(_, kin, ground, playing, riding, flight)| Subject {
             facing: kin.facing,
             grounded: ground.map(|g| g.on_ground),
             playing: playing.map(|p| p.spec.id.clone()),
             riding: riding.is_some(),
+            flies: flight.is_some_and(|f| f.fly_enabled),
         })
 }
 
@@ -464,55 +475,56 @@ fn take_off(app: &mut App) -> bool {
 /// settle that manufactures findings.
 pub const SETTLE_LIMIT: usize = 480;
 
-/// Wait for a body that is idle, not riding anything, and standing IF IT CAN.
+/// Is the stage at rest, given what seat zero reports?
+///
+/// Separated from the stepping loop because the whole content of `settle` is
+/// this decision, and it is answerable without a composed host.
+///
+/// ⛔⛔ `None` — NO SEAT ZERO — IS NOT SETTLED. This used to be
+/// `(false, false, false)`, the same triple an idle airborne fighter produces,
+/// so a recording with no subject read as ready on its first iteration and
+/// every take after it described a stage with nobody on it.
 ///
 /// ⛔⛔ NOT EVERY FIGHTER CAN STAND. `player_robot_v3` can FLY, and a flying body
 /// is never grounded by construction (`integration.rs`: *"a flying body is never
 /// grounded — the collision sweep can still find support under a hovering
-/// flyer"*). A settle that demanded `grounded` therefore never succeeded for it:
-/// every take re-seated, timed out again, and started from whatever the last one
-/// left behind — which is why the robot's grounded forward tilt was recorded as
-/// its FORWARD AIR and both of its specials as producing nothing.
-///
-/// So the ground is required only of a body that has been seen standing. A
-/// fighter that never reports support settles on "idle and unencumbered", which
-/// is the strongest true statement available about it.
-///
-/// ⛔⛤ IT DOES NOT BUILD A FRAME TO READ FOUR FACTS. This called `sample`, which
-/// queries every body, every hitbox and every projectile and serialises all of
-/// it to JSON — then threw the JSON away. At up to 480 iterations per take and
-/// 19 takes per character that was the dominant cost of a recording, and none of
-/// it was the simulation.
-pub enum Settled {
-    /// The body is idle, unencumbered, and standing if it can stand.
-    Quiet,
-    /// Still playing a move, still riding, or still off the ground.
-    Busy,
-    /// ⛔⛔ NOBODY IS SEATED. This used to be indistinguishable from an idle
-    /// airborne fighter: `settle_facts` returned `(false, false, false)` for an
-    /// empty query, `ever_stood` starts false, and `grounded || !ever_stood`
-    /// therefore accepted an EMPTY STAGE as settled on its first iteration. A
-    /// missing subject is not a state of the subject.
-    NoSubject,
+/// flyer"*). A settle that demanded `grounded` never succeeded for it: every
+/// take re-seated, timed out, and started from whatever the last one left
+/// behind — which is why the robot's grounded forward tilt was recorded as its
+/// FORWARD AIR and both of its specials as producing nothing.
+pub fn settled_now(subject: Option<&Subject>) -> bool {
+    let Some(subject) = subject else {
+        return false;
+    };
+    if subject.playing.is_some() || subject.riding {
+        return false;
+    }
+    // Grounded is rest for anybody. Airborne is rest only for a body whose
+    // locomotion says so, which is the flying Robot this rule was widened for.
+    subject.grounded.unwrap_or(false) || subject.flies
 }
 
-pub fn settle(app: &mut App) -> Settled {
-    let mut ever_stood = false;
+/// Step until the stage goes quiet, and say whether it did.
+///
+/// ⭐⭐ SHARED, BECAUSE THE RENDERER DID NOT SETTLE AT ALL and its `prepared`
+/// flag lied because of it: `session_is_active` is true while the cast is still
+/// DROPPING IN, so a readiness loop could hand `prepare` a FALLING body, which
+/// `take_off` calls airborne and returns from without ever jumping. The manifest
+/// said the posture was established and every photograph showed a GROUNDED up-B.
+///
+/// ⛔⛤ IT DOES NOT BUILD A FRAME TO READ FOUR FACTS. The recorder's version
+/// called its full JSON sampler — every body, every hitbox, every projectile,
+/// serialised and thrown away — up to 480 times a take, for three booleans.
+pub fn settle(app: &mut App) -> bool {
     for _ in 0..SETTLE_LIMIT {
         step(app, ControlFrame::default());
-        let Some(subject) = subject(app) else {
-            return Settled::NoSubject;
-        };
-        let grounded = subject.grounded.unwrap_or(false);
-        ever_stood |= grounded;
-        if subject.playing.is_some() || subject.riding {
-            continue;
-        }
-        if grounded || !ever_stood {
-            return Settled::Quiet;
+        // Keep stepping while there is no subject — a re-seat lands through
+        // deferred commands and the body may still be arriving.
+        if settled_now(subject(app).as_ref()) {
+            return true;
         }
     }
-    Settled::Busy
+    false
 }
 
 /// What a driven verb actually produced.
@@ -595,6 +607,48 @@ pub fn released_by(last_action_tick: usize) -> bool {
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+
+    fn resting(grounded: bool, playing: bool, riding: bool, flies: bool) -> Subject {
+        Subject {
+            facing: 1.0,
+            grounded: Some(grounded),
+            playing: playing.then(|| "some_move".to_string()),
+            riding,
+            flies,
+        }
+    }
+
+    /// ⛔⛔ AN EMPTY STAGE IS NOT A QUIET ONE.
+    #[test]
+    fn a_stage_with_nobody_on_it_never_settles() {
+        assert!(!settled_now(None));
+    }
+
+    /// ⛔ AND AN ORDINARY FIGHTER IN THE AIR IS MID-JUMP, not at rest. The old
+    /// `ever_stood` flag asked *"has this body reported ground since this call
+    /// began"* — an observation about the last few ticks — where the question is
+    /// a CAPABILITY the body carries.
+    #[test]
+    fn an_ordinary_fighter_settles_only_once_it_is_standing() {
+        assert!(!settled_now(Some(&resting(false, false, false, false))));
+        assert!(settled_now(Some(&resting(true, false, false, false))));
+    }
+
+    /// ⭐ AND A FLYER AT REST IN THE AIR IS SETTLED, which is the case the loop
+    /// was widened for and the only one the old rule got right.
+    #[test]
+    fn a_flying_fighter_settles_without_ever_touching_the_floor() {
+        assert!(settled_now(Some(&resting(false, false, false, true))));
+    }
+
+    /// A move still playing or a body still riding is busy either way.
+    #[test]
+    fn a_busy_body_is_not_settled_however_it_moves() {
+        for flies in [false, true] {
+            assert!(!settled_now(Some(&resting(true, true, false, flies))));
+            assert!(!settled_now(Some(&resting(true, false, true, flies))));
+        }
+    }
 
     fn set(ids: &[&str]) -> BTreeSet<String> {
         ids.iter().map(|s| s.to_string()).collect()

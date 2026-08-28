@@ -209,12 +209,11 @@ fn main() {
     // `prepared: true` and every photograph showed a GROUNDED up-B, which is the
     // one posture this whole campaign exists to look past. The recorder settles
     // first and always did; only the renderer had half the algorithm.
-    let settled = move_exercise::settle(&mut app);
-    if let move_exercise::Settled::NoSubject = settled {
+    if move_exercise::subject(&mut app).is_none() {
         eprintln!("moveset_render: nobody reached seat zero for '{character}'");
         std::process::exit(1);
     }
-    let quiet = matches!(settled, move_exercise::Settled::Quiet);
+    let quiet = move_exercise::settle(&mut app);
     let prepared = quiet && move_exercise::prepare(&mut app, verb);
 
     // ⭐⭐ WHAT THIS PRESS IS SUPPOSED TO PRODUCE, from the composed host's own

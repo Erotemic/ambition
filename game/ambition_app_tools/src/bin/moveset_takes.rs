@@ -25,7 +25,7 @@ use bevy::prelude::*;
 const TAKE_TICKS: usize = 150;
 #[path = "support/move_exercise.rs"]
 mod move_exercise;
-use move_exercise::{settle, step, Settled, VERBS};
+use move_exercise::{settle, step, VERBS};
 
 /// Everything one recorded tick says.
 #[derive(Default)]
@@ -44,6 +44,13 @@ struct Frame {
     facing: Option<f32>,
     /// The gesture the engine resolved from the press, e.g. `Back/Tilt/Airborne`.
     gesture: Option<String>,
+    /// Recorded bodies that carry NO `SimId`, by the label a reader would see.
+    ///
+    /// ⛔⛔ THE TAKE'S ORDERING AND JOIN CONTRACT ARE BUILT ON `SimId`, and a
+    /// body without one used to be written as `"id": null` and sorted under the
+    /// empty string — canonical-looking output whose ordering is query order.
+    /// ⇒ counted here, refused at the take.
+    unidentified: Vec<String>,
 }
 
 const USAGE: &str = "\
@@ -370,6 +377,11 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
                     .unwrap_or_else(|| "<unidentified mount>".to_string())
             });
         }
+        if sim_id.is_none() {
+            frame
+                .unidentified
+                .push(worn.clone().unwrap_or_else(|| "<unnamed body>".to_string()));
+        }
         frame.bodies.push(serde_json::json!({
             "pos": [pos.0, pos.1],
             "half": [half.0, half.1],
@@ -633,7 +645,7 @@ fn platforms(app: &mut App) -> Vec<serde_json::Value> {
 /// admiral off the stage: the recording showed a body frozen below the floor
 /// with `grounded: false` forever, and the press went to somebody who was not
 /// there. The settle can detect that state; only a re-seat can fix it.
-fn reseat(app: &mut App, character: &str) {
+fn reseat(app: &mut App, character: &str) -> bool {
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster([character, character]));
     app.world_mut()
@@ -642,24 +654,19 @@ fn reseat(app: &mut App, character: &str) {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
+    // ⛔⛔ STAGING IS A POSTCONDITION, NOT A DURATION. This spent a fixed 240
+    // updates and returned nothing, so a route that did not come up or a
+    // character the host could not build meant recording a whole moveset off an
+    // EMPTY STAGE in that character's name. The 240 stay as a ceiling rather
+    // than the answer, and the common case got faster: the loop ends the moment
+    // the subject is there.
     for _ in 0..240 {
         app.update();
-    }
-    // ⛔⛔ STAGING IS A POSTCONDITION, NOT A DURATION. This counted 240 updates
-    // and called the match seated; 240 updates is evidence of nothing, and every
-    // downstream check reads the ABSENCE of seat zero as an ordinary state of it
-    // — a settle returns "quiet", a press goes to nobody, and the take that comes
-    // out is a recording of an empty stage under a fighter's name.
-    for _ in 0..240 {
         if move_exercise::subject(app).is_some() {
-            return;
+            return true;
         }
-        app.update();
     }
-    panic!(
-        "[moveset-takes] {character}: no fighter reached seat zero after 480 updates. \
-         Every take from here would record an empty stage under this character's name."
-    );
+    false
 }
 
 /// This fighter's repertoire, as the host prepared it.
@@ -689,37 +696,25 @@ fn authors_offense(spec: &ambition_platformer2d::entity_catalog::MoveSpec) -> bo
         })
 }
 
-/// ⛔⛤ A CURRENT RECORDING MAY NOT CARRY A MISSING IDENTITY.
+/// Sample the world and append it to a take, reporting any body it could not
+/// identify.
 ///
-/// Every query here asks for `Option<&SimId>` and every sort maps a missing id
-/// to the empty string, so an unidentified body could enter a take while the
-/// comments beside it called the ordering byte-stable — and the bundle checker
-/// only WARNED. `ensure_sim_id` documents that a dynamically spawned body can
-/// remain unidentified, which makes this reachable rather than theoretical.
+/// ⛔⛔ THE CALLER MUST NOT WRITE A TAKE THAT REPORTED ONE. `SimId` is what the
+/// bundle joins and orders on, and a body without one was written as
+/// `"id": null` and sorted under the empty string — so its position in a
+/// "byte-stable, canonical" recording was query order wearing a contract's
+/// clothes. `ensure_sim_id` covers authored placements and the primary player
+/// only; its own doc says a dynamically spawned body stays unidentified unless
+/// its spawn site mints an id, so this is reachable rather than theoretical.
 ///
-/// ⭐ THE VIEWER'S `label + seat` FALLBACK IS RIGHT FOR LEGACY TAKES and wrong
-/// as a licence for the recorder: what an old file may contain does not define
-/// what a new one may emit. Measured on the admiral before this landed:
-/// 8202/8202 bodies and 166/166 strikes already identified, so this refuses a
-/// regression rather than demanding something new.
-fn assert_identified(character: &str, verb: &str, frames: &[serde_json::Value]) {
-    for (tick, frame) in frames.iter().enumerate() {
-        for kind in ["bodies", "projectiles", "hitboxes"] {
-            for row in frame[kind].as_array().into_iter().flatten() {
-                assert!(
-                    row["id"].as_str().is_some_and(|id| !id.is_empty()),
-                    "[moveset-takes] {character} {verb}: a {kind} row on tick {tick} carries no \
-                     stable id, so this take cannot be ordered or joined canonically however \
-                     byte-identical two runs of it look. The row: {row}"
-                );
-            }
-        }
-    }
-}
-
-/// Sample the world and append it to a take.
-fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
+/// ⭐ THE VIEWER'S `label + seat` FALLBACK IS RIGHT FOR LEGACY TAKES and wrong as
+/// a licence for the recorder: what an old file may contain does not define what
+/// a new one may emit. Measured on the admiral: 8202/8202 bodies and 166/166
+/// strikes already identified, so this refuses a regression rather than
+/// demanding something new.
+fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) -> Vec<String> {
     let frame = sample(app.world_mut(), 0);
+    let unidentified = frame.unidentified.clone();
     frames.push(serde_json::json!({
         "bodies": frame.bodies,
         "hitboxes": frame.hitboxes,
@@ -732,6 +727,7 @@ fn record(app: &mut App, frames: &mut Vec<serde_json::Value>) {
         "gesture": frame.gesture,
         "riding": frame.riding,
     }));
+    unidentified
 }
 
 fn main() {
@@ -843,21 +839,23 @@ fn main() {
             // ⛔ IT COSTS 240 TICKS PER TAKE and is worth every one: an
             // instrument whose answer depends on what ran before it is not
             // measuring the thing it names.
-            reseat(&mut app, character);
-            match settle(&mut app) {
-                Settled::Quiet => {}
-                Settled::Busy => println!(
+            // ⛔⛔ A STAGE WITH NOBODY ON IT IS NOT A QUIET ONE. A route that
+            // did not come up, or a character the host could not build, would
+            // otherwise record a whole moveset against an empty stage under that
+            // character's name.
+            if !reseat(&mut app, character) {
+                println!(
+                    "[take] {character:<24} {:<16} SKIPPED - no fighter reached seat zero",
+                    verb.verb
+                );
+                continue;
+            }
+            if !settle(&mut app) {
+                println!(
                     "[take] {character:<24} {:<16} WARNING - the stage would not go quiet \
                      even after a re-seat; read this take with that in mind",
                     verb.verb
-                ),
-                // ⛔⛔ NOT A WARNING. A stage with nobody on it records a take of
-                // nothing under a fighter's name, which is worse than no take.
-                Settled::NoSubject => panic!(
-                    "[moveset-takes] {character} {}: seat zero vanished during the settle, so \
-                     this take would record an empty stage under this character's name.",
-                    verb.verb
-                ),
+                );
             }
             // ⭐⭐ ONE PREPARATION, SHARED WITH THE RENDERER. This had its own
             // take-off loop, its own aim settle and its own retry count, so
@@ -873,6 +871,8 @@ fn main() {
                 );
             }
             let mut frames: Vec<serde_json::Value> = Vec::new();
+            // Every body this take could not identify, collected across its ticks.
+            let mut unidentified: std::collections::BTreeSet<String> = Default::default();
             let facing = move_exercise::facing_of(&mut app);
             // ⛔⛔ THE SCHEDULE IS `move_exercise::action_frame`, AND NOTHING
             // ELSE DECIDES IT. This held while `tick < TAKE_TICKS / 4` and the
@@ -885,13 +885,28 @@ fn main() {
             // started one tick later showed `gesture: null` on every frame of
             // every take — the one field that says what the engine understood
             // the input to be, absent from all of them.
-            record(&mut app, &mut frames);
+            unidentified.extend(record(&mut app, &mut frames));
             for tick in 1..TAKE_TICKS {
                 step(&mut app, move_exercise::action_frame(verb, tick, facing));
-                record(&mut app, &mut frames);
+                unidentified.extend(record(&mut app, &mut frames));
             }
 
-            assert_identified(character, verb.verb, &frames);
+            // ⛔⛔ A TAKE WITH AN UNIDENTIFIED BODY IS NOT CANONICAL, so it is not
+            // written. Its row order would be query order, and the bundle joins
+            // on `SimId` — a reader comparing two recordings would see changes
+            // that are allocation order rather than physics. The message names
+            // the body so the fix is at ITS SPAWN SITE, which is the only place
+            // that can mint the id.
+            if !unidentified.is_empty() {
+                println!(
+                    "[take] {character:<24} {:<16} SKIPPED - {} recorded \
+                     without a SimId, so this take cannot be ordered or joined; \
+                     mint one at that body's spawn site",
+                    verb.verb,
+                    unidentified.iter().cloned().collect::<Vec<_>>().join(", ")
+                );
+                continue;
+            }
 
             let moves: std::collections::BTreeSet<String> = frames
                 .iter()

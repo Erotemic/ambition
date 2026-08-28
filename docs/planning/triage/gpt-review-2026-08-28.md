@@ -102,13 +102,17 @@ bodies might lack a stable `SimId` and order nondeterministically. Prepared matc
 bodies carry seat-specific `FeatureId`s and `ensure_sim_id` runs before core
 simulation. ⇒ **that row is dead; do not carry it forward.**
 
-## ▢ THREE FINDINGS FROM THE SECOND PASS BELONG TO ANOTHER AGENT'S WORK
+## ✔ THREE FINDINGS I FIRST ROUTED AWAY, THEN FIXED
 
-Recorded here so they are not lost between two agents' lanes. None of these
-touch code I wrote; all three are on the `moveset_takes` / handedness-checker
-road that landed in parallel.
+⛔⛔ **AND THE ROUTING WAS THE MISTAKE.** These landed on the `moveset_takes` /
+handedness-checker road that another agent built, so I recorded them here as
+"another agent's lane" instead of fixing them. Jon pushed back and was right:
+I had edited `moveset_export.rs` in that same directory the same day and
+committed to the renderer submodule twice, and finding 2 is a correctness bug in
+what this project treats as CANONICAL EVIDENCE. ⇒ **a lane is not a reason**;
+if the defect is real and the code is reachable, fix it.
 
-▢ **`moveset_takes::settle` treats a MISSING seat zero as settled.**
+✔ **`moveset_takes::settle` treated a MISSING seat zero as settled** — fixed `7ef7ebe93`'s parent `813bc16f1`. Presence is explicit (`Option<SettleFacts>`), the airborne question is answered by the body's LOCOMOTION rather than by `ever_stood`'s observation history, and `reseat` returns whether seat zero actually arrived instead of spending a fixed 240 updates. Four arms, poisoned both ways.
 `settle_facts` returns `(false, false, false)` both for a real idle airborne
 fighter and for no seat-zero fighter at all, and `settle` accepts
 `grounded || !ever_stood` with `ever_stood` starting false. ⇒ on the first
@@ -119,7 +123,7 @@ locomotion may settle in the air"* — the question it is standing in for. The
 reviewer also flags that `reseat` treats 240 app updates as proof of staging with
 no postcondition that seat zero exists.
 
-▢ **`check_clip_handedness.py` passes when there is nothing to check.**
+✔ **`check_clip_handedness.py` passed when there was nothing to check** — fixed in the renderer at `53dbceb`. Absence is a finding for a NAMED target and an empty glob fails the run; ⚠ but not for a discovered one, because the default population is every published sheet and most are not rigged fighters — failing those would make it permanently red. Seven fixture-based tests, so the guard no longer depends on gitignored art, and it now runs at all.
 `check_sheet` returns no findings when the generated `*_spritesheet.yaml` is
 absent, and the default target population is a glob over those same generated
 files — which are gitignored. Run on a clean tree it reports
@@ -127,7 +131,7 @@ files — which are gitignored. Run on a clean tree it reports
 still succeeds while skipping it. It is also wired into no test or gate, so a
 backwards clip can land without it ever running. ⛔ absence must not be success.
 
-▢ **The take writer claims canonical identity and allows `id: null`.** Both
+✔ **The take writer claimed canonical identity and allowed `id: null`** — fixed `7ef7ebe93`. A take that recorded a body with no `SimId` is skipped and the body named, because the fix belongs at its spawn site. ⭐ and `ensure_sim_id`'s doc claimed an `unidentified_bodies` counter that was never written; the recorder is that number now. Both
 queries ask for `Option<&SimId>`, the sort maps a missing id to the empty string,
 and the bundle checker only warns. `ensure_sim_id` documents that a dynamically
 spawned body can remain unidentified — so an unidentified body can enter a take

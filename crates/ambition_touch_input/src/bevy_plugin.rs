@@ -931,6 +931,12 @@ pub struct TouchActionLabel(pub TouchActionButton);
 /// As a struct, the fallback is never overwritten and the current verb is `Option`, so "the prompt
 /// has nothing to say" resolves to the spawn label instead of to stale text.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
+// ⛔ REQUIRED BESIDE THE VERB, not beside `ButtonPressed`. The system that
+// reads the prompt takes `(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)`,
+// so the requirement belongs on the component that query is ABOUT — three test
+// fixtures spawn a label and a verb with no press state, and hanging it off
+// `ButtonPressed` made them match nothing and silently stop relabelling.
+#[require(ButtonReady)]
 pub struct ButtonVerb {
     /// Spawn-time fallback label. Only buttons without a contextual
     /// [`ControlSlot`] keep this text permanently; gameplay-slot labels come from
@@ -1272,7 +1278,6 @@ pub struct ButtonGlyph(pub Cow<'static, str>);
 /// `Platformer2dInputActionMonolith` is held this frame; consumed by
 /// [`sync_button_pressed_visual`] to brighten the button background.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-#[require(ButtonReady)]
 pub struct ButtonPressed(pub bool);
 
 /// Can this button's action FIRE right now?
@@ -1808,6 +1813,9 @@ mod prompt_tests {
                     // physical binding is `SeatBindings`' answer and a separate
                     // test covers it.
                     binding: None,
+                    // Ready, for the same reason: a recharging slot is what
+                    // `ButtonReady` and the colour arm answer, not the label.
+                    ready: true,
                 })
                 .collect(),
             menu_confirm: None,

@@ -25,6 +25,7 @@ cargo_jobs=""
 cargo_timings=0
 sweep=0
 sweep_apply=0
+print_plan=0
 extra_features=()
 game_args=()
 
@@ -59,6 +60,10 @@ Common commands:
   ./run_game.sh sandbox --ship
       Run the portable native shipping build: opt-level 3, fat LTO, one
       codegen unit, aborting panics, no debug info, and stripped symbols.
+
+  ./run_game.sh profiling --features profile
+      Run the optimized profiling build with Tracy instrumentation on. The
+      same launch scripts/profile_desktop.sh wraps.
 
   ./run_game.sh hot
   ./run_game.sh --hot-reload
@@ -115,6 +120,10 @@ Options and mode aliases:
   -r, --release, release  Use cargo --release.
   --ship, ship            Use the native shipping profile intended for the
                           packaged Steam build.
+  --profiling, profiling  Use the `profiling` cargo profile: release
+                          optimization with DWARF and symbols left in, so perf
+                          and Tracy can attribute a frame. This is what
+                          scripts/profile_desktop.sh builds by default.
   --cov, coverage         Run through cargo llvm-cov run --no-report.
   --debug, debug, dev     Force dev/debug cargo profile.
   --hot-reload, --hot,
@@ -130,6 +139,13 @@ Options and mode aliases:
   -j, --jobs N            Pass cargo --jobs N.
   --jobs=N                Pass cargo --jobs N.
   --timings               Pass cargo --timings.
+  --print-plan            Print the launch plan this invocation resolves to
+                          (package, binary, cargo profile, target subdirectory,
+                          features, and the cargo build argv) and exit without
+                          building or running. Machine-readable `key=value`
+                          lines; `build_arg=` repeats once per cargo argument.
+                          scripts/profile_desktop.sh reads this rather than
+                          re-deriving which executable it is about to launch.
   --sweep                 Report what a sweep would reclaim, keeping ONLY the
                           graph this invocation builds, then run.
   --sweep-apply           As --sweep, but delete. ⚠ the test graph and the other
@@ -225,6 +241,9 @@ while [[ $# -gt 0 ]]; do
         --ship|ship)
             build_profile="ship"
             ;;
+        --profiling|profiling|profile-build)
+            build_profile="profiling"
+            ;;
         --debug|debug|dev)
             build_profile="dev"
             ;;
@@ -275,6 +294,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --headless|headless)
             demo_headless=1
+            ;;
+        --print-plan)
+            print_plan=1
             ;;
         --sweep)
             sweep=1
@@ -403,6 +425,9 @@ case "$build_profile" in
     ship)
         cargo_args+=(--profile ship)
         ;;
+    profiling)
+        cargo_args+=(--profile profiling)
+        ;;
     dev)
         ;;
     *)
@@ -415,6 +440,52 @@ if [[ "${#game_args[@]}" -gt 0 ]]; then
 fi
 
 cd "$repo_root"
+
+# The launch plan, for tooling that must talk about the SAME executable this
+# script is about to run. A profiler that re-derives the path itself gets it
+# wrong the moment a flag here changes -- it inspects target/debug while the
+# command launches target/profiling, and reports "no instrumentation" about a
+# binary nobody ran.
+if [[ "$print_plan" -eq 1 ]]; then
+    case "$build_profile" in
+        dev) profile_dir="debug" ;;
+        release) profile_dir="release" ;;
+        ship) profile_dir="ship" ;;
+        profiling) profile_dir="profiling" ;;
+        *) fail "internal error: unknown build profile '$build_profile'" ;;
+    esac
+    plan_build=(cargo build -p "$target_pkg" --bin "$target_bin")
+    skip_next=0
+    for arg in "${cargo_args[@]}"; do
+        if [[ "$skip_next" -eq 1 ]]; then skip_next=0; continue; fi
+        case "$arg" in
+            # Everything the run-only wrapper adds; the rest (features,
+            # profile, jobs, --no-default-features) is exactly what a build of
+            # this plan needs.
+            run|llvm-cov|--no-report) ;;
+            -p|--bin) skip_next=1 ;;
+            --) break ;;
+            *) plan_build+=("$arg") ;;
+        esac
+    done
+    echo "package=$target_pkg"
+    echo "binary=$target_bin"
+    echo "target_kind=$target_kind"
+    echo "build_profile=$build_profile"
+    echo "profile_dir=$profile_dir"
+    echo "target_dir=${CARGO_TARGET_DIR:-$repo_root/target}"
+    echo "binary_path=${CARGO_TARGET_DIR:-$repo_root/target}/$profile_dir/$target_bin"
+    if [[ "${#features[@]}" -gt 0 ]]; then
+        IFS=,
+        echo "features=${features[*]}"
+        unset IFS
+    else
+        echo "features="
+    fi
+    if [[ "${#game_args[@]}" -gt 0 ]]; then printf 'game_arg=%s\n' "${game_args[@]}"; fi
+    printf 'build_arg=%s\n' "${plan_build[@]}"
+    exit 0
+fi
 
 # ⭐ SWEEP FIRST, RUN SECOND. `sweep_target.py` marks by asking cargo which
 # artifacts THIS graph resolves, which compiles nothing when the graph is warm —

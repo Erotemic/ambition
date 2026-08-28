@@ -60,6 +60,13 @@ impl Plugin for AmbitionGameSimulationSetupPlugin {
         // what makes the pairing local; `init_resource` is a no-op when the
         // presentation side has already inserted it.
         .init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
+        // The profiling-only workload censuses and the clock they share. Sim
+        // side, so a headless VM run gets entity/body/schedule/frame rows on
+        // the same clock as its perf and Tracy captures; the presentation half
+        // (cameras, targets, portals, render passes) is added by
+        // `add_presentation_plugins`. Off unless `AMBITION_PROFILE_CENSUS` is
+        // set — see `ambition_dev_tools::runtime_census`.
+        .add_plugins(ambition_platformer2d::dev_tools::runtime_census::RuntimeCensusPlugin)
         // The steady-state counterparts of the one-shot reports above.
         // `Last` so the frame census measures the whole frame, render work
         // included, rather than the part of it that happens to precede

@@ -121,6 +121,25 @@ strip = "symbols"
 debug = false
 incremental = false
 
+[profile.profiling]
+# Runtime profiling profile: `./run_game.sh profiling`, and the default build
+# `scripts/profile_desktop.sh` launches.
+#
+# `release` optimization so a measurement describes the shipped runtime rather
+# than the edit-loop build, and enough DWARF left in place that `perf`, Tracy,
+# and `addr2line` can name a frame. `ship` is the wrong instrument for this:
+# it strips symbols and fat-LTOs the graph, so every hot frame reads as one
+# inlined blob with no attribution.
+inherits = "release"
+debug = 1
+strip = "none"
+split-debuginfo = "off"
+# Deps keep line tables only. Symbol NAMES live in `.symtab`, which `strip =
+# "none"` preserves either way; full DWARF for bevy + wgpu would add tens of
+# gigabytes to the target directory and buys nothing perf can use.
+[profile.profiling.package."*"]
+debug = "line-tables-only"
+
 [profile.web-release]
 inherits = "release"
 opt-level = "s"

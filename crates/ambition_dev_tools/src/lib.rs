@@ -9,6 +9,8 @@
 //!   sync systems that push inspector edits onto the authoritative player body
 //!   (they name only the foundational `Body*` clusters + `PrimaryPlayerOnly`).
 //! - [`profiling`] — the startup profiler marks (read by audio + setup).
+//! - [`runtime_census`] — the profiling-only workload censuses (off unless
+//!   `AMBITION_PROFILE_CENSUS` is set) and the clock every census samples on.
 //! - [`persistence`] — `DeveloperTools` disk persistence (developer.ron).
 //! - [`sync_live_player_dev_edits_system`] — the host-scheduled system that
 //!   applies live ability/tuning edits to the player each frame.
@@ -22,6 +24,8 @@ pub mod dev_tools;
 pub mod hot_reload;
 pub mod persistence;
 pub mod profiling;
+/// The profiling-only workload censuses and the shared census clock they sample on.
+pub mod runtime_census;
 pub mod sim_plugin;
 
 pub use hot_reload::{poll_world_source_changes, WorldSourceHotReload};

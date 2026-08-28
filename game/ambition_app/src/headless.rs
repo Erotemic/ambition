@@ -117,6 +117,15 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // transforms, states) — ONE definition in ambition_platformer2d::runtime for every
     // headless entry point.
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
+    // `MinimalPlugins` carries no `LogPlugin`, and Tracy records through a
+    // layer on the tracing subscriber that plugin installs. Without it a
+    // `--features profile` capture of this runner produces a trace with zero
+    // zones — no per-system timings at all, which is the whole reason to
+    // profile the sim on a machine with no GPU. Profiling builds only, so a
+    // test process that steps several headless Apps still installs nothing
+    // process-global.
+    #[cfg(feature = "profile")]
+    app.add_plugins(crate::app::cli::ambition_log_plugin());
 
     // inserted BEFORE the plugin builds: it is what stops
     // `publish_direct_prepared_session_root` publishing a second canonical root.

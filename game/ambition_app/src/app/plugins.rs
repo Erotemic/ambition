@@ -371,6 +371,11 @@ pub fn add_presentation_plugins(app: &mut App) {
     install_misc_visual_sync_systems(app);
     app.add_plugins(ambition_platformer2d::render::rendering::PlayerVisualSchedulePlugin);
     install_projectile_and_vfx_systems(app);
+    // The presentation half of the profiling census: cameras and their roles,
+    // offscreen targets, portal capture rigs, the draw population, and Bevy's
+    // render-pass diagnostics. Same gate and same clock as the sim half added
+    // by `AmbitionGameSimulationSetupPlugin`.
+    app.add_plugins(ambition_platformer2d::render::runtime_census::PresentationCensusPlugin);
 }
 
 /// Visible-side resources, registered types, and presentation child

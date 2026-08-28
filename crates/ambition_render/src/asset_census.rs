@@ -73,6 +73,13 @@ impl ImageCensus {
     pub fn total_images(&self) -> u64 {
         self.total_images
     }
+
+    /// Bytes of decoded image data seen so far. Cumulative, never decremented:
+    /// this counts DECODE WORK, so a rise with a flat `total_images` means the
+    /// same asset was decoded again, which is the churn the number is for.
+    pub fn total_bytes(&self) -> u64 {
+        self.total_bytes
+    }
 }
 
 /// Log every notable texture as it lands, plus a periodic rollup.

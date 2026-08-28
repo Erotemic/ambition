@@ -144,7 +144,12 @@ impl FrameCensus {
     /// keep reporting, so nothing is silently lost.
     pub const SPIKE_LOG_CAP: usize = 60;
 
-    fn percentile(sorted: &[f64], q: f64) -> f64 {
+    /// Nearest-rank percentile over an already-sorted slice.
+    ///
+    /// Shared with the profiling-only interval census in
+    /// [`crate::runtime_census`] so the two readouts of the same frame stream
+    /// cannot disagree about what p95 means.
+    pub fn percentile(sorted: &[f64], q: f64) -> f64 {
         if sorted.is_empty() {
             return 0.0;
         }

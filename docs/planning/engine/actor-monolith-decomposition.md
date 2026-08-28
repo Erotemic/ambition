@@ -1104,9 +1104,18 @@ is `catalog.data()` plus a call to
 and all three callers already held both halves. Naming the derivation directly
 made a 1,409-line module look decoupled over a `.data()`.
 ⇒ **`actor_clusters` is the thing that kept `damage` and `integrate_boss_bodies`
-where they are, and it is now the next carve.** ⚠ price it before believing this:
-what remains is its OUTWARD deps and whether a destination can hold
-`ActorClusterQueryData`, `ActorMut` and `ActorClusterSeed` without an upward edge.
+where they are, and it is now the next carve.** ⚠ priced 2026-08-28, and the answer is NOT YET, for a reason worth stating.
+Its real outward deps are eight crates, all below it (`ambition_sim_view` appears
+only in a COMMENT — the one upward name, and it is prose). So nothing blocks it.
+⛔ **What blocks it is that there is no destination.** No existing crate's subject
+is *"actor construction and the body-cluster query aggregate"*, and minting
+`ambition_actor_clusters` for it is a bigger call than a carve — it is the
+question Wave G reserves: *"whether one actor crate is honest or whether there are
+still multiple durable simulation domains."* ⇒ **`actor_clusters` reaching nothing
+is evidence it is the monolith's CENTRE, not evidence it should leave.** The
+modules that left this month all had a crate already waiting for them; this one
+does not, and a carve into a crate invented to receive it would wrap the model
+rather than remove it.
 
 ⭐ **DO IT COMPILER-DRIVEN.** Delete the `pub use` block FIRST and let the 87
 errors enumerate the callers; a sed sweep over qualified paths misses the grouped

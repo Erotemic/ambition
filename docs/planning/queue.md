@@ -2061,9 +2061,10 @@ he has dropped since arrives through his MESSAGES and lands in
 `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, which is role (4) — so that file, not an
 mtime scan, is where recent maintainer work actually shows up.
 
-- ▢ **D245 — THE ROLLBACK DECLARATION FEDERATION IS 17 CRATES DONE AND ONE
-  JUDGEMENT SHORT. PROMOTED FROM `tracks.md` 2026-08-26; both INSTANCE items are
-  closed and only `_core`'s reading is open.**
+- ✔ **D245 — THE ROLLBACK DECLARATION FEDERATION IS DONE, 18 CRATES INCLUDING
+  BOTH FLOORS. Promoted from `tracks.md` 2026-08-26, closed 2026-08-28 when the
+  last item — `_core`'s own reading — stopped being a judgement and became a
+  precedent: `ambition_time` had already answered it.**
 
 ⭐ **PROMOTED BECAUSE THE INSTANCES ARGUED IT, NOT THE CARD.** The reservoir card
 *"Simulation authority and deterministic phase structure"* asks to *"invert

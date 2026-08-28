@@ -203,6 +203,22 @@ Use the narrowest command that actually covers the change. Full matrix:
 
   If a policy fires because architecture intentionally changed, update its
   rationale. Do not add a waiver merely to silence it.
+* `cargo nextest run` is installed and `./run_tests.sh` uses it when it is.
+  Every recipe above works with `nextest run` in place of `test`, and the reason
+  to prefer it is DIAGNOSIS, not speed: it names each test's duration and calls
+  out anything past 30s. Measured 2026-08-27, the app suite takes the same 265s
+  under both runners because ONE test spends 164 of them
+  (`a_player_death_reset_survives_the_rollback_window`) — libtest reports a
+  total, so that had never been attributed.
+  * ⛔⛔ **NEXTEST RUNS NO DOCTESTS.** It executes compiled test binaries and
+    rustdoc's tests are not among them. `./run_tests.sh` carries a separate
+    `cargo test --workspace --doc` job for exactly that reason. ⚠ The suite had
+    no such job until 2026-08-27, and `ambition_sim_harness`'s only doctest had
+    been failing to compile the entire time — nothing goes red when a runner
+    silently stops covering a class of test.
+  * Filters translate: `-k foo` is a bare `foo`, `--ignored` is
+    `--run-ignored only`, `--include-ignored` is `--run-ignored all`,
+    `--nocapture` is `--no-capture`.
 * ⛔ **A compiling game can still draw stale quality-variant art.** Publishing art means:
 
   ```bash

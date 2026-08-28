@@ -13432,8 +13432,24 @@ guardrails"* is binding and a feature-parity test is exactly that. The answer is
 that whoever edits a type consulted by a gated module has to know the module
 exists — which is why the table above is written down rather than automated.
 
-- ▢ **D242 — NINE PARTICIPANT/ACTION ARCHITECTURE ITEMS WERE REACHABLE FROM THE
+- ◐ **D242 — NINE PARTICIPANT/ACTION ARCHITECTURE ITEMS WERE REACHABLE FROM THE
   INTAKE AND FROM NO LEDGER ROW. (promoted 2026-08-26)**
+  ⭐⭐ **THE ITEM `tracks.md` NAMES IS HALF DONE, 2026-08-28: a provider action now
+  reaches a keypress and comes back.** Register an action the engine has never
+  heard of, bind it, press the key, get `SemanticActionPressed` — no `Any`, no
+  `TypeId`, no variant added to the 35-variant enum, checked end to end by
+  `a_registered_action_bound_to_a_key_comes_back_as_a_seat_press`. Three pieces in
+  `ambition_input`: `ProviderBindings` (the composition's map, kept separate from
+  the registry because a capability DESCRIBES an action and the game it is
+  installed into decides its key), `install_provider_bindings_on_seats` (a sync,
+  so a capability installed after the seats exist still reaches them) and
+  `publish_provider_action_edges` (`just_pressed`, sorted by seat id).
+  ▢ **what remains is PRESENTABLE**, and re-measuring changed its shape:
+  `ControlSlot` and `TouchActionButton` are DESCRIPTIONS OF HARDWARE, not
+  arbitrary limits, so a provider action becomes presentable by being ASSIGNED a
+  slot rather than by widening one — a design call about a finite pad or a finite
+  screen. ⛔ do not price that as plumbing; the plan's *"presentation is the
+  expensive road"* was measuring a mapping table that points the other way.
 
 ⭐ **PROMOTED, NOT WRITTEN.** [`engine/participant-action-system.md`](engine/participant-action-system.md)
 carries nine `▢` items and is named by `tracks.md`'s *"Provider-defined actions

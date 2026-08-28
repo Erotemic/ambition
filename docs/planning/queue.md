@@ -13127,6 +13127,32 @@ would change how every character points while attacking. The finding is recorded
 with its instrument: rerun `moveset_takes` after any change and the MISMATCH line
 is the acceptance test.
 
+⛔⛔ **AND THE INSTRUMENT SAYS IT DOES NOT REPRODUCE AT HEAD — measured
+2026-08-28, on the acceptance test this row named.** Two characters, both
+untouched:
+
+```text
+player_robot_v3      attack_air_back  moves={"air_back"}   no MISMATCH
+npc_pirate_admiral   attack_air_back  moves={"air_back"}   no MISMATCH
+```
+
+and the engine's own log agrees — `move accepted: move=\`air_back\` grounded=false`.
+⇒ **the back air is REACHABLE.** Something between 2026-08-25 and today closed
+it; this row's diagnosis (the fighter turns before the press is read, so
+`attack_dir_from_axis` folds the reversal away) no longer describes HEAD.
+
+⚠ **AND I ALMOST SHIPPED A GLOBAL RE-TUNE ON THE STRENGTH OF IT.** The two
+authorities really do disagree in the source — `abilities.rs` computes
+`can_turn = on_ground || fly_enabled` while `kernel.rs` applies `facing_intent`
+unconditionally — so gating the kernel write on the same rule looked like the
+obvious repair, and every suite stayed green with it applied (core 518, monolith
+1141, combat 554, smash 39, app 499). **The CONTROL is what stopped it**:
+disabling the gate and re-running the same take showed `air_back` playing either
+way, so the change fixed nothing measurable while re-tuning how every body in the
+game points in the air. ⇒ the contradiction is real and is worth resolving on its
+own merits, WITH Jon, but it is not this defect's cause and green suites are not
+evidence that a tuning change was needed.
+
 - ◐ **D244 — THE LADDER'S CAP FORBIDS NOTHING; ITS REPERTOIRE DOES RISE, AND THE
   FIRST VERSION OF THIS ROW SAID OTHERWISE. (promoted from the intake 2026-08-26,
   corrected within the hour by the measurement that would falsify it)**

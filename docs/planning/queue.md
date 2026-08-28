@@ -10916,6 +10916,35 @@ the derivation. `stochastic_parrot` has three, `burning_flying_shark` two.
 ⇒ **19 rows can be authored with no decision at all; 3 need one number each from
 Jon**, and for those three the disagreement above is the whole case for asking.
 
+✔✔ **THE NINETEEN ARE AUTHORED — 2026-08-28, and every one reproduces the size it
+already had.** Read from the production function rather than derived: an ignored
+report (`print_the_height_each_legacy_row_already_has`) asks
+`sprite_body_collision_for_character_id_in` with each character's REAL spawn box,
+so the number a row carries is measured and not computed by hand. Before and
+after agree to the rounding authored (≤0.1px): `npc_bear_mauler`
+`121.86x72.56 → 121.93x72.60`, `npc_hunny_horror_boss` `119.25x154.80` unchanged,
+`npc_puppy_slug_velvet` `68.79x30.86 → 68.88x30.90`.
+
+⭐⭐ **THE LEGACY BRANCH'S POPULATION IS 25 → 3.** Every remaining row is one whose
+spawn boxes DISAGREE, which is the argument rather than an omission:
+
+```text
+npc_puppy_slug            EIGHT boxes, (64,16) to (52,66) — a factor of four
+stochastic_parrot         three
+npc_burning_flying_shark  two
+```
+
+⚠ **and the three GNU-ton rows are not a fourth case**: `npc_giant_gnu`,
+`npc_giant_gnu_hands` and `npc_gnu_ton_boss` publish no sheet, so
+`sprite_body_collision_for_character_id_in` returns `None` before either branch
+is reached. They do not block deleting `catalog_join.rs:154`'s `_ =>` arm.
+
+▢ **so the arm's deletion gate is three numbers**, and they are Jon's — see
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) entry 36.
+⛔ do NOT pick them by taking the most common box: the puppy slug's two most
+common are `(48,22)`×6 and `(32,48)`×5, which are 22 and 48 in the axis that
+drives the derivation, so "most common" is a coin flip dressed as a measurement.
+
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**
 

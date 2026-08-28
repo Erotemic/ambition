@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -32,6 +33,10 @@ WEB = HERE / "web"
 DATA = HERE / "data"
 REVIEWS = HERE / "reviews"
 RENDERS = HERE / "data" / "renders"
+
+# When THIS process booted, so the page can say how old the code answering it is.
+_STARTED_AT = time.time()
+_STARTED = time.strftime("%Y-%m-%d %H:%M", time.localtime(_STARTED_AT))
 
 # ⭐⭐ THE REPO ROOT, for shelling out to the renderer. Resolved from this file so
 # the wrapper works from any working directory.
@@ -272,6 +277,15 @@ def inspector_status() -> dict:
             takes_meta["error"] = str(error)
 
     return {
+        # ⛔⛔ HOW OLD IS THE PROCESS ANSWERING YOU. `server.py` is loaded into
+        # memory at start, so a server left running across an edit serves its OWN
+        # ROUTES from before that edit however current the files on disk are — a
+        # 19-hour-old process had no `/art/` route at all and 404'd every sprite,
+        # which is unfalsifiable from the browser. This is the fact that makes it
+        # falsifiable.
+        "server_started": _STARTED,
+        "server_uptime_minutes": int((time.time() - _STARTED_AT) / 60),
+        "server_module": str(Path(__file__).resolve()),
         "repo": str(REPO),
         "sprites_dir": str(SPRITES),
         "sprites_dir_exists": SPRITES.exists(),
@@ -318,6 +332,18 @@ class InspectorHandler(SimpleHTTPRequestHandler):
     # ---- plumbing ----
     def log_message(self, fmt, *args):  # noqa: D102 - quiet by default
         pass
+
+    def end_headers(self) -> None:  # noqa: D102
+        """Never let a browser cache the UI.
+
+        ⛔⛔ A CACHED `app.js` IS AN INVISIBLE OLD TOOL. The page has no version
+        on it, so a stale script shows a stale UI — a missing control reads as a
+        broken feature, and the person looking at it has no way to tell those
+        apart. This tool is served from disk on localhost; there is nothing to
+        gain by caching it and a whole class of phantom bugs to lose.
+        """
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        super().end_headers()
 
     def _json(self, status: int, payload) -> None:
         body = json.dumps(payload).encode()

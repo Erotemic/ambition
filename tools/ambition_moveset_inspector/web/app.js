@@ -848,6 +848,45 @@ async function renderReview() {
   );
 }
 
+/* Draw a hitbox as the shape it ACTUALLY is.
+ *
+ * ⛔⛔ THE BOX AROUND AN ARC IS NOT THE ARC. Takes recorded every strike as its
+ * axis-aligned bounding box, so a rotated box, a disc and a convex sweep all
+ * drew as the rectangle that CONTAINS them — measured on this cast, that
+ * overstates the strike by a median 1.8x and up to 5.3x.
+ *
+ * Falls back to the AABB when a take predates the shape field, so an old
+ * recording still draws something honest. */
+function drawHitboxShape(ctx, h, X, Y, scale) {
+  const shape = h.shape;
+  ctx.beginPath();
+  if (shape && shape.kind === "circle") {
+    ctx.arc(X(shape.center[0]), Y(shape.center[1]), shape.radius * scale, 0, Math.PI * 2);
+  } else if (shape && shape.kind === "convex" && (shape.points || []).length > 2) {
+    shape.points.forEach(([px, py], i) => {
+      if (i === 0) ctx.moveTo(X(px), Y(py)); else ctx.lineTo(X(px), Y(py));
+    });
+    ctx.closePath();
+  } else if (shape && shape.kind === "obb") {
+    /* Rotation is CCW in screen axes, the convention the engine stores. */
+    const [cx, cy] = shape.center;
+    const [hx, hy] = shape.half;
+    const c = Math.cos(shape.rotation);
+    const sn = Math.sin(shape.rotation);
+    [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].forEach(([ox, oy], i) => {
+      const wx = cx + ox * c - oy * sn;
+      const wy = cy + ox * sn + oy * c;
+      if (i === 0) ctx.moveTo(X(wx), Y(wy)); else ctx.lineTo(X(wx), Y(wy));
+    });
+    ctx.closePath();
+  } else {
+    ctx.rect(X(h.pos[0] - h.half[0]), Y(h.pos[1] - h.half[1]),
+             h.half[0] * 2 * scale, h.half[1] * 2 * scale);
+  }
+  ctx.fill();
+  ctx.stroke();
+}
+
 /* ---------- engine takes ---------- */
 /* ⛔⛤ ONE FLAT LIST OF EVERY TAKE was unusable the moment a second fighter was
  * recorded: nineteen entries per character, all prefixed with the same name, and

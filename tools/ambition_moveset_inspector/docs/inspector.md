@@ -285,3 +285,20 @@ tabs. Status names them too.
 
 ⚠ Minutes per character — every take settles a real match between presses — so
 recording the whole grid is an overnight job rather than a click.
+
+## Checks
+
+```bash
+node tools/ambition_moveset_inspector/check_bundle_contract.mjs   # the data
+node tools/ambition_moveset_inspector/check_draw_path.mjs         # the drawing
+```
+
+⛔⛔ `node --check` SAYS A FILE PARSES, NOT THAT ITS IDENTIFIERS RESOLVE. A call
+to `drawHitboxShape` once shipped with no such function in the file and
+`node --check` passed; in the browser `drawTake` threw the instant a strike
+appeared, which killed the playback timer. The Jab's first hitbox is on frame 3,
+so Play ran for exactly three frames and stopped — with the error only in a
+console nobody had open.
+
+`check_draw_path.mjs` draws every frame of every recorded take against a stubbed
+canvas and fails on the first exception. Run it after touching `app.js`.

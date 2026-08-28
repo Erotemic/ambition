@@ -1088,7 +1088,7 @@ fn main() {
     // comment admitting the app should know; `SimulationHost` is a resource and
     // was already the canonical answer, so the caller had no business having an
     // opinion about it.
-    ambition_platformer2d::app::enable_manual_stepping(&mut app);
+    ambition_platformer2d::sim::enable_manual_stepping(&mut app);
     for _ in 0..30 {
         app.update();
     }

@@ -457,6 +457,18 @@ pub mod sim {
     #[cfg(not(feature = "rollback"))]
     pub use ambition_platformer2d_runtime::input_drive::drive_control_frame;
 
+    /// Who owns the clock — the companion to driving input, and on this surface
+    /// for the same reason.
+    ///
+    /// ⭐⭐ A DRIVER THAT WRITES INPUT ALSO DECIDES WHEN TIME PASSES. These lived
+    /// on `app` and `ambition_sim_harness` reached across to them, which the
+    /// `sim-harness-names-only-the-public-sdk` contract caught — and its own note
+    /// says why that is the right answer rather than a nuisance: *"If it needs
+    /// crate-shaped facade paths, those are SDK gaps."* Stepping a simulation is
+    /// not app-assembly trivia; it is the other half of the seam beside
+    /// `drive_control_frame`.
+    pub use crate::app::{enable_manual_stepping, manual_step_period};
+
     /// Drive input to ANY seat, and the half blind run 7's finding (g)
     /// recorded as missing.
     ///

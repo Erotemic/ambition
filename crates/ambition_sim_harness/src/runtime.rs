@@ -118,7 +118,7 @@ impl Platformer2dSimHarness {
         // would silently ignore the number it passed.
         if rollback.enabled() || matches!(timestep, TimestepMode::Fixed { .. }) {
             let canonical = if rollback.enabled() || options.fixed_tick {
-                ambition_platformer2d::app::manual_step_period(&app)
+                ambition_platformer2d::sim::manual_step_period(&app)
             } else {
                 None
             };

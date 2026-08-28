@@ -33,7 +33,7 @@ fn one_update_is_one_simulation_tick_in_a_live_rollback_match() {
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    let period = ambition_platformer2d::app::enable_manual_stepping(&mut app);
+    let period = ambition_platformer2d::sim::enable_manual_stepping(&mut app);
     assert_eq!(
         period,
         std::time::Duration::from_nanos(1_000_000_000 / 60),

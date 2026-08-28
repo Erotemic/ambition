@@ -148,6 +148,20 @@ as well as self — arguably right, since an opponent's closing speed prices the
 same spacing question from the other side, but wider than "derive it from
 `startup_s`" reads.
 
+⭐ **AND ONE CLASS OF MOVE ALREADY CARRIES THE NUMBER (2) WANTS — measured
+2026-08-28.** The closing-speed half is missing from `PerceivedActor` for ordinary
+movement, which is what makes (2) expensive. But a move with a `start_impulse`
+states its own travel: the oni leader's `iaijutsu` authors
+`impulse(0.05, (700.0, 0.0))` at the same instant as its Active window, and the
+grid census shows it thrown at **3.81× its 64px authored coverage** — past even
+the 3× this constant permits — 88 times, fighting fine at 117%. ⇒ for that class
+the tolerance is not a proxy for anything: the distance is on the move.
+
+⚠ **it is a CLASS, not the population**: 5 of the 8 moves thrown past their reach
+in that census carry no impulse. So this narrows (2) rather than answering it —
+impulse moves could derive their reach exactly while everything else still needs
+the closing speed threaded into perception.
+
 ⚠ **the honest instrument if you pick (2)** is `capture_probe`'s move histogram
 plus the fighter option tests, over several seeds. ⛔ `ladder_probe` is NOT it —
 it measures self-KO time against a passive opponent, which is stage awareness.

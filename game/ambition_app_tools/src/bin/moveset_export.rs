@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use ambition_platformer2d::entity_catalog::{
-    MoveEventKind, MoveSpec, MovesetContract, RecoveryUse, VolumeShape, WindowTag,
+    MoveCoverage, MoveEventKind, MoveSpec, MovesetContract, RecoveryUse, VolumeShape, WindowTag,
 };
 
 /// The sim tick. Frame counts in this bundle are seconds x this, which is the
@@ -222,6 +222,58 @@ fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_cata
             .push(window);
     }
     pulses
+}
+
+/// How much of the body's own silhouette a move's forward reach covers, and
+/// where the holes are.
+///
+/// ⭐⭐ D203, and it is Jon's ask stated as a measurement rather than a rule:
+/// *"a DIRECTIONAL SMASH should cover a contiguous region in the facing
+/// direction at least as tall as the character; forward smash should leave NO
+/// HOLE a crouching opponent can duck under."* Hit volumes are authored in
+/// ABSOLUTE numbers — `VolumeShape::Rect { offset, half_extents }` is
+/// entity-local and knows nothing about whose body it is — so a bigger fighter
+/// inherits a box drawn for somebody else's silhouette, and the only lever is
+/// retyping numbers per move per character.
+///
+/// ⛔ IT REPORTS, IT DOES NOT JUDGE. Jon wants moves that deliberately break the
+/// rule, so a pass/fail here would be a policy with no way to declare an
+/// exception — and an undeclared exception is indistinguishable from a mistake.
+/// The census is the evidence the pattern gets designed from; the verdict is a
+/// later question with an authored answer.
+///
+/// `coverage` is the union of a move's authored Active volumes in body-local
+/// space where `+x` is facing and the origin is the body's centre.
+fn coverage_census(coverage: &MoveCoverage, body_height: f32) -> Option<serde_json::Value> {
+    // A move that reaches nowhere forward is not a directional attack, and
+    // asking what fraction of the body it fronts is the wrong question about it.
+    if coverage.max.0 <= 0.0 || body_height <= 0.0 {
+        return None;
+    }
+    let half = body_height / 2.0;
+    // The silhouette, in the same body-local frame. World y is DOWN, so the
+    // "duck under" hole is the one toward +y.
+    let (top, bottom) = (-half, half);
+    let covered_top = coverage.min.1.max(top);
+    let covered_bottom = coverage.max.1.min(bottom);
+    let covered = (covered_bottom - covered_top).max(0.0);
+    // ⛔ ROUNDED IN f64, not f32. These are read by a person and byte-diffed
+    // between bundles; an f32 third of 48 widens to `0.3330000042915344`, which
+    // is noise wearing a measurement's precision.
+    let round = |v: f32, places: f64| (f64::from(v) * places).round() / places;
+    Some(serde_json::json!({
+        // What a reader compares between two characters: 1.0 is a box as tall
+        // as its owner.
+        "covers_body_fraction": round(covered / body_height, 1000.0),
+        // The band above the volume — an opponent standing tall on a slope, or
+        // an aerial the move passes under.
+        "gap_above_px": round((coverage.min.1 - top).max(0.0), 10.0),
+        // ⭐ THE ONE JON NAMED: the band between the bottom of the volume and
+        // the owner's feet, which is exactly what a crouching opponent occupies.
+        "gap_below_px": round((bottom - coverage.max.1).max(0.0), 10.0),
+        "reach_px": round(coverage.max.0, 10.0),
+        "body_height_px": round(body_height, 10.0),
+    }))
 }
 
 /// `body_ranged` is the fighter's STANDING ranged kit — the action a firing move
@@ -432,6 +484,10 @@ fn move_json(
     spec: &MoveSpec,
     verbs: &[String],
     body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
+    // How tall its OWNER stands, so the coverage census can say what fraction of
+    // that silhouette this move fronts. `0.0` when the character declares none
+    // and its `body_kind` has no default, which is the honest "cannot say".
+    body_height: f32,
 ) -> serde_json::Value {
     serde_json::json!({
         "id": spec.id,
@@ -465,6 +521,15 @@ fn move_json(
         "windows": spec.windows.iter().map(window_json).collect::<Vec<_>>(),
         "events": spec.events.iter().map(event_json).collect::<Vec<_>>(),
         "derived": derived_json(spec, body_ranged),
+        // ⭐ D203's census. `None` for a move with no forward Active volume, or
+        // for a character whose height nobody has stated — both of which are
+        // "cannot say" rather than "covers nothing". Read it, do not gate on it:
+        // see `coverage_census`.
+        "coverage": spec
+            .frame_data()
+            .coverage
+            .as_ref()
+            .and_then(|c| coverage_census(c, body_height)),
     })
 }
 
@@ -497,6 +562,15 @@ fn character_json(
         .kit
         .action_set()
         .and_then(|set| set.ranged.as_ref());
+    // ⭐ THE CHARACTER'S OWN HEIGHT, which is what D203's rules of thumb are
+    // stated against — an authored `standing_height`, else what its `body_kind`
+    // answers for (48 for `Standard`, nothing for the rest).
+    let body_height = catalog
+        .and_then(|e| {
+            e.standing_height
+                .or_else(|| e.body_kind.default_standing_height())
+        })
+        .unwrap_or(0.0);
     let moves: Vec<_> = contract
         .map(|c| {
             c.moves
@@ -506,6 +580,7 @@ fn character_json(
                         m,
                         by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[]),
                         body_ranged,
+                        body_height,
                     )
                 })
                 .collect()
@@ -746,6 +821,65 @@ mod tests {
                 });
         }
         spec
+    }
+
+    /// ⭐⭐ D203's CENSUS, on the case Jon named: *"forward smash should leave NO
+    /// HOLE a crouching opponent can duck under."*
+    ///
+    /// A hit volume is authored in ABSOLUTE numbers and knows nothing about
+    /// whose body it is, so the same box on a taller fighter fronts less of him.
+    /// The census is what makes that visible per character instead of per
+    /// retyped number.
+    ///
+    /// ⛔ IT REPORTS RATHER THAN JUDGES — Jon wants moves that break the rule on
+    /// purpose — so these arms check the MEASUREMENT, not a verdict.
+    #[test]
+    fn the_census_names_the_band_a_crouching_opponent_would_duck_into() {
+        // World y is DOWN, so a 48-tall body spans -24 (head) to +24 (feet).
+        let waist_high = MoveCoverage {
+            min: (10.0, -12.0),
+            max: (46.0, 4.0),
+        };
+        let census = coverage_census(&waist_high, 48.0).expect("it reaches forward");
+        assert_eq!(census["reach_px"], serde_json::json!(46.0));
+        // 16 of 48 covered.
+        assert_eq!(census["covers_body_fraction"], serde_json::json!(0.333));
+        assert_eq!(census["gap_above_px"], serde_json::json!(12.0));
+        // ⛔ THE ONE THAT MATTERS: 20px of standing room below the swing.
+        assert_eq!(census["gap_below_px"], serde_json::json!(20.0));
+    }
+
+    /// A box as tall as its owner has no hole either way — the shape the rule
+    /// asks for, and the one a reader compares the others against.
+    #[test]
+    fn a_volume_as_tall_as_its_owner_reports_no_gap() {
+        let full = MoveCoverage {
+            min: (8.0, -24.0),
+            max: (52.0, 24.0),
+        };
+        let census = coverage_census(&full, 48.0).expect("it reaches forward");
+        assert_eq!(census["covers_body_fraction"], serde_json::json!(1.0));
+        assert_eq!(census["gap_above_px"], serde_json::json!(0.0));
+        assert_eq!(census["gap_below_px"], serde_json::json!(0.0));
+    }
+
+    /// ⛔ AND TWO THINGS THE CENSUS MUST REFUSE TO ANSWER, because a number
+    /// invented here would be read as a measurement. A move whose volumes are
+    /// all behind the owner is not a directional attack — asking what fraction
+    /// of the body it fronts is the wrong question — and a character whose
+    /// height nobody has stated has no silhouette to compare against.
+    #[test]
+    fn the_census_says_nothing_rather_than_guessing() {
+        let behind = MoveCoverage {
+            min: (-40.0, -10.0),
+            max: (-8.0, 10.0),
+        };
+        assert!(coverage_census(&behind, 48.0).is_none());
+        let forward = MoveCoverage {
+            min: (8.0, -10.0),
+            max: (40.0, 10.0),
+        };
+        assert!(coverage_census(&forward, 0.0).is_none());
     }
 
     #[test]

@@ -229,6 +229,11 @@ pub fn rebuild_control_prompt(
         Option<Ref<ActorMoveset>>,
         Option<Ref<ActionSet>>,
         Option<Ref<ActorTechniques>>,
+        // ⭐ AN AUTHORITY LIKE THE OTHERS, and it belongs in this tuple for the
+        // same reason they do: it changes which verbs the body HAS. A saddle
+        // does not open a menu — a rider is still driving a body through the
+        // gameplay context — so this is not a fifth `ControlContextKind`.
+        bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
     )>,
     cues: Option<Res<ActiveUiCues>>,
     // Whether this experience wants the BUTTON named or the MOVE on it. Absent
@@ -245,7 +250,7 @@ pub fn rebuild_control_prompt(
     // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
     // skipped and the prompt would keep describing a context that no longer
     // exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 6])>>,
+    mut last: Local<Option<(Option<Entity>, [bool; 4], [bool; 6])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -308,7 +313,7 @@ pub fn rebuild_control_prompt(
         if matches!(*last, Some((_, _, seen)) if seen == resources) && !inputs_changed {
             return;
         }
-        *last = Some((None, [false; 3], resources));
+        *last = Some((None, [false; 4], resources));
         let (kind, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
@@ -328,7 +333,7 @@ pub fn rebuild_control_prompt(
         .as_deref()
         .and_then(|s| s.0)
         .or_else(|| primary.single().ok());
-    let Some((abilities, moveset, action_set, techniques)) =
+    let Some((abilities, moveset, action_set, techniques, pose_is_held)) =
         subject.and_then(|e| authorities.get(e).ok())
     else {
         // Cold start (no player yet) or a controlled body without authorities —
@@ -342,14 +347,18 @@ pub fn rebuild_control_prompt(
             None,
         );
         set_prompt(&mut prompt, context, Vec::new(), confirm);
-        *last = Some((subject, [false; 3], resources));
+        *last = Some((subject, [false; 4], resources));
         return;
     };
 
+    // Boarding and dismounting ADD and REMOVE a marker rather than mutating one,
+    // and a component that is absent reports no change — the same hole this
+    // system's resource-presence bits already exist to close.
     let presence = [
         moveset.is_some(),
         action_set.is_some(),
         techniques.is_some(),
+        pose_is_held,
     ];
     let authorities_changed = abilities.is_changed()
         || moveset.as_ref().is_some_and(|r| r.is_changed())
@@ -360,8 +369,16 @@ pub fn rebuild_control_prompt(
     }
     *last = Some((subject, presence, resources));
 
+    // While something else owns the pose, the locomotion verbs are cleared before
+    // the kernel ever sees them (`PoseOwnedExternally`). Deriving from the
+    // unmasked set drew a rider four buttons that were already being thrown away.
+    let available = if pose_is_held {
+        abilities.abilities.while_pose_is_held()
+    } else {
+        abilities.abilities
+    };
     let scheme = derive_action_scheme(
-        &abilities.abilities,
+        &available,
         moveset.as_deref().map(|m| &m.0),
         action_set.as_deref(),
         techniques.as_deref().map_or(&[], |t| t.0.as_slice()),
@@ -498,6 +515,99 @@ mod tests {
     }
 
     #[test]
+    fn a_rider_is_not_offered_the_locomotion_it_is_already_being_refused() {
+        // A saddled body has its stick zeroed and every `MovementAction` cleared
+        // in `body_step` before the kernel runs, and the kernel refuses the
+        // buffered burst on top of that. The prompt derives from the body's live
+        // abilities, so the pirate on his shark was drawn Jump / Burst / Blink /
+        // Fly — four buttons already being thrown away — while Attack, the one
+        // that works from the saddle, sat beside them looking identical.
+        let mut app = app();
+        let mut a = AbilitySet::default();
+        a.jump = true;
+        a.dash = true;
+        a.blink = true;
+        a.fly = true;
+        a.fly_toggle = true;
+        a.shield = true;
+        a.attack = true;
+        // A move table is WHAT the attack is (see `authorities`), so the saddle's
+        // surviving verb needs one or the slot resolves to nothing and the test
+        // would pass for the wrong reason.
+        let (_, moveset) = authorities(true, Some("swat"));
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, BodyAbilities::new(a), moveset))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+        app.update();
+
+        for slot in [
+            ControlSlot::Jump,
+            ControlSlot::Burst,
+            ControlSlot::Blink,
+            ControlSlot::Utility,
+        ] {
+            assert!(
+                app.world()
+                    .resource::<ControlPrompt>()
+                    .label_for(slot)
+                    .is_some(),
+                "on its own feet the body is offered {slot:?}"
+            );
+        }
+
+        // Board.
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_platformer2d_core::PoseOwnedExternally);
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(
+            prompt.context,
+            ControlContextKind::Gameplay,
+            "a rider is still driving a body, so this is not a fifth context"
+        );
+        for slot in [
+            ControlSlot::Jump,
+            ControlSlot::Burst,
+            ControlSlot::Blink,
+            ControlSlot::Utility,
+        ] {
+            assert_eq!(
+                prompt.label_for(slot),
+                None,
+                "{slot:?} is cleared before the kernel sees it; offering it is a lie"
+            );
+        }
+        assert!(
+            prompt.label_for(ControlSlot::Attack).is_some(),
+            "and the half that separates a held body from a dead one still shows: \
+             a rider swings from the saddle"
+        );
+        assert!(
+            prompt.label_for(ControlSlot::Shield).is_some(),
+            "raising a shield spends nothing, so it survives being held"
+        );
+
+        // Dismount. Boarding REMOVES nothing and dismounting mutates nothing, so
+        // a cache keyed only on change detection would keep the rider's prompt
+        // forever — the same hole the resource-presence bits already close.
+        app.world_mut()
+            .entity_mut(body)
+            .remove::<ambition_platformer2d_core::PoseOwnedExternally>();
+        app.update();
+        assert!(
+            app.world()
+                .resource::<ControlPrompt>()
+                .label_for(ControlSlot::Jump)
+                .is_some(),
+            "off the saddle the verbs come back"
+        );
+    }
+
+    #[test]
     fn publishes_controlled_subjects_scheme_labels() {
         let mut app = app();
         let body = app
@@ -598,9 +708,7 @@ mod tests {
     /// alone keeps saying "Cross" to somebody holding a pad with an A on it.
     #[test]
     fn the_prompt_spells_a_button_in_the_seats_own_vocabulary() {
-        use ambition_input::{
-            ActiveDevice, GamepadStyle, SeatActiveDevices, SeatBindings,
-        };
+        use ambition_input::{ActiveDevice, GamepadStyle, SeatActiveDevices, SeatBindings};
 
         let mut app = app();
         app.init_resource::<SeatBindings>();

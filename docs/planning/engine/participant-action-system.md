@@ -189,10 +189,44 @@ GameMode::allows_gameplay(self)           matches!(self, Playing)  ← unconditi
   before adding a variant, measure whether a mounted body's verbs actually
   differ from an unmounted one's. If the same buttons do the same things, the
   variant buys a label and costs a seam.
-  ⛔ the loading/retry half is confirmed and is not a question: `game_shell`'s
-  `input.rs` maps the raw `MenuControlFrame::select` straight onto
-  `startup_acknowledge` and `loading_continue`, which is the same unadopted-seam
-  finding as the activation item above — one flag answering three questions.
+  ✔ **MEASURED 2026-08-28, AND THE ANSWER IS NO VARIANT.** The verbs DO differ —
+  the row's own test is met — but a `VEHICLE` context is the wrong instrument for
+  it, and the measurement says why. `Menu` and `Dialogue` exist because a SURFACE
+  owns the participant's input; a rider is still driving a body through gameplay.
+  The prompt is not built from the context at all: `rebuild_control_prompt` derives
+  it from the subject's live authorities through the same `derive_action_scheme`
+  the gameplay routing gate calls, precisely so a button's label and what it fires
+  cannot drift. A context variant would have added a second, parallel answer to a
+  question one authority already owns.
+  ⛔ **The actual defect was a PROMPT LIE, and it was four buttons wide.**
+  `body_step` zeroes the stick and clears every `MovementAction`
+  (`Jump`/`Burst`/`Blink`/`FlyToggle`/`FastFall`) the moment `PoseOwnedExternally`
+  is on the body, and the movement kernel refuses the buffered burst on top of
+  that. None of that touches `AbilitySet`, so the derive kept advertising Jump,
+  Burst, Blink and Fly to a rider whose presses were already being thrown away —
+  beside Attack, which really does work from the saddle, looking identical.
+  ✔ **FIXED by masking the authority, not by adding a context:**
+  `AbilitySet::while_pose_is_held` (exhaustive, so a new ability must be
+  classified rather than defaulting into "still available"), applied in the prompt
+  derive and NOT in the routing gate — a press made a moment before the constraint
+  took the body is input memory the player is entitled to, so the refusal stays
+  ⛔ FORBIDDEN, NOT ERASED where it is. Boarding adds a component and dismounting
+  removes one, so the fact also had to join the rebuild's presence key.
+  ⭐ **One thing the mask deliberately does NOT clear: `move_horizontal`.**
+  `steer_mount_from_rider` copies exactly `locomotion`, `velocity_target` and
+  `facing` across the saddle, so a rider's lean is the one intent that still
+  reaches the world. The same function states the boundary: *"the jump edge is the
+  mount's own to decide."* ⚠ the first draft of the mask cleared the stick too,
+  which would have been a new false statement in the other direction.
+  ▢ the loading/retry half stands, but its 2026-08-26 framing does not: it called
+  `game_shell`'s `input.rs` mapping of `MenuControlFrame::select` onto
+  `startup_acknowledge` and `loading_continue` *"the same unadopted-seam finding as
+  the activation item above — one flag answering three questions"*. Re-measured
+  2026-08-28 with that item: those ARE three different questions, asked in three
+  different app phases, and `shell_action_edges` already publishes them as three
+  named fields. The open work here is the SCHEDULE ownership seam the row names in
+  its first paragraph — loading/retry input arriving outside the normal participant
+  context path — not a flag that needs splitting.
 
 - ✔ **Pad-specific calibration filtering with shared bindings — SHIPPED,
   verified at HEAD 2026-08-26.** Bindings remain machine-wide by decision, and

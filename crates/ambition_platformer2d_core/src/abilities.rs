@@ -179,6 +179,100 @@ pub fn can_hold_station(abilities: &AbilitySet, grounded: bool) -> bool {
 }
 
 impl AbilitySet {
+    /// The verbs this body still has WHILE SOMETHING ELSE OWNS ITS POSE.
+    ///
+    /// [`crate::PoseOwnedExternally`] takes the locomotion and leaves everything
+    /// else: `body_step` zeroes the stick and clears every `MovementAction`
+    /// before the kernel sees them, and the kernel refuses the buffered burst on
+    /// top of that. A rider in a saddle still swings, shields, grabs and talks;
+    /// they cannot jump, burst, blink, fly or fast-fall.
+    ///
+    /// ⭐ THE STICK SURVIVES, AND THAT IS NOT A LOOPHOLE. `steer_mount_from_rider`
+    /// copies exactly `locomotion`, `velocity_target` and `facing` across the
+    /// saddle, so the direction a rider leans is the one thing that still reaches
+    /// the world — through the mount. The same function says in as many words
+    /// that *"the jump edge is the mount's own to decide"*, which is why the
+    /// verbs beside it do not survive. `move_horizontal` has no prompt slot
+    /// either way; it is kept because clearing it would state something false.
+    ///
+    /// ⭐ THE PROMPT NEEDS THIS AND THE GATE MUST NOT HAVE IT. The prompt derives
+    /// from a body's live abilities, so without the mask a saddle advertises four
+    /// buttons that are already being thrown away — the exact prompt lie the
+    /// authority-driven derive exists to prevent. The routing gate is a different
+    /// question: a press made a moment before the constraint took the body is
+    /// input memory the player is entitled to have honoured the tick it lets go,
+    /// so the refusal stays where it is (⛔ FORBIDDEN, NOT ERASED).
+    ///
+    /// ⛔ Exhaustive on purpose. A new ability must be classified here rather
+    /// than defaulting into "still available while held", which is the answer
+    /// that silently re-opens the lie.
+    pub fn while_pose_is_held(&self) -> Self {
+        let Self {
+            // Reaches the mount — see the note above.
+            move_horizontal,
+            jump: _,
+            variable_jump: _,
+            double_jump: _,
+            fast_fall: _,
+            wall_jump: _,
+            wall_cling: _,
+            wall_climb: _,
+            dash: _,
+            double_dash: _,
+            fly: _,
+            fly_toggle: _,
+            blink: _,
+            precision_blink: _,
+            blink_through_soft_walls: _,
+            blink_through_hard_walls: _,
+            ledge_grab: _,
+            swim: _,
+            glide: _,
+            // Everything below survives being held.
+            attack,
+            pogo,
+            directional_primary,
+            directional_special,
+            rebound,
+            reset,
+            dodge: _,
+            shield,
+            grab,
+            interact,
+        } = *self;
+        Self {
+            move_horizontal,
+            jump: false,
+            variable_jump: false,
+            double_jump: false,
+            fast_fall: false,
+            wall_jump: false,
+            wall_cling: false,
+            wall_climb: false,
+            dash: false,
+            double_dash: false,
+            fly: false,
+            fly_toggle: false,
+            blink: false,
+            precision_blink: false,
+            blink_through_soft_walls: false,
+            blink_through_hard_walls: false,
+            ledge_grab: false,
+            swim: false,
+            glide: false,
+            dodge: false,
+            attack,
+            pogo,
+            directional_primary,
+            directional_special,
+            rebound,
+            reset,
+            shield,
+            grab,
+            interact,
+        }
+    }
+
     /// Minimal movement for a first-room player.
     pub const fn basic() -> Self {
         Self {
@@ -1061,11 +1155,9 @@ mod tests {
 
     #[test]
     fn sandbox_all_has_no_compatibility_warnings() {
-        assert!(
-            AbilitySet::sandbox_all()
-                .compatibility_warnings()
-                .is_empty()
-        );
+        assert!(AbilitySet::sandbox_all()
+            .compatibility_warnings()
+            .is_empty());
     }
 
     #[test]
@@ -1079,11 +1171,9 @@ mod tests {
         assert!(warnings.iter().any(|w| w.contains("double_dash")));
         assert!(warnings.iter().any(|w| w.contains("wall_climb")));
         assert!(warnings.iter().any(|w| w.contains("precision_blink")));
-        assert!(
-            warnings
-                .iter()
-                .any(|w| w.contains("blink_through_soft_walls"))
-        );
+        assert!(warnings
+            .iter()
+            .any(|w| w.contains("blink_through_soft_walls")));
     }
 
     #[test]
@@ -1117,11 +1207,9 @@ mod tests {
     #[test]
     fn sane_subset_passes_compatibility() {
         // Same contract as sandbox_all: no warnings on a curated set.
-        assert!(
-            AbilitySet::sane_subset()
-                .compatibility_warnings()
-                .is_empty()
-        );
+        assert!(AbilitySet::sane_subset()
+            .compatibility_warnings()
+            .is_empty());
     }
 
     #[test]

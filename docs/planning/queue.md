@@ -13396,6 +13396,36 @@ keyboard-belongs-to-seat-zero policy is the stated design the row's own test
 (*"not merely for naming symmetry"*) says to leave alone. Four `▢` remain in the
 plan.
 
+✔ **AND TWO MORE MOVED 2026-08-28, both because the 2026-08-26 MEASUREMENT WAS
+ITSELF STALE.** This is the row's own rule turned on the row's own notes.
+
+*"Unify semantic menu activation"* was recorded as *"the seam is not missing, it is
+UNADOPTED — one adopter, and `pause_menu` consumes raw `select` itself"*. Both
+halves are false at HEAD: `shell_pause_menu_pointer` reads
+`MenuActionActivated<PauseEntry>`, and `ambition_menu`'s pointer bridge already
+runs on the SAME `ambition_ui_nav::PressArm` the one named adopter uses. What
+actually diverged was the POLICY above that shared gesture, and it cost something
+real: `MenuTapMode` ships defaulting to `SingleTapWithDestructiveGuard`, whose own
+doc names *"a stray touch on Quit"* as its reason, and only the index-addressed
+helper ever consulted it — so Abandon / Quit to Title / Quit to Desktop all fired
+on the first release. ✔ ONE POLICY NOW: `resolve_press` is generic over an opaque
+row identity (the `usize` was never an ordinate), and a menu declares its risky
+rows once with `MenuDestructiveActions`. The non-pointer half stays open with the
+feel question named — a controller cannot stray-tap the way a thumb can.
+
+*"Finish context migration"*'s `VEHICLE` question is ANSWERED: no variant. The
+verbs do differ, so the row's own test is met, but the prompt is not built from the
+context — `rebuild_control_prompt` derives it from the subject's live authorities,
+so a variant would have been a second answer to a question one authority already
+owns. ⛔ the defect underneath was a four-button PROMPT LIE: `body_step` clears every
+`MovementAction` for a body under `PoseOwnedExternally`, nothing touches
+`AbilitySet`, and a rider on the shark was drawn Jump / Burst / Blink / Fly beside
+the Attack that actually works from the saddle. Fixed by masking the authority
+(`AbilitySet::while_pose_is_held`) in the prompt and NOT in the routing gate, where
+a buffered press is input memory the player is owed. ⚠ the row's loading/retry half
+inherited the same stale framing and has been re-scoped to the SCHEDULE seam it
+names first.
+
 ```text
 "Remove the seat-0 control split"   CLOSED by reading HEAD — see above.
 "Per-seat pause ownership"          `SeatMenuFrames` shipped and the select

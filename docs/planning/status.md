@@ -20,7 +20,33 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — three carves, and a census that was blind three ways
+## 2026-08-28, LATEST — the only whole-workspace test build is a disk tool
+
+⛔⛔ **`cargo check -p ambition_app --all-targets` CANNOT SEE ANOTHER CRATE'S TEST
+TARGET, AND NEITHER CAN `cargo build -p <demo>`.** Three broken test targets
+survived both today, from three different changes of mine:
+
+```text
+ambition_touch_input   45 tests, of which `cargo test -p` runs FOUR — the rest
+                       are behind `--all-features`. A small count for a big
+                       crate is the tell.
+ambition_demo_mary_o   named a module I deleted, in `tests/power_loop.rs`; and
+                       its LIB named `platformer2d::content` while enabling no
+                       `content_pack` — red on main, compiling only when another
+                       crate unified the feature on.
+ambition_content       imported a name inside a grouped `use` from a re-export
+                       I removed; reports as *"private struct"*, not as missing.
+```
+
+⭐ **What found all three: `scripts/sweep_target.py --apply`.** Its marking pass
+runs `cargo test --no-run --workspace` to decide what is live, so the disk-reclaim
+tool is the repository's only routine whole-workspace test build. Worth running
+after any change that moves a type or deletes a module.
+⛔⛔ **but not `cargo test --workspace --no-run` by hand** — that filled `/dev/vda1`
+to zero twice today, which is the failure the sweep exists to undo. Run the SWEEP,
+which builds the same graph and then reclaims.
+
+## 2026-08-28 — three carves, and a census that was blind three ways
 
 ⭐⭐⭐ **THE ONE SENTENCE FOR D33: A CARVE CENSUS THAT COUNTS `crate::` PATHS IS
 BLIND, AND IT IS BLIND THREE DIFFERENT WAYS.** The candidate table ranked by file

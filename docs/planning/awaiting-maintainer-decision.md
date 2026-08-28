@@ -38,6 +38,84 @@ for 9 open questions**, and the four answered ones held a third of it.
 
 ## Open decisions
 
+### 35. WHERE DOES "CAN I CLOSE THE GAP DURING MY OWN STARTUP" LIVE?
+
+⭐ **This is D166's last open half, and it has been sitting inside a 10,000-line
+ledger since 2026-08-18 rather than in front of you.** The measurement is done —
+nothing here is waiting on more probing. Promoting it is the only thing that was
+missing.
+
+The fighter brain prices an attack partly by whether its reach spans the gap:
+
+```text
+options.rs:487   (1.0 - miss / (reach * REACH_TOLERANCE)).clamp(0.0, 1.0)
+options.rs:184   const REACH_TOLERANCE: f32 = 2.0;
+```
+
+⇒ a move survives the "cannot reach" filter out to **3× its own reach**. That
+constant is a PROXY for a real question — *how much of this gap can I close
+while the move is starting up?* — and the proxy is a single global number for
+every body, every move and every game the engine runs.
+
+⚠ **the symptom it was found by is FIXED, and that matters for how you weigh
+this.** In August the grab was the last option standing at long range and was
+therefore chosen exactly when it could not be pressed. That corrected itself once
+`capture_value` priced a hold from the opponent and `ActionLegality` stopped the
+brain offering moves the body cannot begin — **`REACH_TOLERANCE` was neither
+widened nor narrowed** (D166 carries the before/after histogram). So this is no
+longer a bug report. It is a question about whether a global proxy should stay.
+
+**The three ways to answer it, costed:**
+
+```text
+1  per-move tolerance on MoveFrameData    a new GENERIC field on the shared
+                                          frame-data type for one genre's verb —
+                                          the exact pressure the grab campaign
+                                          was told not to add. Cheap, and buys
+                                          the smallest thing.
+
+2  derive it: tolerance = what this body  principled, and WIDE. It changes how
+   can close during the move's startup    every CPU in every game this engine
+                                          runs spaces itself.
+
+3  the platform-fighter capability ranks   right, and it is the carve — deferred
+   its own verbs                          out of product work on purpose.
+```
+
+⛔ **(2) COSTS ONE THING THE TABLE ABOVE DOES NOT NAME, re-checked at HEAD
+2026-08-28.** The startup half is free: `AttackOption.frames.startup_s` is
+already in hand at the scoring site. The CLOSING-SPEED half is not — and the
+velocity that IS available is the wrong one.
+
+```text
+generate_options sees   view.self_view: PerceivedActor
+PerceivedActor carries  pos, vel, facing, half_extent, faction, phase,
+                        shield_raised, ledge_hanging, damage_taken, …
+                        and NO top ground speed  (verified 2026-08-28)
+options.rs:245          "Nothing here knows whose body it is."   <- deliberate
+```
+
+`me.vel` is what the body IS doing, not what it CAN do, so a standing fighter
+would read a closing speed of zero and refuse every attack whose reach does not
+already span the gap exactly. The question asks about a CAPABILITY, and the
+capability lives in the body's tuning.
+
+⇒ **so (2) is really "thread the body's own top ground speed into perception,
+then derive."** That is a new `PerceivedActor` field on a struct describing FOES
+as well as self — arguably right, since an opponent's closing speed prices the
+same spacing question from the other side, but wider than "derive it from
+`startup_s`" reads.
+
+⚠ **the honest instrument if you pick (2)** is `capture_probe`'s move histogram
+plus the fighter option tests, over several seeds. ⛔ `ladder_probe` is NOT it —
+it measures self-KO time against a passive opponent, which is stage awareness.
+
+**A fourth answer is available and may be the right one: leave it.** The constant
+is doing no harm today, the symptom that exposed it is fixed, and (3) is where
+the design wants to end up anyway. Saying "not now, and it goes with the carve"
+closes this as cleanly as picking 1 or 2.
+
+
 ### 34. DO WE WAKE **TUMBLE**? — THREE MECHANICS ARE PROXYING FOR IT
 
 ⭐ **NOTHING LOOKS WRONG TODAY; this is here because a review asked and the

@@ -9982,7 +9982,11 @@ BodyActionBuffer::tick callers                   0
 ```
 
 ▢▢ **THE FIX IS A DECISION, AND IT IS NOT MINE TO TAKE UNILATERALLY — three
-candidates, costed, 2026-08-18.** All three were reached by asking where "a grab
+candidates, costed, 2026-08-18. ⇒ PROMOTED 2026-08-28 to
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) as entry
+35, which is where a question of this kind belongs; it had been sitting inside a
+10,000-line ledger for ten days, which is the same as not asking. The costing
+below stays here as the evidence.** All three were reached by asking where "a grab
 cannot be thrown from 2.5× its reach" is expressible.
 
 ```text

@@ -254,7 +254,7 @@ fn derived_json(
     // and it owns ONE per-victim ledger shared by every sibling volume in it. A
     // GAP in Active time starts a new pulse and earns a second hit"* — so
     // siblings inside a pulse are ALTERNATIVES and only separated pulses
-    // accumulate (GPT 5.6, 2026-08-27).
+    // accumulate.
     //
     // ⭐ THE STATIC UPPER BOUND, said as what it is: the best reachable outcome
     // of each pulse, summed over the pulses. A file cannot know which volume
@@ -298,7 +298,7 @@ fn derived_json(
     // number beside it described a move that does not exist: no startup (it has
     // no Active melee window), zero damage, zero knockback, zero reach, and its
     // WHOLE DURATION as endlag. The admiral's side-B and Projectile Polygon's
-    // charged neutral-B both read as harmless (GPT 5.6, 2026-08-27).
+    // charged neutral-B both read as harmless.
     //
     // ⭐ THE SCHEMA SAYS WHAT A RANGED MOVE IS instead of coercing it into melee
     // terminology: WHEN it fires, and what the shot it fires is worth. A move
@@ -326,7 +326,11 @@ fn derived_json(
         .as_deref()
         .and_then(ambition_platformer2d::characters::brain::held_item_by_id)
         .and_then(|item| item.ranged);
-    let shot_source = if equipped.is_some() { "equipped" } else { "body" };
+    let shot_source = if equipped.is_some() {
+        "equipped"
+    } else {
+        "body"
+    };
     let shot = equipped.or_else(|| body_ranged.cloned());
     // ⭐ AND A CHARGEABLE SHOT OWES ITS CEILING. A tap and a full hold are two
     // different moves in every balance conversation the genre has; reporting the
@@ -486,7 +490,13 @@ fn character_json(
         .map(|c| {
             c.moves
                 .iter()
-                .map(|m| move_json(m, by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[]), body_ranged))
+                .map(|m| {
+                    move_json(
+                        m,
+                        by_move.get(&m.id).map(Vec::as_slice).unwrap_or(&[]),
+                        body_ranged,
+                    )
+                })
                 .collect()
         })
         .unwrap_or_default();

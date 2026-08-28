@@ -24,7 +24,15 @@ use bevy::prelude::*;
 /// lifecycle, perception, and debug tooling all query this one occurrence fact.
 /// Combat side is frozen separately by the actor-domain `ProjectileAllegiance`;
 /// presentation is selected by `ProjectileVisualId` and optional `ProjectileKind`.
+///
+/// ⭐⭐ IT REQUIRES THE VICTIM LEDGER, so every road that makes a projectile gets
+/// one and no road has to remember. `step_projectiles` takes
+/// `&mut ProjectileHits`, which means a shot spawned without one is not in the
+/// query at all — it sits still and hits nothing. Three separate hand-built test
+/// fixtures each listed what production spawns and each would have needed
+/// patching; a fourth was one edit away. `#[require]` is the list.
 #[derive(Component)]
+#[require(ambition_platformer2d_shared_tangle::projectile::ProjectileHits)]
 pub struct LiveProjectile;
 
 /// The firing body entity for a projectile. Used for hit attribution, for

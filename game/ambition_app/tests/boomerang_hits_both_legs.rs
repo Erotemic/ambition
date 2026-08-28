@@ -1,4 +1,4 @@
-//! D254/R9: the ponytail hits you going out and hits you coming back, and does
+//! D255/R9: the ponytail hits you going out and hits you coming back, and does
 //! not machine-gun you in between.
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};

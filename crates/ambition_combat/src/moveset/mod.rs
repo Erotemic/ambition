@@ -499,7 +499,7 @@ pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut
 /// that never went off, so the move was interrupted and what it had is banked."*
 /// True of a clank, a grab, a weapon swap. FALSE of a knockout — a fighter KO'd
 /// mid-charge came back with the charge BANKED, carried across a stock boundary
-/// it should never have crossed (GPT 5.6, 2026-08-27).
+/// it should never have crossed.
 ///
 /// ⭐ TWO VARIANTS, NOT A TAXONOMY. These are the only two outcomes any caller
 /// needs today; the four hand-copies this function replaced are the record of
@@ -1607,6 +1607,51 @@ pub fn resolve_aerial_landings(
         combat.landing_lag_timer = combat.landing_lag_timer.max(lag.max(0.0));
         // The move is OVER — its remaining windows do not survive the landing,
         // which is what makes the lag a cost rather than a delay.
+        cancel_move_playback(&mut commands, owner, &mut playback, MoveEnd::Interrupted);
+    }
+}
+
+/// PUT THE CHARGE AWAY — the deliberate half of the genre's stored shot.
+///
+/// ⭐⭐ JON ASKED FOR SAMUS/MEWTWO PARITY, and storing a charge is only half of
+/// that mechanic. Banking already happened whenever something INTERRUPTED the
+/// hold, so a fighter could keep a charge by being hit; what it could not do was
+/// decide to. Sitting on a full charge waiting to be interrupted is not the plan
+/// the move is for.
+///
+/// ⛔ THE GUARD IS THE BUTTON, which is what the genre does and what the body
+/// already has: a fighter holding a charge presses shield and comes out of it
+/// holding the shot. Nothing new reaches the body — no verb, no binding, no
+/// second input road — because the press it needs is one every fighter already
+/// makes.
+///
+/// ⛔ AND THE GATE IS THE AUTHORED POLICY, never a character. `charge.policy
+/// .stores` is what makes a move stowable, so a second chargeable special that
+/// says it stores gets this for free and one that does not cannot be stowed into
+/// a bank it has no room for.
+///
+/// ⭐ IT ROUTES THROUGH `cancel_move_playback(.., Interrupted)`, so the bank, the
+/// live volumes and the playback teardown stay in the ONE place that owns them.
+/// A stow that inserted `StoredMoveCharge` itself would be the fifth copy of a
+/// rule that function exists to hold.
+pub fn stow_a_stored_charge_on_guard(
+    mut commands: Commands,
+    mut charging: Query<(
+        Entity,
+        &mut MovePlayback,
+        &ambition_characters::control::ActorControl,
+    )>,
+) {
+    for (owner, mut playback, control) in &mut charging {
+        if !control.0.shield_held {
+            continue;
+        }
+        let stowable = playback
+            .charge
+            .is_some_and(|charge| charge.policy.stores && charge.charging());
+        if !stowable {
+            continue;
+        }
         cancel_move_playback(&mut commands, owner, &mut playback, MoveEnd::Interrupted);
     }
 }

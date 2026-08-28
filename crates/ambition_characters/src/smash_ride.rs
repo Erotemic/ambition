@@ -34,6 +34,18 @@ pub struct SummonRideParams {
     pub half_extents: (f32, f32),
     /// How long the rider may stay aboard, in seconds of sim time.
     pub seconds: f32,
+    /// HOW FAR THIS RIDE CLAIMS TO CARRY ITS RIDER, in world px.
+    ///
+    /// ⭐⭐ THE PLANNER'S HALF OF THE SAME STATEMENT, and it is authored beside
+    /// the length because the two are one decision: a five-second ride on a
+    /// 260px/s shark is a different recovery from a five-second ride on a slow
+    /// one. Nothing at runtime reads it — the ride is steered by a player — and
+    /// that is the point: it is what the move PROMISES, which is exactly what a
+    /// search can spend. See `AuthoredRecoveryRoute::SustainedAuthority`.
+    ///
+    /// ⛔ UNDER-CLAIM IT. A recovery search that says "no route" costs a missed
+    /// option; one that says "you'll make it" and is wrong costs the stock.
+    pub reach: f32,
 }
 
 /// Author a summon-and-ride onto a move's timeline.
@@ -74,5 +86,17 @@ pub fn author_summon_ride(mut spec: MoveSpec, at_s: f32, params: SummonRideParam
     // COSTS and whether it may BEGIN are different questions. See
     // `MoveGates::forbidden_while_held`.
     spec.gates.forbidden_while_held = true;
+    // ⭐⭐ AND THE CPU CAN NOW SEE IT AS A WAY HOME. This move commands no
+    // impulse, so `lift_speed` is `0.0` and the recovery planner — which modelled
+    // every route as one thrown velocity — saw a fighter with no recovery at all
+    // (D250). ⛔ Not by fabricating a lift: a burst the move does not throw would
+    // make the search certify a rise that never happens. What it offers is
+    // SECONDS OF MOVEMENT AUTHORITY, so that is what it says.
+    spec.gates.recovery_route = Some(
+        ambition_entity_catalog::AuthoredRecoveryRoute::SustainedAuthority {
+            seconds: params.seconds,
+            reach: params.reach,
+        },
+    );
     spec
 }

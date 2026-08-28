@@ -31,6 +31,7 @@ fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
         lift_speed: 0.0,
         lift_at_s: 0.0,
         lift_side: 0.0,
+        recovery_route: Default::default(),
     }
 }
 
@@ -325,6 +326,15 @@ fn lifting_candidate(id: &str, lift_speed: f32, lift_at_s: f32) -> AttackCandida
     let mut c = candidate(id, 0.2, 40.0);
     c.frames.lift_speed = lift_speed;
     c.frames.lift_at_s = lift_at_s;
+    // ⛔ THE FIXTURE BUILDS `MoveFrameData` BY HAND, so it has to state what
+    // `MoveSpec::frame_data` would fold for it: a commanded rise IS a burst.
+    // Setting only the scalar would build a move that lifts and offers no route,
+    // which production cannot produce.
+    c.frames.recovery_route = ambition_entity_catalog::RecoveryRoute::Burst {
+        speed: lift_speed,
+        side: c.frames.lift_side,
+        at_s: lift_at_s,
+    };
     c.binding = AttackBinding {
         verb: AttackVerb::Special,
         direction: AttackDir::Up,
@@ -467,6 +477,49 @@ fn lifting_candidates_selects_on_commanded_lift_alone() {
         .collect();
     assert_eq!(ids, vec!["ascend", "hop"]);
     assert!(lifting_candidates(&[candidate("jab", 0.1, 100.0)]).is_empty());
+}
+
+/// ⭐⭐ A ROUTE THAT IS NOT A BURST IS STILL A ROUTE.
+///
+/// ⛔⛔ D250: this filter asked `lift_speed > 0.0`, which is the shape of exactly
+/// one route kind. A summoned steerable mount and a teleport both command no
+/// impulse, so a fighter whose only way home is one of them was offered nothing
+/// at all. ⛔ AND THE ORDER IS NOT A RANKING — bursts keep the order they have
+/// always had, the carrying routes follow by claimed carry, and ties break on
+/// the move id (ADR 0023). The LENS decides which one is useful.
+#[test]
+fn lifting_candidates_offers_every_kind_of_way_home() {
+    use ambition_entity_catalog::RecoveryRoute;
+    let carrying = |id: &str, route: RecoveryRoute| {
+        let mut c = candidate(id, 0.2, 40.0);
+        c.frames.recovery_route = route;
+        c
+    };
+    let kit = [
+        candidate("jab", 0.1, 100.0),
+        carrying("blink", RecoveryRoute::Teleport { distance: 250.0 }),
+        lifting_candidate("ascend", 980.0, 0.2),
+        carrying(
+            "shark",
+            RecoveryRoute::SustainedAuthority {
+                seconds: 5.0,
+                reach: 650.0,
+            },
+        ),
+    ];
+    let ids: Vec<&str> = lifting_candidates(&kit)
+        .into_iter()
+        .map(|c| c.move_id.as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["ascend", "shark", "blink"],
+        "a fighter whose recovery is a ride or a teleport was offered nothing"
+    );
+    assert!(
+        lifting_candidates(&[candidate("jab", 0.1, 100.0)]).is_empty(),
+        "a move that is no way home became one"
+    );
 }
 
 /// Movement expresses the situation's ONE obligation, so a brain with no L3

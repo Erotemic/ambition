@@ -543,7 +543,7 @@ pub fn step_projectiles(
             // EACH. The ponytail despawned on its first body contact, which made
             // every bit of the landed return-flight work unobservable in
             // combat — she threw it, it hit somebody, and it never came back
-            // (GPT 5.6, 2026-08-27). ⛔ AND SIMPLY DELETING THE DESPAWN IS THE
+            //. ⛔ AND SIMPLY DELETING THE DESPAWN IS THE
             // WRONG FIX: a shot that survives contact overlaps its victim for as
             // many ticks as it takes to pass through, and damages on every one.
             //

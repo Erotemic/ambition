@@ -11,6 +11,21 @@ is not what its name says. Prefer those over the new features.
 
 Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
+✔✔ **ALL EIGHTEEN ARE CLOSED** (2026-08-27). ⭐ The two the file called its
+headline were both FALSE PROOFS, and both were retired by measuring rather than
+by building: the shark-health census now scans the 21-fighter assembled roster
+instead of a 13-row authoring table, and the mounted-launch arm asks for
+equivalence — both roads produce `(-1884.0382, -1884.0382)` — instead of a
+magnitude gravity supplies on its own.
+
+⚠ AND THE MOST USEFUL THING THIS FILE PRODUCED IS NOT ON ITS LIST. Three of the
+fixes were found by a test written to check a DIFFERENT claim: the buffered evade
+spent inside a saddle (R12), the three projectile fixtures that hand-list what
+production spawns (R10), and a body treated as a wall parking a dropped item 47px
+above its floor (R11). ⛔ R12 also went the other way — the harms it was written
+to fix do not happen, and the decomposition it seemed to call for would have
+repaired a defect nobody has.
+
 ## Priority 1 — recovery and the shark
 
 - ▣ **R1 — CLOSED `533bd9a05`. The shark recovery episode's cost is refunded
@@ -117,7 +132,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   semantic, not another local health approximation. Regression: two hostile
   candidates, the nearer one `OutOfPlay`, shot bends to the live one.
 
-- ▢ **R8 — no deliberate stow for a stored charge.** Stored charge survives
+- ▣ **R8 — CLOSED `7656d8124`. No deliberate stow for a stored charge.** The
+  GUARD is the button — the genre's answer, and one every fighter already
+  presses, so nothing new reaches the body. The gate is `charge.policy.stores`,
+  with a paired arm proving a non-storing charge banks nothing. Routed through
+  `cancel_move_playback(.., Interrupted)` so the bank stays in the one place that
+  owns it, and scheduled BEFORE the advance so the stow banks the charge the
+  player was holding rather than one tick more. Stored charge survives
   interruption and clears on death, but there is no player action equivalent to
   putting a Samus/Mewtwo charge away. Define the interaction and route it
   through GENERIC charge semantics — ⛔ not a Projectile Polygon id check.
@@ -141,7 +162,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   AUTHORITATIVE ROLLBACK STATE — so this owes the component, the snapshot
   codec, the schema baseline, the presence probes and the recreation tests.
 
-- ▢ **R10 — item interaction is keyed to the `ControlledSubject` singleton.**
+- ▣ **R10 — CLOSED `a901cdc2f`. Item interaction is keyed to the
+  `ControlledSubject` singleton.** `DrivenBodies` is the union — the possessed
+  subject plus every seat — asked once and shared by pickup, throw and fire,
+  ordered by stable identity because two bodies on one bomb is the case it exists
+  for. The press consumption is per-body and unchanged. ⚠ The first pass broke
+  three projectile tests, and that was the more useful half: `LiveProjectile` now
+  `#[require]`s `ProjectileHits`, so three hand-built fixtures stop listing what
+  production spawns. Poisoned: back to the singleton, seat 1 gets nothing.
   Pickup and throw serve exactly one locally possessed body; Smash has several.
   Move press-gated item interaction onto the participant/body control
   population so each local seat picks up, drops, throws and uses ITS OWN item.
@@ -149,7 +177,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   throw and jab). Regression: two local players, two items, neither stealing
   the other's control path.
 
-- ▢ **R11 — "hard impact" means "touched static world geometry".** The
+- ▣ **R11 — CLOSED `25c93bd89`. "Hard impact" means "touched static world
+  geometry".** `ItemStruckBody` is produced by `ground_item_physics`, the system
+  that owns item motion, and the bomb consumes it beside `SettledItem` under ONE
+  threshold. ⛔⛔ A body is NOT a wall: the first version stopped the item on
+  contact and turned every fighter into a shelf — a minted drop rested 47px above
+  its floor, and `app_it` caught it. Newly-entered overlap only (a throw leaves a
+  hand), republished each tick, speed on the fact so each consumer keeps its own
+  bar. Paired arm: 40px/s keeps its fuse. The
   impact-speed sampling bug is fixed, but the bomb still learns about hard
   impacts only through the world-geometry `SettledItem` path. Decide the other
   hard-collision categories for a thrown bomb and implement them from the
@@ -158,7 +193,15 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
 
 ## Priority 4 — architecture still open
 
-- ▢ **R12 — finish the `PoseOwnedExternally` contract.** It currently means
+- ▣ **R12 — CLOSED `fc04a8990`. Finish the `PoseOwnedExternally` contract.**
+  The doc names ownership axis by axis and an app-level arm asserts each on a
+  real ride. ⛔ The speculative harms do NOT happen — measured over 299 mounted
+  ticks: zero ledge grabs, zero gait, grounded only on the handoff tick — so the
+  kernel's discarded pass is WASTED, not wrong, and the decomposition would have
+  repaired a defect nobody has. ⭐ What the test DID find: an evade is spent out
+  of the maneuver BUFFER, so a press made on the floor was still spent inside the
+  saddle (air dodge on mounted tick 2). The control phase refuses the spend —
+  refused, not erased. It currently means
   four things (zero voluntary axes, verbs cleared, tumbling launch travel
   deferred, kernel otherwise runs) and says nothing about what an externally
   posed body still ADVANCES. Decide ownership explicitly for gravity,
@@ -169,7 +212,15 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   action controls still working. Contract tests for whatever is deliberately
   allowed to advance.
 
-- ▢ **R13 — D250: recovery AI needs sustained-authority routes.** CPU recovery
+- ▣ **R13 — CLOSED `1a1daddc9`. D250: recovery AI needs sustained-authority
+  routes.** `AuthoredRecoveryRoute` is what an author states, `RecoveryRoute` is
+  the resolved answer, and `MoveSpec::frame_data` is the only place the fold
+  happens. The two carrying kinds share ONE predicate — each puts the body up to
+  `carry` closer to something it can stand on and then it is an ordinary falling
+  body, which is the half the kernel owns. ⛔ It does not simulate the ride, and
+  says so; the shark's reach is authored and deliberately under the arithmetic.
+  `RecoveryLift` is DELETED. Poisoned: restoring `lift_speed > 0.0` offers only
+  the burst. CPU recovery
   understands only a `RecoveryLift`, a one-shot displacement. `call_the_shark`
   is deliberately not one: it summons a steerable flying body and BUYS SECONDS
   OF MOVEMENT AUTHORITY. ⛔ Do not fake a lift and do not special-case the id.
@@ -226,9 +277,9 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   request is gone from the code; add the regression through the real teleport
   that counts EXACTLY one cue.
 
-- ◐ **R18 — repair stale review and planning status.** `queue.md` (D252, D253,
-  D254) and `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current as of this push.
-  What remains is whatever the OPEN rows below close. D253 and D252 are closed
+- ▣ **R18 — CLOSED. Repair stale review and planning status.** `queue.md` and
+  `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md` are current, and every row this file
+  opened is closed. D253 and D252 are closed
   as of `4a551ccc5`. Still to correct: the Author double-blink row (fixed at
   `947b97b`), `tick_departures` docs (already corrected), the `shark_ride_probe`
   fixed-frame-240 wait (already condition-based). REOPEN: shark health (R3),
@@ -237,7 +288,13 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   assembled half is not. ⛔ Do not preserve any claim that a hand-maintained
   authoring table is the selectable roster.
 
-- ▢ **R19 — trim incident history out of runtime source.** Recent fixes left
+- ▣ **R19 — CLOSED `613432dff`. Trim incident history out of runtime source.**
+  Thirty-one "GPT 5.6, 2026-08-27" attributions removed, every sentence kept.
+  ⛔ ONLY the attribution: 243 other dated comments stay, because a date on a
+  rule that CHANGED is part of the rule and stripping them would be a style
+  sweep nobody asked for dressed as a cleanup. Two mentions survive on purpose —
+  a waiver's reason string, where the text IS the contract, and a test title
+  naming its correction pass. Recent fixes left
   forensic narrative in production files. KEEP the invariant, the reason a
   non-obvious implementation exists, and which authority owns the decision.
   REMOVE dates, model attribution, dead hypotheses, debugging chronology and

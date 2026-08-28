@@ -139,6 +139,7 @@ mod the_engine_ships_its_own_effects;
 mod twintrack_split_has_two_viewports;
 mod two_fighters_author_a_grab;
 mod two_persistence_authorities_for_one_item;
+mod two_seats_two_items;
 mod unified_body_movement;
 mod unified_melee;
 mod update_schedule_census;

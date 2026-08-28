@@ -1318,7 +1318,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
 /// finds the step blocked, and zeroes `vel` — so a consumer reading the live
 /// velocity after the fact reads ZERO for every impact however hard, and one
 /// reading its own memory of last tick reads a different number again. This is
-/// the seam the Smash bomb's impact detonation hangs on (GPT 5.6, 2026-08-27):
+/// the seam the Smash bomb's impact detonation hangs on:
 /// it used to keep a `last_speed` of its own and got both hard cases wrong — a
 /// bomb thrown at a near wall collides on its FIRST free tick, when the
 /// remembered speed is still the zero it had in a hand.
@@ -1391,7 +1391,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
 /// whatever is visibly IN THE HAND, so during those frames the real object
 /// looked abandoned and was returned to the world. The move then ended and
 /// rebuilt `HeldItem` from its remembered id — a body logically holding an item
-/// that was also lying on the floor (GPT 5.6, 2026-08-27).
+/// that was also lying on the floor.
 ///
 /// ⛔ THE OLD BRANDISH TESTS COULD NOT SEE IT: they use a bare `HeldItem` and
 /// never construct the physical `GroundItem` + `ItemCustody::Held` pair, which
@@ -1455,4 +1455,116 @@ fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
              there will be two of it"
         ),
     }
+}
+
+/// ⭐⭐ A THROWN ITEM'S HARD CONTACT INCLUDES A BODY, NOT ONLY A BLOCK.
+///
+/// ⛔⛔ `SettledItem` was published for a stop against static geometry and
+/// nothing else, so "impact detonation" quietly meant "touched a block". Jon's
+/// rule for the live bomb is *"4 seconds or if it hits something with enough
+/// velocity, whichever comes first"* — and a fighter is something. A bomb thrown
+/// into somebody's chest passed through them keeping its fuse
+///.
+///
+/// ⛔ THE FACT IS THE SAME ONE. `bomb.rs` is unchanged: it already consumes
+/// `SettledItem::impact_speed`, and the gentle-landing refusal it pairs with
+/// applies to a body exactly as it does to a floor. A second policy in the bomb
+/// would be a second answer to "did this stop hard".
+///
+/// ⛔⛔ AND IT IS A NEWLY ENTERED OVERLAP. A thrown item leaves a HAND, so on its
+/// first free tick it is standing inside the thrower — an "is it touching a
+/// body" test settles it before it has travelled a pixel. The second arm holds
+/// an item still inside a body and requires it to keep flying.
+#[test]
+fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
+    let stage = |app: &mut App| {
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                "phys",
+                Vec2::new(800.0, 400.0),
+                Vec2::new(200.0, 360.0),
+                vec![ae::Block::solid(
+                    "floor",
+                    Vec2::new(0.0, 380.0),
+                    Vec2::new(800.0, 20.0),
+                )],
+            )),
+        );
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_systems(Update, ground_item_physics);
+    };
+    let body_at = |app: &mut App, at: Vec2| {
+        app.world_mut()
+            .spawn((
+                ambition_platformer2d_core::CenteredAabb::new(at, Vec2::new(16.0, 24.0)),
+                ambition_characters::actor::BodyHealth::new(
+                    ambition_characters::actor::Health::new(100),
+                ),
+            ))
+            .id()
+    };
+
+    // ── IT REACHES ONE. ──
+    let mut app = App::new();
+    stage(&mut app);
+    body_at(&mut app, Vec2::new(300.0, 200.0));
+    let flying = app
+        .world_mut()
+        .spawn(GroundItem {
+            spec: axe_spec(),
+            pos: Vec2::new(200.0, 200.0),
+            vel: Vec2::new(600.0, 0.0),
+            half_extent: Vec2::splat(PICKUP_HALF),
+        })
+        .id();
+    // ⛔ CAUGHT ON THE TICK IT HAPPENS. The strike is republished every tick and
+    // removed on the next, which is what makes it THIS tick's contact — a test
+    // that looked once at the end would find nothing however hard it hit.
+    let mut hit = None;
+    for _ in 0..20 {
+        app.update();
+        if let Some(struck) = app.world().get::<ItemStruckBody>(flying).copied() {
+            hit = Some(struck);
+            break;
+        }
+    }
+    let hit = hit.expect("a 600px/s item passed straight through a fighter");
+    assert!(
+        hit.impact_speed > 400.0,
+        "it reached the fighter at {}px/s, which is not the speed it was \
+         travelling — the speed is the whole difference between a hit and a \
+         placement",
+        hit.impact_speed
+    );
+    // ⛔ AND IT KEPT GOING. A body is not a wall: stopping the item here is what
+    // parked a minted drop 47px above the floor it used to land on.
+    assert!(
+        app.world().get::<SettledItem>(flying).is_none(),
+        "the item came to REST on the fighter — every body would be a shelf"
+    );
+
+    // ── AND NOT THE ONE IT LEFT. ──
+    let mut app = App::new();
+    stage(&mut app);
+    body_at(&mut app, Vec2::new(200.0, 200.0));
+    let thrown = app
+        .world_mut()
+        .spawn(GroundItem {
+            spec: axe_spec(),
+            // Inside the thrower, exactly where a throw starts.
+            pos: Vec2::new(200.0, 200.0),
+            vel: Vec2::new(600.0, 0.0),
+            half_extent: Vec2::splat(PICKUP_HALF),
+        })
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<ItemStruckBody>(thrown).is_none(),
+        "the item struck the body it was thrown FROM — every throw would \
+         detonate in the thrower's hand"
+    );
 }

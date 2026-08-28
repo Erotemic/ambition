@@ -208,3 +208,45 @@ fn blast_centers(app: &mut App, ticks: usize) -> Vec<ae::Vec2> {
     }
     centers
 }
+
+/// ⭐⭐ A BOMB THAT REACHES A FIGHTER AT SPEED GOES OFF.
+///
+/// ⛔⛔ "IMPACT DETONATION" MEANT "TOUCHED A BLOCK". The rule read `SettledItem`
+/// and nothing else, and that fact is only published for a stop against the
+/// collision world — so a bomb thrown into somebody's chest kept its whole fuse.
+/// Jon's rule names no surface: *"4 seconds or if it hits something with enough
+/// velocity, whichever comes first"*.
+///
+/// ⛔ ONE THRESHOLD, TWO SURFACES. The bomb sets the bar for "hard" and the
+/// collision authority says what was reached; the paired arm below is the same
+/// body contact at a gentle speed, which must keep its fuse exactly as a gentle
+/// landing does.
+#[test]
+fn a_bomb_that_reaches_a_fighter_hard_goes_off_and_a_gentle_touch_does_not() {
+    use ambition_platformer2d::item::ItemStruckBody;
+
+    let blasts = |speed: f32, ticks: usize| {
+        let mut app = app();
+        let bomb = a_bomb(&mut app, 4.0, ae::Vec2::ZERO);
+        app.world_mut().entity_mut(bomb).insert((
+            ItemCustody::InWorld,
+            ItemStruckBody {
+                impact_speed: speed,
+            },
+        ));
+        run(&mut app, ticks)
+    };
+    assert_eq!(
+        blasts(520.0, 1),
+        1,
+        "a bomb that reached a fighter at 520px/s waited out its four-second \
+         fuse — a body is something, and hitting it is an impact"
+    );
+    assert_eq!(
+        blasts(40.0, 5),
+        0,
+        "a bomb that drifted into somebody at 40px/s went off — without this \
+         arm, 'reaching a fighter' and 'reaching a fighter HARD' are the same \
+         rule"
+    );
+}

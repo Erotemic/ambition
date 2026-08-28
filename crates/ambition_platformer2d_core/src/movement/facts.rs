@@ -43,6 +43,58 @@ pub struct LedgeFacts {
 /// ⚠ IT SAYS NOTHING ABOUT WHO. Deliberately: a consumer that needed the holder
 /// would be reaching into a domain it does not depend on, which is the coupling
 /// this marker exists to avoid. Ask the domain that owns the relationship.
+///
+/// # What a constrained body still advances
+///
+/// ⭐⭐ THE CONTRACT, AXIS BY AXIS, because for a long time this marker DID four
+/// things and STATED none of them, and the difference between "guaranteed" and
+/// "true by luck" was not written anywhere. Measured on the pirate's shark over
+/// 299 mounted ticks with the stick jammed toward the stage edge, and pinned by
+/// `a_saddled_body_advances_its_clocks_and_none_of_its_displacement`:
+///
+/// ```text
+/// DISPLACEMENT        the constraint's, wholly. The kernel still integrates and
+///                     the constraint still overwrites, so the pass is WASTED —
+///                     but a mounted body ends every tick at velocity ZERO, so
+///                     none of it survives into the next one.
+/// GRAVITY             follows displacement: it is an input to an integration
+///                     whose result the constraint discards.
+/// GROUND / CONTACT    the constraint's. A saddled body reads airborne from the
+///                     tick the ride actually has it. ⚠ NOT on the handoff tick,
+///                     where it is genuinely still standing where it was.
+/// LEDGES              unreachable. A rider is not travelling past anything
+///                     under its own power, and cannot catch what carries it.
+/// GAIT                unpublished. `running` and `dashing` describe a body
+///                     driving itself.
+/// VOLUNTARY VERBS     cleared before the kernel sees them, because a jump or a
+///                     dodge spent here changes state the constraint CANNOT
+///                     undo — a snap fixes a position, not a spent double jump.
+/// RESOURCES           not spent, and clearing this tick's verbs was NOT enough
+///                     to say so: an evade and a dash come out of the maneuver
+///                     BUFFER, a press made earlier that stays spendable. A
+///                     press made on the floor a moment before the constraint
+///                     took the body was still spent inside it — measured, the
+///                     air dodge went on mounted tick 2. The spend is refused in
+///                     the control phase now. ⛔ REFUSED, NOT ERASED: the buffer
+///                     is input memory, and dropping it swallows a press the
+///                     player is entitled to have honoured the tick the
+///                     constraint lets go. Not refreshed either, since the
+///                     ground fact they refresh on is the constraint's.
+/// EXTERNAL LAUNCHES   the hit lands NOW and its travel STAYS STAGED — see
+///                     `MotionStepContext::pose_owned_externally`.
+/// CLOCKS AND COMBAT   STILL RUNNING, and this is the half that separates a held
+///                     body from a dead one. A rider steers its mount and swings
+///                     from the saddle; hitstun has to decay or the flinch that
+///                     put it there never ends.
+/// ```
+///
+/// ⛔ THE KERNEL IS NOT SHORT-CIRCUITED FOR THIS, and that was a considered
+/// decision rather than an omission. Skipping the motion step would also skip
+/// the clock decay that lives inside it, which is the half a rider needs most;
+/// the measured cost of running it is wasted arithmetic, not a wrong answer.
+/// ⛔ And it is NOT routed through `out_of_play`, which halts velocity and zeroes
+/// `dt` outright — correct for a body nobody is driving, and the exact opposite
+/// of what a rider needs.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PoseOwnedExternally;
 

@@ -1,4 +1,4 @@
-//! D254/R17: the Author's Revision is ONE teleport, so it is one blink.
+//! D255/R17: the Author's Revision is ONE teleport, so it is one blink.
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
@@ -9,8 +9,8 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 /// authored teleport — that is the executor being the one authority, which is
 /// what it already is for every other teleport in the game. The Author's
 /// up-B ALSO carried a `player.blink` on its own move timeline at the same
-/// instant, so the same frame asked for the same cue down two roads (GPT 5.6,
-/// 2026-08-27). The authored one is gone; nothing counted the result.
+/// instant, so the same frame asked for the same cue down two roads
+///. The authored one is gone; nothing counted the result.
 ///
 /// ⛔ COUNTED, NOT "AT LEAST ONE". A duplicate is exactly what "at least one"
 /// cannot see, and it is the only failure this arm exists for.

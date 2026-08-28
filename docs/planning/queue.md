@@ -13441,8 +13441,36 @@ small three-variant mirror. ⇒ **still a carve — two maps means two reader pa
 and a rule for which wins — but the question is now "how" rather than
 "whether".**
 
-- ▢ **D254 — CHECKPOINT 5 (GPT 5.6, HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE
-  TWO THAT MATTER MOST ARE PROOFS THAT ARE FALSELY CLOSED. (opened 2026-08-27)**
+- ▣ **D255 — CHECKPOINT 5 (HEAD `a945c1de5`): EIGHTEEN ITEMS, AND THE TWO THAT
+  MATTER MOST ARE PROOFS THAT ARE FALSELY CLOSED. CLOSED 2026-08-27, all
+  eighteen.**
+
+✔✔ **BOTH FALSE PROOFS WERE RETIRED BY MEASURING.** The shark-health census
+scans `SmashRoster::assemble`'s 21 fighters — melee worst 36, ranged worst 14
+at full charge, against a 40 HP pool — instead of a 13-row authoring table; the
+mounted-launch arm asks for EQUIVALENCE and both roads produce
+`(-1884.0382, -1884.0382)`, where reverting the deferral releases the mounted
+one at exactly `(0, 0)`.
+
+⭐⭐ **THE RECOVERY EPISODE WAS THE BLOCKER AND IT WAS EVERYBODY'S.** The
+landing-class refresh asks `on_ground` every TICK, so a recovery spent while
+still standing came back one frame later — for every fighter, not just the
+pirate. `MotionStepContext::recovery_commitment_outstanding` is derived from the
+`MovePlayback` each tick rather than stored, so no second copy can disagree with
+the move it describes.
+
+⭐ **AND D250 CAME WITH IT.** Recovery admits route KINDS now — burst, sustained
+authority, teleport — because a planner that modelled one thrown velocity could
+not see a summoned steerable shark or a teleport, both of which read
+`lift_speed == 0.0`. `RecoveryLift` is deleted.
+
+⚠ THE MOST USEFUL FINDINGS WERE NOT ON THE LIST. Three fixes came from tests
+written to check something else: a buffered evade spent inside a saddle, three
+projectile fixtures hand-listing what production spawns (now `#[require]`d), and
+a body treated as a wall parking a dropped item 47px above its floor. ⛔ And one
+went the other way: `PoseOwnedExternally`'s speculative harms DO NOT HAPPEN —
+measured over 299 mounted ticks — so the kernel decomposition it seemed to call
+for would have repaired a defect nobody has. The row list follows:
 
 The reviewer re-read main after checkpoint 4's sixteen fixes landed and reported
 what survived, plus what the fixes themselves opened. ⭐ THE ROWS ARE IN

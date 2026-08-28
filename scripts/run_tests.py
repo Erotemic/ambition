@@ -50,6 +50,53 @@ CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
 
+# ⭐⭐ RUN THE COMPILED TESTS UNDER `cargo nextest` WHEN IT IS INSTALLED, and
+# what that buys is DIAGNOSIS rather than raw speed. Measured 2026-08-27 on the
+# app suite: 265s under libtest and 265s under nextest, because ONE test spends
+# 164 of them and both runners are bounded by it. libtest reports a total, so
+# that number had never been attributed to a test; nextest names it while it
+# runs.
+#
+# ⛔ IT DOES NOT RUN DOCTESTS. Nothing goes red when a runner silently stops
+# covering a class of test, which is exactly what happened here in the other
+# direction: the suite ran NO doctests at all, and
+# `ambition_sim_harness`'s had been failing to compile the whole time. The
+# doctest job below is not optional garnish.
+#
+# ⛔ OPTIONAL, NOT REQUIRED. A contributor without nextest still gets the same
+# verdict from libtest; a tool the suite REFUSES to run without is a tool
+# everybody has to install to read one number.
+NEXTEST = os.path.exists(os.path.expanduser("~/.cargo/bin/cargo-nextest"))
+
+
+def cargo_test(args: list[str], libtest: list[str]) -> list[str]:
+    """One `cargo test`-shaped invocation, routed through nextest when present.
+
+    `args` is everything between the subcommand and the `--`; `libtest` is what
+    would follow it. nextest takes a bare substring as a filter and spells the
+    ignored lane `--run-ignored`, so the two libtest flags this suite actually
+    passes are translated rather than forwarded.
+    """
+    if not NEXTEST:
+        return [CARGO, "test", *args, *(["--"] + libtest if libtest else [])]
+    translated: list[str] = []
+    filters: list[str] = []
+    for flag in libtest:
+        if flag in ("--include-ignored",):
+            translated += ["--run-ignored", "all"]
+        elif flag == "--ignored":
+            translated += ["--run-ignored", "only"]
+        elif flag == "--nocapture":
+            translated += ["--no-capture"]
+        elif flag.startswith("-"):
+            # An unrecognised libtest flag is a reason to use libtest, not to
+            # guess: forwarding it to a runner that does not know it turns a
+            # filter into a hard error somebody has to decode.
+            return [CARGO, "test", *args, "--", *libtest]
+        else:
+            filters.append(flag)
+    return [CARGO, "nextest", "run", *args, *translated, *filters]
+
 # Features that cannot run on a headless desktop test host: other-platform
 # selectors, wasm/web, and static-asset embedding (needs generated assets).
 # Everything else (visible, input, ui, audio, kira, portal*, dev_tools,
@@ -267,10 +314,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         for crate in members:
             if crate.name in only:
                 jobs.append(Job(f"{crate.name} (default features)",
-                                [CARGO, "test", "-p", crate.name, *libtest()]))
+                                cargo_test(["-p", crate.name], list(libtest_args))))
     else:
         jobs.append(Job("workspace (default features)",
-                        [CARGO, "test", "--workspace", *libtest()]))
+                        cargo_test(["--workspace"], list(libtest_args))))
+        # ⛔ THE CLASS NEXTEST CANNOT SEE, and the suite could not either: it
+        # ran no doctests until 2026-08-27, and one had been failing to compile
+        # for as long as it had existed (`ambition_sim_harness`, `use crate::`
+        # in a block that compiles as its own crate).
+        jobs.append(Job("workspace doctests",
+                        [CARGO, "test", "--workspace", "--doc"]))
 
     # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
     # package-filtered runs stay scoped to the requested crate.
@@ -429,8 +482,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # acceptance cycles (full app boot). Whole-suite, non-fast only.
     if heavy and not only:
         jobs.append(Job("workspace (+ ignored)",
-                        [CARGO, "test", "--workspace",
-                         *libtest(["--include-ignored"])]))
+                        cargo_test(["--workspace"],
+                                   list(libtest_args) + ["--include-ignored"])))
         jobs.append(Job("acceptance: headless cycle",
                         ["./run_game.sh", "--", "--headless-acceptance-cycle"]))
         jobs.append(Job("acceptance: headless 120 ticks",

@@ -293,13 +293,12 @@ fn decide(
     // identity.
     let route_moves =
         ambition_characters::brain::fighter::options::lifting_candidates(&snapshot.attack_kit);
-    let routes: Vec<super::recovery::RecoveryLift> = route_moves
+    // ⭐ THE ROUTE ITSELF, not a lift reconstructed from three fields. A
+    // reconstruction here could only ever describe a burst, which is how the
+    // planner came to be blind to every other kind (D250).
+    let routes: Vec<ambition_entity_catalog::RecoveryRoute> = route_moves
         .iter()
-        .map(|c| super::recovery::RecoveryLift {
-            speed: c.frames.lift_speed,
-            side: c.frames.lift_side,
-            after_s: c.frames.lift_at_s,
-        })
+        .map(|c| c.frames.recovery_route)
         .collect();
     let lens = snapshot
         .abilities

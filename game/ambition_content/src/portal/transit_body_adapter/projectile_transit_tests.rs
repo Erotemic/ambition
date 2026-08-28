@@ -186,7 +186,7 @@ fn projectile_nowhere_near_a_portal_flies_straight_through() {
 /// could see the vector that was not being mapped. `ProjectileGameplay::accel`
 /// is a WORLD acceleration the shot carries — the ponytail boomerang's "come
 /// home" pull is exactly this and nothing else — and transit mapped `vel` while
-/// leaving it pointing along the pre-portal axis (GPT 5.6, 2026-08-27). A tail
+/// leaving it pointing along the pre-portal axis. A tail
 /// through a rotated portal exited travelling the mapped way and decelerating
 /// the OLD way, tracing an arc that returns nowhere near the hand.
 ///

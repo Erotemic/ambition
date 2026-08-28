@@ -74,6 +74,7 @@ fn rig_kit() -> Vec<AttackCandidate> {
         lift_speed: 0.0,
         lift_at_s: 0.0,
         lift_side: 0.0,
+        recovery_route: Default::default(),
     };
     // Fast-and-short, slow-and-long, and an aerial — enough that scoring has a
     // trade-off to make. One candidate is not a choice.

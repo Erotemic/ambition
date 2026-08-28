@@ -122,5 +122,15 @@ pub fn author_teleport(mut spec: MoveSpec, at_s: f32, params: TeleportParams) ->
             params: ParamValue::from_typed(&params).expect("teleport params serialize"),
         }),
     });
+    // ⭐⭐ EVERY AUTHORED TELEPORT IS A WAY HOME, and it is stated HERE rather
+    // than by each author, because the fact is a property of teleporting and not
+    // of whose move it is. A teleport commands no impulse, so `lift_speed` reads
+    // `0.0` and the recovery planner — which modelled every route as one thrown
+    // velocity — could not see it (D250). ⛔ Not by fabricating a lift: a burst
+    // the move never throws would have the search certify a rise that does not
+    // happen. What it offers is a DISCONTINUITY of a stated size.
+    spec.gates.recovery_route = Some(ambition_entity_catalog::AuthoredRecoveryRoute::Teleport {
+        distance: params.distance,
+    });
     spec
 }

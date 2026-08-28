@@ -1,0 +1,34 @@
+# cargo-nextest configuration.
+#
+# ⛔⛔ NEXTEST DOES NOT RUN DOCTESTS. It is a process-per-test runner over the
+# compiled test binaries, and rustdoc's tests are not among them — so the suite
+# keeps a separate `cargo test --doc` job. A runner switch that dropped it would
+# take a whole class of test out of the gate without a single line going red,
+# which is the failure mode this file exists to name.
+
+[profile.default]
+# ⭐⭐ THE POINT OF THE SWITCH, and it is diagnosis rather than raw speed. The
+# app suite took the same 265 seconds under both runners because ONE test spends
+# 164 of them (`a_player_death_reset_survives_the_rollback_window`), and libtest
+# never said so — it reports a total. Anything past this threshold is named
+# while it runs and again in the summary, so the tail is visible instead of
+# being a number somebody has to bisect for.
+slow-timeout = { period = "30s", terminal-after = 0 }
+
+# ⛔ NO RETRIES. This engine's tests are deterministic by contract (ADR 0023) and
+# a retry turns a real desync into an intermittent one — the exact defect the
+# determinism work exists to make impossible to ignore. A test that needs a
+# retry here is a finding, not a flake.
+retries = 0
+
+# ⛔ FAILURES DO NOT STOP THE RUN. An agent reading one failure and stopping
+# learns about one; the suite's job is to say everything that is broken in one
+# pass. `--fail-fast` is still available per invocation for the edit loop.
+fail-fast = false
+
+# A test that is still running after this has hung; killing it is what turns
+# "the suite never finished" into a named test. Generous, because the app suite
+# legitimately holds one test near three minutes.
+[[profile.default.overrides]]
+filter = 'all()'
+slow-timeout = { period = "60s", terminate-after = 6 }

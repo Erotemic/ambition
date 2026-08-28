@@ -204,7 +204,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
             // built `Mounted + RidingOn` by hand and so began from a state the
             // runtime never installs — which is precisely why the arms below
             // could not see `PoseOwnedExternally` being left on a rider whose
-            // mount had died (GPT 5.6, 2026-08-27).
+            // mount had died.
             ambition_mount::rider_of(mount),
         ))
         .id();

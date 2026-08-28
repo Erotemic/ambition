@@ -30,6 +30,7 @@ pub(crate) fn grounded_only() -> MoveGates {
         // describe one posture and a fighter authored through this file must
         // not feel different from one authored through the repertoire.
         roots_steering: true,
+        recovery_route: None,
         // Not a recovery: these helpers describe a POSTURE, and a posture
         // cannot know whether a move is somebody's up-B.
         recovery: RecoveryUse::None,
@@ -51,6 +52,7 @@ pub(crate) fn airborne_only() -> MoveGates {
         // An aerial keeps its drift: air control is the trade for the ground
         // control above.
         roots_steering: false,
+        recovery_route: None,
         // Not a recovery: these helpers describe a POSTURE, and a posture
         // cannot know whether a move is somebody's up-B.
         recovery: RecoveryUse::None,

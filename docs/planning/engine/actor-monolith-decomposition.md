@@ -1017,6 +1017,41 @@ NPC_HOSTILE_STRIKE_THRESHOLD
 ActiveMatch + ENEMY_DEAD_UNTIL_REST_SUFFIX   (the `crate::` three)
 ```
 
+⭐⭐ **THE CANDIDATE TABLE, RE-MEASURED ACROSS ALL THREE SHAPES (2026-08-28).**
+Non-test lines; DISTINCT inward names reached by `crate::` **or** `super::…`; and
+whether a PRODUCTION file globs its parent (a `use super::*` inside
+`#[cfg(test)] mod tests` is the ordinary self-glob and is not counted):
+
+```text
+                    lines   inward names   prod globs
+attack                604        0             0
+brain_effects         343        0             0
+damage_predicates     237        0             0
+ledge_trump           152        0             0
+encounter_rewards     101        0             1 → 0   (prelude + vfx + RoomVisual)
+chests                130        4             1 → 0
+interact              255        4             1 → 0
+aggression            214        5             0
+damage_drops          333        6             0
+actor_clusters       1409        4             0
+damage               2146       15             2
+actors               2892       29             4
+spawn                2025       34             2
+```
+
+⭐ **FOUR MODULES — `attack`, `brain_effects`, `damage_predicates`, `ledge_trump`,
+1,336 lines together — REACH THE MONOLITH IN NO SHAPE AT ALL.** They are the
+carve-ready set, and none of them appeared in the old ranking because it counted
+lines. ⇒ the destinations to check are `ambition_combat` for the first four and
+`ambition_encounter` for `encounter_rewards`.
+⚠ the three production globs are gone: measured by deleting them, all three
+supplied bevy's prelude, `ambition_vfx`'s two message types, `RoomVisual`
+(`shared_tangle`), `ambition_platformer2d_core as ae` and `AabbExt` — no monolith
+vocabulary, on the third module set in a row.
+⛔ and the old table's small-module rows were counting the wrong FILES: `aggression`,
+`interact`, `damage_drops` and `chests` each have a sibling `.rs` holding the code
+and a same-named directory holding only tests.
+
 ⇒ **`damage` is NOT the next carve.** `actor_clusters` is the same dependency the
 boss integrator kept it behind, and `npcs`/`damage_drops` are two more modules
 that would have to move or invert first. ⭐ **grep `super::` beside `crate::` on

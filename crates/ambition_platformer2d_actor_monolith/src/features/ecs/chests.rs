@@ -1,12 +1,18 @@
 //! Player → static-chest open path on the ECS feature side.
 
-use super::*;
+// ⭐ NAMED, NOT GLOBBED. This was `use super::*` over the whole
+// `features/ecs` module — a channel no `crate::` grep sees. Measured by
+// deleting it: bevy's prelude, `ambition_vfx`'s two message types and
+// `RoomVisual`, which is `shared_tangle`'s. No monolith vocabulary.
 use ambition_combat::components::{
     CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
 };
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
-use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_sfx::{SfxMessage, SfxWriter};
+use ambition_vfx::vfx::{ParticleKind, VfxMessage};
+use bevy::prelude::*;
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
 /// and legacy NPCs/switches.

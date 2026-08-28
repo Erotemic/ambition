@@ -32,7 +32,7 @@ use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
-    Commands, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, With, Without,
+    Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With, Without,
 };
 
 use ambition_time::WorldTime;

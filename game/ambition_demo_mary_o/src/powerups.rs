@@ -1141,8 +1141,14 @@ pub fn dress_power_blocks(
         Option<&ambition_platformer2d::render::rendering::BlockArt>,
     )>,
 ) {
-    use ambition_platformer2d::content::EntitySprite;
+    // ⛔ NOT THROUGH `content`, WHICH IS FEATURE-GATED. `EntitySprite` is sprite
+    // vocabulary — `ambition_sprite_sheet::game_assets` — and the SDK re-exports
+    // that crate UNGATED, two hundred lines from the gated `content` module that
+    // also names it. This demo enables no `content_pack` feature, so it compiled
+    // only when something else in the workspace unified the feature on: `cargo
+    // build -p ambition_demo_mary_o` alone has been red on main.
     use ambition_platformer2d::render::rendering::BlockArt;
+    use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     for (entity, visual, art) in &blocks {
         // the block's own NAME says what it is. This asked two index tables whether the id
         // matched a constant column; a block the author dragged answered neither, so it drew as
@@ -2462,8 +2468,8 @@ mod block_dressing_tests {
 
     use super::*;
     use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup};
-    use ambition_platformer2d::content::EntitySprite;
     use ambition_platformer2d::render::rendering::{BlockArt, BlockVisual};
+    use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     use bevy::prelude::{App, Entity, Update};
 
     /// Spawn one render-side block the way the room build does — the ENCODED

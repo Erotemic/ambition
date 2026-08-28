@@ -69,7 +69,39 @@ and `ambition_platformer2d` / `ambition_platformer2d_runtime` both declare
 `[dev-dependencies]` for the interact fixtures. Same shape as the `ambition_ui_nav`
 removal whose note in the `input` feature named it.
 
-⛔ **`ambition_cutscene` LOOKS like the next one and is not.** `cutscene.rs`
+⛔⛔ **`ambition_cutscene` HAS FIVE SUPPLIERS, AND THE FIFTH IS WHY GATING IT
+BUYS NOTHING TODAY — built 2026-08-28, measured, and REVERTED.** The ldtk/portal
+recipe was applied to four of them and the app gate stayed green:
+
+```text
+ambition_platformer2d_actor_monolith  one module + two input bridges   gated
+ambition_render                       one module                       gated
+ambition_platformer2d_runtime         one `register_rollback_state`     gated
+ambition_platformer2d (facade)        already optional                  rewired
+ambition_boss_encounter               ⛔ NOT GATED — and it is the one that counts
+```
+
+⇒ the sentinel closure stayed at **43**: `cargo tree -i ambition_cutscene` in
+`fixtures/minimal_game` names `ambition_boss_encounter` as a parent, which reaches
+the sentinel through `ambition_damage` and the monolith. **A boss requests a
+cutscene on a phase change** (`events.rs` / `systems.rs`, two sites, both taking
+`&mut CutsceneTriggerQueue`).
+
+⚠ **and the fifth wants a design change rather than a gate.** A boss crate should
+not name a cutscene type at all: it already publishes `BossPhaseChanged`, and a
+cutscene-aware system could translate that into a queue request — which removes
+the edge instead of making it conditional. That is the shape worth doing; the
+four-crate gating on its own adds feature surface for a number that does not move,
+so it was reverted rather than landed half-finished.
+
+⛔ **AND THIS IS THE SAME LESSON AS `ambition_dialog` TWO HOURS EARLIER**, which
+is why it is written twice: *count the suppliers before gating the obvious one*.
+Both times the hidden supplier was a crate carved OUT of the monolith this month
+(`ambition_conversation`, `ambition_boss_encounter`), which is a predictable
+consequence of carving — a domain that leaves takes its own dependencies with it
+and re-supplies them from its new position.
+
+⛔ **`ambition_cutscene`'s OTHER problem — where its systems live — is separate.** `cutscene.rs`
 (208 lines, 2 files) is self-contained and is not actor simulation — but its own
 header states the reason it is here and the reason is TRUE: the systems couple to
 rooms (`RoomSet`), save (`AmbitionGameSave`) and the sim schedule, and

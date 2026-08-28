@@ -10892,6 +10892,30 @@ disagreement itself is the argument for why.
 sheet's publishing padding decide how big somebody is. The three `no sheet` rows
 do not block that — they return `None` before either branch.
 
+✔ **AND THAT MEASUREMENT IS DONE — 2026-08-28, every `.ldtk` in
+`game/ambition_map_assets` scanned for each of the 22's spawn boxes. 19 of 22
+have EXACTLY ONE, so for them this is a pure road-swap with no look change:**
+
+```text
+one box, (48,80)   bear_mauler · boss · dark_lord · flying_spaghetti_monster_boss
+                   hunny_horror_boss · mantis_lancer · mockingbird_boss
+                   raptor_stalker · smart_house · smirking_behemoth_boss
+                   trex_enemy
+one box, (32,48)   imperfect_cellular_automaton · hand_saint · le_beast
+                   ninja_heavy · puppy_slug_variant2 · puppy_slug_velvet
+                   viking_heavy_shieldmaiden · viking_heavy_warrior
+```
+
+⛔⛔ **THE THREE THAT DISAGREE ARE THE ARGUMENT, and the worst is the one Jon has
+already complained about.** `npc_puppy_slug` is placed with **eight different
+boxes** — `(48,22)`×6, `(32,48)`×5, `(64,32)`×2, `(48,32)`, `(64,16)`, `(52,66)`,
+`(42,42)`, `(28,44)` — so the same crawler is eight different sizes across the
+game, and `(64,16)` versus `(52,66)` is a factor of four in the axis that drives
+the derivation. `stochastic_parrot` has three, `burning_flying_shark` two.
+
+⇒ **19 rows can be authored with no decision at all; 3 need one number each from
+Jon**, and for those three the disagreement above is the whole case for asking.
+
 ⚠ **the list below is the 2026-08-16/17 snapshot, kept as the record of what was
 true then:**
 

@@ -328,6 +328,27 @@ struct ProviderAction { id: SemanticActionId, kind: ActionControlKind }
   `InputControlKind` has no `Eq` and no `Hash`. ⇒ a real implementation carries a
   small three-variant mirror beside the registry rather than widening either
   upstream type, and that mirror is the honest price of this route.
+  ⛔⛔ **THAT PRICE WAS NOT REAL — measured 2026-08-28 by building it.** The
+  sentence quietly treated two very different types as one obstacle.
+  `InputControlKind` is leafwing's and genuinely cannot be a field; but
+  `ActionControlKind` is OURS, three lines above in the same file, and it is a
+  fieldless enum — `Hash` and `Reflect` derive for free. The mirror only existed
+  because the check was written inside a test function, where reaching for a local
+  type is easier than editing the one four hundred lines up. ⇒ no mirror ships.
+  ✔ **AND THE KEY IS PRODUCTION NOW, not a shape argued for inside a test.**
+  `ProviderAction { id: String, kind: ActionControlKind }` lives beside the
+  registry with its `Actionlike` impl, and `ActionRegistry::key` is the ONLY way to
+  get one. That last part is not tidiness: the kind is part of the hash, so two
+  hand-built keys for one action could disagree about its shape and miss each other
+  in the map. Minting through the registry extends its one-kind-per-id rule to the
+  bindings, and an unregistered id mints `None` rather than a binding to a slot
+  nobody polls. The test that used to hand-build the key now asks the registry for
+  it, and its two local types are deleted.
+  ▢ **WHAT REMAINS IS THE ROUTING, and it is the part the carve warning was
+  always about**: nothing installs an `InputMap<ProviderAction>` in production, so
+  a provider action is registerable, bindable, and still neither presentable nor
+  consumable. Two maps means two reader paths and a rule for which wins a
+  conflict — that rule is the next slice, and it is a decision before it is code.
 
   ⇒ **that is `InputMap`/`ActionState` reached with NO `Any`, NO `TypeId`, NO
   service locator, and NO edit to the 35-variant enum**, which is the combination

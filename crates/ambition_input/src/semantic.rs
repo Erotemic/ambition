@@ -2,9 +2,12 @@
 //!
 //! [`SemanticActionId`] lets capabilities register actions without extending the
 //! closed leafwing device-action enum. [`ActionRegistry`] is authoritative for
-//! each id and its control kind. Capability actions can currently be declared
-//! and routed through existing device actions; independent leafwing bindings
-//! still use the concrete device-action type.
+//! each id and its control kind, and mints the [`ProviderAction`] key that binds
+//! one — so a registered action is now describable AND bindable without touching
+//! the device enum.
+//!
+//! ⚠ Not yet ROUTED: nothing installs an `InputMap<ProviderAction>` in production,
+//! because two maps means two reader paths and a rule for which wins a conflict.
 
 use std::collections::BTreeMap;
 
@@ -24,7 +27,13 @@ impl std::fmt::Display for SemanticActionId {
 /// What SHAPE of input an action carries. Mirrors leafwing's control kinds,
 /// because a binding UI and a prompt both need to know whether they are drawing
 /// a button or a stick.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// ⭐ `Hash` and `Reflect` are here for [`ProviderAction`], which carries this as
+/// a FIELD because leafwing's `input_control_kind` takes `&self` — the key has to
+/// know its own shape rather than look it up. They cost nothing on a fieldless
+/// enum, and they are what keeps the provider key from needing a second copy of
+/// this vocabulary beside it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bevy::prelude::Reflect)]
 pub enum ActionControlKind {
     Button,
     Axis,
@@ -136,6 +145,61 @@ impl ActionRegistry {
 
     pub fn is_empty(&self) -> bool {
         self.actions.is_empty()
+    }
+
+    /// Mint the leafwing key for a registered action — the ONLY way to get one.
+    ///
+    /// ⭐ THE REGISTRY MINTS IT BECAUSE THE REGISTRY OWNS THE KIND. `ProviderAction`
+    /// hashes on both id and kind, so two keys built by hand for one action could
+    /// disagree about its shape and silently miss each other in an `InputMap`. The
+    /// registry already enforces one kind per id ([`ActionRegistry::register`]),
+    /// and routing every key through it is what extends that rule to the bindings.
+    ///
+    /// `None` for an unregistered id: a key for an action nobody declared is a
+    /// binding to nothing, and the honest place to notice is here.
+    #[cfg(feature = "input")]
+    pub fn key(&self, id: SemanticActionId) -> Option<ProviderAction> {
+        self.get(id).map(|def| ProviderAction {
+            id: def.id.0.to_string(),
+            kind: def.kind,
+        })
+    }
+}
+
+/// A registered action AS A LEAFWING KEY — the second map's keyspace.
+///
+/// ⭐⭐ THE POINT IS THAT IT IS NOT AN ENUM. `InputMap<A: Actionlike>` is already
+/// generic, so a composition installs one of these beside the engine's map and a
+/// capability binds an action the engine has never heard of — with no `Any`, no
+/// `TypeId`, no service locator, and no edit to the 35-variant device enum. Every
+/// previous escape from that enum reached for erasure and was refused twice.
+///
+/// ⛔ MINT IT WITH [`ActionRegistry::key`], never by hand. The kind is part of the
+/// hash, so a hand-built key that guesses wrong binds into a slot nothing reads.
+///
+/// ⚠ WHAT THIS DOES NOT YET DO: nothing installs a map over it in production, so
+/// a provider action is bindable and not yet routed. Two maps means two reader
+/// paths and a rule for which wins a conflict, and that rule is the next slice —
+/// see `docs/planning/engine/participant-action-system.md`.
+#[cfg(feature = "input")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, bevy::prelude::Reflect)]
+pub struct ProviderAction {
+    /// The registered [`SemanticActionId`], owned because a key must outlive the
+    /// registration's `&'static str` in a reflected, serialisable map.
+    pub id: String,
+    /// Carried, not looked up: leafwing's `input_control_kind` takes `&self`, so
+    /// the key has to know its own shape with no registry in hand.
+    pub kind: ActionControlKind,
+}
+
+#[cfg(feature = "input")]
+impl leafwing_input_manager::Actionlike for ProviderAction {
+    fn input_control_kind(&self) -> leafwing_input_manager::InputControlKind {
+        match self.kind {
+            ActionControlKind::Button => leafwing_input_manager::InputControlKind::Button,
+            ActionControlKind::Axis => leafwing_input_manager::InputControlKind::Axis,
+            ActionControlKind::DualAxis => leafwing_input_manager::InputControlKind::DualAxis,
+        }
     }
 }
 
@@ -545,47 +609,8 @@ mod tests {
     #[cfg(feature = "input")]
     #[test]
     fn a_registry_minted_key_satisfies_leafwing_without_erasure() {
-        use bevy::prelude::*;
+        use bevy::prelude::KeyCode;
         use leafwing_input_manager::prelude::*;
-
-        // ⛔ THE KIND IS MIRRORED, and THAT IS THE COST THIS CHECK FOUND.
-        // Neither the registry's `ActionControlKind` (no `Hash`, no `Reflect`)
-        // nor leafwing's `InputControlKind` (no `Eq`, no `Hash`) can be a field
-        // of a hashed, reflected key. A real implementation carries a small
-        // mirror beside the registry — three variants, derived — rather than
-        // widening either upstream type.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
-        enum ProviderControlKind {
-            Button,
-            Axis,
-            DualAxis,
-        }
-
-        impl From<ActionControlKind> for ProviderControlKind {
-            fn from(kind: ActionControlKind) -> Self {
-                match kind {
-                    ActionControlKind::Button => Self::Button,
-                    ActionControlKind::Axis => Self::Axis,
-                    ActionControlKind::DualAxis => Self::DualAxis,
-                }
-            }
-        }
-
-        #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
-        struct ProviderAction {
-            id: String,
-            kind: ProviderControlKind,
-        }
-
-        impl Actionlike for ProviderAction {
-            fn input_control_kind(&self) -> InputControlKind {
-                match self.kind {
-                    ProviderControlKind::Button => InputControlKind::Button,
-                    ProviderControlKind::Axis => InputControlKind::Axis,
-                    ProviderControlKind::DualAxis => InputControlKind::DualAxis,
-                }
-            }
-        }
 
         // Minted from a registration, exactly as a provider would reach it.
         const GRAPPLE: SemanticActionDef = SemanticActionDef {
@@ -597,13 +622,9 @@ mod tests {
         };
         let mut registry = ActionRegistry::with_engine_actions();
         registry.register(GRAPPLE).expect("a fresh id");
-        let def = registry
-            .get(SemanticActionId("grapple"))
-            .expect("just registered");
-        let key = ProviderAction {
-            id: def.id.0.to_string(),
-            kind: def.kind.into(),
-        };
+        let key = registry
+            .key(SemanticActionId("grapple"))
+            .expect("the registry mints a key for what it registered");
 
         let mut map = InputMap::default();
         map.insert(key.clone(), KeyCode::KeyG);
@@ -612,6 +633,9 @@ mod tests {
             "a provider-minted key bound nothing, so the second-map route does \
              not reach `InputMap` after all"
         );
+        // An id nobody registered mints nothing: a key for an undeclared action
+        // is a binding to a slot no reader will ever poll.
+        assert!(registry.key(SemanticActionId("nonesuch")).is_none());
         assert_eq!(key.input_control_kind(), InputControlKind::Button);
     }
 }

@@ -283,8 +283,17 @@ The fighter picker in front of the take list is the set of recorded characters,
 and it follows the fighter you were reading in the Fighter view when you switch
 tabs. Status names them too.
 
-⚠ Minutes per character — every take settles a real match between presses — so
-recording the whole grid is an overnight job rather than a click.
+Or record the whole grid:
+
+```bash
+cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid
+```
+
+⚠ MEASURED 2026-08-27: **~7 minutes per character**, so the 21-fighter grid is
+about **2.5 hours**. Every take settles a real match between presses and there
+are 19 verbs. This is a background job, not a click — which is why the default
+records one fighter and the take view shows coverage (`2 of 21 grid fighters
+recorded`) rather than pretending the roster is there.
 
 ## Checks
 

@@ -13552,8 +13552,14 @@ needs representing, which is the same seam D250 needs for sustained-authority
 recovery ROUTES (R13) — one model, not two.
 
 
-- ▢ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
-  THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. (opened 2026-08-25)**
+- ✔ **D241 — CHECKPOINT 4 (GPT 5.6, HEAD `42e894b`): TWO REGRESSIONS THE FIXES
+  THEMSELVES INTRODUCED, AND ONE OWNERSHIP LESSON THEY SHARE. Opened 2026-08-25,
+  CLOSED 2026-08-28 when the last owed item — recharge presentation — landed.**
+  ⚠ the row header outlived its content by three days: everything under it read
+  CLOSED or SHIPPED except one `▢`, and one line of a status table still said the
+  wavebounce recogniser was open three days after it shipped in the paragraph
+  below it. ⇒ a row's own body is where its status lives; the marker on the header
+  is a summary, and summaries go stale first.
 
 ⭐⭐ **CLOSED — THE MATCH CLOCK'S FIX BROKE ITS PERIODIC READER (`43fe5ea`).**
 Counting SCALED gameplay is right, but the projection back to 60 Hz
@@ -13676,8 +13682,8 @@ forbidding an action must not erase the state that reads the next input
 
 ```text
 148c158 special-turn   acceptance mutation CLOSED · gravity-relative CLOSED
-                       real wavebounce RECOGNIZER still OPEN — see below, and
-                       the composition is smaller than the ledger assumed
+                       real wavebounce RECOGNIZER shipped 2026-08-25 (below);
+                       the composition was smaller than the ledger assumed
 56fb9da settled item   wakes when unsupported CLOSED
                        rides a moving platform CLOSED — and it needed NO support
                        identity: `Block::velocity` IS the per-frame displacement

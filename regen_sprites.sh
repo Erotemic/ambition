@@ -1430,6 +1430,20 @@ else
     echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
 fi
 
+# The author vanity card's part sheet. Its manifest
+# (game/ambition_content/assets/data/vanity_card_made_this_meme.ron) is TRACKED
+# and `include_str!`d into ambition_content, so the frame table is always
+# present — but the sheet it names is a `.png`, and .gitignore ignores `*.png`
+# repo-wide. Nothing else generated it, so every fresh clone got a complete
+# flipbook of placements pointing at an image that could never arrive.
+#
+# The exporter is pure PIL over the committed rig JSON (no Blender), and it
+# rewrites the manifest from the same bake, so the two cannot drift.
+echo "==> author vanity card (part sheet + baked placements → $content_assets_dir/vanity_card_made_this_meme)"
+if ! run_renderer_python "vanity-card" scripts/export_author_vanity_card.py 2>&1 | sed 's/^/  /'; then
+    regen_failures+=("author vanity card: exporter reported a failure")
+fi
+
 if ! run_quality_variants; then
     regen_failures+=("quality variants: generator reported a failure")
 fi

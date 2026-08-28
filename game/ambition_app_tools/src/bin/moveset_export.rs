@@ -331,7 +331,18 @@ fn derived_json(
     } else {
         "body"
     };
-    let shot = equipped.or_else(|| body_ranged.cloned());
+    // ⛔⛔ ONLY FOR A MOVE THAT ACTUALLY FIRES. Resolving the shot unconditionally
+    // reported the BODY's standing kit on every move the fighter has: Projectile
+    // Polygon's jab, tilts and aerials all exported cannon damage and speed
+    // because she owns a cannon, which is misinformation now that the view
+    // renders those fields. The kit answers "what comes out of THIS move" and a
+    // move that fires nothing has no answer — not the body's.
+    //
+    // ⭐ THE PRECEDENCE ABOVE IS STILL THE RUNTIME'S: what the move equips, then
+    // the body's kit. This gates WHETHER the question is asked, not how.
+    let shot = fires_projectile
+        .then(|| equipped.or_else(|| body_ranged.cloned()))
+        .flatten();
     // ⭐ AND A CHARGEABLE SHOT OWES ITS CEILING. A tap and a full hold are two
     // different moves in every balance conversation the genre has; reporting the
     // uncharged base alone describes the one nobody is worried about.
@@ -688,4 +699,72 @@ fn main() {
         out
     );
     print!("{summary}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::characters::brain::RangedActionSpec;
+
+    /// A cannon on the BODY is not a cannon on every move.
+    ///
+    /// ⛔⛔ `derived_json` resolved the shot unconditionally, so a fighter who
+    /// owns a standing ranged kit exported that kit's damage and speed on her
+    /// JAB, her tilts and her aerials. Harmless while nothing read the fields;
+    /// misinformation once the inspector rendered them.
+    ///
+    /// ⭐ THE PAIR IS THE POINT. A move that fires must still report the kit —
+    /// that was a real under-reporting bug, fixed earlier, and a gate written
+    /// carelessly would bring it back. So the firing arm is asserted beside the
+    /// silent one, from the same body kit.
+    fn cannon() -> RangedActionSpec {
+        RangedActionSpec::pistol(900.0, 11)
+    }
+
+    fn spec_named(id: &str, fires: bool) -> MoveSpec {
+        let mut spec = ambition_platformer2d::characters::moveset_authoring::strike(
+            ambition_platformer2d::characters::moveset_authoring::Strike {
+                id,
+                clip: "jab",
+                startup_s: 0.05,
+                active_s: 0.04,
+                recover_s: 0.10,
+                offset: (20.0, 0.0),
+                half_extents: (14.0, 10.0),
+                damage: 3,
+                knockback: 40.0,
+                knockback_growth: 1.0,
+                launch_dir: None,
+                on_hit: None,
+            },
+        );
+        if fires {
+            spec.events
+                .push(ambition_platformer2d::entity_catalog::MoveEvent {
+                    at_s: 0.05,
+                    kind: MoveEventKind::Ranged,
+                });
+        }
+        spec
+    }
+
+    #[test]
+    fn a_move_that_fires_nothing_reports_no_shot_even_on_an_armed_body() {
+        let kit = cannon();
+        let quiet = derived_json(&spec_named("jab", false), Some(&kit));
+        assert_eq!(quiet["fires_projectile"], serde_json::json!(false));
+        for field in ["projectile_damage", "projectile_speed", "projectile_source"] {
+            assert!(
+                quiet[field].is_null(),
+                "a jab exported `{field}` = {} because the fighter owns a cannon",
+                quiet[field]
+            );
+        }
+
+        let firing = derived_json(&spec_named("neutral_b", true), Some(&kit));
+        assert_eq!(firing["fires_projectile"], serde_json::json!(true));
+        assert_eq!(firing["projectile_damage"], serde_json::json!(11));
+        assert_eq!(firing["projectile_speed"], serde_json::json!(900.0));
+        assert_eq!(firing["projectile_source"], serde_json::json!("body"));
+    }
 }

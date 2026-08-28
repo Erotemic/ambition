@@ -57,6 +57,7 @@ mod blink;
 mod c4_reaction_seams;
 mod classic_platformer;
 mod climbing;
+mod submerged;
 mod clock;
 mod combat_actions;
 mod contacts;

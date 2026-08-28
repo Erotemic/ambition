@@ -184,6 +184,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         use bevy::prelude::{IntoScheduleConfigs, Startup, Update};
         app.init_resource::<item_visuals::FailedItemArt>()
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
+            .add_systems(Startup, submerged::build_submerged_marker_sprite)
             .add_systems(
                 Update,
                 (
@@ -194,6 +195,12 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // `Inherited`; whichever runs last wins, and only one of
                     // them knows the body is under the stage.
                     submerged::sync_submerged_visibility.in_set(SpriteVisualSync),
+                    // The hatch that stands in for her while she is down there:
+                    // spawned beside the hide, because the two are one feature —
+                    // a body hidden with nothing drawn in its place is a fighter
+                    // who has simply vanished.
+                    submerged::spawn_submerged_marker_visual,
+                    submerged::sync_submerged_markers.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)

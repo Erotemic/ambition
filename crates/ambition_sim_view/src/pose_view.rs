@@ -507,6 +507,63 @@ pub fn rebuild_shield_rings_view(
     );
 }
 
+/// Where a body that is UNDER THE STAGE currently is.
+///
+/// ⭐⭐ THE ONLY THING PRESENTATION MAY KNOW ABOUT HER while she is down there.
+/// Jon, 2026-08-27: *"the character should not be visible when she is
+/// underground, you should just see an unopened trap door move around to
+/// indicate where she is."* The body is hidden; this is what is drawn instead,
+/// and it is a POSITION rather than a pose because a closed hatch has no
+/// posture to publish.
+#[derive(Clone, Copy, Debug)]
+pub struct SubmergedMarkerFact {
+    /// Where the boards are: her position, dropped to her FEET.
+    ///
+    /// ⛔ THE FEET, NOT THE CENTRE. A trapdoor lies in a floor, and a hatch
+    /// drawn at the centre of an invisible body floats at what looks like waist
+    /// height on nothing.
+    pub pos: ambition_platformer2d_core::Vec2,
+    pub size: ambition_platformer2d_core::Vec2,
+    /// This body's OWN toward-feet direction, so the hatch lies in the surface
+    /// this body is under rather than along the screen's axes.
+    pub gravity_dir: ambition_platformer2d_core::Vec2,
+}
+
+/// Every body currently under the stage, in query order — the read-model behind
+/// the pooled trapdoor markers.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct SubmergedMarkersView(pub Vec<SubmergedMarkerFact>);
+
+pub fn rebuild_submerged_markers_view(
+    mut view: ResMut<SubmergedMarkersView>,
+    bodies: Query<(
+        &ambition_platformer2d_core::BodyKinematics,
+        &ambition_platformer2d_core::BodyModeState,
+        Option<&crate::presented_pose::PresentedPose>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
+) {
+    view.0.clear();
+    view.0.extend(
+        bodies
+            .iter()
+            .filter(|(_, mode, _, _)| {
+                mode.body_mode == ambition_platformer2d_core::BodyMode::Submerged
+            })
+            .map(|(kin, _, presented, frame)| {
+                let down = body_down(frame);
+                SubmergedMarkerFact {
+                    // Her feet, along her own gravity: the boards are the floor
+                    // she went through, not her middle.
+                    pos: presented.map_or(kin.pos, |p| p.presented())
+                        + down * shield_half_height(kin.size, down),
+                    size: kin.size,
+                    gravity_dir: down,
+                }
+            }),
+    );
+}
+
 /// The body's half-extent ALONG its own gravity, which is what
 /// `BodyShieldState::shield_tilt` is a fraction of.
 ///

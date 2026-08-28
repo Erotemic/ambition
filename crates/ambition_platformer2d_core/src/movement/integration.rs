@@ -1050,7 +1050,21 @@ pub(super) fn integrate_submerged_clusters(
     // Under the stage a dash is over: nothing down here to dash against, and a
     // timer still running would resume on the way out.
     state.dash_timer = 0.0;
-    let local_stick = input.local_axis();
+    // ⛔⛔ `steer_axis`, NOT `local_axis`, AND THIS IS THE WHOLE BUG REPORT.
+    // Jon, 2026-08-27: *"As the actor, I cannot move when I go underground."*
+    // `local_axis` is the intent AFTER a live move's authored motion lock has
+    // damped it, and `hitless_special` — how this repository writes a
+    // commitment — roots the body with `motion_scale: 0.0` for the move's whole
+    // timeline. So the trapdoor was damping to zero the very steering the mode
+    // exists to provide. `InputState::steer_axis` is what the player is HOLDING,
+    // and its own doc names this case: *"a special with a `motion_scale: 0.0`
+    // tail … would have made the technique impossible on exactly the moves that
+    // most want it."*
+    //
+    // ⭐ THE LOCK STILL HOLDS EVERYWHERE ELSE. It is not disabled — a submerged
+    // body simply is not the thing it was written to hold still, because being
+    // underground IS the commitment and the travel is what was paid for.
+    let local_stick = input.steer_axis();
     let body_frame = frame.basis();
     let world_stick = body_frame.to_world(Vec2::new(local_stick.x, 0.0));
     // Her own top speed, so a fast character travels under the stage the way she

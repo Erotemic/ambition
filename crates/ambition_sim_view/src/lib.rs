@@ -48,9 +48,10 @@ pub use local_view::{
 };
 pub use pose_view::{
     rebuild_body_pose_views, rebuild_guard_breaks_view,
-    rebuild_launched_bodies_view, rebuild_shield_rings_view, BodyPoseView, GuardBreakFact,
+    rebuild_launched_bodies_view, rebuild_shield_rings_view,
+    rebuild_submerged_markers_view, BodyPoseView, GuardBreakFact,
     GuardBreaksView, LaunchedBodiesView, LaunchedBodyFact,
-    ShieldRingFact, ShieldRingsView,
+    ShieldRingFact, ShieldRingsView, SubmergedMarkerFact, SubmergedMarkersView,
 };
 pub use presented_pose::{
     PresentationPhase, PresentedFeaturePoses, PresentedPose, PresentedPosePlugin, PresentedPoseSet,
@@ -80,6 +81,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // initializes it; consumers only read.
         app.init_resource::<ActorAnimIndex>();
         app.init_resource::<ShieldRingsView>();
+        app.init_resource::<SubmergedMarkersView>();
         app.init_resource::<LaunchedBodiesView>();
         app.init_resource::<GuardBreaksView>();
         app.init_resource::<BossFrameIndex>();
@@ -119,6 +121,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // the per-body half of the pose read-model (E4 slices 1–4).
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
+                rebuild_submerged_markers_view,
                 // Which bodies are in an INVOLUNTARY flight, so a
                 // flight-readability cue never has to infer that from speed.
                 rebuild_launched_bodies_view,

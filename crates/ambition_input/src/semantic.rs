@@ -277,6 +277,21 @@ pub fn install_provider_bindings_on_seats(
 #[cfg(feature = "input")]
 pub fn publish_provider_action_edges(
     registry: Option<bevy::prelude::Res<InstalledActions>>,
+    // ⛔⛔ THE CONTEXT IS NOT ADVICE, AND THIS SYSTEM USED TO IGNORE IT.
+    // `SemanticActionDef::contexts` says in its own doc that *"a router asks it
+    // to decide whether a press means anything here"* — and this router, the
+    // only one a provider's action has, checked that the action existed and that
+    // its key went down and published. So a gameplay action minted by a
+    // capability fired while its seat was in the pause menu, in dialogue, at the
+    // launcher or in a cutscene: a different authority model from every built-in
+    // control, granted by being new rather than by anyone deciding it.
+    //
+    // ⛔ NOT `Option`. `ambition_input`'s own plugin inits this resource, so an
+    // absent one means the input plugin is not mounted — and refusing every
+    // provider edge in silence is exactly how a missing wire becomes the rule
+    // nobody wrote. A composition that publishes provider edges without a
+    // context authority should fail where it is assembled, not go quiet in play.
+    contexts: bevy::prelude::Res<crate::participant::SeatInputContexts>,
     seats: bevy::prelude::Query<(
         &crate::participant::InputParticipant,
         &leafwing_input_manager::prelude::ActionState<ProviderAction>,
@@ -293,6 +308,10 @@ pub fn publish_provider_action_edges(
     let mut rows: Vec<_> = seats.iter().collect();
     rows.sort_by_key(|(participant, _)| participant.id.0);
     for (participant, actions) in rows {
+        // An UNRESOLVED seat owns nothing, which is the ordinary state of a
+        // couch slot with no pad — so this is the same answer as "captured by a
+        // menu", and both are the absence of permission rather than an error.
+        let seat = contexts.for_seat(participant.id.slot());
         for key in actions.get_just_pressed() {
             let Some(def) = registry
                 .all()
@@ -300,6 +319,9 @@ pub fn publish_provider_action_edges(
             else {
                 continue;
             };
+            if !def.contexts.iter().any(|id| seat.allows(*id)) {
+                continue;
+            }
             pressed.write(SemanticActionPressed {
                 id: def.id,
                 participant: participant.id,
@@ -734,8 +756,22 @@ mod tests {
                     .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
             )
             .add_systems(Update, publish_provider_action_edges);
+        // ⛔ THE SEAT CLAIMS GAMEPLAY, through the real resolver. Before the
+        // router consulted the context this test constructed none at all and
+        // still expected an edge, so the bypass was locked into the suite rather
+        // than caught by it.
+        app.init_resource::<crate::participant::SeatInputContexts>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                crate::participant::resolve_active_input_context,
+            );
+        let mut claims = crate::participant::ParticipantContexts::default();
+        claims.declare(crate::participant::ContextClaim::capturing(
+            GAMEPLAY_CONTEXT,
+            0,
+        ));
         app.world_mut()
-            .spawn(crate::participant::InputParticipant::primary());
+            .spawn((crate::participant::InputParticipant::primary(), claims));
 
         // A frame with nothing pressed: the seat acquires the map, and an
         // unpressed binding must not announce itself.
@@ -764,6 +800,116 @@ mod tests {
         assert!(
             drain_presses(&mut app).is_empty(),
             "holding the key republished the press every frame"
+        );
+    }
+
+    /// ⛔⛔ A CAPTURED SEAT DOES NOT FIRE A GAMEPLAY ACTION, and the same press
+    /// that DOES fire one is used to say so.
+    ///
+    /// A refusal arm that never establishes the permitted case proves only that
+    /// something is off — it cannot tell "the context refused" from "the binding
+    /// never worked". So this presses `KeyG` in gameplay, proves the edge, opens
+    /// the pause context over the same seat, presses again and proves silence,
+    /// then hands gameplay back and proves it resumes.
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_seat_captured_by_a_menu_publishes_no_gameplay_edge() {
+        use crate::participant::PAUSE_CONTEXT;
+        use bevy::prelude::*;
+        use leafwing_input_manager::prelude::*;
+
+        const PULSE: SemanticActionDef = SemanticActionDef {
+            id: SemanticActionId("pulse"),
+            capability: "pulse",
+            kind: ActionControlKind::Button,
+            contexts: GAMEPLAY,
+            doc: "Fire a shockwave",
+        };
+        let mut registry = ActionRegistry::with_engine_actions();
+        registry.register(PULSE).expect("a fresh id");
+        let key = registry.key(PULSE.id).expect("just registered");
+        let mut bindings = ProviderBindings::default();
+        bindings.0.insert(key, KeyCode::KeyG);
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_plugins(bevy::input::InputPlugin)
+            .add_plugins(InputManagerPlugin::<ProviderAction>::default())
+            .insert_resource(InstalledActions(registry))
+            .insert_resource(bindings)
+            .init_resource::<crate::participant::SeatInputContexts>()
+            .add_message::<SemanticActionPressed>()
+            .add_systems(
+                bevy::app::PreUpdate,
+                (
+                    install_provider_bindings_on_seats
+                        .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
+                    crate::participant::resolve_active_input_context,
+                ),
+            )
+            .add_systems(Update, publish_provider_action_edges);
+        let seat = app
+            .world_mut()
+            .spawn((
+                crate::participant::InputParticipant::primary(),
+                crate::participant::ParticipantContexts::default(),
+            ))
+            .id();
+
+        // Through the REAL resolver: a surface declares a capturing claim and
+        // retracts it, which is what a pause menu does.
+        let own = |app: &mut App, context: InputContextId| {
+            let mut claims = app
+                .world_mut()
+                .get_mut::<crate::participant::ParticipantContexts>(seat)
+                .expect("the seat keeps its claims");
+            claims.retract(GAMEPLAY_CONTEXT);
+            claims.retract(PAUSE_CONTEXT);
+            claims.declare(crate::participant::ContextClaim::capturing(context, 0));
+        };
+
+        own(&mut app, GAMEPLAY_CONTEXT);
+        app.update();
+        let _ = drain_presses(&mut app);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert_eq!(
+            drain_presses(&mut app).len(),
+            1,
+            "the permitted case must work, or the refusal below proves nothing"
+        );
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::KeyG);
+        app.update();
+        let _ = drain_presses(&mut app);
+
+        own(&mut app, PAUSE_CONTEXT);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert!(
+            drain_presses(&mut app).is_empty(),
+            "a gameplay action fired while the seat was captured by the pause menu"
+        );
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .release(KeyCode::KeyG);
+        app.update();
+        let _ = drain_presses(&mut app);
+
+        own(&mut app, GAMEPLAY_CONTEXT);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::KeyG);
+        app.update();
+        assert_eq!(
+            drain_presses(&mut app).len(),
+            1,
+            "the edge did not come back when the seat got gameplay again"
         );
     }
 

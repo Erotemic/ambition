@@ -92,15 +92,11 @@ ABSENCE_CONTRACTS: list[dict] = [
             ":(exclude)crates/ambition_characters/src/brain/state_machine/mod.rs",
             # 4. `Brain`'s rollback cursor codec encodes the fighter's own state
             #    fields. The capability owes its own rollback row before this can
-            # go — the pattern `SmashHoldState` proved.
-            #    ⚠ 2026-08-28: this file no longer names a `fighter::` TYPE at all
-            #    (`AttackVerb` moved to `brain::attack_kit`); its one remaining
-            #    match is `StateMachineCfg::Fighter` at line ~413. So the exclusion
-            #    is now BROADER THAN THE EDGE IT EXCUSES — a returning `fighter::`
-            #    type here would not be seen. ⛔ narrowing it means splitting this
-            #    contract in two (one pattern per path set), which is the
-            #    registration seam's job to make unnecessary rather than a reason
-            #    to grow the checker now.
+            #    go — the pattern `SmashHoldState` proved. ⇒ the file is excluded
+            #    HERE and re-covered by its own contract below, which watches
+            #    `fighter::` on it and lets only the enum variant through. A
+            #    whole-file exemption for one known edge is a hole: a returning
+            #    `fighter::` type would have walked in beside it.
             ":(exclude)crates/ambition_characters/src/snapshot_impls.rs",
             # 5. `brain/mod.rs` maps the variant to the string `"fighter"` for
             #    diagnostics. The SMALLEST edge and the one a registration seam
@@ -122,6 +118,27 @@ ABSENCE_CONTRACTS: list[dict] = [
             "three when this was written and five when it was first costed), and it "
             "may not grow a third. Without it the carve gets costed from a photograph months later, "
             "which is how the previous estimate went stale."
+        ),
+    },
+    {
+        "id": "the-brain-codec-names-the-fighter-only-through-the-enum-variant",
+        "paths": ["crates/ambition_characters/src/snapshot_impls.rs"],
+        # ⛔ ONE PATTERN, DELIBERATELY. The sibling contract above watches BOTH
+        # `fighter::` and `StateMachineCfg::Fighter`; this file legitimately
+        # matches the second (the rollback cursor codec has to encode the variant
+        # it is rewinding), so it is excluded there and covered here by the half
+        # that is still forbidden.
+        "patterns": [r"\bfighter::"],
+        "reason": (
+            "The rollback cursor codec matches `StateMachineCfg::Fighter` because it "
+            "encodes the brain it rewinds, and that edge goes when the registration "
+            "seam does. It must not acquire any OTHER platform-fighter dependency in "
+            "the meantime. The sibling contract excluded this whole file for the one "
+            "known match, which meant a new `fighter::` type could be added here and "
+            "the ratchet would stay green -- the exemption was broader than the edge "
+            "it excused, during the migration it exists to ratchet. Zero `fighter::` "
+            "matches here as of 2026-08-28, when `AttackVerb` moved to "
+            "`brain::attack_kit`; this keeps it that way."
         ),
     },
     {

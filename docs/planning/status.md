@@ -52,11 +52,24 @@ the table holds **25 more** that are not `✔`/`☑`. ⇒ a session following th
 instruction literally reads a fifth of the ledger, and has been all month.
 
 ⭐ Five of the twenty-five are Jon's own asks from 2026-08-25/26 — D203, D205,
-D246, D247, D248 — and **D205 was marked `unstaffed` while both halves of it were
-already shipping**: the aimed teleport verb (`teleport.rs:345`, resolving through
-the shared `ability_aim_world`), the robot's `phase_shift` up-B, and the Author's.
-Nobody re-checked it because nobody's list contained it. The correction and the
-two-command replacement are in `queue.md`'s own header.
+D246, D247, D248. The correction and the two-command replacement are in
+`queue.md`'s own header. (The local `.goal/active.json` is corrected too, but it
+is gitignored and therefore machine-local — the ledger is the durable copy.)
+
+⛔⛔ **THE SWEEP IS DONE, AND FIFTEEN OF SIXTEEN ROWS WERE ALREADY BUILT OR
+STALE**, because nobody has been marking work nobody's list contains:
+
+```text
+built    D183 D188 D192 D195 D196 D197 D198 D205 D250 D251
+stale    D184 (its own "this half is stale" note confirmed)
+         D189 (roster is 21, not 3) · D246 (blocker landed) · D249 (lesson homed)
+REAL     D186 — and eleven fields wide rather than the one it named
+         D199 — one of its three defects fixed; two are its restructure
+```
+
+⇒ **the useful reflex is not "work the row", it is "grep the row first"** — the
+standing rule, with sixteen data points behind it now. ⭐ the two that were real
+are why the sweep was worth doing rather than a formality.
 
 ## 2026-08-28 — a thirteen-finding review, and the sharpest was about the previous fix
 

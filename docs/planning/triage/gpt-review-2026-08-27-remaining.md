@@ -141,7 +141,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   AUTHORITATIVE ROLLBACK STATE — so this owes the component, the snapshot
   codec, the schema baseline, the presence probes and the recreation tests.
 
-- ▢ **R10 — item interaction is keyed to the `ControlledSubject` singleton.**
+- ▣ **R10 — CLOSED `a901cdc2f`. Item interaction is keyed to the
+  `ControlledSubject` singleton.** `DrivenBodies` is the union — the possessed
+  subject plus every seat — asked once and shared by pickup, throw and fire,
+  ordered by stable identity because two bodies on one bomb is the case it exists
+  for. The press consumption is per-body and unchanged. ⚠ The first pass broke
+  three projectile tests, and that was the more useful half: `LiveProjectile` now
+  `#[require]`s `ProjectileHits`, so three hand-built fixtures stop listing what
+  production spawns. Poisoned: back to the singleton, seat 1 gets nothing.
   Pickup and throw serve exactly one locally possessed body; Smash has several.
   Move press-gated item interaction onto the participant/body control
   population so each local seat picks up, drops, throws and uses ITS OWN item.

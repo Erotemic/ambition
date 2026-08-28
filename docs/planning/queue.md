@@ -3369,9 +3369,15 @@ in-crate callers, so the crate boundary moving is what made their visibility a
 question: the boss crate's own geometry FIXTURES assert on them.
 ⭐ **the boss module keeps ONE republication on purpose** — `pub use
 ambition_combat::body_geometry::*` — because its own signatures speak those names.
-⚠ a consumer OUTSIDE that crate should name `ambition_combat::body_geometry`;
-republishing a peer domain under this crate's address is the defect four carves
-went looking for today, and the comment there says so.
+⚠ a consumer OUTSIDE that crate should name `ambition_combat::body_geometry`.
+✔ **AND THAT IS ENFORCED RATHER THAN ASKED FOR, the same day**: eleven outside
+call sites across eight files were repointed at the owner, and the boss crate's
+re-export is `pub(crate)` now. What still names the boss address from outside is
+exactly the four boss-specific things — `BossVolumeContext`,
+`BossAnimationFrameSample`, `active_attack_volumes`, `volumes_for_profile`.
+⭐ the tell that made this worth doing: `avatar/body_integration.rs` — the HUMAN
+body's integrator — was calling
+`ambition_boss_encounter::attack_geometry::publish_body_footprint`.
 ⛔ do it COMPILER-DRIVEN as the boss carve was: move, then let the errors
 enumerate the callers — the consumers outside `boss_encounter` are
 `sim_view::combat_geometry_view` (8), `render::debug_viz` (5) and the app's

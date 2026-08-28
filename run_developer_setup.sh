@@ -631,16 +631,25 @@ ensure_audio_libraries() {
     fi
 
     # sfizz first: without a player, a downloaded SFZ library is inert.
+    #
+    # INSTALL_SFIZZ_OBS defaults to 0 in the renderer's setup because it adds a
+    # third-party apt source, and Ubuntu does not package sfizz at all — so with
+    # the default the SFZ libraries below install and then nothing can play
+    # them. Asking for --audio-libraries IS asking for the SFZ path, so opt in
+    # here rather than leaving the flag half-effective.
     log "installing the native audio toolchain (sfizz, LV2/VST3 hosts)"
-    "$renderer/setup.sh" || warn "audio toolchain setup reported a failure; continuing"
+    INSTALL_SFIZZ_OBS=1 "$renderer/setup.sh" \
+        || warn "audio toolchain setup reported a failure; continuing"
 
     # /data is root-owned on a fresh box and the downloader does not escalate,
-    # so its first `mkdir -p` would fail on a path the developer never chose.
-    if ! mkdir -p "$root" 2>/dev/null && [ ! -w "$root" ]; then
-        if have sudo; then
-            log "creating $root as $(whoami)"
-            sudo mkdir -p "$root" && sudo chown "$(id -u):$(id -g)" "$root" || true
-        fi
+    # so its first write would fail on a path the developer never chose.
+    #
+    # Test writability, NOT `mkdir -p`: mkdir -p SUCCEEDS on a directory that
+    # already exists no matter who owns it, so gating the escalation on its exit
+    # status skipped the chown on exactly the boxes that needed it.
+    if [ ! -w "$root" ] && have sudo; then
+        log "making $root writable for $(whoami)"
+        sudo mkdir -p "$root" && sudo chown "$(id -u):$(id -g)" "$root" || true
     fi
     if [ ! -w "$root" ]; then
         warn "$root is not writable; skipping the library download"

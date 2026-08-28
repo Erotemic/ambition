@@ -4423,6 +4423,23 @@ at `defaultGridSize: 16` — and the field's own doc calls them *"world pixels"*
 So Jon's *"one world unit = one base-grid pixel"* DECLARES what the engine
 already used; nothing converts.
 
+✔✔ **THE SLICE THIS ROW WAS OPENED FOR IS ESSENTIALLY DONE — 2026-08-28.** Jon
+promoted D165 to get *"a sense of the scale at which characters should render"*
+through a declared height. Where that stands, counted rather than claimed:
+
+```text
+103 rows  `Standard`, taking `body_kind`'s 48 — on the height road already
+ 22 rows  author their own number (3 on 2026-08-22, 19 more today at the
+          sizes they already had, plus `perfect_cellular_automaton`)
+  3 rows  still derive size from a level rectangle and a sheet's padding,
+          and they are the only three whose spawn boxes DISAGREE
+```
+
+⇒ the census, the method and the three remaining numbers are in D129, which owns
+the sprite half; ⛔ do not restate them here. What belongs to THIS row is that
+`collision_scale`'s *"three numbers that cannot be compared with each other"* is
+no longer how a character's size is decided for 125 of 128 rows that have one.
+
 ⚠ **AND THE 2× OBJECTION AGAINST THAT IS ANSWERED, 2026-08-28 — both statements
 are true and they do not conflict.**
 [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)

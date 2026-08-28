@@ -20,7 +20,42 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — four notes were the obstacle, not the code
+## 2026-08-28, LATEST — three carves, and a census that was blind three ways
+
+⭐⭐⭐ **THE ONE SENTENCE FOR D33: A CARVE CENSUS THAT COUNTS `crate::` PATHS IS
+BLIND, AND IT IS BLIND THREE DIFFERENT WAYS.** The candidate table ranked by file
+size and by `crate::` occurrences, and every one of its top entries was wrong.
+What a census misses:
+
+```text
+a FACADE HOP     `crate::features::X` where X already lives in a peer crate.
+                 Naming the owner took the boss module from 2 refs to 0 with no
+                 code moved.
+a GLOB           `use super::*` / `use super::super::*`. Measure by DELETING it
+                 and reading the compile errors — read the WHOLE set, rustc stops
+                 resolving early. Four module sets in a row supplied only bevy's
+                 prelude and floor crates.
+a `super::` PATH neither a `crate::` path nor a glob. Only the MOVE found these:
+                 three reaches that kept `integrate_boss_bodies` behind.
+```
+
+✔ **CARVED TODAY:** `ambition_boss_encounter::ecs` + `::attack_moveset` (the boss
+ECS tick and its moveset authoring), `ambition_combat::ledge_trump` (beside the
+`ledge_trump_pop` rule it enforces), `ambition_combat::attack_support` (604 lines
+following the melee path that left for `combat::moveset` long ago), and
+`ambition_conversation::banter` (a bark is the shortest conversation there is).
+
+⛔ **AND EVERY CARVE MUST GO LOOKING FOR TWO THINGS A COMPILER WILL NOT FIND**:
+a SOURCE-SCANNING guard (`the_reaction_timer_clock_forks_on_purpose` walks one
+crate's `src/` and wants two decay sites — widen the roots, never lower the count)
+and a TYPE PATH HELD AS A STRING (`rollback_coverage.rs` waives resources by
+literal path; poison-verified both ways).
+
+⚠ **the line-count scoreboard cannot tell a carve from a feature** — 110,911 →
+107,354 across three weeks in which six things left. Read the per-module OUTWARD
+EDGE COUNTS instead.
+
+## 2026-08-28 — four notes were the obstacle, not the code
 
 ⭐⭐⭐ **THE ONE SENTENCE: FOUR TIMES TODAY THE THING BLOCKING A ROW WAS A
 MEASUREMENT A PREVIOUS AGENT WROTE DOWN, NOT THE TREE.** Same failure mode this

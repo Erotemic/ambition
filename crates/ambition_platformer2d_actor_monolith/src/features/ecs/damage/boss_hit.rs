@@ -112,7 +112,7 @@ pub(crate) fn apply_boss_hit(
     attack_state: &ambition_characters::brain::BossAttackState,
     animation_frame: Option<&ambition_boss_encounter::attack_geometry::BossAnimationFrameSample>,
     banner: &mut GameplayBanner,
-    combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
+    combat_banter: Option<&ambition_conversation::banter::CombatBanterRegistry>,
     // CM8: how this boss reacts to being hurt (its `CombatTuning.hurt_feedback`,
     // ENEMY by default). The attack contributes only its strike sound.
     hurt: ambition_vfx::HurtFeedback,

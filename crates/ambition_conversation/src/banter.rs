@@ -1,10 +1,14 @@
 //! Combat-banter registry (generic half).
 //!
-//! The registry TYPE + pick/set mechanics live machinery-side so the
-//! combat hit path (`crate::features::ecs::damage`) can read it; the
-//! authored line sets (pirate barks, intro raiders, boss banter) are
-//! content and populate it via plugin startup systems in the
-//! `ambition_content` crate.
+//! ⭐ IT LIVES HERE BECAUSE A BARK IS THE SHORTEST CONVERSATION THERE IS.
+//! The registry is a name → lines table with no combat semantics at all; what
+//! made it look like actor machinery was only that the hit path reads it. Moved
+//! out of the actor monolith 2026-08-28 (D33): it was 63 lines depending on
+//! nothing but `std` and bevy, and it was one of the four concepts standing
+//! between `features/ecs/damage` and its own crate.
+//!
+//! The hit path reads it; the authored line sets (pirate barks, intro raiders,
+//! boss banter) are content and populate it from `ambition_content`.
 
 use std::collections::HashMap;
 

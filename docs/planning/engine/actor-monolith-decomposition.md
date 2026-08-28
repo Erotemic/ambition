@@ -983,6 +983,20 @@ subtract: `CombatBanterRegistry` (×3), `PreparedCharacterRegistry` (×2),
 the concepts, not the occurrences — the occurrence count is what made this table
 rank by file size.
 
+✔ **ONE OF THE FOUR IS SUBTRACTED, 2026-08-28: `CombatBanterRegistry`.** 63 lines
+depending on nothing but `std` and bevy, and no combat semantics at all — a
+name → lines table. It reads as actor machinery only because the hit path is what
+looks at it. It lives in `ambition_conversation` now, because **a bark is the
+shortest conversation there is**, and that keeps `ambition_combat` free of
+dialogue vocabulary. ⇒ `damage` is down to THREE concepts.
+
+⛔⛔ **AND THE MOVE HIT A TYPE PATH HELD AS A STRING.**
+`rollback_coverage.rs` waives it by the literal
+`"::features::banter::CombatBanterRegistry"`, which no compiler checks. Poison-verified
+BOTH ways: with the old string the coverage arms go red naming the new path, and with
+the new one they pass. ⇒ **every carve must grep its moved type names IN QUOTES**,
+not only as paths.
+
 ⚠ **AND `crate::actor` IS NOT THE SAME DEFECT — MEASURED, NOT ASSUMED.** It is
 138 lines that OWN `AncillaryMovementBundle` (110 of them) and re-export 27
 vocabulary names from FOUR crates, so it composes something a single alias does

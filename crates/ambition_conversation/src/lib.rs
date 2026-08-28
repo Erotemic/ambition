@@ -13,6 +13,7 @@
 mod authority;
 // Session/UI glue that projects the conversation authority into `ambition_dialog`.
 #[cfg(feature = "ui")]
+pub mod banter;
 pub mod dialog;
 mod hold;
 mod instance;

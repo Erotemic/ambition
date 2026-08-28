@@ -1871,7 +1871,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
         app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-        let mut banter = crate::features::banter::CombatBanterRegistry::default();
+        let mut banter = ambition_conversation::banter::CombatBanterRegistry::default();
         banter.set_hit_barks("Kernel Guide", vec!["ow!", "argh!", "stop!"]);
         app.insert_resource(banter);
         register_hit_pipeline_messages(&mut app);

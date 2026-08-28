@@ -47,7 +47,6 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 // clocks here.
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
-pub mod banter;
 pub mod brain_command;
 pub mod combat_rules;
 pub mod stocks_match;

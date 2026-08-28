@@ -190,12 +190,14 @@ pub fn canonical_boss_id_from(
     }
 }
 
-/// Live boss state owned by the simulation: body, HP, alive flag,
-/// encounter-phase mirror, and a few cosmetic-timer scalars.
-/// Attack policy and attack execution state live elsewhere: the
-/// brain layer's `BossPatternState` owns the cursor / clocks and the
-/// `BossAttackState` component owns the live telegraph/active
-/// profile. `BossRuntime` carries body fields only.
+// ⛔⛔ A DELETED STRUCT LEFT ITS DOC HERE, and it sat on the next item for long
+// enough that a reader walking back over `///` lines to find where these docs
+// begin lands in it. Six lines describing `BossRuntime` — *"live boss state owned
+// by the simulation … carries body fields only"* — were the head of
+// `ActorSpriteMetrics`'s doc block. The type is gone; it survives only in nine
+// historical comments across the workspace, which are legitimate references to
+// what a thing REPLACED. A doc block is not.
+
 /// Snapshot of the sprite generator's `body_metrics` for a boss,
 /// captured once at sprite-registry lookup time so per-tick
 /// damage/hurtbox math doesn't re-query the SheetRegistry resource.

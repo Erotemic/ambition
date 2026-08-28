@@ -162,7 +162,14 @@ Status marks: ▢ open · ▣ done (with sha) · ⊘ retired with a reason.
   throw and jab). Regression: two local players, two items, neither stealing
   the other's control path.
 
-- ▢ **R11 — "hard impact" means "touched static world geometry".** The
+- ▣ **R11 — CLOSED `25c93bd89`. "Hard impact" means "touched static world
+  geometry".** `ItemStruckBody` is produced by `ground_item_physics`, the system
+  that owns item motion, and the bomb consumes it beside `SettledItem` under ONE
+  threshold. ⛔⛔ A body is NOT a wall: the first version stopped the item on
+  contact and turned every fighter into a shelf — a minted drop rested 47px above
+  its floor, and `app_it` caught it. Newly-entered overlap only (a throw leaves a
+  hand), republished each tick, speed on the fact so each consumer keeps its own
+  bar. Paired arm: 40px/s keeps its fuse. The
   impact-speed sampling bug is fixed, but the bomb still learns about hard
   impacts only through the world-geometry `SettledItem` path. Decide the other
   hard-collision categories for a thrown bomb and implement them from the

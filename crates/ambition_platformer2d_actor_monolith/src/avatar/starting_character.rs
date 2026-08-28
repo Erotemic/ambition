@@ -1024,8 +1024,7 @@ pub fn sustain_bubble_shield(
         }
         let playing = playback.is_some_and(|p| p.spec.id == *key);
         // ⛔⛔ A RAW SPECIAL EDGE IS NOT A BUBBLE-SHIELD PRESS, and reading it as
-        // one broke every OTHER special the body owns (D253, GPT 5.6 review
-        // 2026-08-27). `player_robot_v3` names `bubble_shield` as its body-kit
+        // one broke every OTHER special the body owns (D253). `player_robot_v3` names `bubble_shield` as its body-kit
         // special AND authors a full directional repertoire — rocket dash,
         // phase shift, the stabilizers. This ran in `PlayerInputSet::ControlGate`
         // on the bare `special_pressed` edge, so EVERY special press raised the

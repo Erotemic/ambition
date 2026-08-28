@@ -1318,7 +1318,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
 /// finds the step blocked, and zeroes `vel` — so a consumer reading the live
 /// velocity after the fact reads ZERO for every impact however hard, and one
 /// reading its own memory of last tick reads a different number again. This is
-/// the seam the Smash bomb's impact detonation hangs on (GPT 5.6, 2026-08-27):
+/// the seam the Smash bomb's impact detonation hangs on:
 /// it used to keep a `last_speed` of its own and got both hard cases wrong — a
 /// bomb thrown at a near wall collides on its FIRST free tick, when the
 /// remembered speed is still the zero it had in a hand.
@@ -1391,7 +1391,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
 /// whatever is visibly IN THE HAND, so during those frames the real object
 /// looked abandoned and was returned to the world. The move then ended and
 /// rebuilt `HeldItem` from its remembered id — a body logically holding an item
-/// that was also lying on the floor (GPT 5.6, 2026-08-27).
+/// that was also lying on the floor.
 ///
 /// ⛔ THE OLD BRANDISH TESTS COULD NOT SEE IT: they use a bare `HeldItem` and
 /// never construct the physical `GroundItem` + `ItemCustody::Held` pair, which
@@ -1463,8 +1463,8 @@ fn a_brandished_move_weapon_does_not_orphan_the_item_in_custody() {
 /// nothing else, so "impact detonation" quietly meant "touched a block". Jon's
 /// rule for the live bomb is *"4 seconds or if it hits something with enough
 /// velocity, whichever comes first"* — and a fighter is something. A bomb thrown
-/// into somebody's chest passed through them keeping its fuse (GPT 5.6,
-/// 2026-08-27).
+/// into somebody's chest passed through them keeping its fuse
+///.
 ///
 /// ⛔ THE FACT IS THE SAME ONE. `bomb.rs` is unchanged: it already consumes
 /// `SettledItem::impact_speed`, and the gentle-landing refusal it pairs with

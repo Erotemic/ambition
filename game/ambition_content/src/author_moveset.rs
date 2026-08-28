@@ -84,8 +84,8 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     // ⛔⛔ NO AUTHORED BLINK CUE HERE. `apply_authored_teleports` emits
     // `PLAYER_BLINK` itself at the transit, for EVERY authored teleport — so a
     // move-timeline event at `TELEPORT_AT_S` asked the same frame for the same
-    // cue down a second road, and Author's Revision requested it twice (GPT 5.6,
-    // 2026-08-27). The executor is the one authority, which is what it already
+    // cue down a second road, and Author's Revision requested it twice
+    //. The executor is the one authority, which is what it already
     // is for every other teleport in the game.
     //
     // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS. The Actor's trap and

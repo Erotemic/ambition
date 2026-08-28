@@ -369,8 +369,8 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// collision world; this says it arrived at a fighter. Jon's rule for the live
 /// bomb is *"4 seconds or if it hits something with enough velocity, whichever
 /// comes first"* — and a fighter is something, so a bomb thrown into somebody's
-/// chest kept its fuse for as long as "impact" meant "touched a block" (GPT 5.6,
-/// 2026-08-27).
+/// chest kept its fuse for as long as "impact" meant "touched a block"
+///.
 ///
 /// ⛔ IT DOES NOT STOP THE ITEM. A body is not a wall: the first attempt settled
 /// the item on contact, which made every fighter a shelf and left a minted drop
@@ -501,7 +501,7 @@ pub fn ground_item_physics(
     // comes first"* — a fighter is something. `SettledItem` was published only
     // for a stop against static geometry, so "impact detonation" quietly meant
     // "touched a block" and a bomb thrown into somebody's chest bounced off them
-    // and kept its fuse (GPT 5.6, 2026-08-27).
+    // and kept its fuse.
     //
     // ⛔ THE FACT IS PRODUCED HERE, by the system that owns an item's motion,
     // and not by a distance check in `bomb.rs`. A bomb is one consumer of "this
@@ -578,11 +578,10 @@ pub fn ground_item_physics(
         // to rest 47px above the floor it used to land on. Being STRUCK by
         // something and STOPPING it are different facts, and only the first is
         // what a thrown bomb asks about.
-        let struck = (touches(next_aabb)
-            && !touches(ae::Aabb::new(item.pos, item.half_extent)))
-        .then(|| ItemStruckBody {
-            impact_speed: item.vel.length(),
-        });
+        let struck = (touches(next_aabb) && !touches(ae::Aabb::new(item.pos, item.half_extent)))
+            .then(|| ItemStruckBody {
+                impact_speed: item.vel.length(),
+            });
         match struck {
             Some(hit) => {
                 commands.entity(entity).try_insert(hit);
@@ -629,7 +628,7 @@ pub fn return_released_items(
     // against it dropped the real object on the floor. The move then ended and
     // rebuilt `HeldItem` from its remembered id, leaving the body logically
     // holding an item that was also lying in the world: ONE object, two owners
-    // (GPT 5.6, 2026-08-27).
+    //.
     holders: Query<(
         &BodyKinematics,
         Option<&HeldItem>,
@@ -1354,8 +1353,8 @@ pub fn unequip_portal_gun(
 /// held-weapon fire each read `ControlledSubject`, which is ONE entity — correct
 /// for the adventure game, where you drive one body, and wrong for a Smash stage
 /// with two people on the couch. The second seat could not pick anything up, and
-/// what it looked like from the sofa is a bomb that ignores you (GPT 5.6,
-/// 2026-08-27).
+/// what it looked like from the sofa is a bomb that ignores you
+///.
 ///
 /// ⛔ IT IS A UNION, NOT A REPLACEMENT. `ControlledSubject` is still the answer
 /// for a possessed body in a room with no match around it, and `DrivingParticipant`

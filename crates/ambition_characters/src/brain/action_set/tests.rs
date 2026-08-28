@@ -726,7 +726,7 @@ fn the_visual_tier_steps_and_a_full_charge_reaches_the_last_rung() {
 /// integrator with those. That proves the PHYSICS and pins nothing about what
 /// content actually gets: restoring the old `+ 0.15` here would leave every
 /// dynamics assertion green while the shipped ponytail expired 79px behind the
-/// hand again (GPT 5.6, 2026-08-27).
+/// hand again.
 ///
 /// ⭐ SO THIS ASSERTS THE RULE, NOT A NUMBER. The return acceleration is
 /// `-v0 / out_s`, which puts the shot back at the throw point at exactly

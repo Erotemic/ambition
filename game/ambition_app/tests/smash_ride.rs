@@ -897,7 +897,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     //
     // ⛔⛔ THIS ARM USED NOT TO HIT HIM AT ALL — it waited twenty frames and
     // asserted `RidingOn`, which proves only that an undisturbed pirate stays
-    // mounted. A GPT 5.6 review Jon relayed on 2026-08-27 caught it.
+    // mounted. A review caught it.
     //
     // ⚠ AND THE NOTE LEFT HERE AT THE TIME WAS WRONG about why it was hard.
     // It recorded that a weak volume "did not land — `BodyHealth::damage_taken()`
@@ -1746,7 +1746,7 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
     // Booul by hand and CALLED that the selectable cast. It is not: Pointed,
     // Projectile and Pugnacious Polygon, the Author, the Actor, the Officer, the
     // Medic, Mary-O and Sanic are all pickable and none of them were in it
-    // (GPT 5.6, 2026-08-27). A hand-kept list narrows in silence — the crate
+    //. A hand-kept list narrows in silence — the crate
     // that owns the list has no way to know a fighter was added somewhere else.
     //
     // ⭐ `SmashRoster::assemble` IS THE SELECTION AUTHORITY: it is what the

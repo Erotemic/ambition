@@ -499,7 +499,7 @@ pub fn despawn_live_boxes(commands: &mut bevy::prelude::Commands, playback: &mut
 /// that never went off, so the move was interrupted and what it had is banked."*
 /// True of a clank, a grab, a weapon swap. FALSE of a knockout — a fighter KO'd
 /// mid-charge came back with the charge BANKED, carried across a stock boundary
-/// it should never have crossed (GPT 5.6, 2026-08-27).
+/// it should never have crossed.
 ///
 /// ⭐ TWO VARIANTS, NOT A TAXONOMY. These are the only two outcomes any caller
 /// needs today; the four hand-copies this function replaced are the record of

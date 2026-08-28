@@ -540,7 +540,7 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
     // collected every live hitbox and every projectile in the world. So a
     // hitless movement special could show a hitbox and a ranged move could
     // report more shots than it fires: the opponent's offence, credited to the
-    // subject (GPT 5.6, 2026-08-27).
+    // subject.
     //
     // ⭐ THE FIX IS PROVENANCE, NOT AN INERT OPPONENT. Both are still recorded —
     // the viewer wants to see what was happening — but each carries whose it is,
@@ -675,22 +675,32 @@ fn sample(world: &mut World, subject_seat: usize) -> Frame {
         // uses, a viewer can draw it without knowing any shape, and keeping both
         // means an old take still renders.
         let shape = match hitbox.world_volume(at) {
-            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => serde_json::json!({ "kind": "aabb" }),
-            ambition_platformer2d::engine_core::CombatVolume::Obb { center, half, rotation } => serde_json::json!({
+            ambition_platformer2d::engine_core::CombatVolume::Aabb(_) => {
+                serde_json::json!({ "kind": "aabb" })
+            }
+            ambition_platformer2d::engine_core::CombatVolume::Obb {
+                center,
+                half,
+                rotation,
+            } => serde_json::json!({
                 "kind": "obb",
                 "center": [center.x, center.y],
                 "half": [half.x, half.y],
                 "rotation": rotation,
             }),
-            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => serde_json::json!({
-                "kind": "circle",
-                "center": [center.x, center.y],
-                "radius": radius,
-            }),
-            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => serde_json::json!({
-                "kind": "convex",
-                "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
-            }),
+            ambition_platformer2d::engine_core::CombatVolume::Circle { center, radius } => {
+                serde_json::json!({
+                    "kind": "circle",
+                    "center": [center.x, center.y],
+                    "radius": radius,
+                })
+            }
+            ambition_platformer2d::engine_core::CombatVolume::Convex { points, .. } => {
+                serde_json::json!({
+                    "kind": "convex",
+                    "points": points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(),
+                })
+            }
         };
         frame.hitboxes.push(serde_json::json!({
             "pos": [(aabb.min.x + aabb.max.x) * 0.5, (aabb.min.y + aabb.max.y) * 0.5],
@@ -1083,8 +1093,8 @@ fn main() {
             // a move recorded in a game nobody plays — and that opponent SWINGS
             // AND FIRES. Before `subject_owned` existed, its offence was counted
             // as the subject's, so a hitless movement special reported a hitbox
-            // and a ranged move reported more shots than it fires (GPT 5.6,
-            // 2026-08-27). Several of that review's quantitative conclusions were
+            // and a ranged move reported more shots than it fires
+            //. Several of that review's quantitative conclusions were
             // wrong for that structural reason rather than a balance one.
             //
             // ⛔ THE INDEPENDENT ANSWER IS THE AUTHORING. A move whose windows

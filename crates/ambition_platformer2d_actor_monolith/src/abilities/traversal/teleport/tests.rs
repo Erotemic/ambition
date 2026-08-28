@@ -210,7 +210,7 @@ fn spawn_teleporting_body(app: &mut bevy::prelude::App, pos: ae::Vec2) -> bevy::
 /// INSTRUMENTS. The collision oracle uses that ledger for two things — exempting
 /// a legal warp from its clipping probe, and catching two Class-B authorities
 /// remapping one body in a single frame. `blink` has always recorded at its
-/// `transit_body`; this road was added without it (GPT 5.6, 2026-08-27), so an
+/// `transit_body`; this road was added without it, so an
 /// authored Smash teleport read as unexplained clipping and could collide with
 /// another remap unseen.
 ///
@@ -482,8 +482,8 @@ fn a_foe_on_the_same_column_is_passed_the_way_she_faces() {
 /// with it — while `ledge_assisted_arrival` defined a ledge as `Block::top()`,
 /// compared world `y`, and landed at `top() - half.y`. Under flipped or sideways
 /// gravity that is a SPLIT ABILITY: the teleport goes where the player pointed
-/// and the recovery assist looks at the wrong face of the world (GPT 5.6,
-/// 2026-08-27).
+/// and the recovery assist looks at the wrong face of the world
+///.
 ///
 /// ⭐ ONE FIXTURE, FOUR FRAMES, built by rotating the geometry rather than by
 /// hand-writing four cases — a hand-written `-Y` arm is a second chance to make

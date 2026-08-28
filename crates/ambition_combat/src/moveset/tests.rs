@@ -7677,7 +7677,7 @@ fn a_bank_made_by_one_move_does_not_feed_another() {
 /// interrupted and what it had is banked."* True of a clank, a grab, a landing.
 /// FALSE of a death — and death goes through the SAME canonical teardown, so a
 /// fighter knocked out mid-charge respawned with the charge banked and carried
-/// it across a stock boundary (GPT 5.6, 2026-08-27).
+/// it across a stock boundary.
 ///
 /// ⭐ THE PAIRED ARM IS THE ONE ABOVE. `an_interrupted_charge_is_banked_...`
 /// proves the bank still happens; without that pair, "clear it on death" and
@@ -7778,7 +7778,7 @@ fn leaving_play_clears_a_charge_that_was_already_banked() {
 /// ⛔⛔ BANKING ONLY HAPPENED TO YOU. A charge was banked whenever something
 /// INTERRUPTED the hold, so the way to keep one was to be hit; there was no way
 /// to choose it. Sitting on a full charge waiting to be interrupted is not the
-/// plan the move exists for (GPT 5.6, 2026-08-27).
+/// plan the move exists for.
 ///
 /// ⛔ THE GUARD IS THE BUTTON, which is the genre's answer and needs nothing new
 /// on the body. ⛔ And the gate is the AUTHORED POLICY: the paired arm below

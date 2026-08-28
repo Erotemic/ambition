@@ -191,22 +191,17 @@ class JobResult:
     """One executed job and its wall-clock/test-execution timings.
 
     `executed_seconds` sums the runner's own reported execution time — libtest's
-    per-binary `finished in`, or nextest's per-run `Summary`. Cargo jobs with no
-    test binaries report 0.0, so the derived execution percentage applies to the
-    test-running portion of the suite.
+    per-binary `finished in`, or nextest's per-run `Summary`.
     """
     name: str
     argv: list[str]
     ok: bool
     seconds: float
-    # ⛔⛔ `None` MEANS UNMEASURED, AND IT USED TO BE `0.0`. A zero is a
-    # MEASUREMENT — "this job spent no time running tests" — and nextest jobs
-    # cannot report their duration at all (see `timing_report`), so every one of
-    # them wrote a real zero into the timing payload and the compile-cost
-    # ledger. The derived build-vs-execution split then read as "the suite ran
-    # tests for zero seconds and built for the whole wall clock", which is the
-    # shape of an answer rather than the absence of one — on a number being used
-    # to make build-speed decisions.
+    # ⛔⛔ `None` MEANS UNMEASURED AND `0.0` MEANS ZERO. A nextest job cannot
+    # report its duration at all (see `timing_report`), and a zero there is a
+    # MEASUREMENT — "this job spent no time running tests" — which hands its
+    # whole wall clock to the derived build column. `wall_time_split` is the only
+    # thing entitled to aggregate this; do not sum it with `or 0.0`.
     executed_seconds: float | None = None
 
 
@@ -214,18 +209,14 @@ def wall_time_split(results: list[JobResult]) -> dict:
     """Wall time divided into what was MEASURED and what could not be.
 
     ⛔⛔ THREE NUMBERS, BECAUSE TWO CANNOT SAY THIS. `seconds - executed` is only
-    "the build graph" for a job whose runner reported its execution time.
-    Summing an unreported job's `executed_seconds` as zero — which every
-    aggregate here used to do, even after the per-job field became nullable —
-    hands that job's ENTIRE wall clock to the build column and states it as a
-    measurement. A 100s nextest run was persisted as 0s executing and 100s
-    building, and a mixed run produced a plausible partial number with nothing
-    saying it was partial.
+    "the build graph" for a job whose runner REPORTED its execution time; for one
+    that did not, the same subtraction hands its entire wall clock to the build
+    column and states that as a measurement.
 
-    ⇒ `unclassified_seconds` is the wall time of jobs whose runner reported
-    nothing, and `build_seconds` is derived ONLY from the jobs that did. A
-    reader that wants a build/run ratio has the denominator it is entitled to
-    (`executed + build`) and can see how much of the run it does not cover.
+    ⇒ `unclassified_seconds` is the wall time of jobs that reported nothing, and
+    `build_seconds` is derived ONLY from the jobs that did — so a reader gets the
+    denominator it is entitled to (`executed + build`) and can see how much of
+    the run that denominator does not cover.
     """
     measured = [r for r in results if r.executed_seconds is not None]
     unmeasured = [r for r in results if r.executed_seconds is None]

@@ -102,12 +102,10 @@ impl Brain {
     // and boss thinking whose destination is a crate ABOVE this one, and a
     // dispatcher living here could never call upward (D168).
     //
-    // ⚠ this said "22k lines" — re-measured 2026-08-28 and it is 5,399, tests
-    // included: fighter 3,596, boss_pattern 1,218, smash 585. The whole `brain/`
-    // tree is 12,466, so 22k was never any subset of it. The ARGUMENT does not
-    // depend on the number — a dispatcher here still cannot call upward at any
-    // size — which is exactly why an unchecked figure survived in a comment
-    // whose reasoning nobody had cause to doubt.
+    // ⚠ the three arms are 5,399 lines with tests — fighter 3,596, boss_pattern
+    // 1,218, smash 585 — and the argument does not depend on the figure: a
+    // dispatcher here cannot call upward at any size. ⛔ so do not price the
+    // carve from a number in a comment; measure it.
     //
     // ⭐ THE SPLIT, not a move. `state_machine::tick_simple_state_machine`
     // answers the nine ordinary NPC arms — this crate's own business — and says

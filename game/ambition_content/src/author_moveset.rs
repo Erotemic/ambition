@@ -93,13 +93,12 @@ fn authors_teleport() -> ambition_platformer2d::entity_catalog::MoveSpec {
     //. The executor is the one authority, which is what it already
     // is for every other teleport in the game.
     //
-    // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS. The Actor's trap and
-    // Alice's side-B author the cue for moves that do NOT run the teleport
-    // executor; those are the cue being chosen, not duplicated.
-    // ⛔⛔ THIS USED TO NAME THE ACTOR'S WIRE AS WELL, AND HER WIRE IS AUTHORED
-    // THROUGH `author_teleport` — so an exemption written to explain why a cue
-    // was not duplicated was covering a second one that was. Corrected
-    // 2026-08-28 by deleting her authored cue, not by widening this note.
+    // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS, and the test is
+    // whether the move RUNS THE EXECUTOR — not whose move it is. The Actor's
+    // trap (`author_trapdoor`) and Alice's side-B (an `impulse`) never do, so
+    // their cue is chosen rather than duplicated. ⛔ any move authored through
+    // `author_teleport` is on the other side of that line and must not carry
+    // one.
     // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. This move is
     // inserted AFTER `SmashRepertoire::into_contract` has lowered the table it
     // joins, so nothing else will stamp `gates.recovery` on it — and an up-B

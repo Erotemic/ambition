@@ -20,7 +20,38 @@ is what the deep-review checkpoints (D237–D241) work from — role, what count
 evidence, and how to start from current truth rather than from a previous agent's
 summary. It was reachable from nothing until 2026-08-26.
 
-## 2026-08-28, LATEST — the coverage census, and what it says about D203's premise
+## 2026-08-28, LATEST — where this session left off
+
+⭐ **Tree clean, `main` pushed, submodule at `53dbceb`.** App suite 500/500,
+smash 39/39, 35/35 absence contracts, renderer suite 692 green, dev-tools 14/14.
+
+**The three things a next session would otherwise re-derive:**
+
+1. **The ledger has TWO shapes** and the standard grep sees one — see the section
+   below. The sweep is DONE: 16 table rows checked, 15 already built or stale.
+   Only **D186** (real, eleven fields wide) and **D199** (real, one of three
+   defects fixed) needed work.
+2. **The grid census was re-taken on current main** (`691792ca4`) — the re-measure
+   D187/D190/D191/D193 all asked for. Nobody is silent, nobody is locked at 99%;
+   `smash_george_booul` is the new outlier at 436% and 3809 hitstun ticks in a
+   3600-tick match, and three fighters barely engage (`medic` 39% on 5 of 17
+   verbs, Noether 54%, the Author 87%). The raw sweep is not committed — re-run
+   `every_fighter_on_the_grid_can_fight_its_mirror` to reproduce it.
+3. **A tidy explanation for the quiet three was REFUTED** (`4f60af962`): thrown
+   distance over authored reach does not predict damage — 13 of 15 fighters throw
+   their most-used move from beyond its reach, median 124%. ⛔ do not reopen
+   `awaiting-maintainer-decision.md` entry 35 on it.
+
+▢ **Nearest open work, in the order I would take it**: D199's remaining two
+defects (sweep + wall-before-body ordering, a restructure its row warns against
+doing by call-swap); D246, now unblocked, as ONE slice — `WorldEdgePolicy` alone
+would be a mechanism with no customer; D129's three remaining cut targets, which
+share one expensive technique (canvas grow + pose translation + portrait guide).
+
+⚠ **D249's lesson is homed** in `dev/journals/poisons-that-passed-2026-08-28.md`
+— `docs/reviewer-guide.md` is NOT an agent's to edit (Jon, 2026-08-28).
+
+## 2026-08-28 — the coverage census, and what it says about D203's premise
 
 ⭐⭐ **`moveset_export` emits a `coverage` block per move now** —
 `covers_body_fraction`, `covers_crouched_fraction`, `gap_above_px`,

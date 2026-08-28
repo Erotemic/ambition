@@ -244,6 +244,20 @@ fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_platformer2d::entity_cata
 ///
 /// `coverage` is the union of a move's authored Active volumes in body-local
 /// space where `+x` is facing and the origin is the body's centre.
+///
+/// ⛔⛔ IT DESCRIBES THE VOLUME, NOT WHERE THE MOVE LANDS. A move that carries a
+/// `start_impulse` moves the BODY while its window is open, so its world-space
+/// reach exceeds `reach_px` by however far the impulse carries it — this is
+/// arithmetic, not a caveat. The oni leader's `iaijutsu` authors `impulse(0.05,
+/// (700.0, 0.0))` at the same instant as its Active window (*"the draw and the
+/// cut are one motion… he crosses the distance already having swung"*) and is
+/// thrown at a median gap of **3.81× its 64px coverage**, which is past even
+/// what `REACH_TOLERANCE` allows and is correct behaviour for that move.
+///
+/// ⚠ so a small `covers_body_fraction` on a lunge is not the finding it looks
+/// like. ⛔ and the converse is NOT true either: 5 of the 8 moves thrown past
+/// their reach in the 2026-08-28 grid census carry no impulse at all, so this
+/// does not explain the general pattern — see D190.
 fn coverage_census(coverage: &MoveCoverage, body_height: f32) -> Option<serde_json::Value> {
     // A move that reaches nowhere forward is not a directional attack, and
     // asking what fraction of the body it fronts is the wrong question about it.
